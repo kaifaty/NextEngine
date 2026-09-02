@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V32 / P0_P1_COMPLETE / T0_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V32 / P0_P1_COMPLETE / T0_PROTOCOL_FROZEN / T0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -36,8 +36,8 @@
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
   freezes masked physical coordinates without guessing X0 Glass constants.
-- **Next action:** freeze V32.1 T0 clean truth and adversarial mutation outcomes
-  against the exact P1 owner; S0 may audit only bounded concrete source leads.
+- **Next action:** implement V32.2 T0 against the [frozen truth/mutation protocol](../physical-sound-v32-t0-truth-mutation-protocol-2026-09-02.md),
+  then require complete CLI A/B; S0 may audit only bounded concrete source leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -75,7 +75,7 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_COMPLETE / T0_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | P1 passes exact synthetic mechanics/fallback. T0→V0→M0/M1 now forms the automatic development path; bounded source batches cannot block it, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
+| V32 F0–PR | `P0_P1_COMPLETE / T0_PROTOCOL_FROZEN / T0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | P1 passes exact synthetic mechanics/fallback; T0 now binds nine clean cases and seven exact corruptions before generated values. T0→V0→M0/M1 forms the automatic development path, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
 
 ## Material transition: V32 automatic release chain
 
@@ -87,7 +87,7 @@
   Validator mechanics must be proven on frozen truth before ML is evaluated.
 - **Decision:** V32 sequences T0→V0→M0/M1 as an automatic artifact-gated path,
   keeps source work in bounded batches and preserves every real admission gate.
-- **Smallest next action:** freeze V32.1 T0 expectations before implementation.
+- **Smallest next action:** implement the frozen V32.2 T0 owner and complete A/B.
 
 ## Durable negative knowledge
 
@@ -239,4 +239,4 @@ Read in precedence order:
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b pass; F0/I1 reject; no real formula, validator, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V32.1 T0 protocol/profile freeze; fallback remains authority.
+- **Next commit boundary:** V32.2 T0 owner/tests/result; fallback remains authority.

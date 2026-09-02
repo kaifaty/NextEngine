@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / P0_P1_COMPLETE / T0_NEXT / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / P0_P1_COMPLETE / T0_PROTOCOL_FROZEN / T0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V31](physical-sound-synthesis-roadmap-v31.md) as planning authority; V31/V30 evidence identities, source-power thresholds, one-use roles and closed experiment families remain immutable |
 | Current implementation | [P0 causal baseline](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [P1 deterministic modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
 | Current real-data frontier | [V30 E2 source-growth result](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md): the weaker protected role remains short by six exact-Steel and 27 non-Metal groups |
@@ -124,7 +124,7 @@ passes exactly.
 | ID | Deliverable | State | Exit criterion |
 | --- | --- | --- | --- |
 | F0 | Deterministic causal foundation | `COMPLETE` | P0/P1 repeat byte-exactly; plate/beam controls, nine remesh pairs, energy bounds, seven interventions and six typed fallbacks pass with zero signal/model/network access. |
-| T0 | Truth and mutation release | `NEXT` | Nine clean P1 cases and seven frozen corruptions—wrong decay, frozen carrier, shuffled envelope, mode collapse, spectral copy, clipping and provenance mismatch—publish exact expected outcomes twice byte-identically. |
+| T0 | Truth and mutation release | [`PROTOCOL_FROZEN / IMPLEMENTATION_NEXT`](../development/physical-sound-v32-t0-truth-mutation-protocol-2026-09-02.md) | Nine clean P1 cases and seven frozen corruptions—wrong decay, frozen carrier, shuffled envelope, mode collapse, spectral copy, clipping and provenance mismatch—publish exact expected outcomes twice byte-identically. |
 | V0 | Validator mechanics release | `BLOCKED_BY_T0` | One external CLI passes every clean case, kills every frozen mutation with the expected reason, canonicalizes feature caching, detects OOD and repeats exactly. It carries no real threshold or material-quality claim. |
 | M0 | Bounded correction protocol | `BLOCKED_BY_T0` | Freeze one CPU-feasible family, parameter bounds, losses, classical/ridge/retrieval controls, full-owner smoke and resource envelope before model values open. |
 | M1 | Known-truth tournament | `BLOCKED_BY_V0_AND_M0` | One candidate run improves the preregistered aggregate over every control while all causal, remesh, decay, energy, resource, determinism and mutation gates pass. A reject closes the family. |
@@ -232,7 +232,7 @@ contract through a separate ADR instead of promoting the research envelope.
 9. **V32.8 — deliver:** K0 clip cooker, D0 fallback-safe demo, then fresh Glass
    domains and Wood.
 
-The immediate next commit is V32.1. A source lead may interrupt only between
+V32.1 is frozen; the immediate next commit is V32.2. A source lead may interrupt only between
 commit boundaries and cannot alter frozen truth, model or validator values.
 
 ## Verification policy
