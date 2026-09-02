@@ -3,11 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_F0_C0_T0_D0_COMPLETE / H0_NEXT / CANDIDATE_FROZEN / METHOD_HOLDOUT_UNOPENED / TARGET_SAFE_PREFLIGHT_COMPLETE / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `TERMINAL / R0_F0_C0_T0_D0_COMPLETE / H0_REPEAT_EXACT_METRIC_REJECT / GEOMETRY_ONLY_CONTACT_LOSES_NEAREST / V34_FAMILY_CLOSED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V33](physical-sound-synthesis-roadmap-v33.md) as planning authority; V33 roles remain spent/closed and its H0 remains exact zero |
 | Research basis | [V34 protocol-closure rebaseline](../development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md) |
 | Trigger evidence | [V33 D0 terminal contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
-| Current evidence | [V34 D0 development tournament](../development/physical-sound-v34-d0-development-tournament-result-2026-09-02.md) |
+| Terminal evidence | [V34 H0 method-holdout reject](../development/physical-sound-v34-h0-method-holdout-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | All evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
 
@@ -140,11 +140,11 @@ generator scores. No downstream stage may reinterpret a failed upstream role.
 | C0 | Signal-blind structural census | [`COMPLETE / REPEAT_EXACT / ACTUAL_WITNESSES_NONVACUOUS / ZERO_TARGET_MODEL_SIGNAL_ACCESS`](../development/physical-sound-v34-c0-structural-witness-census-result-2026-09-02.md) | `864` P1 cases prove every witness class with canonical identity commitments; three artifacts/stdout repeat exactly and all forbidden counters remain zero. |
 | T0 | Whole-owner terminal proof | [`COMPLETE / REPEAT_EXACT / ALL_TERMINALS_ATOMIC / ZERO_OFFICIAL_ACCESS`](../development/physical-sound-v34-t0-terminal-path-proof-result-2026-09-02.md) | `28` files repeat exactly; Pass/metric/hard/resource and pre-access terminals satisfy freeze, atomicity and access rules on discarded official-shape payloads. |
 | D0 | Fresh development tournament | [`COMPLETE / REPEAT_EXACT / PASS / CANDIDATE_FROZEN`](../development/physical-sound-v34-d0-development-tournament-result-2026-09-02.md) | Ten artifacts repeat exactly; every hard/metric/ablation/resource gate passes and method holdout remains zero. |
-| H0 | One-shot method holdout | `NEXT / OWNER_FREEZE_BEFORE_VALUES` | Frozen candidate/controls open holdout once and pass every branch/stratum/aggregate comparison twice exactly with no change. |
+| H0 | One-shot method holdout | [`REPEAT_EXACT_METRIC_REJECT / V34_FAMILY_CLOSED`](../development/physical-sound-v34-h0-method-holdout-result-2026-09-02.md) | Eleven of twelve gates pass, but geometry-only contact is `1.756639x` nearest versus `<=0.98x`; no H0 freeze or downstream authorization. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with five projects reserved for other one-use roles. |
 | V1 | Independent real validator | `BLOCKED_BY_S1` | Project/object-disjoint calibration reaches grouped 95% false-pass upper bound `<=0.10` and useful-coverage lower bound `>=0.80`; mutations and leave-project-out repeat. |
-| M2 | Disclosed-real Steel training | `BLOCKED_BY_H0_AND_S1` | One frozen generator trains only on disclosed roles; validator identities/features/thresholds stay inaccessible. |
+| M2 | Disclosed-real Steel training | `BLOCKED / V34_H0_REJECT` | V34 cannot authorize real training. A fresh successor must independently pass synthetic method holdout and S1. |
 | M3 | Generator real holdout | `BLOCKED_BY_M2` | Untouched project/object-disjoint holdout opens once and beats frozen classical/retrieval controls on preregistered causal/acoustic metrics. |
 | A0 | Joint admission | `BLOCKED_BY_V1_AND_M3` | Frozen generator, validator, domain and cooker preprofile open one joint shadow once and return Pass, Reject or FallbackOutOfDomain. |
 | K0 | Deterministic clip cooker | `BLOCKED_BY_A0_PASS` | Accepted record cooks twice to byte-identical bounded 48 kHz PCM with provenance; invalid/OOD input publishes nothing. |
@@ -194,11 +194,11 @@ seed, basis, stencil, width, loss, step or threshold retry is allowed.
    publication at discarded official shapes/resources.
 5. **V34.4 — complete:** frozen D0 owner executes twice exactly, passes every
    gate and publishes one candidate freeze with zero holdout access.
-6. **V34.5 — next:** bind the exact candidate/controls and spend H0 once.
+6. **V34.5 — terminal:** H0 repeats exactly but geometry-only contact loses to
+   nearest; V34 closes with no synthetic admission.
 7. **V34.S:** continue at most three named internet leads per source batch.
-8. **V34.6:** after H0+S1, qualify V1 and run M2/M3/A0.
-9. **V34.7:** after A0 pass, implement K0/D1, then independent Glass and Wood
-   releases.
+8. **V34.6 — retired:** H0 did not pass; V1/M2/M3/A0 are not authorized by V34.
+9. **V34.7 — retired:** no V34 admission exists for K0/D1 or Glass/Wood.
 
 ## Verification policy
 
