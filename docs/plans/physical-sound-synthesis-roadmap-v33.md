@@ -5,6 +5,7 @@
 | Rebaseline date | `2026-09-02` |
 | Status | `TERMINAL / R0_F0_I0_COMPLETE / D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / V33_FAMILY_CLOSED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V32](physical-sound-synthesis-roadmap-v32.md) as planning authority; all V32 evidence, one-use roles, source thresholds and closed-family decisions remain immutable |
+| Superseded by | [Roadmap V34](physical-sound-synthesis-roadmap-v34.md); V33 remains immutable terminal evidence |
 | Research basis | [V33 mode-local spectral successor research](../development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) |
 | Trigger evidence | [V32 M1 terminal result](../development/physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) |
 | Terminal evidence | [D0 fresh-development contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
