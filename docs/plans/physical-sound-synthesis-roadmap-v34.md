@@ -3,10 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_COMPLETE / F0_NEXT / V33_D0_PROTOCOL_REJECT / FRESH_ROLES_REQUIRED / TARGET_SAFE_PREFLIGHT_FIRST / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / R0_F0_COMPLETE / C0_NEXT / V33_D0_PROTOCOL_REJECT / FRESH_ROLES_FROZEN / TARGET_SAFE_PREFLIGHT_FIRST / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V33](physical-sound-synthesis-roadmap-v33.md) as planning authority; V33 roles remain spent/closed and its H0 remains exact zero |
 | Research basis | [V34 protocol-closure rebaseline](../development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md) |
 | Trigger evidence | [V33 D0 terminal contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
+| Current evidence | [V34 F0 target-safe profile freeze](../development/physical-sound-v34-f0-target-safe-profile-freeze-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | All evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
 
@@ -135,8 +136,8 @@ generator scores. No downstream stage may reinterpret a failed upstream role.
 | ID | Deliverable | State | Exit criterion |
 | --- | --- | --- | --- |
 | R0 | Protocol-closure rebaseline | [`COMPLETE`](../development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md) | Root cause, six competing explanations, fresh-role rule, preserved hypothesis and two pre-training gates are recorded with zero new target values. |
-| F0 | Fresh profile/witness freeze | `NEXT` | One canonical profile freezes fresh disjoint roles, truth commitment, unchanged V33 model/controls/gates, witness predicates/counts, terminal outcomes, seeds/resources and A/B semantics without targets. |
-| C0 | Signal-blind structural census | `BLOCKED_BY_F0` | Two fresh processes publish identical per-role/stratum witness identities and counts; every minimum passes with exact zero target/model/protected/real/network access. |
+| F0 | Fresh profile/witness freeze | [`COMPLETE / REPEAT_EXACT / ZERO_TARGET_MODEL_SIGNAL_ACCESS`](../development/physical-sound-v34-f0-target-safe-profile-freeze-result-2026-09-02.md) | Canonical overlay freezes fresh roles/truth and unchanged V33 model/controls/gates; all three artifacts repeat exactly with nine zero access counters. |
+| C0 | Signal-blind structural census | `NEXT` | Two fresh processes publish identical per-role/stratum witness identities and counts; every minimum passes with exact zero target/model/protected/real/network access. |
 | T0 | Whole-owner terminal proof | `BLOCKED_BY_C0` | Discarded full-shape fixtures force Pass, metric/hard/resource reject and pre-access contract reject twice exactly; every post-access path publishes atomically inside bounds. |
 | D0 | Fresh development tournament | `BLOCKED_BY_T0` | Two official processes repeat all artifacts; every hard/metric/ablation/resource gate passes. Any miss or post-access exception closes V34 before holdout. |
 | H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate/controls open holdout once and pass every branch/stratum/aggregate comparison twice exactly with no change. |
@@ -185,9 +186,9 @@ seed, basis, stencil, width, loss, step or threshold retry is allowed.
 
 1. **V34.0 — complete:** record the protocol root cause, non-inferences and
    fresh-role recovery decision.
-2. **V34.1 — next:** freeze the fresh role/truth/profile and witness contract;
-   prove zero target materialization twice exactly.
-3. **V34.2:** implement C0 signal-blind per-role/stratum witness census and
+2. **V34.1 — complete:** freeze the fresh role/truth/profile and witness
+   contract; prove zero target/model/signal access twice exactly.
+3. **V34.2 — next:** implement C0 signal-blind per-role/stratum witness census and
    publish its exact access receipt.
 4. **V34.3:** implement T0 complete-owner terminal-path fixtures and atomic
    publication tests at official shapes/resources.
