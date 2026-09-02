@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / H0_RESOURCE_CAUSE_CONFIRMED / R0_PREFIX_PROTOCOL_NEXT / Q0_SIGNAL_BLIND_CAN_PROCEED / M0B_SPENT / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / H0_COMPLETE / R0_PROTOCOL_FROZEN / R1_IMPLEMENTATION_NEXT / Q0_SIGNAL_BLIND_CAN_PROCEED / M0B_SPENT / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V27](physical-sound-synthesis-roadmap-v27.md) as planning authority; its R0/R1 evidence, protected-role order and stop rules remain binding |
-| Current evidence | [V28 resource research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [V27 R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md), [V27 R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) and implementation root `d013ec35…f456` |
+| Current evidence | [R0 protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000`, [V28 resource research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [V27 R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md), [V27 R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) and implementation root `d013ec35…f456` |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; the accepted authored-clip path remains production authority |
 | User constraint | All real evidence is found online; the user records nothing and does not approve sounds one by one |
 
@@ -93,8 +93,8 @@ generator code, checkpoints, predictions or protected admission values.
 | ID | Package | State | Exit criterion |
 | --- | --- | --- | --- |
 | H0 | Resource attribution | `COMPLETE` | [Research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md) confirms the long differentiable render as dominant, proves five exact random loss/gradient equivalence cases and records primary PyTorch methods. |
-| R0 | M0c protocol and resource oracle | `NEXT` | Freeze inherited hashes and the sole `144,000 → 4,096` training change; define exact equivalence fixtures, full-owner cost workload, wall/RSS gates, access order and terminal outcomes before model values. |
-| R1 | Prefix-bounded M0c owner | `BLOCKED_BY_R0` | Complete owner passes A/B fixtures byte-exactly; random and adversarial prefix fixtures match full loss/components/gradients exactly; official-shape cost workload passes twice under the frozen envelope. |
+| R0 | M0c protocol and resource oracle | `COMPLETE / FROZEN` | [Protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000` binds inherited hashes, sole `144,000 → 4,096` change, exact equivalence fixtures, 10,000-step cost workload, `600 s`/`3.5 GiB` gates and official access order. |
+| R1 | Prefix-bounded M0c owner | `NEXT` | Complete owner passes A/B fixtures byte-exactly; random and adversarial prefix fixtures match full loss/components/gradients exactly; official-shape cost workload passes twice under the frozen envelope. |
 | R2 | Fresh official feasibility | `BLOCKED_BY_R1` | New manifest/root runs A then B without reading interrupted R1 state; publishes repeat-exact Pass/Reject or a declared terminal resource/conformance result. |
 | Q0 | Validator protocol and source inventory | `READY / SIGNAL_BLIND_ONLY` | Hash-freeze online source identities, real positive/OOD groups, mutations, feature families, confidence method, minimum evidence, rights/provenance and one-use role order before signal values. |
 | Q1 | Independent Validator V1 | `BLOCKED_BY_Q0` | Separate CLI passes hard-signal, causal, real-acoustic, mutation and selective-risk fixtures twice with declared group-disjoint false-pass bound; no generator feature/checkpoint dependency. |
@@ -171,8 +171,8 @@ artifact from redistribution even when it can inform local scientific work.
 
 ## Execution order
 
-1. Freeze R0 M0c protocol from H0; do not touch official values.
-2. Implement R1 and pass equivalence/full-owner resource gates twice; commit
+1. `COMPLETE`: freeze R0 M0c protocol `28cab428…9000`; official values remain sealed.
+2. `NEXT`: implement R1 and pass equivalence/full-owner resource gates twice; commit
    the implementation root.
 3. Run fresh R2 A/B exactly once per declared order.
 4. In parallel by dependency, complete Q0 then build Q1 from independent real

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V28_ADOPTED / H0_RESOURCE_CAUSE_CONFIRMED / PREFIX_EQUIVALENCE_EXACT / M0B_SPENT / R0_M0C_PROTOCOL_NEXT / Q0_SIGNAL_BLIND_READY / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V28_ADOPTED / H0_COMPLETE / R0_PROTOCOL_FROZEN / R1_IMPLEMENTATION_NEXT / M0B_SPENT / Q0_SIGNAL_BLIND_READY / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -25,6 +25,10 @@
   A/B. Internet evidence, external generator, independent validator and
   deterministic cooker remain the four planes; Metal is first, then fresh
   Glass and Wood admissions.
+- **R0 protocol:** [M0c prefix/resource gate](../physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md)
+  is frozen at `28cab428…9000`: only the synthetic render horizon may change;
+  exact loss/gradient, complete-entry and two `10,000`-step resource gates must
+  pass before official access.
 - **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
@@ -43,10 +47,9 @@
 - **R0 result:** [implementation conformance](../physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md)
   passes full-entry A/B and actual official contexts at commit `db85c799`, root
   `d013ec35…f456`; no model/query/protected value opened.
-- **Next action:** freeze V28 R0 M0c protocol, then implement the value-independent
-  exact-prefix/full-owner resource oracle. Q0 signal-blind validator/source
-  inventory may proceed without candidate values. Never rerun R1 or inspect
-  partial values.
+- **Next action:** implement the value-independent M0c model/owner and exact-prefix/
+  full-owner resource oracle against frozen R0. Q0 signal-blind validator/source
+  inventory may proceed without candidate values. Never rerun R1 or inspect partial values.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -83,7 +86,7 @@
 | V23 P2a–F2a | `IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT / CLOSED` | `2601…2712` are spent after missing inherited `analytic_surface`; B not started, `2801…2912` retired unopened and quality unobserved. |
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
-| V28 H0–R2 | `H0_COMPLETE / R0_PROTOCOL_NEXT` | Exact-prefix resource evidence permits fresh M0c only after a frozen cost/equivalence oracle; M0b remains spent. |
+| V28 H0–R2 | `H0_COMPLETE / R0_FROZEN / R1_NEXT` | Protocol `28cab428…9000` permits fresh M0c only after exact prefix, complete-entry and two 10,000-step resource gates; M0b remains spent. |
 | V28 Q0–P3 | `Q0_SIGNAL_BLIND_READY / LATER_STAGES_BLOCKED` | Validator work may proceed independently; Metal, cooker/demo, Glass/Wood and promotion retain explicit gates. |
 
 ## Material transition: H0 isolates an execution-equivalent successor
@@ -165,6 +168,7 @@
 | D-045 | R0 passes the complete M0b owner twice and the actual official context-only preflight at commit `db85c799`, root `d013ec35…f456`; this freezes preprocessing before R1 values. | A hash/fixture/access defect is found before R1, or R1 itself returns a conformance failure attributable to the frozen owner. |
 | D-046 | R1-A times out at `1,800 s` with no canonical output; B is not started, quality stays unobserved and M0b is spent. R2A/R2B cannot be selected from a resource result. | Never for R1; a fresh protocol may proceed only after a successful value-independent cost control and new falsifiable resource hypothesis. |
 | D-047 | V28 H0 proves the frozen synthetic loss observes only the first `4,096` of `144,000` rendered samples; five random fixtures preserve losses/components/gradients exactly and measured steps are `83.7×` faster. Fresh M0c may change only this render horizon after a full-owner cost oracle. | A frozen equivalence fixture differs, a future loss consumes a later sample, or the official-shape cost oracle misses its preregistered envelope. |
+| D-048 | R0 protocol `28cab428…9000` freezes M0c's sole prefix delta, exact random/bound/mutation fixtures, complete-entry A/B and two isolated 10,000-step gates at `600 s`/`3.5 GiB`; official A/B remains sealed until all pass. | A protocol inconsistency is proven before implementation values or a superseding fresh protocol is justified without protected evidence. |
 
 ## Open hypotheses
 
@@ -242,5 +246,5 @@ Read in precedence order:
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
-- **Next commit boundary:** V28 R0 M0c protocol, then its value-independent
-  resource/equivalence owner; fallback remains authority.
+- **Next commit boundary:** V28 R1 value-independent M0c resource/equivalence
+  owner and result; fallback remains authority.
