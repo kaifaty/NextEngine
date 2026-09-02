@@ -2,7 +2,7 @@
 
 ## Result and claim ceiling
 
-`NGQ8 REV 1-4 RUN / G1 G2 G4 PASS / G3 FAIL (0.611 vs 0.6) / DISCHARGE 0.40-0.44 WITH FLUSH LIP / H8C H8D REFUTED`: the first
+`NGQ8 REV 1-6 RUN / TELEPORT FIXED / DISCHARGE 0.40-0.44 WITH FLUSH LIP / FILM STALL REPORTED`: the first
 interior-geometry presentation scene (upper tank on a `1 m` shelf, `0.2 m`
 divider with a `0.3 x 0.5 m` opening, empty lower tank) runs on the accepted
 `cap160.v6` game profile with the positional spill clamp and density-only
@@ -106,3 +106,34 @@ G1, G2 and G4 pass in every run. Findings:
 
 Narrow capture: rendered frame `200`, solver step `104`, PNG
 `450424bb43f756ce...` (trickle through the small opening).
+
+## Revisions 5-6: end-phase ejection (user observation)
+
+The user saw single samples shoot across the lower tank near the end of
+the narrow drain. The frozen diagnostic (five fastest samples per second
+with their neighbourhoods, `24,000` steps) found them in the air just past
+the divider at pipe height with `0..5` fluid neighbours and no fixed
+neighbours, reaching `13..28 m/s` after `60 s`; the solver terms floor
+density at rest, so the kick was not a term. The spill clamp was: a sample
+inside the divider slab whose `(y, z)` left the opening window was pushed
+to the nearer slab face along `x`, up to `0.2 m` in one `1/240 s` step.
+
+Revision 6 keeps a sample that is inside the slab in the opening window
+and pushes along `x` only in the radius-wide approach bands. Same lane,
+same run length, extractor binary `09b90b1d646521b6...`:
+
+| quantity | revision 5 (before) | revision 6 |
+| --- | ---: | ---: |
+| maximum sample speed after 15 s | `28 m/s` | `7.0 m/s` |
+| exit ratio while >= 5 samples exit | up to `2.4` | `<= 1.0` |
+| upper fraction at 100 s | `0.18` (stalled from 45 s) | `0.120` (still draining) |
+| penetration (inclusive window, `1e-5 m` allowance) | `0 m` | `0 m` |
+| `Cd` over the first 2 s | `0.441` | `0.441` |
+
+`spill` (wide) flush after revision 6: `6.9 m/s`, `Cd 0.404`, sheet
+stalls at `0.118` from `30 s`. The remaining `6..7 m/s` droplets are single
+samples with one fluid neighbour, about `1.3x` the free-fall speed from
+the release height; the residual sheet stall is the D-047 monolayer effect
+on the shelf (fluid degree `29..45` against `92` in the bulk) and is a
+profile limitation, not a geometry one. The frozen revision-6 gates
+therefore fail narrowly and are recorded as such.

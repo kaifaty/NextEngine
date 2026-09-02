@@ -1354,9 +1354,13 @@
   variant; HG8B holds bounded, HG8C and HG8D are refuted. A realistic
   `0.6` needs a profile-level discriminator (viscosity terms, release
   lift, shelf support), not more geometry switches.
-- **Reconsider when:** a scene needs the real drain rate (open the profile
-  discriminator with its own corpus evidence), or the presentation solver
-  moves into the engine.
+- **Amendment (revisions 5-6):** the end-phase ejection the user saw was
+  a clamp teleport (HG8E'); revision 6 fixes it (`28 -> 7 m/s`) and lets
+  the sheet keep draining. The last `~12%` on the shelf and the `6..7 m/s`
+  single droplets are profile-level (monolayer support, isolated samples).
+- **Reconsider when:** a scene needs the real drain rate or a fully
+  draining sheet (open the profile discriminator with its own corpus
+  evidence), or the presentation solver moves into the engine.
 
 ### D-049 — Specifications follow the evidence: presentation-only GPU water
 
@@ -1461,6 +1465,9 @@
 | HG8B | the one-radius clamp margin inside the opening throttles the flow | supported bounded: `flush` lip raises `Cd` `0.35 -> 0.40` (wide), `0.39 -> 0.44` (narrow) | exposed as `--stream-spill-lip flush`; default unchanged |
 | HG8C | fixed samples around the opening throttle the flow | refuted: removing the ring halves `Cd` (`0.19 / 0.20`) | closed |
 | HG8D | the five-iteration solve throttles the flow | refuted: 10 and 20 iterations lower `Cd` (`0.39 / 0.33`, `0.38 / 0.28`) | closed; the gap to a real orifice (`0.62`) is in the profile terms, a separate discriminator |
+| HG8E' | the spill clamp teleports samples that leave the opening window inside the slab | supported: fastest samples were isolated at pipe height at `13..28 m/s`; the pipe-interior clamp (rev 6) drops them to `7 m/s` and unblocks the sheet | closed |
+| HG8F | the pipe over-compresses a thin stream | refuted: fastest samples carry no fixed neighbours | closed |
+| HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
 
 ## Do not retry
 

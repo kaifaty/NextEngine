@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `NGQ8` |
-| Status | `REV 1-4 RUN / G1 G2 G4 PASS / G3 FAIL 0.611 / CD 0.40-0.44 FLUSH / H8C H8D REFUTED` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
+| Status | `REV 1-6 RUN / TELEPORT FIXED (REV 6) / CD 0.40-0.44 FLUSH / FILM STALL REPORTED` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
 | Parent | D-048 density-only boundary support; ADR-100 presentation-only water |
 | Purpose | first internal-geometry scene for the presentation candidate: an upper tank drains through a wall opening into a lower tank |
 
@@ -121,3 +121,62 @@ iterations lower the discharge. The remaining gap to a real orifice is not
 in the opening geometry, the lip, the ring support or the iteration count;
 it belongs to the profile (viscosity, release lift, shelf support) and is
 outside this plan. Stop; no further switch is added here.
+
+## Revision 5 (frozen before running): end-phase ejection and film stall
+
+Observation (user, confirmed by the exit diagnostic on `spill-narrow`
+flush, 24,000 steps): the exit-speed ratio to free fall is `0.8..0.9` for
+the first ten seconds, rises above `1` after `15 s` (`1.3` at `30 s`,
+`2.4` at `35 s`), and single samples later reach `10..28 m/s`; the upper
+sheet stops draining at about `0.18` of the initial count (`~0.08 m` head).
+
+| ID | Causal hypothesis | Diagnostic prediction |
+| --- | --- | --- |
+| H8E | samples with very few fluid neighbours receive an unbounded pressure or surface correction | the fastest samples each second have a fluid degree far below the bulk (`< 8`) wherever they sit |
+| H8F | the pipe, supported by fixed samples on three sides, over-compresses a thin stream and ejects it | the fastest samples sit inside or just past the pipe with an ordinary fluid degree and a high fixed degree |
+| H8G | the residual sheet on the shelf is the D-047 monolayer stall (fixed support below, none above) | the sheet's mean fluid degree drops toward a monolayer value and its samples stop moving while the head stays above the lip |
+
+Diagnostic only (frozen): per second, the five fastest fluid samples with
+their speed, region (sheet, pipe, exit, air, lower), fluid degree and fixed
+degree within the horizon, plus the sheet's mean fluid degree. No solver
+value changes in this revision; a fix is a later revision with its own gate
+(exit ratio `<= 1.1` after `15 s`, no sample above `1.5 x` free fall of the
+release height `~5.4 m/s`, sheet drains below `0.05`).
+
+## Revision 5 result
+
+The five fastest samples each second sit in the air just past the divider
+near the pipe height (`y ~ 0.9..1.0`) with fluid degree `0..5` and fixed
+degree `0`, at `13..28 m/s` after `60 s`; the sheet degree falls from `92`
+to `45` as it thins. H8F is refuted (no pipe-interior over-compression);
+H8E as written is incomplete: the terms floor density at rest, so the kick
+is not a solver term. Reading the spill clamp explains it: a sample inside
+the divider slab whose `(y, z)` leaves the opening window is pushed to the
+nearer slab face along `x`, up to `0.1..0.2 m` in one `1/240 s` step, that
+is `24..48 m/s`. Call it H8E' (clamp teleport).
+
+## Revision 6 (frozen before running): pipe-interior clamp
+
+Frozen change: a sample whose `x` lies inside the slab is always clamped
+back into the opening window in `(y, z)`; the `x` push to a slab face
+applies only in the radius-wide approach bands outside the slab. Nothing
+else changes. Gates on `spill-narrow` flush, `24,000` steps: no sample
+above `6 m/s` after `15 s` (free fall from the release height is
+`5.4 m/s`), exit ratio `<= 1.1` after `15 s`, G2 `0 m`; the sheet stall
+(H8G) is reported, not gated.
+
+## Revision 6 result
+
+`spill-narrow` flush, `24,000` steps: the teleports are gone (maximum
+sample speed after `15 s` falls from `28 m/s` to `7.0 m/s`), the exit
+ratio stays `0.8..1.0` while the exit carries at least five samples, and
+the sheet keeps draining (`0.120` at `100 s` instead of stalling at
+`0.18`). `spill` flush: `6.9 m/s`, sheet stalls at `0.118` from `30 s`.
+`Cd` unchanged (`0.441` / `0.404`). Both frozen gates still fail as
+written: the speed gate by `1 m/s` (single samples with one fluid
+neighbour at `6..7 m/s`), the ratio gate because after `40 s` the exit box
+holds one or two droplets against a `0.05 m` head. Two apparatus
+corrections were recorded before the final rerun: the penetration test
+treats the opening window as inclusive with a `1e-5 m` binary32 allowance
+(a flush-clamped sample sits exactly on the face). H8E' is supported; H8G
+(film stall) stands as a profile limitation, not gated.

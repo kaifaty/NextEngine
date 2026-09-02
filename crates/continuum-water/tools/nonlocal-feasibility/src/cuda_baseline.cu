@@ -652,13 +652,18 @@ __global__ void clamp_spill_contact(
         return;
     }
     float3 p = position[index];
-    if (p.x > wall_x0 - radius && p.x < wall_x1 + radius) {
+    if (p.x >= wall_x0 && p.x <= wall_x1) {
+        // NGQ8 revision 6: inside the slab a sample can only be in the pipe;
+        // keep it in the opening window instead of pushing it through a face.
+        p.y = fminf(fmaxf(p.y, opening_y0 + lip_margin), opening_y1 - lip_margin);
+        p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
+    } else if (p.x > wall_x0 - radius && p.x < wall_x1 + radius) {
         const bool window = p.y > opening_y0 && p.y < opening_y1 && p.z > opening_z0
             && p.z < opening_z1;
         if (window) {
             p.y = fminf(fmaxf(p.y, opening_y0 + lip_margin), opening_y1 - lip_margin);
             p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
-        } else if (p.x < 0.5F * (wall_x0 + wall_x1)) {
+        } else if (p.x < wall_x0) {
             p.x = wall_x0 - radius;
         } else {
             p.x = wall_x1 + radius;
@@ -7654,8 +7659,12 @@ double spill_penetration(const Vec3& p, const Fixture::Spill& spill) {
         penetration = std::max(penetration, spill.shelf_top - p.y);
     }
     if (p.x > spill.wall_x0 && p.x < spill.wall_x1) {
-        const bool window = p.y > spill.opening_y0 && p.y < spill.opening_y1
-            && p.z > spill.opening_z0 && p.z < spill.opening_z1;
+        // Inclusive with a float-rounding allowance: a flush-clamped sample
+        // sits on the opening face at binary32 precision.
+        constexpr double face_epsilon = 1e-5;
+        const bool window = p.y >= spill.opening_y0 - face_epsilon
+            && p.y <= spill.opening_y1 + face_epsilon && p.z >= spill.opening_z0 - face_epsilon
+            && p.z <= spill.opening_z1 + face_epsilon;
         if (!window) {
             penetration = std::max(
                 penetration, std::min(p.x - spill.wall_x0, spill.wall_x1 - p.x));
@@ -10859,6 +10868,13 @@ CommandReport run_cuda_game_surface_stream(
     double spill_upper_fraction = 1.0;
     double spill_upper_at_2s = -1.0;
     bool spill_arrived_by_480 = false;
+    // Exit-speed diagnostic: per second, head above the shelf, mean speed of
+    // samples just past the divider (from emitted-frame differences), the
+    // free-fall speed for that head and the maximum sample speed anywhere.
+    std::string spill_exit_curve;
+    std::vector<Vec3> spill_previous_positions;
+    double spill_maximum_exit_ratio = 0.0;
+    std::string spill_fast_curve;
     std::string spill_drain_curve;
     std::uint64_t completed_steps = 0U;
     std::uint64_t audits = 0U;
@@ -11028,6 +11044,117 @@ CommandReport run_cuda_game_surface_stream(
                     if (step == 480) {
                         spill_upper_at_2s = spill_upper_fraction;
                     }
+                    if (spill_previous_positions.size() == fluid.size()) {
+                        const double frame_seconds = every * GAME_TIME_STEP;
+                        double head_sum = 0.0;
+                        std::size_t head_count = 0U;
+                        double exit_sum = 0.0;
+                        std::size_t exit_count = 0U;
+                        double maximum_speed = 0.0;
+                        for (std::size_t index = 0; index < fluid.size(); ++index) {
+                            const Vec3& p = fluid[index].position;
+                            const Vec3 delta = p - spill_previous_positions[index];
+                            const double speed = norm(delta) / frame_seconds;
+                            maximum_speed = std::max(maximum_speed, speed);
+                            if (p.x < spill.wall_x0) {
+                                head_sum += p.y - spill.shelf_top;
+                                ++head_count;
+                            }
+                            if (p.x > spill.wall_x1 && p.x < spill.wall_x1 + 0.3
+                                && p.y > spill.opening_y0 - 0.3) {
+                                exit_sum += delta.x / frame_seconds;
+                                ++exit_count;
+                            }
+                        }
+                        if (step % 240 == 0) {
+                            // Revision 5 diagnostic: the five fastest samples
+                            // with their neighbourhoods, plus the sheet degree.
+                            std::vector<std::pair<double, std::size_t>> ranked;
+                            ranked.reserve(fluid.size());
+                            for (std::size_t index = 0; index < fluid.size(); ++index) {
+                                ranked.emplace_back(
+                                    norm(fluid[index].position - spill_previous_positions[index])
+                                        / frame_seconds,
+                                    index);
+                            }
+                            std::partial_sort(
+                                ranked.begin(), ranked.begin() + std::min<std::size_t>(5U, ranked.size()),
+                                ranked.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+                            const double horizon = fixture.horizon;
+                            const auto degrees = [&](const Vec3& centre) {
+                                std::size_t fluid_degree = 0U;
+                                std::size_t fixed_degree = 0U;
+                                for (const Particle& other : fluid) {
+                                    if (norm(other.position - centre) < horizon) {
+                                        ++fluid_degree;
+                                    }
+                                }
+                                for (std::size_t index = fluid.size(); index < fixture.particles.size(); ++index) {
+                                    if (norm(fixture.particles[index].position - centre) < horizon) {
+                                        ++fixed_degree;
+                                    }
+                                }
+                                return std::make_pair(fluid_degree > 0U ? fluid_degree - 1U : 0U, fixed_degree);
+                            };
+                            const auto region = [&](const Vec3& p) {
+                                if (p.x < spill.wall_x0) {
+                                    return p.y < spill.shelf_top + 0.2 ? "sheet" : "upper";
+                                }
+                                if (p.x <= spill.wall_x1) {
+                                    return "pipe";
+                                }
+                                if (p.x < spill.wall_x1 + 0.3 && p.y > spill.opening_y0 - 0.3) {
+                                    return "exit";
+                                }
+                                return p.y < 0.3 ? "lower" : "air";
+                            };
+                            std::string fast;
+                            for (std::size_t rank = 0; rank < std::min<std::size_t>(5U, ranked.size()); ++rank) {
+                                const Vec3& p = fluid[ranked[rank].second].position;
+                                const auto [fluid_degree, fixed_degree] = degrees(p);
+                                fast += (fast.empty() ? "" : ",") + std::string("{\"speed\":")
+                                    + std::to_string(ranked[rank].first) + ",\"region\":\"" + region(p)
+                                    + "\",\"fluid_degree\":" + std::to_string(fluid_degree)
+                                    + ",\"fixed_degree\":" + std::to_string(fixed_degree)
+                                    + ",\"y\":" + std::to_string(p.y) + "}";
+                            }
+                            double sheet_degree_sum = 0.0;
+                            std::size_t sheet_count = 0U;
+                            for (std::size_t index = 0; index < fluid.size() && sheet_count < 64U; index += 97U) {
+                                const Vec3& p = fluid[index].position;
+                                if (p.x < spill.wall_x0 && p.y < spill.shelf_top + 0.2) {
+                                    sheet_degree_sum += static_cast<double>(degrees(p).first);
+                                    ++sheet_count;
+                                }
+                            }
+                            spill_fast_curve += (spill_fast_curve.empty() ? "" : ",")
+                                + std::string("{\"second\":") + std::to_string(step / 240)
+                                + ",\"sheet_mean_fluid_degree\":"
+                                + std::to_string(sheet_count > 0U ? sheet_degree_sum / static_cast<double>(sheet_count) : 0.0)
+                                + ",\"fastest\":[" + fast + "]}";
+                            // Mean sample height above the shelf is half the
+                            // sheet depth; head = twice the mean.
+                            const double head = head_count > 0U
+                                ? 2.0 * head_sum / static_cast<double>(head_count) : 0.0;
+                            const double free_fall = head > 0.0 ? std::sqrt(2.0 * 9.81 * head) : 0.0;
+                            const double exit_speed = exit_count > 0U
+                                ? exit_sum / static_cast<double>(exit_count) : 0.0;
+                            const double ratio = free_fall > 0.0 ? exit_speed / free_fall : 0.0;
+                            spill_maximum_exit_ratio = std::max(spill_maximum_exit_ratio, ratio);
+                            spill_exit_curve += (spill_exit_curve.empty() ? "" : ",")
+                                + std::string("{\"second\":") + std::to_string(step / 240)
+                                + ",\"head_m\":" + std::to_string(head)
+                                + ",\"exit_speed_mps\":" + std::to_string(exit_speed)
+                                + ",\"free_fall_mps\":" + std::to_string(free_fall)
+                                + ",\"ratio\":" + std::to_string(ratio)
+                                + ",\"exit_samples\":" + std::to_string(exit_count)
+                                + ",\"max_speed_mps\":" + std::to_string(maximum_speed) + "}";
+                        }
+                    }
+                    spill_previous_positions.resize(fluid.size());
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        spill_previous_positions[index] = fluid[index].position;
+                    }
                 }
                 ++emitted_in_cycle;
                 if (!emit(step)) {
@@ -11127,6 +11254,9 @@ CommandReport run_cuda_game_surface_stream(
                << ",\"upper_fraction_final\":" << spill_upper_fraction
                << ",\"arrived_by_step_480\":" << (spill_arrived_by_480 ? "true" : "false")
                << ",\"upper_fraction_per_second\":[" << spill_drain_curve << ']'
+               << ",\"maximum_exit_ratio\":" << spill_maximum_exit_ratio
+               << ",\"exit_per_second\":[" << spill_exit_curve << ']'
+               << ",\"fast_per_second\":[" << spill_fast_curve << ']'
                << ",\"gates\":{\"g2_penetration\":\""
                << (spill_maximum_penetration <= 1e-4 ? "PASS" : "FAIL")
                << "\",\"g3_drainage\":\"" << (spill_upper_fraction <= 0.6 ? "PASS" : "FAIL")
