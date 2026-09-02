@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V32 / P0_P1_T0_V0A_M0_CONFORMANCE_COMPLETE / V0_V1_REJECT_PRESERVED / M1_OWNER_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V32 / P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -44,8 +44,8 @@
   equal-PCM/equal-modal causal alias pairs. No output or real value opened.
 - **V0a result:** the [modal-equivalence validator mechanics](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md)
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
-- **M0 conformance:** the [physics-locked owner](../physical-sound-v32-m0-physics-locked-residual-conformance-result-2026-09-02.md) repeats exactly with 1,491 parameters and zero official development/holdout access.
-- **Next action:** implement the complete M1 corpus/control owner, then spend its one-shot synthetic development/holdout tournament.
+- **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
+- **Next action:** run a bounded generator-successor research/rebaseline with fresh synthetic roles; S0 source batches remain independent and bounded to three named leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -83,15 +83,15 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_T0_V0A_M0_CONFORMANCE_COMPLETE / M1_OWNER_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | M0 repeats exact topology/composition conformance without official values; M1 still must implement and spend the frozen tournament, while all real `6/27` gates remain unchanged. |
+| V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2; all real `6/27` gates remain unchanged. |
 
 ## Material transition: V32 automatic release chain
 
 - **Observation:** V28 fit output metrics while failing every physical frequency counterfactual; another end-to-end frequency head cannot explain improvement.
 - **Evidence:** [bounded research](../physical-sound-v32-m0-physics-locked-residual-research-2026-09-02.md) and primary prior art support composing known physics with learned unknowns.
-- **Conclusion:** the smallest falsifiable successor leaves frequencies and exact invariants in P1 and learns only bounded decay/gain/contact corrections.
-- **Decision:** M0 owner conformance passes twice without official role access.
-- **Smallest next action:** implement the full M1 owner, then run it once A/B.
+- **Conclusion:** P1-owned frequency/topology remains correct, but the generic bounded contact MLP does not beat local retrieval on fresh geometry cells.
+- **Decision:** M1 is a repeat-exact development reject; the compact residual family is closed and method holdout remains sealed.
+- **Smallest next action:** preregister a materially different geometry/mode-local contact representation on fresh synthetic roles, or retain P1/authored fallback.
 
 ## Durable negative knowledge
 
@@ -247,4 +247,4 @@ Read in precedence order:
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b and T0/V0a mechanics pass; F0/I1 reject; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** complete M1 owner and one-shot result; fallback remains authority.
+- **Next commit boundary:** bounded post-M1 generator-successor research/rebaseline; fallback remains authority.
