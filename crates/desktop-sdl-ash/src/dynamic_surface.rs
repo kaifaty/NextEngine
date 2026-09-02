@@ -16,6 +16,7 @@ use next_contracts::project::{AssetRevisionRefV1, domain_hash};
 use next_contracts::render_content::{AabbI64V1, RenderContentCatalogV1};
 
 use crate::DesktopAdapterError;
+use crate::particle_surface::{ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1};
 
 /// Upper vertex bound for one declared dynamic surface ring.
 pub const MAX_DYNAMIC_SURFACE_VERTICES: u32 = 1 << 20;
@@ -255,6 +256,8 @@ fn invalid(reason: &'static str) -> DesktopAdapterError {
 pub struct DesktopFramePublicationV1 {
     pub snapshot: Option<Arc<PresentationSnapshotV3>>,
     pub dynamic_surface_updates: Vec<Arc<DynamicSurfaceUpdateV1>>,
+    /// ADR-102: replaces the whole declared particle set for the next frames.
+    pub particle_surface_update: Option<Arc<ParticleSurfaceUpdateV1>>,
 }
 
 impl DesktopFramePublicationV1 {
@@ -263,6 +266,7 @@ impl DesktopFramePublicationV1 {
         Self {
             snapshot,
             dynamic_surface_updates: Vec::new(),
+            particle_surface_update: None,
         }
     }
 }
@@ -279,6 +283,9 @@ pub(crate) struct DynamicSurfaceState {
     declared: BTreeMap<AssetRevisionRefV1, DeclaredDynamicSurface>,
     current: BTreeMap<AssetRevisionRefV1, Arc<DynamicSurfaceUpdateV1>>,
     publications: u64,
+    particle_profile: Option<ParticleSurfaceProfileV1>,
+    particles: Option<Arc<ParticleSurfaceUpdateV1>>,
+    particle_publications: u64,
 }
 
 impl DynamicSurfaceState {
@@ -289,6 +296,9 @@ impl DynamicSurfaceState {
             declared: BTreeMap::new(),
             current: BTreeMap::new(),
             publications: 0,
+            particle_profile: None,
+            particles: None,
+            particle_publications: 0,
         }
     }
 
@@ -296,8 +306,12 @@ impl DynamicSurfaceState {
     pub(crate) fn new(
         profiles: &[DynamicSurfaceProfileV1],
         catalog: &RenderContentCatalogV1,
+        particle_profile: Option<ParticleSurfaceProfileV1>,
     ) -> Result<Self, DesktopAdapterError> {
         validate_profiles(profiles, catalog)?;
+        if let Some(profile) = particle_profile.as_ref() {
+            profile.validate()?;
+        }
         let declared = profiles
             .iter()
             .map(|profile| {
@@ -317,7 +331,58 @@ impl DynamicSurfaceState {
             declared,
             current: BTreeMap::new(),
             publications: 0,
+            particle_profile,
+            particles: None,
+            particle_publications: 0,
         })
+    }
+
+    /// Validates and stages one particle set against the declared profile.
+    pub(crate) fn publish_particles(
+        &mut self,
+        update: Arc<ParticleSurfaceUpdateV1>,
+    ) -> Result<(), DesktopAdapterError> {
+        let profile = self
+            .particle_profile
+            .as_ref()
+            .ok_or(DesktopAdapterError::ParticleSurfaceUndeclared)?;
+        if update.particle_count() > profile.particle_capacity {
+            return Err(DesktopAdapterError::ParticleSurfaceCapacityExceeded {
+                requested: update.particle_count(),
+                limit: profile.particle_capacity,
+            });
+        }
+        if update
+            .positions_micrometres()
+            .iter()
+            .any(|position| !profile.bounds.contains(*position))
+        {
+            return Err(DesktopAdapterError::ParticleSurfaceInvalid {
+                reason: "particle lies outside the declared bounds",
+            });
+        }
+        if let Some(previous) = self.particles.as_ref()
+            && update.sequence() <= previous.sequence()
+        {
+            return Err(DesktopAdapterError::ParticleSurfaceSequenceRegressed {
+                previous: previous.sequence(),
+                actual: update.sequence(),
+            });
+        }
+        self.particle_publications = self
+            .particle_publications
+            .checked_add(1)
+            .ok_or(DesktopAdapterError::CounterOverflow)?;
+        self.particles = Some(update);
+        Ok(())
+    }
+
+    pub(crate) const fn current_particles(&self) -> Option<&Arc<ParticleSurfaceUpdateV1>> {
+        self.particles.as_ref()
+    }
+
+    pub(crate) const fn particle_publications(&self) -> u64 {
+        self.particle_publications
     }
 
     /// Returns a staged copy so one publication batch validates completely
@@ -557,6 +622,9 @@ mod tests {
             )]),
             current: BTreeMap::new(),
             publications: 0,
+            particle_profile: None,
+            particles: None,
+            particle_publications: 0,
         };
         state
             .publish(Arc::new(triangle(1)))

@@ -9,7 +9,11 @@
 use std::io::Read;
 
 pub(super) const STREAM_MAGIC: [u8; 4] = *b"NEWS";
-pub(super) const STREAM_VERSION: u32 = 1;
+pub(super) const STREAM_VERSION: u32 = 2;
+/// Version 1 frames carry no particle set; version 2 appends it.
+const STREAM_VERSION_WITHOUT_PARTICLES: u32 = 1;
+/// ADR-102 bound on one published particle set.
+pub(super) const MAX_STREAM_PARTICLES: usize = 65_536;
 /// Fixed header: magic, version, step, cycle, box, counts, three timings.
 const HEADER_BYTES: usize = 4 + 4 + 4 + 4 + 6 * 8 + 8 + 8 + 3 * 8;
 /// Surface pixel pitch of the extractor (`GAME_SPACING / 4`).
@@ -28,6 +32,8 @@ pub(super) struct StreamFrame {
     pub(super) physics_ms: f64,
     pub(super) positions_micrometres: Vec<[i64; 3]>,
     pub(super) indices: Vec<u32>,
+    /// Fluid particle centres (version 2), empty for version 1 frames.
+    pub(super) particles_micrometres: Vec<[i64; 3]>,
 }
 
 /// Reads one frame; `Ok(None)` is a clean end of stream before a header.
@@ -57,7 +63,7 @@ pub(super) fn read_frame(
     let version = take_u32();
     let step = take_u32() as i32;
     let cycle = take_u32() as i32;
-    if version != STREAM_VERSION {
+    if version != STREAM_VERSION && version != STREAM_VERSION_WITHOUT_PARTICLES {
         return Err(format!("surface stream version {version} is unsupported"));
     }
     let mut take_f64 = || {
@@ -136,6 +142,38 @@ pub(super) fn read_frame(
     {
         return Err("surface stream face index is outside the vertex array".to_owned());
     }
+    let mut particles_micrometres = Vec::new();
+    if version == STREAM_VERSION {
+        let mut count_bytes = [0_u8; 8];
+        reader
+            .read_exact(&mut count_bytes)
+            .map_err(|error| format!("surface stream particle count truncated: {error}"))?;
+        let particle_count = usize::try_from(u64::from_le_bytes(count_bytes))
+            .ok()
+            .filter(|count| *count <= MAX_STREAM_PARTICLES)
+            .ok_or_else(|| {
+                "surface stream particle count is outside the bounded profile".to_owned()
+            })?;
+        let mut particle_bytes = vec![0_u8; particle_count * 12];
+        reader
+            .read_exact(&mut particle_bytes)
+            .map_err(|error| format!("surface stream particles truncated: {error}"))?;
+        particles_micrometres.reserve(particle_count);
+        for particle in particle_bytes.chunks_exact(12) {
+            let mut position = [0_i64; 3];
+            for (axis, component) in particle.chunks_exact(4).enumerate() {
+                let metres = f64::from(f32::from_le_bytes(component.try_into().unwrap_or([0; 4])));
+                if !metres.is_finite()
+                    || metres < box_min_metres[axis] - SURFACE_PIXEL_PITCH_METRES
+                    || metres > box_max_metres[axis] + SURFACE_PIXEL_PITCH_METRES
+                {
+                    return Err("surface stream particle lies outside the declared box".to_owned());
+                }
+                position[axis] = (metres * 1_000_000.0).round() as i64;
+            }
+            particles_micrometres.push(position);
+        }
+    }
     Ok(Some(StreamFrame {
         step,
         cycle,
@@ -146,6 +184,7 @@ pub(super) fn read_frame(
         physics_ms,
         positions_micrometres,
         indices,
+        particles_micrometres,
     }))
 }
 
@@ -204,6 +243,8 @@ mod tests {
         for index in indices {
             bytes.extend_from_slice(&index.to_le_bytes());
         }
+        // Version 2 trailer: an empty particle set.
+        bytes.extend_from_slice(&0_u64.to_le_bytes());
         bytes
     }
 

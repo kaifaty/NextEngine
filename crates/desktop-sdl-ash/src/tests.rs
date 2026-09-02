@@ -397,6 +397,7 @@ fn undeclared_dynamic_surface_publication_fails_closed_without_touching_the_snap
             Ok::<_, DesktopAdapterError>(DesktopFramePublicationV1 {
                 snapshot: Some(Arc::clone(&published)),
                 dynamic_surface_updates: vec![Arc::clone(&update)],
+                particle_surface_update: None,
             })
         };
 

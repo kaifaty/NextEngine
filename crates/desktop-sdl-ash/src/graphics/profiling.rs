@@ -2,7 +2,8 @@ use ash::vk;
 
 use crate::{DesktopAdapterError, DesktopFrameTimingSample};
 
-const TIMESTAMPS_PER_FRAME: u32 = 2;
+/// start, particle-surface start, particle-surface end, end.
+const TIMESTAMPS_PER_FRAME: u32 = 4;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct CpuFramePhaseTimings {
@@ -118,9 +119,13 @@ impl VulkanFrameProfiler {
                 vk::QueryResultFlags::TYPE_64,
             )?;
         }
-        let ticks = timestamp_delta(timestamps[0], timestamps[1], self.timestamp_valid_bits);
+        let ticks = timestamp_delta(timestamps[0], timestamps[3], self.timestamp_valid_bits);
         let gpu_duration_microseconds =
             ticks_to_microseconds(ticks, self.timestamp_period_nanoseconds)?;
+        let particle_ticks =
+            timestamp_delta(timestamps[1], timestamps[2], self.timestamp_valid_bits);
+        let particle_surface_gpu_microseconds =
+            ticks_to_microseconds(particle_ticks, self.timestamp_period_nanoseconds)?;
         if self.completed_samples.len() < self.sample_capacity {
             self.completed_samples.push((
                 pending.sequence,
@@ -144,6 +149,7 @@ impl VulkanFrameProfiler {
                     command_record_microseconds: pending.phases.command_record_microseconds,
                     queue_submit_microseconds: pending.phases.queue_submit_microseconds,
                     present_wait_microseconds,
+                    particle_surface_gpu_microseconds,
                 },
             ));
         } else {
@@ -188,20 +194,42 @@ impl VulkanFrameProfiler {
         Ok(())
     }
 
+    /// Writes the particle-surface boundary timestamps (`1` start, `2` end);
+    /// a frame without the pass writes both back to back.
+    pub(super) fn write_particle_surface(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        frame_slot_index: usize,
+        end: bool,
+    ) -> Result<(), DesktopAdapterError> {
+        let query_start = timestamp_query_start(frame_slot_index)?;
+        // SAFETY: the command buffer is recording and the four queries of
+        // this slot were reset by `write_start`.
+        unsafe {
+            self.device.cmd_write_timestamp2(
+                command_buffer,
+                vk::PipelineStageFlags2::BOTTOM_OF_PIPE,
+                self.query_pool,
+                query_start + if end { 2 } else { 1 },
+            );
+        }
+        Ok(())
+    }
+
     pub(super) fn write_end(
         &self,
         command_buffer: vk::CommandBuffer,
         frame_slot_index: usize,
     ) -> Result<(), DesktopAdapterError> {
         let query_start = timestamp_query_start(frame_slot_index)?;
-        // SAFETY: the same command buffer is still recording and query one was
-        // reset with query zero before either timestamp was written.
+        // SAFETY: the same command buffer is still recording and the queries
+        // were reset before any timestamp was written.
         unsafe {
             self.device.cmd_write_timestamp2(
                 command_buffer,
                 vk::PipelineStageFlags2::BOTTOM_OF_PIPE,
                 self.query_pool,
-                query_start + 1,
+                query_start + 3,
             );
         }
         Ok(())
@@ -335,7 +363,7 @@ mod tests {
     #[test]
     fn timestamp_queries_are_disjoint_for_each_frame_slot() {
         assert_eq!(timestamp_query_start(0).expect("slot zero"), 0);
-        assert_eq!(timestamp_query_start(1).expect("slot one"), 2);
-        assert_eq!(timestamp_query_start(2).expect("slot two"), 4);
+        assert_eq!(timestamp_query_start(1).expect("slot one"), 4);
+        assert_eq!(timestamp_query_start(2).expect("slot two"), 8);
     }
 }

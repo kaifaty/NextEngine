@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-101 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-04](../04-rendering-and-platform.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-29](../29-platform-host-and-application-session.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
@@ -55,10 +55,13 @@ presentation can be judged as human evidence.
 
 ### Bounded developer frame capture
 
-`DesktopRunOptions::frame_capture` names one rendered frame. The swapchain
-is then created with transfer-source usage or the run fails closed before the
-first frame; after that frame the image is copied to host memory and
-reported once as tightly packed sRGB RGBA8. This is SPEC-04 developer
+`DesktopRunOptions::frame_capture` names one rendered frame and a burst
+length of at most eight consecutive frames (ADR-102 measures coverage
+stability across the burst). The swapchain is then created with
+transfer-source usage or the run fails closed before the first frame; after
+each captured frame the image is copied to its own host buffer and the
+frames are reported once, in order, as tightly packed sRGB RGBA8. This is
+SPEC-04 developer
 diagnostics: it never becomes a correctness oracle, a gameplay input or a
 release artifact, and captures stay outside the repository.
 

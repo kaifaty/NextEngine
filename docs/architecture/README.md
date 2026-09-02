@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.71 |
+| Версия | 2.72 |
 | Последняя проверка | 2026-09-02 |
-| Заменяет | INDEX-001 2.70; indexes the R8c water-volume increment (SPEC-26 2.5, SPEC-21 2.1, SPEC-03 2.10, SPEC-38 1.8, ADR-100 0.2) |
+| Заменяет | INDEX-001 2.71; indexes Proposed ADR-102 (presentation-only particle surface pass) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -308,6 +308,7 @@ traceability — навигационная карта, не admission authority
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
 | ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume` (R8c: table in the physics checkpoint, level command, `CONTINUUM-WATER-VOLUME-P1 = PASS`), the Nonlocal GPU candidate animates only the presentation surface |
 | ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
+| ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 
 ## Proposed tracks
 

@@ -1,4 +1,6 @@
+pub(crate) mod fluid;
 mod pipeline;
+pub(crate) use pipeline::B0_SUN_DIRECTION_INTENSITY;
 mod resources;
 mod shadow;
 mod ui_overlay_gpu;

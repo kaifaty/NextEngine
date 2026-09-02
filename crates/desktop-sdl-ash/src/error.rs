@@ -64,6 +64,18 @@ pub enum DesktopAdapterError {
         actual: u64,
     },
     FrameCaptureUnsupported,
+    ParticleSurfaceInvalid {
+        reason: &'static str,
+    },
+    ParticleSurfaceUndeclared,
+    ParticleSurfaceCapacityExceeded {
+        requested: u32,
+        limit: u32,
+    },
+    ParticleSurfaceSequenceRegressed {
+        previous: u64,
+        actual: u64,
+    },
 }
 
 impl DesktopAdapterError {
@@ -117,6 +129,14 @@ impl DesktopAdapterError {
                 "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID"
             }
             Self::FrameCaptureUnsupported => "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED",
+            Self::ParticleSurfaceInvalid { .. } => "PRESENTATION_PARTICLE_SURFACE_INVALID",
+            Self::ParticleSurfaceUndeclared => "PRESENTATION_PARTICLE_SURFACE_UNDECLARED",
+            Self::ParticleSurfaceCapacityExceeded { .. } => {
+                "PRESENTATION_PARTICLE_SURFACE_CAPACITY_EXCEEDED"
+            }
+            Self::ParticleSurfaceSequenceRegressed { .. } => {
+                "PRESENTATION_PARTICLE_SURFACE_SEQUENCE_INVALID"
+            }
         }
     }
 
@@ -227,6 +247,21 @@ impl Display for DesktopAdapterError {
             ),
             Self::FrameCaptureUnsupported => formatter.write_str(
                 "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED: the presentation surface does not allow transfer-source swapchain images",
+            ),
+            Self::ParticleSurfaceInvalid { reason } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_INVALID: {reason}"
+            ),
+            Self::ParticleSurfaceUndeclared => formatter.write_str(
+                "PRESENTATION_PARTICLE_SURFACE_UNDECLARED: the run declares no particle surface",
+            ),
+            Self::ParticleSurfaceCapacityExceeded { requested, limit } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_CAPACITY_EXCEEDED: requested {requested} exceeds declared capacity {limit}"
+            ),
+            Self::ParticleSurfaceSequenceRegressed { previous, actual } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_SEQUENCE_INVALID: previous {previous}, got {actual}"
             ),
         }
     }

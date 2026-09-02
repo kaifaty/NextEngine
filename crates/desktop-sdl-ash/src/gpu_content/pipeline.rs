@@ -504,7 +504,7 @@ fn validate_camera_frame(camera: &B0CameraFrameV1) -> Result<(), B0GpuContentErr
         .map_err(|_| invalid_frame_plan("camera current result sample is invalid"))
 }
 
-fn camera_raster_region(
+pub(super) fn camera_raster_region(
     viewport: CameraViewportV1,
     target_extent: vk::Extent2D,
 ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
@@ -592,10 +592,53 @@ fn scissor_ceil(value: f64, limit: u32) -> Result<u32, B0GpuContentError> {
     Ok(value.ceil() as u32)
 }
 
+/// Sun direction (xyz) and intensity shared by the B0 frame block and the
+/// ADR-102 particle surface pass.
+pub(crate) const B0_SUN_DIRECTION_INTENSITY: [f32; 4] = [-0.45, -0.82, -0.35, 0.95];
+
+/// Separate view/projection parts of the B0 camera transform for passes
+/// that reconstruct view-space positions from depth (ADR-102).
+pub(super) struct CameraMatricesV1 {
+    pub(super) view: [f32; 16],
+    pub(super) projection: [f32; 16],
+    pub(super) near: f32,
+    pub(super) far: f32,
+    pub(super) tan_half_x: f32,
+    pub(super) tan_half_y: f32,
+}
+
+pub(super) fn camera_matrices(
+    camera: &B0CameraFrameV1,
+    viewport: vk::Viewport,
+) -> Result<CameraMatricesV1, B0GpuContentError> {
+    let (view, projection, near, far, tan_half_fov, aspect) =
+        camera_view_and_projection(camera, viewport)?;
+    Ok(CameraMatricesV1 {
+        view: f64_matrix_to_f32(view)?,
+        projection: f64_matrix_to_f32(projection)?,
+        near: near as f32,
+        far: far as f32,
+        tan_half_x: (tan_half_fov * aspect) as f32,
+        tan_half_y: tan_half_fov as f32,
+    })
+}
+
 fn camera_view_projection_matrix(
     camera: &B0CameraFrameV1,
     viewport: vk::Viewport,
 ) -> Result<[f32; 16], B0GpuContentError> {
+    let (view, projection, _, _, _, _) = camera_view_and_projection(camera, viewport)?;
+    f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
+}
+
+#[allow(
+    clippy::type_complexity,
+    reason = "the private tuple keeps the exact matrix construction in one place"
+)]
+fn camera_view_and_projection(
+    camera: &B0CameraFrameV1,
+    viewport: vk::Viewport,
+) -> Result<([f64; 16], [f64; 16], f64, f64, f64, f64), B0GpuContentError> {
     let eye = micrometres_to_metres(camera.current_result_sample.pose.translation_micrometres);
     let focus = micrometres_to_metres(camera.current_result_sample.focus_point_micrometres);
     let forward = normalize3(subtract3(focus, eye))
@@ -671,7 +714,7 @@ fn camera_view_projection_matrix(
         depth_translation,
         0.0,
     ];
-    f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
+    Ok((view, projection, near, far, tan_half_fov, aspect))
 }
 
 fn micrometres_to_metres(values: [i64; 3]) -> [f64; 3] {
@@ -764,7 +807,7 @@ fn frame_uniform_bytes(
             1.0,
         ],
     );
-    write_f32_values(&mut bytes[144..160], [-0.45, -0.82, -0.35, 0.95]);
+    write_f32_values(&mut bytes[144..160], B0_SUN_DIRECTION_INTENSITY);
     write_f32_values(&mut bytes[160..176], [0.48, 0.62, 0.78, 0.0]);
     write_f32_values(&mut bytes[176..192], [0.18, 0.20, 0.22, 0.0]);
     write_f32_values(&mut bytes[192..208], [0.20, 0.29, 0.40, 0.035]);

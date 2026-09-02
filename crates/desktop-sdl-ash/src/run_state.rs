@@ -85,17 +85,49 @@ pub struct DesktopRunOptions {
     /// capacity; the adapter allocates one host-visible ring per frame slot
     /// once and never rebuilds the render-content catalog to refresh it.
     pub dynamic_surfaces: Vec<DynamicSurfaceProfileV1>,
-    /// Bounded developer capture of one rendered frame (SPEC-04 diagnostics
-    /// only). The swapchain is created with transfer-source usage when set;
-    /// a surface without that usage fails closed before the first frame.
+    /// ADR-102: at most one presentation-only particle surface.
+    pub particle_surface: Option<crate::particle_surface::ParticleSurfaceProfileV1>,
+    /// Bounded developer capture of a short burst of rendered frames (SPEC-04
+    /// diagnostics only). The swapchain is created with transfer-source usage
+    /// when set; a surface without that usage fails closed before the first
+    /// frame.
     pub frame_capture: Option<DesktopFrameCaptureRequestV1>,
 }
 
-/// Which rendered frame to copy back to host memory.
+/// Which rendered frames to copy back to host memory.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesktopFrameCaptureRequestV1 {
-    /// Zero-based index among successfully submitted frames.
+    /// Zero-based index among successfully submitted frames of the first
+    /// captured frame.
     pub rendered_frame_index: u64,
+    /// Consecutive rendered frames to capture starting at that index;
+    /// clamped to `1..=MAX_FRAME_CAPTURE_BURST`.
+    pub frame_count: u32,
+}
+
+/// Upper bound on consecutive captured frames per run (host memory bound).
+pub const MAX_FRAME_CAPTURE_BURST: u32 = 8;
+
+impl DesktopFrameCaptureRequestV1 {
+    #[must_use]
+    pub const fn burst_length(&self) -> u32 {
+        if self.frame_count == 0 {
+            1
+        } else if self.frame_count > MAX_FRAME_CAPTURE_BURST {
+            MAX_FRAME_CAPTURE_BURST
+        } else {
+            self.frame_count
+        }
+    }
+
+    #[must_use]
+    pub const fn covers(&self, rendered_frame_index: u64) -> bool {
+        rendered_frame_index >= self.rendered_frame_index
+            && rendered_frame_index
+                < self
+                    .rendered_frame_index
+                    .saturating_add(self.burst_length() as u64)
+    }
 }
 
 /// One rendered frame in tightly packed sRGB-encoded RGBA8, top row first.
@@ -129,6 +161,7 @@ impl Default for DesktopRunOptions {
             prefer_borderless_fullscreen_when_display_matches: false,
             dynamic_surfaces: Vec::new(),
             frame_capture: None,
+            particle_surface: None,
         }
     }
 }
@@ -153,6 +186,8 @@ pub struct DesktopFrameTimingSample {
     pub command_record_microseconds: u64,
     pub queue_submit_microseconds: u64,
     pub present_wait_microseconds: u64,
+    /// GPU time of the ADR-102 particle surface pass (zero when not recorded).
+    pub particle_surface_gpu_microseconds: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -222,9 +257,19 @@ pub struct DesktopRunReport {
     pub dynamic_surface_draws: u64,
     /// Canonical hash of the current update per declared surface at exit.
     pub dynamic_surface_hashes: Vec<(AssetRevisionRefV1, ContentHash)>,
-    /// The requested developer capture, present only when that frame was
-    /// submitted and its copy completed.
-    pub captured_frame: Option<DesktopCapturedFrameV1>,
+    /// The requested developer captures in rendered-frame order; a frame is
+    /// present only when it was submitted and its copy completed.
+    pub captured_frames: Vec<DesktopCapturedFrameV1>,
+    /// ADR-102: whether the declared particle surface pass was constructed.
+    pub particle_surface_available: bool,
+    /// Frame-source publications accepted for the particle surface.
+    pub particle_surface_publications: u64,
+    /// Particle buffer refreshes across all frame slots.
+    pub particle_surface_uploads: u64,
+    /// Bytes copied into particle buffers across the whole run.
+    pub particle_surface_upload_bytes: u64,
+    /// Frames in which the particle surface pass was recorded.
+    pub particle_surface_frames: u64,
 }
 
 #[derive(Debug, Default)]

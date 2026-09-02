@@ -157,7 +157,7 @@ impl Drop for BufferAllocation {
     }
 }
 
-struct ImageAllocation {
+pub(super) struct ImageAllocation {
     device: ash::Device,
     image: vk::Image,
     memory: vk::DeviceMemory,
@@ -165,7 +165,7 @@ struct ImageAllocation {
 }
 
 impl ImageAllocation {
-    fn new(
+    pub(super) fn new(
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
@@ -235,8 +235,12 @@ impl ImageAllocation {
         })
     }
 
-    const fn allocation_size(&self) -> vk::DeviceSize {
+    pub(super) const fn allocation_size(&self) -> vk::DeviceSize {
         self.allocation_size
+    }
+
+    pub(super) const fn image(&self) -> vk::Image {
+        self.image
     }
 }
 

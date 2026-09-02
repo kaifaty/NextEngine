@@ -256,6 +256,9 @@ struct InteractiveRunCompletion {
     dynamic_surface_uploads: u64,
     dynamic_surface_upload_bytes: u64,
     dynamic_surface_draws: u64,
+    particle_surface_uploads: u64,
+    particle_surface_upload_bytes: u64,
+    particle_surface_frames: u64,
 }
 
 impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
@@ -284,6 +287,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         let dynamic_surfaces = RefCell::new(DynamicSurfaceState::new(
             &options.dynamic_surfaces,
             &render_content_catalog,
+            options.particle_surface,
         )?);
         if options.initial_extent[0] == 0 || options.initial_extent[1] == 0 {
             return Err(DesktopAdapterError::InvalidExtent);
@@ -439,6 +443,9 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let mut dynamic_surface_uploads = 0_u64;
             let mut dynamic_surface_upload_bytes = 0_u64;
             let mut dynamic_surface_draws = 0_u64;
+            let mut particle_surface_uploads = 0_u64;
+            let mut particle_surface_upload_bytes = 0_u64;
+            let mut particle_surface_frames = 0_u64;
 
             'application: loop {
                 let frame_started = Instant::now();
@@ -698,6 +705,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                     .render(
                         current_snapshot.as_ref(),
                         current_dynamic_surfaces.current(),
+                        current_dynamic_surfaces.current_particles(),
                         window,
                         event_and_frame_source_update_microseconds,
                         rendered_frames,
@@ -741,6 +749,15 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                         .checked_add(submitted.dynamic_surface_upload_bytes)
                         .ok_or(DesktopAdapterError::CounterOverflow)?;
                     dynamic_surface_draws = submitted.dynamic_surface_draws;
+                    particle_surface_uploads = particle_surface_uploads
+                        .checked_add(submitted.particle_surface_uploads)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    particle_surface_upload_bytes = particle_surface_upload_bytes
+                        .checked_add(submitted.particle_surface_upload_bytes)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    particle_surface_frames = particle_surface_frames
+                        .checked_add(u64::from(submitted.particle_surface_recorded))
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
                     pacing_clock
                         .borrow_mut()
                         .observe_frame_submission(Instant::now());
@@ -776,6 +793,9 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 dynamic_surface_uploads,
                 dynamic_surface_upload_bytes,
                 dynamic_surface_draws,
+                particle_surface_uploads,
+                particle_surface_upload_bytes,
+                particle_surface_frames,
             }
         };
         self.completion = Some(completion);
@@ -797,7 +817,8 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             device_allocation_count,
             frame_plan_metrics,
             ui_overlay_counters,
-            captured_frame,
+            captured_frames,
+            particle_surface_available,
         ) = {
             let graphics = self
                 .graphics
@@ -805,14 +826,15 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
             graphics.wait_idle()?;
             let (bytes, allocations) = graphics.device_allocation_stats()?;
-            let captured_frame = graphics.take_captured_frame()?;
+            let captured_frames = graphics.take_captured_frames()?;
             (
                 graphics.take_frame_profiling(),
                 bytes,
                 allocations,
                 graphics.frame_plan_metrics(),
                 graphics.ui_overlay_counters(),
-                captured_frame,
+                captured_frames,
+                graphics.particle_surface_available(),
             )
         };
         let report = DesktopRunReport {
@@ -862,7 +884,12 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             dynamic_surface_upload_bytes: completion.dynamic_surface_upload_bytes,
             dynamic_surface_draws: completion.dynamic_surface_draws,
             dynamic_surface_hashes: self.dynamic_surfaces.borrow().current_hashes(),
-            captured_frame,
+            captured_frames,
+            particle_surface_available,
+            particle_surface_publications: self.dynamic_surfaces.borrow().particle_publications(),
+            particle_surface_uploads: completion.particle_surface_uploads,
+            particle_surface_upload_bytes: completion.particle_surface_upload_bytes,
+            particle_surface_frames: completion.particle_surface_frames,
         };
         self.finalizer.finish();
         Ok(report)

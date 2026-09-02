@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8) / ALL-COMPONENT SURFACE (NGQ9) / 48K COST AND MATERIAL NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8) / ALL-COMPONENT SURFACE (NGQ9) / SCREEN-SPACE FLUID PROTOTYPE (NGQ10, ADR-102) / 48K COST AND LOOK NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -1330,6 +1330,32 @@
   step-cost decision is made under the solver contract, or the accepted
   dynamic corpus is extended past the wall phase with these layers.
 
+### D-052 — Screen-space fluid pass as the presentation candidate (NGQ10)
+
+- **Observation:** the height-field ring cannot show the falling jet from
+  the side, overhangs, stacked bodies or transparency, and every flicker
+  class so far came from its mask stages; the research note recommended a
+  screen-space particle pass.
+- **Evidence:** plan 24 and
+  `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md`:
+  `320 µs` GPU p95 for `12,000` particles at `1920x1080` (gate `2 ms`),
+  coverage flips `0.195%` between consecutive frames (gate `0.5%`),
+  catalog/snapshot/frame-plan roots identical across `mesh`, `particles`
+  and `both`; captures show one continuous jet and both bodies.
+- **Decision:** ADR-102 (Proposed) declares one bounded particle set
+  (`ParticleSurfaceProfileV1` / `ParticleSurfaceUpdateV1`, `<= 65,536`)
+  rendered by a separate `fluid_surface` shader suite after the world
+  pass; the stream carries particles as frame version 2; `water-preview
+  --surface particles|both` feeds it, `mesh` stays the default until the
+  look is accepted.
+- **Rejected:** marching cubes / SDF surfaces (CPU or compute mesh each
+  frame, larger budget, no benefit on the flicker classes) and a second B0
+  material path for translucency (cannot express thickness or overhangs).
+- **Reconsider when:** a solver-driven surface inside the game root needs
+  a different capacity or a non-B0 composite (deferred lighting, MSAA),
+  or when the interior stripe / bead look is judged unacceptable and a new
+  frozen revision changes radius or thickness smoothing.
+
 ### D-051 — Presentation surface keeps every water body (NGQ9)
 
 - **Observation:** the user saw small amounts of water appear and vanish,
@@ -1501,12 +1527,12 @@
 
 ## Next action
 
-1. Presentation: the research note
-   `docs/development/water-rendering-research-2026-09-02.md` recommends a
-   screen-space fluid pass (particle depth, narrow-range smoothing,
-   thickness, Fresnel/refraction composite) under its own Proposed ADR,
-   prototyped in the preview bridge with frozen cost and flicker gates;
-   the B0 water material remains the interim path.
+1. Presentation: NGQ10 ran the ADR-102 screen-space fluid prototype
+   (`water-preview --surface particles`, gates in plan 24). Next frozen
+   revision: decide the interior look (per-volume thickness smoothing,
+   anisotropic or larger splats for isolated droplets) with new gates
+   before touching any constant; the B0 water material remains the
+   default until then.
 2. Extend the accepted dynamic corpus past the wall phase with density-only
    layers (new roots, new evidence) when the solver contract admits them;
    the 48k game candidate is one density-only layer at `4.98 ms` physics

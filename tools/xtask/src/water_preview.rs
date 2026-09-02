@@ -33,7 +33,8 @@ use next_contracts::render_content::{
 #[cfg(feature = "desktop-sdl-ash")]
 use next_desktop_sdl_ash::{
     DesktopApplicationFinalization, DesktopFramePublicationV1, DynamicSurfaceProfileV1,
-    DynamicSurfaceResidencyV1, DynamicSurfaceUpdateV1,
+    DynamicSurfaceResidencyV1, DynamicSurfaceUpdateV1, ParticleSurfaceProfileV1,
+    ParticleSurfaceUpdateV1,
 };
 #[cfg(feature = "desktop-sdl-ash")]
 use next_render::{RenderTargetV1, build_b0_frame_plan};
@@ -75,15 +76,65 @@ pub(super) struct WaterPreviewRequest {
     device_local_ring: bool,
     /// Render until the window is closed instead of a bounded frame count.
     until_close: bool,
-    /// Copy one rendered frame to a PNG file (developer evidence only).
+    /// Copy one rendered frame burst to PNG files (developer evidence only).
     capture: Option<CaptureRequest>,
+    /// Which presentation path the stream feeds (NGQ10 / ADR-102).
+    surface: SurfaceMode,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct CaptureRequest {
     rendered_frame_index: u64,
+    /// Consecutive rendered frames to capture; the first one is written to
+    /// `png`, later ones next to it with the rendered frame index appended.
+    frame_count: u32,
     png: PathBuf,
 }
+
+/// Which surface presentation the preview feeds from the stream.
+///
+/// `Mesh` is the frozen NGQ5 height-field ring. `Particles` feeds the
+/// ADR-102 screen-space particle pass and collapses the ring to one
+/// zero-area placeholder triangle so the catalog, snapshot and frame-plan
+/// roots stay identical across modes. `Both` feeds the ring and the pass.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SurfaceMode {
+    Mesh,
+    Particles,
+    Both,
+}
+
+impl SurfaceMode {
+    const fn particles(self) -> bool {
+        matches!(self, Self::Particles | Self::Both)
+    }
+
+    #[cfg(feature = "desktop-sdl-ash")]
+    const fn mesh(self) -> bool {
+        matches!(self, Self::Mesh | Self::Both)
+    }
+
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Mesh => "mesh",
+            Self::Particles => "particles",
+            Self::Both => "both",
+        }
+    }
+}
+
+/// Upper bound on one capture burst; mirrors the adapter's host-memory bound.
+const MAX_CAPTURE_FRAMES: u32 = 8;
+
+/// ADR-102 prototype shading constants, fixed before the NGQ10 run.
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_RADIUS_MICROMETRES: u32 = 35_000;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_ABSORPTION_PER_METRE: [f32; 3] = [1.2, 0.5, 0.25];
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_REFRACTION_STRENGTH: f32 = 0.08;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_THICKNESS_SCALE: f32 = 1.0;
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
 #[derive(Clone, Debug, PartialEq)]
@@ -142,6 +193,8 @@ pub(super) fn parse_arguments(
     let mut until_close = false;
     let mut capture_frame: Option<u64> = None;
     let mut capture_png: Option<PathBuf> = None;
+    let mut capture_frames = 1_u32;
+    let mut surface = SurfaceMode::Mesh;
     let bounded_u32 = |arguments: &mut dyn Iterator<Item = String>,
                        name: &str,
                        low: u32,
@@ -161,6 +214,28 @@ pub(super) fn parse_arguments(
         match argument.as_str() {
             "--until-close" => {
                 until_close = true;
+            }
+            "--surface" => {
+                surface = match arguments
+                    .next()
+                    .ok_or_else(|| {
+                        "water-preview --surface requires mesh, particles or both".to_owned()
+                    })?
+                    .as_str()
+                {
+                    "mesh" => SurfaceMode::Mesh,
+                    "particles" => SurfaceMode::Particles,
+                    "both" => SurfaceMode::Both,
+                    _ => {
+                        return Err(
+                            "water-preview --surface must be mesh, particles or both".to_owned()
+                        );
+                    }
+                };
+            }
+            "--capture-frames" => {
+                capture_frames =
+                    bounded_u32(&mut arguments, "--capture-frames", 1, MAX_CAPTURE_FRAMES)?;
             }
             "--capture-frame" => {
                 capture_frame = Some(
@@ -394,6 +469,7 @@ pub(super) fn parse_arguments(
     let capture = match (capture_frame, capture_png) {
         (Some(rendered_frame_index), Some(png)) => Some(CaptureRequest {
             rendered_frame_index,
+            frame_count: capture_frames,
             png,
         }),
         (None, None) => None,
@@ -405,9 +481,15 @@ pub(super) fn parse_arguments(
     };
     if let Some(capture) = &capture
         && !until_close
-        && capture.rendered_frame_index >= frames
+        && capture
+            .rendered_frame_index
+            .saturating_add(u64::from(capture.frame_count))
+            > frames
     {
-        return Err("water-preview --capture-frame must be below --frames".to_owned());
+        return Err("water-preview capture burst must end below --frames".to_owned());
+    }
+    if surface.particles() && stream.is_none() {
+        return Err("water-preview --surface particles|both requires --stream-binary".to_owned());
     }
     Ok(WaterPreviewRequest {
         meshes,
@@ -418,6 +500,7 @@ pub(super) fn parse_arguments(
         device_local_ring,
         until_close,
         capture,
+        surface,
     })
 }
 
@@ -482,8 +565,10 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         frame_capture: request.capture.as_ref().map(|capture| {
             next_desktop_sdl_ash::DesktopFrameCaptureRequestV1 {
                 rendered_frame_index: capture.rendered_frame_index,
+                frame_count: capture.frame_count,
             }
         }),
+        particle_surface: preview.particle_profile,
         audio_output_enabled: false,
         dynamic_surfaces: dynamic
             .map(|dynamic| vec![dynamic.profile])
@@ -492,7 +577,11 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     };
     let mut feed = match (dynamic, stream_session.as_mut()) {
         (Some(dynamic), Some(session)) => {
-            session.start_conversion(dynamic.profile.mesh_revision);
+            session.start_conversion(
+                dynamic.profile.mesh_revision,
+                request.surface,
+                preview.bounds.min(),
+            );
             DynamicFeed::Stream(Box::new(StreamFeed::new(session, request)?))
         }
         (Some(_), None) => DynamicFeed::Keyframes(KeyframeFeed::default()),
@@ -504,10 +593,15 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             &preview.catalog,
             &options,
             |_events, elapsed, _audio| {
-                let update = feed.next_update(request, dynamic, elapsed)?;
+                let publication = feed.next_update(request, dynamic, elapsed)?;
+                let (mesh, particles) = match publication {
+                    Some(publication) => (Some(publication.mesh), publication.particles),
+                    None => (None, None),
+                };
                 Ok(DesktopFramePublicationV1 {
                     snapshot: None,
-                    dynamic_surface_updates: update.into_iter().map(Arc::new).collect(),
+                    dynamic_surface_updates: mesh.into_iter().map(Arc::new).collect(),
+                    particle_surface_update: particles.map(Arc::new),
                 })
             },
             || DesktopApplicationFinalization::Complete,
@@ -531,27 +625,107 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     {
         return Err("water-preview Vulkan report does not contain the planned draw".to_owned());
     }
-    let capture_json = match (&request.capture, &report.captured_frame) {
-        (Some(capture), Some(frame)) => {
-            let png = encode_png_rgba8(frame.extent, &frame.rgba8)?;
-            std::fs::write(&capture.png, &png)
-                .map_err(|error| format!("{}: {error}", capture.png.display()))?;
+    let capture_json = match &request.capture {
+        Some(capture) => {
+            if report.captured_frames.len() != capture.frame_count as usize {
+                return Err(format!(
+                    "water-preview captured {} of {} frames from {}",
+                    report.captured_frames.len(),
+                    capture.frame_count,
+                    capture.rendered_frame_index
+                ));
+            }
+            let mut frames = Vec::with_capacity(report.captured_frames.len());
+            for (index, frame) in report.captured_frames.iter().enumerate() {
+                // The particle pass leaves alpha 0 on fluid pixels as its
+                // coverage channel; the evidence PNG is written opaque so
+                // viewers show the shaded colour, and coverage is measured
+                // on the raw capture below.
+                let mut opaque = frame.rgba8.clone();
+                for pixel in opaque.chunks_exact_mut(4) {
+                    pixel[3] = u8::MAX;
+                }
+                let png = encode_png_rgba8(frame.extent, &opaque)?;
+                let path = if index == 0 {
+                    capture.png.clone()
+                } else {
+                    capture_burst_path(&capture.png, frame.rendered_frame_index)
+                };
+                std::fs::write(&path, &png)
+                    .map_err(|error| format!("{}: {error}", path.display()))?;
+                frames.push(serde_json::json!({
+                    "rendered_frame_index": frame.rendered_frame_index,
+                    "extent": frame.extent,
+                    "png": path,
+                    "png_sha256": format!("{:x}", Sha256::digest(&png)),
+                    "rgba8_sha256": format!("{:x}", Sha256::digest(&frame.rgba8)),
+                    "fluid_coverage_fraction": preview
+                        .particle_profile
+                        .is_some()
+                        .then(|| fluid_coverage_fraction(&frame.rgba8)),
+                }));
+            }
+            // NGQ10 G3 apparatus: the composite stage writes alpha 0 on fluid
+            // pixels, so a coverage flip is an alpha change between
+            // consecutive captured frames.
+            let flips = report
+                .captured_frames
+                .windows(2)
+                .map(|pair| fluid_coverage_flip_fraction(&pair[0].rgba8, &pair[1].rgba8))
+                .collect::<Vec<_>>();
             Some(serde_json::json!({
-                "rendered_frame_index": frame.rendered_frame_index,
-                "extent": frame.extent,
-                "png": capture.png,
-                "png_sha256": format!("{:x}", Sha256::digest(&png)),
-                "rgba8_sha256": format!("{:x}", Sha256::digest(&frame.rgba8)),
+                "frames": frames,
+                "coverage_flip_fractions": preview.particle_profile.is_some().then_some(&flips),
+                "coverage_flip_fraction_max": preview.particle_profile.is_some().then(|| {
+                    flips.iter().copied().fold(0.0_f64, f64::max)
+                }),
             }))
         }
-        (Some(capture), None) => {
-            return Err(format!(
-                "water-preview did not reach capture frame {}",
-                capture.rendered_frame_index
-            ));
-        }
-        (None, _) => None,
+        None => None,
     };
+    let particle_surface_json = preview
+        .particle_profile
+        .map(|profile| {
+            if !report.particle_surface_available {
+                return Err(
+                    "water-preview particle surface pass is unavailable on this device".to_owned(),
+                );
+            }
+            if report.particle_surface_publications != feed_summary.particle_publications {
+                return Err(
+                    "water-preview adapter accepted a different particle publication count"
+                        .to_owned(),
+                );
+            }
+            let gpu_samples = report
+                .frame_timings
+                .iter()
+                .filter(|sample| sample.particle_surface_gpu_microseconds != 0)
+                .map(|sample| sample.particle_surface_gpu_microseconds)
+                .collect::<Vec<_>>();
+            Ok(serde_json::json!({
+                "available": report.particle_surface_available,
+                "profile": {
+                    "particle_capacity": profile.particle_capacity,
+                    "radius_micrometres": profile.radius_micrometres,
+                    "absorption_per_metre": profile.absorption_per_metre,
+                    "refraction_strength": profile.refraction_strength,
+                    "thickness_scale": profile.thickness_scale,
+                },
+                "publications": report.particle_surface_publications,
+                "uploads": report.particle_surface_uploads,
+                "upload_bytes": report.particle_surface_upload_bytes,
+                "frames_recorded": report.particle_surface_frames,
+                "last_particle_count": feed_summary.last_particle_count,
+                "max_particle_count": feed_summary.max_particle_count,
+                "last_update_hash": feed_summary.last_particle_hash.map(|hash| hash.to_hex()),
+                "gpu_frames_sampled": gpu_samples.len(),
+                "gpu_p95_us": nearest_rank(&gpu_samples, 95),
+                "gpu_p99_us": nearest_rank(&gpu_samples, 99),
+                "gpu_max_us": gpu_samples.iter().copied().max(),
+            }))
+        })
+        .transpose()?;
     if let Some(dynamic) = dynamic {
         if report.dynamic_surface_publications != feed_summary.publications {
             return Err("water-preview adapter accepted a different publication count".to_owned());
@@ -561,9 +735,20 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         }
         let slot_count = u64::try_from(next_desktop_sdl_ash::DESKTOP_FRAME_SLOT_COUNT)
             .map_err(|_| "water-preview frame slot count overflow".to_owned())?;
-        if report.dynamic_surface_uploads < feed_summary.publications
-            || report.dynamic_surface_uploads > feed_summary.publications.saturating_mul(slot_count)
-        {
+        // Particles-only publishes the same placeholder every frame, which
+        // the ring de-duplicates by hash: at most one refresh per slot.
+        let (lower, upper) = if request.surface.mesh() {
+            (
+                feed_summary.publications,
+                feed_summary.publications.saturating_mul(slot_count),
+            )
+        } else {
+            (
+                feed_summary.publications.min(1),
+                feed_summary.publications.min(slot_count),
+            )
+        };
+        if report.dynamic_surface_uploads < lower || report.dynamic_surface_uploads > upper {
             return Err(
                 "water-preview ring refresh count is outside the publication bound".to_owned(),
             );
@@ -705,6 +890,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "status": "PASS",
             "authority": "PRESENTATION_ONLY_TOOL",
             "mode": mode,
+            "surface": request.surface.name(),
             "ring_residency": if request.device_local_ring { "device-local" } else { "host-visible" },
             "keyframes": keyframes,
             "hold_pumps": request.hold,
@@ -731,6 +917,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "physics_feedback": false,
             "timing": timing,
             "dynamic_surface": dynamic_surface,
+            "particle_surface": particle_surface_json,
             "stream": stream,
             "capture": capture_json,
             "until_close": request.until_close,
@@ -742,9 +929,10 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
 #[cfg(not(feature = "desktop-sdl-ash"))]
 pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     Err(format!(
-        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}, {} ring, until-close {}, capture {:?}) requires --features desktop-sdl-ash",
+        "water-preview for {} keyframe(s), stream {:?}, surface {} ({} frames at {}x{}, hold {}, {} ring, until-close {}, capture {:?}) requires --features desktop-sdl-ash",
         request.meshes.len(),
         request.stream.as_ref().map(|stream| stream.lane.as_str()),
+        request.surface.name(),
         request.frames,
         request.extent[0],
         request.extent[1],
@@ -760,6 +948,44 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             .as_ref()
             .map(|capture| capture.rendered_frame_index)
     ))
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+/// `<stem>-<rendered frame index>.png` next to the first capture.
+#[cfg(feature = "desktop-sdl-ash")]
+fn capture_burst_path(first: &Path, rendered_frame_index: u64) -> PathBuf {
+    let stem = first
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("capture");
+    first.with_file_name(format!("{stem}-{rendered_frame_index}.png"))
+}
+
+/// Fraction of pixels the particle pass covered (alpha written as 0).
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn fluid_coverage_fraction(rgba8: &[u8]) -> f64 {
+    let pixels = rgba8.len() / 4;
+    if pixels == 0 {
+        return 0.0;
+    }
+    let covered = rgba8.chunks_exact(4).filter(|pixel| pixel[3] == 0).count();
+    covered as f64 / pixels as f64
+}
+
+/// Fraction of pixels whose particle coverage differs between two captures
+/// of the same extent (NGQ10 G3).
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn fluid_coverage_flip_fraction(previous: &[u8], next: &[u8]) -> f64 {
+    let pixels = previous.len().min(next.len()) / 4;
+    if pixels == 0 {
+        return 0.0;
+    }
+    let flips = previous
+        .chunks_exact(4)
+        .zip(next.chunks_exact(4))
+        .filter(|(a, b)| (a[3] == 0) != (b[3] == 0))
+        .count();
+    flips as f64 / pixels as f64
 }
 
 #[cfg(any(feature = "desktop-sdl-ash", test))]
@@ -846,6 +1072,7 @@ struct ConvertedStreamFrame {
     extraction_ms: f64,
     physics_ms: f64,
     update: DynamicSurfaceUpdateV1,
+    particles: Option<ParticleSurfaceUpdateV1>,
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -961,7 +1188,12 @@ impl StreamSession {
     }
 
     /// Moves normal reconstruction and update hashing off the render thread.
-    fn start_conversion(&mut self, mesh_revision: next_contracts::project::AssetRevisionRefV1) {
+    fn start_conversion(
+        &mut self,
+        mesh_revision: next_contracts::project::AssetRevisionRefV1,
+        surface: SurfaceMode,
+        placeholder_vertex: [i64; 3],
+    ) {
         let Some(frames) = self.frames.take() else {
             return;
         };
@@ -976,15 +1208,36 @@ impl StreamSession {
             let mut convert =
                 |frame: super::water_stream::StreamFrame| -> Result<ConvertedStreamFrame, String> {
                     sequence += 1;
-                    let normals = smooth_normals(&frame.positions_micrometres, &frame.indices)?;
-                    let update = DynamicSurfaceUpdateV1::new(
-                        mesh_revision,
-                        sequence,
-                        frame.positions_micrometres,
-                        normals,
-                        frame.indices,
-                    )
+                    let update = if surface.mesh() {
+                        let normals = smooth_normals(&frame.positions_micrometres, &frame.indices)?;
+                        DynamicSurfaceUpdateV1::new(
+                            mesh_revision,
+                            sequence,
+                            frame.positions_micrometres,
+                            normals,
+                            frame.indices,
+                        )
+                    } else {
+                        // Particles-only: keep the declared ring draw but
+                        // collapse it to one zero-area triangle so nothing
+                        // of the height field shows under the particle pass.
+                        DynamicSurfaceUpdateV1::new(
+                            mesh_revision,
+                            sequence,
+                            vec![placeholder_vertex; 3],
+                            vec![[0, i16::MAX, 0]; 3],
+                            vec![0, 1, 2],
+                        )
+                    }
                     .map_err(|error| error.to_string())?;
+                    let particles = if surface.particles() {
+                        Some(
+                            ParticleSurfaceUpdateV1::new(sequence, frame.particles_micrometres)
+                                .map_err(|error| error.to_string())?,
+                        )
+                    } else {
+                        None
+                    };
                     Ok(ConvertedStreamFrame {
                         step: frame.step,
                         cycle: frame.cycle,
@@ -995,6 +1248,7 @@ impl StreamSession {
                         extraction_ms: frame.extraction_ms,
                         physics_ms: frame.physics_ms,
                         update,
+                        particles,
                     })
                 };
             if let Some(first) = first
@@ -1074,6 +1328,10 @@ struct FeedSummary {
     last_cycle: Option<i32>,
     extraction_ms: Vec<f64>,
     physics_ms: Vec<f64>,
+    particle_publications: u64,
+    last_particle_hash: Option<next_contracts::ids::ContentHash>,
+    last_particle_count: u32,
+    max_particle_count: u32,
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -1112,7 +1370,7 @@ impl StreamFeed {
 
     /// Publishes the newest frame whose stream time has been reached by the
     /// paced wall clock; earlier eligible frames are skipped, never queued.
-    fn next(&mut self, elapsed: Duration) -> Option<DynamicSurfaceUpdateV1> {
+    fn next(&mut self, elapsed: Duration) -> Option<StreamPublication> {
         self.summary.wall_seconds += elapsed.as_secs_f64();
         let budget = if self.rate == 0.0 {
             f64::INFINITY
@@ -1150,8 +1408,28 @@ impl StreamFeed {
         self.summary.last_cycle = Some(frame.cycle);
         self.summary.extraction_ms.push(frame.extraction_ms);
         self.summary.physics_ms.push(frame.physics_ms);
-        Some(frame.update)
+        if let Some(particles) = frame.particles.as_ref() {
+            self.summary.particle_publications += 1;
+            self.summary.last_particle_hash = Some(particles.canonical_hash());
+            self.summary.last_particle_count = particles.particle_count();
+            self.summary.max_particle_count = self
+                .summary
+                .max_particle_count
+                .max(particles.particle_count());
+        }
+        Some(StreamPublication {
+            mesh: frame.update,
+            particles: frame.particles,
+        })
     }
+}
+
+/// One stream frame ready for the adapter: the ring update and, when the
+/// particle pass is fed, the matching particle set of the same solver step.
+#[cfg(feature = "desktop-sdl-ash")]
+struct StreamPublication {
+    mesh: DynamicSurfaceUpdateV1,
+    particles: Option<ParticleSurfaceUpdateV1>,
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -1168,7 +1446,7 @@ impl DynamicFeed {
         request: &WaterPreviewRequest,
         dynamic: &DynamicPreview,
         elapsed: Duration,
-    ) -> Result<Option<DynamicSurfaceUpdateV1>, next_desktop_sdl_ash::DesktopAdapterError> {
+    ) -> Result<Option<StreamPublication>, next_desktop_sdl_ash::DesktopAdapterError> {
         match self {
             Self::Static => Ok(None),
             Self::Keyframes(feed) => {
@@ -1184,7 +1462,10 @@ impl DynamicFeed {
                     .update
                     .with_sequence(feed.publications)?;
                 feed.last_hash = Some(update.canonical_hash());
-                Ok(Some(update))
+                Ok(Some(StreamPublication {
+                    mesh: update,
+                    particles: None,
+                }))
             }
             Self::Stream(feed) => Ok(feed.next(elapsed)),
         }
@@ -1210,6 +1491,10 @@ impl DynamicFeed {
                 last_cycle: feed.summary.last_cycle,
                 extraction_ms: feed.summary.extraction_ms.clone(),
                 physics_ms: feed.summary.physics_ms.clone(),
+                particle_publications: feed.summary.particle_publications,
+                last_particle_hash: feed.summary.last_particle_hash,
+                last_particle_count: feed.summary.last_particle_count,
+                max_particle_count: feed.summary.max_particle_count,
             },
         }
     }
@@ -1244,6 +1529,8 @@ struct WaterPreview {
     frame_plan_root: next_contracts::ids::ContentHash,
     keyframes: Vec<PreviewKeyframe>,
     dynamic: Option<DynamicPreview>,
+    /// ADR-102 particle surface declaration when the stream feeds the pass.
+    particle_profile: Option<ParticleSurfaceProfileV1>,
     visible_object_count: u32,
     indexed_draw_count: u32,
 }
@@ -1335,6 +1622,16 @@ fn build_preview(
         }
     };
     let first = &parsed[0];
+    let particle_profile = (request.surface.particles() && request.stream.is_some()).then_some(
+        ParticleSurfaceProfileV1 {
+            particle_capacity: next_desktop_sdl_ash::MAX_PARTICLE_SURFACE_PARTICLES,
+            radius_micrometres: PARTICLE_SURFACE_RADIUS_MICROMETRES,
+            bounds,
+            absorption_per_metre: PARTICLE_SURFACE_ABSORPTION_PER_METRE,
+            refraction_strength: PARTICLE_SURFACE_REFRACTION_STRENGTH,
+            thickness_scale: PARTICLE_SURFACE_THICKNESS_SCALE,
+        },
+    );
     let mut source =
         next_reference_game::project_source_v7_with_id("org.nextengine.developer.water-preview")
             .map_err(|error| error.to_string())?;
@@ -1690,6 +1987,7 @@ fn build_preview(
         frame_plan_root: frame_plan.frame_plan_hash,
         keyframes,
         dynamic,
+        particle_profile,
         visible_object_count: frame_plan.visible_object_count,
         indexed_draw_count: frame_plan.indexed_draw_count,
     })
@@ -1913,6 +2211,7 @@ fn smooth_normals(positions: &[[i64; 3]], indices: &[u32]) -> Result<Vec<[i16; 3
 type MeshFace = ([[i64; 3]; 4], [i16; 3]);
 
 /// Six outward faces of one solid box (winding follows the normal).
+#[cfg(feature = "desktop-sdl-ash")]
 fn solid_box_faces(minimum: [i64; 3], maximum: [i64; 3]) -> [MeshFace; 6] {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
@@ -1949,9 +2248,12 @@ fn solid_box_faces(minimum: [i64; 3], maximum: [i64; 3]) -> [MeshFace; 6] {
 /// divider pieces around the opening, in the solver's metres. The geometry
 /// mirrors the `spill` lane of the research tool and is presentation only.
 /// Opening window of the spill divider in micrometres: `(y0, y1, z0, z1)`.
+#[cfg(feature = "desktop-sdl-ash")]
 const SPILL_OPENING_WIDE: (i64, i64, i64, i64) = (1_000_000, 1_300_000, 500_000, 1_000_000);
+#[cfg(feature = "desktop-sdl-ash")]
 const SPILL_OPENING_NARROW: (i64, i64, i64, i64) = (1_000_000, 1_150_000, 650_000, 850_000);
 
+#[cfg(feature = "desktop-sdl-ash")]
 fn spill_mesh(
     schema: next_contracts::project::SchemaRefV1,
     bounds: AabbI64V1,
@@ -1974,6 +2276,7 @@ fn spill_mesh(
 }
 
 /// Floor plus four inward-facing walls of the basin bounds.
+#[cfg(feature = "desktop-sdl-ash")]
 fn basin_faces(bounds: AabbI64V1) -> Vec<MeshFace> {
     let [x0, y0, z0] = bounds.min();
     let [x1, y1, z1] = bounds.max();
@@ -2002,6 +2305,7 @@ fn basin_faces(bounds: AabbI64V1) -> Vec<MeshFace> {
     ]
 }
 
+#[cfg(feature = "desktop-sdl-ash")]
 fn basin_mesh(
     schema: next_contracts::project::SchemaRefV1,
     bounds: AabbI64V1,
@@ -2010,6 +2314,7 @@ fn basin_mesh(
     mesh_from_faces(schema, bounds, &faces)
 }
 
+#[cfg(feature = "desktop-sdl-ash")]
 fn mesh_from_faces(
     schema: next_contracts::project::SchemaRefV1,
     bounds: AabbI64V1,
@@ -2114,6 +2419,17 @@ mod tests {
     }
 
     #[test]
+    fn fluid_coverage_counts_alpha_zero_pixels_and_flips() {
+        // Four pixels: alpha 0 marks fluid coverage.
+        let first = [0, 0, 0, 0, 9, 9, 9, 255, 1, 1, 1, 0, 5, 5, 5, 255];
+        let second = [0, 0, 0, 255, 9, 9, 9, 255, 1, 1, 1, 0, 5, 5, 5, 0];
+        assert_eq!(fluid_coverage_fraction(&first), 0.5);
+        assert_eq!(fluid_coverage_fraction(&[]), 0.0);
+        assert_eq!(fluid_coverage_flip_fraction(&first, &second), 0.5);
+        assert_eq!(fluid_coverage_flip_fraction(&first, &first), 0.0);
+    }
+
+    #[test]
     fn arguments_accept_repeated_keyframes_and_hold() {
         let root = Path::new("/root");
         let request = parse_arguments(
@@ -2190,6 +2506,7 @@ mod tests {
             device_local_ring: true,
             until_close: false,
             capture: None,
+            surface: SurfaceMode::Mesh,
         };
         let source = PreviewSource::Keyframes(
             request
@@ -2233,6 +2550,7 @@ mod tests {
             device_local_ring: true,
             until_close: false,
             capture: None,
+            surface: SurfaceMode::Mesh,
         };
         let source = PreviewSource::Keyframes(
             request

@@ -9,6 +9,13 @@ const UI_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ui_overlay.vert
 const UI_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ui_overlay.frag.spv");
 const SKY_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_gradient.vert.spv");
 const SKY_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_gradient.frag.spv");
+const FLUID_SPLAT_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_splat.vert.spv");
+const FLUID_SPLAT_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_splat.frag.spv");
+const FLUID_SCREEN_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_screen.vert.spv");
+const FLUID_FILTER_FRAGMENT_SHADER_BYTES: &[u8] =
+    include_bytes!("../shaders/fluid_filter.frag.spv");
+const FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES: &[u8] =
+    include_bytes!("../shaders/fluid_composite.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -71,6 +78,29 @@ pub(super) fn sky_shader_modules() -> Result<B0ShaderModules, &'static str> {
     })
 }
 
+/// ADR-102 presentation-only particle surface suite: sphere splat with two
+/// colour outputs, fullscreen vertex, separable smoothing and composite.
+pub(super) struct FluidShaderModules {
+    pub(super) splat_vertex: Vec<u32>,
+    pub(super) splat_fragment: Vec<u32>,
+    pub(super) screen_vertex: Vec<u32>,
+    pub(super) filter_fragment: Vec<u32>,
+    pub(super) composite_fragment: Vec<u32>,
+}
+
+pub(super) fn fluid_shader_modules() -> Result<FluidShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"fluid_suite\": \"fluid_surface\"") {
+        return Err("embedded fluid shader manifest is invalid");
+    }
+    Ok(FluidShaderModules {
+        splat_vertex: decode_spirv(FLUID_SPLAT_VERTEX_SHADER_BYTES)?,
+        splat_fragment: decode_spirv(FLUID_SPLAT_FRAGMENT_SHADER_BYTES)?,
+        screen_vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        filter_fragment: decode_spirv(FLUID_FILTER_FRAGMENT_SHADER_BYTES)?,
+        composite_fragment: decode_spirv(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
 fn decode_spirv(bytes: &[u8]) -> Result<Vec<u32>, &'static str> {
     if bytes.len() < 20 || !bytes.len().is_multiple_of(4) {
         return Err("embedded SPIR-V module has an invalid byte length");
@@ -128,6 +158,29 @@ mod tests {
             hex(sha256(SKY_FRAGMENT_SHADER_BYTES)),
             "b0b6682b742f4486ce03b46802e71f34003ac2bd026f6fba55b27c6170f4dd00"
         );
+        assert_eq!(
+            hex(sha256(FLUID_SPLAT_VERTEX_SHADER_BYTES)),
+            "05aeeaa6f3751000e6c71502ae42bbe663aa9a24c34360888a2e6bd6962fbe8e"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_SPLAT_FRAGMENT_SHADER_BYTES)),
+            "1b207383e03cd6648d64932a1288c680c5f66dea51c219d8bc25016842712f7e"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_SCREEN_VERTEX_SHADER_BYTES)),
+            "e01d54a40327a65a5c888c1b49b001eefce41cf9a8a9c19b20f3001dc7977446"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_FILTER_FRAGMENT_SHADER_BYTES)),
+            "b43f8681d5144a5f0a777281b8e6a5ab13de7d4e311fecbde90819b1636a4ae8"
+        );
+        assert_eq!(
+            hex(sha256(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)),
+            "348eef11772394ea2f32243de32c9c13bedffd308ef30c968df1c9e38d5d8b92"
+        );
+        let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
+        assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);
+        assert_eq!(fluid.composite_fragment[0], SPIRV_MAGIC);
         assert!(B0_SHADER_MANIFEST.contains("\"schema_version\": 1"));
         assert!(B0_SHADER_MANIFEST.contains(
             "\"interface_contract_sha256\": \

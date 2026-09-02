@@ -54,3 +54,42 @@ The absolute installation path is deliberately excluded because it is not a
 portable build input. That compiler executable is 7,572,296 bytes and has
 SHA-256
 `0b7b2ea92af3f4b74f4bea9b4389dd2bbda3bed345cc8fece8a8d22bcf7b9d7f`.
+
+## Fluid surface suite (ADR-102, presentation-only)
+
+`fluid_splat`, `fluid_screen`, `fluid_filter` and `fluid_composite` form the
+separate `fluid_surface` suite: the screen-space particle surface pass that
+runs after the opaque world pass and before the UI overlay. The suite does
+not touch the closed `B0ShaderInterfaceV2` contract (`interface_contract_sha256`
+is unchanged); its own descriptor and push-constant layout is recorded under
+`fluid_suite_compiler.interface` in `manifest.json`. All values are
+renderer-local and never enter gameplay, persistence or replay authority.
+
+The suite was compiled with a different pinned compiler, the `glslang`
+binary shipped by the `kf6-core24` snap on the Linux host:
+
+```text
+glslangValidator
+Glslang Version: 11:15.1.0
+GLSL Version: 4.60 glslang Khronos. 15.1.0
+SPIR-V Version 0x00010600, Revision 1
+Khronos Tool ID 8
+SPIR-V Generator Version 11
+```
+
+That executable is 7,923,264 bytes and has SHA-256
+`96ea85d4228d7065507cd58454628e0d3c9ec8bbd29a0cd20ee0f3cefaf6d026`. The
+absolute snap path is deliberately excluded because it is not a portable build
+input. Commands, executed with this directory as the current directory:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o fluid_splat.vert.spv fluid_splat.vert
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_splat.frag.spv fluid_splat.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o fluid_screen.vert.spv fluid_screen.vert
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_filter.frag.spv fluid_filter.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_composite.frag.spv fluid_composite.frag
+```
+
+The `vulkan1.2` target emits SPIR-V 1.5 from this compiler as well, so the
+fluid modules are valid inputs to the engine's Vulkan 1.3 baseline. Source and
+module hashes are pinned in `manifest.json` next to the B0 entries.

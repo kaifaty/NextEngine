@@ -9805,7 +9805,8 @@ CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
 namespace {
 
 constexpr char GAME_SURFACE_STREAM_MAGIC[4] = {'N', 'E', 'W', 'S'};
-constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 1U;
+// Version 2 (NGQ10) appends the fluid particle positions after the indices.
+constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 2U;
 constexpr std::uint64_t GAME_SURFACE_STREAM_AUDIT_FRAMES = 60U;
 
 template <typename T>
@@ -9823,7 +9824,8 @@ bool write_presentation_surface_stream_frame(
     const GameQualityBox& box,
     int cycle,
     double simulation_seconds,
-    double physics_ms) {
+    double physics_ms,
+    const std::vector<Particle>& particles) {
     if (!frame.valid || frame.mesh_vertices == 0U || frame.mesh_triangles == 0U) {
         return false;
     }
@@ -9874,6 +9876,14 @@ bool write_presentation_surface_stream_frame(
                 triangles += 2U;
             }
         }
+    }
+    // Version 2: the fluid particle set (binary32 metres) for the ADR-102
+    // screen-space pass; the reader bounds the count.
+    write_stream_pod<std::uint64_t>(out, static_cast<std::uint64_t>(particles.size()));
+    for (const Particle& particle : particles) {
+        write_stream_pod<float>(out, static_cast<float>(particle.position.x));
+        write_stream_pod<float>(out, static_cast<float>(particle.position.y));
+        write_stream_pod<float>(out, static_cast<float>(particle.position.z));
     }
     out.flush();
     return static_cast<bool>(out) && vertex == frame.mesh_vertices
@@ -10728,7 +10738,8 @@ private:
             if (failure.empty() && frame_ready
                 && !write_presentation_surface_stream_frame(
                     serialized, frame, box_, job.cycle,
-                    static_cast<double>(job.step) * GAME_TIME_STEP, job.physics_ms)) {
+                    static_cast<double>(job.step) * GAME_TIME_STEP, job.physics_ms,
+                    job.fluid)) {
                 failure = "surface_serialization";
             }
             const double frame_wall_ms = std::chrono::duration<double, std::milli>(

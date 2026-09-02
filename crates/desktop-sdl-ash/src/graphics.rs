@@ -2,7 +2,11 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
-use crate::gpu_content::{B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState};
+use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
+use crate::gpu_content::{
+    B0_SUN_DIRECTION_INTENSITY, B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState,
+};
+use crate::particle_surface::{ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1};
 use crate::run_state::{DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 mod capabilities;
@@ -36,15 +40,19 @@ pub(super) struct GraphicsContext {
     next_frame_slot: usize,
     frame_profiler: Option<VulkanFrameProfiler>,
     capture: Option<FrameCaptureState>,
+    /// ADR-102 presentation-only particle surface pass, when declared and
+    /// supported by the device and surface.
+    particle_surface_profile: Option<ParticleSurfaceProfileV1>,
+    fluid: Option<FluidPassState>,
+    particle_surface_available: bool,
 }
 
-/// Bounded developer capture of one frame: a host-visible destination and the
-/// pending copy recorded in that frame's command buffer.
+/// Bounded developer capture of a short frame burst: one host-visible
+/// destination per captured frame and the pending copy recorded in that
+/// frame's command buffer. Buffers are read back only after the device idles.
 struct FrameCaptureState {
     request: DesktopFrameCaptureRequestV1,
-    buffer: Option<BufferAllocation>,
-    pending: Option<PendingFrameCapture>,
-    captured: Option<DesktopCapturedFrameV1>,
+    pending: Vec<(PendingFrameCapture, BufferAllocation)>,
 }
 
 #[derive(Clone, Copy)]
@@ -75,6 +83,11 @@ struct SwapchainState {
     initialized: Vec<bool>,
     depth_initialized: Vec<bool>,
     images_in_flight: Vec<vk::Fence>,
+    /// Whether the presentation engine ignores the alpha channel, which lets
+    /// the particle surface pass use alpha as its coverage diagnostic.
+    opaque_composite: bool,
+    /// Whether the images carry transfer-source usage (capture, scene copy).
+    transfer_source: bool,
 }
 
 impl Drop for SwapchainState {
@@ -172,6 +185,9 @@ pub(super) struct SubmittedB0Frame {
     pub(super) dynamic_surface_uploads: u64,
     pub(super) dynamic_surface_upload_bytes: u64,
     pub(super) dynamic_surface_draws: u64,
+    pub(super) particle_surface_uploads: u64,
+    pub(super) particle_surface_upload_bytes: u64,
+    pub(super) particle_surface_recorded: bool,
 }
 
 impl GraphicsContext {
@@ -276,6 +292,7 @@ impl GraphicsContext {
             vk::SwapchainKHR::null(),
             &mut old_swapchain_retired,
             options.frame_capture.is_some(),
+            options.particle_surface.is_some(),
         )?;
         debug_assert!(!old_swapchain_retired);
         initialization.swapchain = swapchain;
@@ -361,6 +378,14 @@ impl GraphicsContext {
                 )
             },
         );
+        let (fluid, particle_surface_available) = create_fluid_pass(
+            &instance,
+            physical_device,
+            &device,
+            options.particle_surface,
+            initialization.swapchain.as_ref(),
+            frame_slots.len(),
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -395,10 +420,11 @@ impl GraphicsContext {
             frame_profiler,
             capture: options.frame_capture.map(|request| FrameCaptureState {
                 request,
-                buffer: None,
-                pending: None,
-                captured: None,
+                pending: Vec::new(),
             }),
+            particle_surface_profile: options.particle_surface,
+            fluid,
+            particle_surface_available,
         })
     }
 
@@ -406,6 +432,7 @@ impl GraphicsContext {
         &mut self,
         snapshot: &PresentationSnapshotV3,
         dynamic_surfaces: &BTreeMap<AssetRevisionRefV1, Arc<DynamicSurfaceUpdateV1>>,
+        particles: Option<&Arc<ParticleSurfaceUpdateV1>>,
         window: &Window,
         event_and_frame_source_update_microseconds: u64,
         rendered_frame_index: u64,
@@ -537,6 +564,10 @@ impl GraphicsContext {
         cpu_phases.dynamic_surface_upload_microseconds =
             elapsed_microseconds(dynamic_surface_upload_started)?;
         cpu_phases.dynamic_surface_uploads = dynamic_surface_uploads.uploads;
+        let particle_uploads = match self.fluid.as_mut() {
+            Some(fluid) => fluid.prepare(particles, frame_slot_index)?,
+            None => FluidUploadStats::default(),
+        };
         let command_record_started = profiling_enabled.then(Instant::now);
         b0_content.record_dynamic_surface_uploads(frame_slot.command_buffer, frame_slot_index)?;
         b0_content.record_shadow(
@@ -631,11 +662,17 @@ impl GraphicsContext {
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE)
             .clear_value(color_clear)];
+        let particle_pass_this_frame = self.fluid.is_some() && particle_uploads.particle_count > 0;
         let depth_attachment = vk::RenderingAttachmentInfo::default()
             .image_view(swapchain.depth_attachments[image_usize].view())
             .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::DONT_CARE)
+            // The particle surface pass depth-tests against the opaque scene.
+            .store_op(if particle_pass_this_frame {
+                vk::AttachmentStoreOp::STORE
+            } else {
+                vk::AttachmentStoreOp::DONT_CARE
+            })
             .clear_value(depth_clear);
         let render_area = vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
@@ -659,6 +696,50 @@ impl GraphicsContext {
             swapchain.extent,
             frame_slot_index,
         )?;
+        let mut particle_surface_recorded = false;
+        if let Some(profiler) = self.frame_profiler.as_ref() {
+            profiler.write_particle_surface(frame_slot.command_buffer, frame_slot_index, false)?;
+        }
+        if particle_pass_this_frame && let Some(fluid) = self.fluid.as_mut() {
+            // SAFETY: the opaque world rendering instance ends before the
+            // pass copies the swapchain colour and samples the scene depth.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            particle_surface_recorded = fluid.record(
+                frame_slot.command_buffer,
+                frame_slot_index,
+                frame_plan.camera.as_ref(),
+                swapchain.images[image_usize],
+                swapchain.image_views[image_usize],
+                swapchain.depth_attachments[image_usize].view(),
+                B0_SUN_DIRECTION_INTENSITY,
+            )?;
+            let overlay_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.image_views[image_usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let overlay_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.depth_attachments[image_usize].view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE);
+            let overlay_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&overlay_colors)
+                .depth_attachment(&overlay_depth);
+            // SAFETY: the pass left the swapchain image in attachment layout
+            // and the depth attachment untouched; the overlay reopens both.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &overlay_info);
+            }
+        }
+        if let Some(profiler) = self.frame_profiler.as_ref() {
+            profiler.write_particle_surface(frame_slot.command_buffer, frame_slot_index, true)?;
+        }
         self.ui_overlay
             .record(frame_slot.command_buffer, swapchain.extent);
         // SAFETY: a dynamic rendering instance is active on this command
@@ -667,9 +748,8 @@ impl GraphicsContext {
             self.device.cmd_end_rendering(frame_slot.command_buffer);
         }
         let capture_this_frame = self.capture.as_ref().is_some_and(|capture| {
-            capture.captured.is_none()
-                && capture.pending.is_none()
-                && capture.request.rendered_frame_index == rendered_frame_index
+            capture.request.covers(rendered_frame_index)
+                && capture.pending.len() < capture.request.burst_length() as usize
         });
         let mut presentable_layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
         if capture_this_frame {
@@ -729,12 +809,14 @@ impl GraphicsContext {
             }
             presentable_layout = vk::ImageLayout::TRANSFER_SRC_OPTIMAL;
             if let Some(capture) = self.capture.as_mut() {
-                capture.buffer = Some(buffer);
-                capture.pending = Some(PendingFrameCapture {
-                    rendered_frame_index,
-                    extent: [swapchain.extent.width, swapchain.extent.height],
-                    format: swapchain.format,
-                });
+                capture.pending.push((
+                    PendingFrameCapture {
+                        rendered_frame_index,
+                        extent: [swapchain.extent.width, swapchain.extent.height],
+                        format: swapchain.format,
+                    },
+                    buffer,
+                ));
             }
         }
         let to_present = [vk::ImageMemoryBarrier2::default()
@@ -810,6 +892,9 @@ impl GraphicsContext {
             dynamic_surface_uploads: dynamic_surface_uploads.uploads,
             dynamic_surface_upload_bytes: dynamic_surface_uploads.bytes,
             dynamic_surface_draws,
+            particle_surface_uploads: particle_uploads.uploads,
+            particle_surface_upload_bytes: particle_uploads.bytes,
+            particle_surface_recorded,
         };
         self.swapchain
             .as_mut()
@@ -881,12 +966,26 @@ impl GraphicsContext {
             old_swapchain,
             &mut old_swapchain_retired,
             self.capture.is_some(),
+            self.particle_surface_profile.is_some(),
         )
         .inspect_err(|_| {
             if old_swapchain_retired {
                 drop(self.swapchain.take());
             }
         })?;
+        // Screen-sized pass targets follow the swapchain extent and format.
+        drop(self.fluid.take());
+        let (fluid, particle_surface_available) = create_fluid_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.particle_surface_profile,
+            replacement.as_ref(),
+            self.frame_slots.len(),
+        )?;
+        self.fluid = fluid;
+        self.particle_surface_available =
+            self.particle_surface_available || particle_surface_available;
         let replacement_formats = replacement
             .as_ref()
             .map(|swapchain| (swapchain.format, swapchain.depth_format));
@@ -937,39 +1036,37 @@ impl GraphicsContext {
         Ok(())
     }
 
-    /// Reads the completed developer capture, if any. Must be called after
-    /// [`Self::wait_idle`] so the copy that wrote the buffer has completed.
-    pub(super) fn take_captured_frame(
+    /// Reads the completed developer captures in rendered-frame order. Must
+    /// be called after [`Self::wait_idle`] so every copy has completed.
+    pub(super) fn take_captured_frames(
         &mut self,
-    ) -> Result<Option<DesktopCapturedFrameV1>, DesktopAdapterError> {
+    ) -> Result<Vec<DesktopCapturedFrameV1>, DesktopAdapterError> {
         let Some(capture) = self.capture.as_mut() else {
-            return Ok(None);
+            return Ok(Vec::new());
         };
-        if let Some(captured) = capture.captured.take() {
-            return Ok(Some(captured));
-        }
-        let (Some(pending), Some(buffer)) = (capture.pending.take(), capture.buffer.take()) else {
-            return Ok(None);
-        };
-        let byte_count = usize::try_from(
-            u64::from(pending.extent[0])
-                .checked_mul(u64::from(pending.extent[1]))
-                .and_then(|pixels| pixels.checked_mul(4))
-                .ok_or(DesktopAdapterError::CounterOverflow)?,
-        )
-        .map_err(|_| DesktopAdapterError::CounterOverflow)?;
-        let mut rgba8 = vec![0_u8; byte_count];
-        buffer.read(0, &mut rgba8)?;
-        if pending.format == vk::Format::B8G8R8A8_SRGB {
-            for pixel in rgba8.chunks_exact_mut(4) {
-                pixel.swap(0, 2);
+        let mut frames = Vec::with_capacity(capture.pending.len());
+        for (pending, buffer) in capture.pending.drain(..) {
+            let byte_count = usize::try_from(
+                u64::from(pending.extent[0])
+                    .checked_mul(u64::from(pending.extent[1]))
+                    .and_then(|pixels| pixels.checked_mul(4))
+                    .ok_or(DesktopAdapterError::CounterOverflow)?,
+            )
+            .map_err(|_| DesktopAdapterError::CounterOverflow)?;
+            let mut rgba8 = vec![0_u8; byte_count];
+            buffer.read(0, &mut rgba8)?;
+            if pending.format == vk::Format::B8G8R8A8_SRGB {
+                for pixel in rgba8.chunks_exact_mut(4) {
+                    pixel.swap(0, 2);
+                }
             }
+            frames.push(DesktopCapturedFrameV1 {
+                rendered_frame_index: pending.rendered_frame_index,
+                extent: pending.extent,
+                rgba8,
+            });
         }
-        Ok(Some(DesktopCapturedFrameV1 {
-            rendered_frame_index: pending.rendered_frame_index,
-            extent: pending.extent,
-            rgba8,
-        }))
+        Ok(frames)
     }
 
     pub(super) fn wait_idle(&mut self) -> Result<(), DesktopAdapterError> {
@@ -1012,7 +1109,20 @@ impl GraphicsContext {
                     .ok_or(DesktopAdapterError::CounterOverflow)?;
             }
         }
+        if let Some(fluid) = self.fluid.as_ref() {
+            let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
+            bytes = bytes
+                .checked_add(fluid_bytes)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(fluid_allocations)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         Ok((bytes, allocations))
+    }
+
+    pub(super) const fn particle_surface_available(&self) -> bool {
+        self.particle_surface_available
     }
 
     pub(super) const fn frame_plan_metrics(&self) -> B0FramePlannerMetricsV1 {
@@ -1028,6 +1138,7 @@ impl Drop for GraphicsContext {
             let _ = self.device.device_wait_idle();
             drop(self.frame_profiler.take());
             self.ui_overlay.teardown();
+            drop(self.fluid.take());
             drop(self.b0_content.take());
             for frame_slot in &self.frame_slots {
                 self.device.destroy_fence(frame_slot.fence, None);
@@ -1039,6 +1150,50 @@ impl Drop for GraphicsContext {
             self.device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
             self.instance.destroy_instance(None);
+        }
+    }
+}
+
+/// Builds the ADR-102 pass for the current swapchain, or reports it
+/// unavailable (no profile, no swapchain, no transfer-source images, or an
+/// unsupported target format). Device failures still propagate.
+fn create_fluid_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    profile: Option<ParticleSurfaceProfileV1>,
+    swapchain: Option<&SwapchainState>,
+    frame_slot_count: usize,
+) -> Result<(Option<FluidPassState>, bool), DesktopAdapterError> {
+    let (Some(profile), Some(swapchain)) = (profile, swapchain) else {
+        return Ok((None, false));
+    };
+    if !swapchain.transfer_source {
+        eprintln!(
+            "next_game: PARTICLE_SURFACE_FALLBACK: swapchain images cannot be transfer sources"
+        );
+        return Ok((None, false));
+    }
+    if !swapchain.opaque_composite {
+        // The composite stage writes alpha 0 on fluid pixels as a capture-only
+        // coverage channel; a compositor that reads alpha would show through.
+        eprintln!("next_game: PARTICLE_SURFACE_FALLBACK: swapchain composite alpha is not opaque");
+        return Ok((None, false));
+    }
+    match FluidPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        profile,
+        swapchain.format,
+        swapchain.depth_format,
+        swapchain.extent,
+        frame_slot_count,
+    )? {
+        Ok(fluid) => Ok((Some(fluid), true)),
+        Err(reason) => {
+            eprintln!("next_game: PARTICLE_SURFACE_FALLBACK: {reason:?}");
+            Ok((None, false))
         }
     }
 }
@@ -1059,6 +1214,7 @@ fn create_swapchain(
     old_swapchain: vk::SwapchainKHR,
     old_swapchain_retired: &mut bool,
     capture_requested: bool,
+    particle_surface_requested: bool,
 ) -> Result<Option<SwapchainState>, DesktopAdapterError> {
     debug_assert!(!*old_swapchain_retired);
     // SAFETY: physical device and surface share a live instance.
@@ -1066,13 +1222,16 @@ fn create_swapchain(
         surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?
     };
     let mut image_usage = vk::ImageUsageFlags::COLOR_ATTACHMENT;
-    if capture_requested {
-        if !capabilities
-            .supported_usage_flags
-            .contains(vk::ImageUsageFlags::TRANSFER_SRC)
-        {
-            return Err(DesktopAdapterError::FrameCaptureUnsupported);
-        }
+    let transfer_source_supported = capabilities
+        .supported_usage_flags
+        .contains(vk::ImageUsageFlags::TRANSFER_SRC);
+    if capture_requested && !transfer_source_supported {
+        return Err(DesktopAdapterError::FrameCaptureUnsupported);
+    }
+    // The particle surface pass copies the opaque scene colour for
+    // refraction; without transfer-source images it reports itself
+    // unavailable instead of failing the run (ADR-102 fallback).
+    if (capture_requested || particle_surface_requested) && transfer_source_supported {
         image_usage |= vk::ImageUsageFlags::TRANSFER_SRC;
     }
     // SAFETY: same ownership as the capability query.
@@ -1128,6 +1287,8 @@ fn create_swapchain(
         initialized: Vec::new(),
         depth_initialized: Vec::new(),
         images_in_flight: Vec::new(),
+        opaque_composite: composite_alpha == vk::CompositeAlphaFlagsKHR::OPAQUE,
+        transfer_source: image_usage.contains(vk::ImageUsageFlags::TRANSFER_SRC),
     };
     // SAFETY: handle is the live swapchain just created.
     state.images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;

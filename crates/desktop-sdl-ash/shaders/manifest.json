@@ -6,6 +6,7 @@
   "shadow_suite": "shadow_depth",
   "ui_suite": "ui_overlay",
   "sky_suite": "sky_gradient",
+  "fluid_suite": "fluid_surface",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
   "source_language": {
     "name": "GLSL",
@@ -24,6 +25,79 @@
     "environment": "vulkan1.2",
     "spirv_version": "1.5",
     "entry_point": "main"
+  },
+  "fluid_suite_compiler": {
+    "name": "glslangValidator",
+    "version": "15.1.0",
+    "spirv_generator": 11,
+    "distribution": "snap kf6-core24 (Linux host)",
+    "binary_size_bytes": 7923264,
+    "binary_sha256": "96ea85d4228d7065507cd58454628e0d3c9ec8bbd29a0cd20ee0f3cefaf6d026",
+    "command_template": "glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>",
+    "target": {
+      "environment": "vulkan1.2",
+      "spirv_version": "1.5",
+      "entry_point": "main"
+    },
+    "interface": {
+      "descriptors": [
+        {
+          "set": 0,
+          "binding": 0,
+          "type": "uniform_buffer",
+          "stages": [
+            "vertex",
+            "fragment"
+          ],
+          "minimum_size_bytes": 208
+        },
+        {
+          "set": 1,
+          "binding": "0..2",
+          "type": "combined_image_sampler",
+          "stages": [
+            "fragment"
+          ],
+          "count": 1
+        }
+      ],
+      "push_constants": [
+        {
+          "offset_bytes": 0,
+          "size_bytes": 8,
+          "stages": [
+            "fragment"
+          ],
+          "suite_stage": "filter"
+        }
+      ],
+      "fragment_outputs": {
+        "splat": [
+          {
+            "location": 0,
+            "type": "float",
+            "semantic": "view_depth_min"
+          },
+          {
+            "location": 1,
+            "type": "float",
+            "semantic": "thickness_add"
+          }
+        ],
+        "filter": [
+          {
+            "location": 0,
+            "type": "float"
+          }
+        ],
+        "composite": [
+          {
+            "location": 0,
+            "type": "vec4"
+          }
+        ]
+      }
+    }
   },
   "interface": {
     "vertex_inputs": [
@@ -146,6 +220,51 @@
       "source_sha256": "01cc8ddff45da7226be9a433183811556e9b4f19670c0dd6c607db8bd8accc7f",
       "module": "sky_gradient.frag.spv",
       "module_sha256": "b0b6682b742f4486ce03b46802e71f34003ac2bd026f6fba55b27c6170f4dd00"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "vertex",
+      "source": "fluid_splat.vert",
+      "source_sha256": "0535d23c77dd9ec2ada09dc188459bedb35b039a3a70952743ef4e7045750b2b",
+      "module": "fluid_splat.vert.spv",
+      "module_sha256": "05aeeaa6f3751000e6c71502ae42bbe663aa9a24c34360888a2e6bd6962fbe8e"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "fragment",
+      "source": "fluid_splat.frag",
+      "source_sha256": "dee2ac080217e7becfe2dc02c6cbd12e1374374bb98b7caaddc458cb5d959fbd",
+      "module": "fluid_splat.frag.spv",
+      "module_sha256": "1b207383e03cd6648d64932a1288c680c5f66dea51c219d8bc25016842712f7e"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "vertex",
+      "source": "fluid_screen.vert",
+      "source_sha256": "7a8bc1e588ad644cc2876c70c926388d572989b0bb9bd4b0e0331ef39db5cf74",
+      "module": "fluid_screen.vert.spv",
+      "module_sha256": "e01d54a40327a65a5c888c1b49b001eefce41cf9a8a9c19b20f3001dc7977446"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "fragment",
+      "source": "fluid_filter.frag",
+      "source_sha256": "de006269b8c71c89ea426057b80da739db0d57c28d288c9960838983ac57dacd",
+      "module": "fluid_filter.frag.spv",
+      "module_sha256": "b43f8681d5144a5f0a777281b8e6a5ab13de7d4e311fecbde90819b1636a4ae8"
+    },
+    {
+      "suite": "fluid_surface",
+      "compiler": "fluid_suite_compiler",
+      "stage": "fragment",
+      "source": "fluid_composite.frag",
+      "source_sha256": "1319c3a2cee901d540b7c367b2dfbdc7e8f426277d596126dfbeb34066218c89",
+      "module": "fluid_composite.frag.spv",
+      "module_sha256": "348eef11772394ea2f32243de32c9c13bedffd308ef30c968df1c9e38d5d8b92"
     }
   ]
 }

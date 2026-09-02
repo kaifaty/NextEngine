@@ -42,7 +42,8 @@ pub use prepared_run::{DesktopRunMeasurement, PreparedDesktopRun, prepare_intera
 use run_state::{AdapterFinalizer, InteractivePacingClock, apply_software_pacing};
 pub use run_state::{
     DesktopApplicationFinalization, DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1,
-    DesktopFrameTimingSample, DesktopRunOptions, DesktopRunReport, MAX_FRAME_PROFILING_SAMPLES,
+    DesktopFrameTimingSample, DesktopRunOptions, DesktopRunReport, MAX_FRAME_CAPTURE_BURST,
+    MAX_FRAME_PROFILING_SAMPLES,
 };
 #[cfg(test)]
 use run_state::{INTERACTIVE_FRAME_INTERVAL, remaining_frame_budget, software_pacing_delay};
@@ -289,6 +290,12 @@ fn apply_frame_source_result(
         }
         state.commit(staged);
     }
+    if let Some(update) = publication.particle_surface_update {
+        let mut state = dynamic_surfaces.borrow_mut();
+        let mut staged = state.stage();
+        staged.publish_particles(update)?;
+        state.commit(staged);
+    }
     Ok(())
 }
 
@@ -296,7 +303,13 @@ mod gpu_content;
 mod graphics;
 mod lifecycle;
 mod native_events;
+mod particle_surface;
 mod shader_assets;
+
+pub use particle_surface::{
+    MAX_PARTICLE_SURFACE_PARTICLES, PARTICLE_SURFACE_STRIDE, ParticleSurfaceProfileV1,
+    ParticleSurfaceUpdateV1,
+};
 
 use graphics::GraphicsContext;
 
