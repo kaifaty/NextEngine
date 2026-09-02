@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED BY DENSITY-ONLY BOUNDARY SUPPORT (NGQ7 REV 2) / G1 OBSERVABLE OPEN` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7 REV 2, REV 3 SETTLED FLOOR PASS) / 48K COST AND MATERIAL NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -36,9 +36,10 @@
   faster than the control, 16k physics cost unchanged. Revision 1 (fixed
   samples in every term) was refuted by a `0.89 m/s` no-slip front. The
   live bridge now defaults to density-only support (one layer on 48k, u16
-  bound). Open: the frozen G1 compression observable counts squeezed second
-  layer samples and must be split before a compression claim; 48k physics
-  rises to `5.35 ms` per step with one layer.
+  bound). Revision 3 split the compression observable: the floor layer
+  peaks at `1.32 / 1.29` during impact and settles at `1.13 / 1.17` inside
+  the `1.2` gate (control `2.25 / 2.27`). Open: 48k physics rises to
+  `5.35 ms` per step with one layer.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -1318,9 +1319,10 @@
   second-layer samples squeezed under a loaded column, while the
   floor-touching layer stays within `1.32`.
 - **Decision:** make density-only support the live default (`2` layers,
-  `1` on 48k); keep corpus commands at `0` layers with unchanged roots; do
-  not retune G1 after the fact, record it as open and split its observable
-  in a later frozen revision.
+  `1` on 48k); keep corpus commands at `0` layers with unchanged roots. The
+  frozen revision-3 split (floor layer `y < 0.04 m`, settled window) reads
+  transient compaction under load and a settled floor layer inside the
+  gate; no impact-phase compression claim is made.
 - **Rejected:** fixed samples in the viscosity/surface terms, retuning the
   compression threshold to fit, and claiming a compression PASS.
 - **Reconsider when:** the G1 observable is split and rerun, a 48k
@@ -1394,7 +1396,7 @@
 | HG6K | a dome envelope over the sphere mask fills pits without inventing water | falsified by its gate: lift p95 `0.27 m` at the falling column | closed; do not retune |
 | HG6L | a 5x5 grayscale closing fills pits while leaving the bulk surface | selected bounded: median lift `<= 10 mm`, `0` ceiling violations, pits `> 100 mm` gone, CPU/GPU exact masks | material and front edges |
 | HG7A | the invisible obstacle is a geometry or rendering mismatch | falsified: walls and contact box coincide within `12.5 mm`, the front reaches `3.994 m`, the wall band stays `50 mm` thin | closed |
-| HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | selected bounded: density-only fixed layers remove the stall and put the crest at the wall on 4k and 16k | split the G1 observable |
+| HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | selected bounded: density-only fixed layers remove the stall, put the crest at the wall and settle the floor layer at `1.13--1.17` (control `2.25--2.27`) | 48k cost under the solver contract |
 | HG7C | the stall comes from the contact clamp or the sheet itself | falsified for the stall: unchanged clamp, stall gone with density support | closed |
 | HG7E | fixed samples may take part in every term | falsified: no-slip drag slows the front to `0.40x`; density-only keeps `1.18x` | closed |
 
@@ -1409,13 +1411,12 @@
 
 ## Next action
 
-1. Split the G1 observable into floor-touching and squeezed layers in a
-   frozen NGQ7 revision 3 and rerun the stored dumps; then decide whether
-   the accepted dynamic corpus should be extended past the wall phase with
-   density-only layers (new roots, new evidence).
-2. 48k: decide under the solver contract whether one density-only layer at
-   `5.35 ms` physics per step is the game candidate or whether the lid and
-   wall layers can be thinned; the bridge itself is unchanged.
+1. 48k: decide under the solver contract whether one density-only layer at
+   `5.35 ms` physics per step is the game candidate, whether fixed rows can
+   leave the solve, or whether the lid can be dropped; the bridge itself
+   is unchanged.
+2. Extend the accepted dynamic corpus past the wall phase with density-only
+   layers (new roots, new evidence) when the solver contract admits them.
 3. Presentation: water material within the locked B0 shader interface and
    the raw sphere heights at mask boundaries.
 3. If later runtime integration exceeds the budget,

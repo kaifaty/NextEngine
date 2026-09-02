@@ -25,7 +25,7 @@ def analyse(directory, wall_x, depth_z, dam_x, label):
     surf=frames(directory+'/surface.bin')
     steps=sorted(int(re.search(r'step(\d+)',p).group(1)) for p in glob.glob(directory+'/p-cycle0-step*.bin'))
     dt=4/240; band_lo=wall_x-0.3; capacity=0.3*depth_z/0.05**2
-    g1=0.0; g1_step=None; stall_run=0; stall_max=0; stall_start=None; g2=None; front_step=None
+    g1=0.0; g1_step=None; g1a=0.0; g1a_step=None; g1b=0.0; g1c=0.0; stall_run=0; stall_max=0; stall_start=None; g2=None; front_step=None
     prev=None
     for step in steps:
         cur=dump(directory+f'/p-cycle0-step{step}.bin')
@@ -33,6 +33,11 @@ def analyse(directory, wall_x, depth_z, dam_x, label):
         bottom=sum(1 for i in band if cur[i][1]<0.06)
         comp=bottom/capacity
         if comp>g1: g1,g1_step=comp,step
+        floor=sum(1 for i in band if cur[i][1]<0.04)/capacity
+        squeezed=sum(1 for i in band if 0.04<=cur[i][1]<0.06)/capacity
+        if floor>g1a: g1a,g1a_step=floor,step
+        if squeezed>g1b: g1b=squeezed
+        if step>=840 and floor>g1c: g1c=floor
         nv,verts=surf.get(step,(0,()))
         xs=verts[0::3]; ys=verts[1::3]
         wall_h=[y for x,y in zip(xs,ys) if x>=band_lo]
@@ -53,6 +58,7 @@ def analyse(directory, wall_x, depth_z, dam_x, label):
         prev=cur
     front_speed = (wall_x-dam_x)/(front_step*(1/240)) if front_step else float('nan')
     print(f'{label}: front reaches wall at step {front_step} (mean front speed {front_speed:.2f} m/s from x={dam_x})')
+    print(f'{label}: revision 3: G1a floor layer {g1a:.2f} (step {g1a_step}) {"PASS" if g1a<=1.2 else "FAIL"} | G1b squeezed {g1b:.2f} (report) | G1c settled floor {g1c:.2f} {"PASS" if g1c<=1.2 else "FAIL"}')
     print(f'{label}: G1 compression {g1:.2f} (step {g1_step}) {"PASS" if g1<=1.2 else "FAIL"} | G2 first crest>0.25m at step {g2[0] if g2 else None}, {g2[1]:.2f} m from wall, h {g2[2]:.2f} {"PASS" if g2 and g2[1]<=0.15 else "FAIL"} | G3 longest stall {stall_max} frames {stall_peak if stall_max else ""} {"PASS" if stall_max<=10 else "FAIL"} | front at wall step {front_step}')
 lanes={'16k':(4.0,2.0,2.0),'4k':(2.0,1.0,1.0),'48k':(4.0,2.0,4.0)}
 for d in sorted(sys.argv[1:] or glob.glob('/tmp/nonlocal-ngq7/*-L*')):

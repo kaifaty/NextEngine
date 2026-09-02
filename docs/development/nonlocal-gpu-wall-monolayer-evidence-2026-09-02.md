@@ -2,7 +2,7 @@
 
 ## Result and claim ceiling
 
-`WALL_MONOLAYER_STALL_RESOLVED_BOUNDED / G1_OBSERVABLE_OPEN`: with a fixed
+`WALL_MONOLAYER_STALL_RESOLVED_BOUNDED / TRANSIENT_FLOOR_COMPACTION_REPORTED`: with a fixed
 two-layer lattice complement that supports density only (NGQ7 revision 2),
 the dam front of the 4k and 16k lanes no longer stalls at the far wall, the
 first `0.25 m` crest after arrival forms at the wall (`0.06 / 0.04 m`
@@ -100,6 +100,24 @@ With support the band layers up within `32` steps of arrival and holds
 over two thousand samples by step 408; without support it stays a single
 compressed layer for four hundred steps and only then gains a second layer.
 
+## Revision 3: the split G1 observable on the stored dumps
+
+Frozen in the plan before rerunning the revision-2 dumps: G1a is the
+floor-touching layer (`y < 0.04 m`, threshold `1.2`), G1b the squeezed
+`0.04--0.06 m` band (report only), G1c is G1a over the last `120` steps.
+
+| Run | G1a floor layer (peak) | G1b squeezed (peak) | G1c settled floor |
+| --- | ---: | ---: | ---: |
+| 16k control | `2.68` (step 256) FAIL | `0.00` | `2.25` FAIL |
+| 16k density | `1.32` (step 408) FAIL | `0.68` | `1.13` PASS |
+| 4k control | `2.35` (step 240) FAIL | `0.50` | `2.27` FAIL |
+| 4k density | `1.29` (step 792) FAIL | `0.65` | `1.17` PASS |
+
+By the plan's own interpretation, a G1a peak above `1.2` with G1c inside
+`1.2` is transient compaction under load, not a stalled layer, and the
+density support is complete at rest; the control keeps a `2.25x` floor
+layer even when settled.
+
 ## Live captures (16k, density-only support, closing surface)
 
 | rendered frame | solver step | render critical p95 | real-time ratio | PNG SHA-256 | raw JSON |
@@ -118,9 +136,10 @@ frame 170 shows the water piling against the wall itself.
   viscosity and surface terms).
 - The live bridge defaults to density-only support; the sphere/closing
   surface and the extractor are unchanged.
-- G1 stays formally failed. Its observable must be split into the
-  floor-touching layer and squeezed layers before a compression claim is
-  made; that is a gate revision, not a physics change, and is left open.
+- Revision 3 splits G1: the floor layer peaks at `1.32 / 1.29` during the
+  impact (transient compaction under load) and settles to `1.13 / 1.17`,
+  inside the `1.2` gate, while the control settles at `2.25 / 2.27`. No
+  compression claim is made for the impact phase.
 - 48k cost rises from `3.86` to `5.35 ms` of physics per step with one
   layer (`0.55x` real time unpaced); the 48k budget question already sits
   with the solver contract (D-044).

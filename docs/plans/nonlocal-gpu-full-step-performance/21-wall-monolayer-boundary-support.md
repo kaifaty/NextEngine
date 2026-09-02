@@ -112,3 +112,20 @@ squeezed under a loaded column; the floor-touching layer stays within
 `1.32`. The mechanism (H7B) is selected bounded; the G1 observable needs a
 revision that separates the floor layer from squeezed layers before any
 compression claim. No parameter was tuned after seeing results.
+
+## Revision 3 (frozen before running): split G1
+
+G1 conflated the floor-touching layer with samples squeezed below `0.06 m`
+under a loaded column. Revision 3 changes only the observable, keeps the
+threshold and reruns the stored revision-2 dumps:
+
+| Gate | Definition | Pass |
+| --- | --- | --- |
+| G1a floor layer | maximum over frames of the wall-band count with `y < 0.04 m` (samples in floor contact, clamp at `0.025 m`) divided by the band's lattice capacity | `<= 1.2` |
+| G1b squeezed | maximum over frames of the wall-band count with `0.04 <= y < 0.06 m` divided by capacity | report only |
+| G1c settled | G1a evaluated over the last `120` steps of the run only (`>= 840`) | `<= 1.2` |
+
+G1a above `1.2` during the impact but G1c within `1.2` means transient
+compaction under load rather than a stalled layer; G1c above `1.2` means
+the floor layer stays over-dense and the density support is still
+incomplete.
