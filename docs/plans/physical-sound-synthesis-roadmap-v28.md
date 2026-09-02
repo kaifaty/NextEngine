@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / H0_COMPLETE / R0_FROZEN / R1_REPEAT_EXACT_RESOURCE_PASS / R2_OFFICIAL_NEXT / Q0_SIGNAL_BLIND_CAN_PROCEED / M0B_SPENT / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / H0_COMPLETE / R0_FROZEN / R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED / Q0_SIGNAL_BLIND_NEXT / GENERATOR_SUCCESSOR_REQUIRES_FRESH_RESEARCH / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V27](physical-sound-synthesis-roadmap-v27.md) as planning authority; its R0/R1 evidence, protected-role order and stop rules remain binding |
-| Current evidence | [R1 result](../development/physical-sound-v28-r1-m0c-owner-resource-result-2026-09-02.md) at implementation `d316982d`, root `524411d3…6d32`; [R0 protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000`, [V28 resource research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [V27 R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md), [V27 R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md) and [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) |
+| Current evidence | [R2 result](../development/physical-sound-v28-r2-official-feasibility-result-2026-09-02.md) `REPEAT_EXACT_REPRESENTATION_REJECT`; [R1 result](../development/physical-sound-v28-r1-m0c-owner-resource-result-2026-09-02.md) at implementation `d316982d`, root `524411d3…6d32`; [R0 protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000`, [V28 resource research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [V27 R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md) and [V27 R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; the accepted authored-clip path remains production authority |
 | User constraint | All real evidence is found online; the user records nothing and does not approve sounds one by one |
 
@@ -95,10 +95,10 @@ generator code, checkpoints, predictions or protected admission values.
 | H0 | Resource attribution | `COMPLETE` | [Research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md) confirms the long differentiable render as dominant, proves five exact random loss/gradient equivalence cases and records primary PyTorch methods. |
 | R0 | M0c protocol and resource oracle | `COMPLETE / FROZEN` | [Protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000` binds inherited hashes, sole `144,000 → 4,096` change, exact equivalence fixtures, 10,000-step cost workload, `600 s`/`3.5 GiB` gates and official access order. |
 | R1 | Prefix-bounded M0c owner | `COMPLETE / REPEAT_EXACT_RESOURCE_PASS` | [Result](../development/physical-sound-v28-r1-m0c-owner-resource-result-2026-09-02.md): Gate E and complete entry repeat exactly; two isolated 10,000-step runs finish in `164.616/155.428 s`, peak `1.010/1.008 GB`, normalized SHA `078ff403…6af6`. |
-| R2 | Fresh official feasibility | `NEXT / AUTHORIZED_BY_R1` | New manifest/root runs A then B without reading interrupted R1 state; publishes repeat-exact Pass/Reject or a declared terminal resource/conformance result. |
+| R2 | Fresh official feasibility | `COMPLETE / REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | [Result](../development/physical-sound-v28-r2-official-feasibility-result-2026-09-02.md): six A/B artifacts match; frequency/gain/spectrum beat ridge, but decay ratio `1.924`, remesh `0.01156 > 1e-5` and all physical counterfactuals fail. |
 | Q0 | Validator protocol and source inventory | `READY / SIGNAL_BLIND_ONLY` | Hash-freeze online source identities, real positive/OOD groups, mutations, feature families, confidence method, minimum evidence, rights/provenance and one-use role order before signal values. |
 | Q1 | Independent Validator V1 | `BLOCKED_BY_Q0` | Separate CLI passes hard-signal, causal, real-acoustic, mutation and selective-risk fixtures twice with declared group-disjoint false-pass bound; no generator feature/checkpoint dependency. |
-| M0 | Metal corpus and candidate | `BLOCKED_BY_R2_PASS_AND_Q1` | Hash-close internet-only roles; train the single preregistered candidate and frozen classical/retrieval controls without validator/shadow access. |
+| M0 | Metal corpus and candidate | `BLOCKED_BY_R2_REJECT_AND_Q1` | A fresh generator research/protocol must replace closed M0c; then hash-close internet-only roles and train one preregistered candidate/control set without validator/shadow access. |
 | M1 | Metal method holdout | `BLOCKED_BY_M0` | Open one untouched object-disjoint holdout once; candidate meets every declared advantage and OOD gate without selection. |
 | A0 | Metal admission | `BLOCKED_BY_M1_PASS` | Frozen generator and Validator V1 open one admission shadow once; all mandatory gates and false-pass bound pass automatically. |
 | K0 | Deterministic clip cooker | `BLOCKED_BY_A0_PASS` | Accepted record cooks twice to byte-identical bounded PCM/provenance; invalid, stale or OOD input publishes nothing and selects fallback. |
@@ -174,8 +174,9 @@ artifact from redistribution even when it can inform local scientific work.
 1. `COMPLETE`: freeze R0 M0c protocol `28cab428…9000`; official values remain sealed.
 2. `COMPLETE`: R1 passes equivalence/full-owner gates at implementation
    `d316982d`, root `524411d3…6d32`.
-3. `NEXT`: run fresh R2 A/B exactly once per declared order.
-4. In parallel by dependency, complete Q0 then build Q1 from independent real
+3. `CLOSED / REPEAT_EXACT_REPRESENTATION_REJECT`: R2 A/B match; M0c fails
+   decay, remesh and physical intervention gates before holdout.
+4. `NEXT`: complete signal-blind Q0, then build Q1 from independent real
    groups and mutations.
 5. Only after R2 Pass and Q1, freeze/train M0 Metal, then open M1 and A0 once.
 6. A0 Pass unlocks K0/D0. Reject/OOD ends in authored fallback.
@@ -188,6 +189,8 @@ artifact from redistribution even when it can inform local scientific work.
   the already published value-independent surface report.
 - Never change M0c seed, capacity, optimizer, step count, loss weight, spectral
   window, threshold or role from a resource or protected result.
+- Never tune or rerun M0c from R2 values; its six repeat-exact official
+  artifacts are attribution evidence only and the family is closed.
 - If prefix equivalence, full-owner cost or repeat-exactness fails, close M0c
   before official access.
 - Do not infer a representation reject from a timeout and do not jump to a
