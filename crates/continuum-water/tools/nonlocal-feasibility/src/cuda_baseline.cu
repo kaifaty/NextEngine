@@ -8201,6 +8201,10 @@ struct PresentationSurfaceFrame {
     std::vector<std::uint8_t> wet;
     std::vector<double> depth;
     std::uint64_t raw_wet_pixels = 0;
+    /// NGQ9: raw wet pixels kept after the component policy.
+    std::uint64_t retained_pixels = 0;
+    /// NGQ9: raw components kept after the component policy.
+    std::uint64_t retained_components = 0;
     std::uint64_t wet_pixels = 0;
     std::uint64_t common_pixels = 0;
     std::uint64_t filled_pixels = 0;
@@ -8735,10 +8739,15 @@ GameDomeField game_surface_dome_field(
     return field;
 }
 
+// NGQ9: components with at least this many raw wet pixels survive under the
+// `all` policy (one sphere-cap footprint is ~13 pixels at the 12.5 mm pitch).
+constexpr std::uint32_t GAME_SURFACE_MIN_COMPONENT_PIXELS = 9U;
+
 PresentationSurfaceFrame extract_presentation_surface(
     const GameSurfaceFrame& raw,
     const GameQualityBox& box,
-    const GameDomeField* dome = nullptr) {
+    const GameDomeField* dome = nullptr,
+    bool keep_all_components = false) {
     const auto begin = std::chrono::steady_clock::now();
     PresentationSurfaceFrame frame;
     frame.step = raw.step;
@@ -8783,9 +8792,19 @@ PresentationSurfaceFrame extract_presentation_surface(
             raw_components.sizes.begin(), raw_components.sizes.end())));
     std::vector<std::uint8_t> retained(pixels, 0U);
     for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
-        retained[pixel] = static_cast<std::uint8_t>(
-            raw_components.labels[pixel] == largest_label);
+        const std::uint32_t label = raw_components.labels[pixel];
+        const bool kept = keep_all_components
+            ? (raw.wet[pixel] != 0U
+                && raw_components.sizes[label] >= GAME_SURFACE_MIN_COMPONENT_PIXELS)
+            : label == largest_label;
+        retained[pixel] = static_cast<std::uint8_t>(kept);
+        frame.retained_pixels += kept ? 1U : 0U;
     }
+    frame.retained_components = keep_all_components
+        ? static_cast<std::uint64_t>(std::count_if(
+              raw_components.sizes.begin(), raw_components.sizes.end(),
+              [](std::uint32_t size) { return size >= GAME_SURFACE_MIN_COMPONENT_PIXELS; }))
+        : 1U;
     std::uint32_t raw_min_x = raw.width;
     std::uint32_t raw_max_x = 0U;
     std::uint32_t raw_min_z = raw.height;
@@ -9038,7 +9057,10 @@ PresentationSurfaceFrame extract_presentation_surface(
         && std::all_of(frame.depth.begin(), frame.depth.end(), [](double value) {
             return std::isfinite(value);
         });
-    const bool mask_passed = frame.valid && frame.components == 1U
+    // NGQ9: under the `all` policy the closed mask may hold as many bodies
+    // as the raw mask kept (bodies may merge under the close, never split).
+    const bool mask_passed = frame.valid && frame.components >= 1U
+        && frame.components <= std::max<std::uint64_t>(1U, frame.retained_components)
         && frame.local_fill_only
         && *std::max_element(frame.bounding_box_expansion_pixels.begin(),
                frame.bounding_box_expansion_pixels.end()) <= 1U
@@ -10138,8 +10160,13 @@ __global__ void surface_bilateral_kernel(
 /// are not computed; `verify` mode compares against that reference instead.
 class GpuSurfaceExtractor {
 public:
-    GpuSurfaceExtractor(const GameQualityBox& box, std::size_t particle_capacity, int model)
-        : box_(box), particle_capacity_(particle_capacity), model_(model) {
+    GpuSurfaceExtractor(
+        const GameQualityBox& box,
+        std::size_t particle_capacity,
+        int model,
+        bool keep_all_components)
+        : box_(box), particle_capacity_(particle_capacity), model_(model),
+          keep_all_components_(keep_all_components) {
         const double cells_x = (box.maximum.x - box.minimum.x) / GAME_VISUAL_PIXEL_PITCH;
         const double cells_z = (box.maximum.z - box.minimum.z) / GAME_VISUAL_PIXEL_PITCH;
         width_ = static_cast<unsigned>(std::llround(cells_x));
@@ -10268,9 +10295,15 @@ public:
             components.sizes.begin(),
             std::max_element(components.sizes.begin(), components.sizes.end())));
         host_retained_.resize(pixels_);
+        frame.retained_pixels = 0U;
         for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
-            host_retained_[pixel] =
-                static_cast<std::uint8_t>(components.labels[pixel] == largest_label);
+            const std::uint32_t label = components.labels[pixel];
+            const bool kept = keep_all_components_
+                ? (raw_wet[pixel] != 0U
+                    && components.sizes[label] >= GAME_SURFACE_MIN_COMPONENT_PIXELS)
+                : label == largest_label;
+            host_retained_[pixel] = static_cast<std::uint8_t>(kept);
+            frame.retained_pixels += kept ? 1U : 0U;
         }
         check_cuda(cudaMemcpyAsync(retained_, host_retained_.data(), pixels_,
                        cudaMemcpyHostToDevice, stream_),
@@ -10393,6 +10426,7 @@ private:
     GameQualityBox box_;
     std::size_t particle_capacity_;
     int model_ = 0;
+    bool keep_all_components_ = false;
     unsigned width_ = 0U;
     unsigned height_ = 0U;
     std::size_t pixels_ = 0U;
@@ -10446,6 +10480,10 @@ struct GpuSurfaceVerification {
 struct DomeSurfaceStats {
     std::uint64_t frames = 0U;
     std::uint64_t gate_failures = 0U;
+    /// NGQ9: retained raw wet pixels over raw wet pixels, minimum and sum.
+    double minimum_retained_fraction = 1.0;
+    double retained_fraction_sum = 0.0;
+    std::uint64_t retained_frames = 0U;
     double maximum_lift_p50 = 0.0;
     double maximum_lift_p95 = 0.0;
     double minimum_lift = 0.0;
@@ -10474,9 +10512,11 @@ public:
         unsigned workers,
         StreamExtractorMode mode,
         std::size_t particle_capacity,
-        int surface_model)
+        int surface_model,
+        bool keep_all_components)
         : out_(out), box_(box), capacity_(std::max(1U, workers) * 2U), mode_(mode),
-          particle_capacity_(particle_capacity), surface_model_(surface_model) {
+          particle_capacity_(particle_capacity), surface_model_(surface_model),
+          keep_all_components_(keep_all_components) {
         for (unsigned index = 0; index < std::max(1U, workers); ++index) {
             workers_.emplace_back([this] { run(); });
         }
@@ -10562,7 +10602,8 @@ private:
         std::unique_ptr<GpuSurfaceExtractor> gpu;
         if (mode_ != StreamExtractorMode::Cpu) {
             try {
-                gpu = std::make_unique<GpuSurfaceExtractor>(box_, particle_capacity_, surface_model_);
+                gpu = std::make_unique<GpuSurfaceExtractor>(
+                    box_, particle_capacity_, surface_model_, keep_all_components_);
             } catch (const std::exception& error) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 if (failure_.empty()) {
@@ -10610,13 +10651,26 @@ private:
                         failure = "surface_dome_field";
                     } else {
                         frame = extract_presentation_surface(
-                            raw, box_, surface_model_ != 0 ? &dome : nullptr);
+                            raw, box_, surface_model_ != 0 ? &dome : nullptr,
+                            keep_all_components_);
                         extraction_ms = frame.extraction_ms;
                         frame_ready = frame.valid;
                         if (!frame.valid) {
                             failure = "surface_extraction";
                         } else if (surface_model_ != 0 && !frame.passed) {
-                            failure = "surface_closing_gate";
+                            failure = "surface_closing_gate step=" + std::to_string(frame.step)
+                                + " components=" + std::to_string(frame.components)
+                                + " retained_components="
+                                + std::to_string(frame.retained_components)
+                                + " local_fill_only=" + std::to_string(frame.local_fill_only)
+                                + " expansion="
+                                + std::to_string(*std::max_element(
+                                    frame.bounding_box_expansion_pixels.begin(),
+                                    frame.bounding_box_expansion_pixels.end()))
+                                + " area_ratio=" + std::to_string(frame.area_ratio)
+                                + " coverage=" + std::to_string(frame.common_coverage)
+                                + " lift_p50=" + std::to_string(frame.lift_p50)
+                                + " ceiling=" + std::to_string(frame.ceiling_violations);
                             frame_ready = false;
                         }
                     }
@@ -10684,7 +10738,16 @@ private:
                 observer_total_ms_ += observer_ms;
                 extraction_total_ms_ += extraction_ms;
                 frame_wall_max_ms_ = std::max(frame_wall_max_ms_, frame_wall_ms);
-                if (surface_model_ != 0 && (frame_ready || failure == "surface_closing_gate"
+                if (frame_ready && frame.raw_wet_pixels > 0U) {
+                    const double retained = static_cast<double>(frame.retained_pixels)
+                        / static_cast<double>(frame.raw_wet_pixels);
+                    dome_stats_.minimum_retained_fraction =
+                        std::min(dome_stats_.minimum_retained_fraction, retained);
+                    dome_stats_.retained_fraction_sum += retained;
+                    ++dome_stats_.retained_frames;
+                }
+                if (surface_model_ != 0
+                    && (frame_ready || failure.rfind("surface_closing_gate", 0) == 0
                         || failure == "gpu_surface_closing_gate")) {
                     ++dome_stats_.frames;
                     dome_stats_.gate_failures += static_cast<std::uint64_t>(!frame_ready);
@@ -10746,6 +10809,7 @@ private:
     StreamExtractorMode mode_;
     std::size_t particle_capacity_;
     int surface_model_ = 0;
+    bool keep_all_components_ = false;
     GpuSurfaceVerification verification_;
     DomeSurfaceStats dome_stats_;
     mutable std::mutex mutex_;
@@ -10779,7 +10843,12 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& boundary_support,
     bool boundary_lid,
     const std::string& spill_lip,
-    int iterations_override) {
+    int iterations_override,
+    const std::string& surface_components) {
+    if (surface_components != "largest" && surface_components != "all") {
+        throw std::invalid_argument("stream surface components must be largest or all");
+    }
+    const bool keep_all_components = surface_components == "all";
     if (boundary_support != "full" && boundary_support != "density") {
         throw std::invalid_argument("stream boundary support must be full or density");
     }
@@ -10893,7 +10962,7 @@ CommandReport run_cuda_game_surface_stream(
     StreamExtractor extractor(
         frames, box, static_cast<unsigned>(workers), extractor_mode,
         static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y) * lattice_z,
-        surface_model);
+        surface_model, keep_all_components);
     for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
          ++cycle) {
         std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z, lattice_y);
@@ -11204,6 +11273,12 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"extraction_workers\":" << extractor.worker_count()
            << ",\"extractor\":\"" << extractor_name << "\""
            << ",\"surface_model\":\"" << surface_model_name << "\""
+           << ",\"surface_components\":\"" << surface_components << "\""
+           << ",\"retained_wet_fraction\":{\"frames\":" << dome_stats.retained_frames
+           << ",\"minimum\":" << dome_stats.minimum_retained_fraction
+           << ",\"mean\":" << (dome_stats.retained_frames > 0U
+                  ? dome_stats.retained_fraction_sum / static_cast<double>(dome_stats.retained_frames)
+                  : 0.0) << '}'
            << ",\"closing_surface\":{\"frames\":" << dome_stats.frames
            << ",\"gate_failures\":" << dome_stats.gate_failures
            << ",\"maximum_lift_p50_m\":" << dome_stats.maximum_lift_p50

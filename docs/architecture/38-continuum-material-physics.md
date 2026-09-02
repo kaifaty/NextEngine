@@ -254,9 +254,10 @@ separately gated later work.
 Debug points/spheres and diagnostic overlays remain the mandatory research
 presentation of any particle lane. The candidate free-surface presentation
 (ADR-100/ADR-101) is a top-down height field over a fixed pixel grid of one
-quarter particle spacing: sphere-cap projection, largest 8-connected
-component, one 3x3 close, local fill, a 5x5 grayscale closing of the height
-and one bilateral pass with range sigma equal to the particle radius. It
+quarter particle spacing: sphere-cap projection, every 8-connected
+component of at least one particle footprint, one 3x3 close, local fill, a
+5x5 grayscale closing of the height and one bilateral pass with range sigma
+equal to the particle radius. It
 publishes one bounded vertex/index update per frame into a declared dynamic
 surface ring whose catalog mesh keeps identity, material and bounds; the
 render-content catalog, snapshot and frame plan are built once per run. GPU

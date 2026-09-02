@@ -109,6 +109,8 @@ pub(super) struct StreamRequest {
     spill_lip: String,
     /// Research override of the profile iteration count (`0` = profile).
     iterations: u32,
+    /// NGQ9 wet-mask component policy: `largest` (frozen NGQ5) or `all`.
+    surface_components: String,
     /// Stream seconds published per wall second; zero disables pacing and
     /// publishes every frame as soon as it arrives.
     rate: f64,
@@ -134,6 +136,7 @@ pub(super) fn parse_arguments(
     let mut stream_boundary_support = "density".to_owned();
     let mut stream_spill_lip = "margin".to_owned();
     let mut stream_iterations: u32 = 0;
+    let mut stream_surface_components = "all".to_owned();
     let mut stream_rate = 1.0_f64;
     let mut device_local_ring = true;
     let mut until_close = false;
@@ -238,6 +241,17 @@ pub(super) fn parse_arguments(
                     0,
                     2,
                 )?);
+            }
+            "--stream-surface-components" => {
+                stream_surface_components = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-surface-components requires largest or all".to_owned()
+                })?;
+                if !matches!(stream_surface_components.as_str(), "largest" | "all") {
+                    return Err(
+                        "water-preview --stream-surface-components must be largest or all"
+                            .to_owned(),
+                    );
+                }
             }
             "--stream-iterations" => {
                 stream_iterations = arguments
@@ -362,6 +376,7 @@ pub(super) fn parse_arguments(
         boundary_support: stream_boundary_support,
         spill_lip: stream_spill_lip,
         iterations: stream_iterations,
+        surface_components: stream_surface_components,
         rate: stream_rate,
     });
     if let Some(stream) = &stream {
@@ -665,6 +680,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "boundary_support": stream.boundary_support,
             "spill_lip": stream.spill_lip,
             "iterations": stream.iterations,
+            "surface_components": stream.surface_components,
             "rate": stream.rate,
             "frames_received": feed_summary.frames_received,
             "frames_published": feed_summary.publications,
@@ -874,6 +890,8 @@ impl StreamSession {
                 request.spill_lip.as_str(),
                 "--iterations",
                 &request.iterations.to_string(),
+                "--surface-components",
+                request.surface_components.as_str(),
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

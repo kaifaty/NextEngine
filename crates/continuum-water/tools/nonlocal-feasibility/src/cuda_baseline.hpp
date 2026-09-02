@@ -126,7 +126,8 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& boundary_support = "full",
     bool boundary_lid = true,
     const std::string& spill_lip = "margin",
-    int iterations_override = 0);
+    int iterations_override = 0,
+    const std::string& surface_components = "largest");
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

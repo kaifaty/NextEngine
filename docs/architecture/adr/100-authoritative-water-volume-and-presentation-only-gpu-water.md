@@ -80,10 +80,11 @@ executes presentation water.
   viscosity and surface terms skip them. Analytic contact alone is
   insufficient (evidence: D-047/D-048).
 - The candidate presentation surface is a top-down height field over a fixed
-  pixel grid of one quarter particle spacing: sphere-cap projection, largest
-  8-connected component, one 3x3 close, local fill, a 5x5 grayscale closing of
-  the height and one bilateral pass with range sigma equal to the particle
-  radius. It cannot represent overhangs or spray; those remain optional later
+  pixel grid of one quarter particle spacing: sphere-cap projection, every
+  8-connected component of at least one particle footprint (the accepted
+  research corpus keeps the earlier largest-component stage and its roots),
+  one 3x3 close, local fill, a 5x5 grayscale closing of the height and one
+  bilateral pass with range sigma equal to the particle radius. It cannot represent overhangs or spray; those remain optional later
   stages. GPU and CPU implementations are equivalent when masks and mesh
   counts are identical and depths agree within `1 um`.
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8, G3 THROTTLED) / 48K COST AND MATERIAL NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8) / ALL-COMPONENT SURFACE (NGQ9) / 48K COST AND MATERIAL NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -1330,6 +1330,23 @@
   step-cost decision is made under the solver contract, or the accepted
   dynamic corpus is extended past the wall phase with these layers.
 
+### D-051 — Presentation surface keeps every water body (NGQ9)
+
+- **Observation:** the user saw small amounts of water appear and vanish,
+  for example while the lower tank starts to fill.
+- **Evidence:** plan 23 and
+  `docs/development/nonlocal-gpu-surface-small-components-evidence-2026-09-02.md`:
+  largest-only retention `0.683` minimum on the narrow drain; `all`
+  (components `>= 9` pixels) retention `1.000`, CPU/GPU equivalent on
+  `241/241` frames, `0` closing gate failures, same cost.
+- **Decision:** the live preview defaults to `--surface-components all`;
+  `extract_presentation_surface` keeps the largest-only default so the
+  accepted corpus roots are unchanged; ADR-100/SPEC-38 wording updated.
+- **Rejected:** a lower pixel threshold (spray noise) or a per-frame
+  adaptive threshold (not exact across CPU/GPU by construction).
+- **Reconsider when:** the presentation solver enters the engine and the
+  surface contract is promoted.
+
 ### D-050 — Two-tank spillway: interior geometry through clamp and solids
 
 - **Observation:** the user asked for a scene with two tanks at different
@@ -1471,6 +1488,7 @@
 | HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
 | HG8H | the `flush` lip's `25 mm` floor step throws samples crossing the lip | supported: `margin` late speed follows the head; rev 8 level floor under `flush` restores that (`0.60 -> 0.20 m/s`) while keeping `Cd 0.443` | closed |
 | HG8I | isolated pipe samples are ejected by fixed-sample over-density | refuted: same pipe under `margin` trickles at head speed | closed |
+| HG9A | small water bodies flicker because the frozen extractor keeps only the largest wet component | supported: largest-only drops up to `32%` of wet pixels on the spill drain; keeping every component `>= 9` pixels retains `100%`, stays CPU/GPU exact and passes the closing gates | closed; preview default `all`, corpus keeps `largest` |
 
 ## Do not retry
 
