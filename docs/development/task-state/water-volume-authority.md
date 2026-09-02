@@ -88,6 +88,27 @@
   commands or ramps); publishing ring updates for a flat quad (cost without
   benefit).
 
+### D-005 — Water mechanics live in an exact cell/edge network, not in particles
+
+- **Observation:** the product wants Timberborn-class mechanics
+  (dams, gates, channels, pumps, communicating vessels, flooding) and
+  asked how to scale water by orders of magnitude; the particle solver
+  scales with volume and is non-authoritative by ADR-100.
+- **Evidence:** research calibration from plan 22 (`Cd 0.40..0.44` for a
+  wall opening, `0.13` for a long lined duct, exit speed `0.5..0.55` of
+  free fall); shipped games of this class run column or cell flow
+  models; the R8c checkpoint already carries exact volumes.
+- **Decision:** ADR-103 (Proposed): `WaterFlowNetworkV1` with cells as
+  `WaterVolume`s and head-driven edges, one exact integer step per
+  tick, field 5 of the physics checkpoint; presentation reads levels
+  and, later, edge fluxes; first increment is the two-vessel scene under
+  plan `continuum-water/07` with frozen gates.
+- **Rejected:** particles as the mechanic owner; a floating-point
+  shallow-water solver needing an execution profile; scripted levels only.
+- **Reconsider when:** a dense map-wide grid is needed (it is a network
+  with lattice cells and open edges) or a rigid-body coupling consumer
+  lands.
+
 ### D-003 — Verification issues the level command as a `Tool` principal
 
 - **Observation:** no gameplay mechanic sets a water level yet; the player
@@ -118,6 +139,12 @@
 
 ## Next action
 
+0. Water mechanics (ADR-103, plan `docs/plans/continuum-water/07`):
+   implement `WaterFlowNetworkV1` (cells = volumes, edges by head, exact
+   integer Jacobi step, `SetGate`/`SetPump`/`SetSource`) as field 5 of the
+   physics checkpoint (schema 3), the two-vessel reference scene and
+   `xtask water-flow` (`CONTINUUM-WATER-FLOW-P1`); refresh the pinned
+   goldens with the evidence.
 1. Presentation solver in the game root: declare the basin mesh as an
    ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
    (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and
