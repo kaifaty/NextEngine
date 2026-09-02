@@ -52,6 +52,8 @@
 
 ## Required context
 
+- Research note on engine and game water models:
+  `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum
   materials ..." in `docs/architecture/agent-routing.md`.
 - ADR-100 / ADR-101 (Proposed), SPEC-26 2.5, SPEC-38 1.8, SPEC-03 2.10.
