@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V32 / P0_P1_T0_COMPLETE / V0_PROTOCOL_FROZEN / V0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V32 / P0_P1_T0_COMPLETE / V0_V1_CLEAN_FALSE_POSITIVE_REJECT / V0A_PROTOCOL_FROZEN / V0A_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -39,9 +39,11 @@
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
   freezes masked physical coordinates without guessing X0 Glass constants.
-- **Next action:** implement V32.4 V0 against the [frozen validator-mechanics protocol](../physical-sound-v32-v0-validator-mechanics-protocol-2026-09-02.md),
-  prove label/cache invariance and the exact T0 decision matrix twice; S0 may
-  audit only bounded concrete source leads.
+- **V0-v1 result:** [target-ID-only retrieval](../physical-sound-v32-v0-validator-mechanics-result-2026-09-02.md)
+  repeat-exactly rejects clean `intervention-density`: T0 contains two lawful
+  equal-PCM/equal-modal causal alias pairs. No output or real value opened.
+- **Next action:** implement the [frozen V0a modal-equivalence protocol](../physical-sound-v32-v0a-modal-equivalence-validator-protocol-2026-09-02.md)
+  as a thin policy adapter; preserve every other V0 field and plate→beam reject.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -79,20 +81,18 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_T0_COMPLETE / V0_PROTOCOL_FROZEN / V0_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | T0 passes two exact 35-file publications with `9 Pass / 7 Reject` truth. V0 now binds label-blind views, specialist precedence, deterministic cache/OOD and zero real thresholds before feature values; every real claim still requires the unchanged `6/27` frontier to close. |
+| V32 F0–PR | `P0_P1_T0_COMPLETE / V0_V1_REJECT / V0A_PROTOCOL_FROZEN / V0A_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | V0-v1 atomically rejects a clean exact causal alias because retrieval keys only target ID. V0a freezes retrieval equivalence by exact modal signature; T0 and all real `6/27` gates remain unchanged. |
 
 ## Material transition: V32 automatic release chain
 
-- **Observation:** T0 now owns exact clean/mutation truth while the real source
-  deficit still blocks every real-quality certificate.
-- **Evidence:** two 35-file publications match byte-for-byte; `32/32` inherited
-  tests pass, seven mutations preserve their frozen reason matrix, and E2 still
-  leaves the same `6/27` deficit.
-- **Conclusion:** validator mechanics can now be tested automatically without
-  borrowing real thresholds or asking the user to listen.
-- **Decision:** close T0 and freeze V0 independently before implementing its
-  hard/physical/modal/cache/OOD specialists; real calibration remains sealed.
-- **Smallest next action:** implement the frozen V32.4 V0 owner and complete A/B.
+- **Observation:** V0-v1 rejects clean density intervention as retrieval.
+- **Evidence:** density/scale and thickness/Young's pairs each share exact PCM
+  and modal signatures; two complete attempts return the same atomic reject.
+- **Conclusion:** target ID is not a valid retrieval equivalence key because
+  different causal interventions can be acoustically identical by construction.
+- **Decision:** close V0-v1 and freeze V0a retrieval on exact target modal
+  equivalence; preserve every other specialist, threshold, cache and precedence.
+- **Smallest next action:** implement the frozen V0a adapter and rerun A/B.
 
 ## Durable negative knowledge
 
@@ -167,6 +167,7 @@
 | D-052 | V30 makes internet acquisition, whole-project role power, independent validation, physics-locked ML, one-shot admission and deterministic cooking separate certificates. Provider failure publishes no partial corpus or source credit. | A successful Q1a capture proves the existing evidence factory insufficient, or a cheaper autonomous path satisfies the same independence, causal and fallback gates. |
 | D-053 | E2 passes capture and audit A/B exactly with zero signal, but E3 rejects whole-project power despite raw `32/73`; E4 may target only the measured `6/27` weaker-role frontier. | A fresh metadata increment closes the unchanged partition gate or invalidates an E2 identity. |
 | D-054 | V32 T0 passes repeat-exactly and becomes the immutable `9 Pass / 7 Reject` mechanics truth for V0. It cannot grant real material, validator-release or admission credit; source scouting remains bounded. | A T0 artifact/invariant defect is found before V0 values, a fresh source closes S1, or evidence proves V0/M1 cannot be evaluated independently of protected real roles. |
+| D-055 | V0-v1 target-ID-only retrieval is closed after repeat-exact clean false positive. V0a may change only retrieval equivalence to exact target modal signature and must retain plate→beam rejection. | A T0 defect invalidates the alias or a preregistered counterexample proves modal equivalence still permits an inadmissible retrieval copy. |
 
 ## Open hypotheses
 
@@ -244,4 +245,4 @@ Read in precedence order:
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b and T0 mechanics pass; F0/I1 reject; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V32.4 V0 owner/tests/result; fallback remains authority.
+- **Next commit boundary:** V0-v1 reject plus frozen V0a protocol/profile; fallback remains authority.
