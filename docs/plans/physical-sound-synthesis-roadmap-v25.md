@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / M0_ONEHOT_CAUSAL_DEFECT / M0A_PROTOCOL_FROZEN / M0A_IMPLEMENTATION_IN_PROGRESS / MODEL_VALUES_UNOPENED / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / M0_ONEHOT_CAUSAL_DEFECT / M0A_IMPLEMENTATION_REPEAT_EXACT_PASS / M0A_E_READY / MODEL_VALUES_UNOPENED / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V24](physical-sound-synthesis-roadmap-v24.md) as planning authority; every frozen V24 protocol, hash and spent-role rule remains binding |
-| Current evidence | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [M0 conformance rebaseline](../development/physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md) and [M0a protocol](../development/physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md) |
+| Current evidence | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [M0 conformance rebaseline](../development/physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md), [M0a protocol](../development/physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md) and [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no public schema, runtime model, physics authority or production ProductCheck is promoted |
 | Mandatory fallback | The ordinary authored clip remains authoritative for every reject, OOD result, missing source, unsupported query or tooling failure |
 
@@ -45,7 +45,7 @@ universal material model are not V25 scope.
 | Analytic teacher | `T0 REPEAT_EXACT_PASS` | Twelve plate/beam objects, 144 contact rows, ten modes per object and exact remesh/force controls provide causal synthetic supervision. |
 | Internet pilot | `X0 REPEAT_EXACT_PASS` | Four exact Blue Bowl transfer rows and three identified recordings are represented without inventing absent physical axes; row `2407` remains sealed. |
 | Combined corpus record | `VALIDATED / AXIS_INCOMPLETE_BY_DESIGN` | The actual D0 owner accepts all 151 rows; incomplete real axes remain absent and cannot become supervision. |
-| Exact-object student protocol | `M0 SUPERSEDED / M0A FROZEN / VALUES_UNOPENED` | M0's one-hot input could not expose isolated `E`/density gates. M0a adds masked causal material coordinates while retaining the CPU seed, widths, schedule, roles, limits and stop rule. |
+| Exact-object student | `M0 SUPERSEDED / M0A-I REPEAT_EXACT_PASS / VALUES_UNOPENED` | M0's one-hot input could not expose isolated `E`/density gates. M0a adds masked causal material coordinates; commit `6b04dc5f` and implementation root `9df63e…e46` pass the full-entry fixture without opening official values. |
 
 These results prove the research substrate, not sound quality, Metal admission,
 validator reliability, a cooked atlas or runtime readiness.
@@ -80,8 +80,8 @@ early merely to shorten the path.
 | ID | Package | State | Size | Observable exit criterion |
 | --- | --- | --- | ---: | --- |
 | R0 | V24 evidence closeout | `COMPLETE` | — | D0, T0 and X0 pass twice; combined V3 SHA-256 is `c43ba8eac68e32a8ef8fbe37d3ffa3d21db1d59e0443766cee1d98f51cad70bb`; no model, validator or runtime authority follows from it. |
-| M0a-I | Causal-material student implementation conformance | `IN_PROGRESS / VALUES_UNOPENED` | M | Implement deterministic preprocessing including masked physical-material coordinates, role-gated access, controls, fixed PyTorch model, canonical tensor containers, MLflow diagnostic boundary, atomic publication and full-entry fixtures. Two fixture executions are byte-identical; causal input mutations are observable and every declared corruption fails closed. |
-| M0a-E | Exact-object official evaluation | `BLOCKED_BY_M0A-I_COMMIT` | M | Run the frozen `3101`, CPU-only, 2,000-step candidate twice under `1,800 s`, `4 GiB` and `256 MiB`; freeze weights before one-shot method holdout; publish exactly one `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or resource/conformance result. |
+| M0a-I | Causal-material student implementation conformance | `COMPLETE / REPEAT_EXACT_PASS / VALUES_UNOPENED` | M | Commit `6b04dc5f`, implementation root `9df63e…e46`; deterministic preprocessing, protected-role access, fixed model, controls, canonical tensors, local diagnostic MLflow and atomic full-entry fixture pass. Two executions are byte-identical and declared corruptions fail closed. |
+| M0a-E | Exact-object official evaluation | `READY / VALUES_UNOPENED` | M | Run the frozen `3101`, CPU-only, 2,000-step candidate twice under `1,800 s`, `4 GiB` and `256 MiB`; freeze weights before one-shot method holdout; publish exactly one `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or resource/conformance result. |
 | V0-P | Validator protocol and role freeze | `MAY_INVENTORY_SIGNAL_BLIND / VALUES_SEALED` | M | Freeze real-only calibration, positive holdout, mutation, OOD and untouched shadow groups; declare feature versions, thresholds, false-pass bound and access order before any candidate-sensitive value. |
 | V0-I | Independent Validator V1 | `BLOCKED_BY_M0A_PASS_AND_V0-P` | M–L | A separate owning CLI passes hard, physical, real-acoustic, mutation and selective-risk fixtures twice exactly; generator targets/checkpoints and candidate development outputs are unavailable to calibration. |
 | S0 | Metal evidence freeze | `BLOCKED_BY_V0-P` | M | Internet-only sources provide hash-closed object/family-disjoint train, development, method-holdout, validator and admission roles. Missing geometry, force, support, composition or listener axes narrow the claim or produce `FallbackOutOfDomain`. |
@@ -96,6 +96,10 @@ early merely to shorten the path.
 ## Immediate implementation sequence
 
 ### 1. Close M0a-I before opening model values
+
+`COMPLETE`: the [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md)
+freezes commit `6b04dc5f` and implementation root `9df63e…e46`; the official
+model-value surface remains unopened.
 
 Implement the frozen protocol through complete entry points, not isolated
 helpers. The conformance fixture must prove:
