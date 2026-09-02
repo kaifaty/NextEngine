@@ -124,7 +124,9 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& particle_dump_prefix = {},
     int boundary_layers = 0,
     const std::string& boundary_support = "full",
-    bool boundary_lid = true);
+    bool boundary_lid = true,
+    const std::string& spill_lip = "margin",
+    int iterations_override = 0);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

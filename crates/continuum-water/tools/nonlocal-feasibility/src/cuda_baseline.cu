@@ -645,7 +645,8 @@ __global__ void clamp_spill_contact(
     float opening_y0,
     float opening_y1,
     float opening_z0,
-    float opening_z1) {
+    float opening_z1,
+    float lip_margin) {
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= count || fixed[index] != 0U) {
         return;
@@ -655,8 +656,8 @@ __global__ void clamp_spill_contact(
         const bool window = p.y > opening_y0 && p.y < opening_y1 && p.z > opening_z0
             && p.z < opening_z1;
         if (window) {
-            p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - radius);
-            p.z = fminf(fmaxf(p.z, opening_z0 + radius), opening_z1 - radius);
+            p.y = fminf(fmaxf(p.y, opening_y0 + lip_margin), opening_y1 - lip_margin);
+            p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
         } else if (p.x < 0.5F * (wall_x0 + wall_x1)) {
             p.x = wall_x0 - radius;
         } else {
@@ -2549,7 +2550,8 @@ public:
                         static_cast<float>(fixture_.spill.opening_y0),
                         static_cast<float>(fixture_.spill.opening_y1),
                         static_cast<float>(fixture_.spill.opening_z0),
-                        static_cast<float>(fixture_.spill.opening_z1));
+                        static_cast<float>(fixture_.spill.opening_z1),
+                        fixture_.spill.flush ? 0.0F : radius);
                 }
             });
         }
@@ -7629,10 +7631,12 @@ std::size_t append_spill_solids(
             }
         }
     }
+    const int ring = spill.open_ring ? 1 : 0;
     for (int x = wall_x0; x < wall_x1; ++x) {
         for (int y = 0; y < box.cells[1]; ++y) {
             for (int z = 0; z < box.cells[2]; ++z) {
-                if (y >= opening_y0 && y < opening_y1 && z >= opening_z0 && z < opening_z1) {
+                if (y >= opening_y0 - ring && y < opening_y1 + ring && z >= opening_z0 - ring
+                    && z < opening_z1 + ring) {
                     continue;
                 }
                 push(x, y, z);
@@ -10762,9 +10766,17 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& particle_dump_prefix,
     int boundary_layers,
     const std::string& boundary_support,
-    bool boundary_lid) {
+    bool boundary_lid,
+    const std::string& spill_lip,
+    int iterations_override) {
     if (boundary_support != "full" && boundary_support != "density") {
         throw std::invalid_argument("stream boundary support must be full or density");
+    }
+    if (iterations_override < 0 || iterations_override > 50) {
+        throw std::invalid_argument("stream iterations override must be 0..50");
+    }
+    if (spill_lip != "margin" && spill_lip != "flush" && spill_lip != "open") {
+        throw std::invalid_argument("stream spill lip must be margin, flush or open");
     }
     const StreamExtractorMode extractor_mode = parse_stream_extractor_mode(extractor_name);
     if (boundary_layers < 0 || boundary_layers > 2) {
@@ -10815,10 +10827,10 @@ CommandReport run_cuda_game_surface_stream(
         lattice_x = 40;
         lattice_y = 30;
         lattice_z = 40;
-    } else if (lane == "spill") {
+    } else if (lane == "spill" || lane == "spill-narrow") {
         // NGQ8 two-tank spillway (plan 22): the upper tank sits on a 1 m
         // shelf left of a 0.2 m divider whose opening drains into the
-        // empty lower tank.
+        // empty lower tank. Revision 2 narrows the opening to 0.15 x 0.2 m.
         box = GameQualityBox{{0.0, 0.0, 0.0}, {5.0, 2.0, 1.5}, {100, 40, 30}};
         lattice_x = 40;
         lattice_y = 10;
@@ -10828,14 +10840,24 @@ CommandReport run_cuda_game_surface_stream(
         spill.wall_x0 = 2.0;
         spill.wall_x1 = 2.2;
         spill.opening_y0 = 1.0;
-        spill.opening_y1 = 1.3;
-        spill.opening_z0 = 0.5;
-        spill.opening_z1 = 1.0;
+        spill.flush = spill_lip != "margin";
+        spill.open_ring = spill_lip == "open";
+        if (lane == "spill") {
+            spill.opening_y1 = 1.3;
+            spill.opening_z0 = 0.5;
+            spill.opening_z1 = 1.0;
+        } else {
+            spill.opening_y1 = 1.15;
+            spill.opening_z0 = 0.65;
+            spill.opening_z1 = 0.85;
+        }
     } else {
-        throw std::invalid_argument("stream lane must be 4k, 16k, 48k, 48k-dam or spill");
+        throw std::invalid_argument(
+            "stream lane must be 4k, 16k, 48k, 48k-dam, spill or spill-narrow");
     }
     double spill_maximum_penetration = 0.0;
     double spill_upper_fraction = 1.0;
+    double spill_upper_at_2s = -1.0;
     bool spill_arrived_by_480 = false;
     std::string spill_drain_curve;
     std::uint64_t completed_steps = 0U;
@@ -10907,8 +10929,11 @@ CommandReport run_cuda_game_surface_stream(
         // host round trip. Host state is refreshed only on emitted frames.
         // NGQ7: optional fixed lattice complement on all box faces gives the
         // floor and wall neighbourhoods their density support (D-047).
+        // NGQ8 revision 4: an explicit iteration count is a research
+        // override of the accepted profile, reported in the summary.
         Fixture fixture = game_fixture(
-            profile, "game-stream-" + lane, fluid, box, profile.fixed_iterations,
+            profile, "game-stream-" + lane, fluid, box,
+            iterations_override > 0 ? iterations_override : profile.fixed_iterations,
             profile.max_neighbors, boundary_layers, boundary_lid && !spill.enabled);
         if (spill.enabled) {
             append_spill_solids(fixture, box, spill);
@@ -11000,6 +11025,9 @@ CommandReport run_cuda_game_surface_stream(
                         spill_drain_curve += (spill_drain_curve.empty() ? "" : ",")
                             + std::to_string(spill_upper_fraction);
                     }
+                    if (step == 480) {
+                        spill_upper_at_2s = spill_upper_fraction;
+                    }
                 }
                 ++emitted_in_cycle;
                 if (!emit(step)) {
@@ -11037,6 +11065,7 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile)) << "\""
            << ",\"binary_sha256\":\"" << executable_hash() << "\""
            << ",\"dynamic_samples\":" << dynamic_samples
+           << ",\"iterations\":" << (iterations_override > 0 ? iterations_override : profile.fixed_iterations)
            << ",\"boundary_layers\":" << boundary_layers
            << ",\"boundary_support\":\"" << boundary_support << "\""
            << ",\"boundary_lid\":" << (boundary_lid ? "true" : "false")
@@ -11081,7 +11110,20 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"first_failure\":\"" << first_failure << "\""
            << ",\"simulation_feedback\":false";
     if (spill.enabled) {
-        output << ",\"spill\":{\"maximum_penetration_m\":" << spill_maximum_penetration
+        // Discharge coefficient over the first two seconds (480 steps):
+        // drained volume against a free orifice at the mean head 0.45 m.
+        const double opening_area = (spill.opening_y1 - spill.opening_y0)
+            * (spill.opening_z1 - spill.opening_z0);
+        const double drained_fraction_2s = spill_upper_at_2s >= 0.0 ? 1.0 - spill_upper_at_2s : 0.0;
+        const double fluid_volume = static_cast<double>(dynamic_samples) * GAME_SPACING
+            * GAME_SPACING * GAME_SPACING;
+        const double torricelli_flow = opening_area * std::sqrt(2.0 * 9.81 * 0.45);
+        const double discharge_coefficient =
+            torricelli_flow > 0.0 ? drained_fraction_2s * fluid_volume / 2.0 / torricelli_flow : 0.0;
+        output << ",\"spill\":{\"lip\":\"" << spill_lip << "\""
+               << ",\"opening_area_m2\":" << opening_area
+               << ",\"discharge_coefficient_2s\":" << discharge_coefficient
+               << ",\"maximum_penetration_m\":" << spill_maximum_penetration
                << ",\"upper_fraction_final\":" << spill_upper_fraction
                << ",\"arrived_by_step_480\":" << (spill_arrived_by_480 ? "true" : "false")
                << ",\"upper_fraction_per_second\":[" << spill_drain_curve << ']'

@@ -105,6 +105,10 @@ pub(super) struct StreamRequest {
     boundary_layers: u32,
     /// How fixed samples take part in the solve: `full` or `density`.
     boundary_support: String,
+    /// NGQ8 spill opening lip: `margin`, `flush` or `open`.
+    spill_lip: String,
+    /// Research override of the profile iteration count (`0` = profile).
+    iterations: u32,
     /// Stream seconds published per wall second; zero disables pacing and
     /// publishes every frame as soon as it arrives.
     rate: f64,
@@ -128,6 +132,8 @@ pub(super) fn parse_arguments(
     let mut stream_surface_model = "closing".to_owned();
     let mut stream_boundary_layers: Option<u32> = None;
     let mut stream_boundary_support = "density".to_owned();
+    let mut stream_spill_lip = "margin".to_owned();
+    let mut stream_iterations: u32 = 0;
     let mut stream_rate = 1.0_f64;
     let mut device_local_ring = true;
     let mut until_close = false;
@@ -200,14 +206,15 @@ pub(super) fn parse_arguments(
             }
             "--stream-lane" => {
                 stream_lane = arguments.next().ok_or_else(|| {
-                    "water-preview --stream-lane requires 4k, 16k, 48k, 48k-dam or spill".to_owned()
+                    "water-preview --stream-lane requires 4k, 16k, 48k, 48k-dam, spill or spill-narrow"
+                        .to_owned()
                 })?;
                 if !matches!(
                     stream_lane.as_str(),
-                    "4k" | "16k" | "48k" | "48k-dam" | "spill"
+                    "4k" | "16k" | "48k" | "48k-dam" | "spill" | "spill-narrow"
                 ) {
                     return Err(
-                        "water-preview --stream-lane must be 4k, 16k, 48k, 48k-dam or spill"
+                        "water-preview --stream-lane must be 4k, 16k, 48k, 48k-dam, spill or spill-narrow"
                             .to_owned(),
                     );
                 }
@@ -231,6 +238,25 @@ pub(super) fn parse_arguments(
                     0,
                     2,
                 )?);
+            }
+            "--stream-iterations" => {
+                stream_iterations = arguments
+                    .next()
+                    .and_then(|value| value.parse().ok())
+                    .filter(|value| *value <= 50)
+                    .ok_or_else(|| {
+                        "water-preview --stream-iterations requires 0..=50".to_owned()
+                    })?;
+            }
+            "--stream-spill-lip" => {
+                stream_spill_lip = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-spill-lip requires margin, flush or open".to_owned()
+                })?;
+                if !matches!(stream_spill_lip.as_str(), "margin" | "flush" | "open") {
+                    return Err(
+                        "water-preview --stream-spill-lip must be margin, flush or open".to_owned(),
+                    );
+                }
             }
             "--stream-boundary-support" => {
                 stream_boundary_support = arguments.next().ok_or_else(|| {
@@ -334,6 +360,8 @@ pub(super) fn parse_arguments(
         // default to one layer.
         boundary_layers: stream_boundary_layers.unwrap_or(default_boundary_layers),
         boundary_support: stream_boundary_support,
+        spill_lip: stream_spill_lip,
+        iterations: stream_iterations,
         rate: stream_rate,
     });
     if let Some(stream) = &stream {
@@ -635,6 +663,8 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "surface_model": stream.surface_model,
             "boundary_layers": stream.boundary_layers,
             "boundary_support": stream.boundary_support,
+            "spill_lip": stream.spill_lip,
+            "iterations": stream.iterations,
             "rate": stream.rate,
             "frames_received": feed_summary.frames_received,
             "frames_published": feed_summary.publications,
@@ -840,6 +870,10 @@ impl StreamSession {
                 &request.boundary_layers.to_string(),
                 "--boundary-support",
                 request.boundary_support.as_str(),
+                "--spill-lip",
+                request.spill_lip.as_str(),
+                "--iterations",
+                &request.iterations.to_string(),
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -1414,14 +1448,10 @@ fn build_preview(
     let basin_material_revision = basin_material
         .asset_revision()
         .map_err(|error| error.to_string())?;
-    let basin_mesh = if request
-        .stream
-        .as_ref()
-        .is_some_and(|stream| stream.lane == "spill")
-    {
-        spill_mesh(mesh_schema.clone(), bounds)?
-    } else {
-        basin_mesh(mesh_schema.clone(), bounds)?
+    let basin_mesh = match request.stream.as_ref().map(|stream| stream.lane.as_str()) {
+        Some("spill") => spill_mesh(mesh_schema.clone(), bounds, SPILL_OPENING_WIDE)?,
+        Some("spill-narrow") => spill_mesh(mesh_schema.clone(), bounds, SPILL_OPENING_NARROW)?,
+        _ => basin_mesh(mesh_schema.clone(), bounds)?,
     };
     let basin_mesh_revision = basin_mesh
         .asset_revision()
@@ -1900,18 +1930,24 @@ fn solid_box_faces(minimum: [i64; 3], maximum: [i64; 3]) -> [MeshFace; 6] {
 /// NGQ8 two-tank spillway (plan 22): the outer basin plus the shelf and the
 /// divider pieces around the opening, in the solver's metres. The geometry
 /// mirrors the `spill` lane of the research tool and is presentation only.
+/// Opening window of the spill divider in micrometres: `(y0, y1, z0, z1)`.
+const SPILL_OPENING_WIDE: (i64, i64, i64, i64) = (1_000_000, 1_300_000, 500_000, 1_000_000);
+const SPILL_OPENING_NARROW: (i64, i64, i64, i64) = (1_000_000, 1_150_000, 650_000, 850_000);
+
 fn spill_mesh(
     schema: next_contracts::project::SchemaRefV1,
     bounds: AabbI64V1,
+    opening: (i64, i64, i64, i64),
 ) -> Result<NeutralMeshV1, String> {
     const M: i64 = 1_000_000;
+    let (y0, y1, z0, z1) = opening;
     let mut faces = basin_faces(bounds);
     let solids: [([i64; 3], [i64; 3]); 5] = [
         ([0, 0, 0], [2 * M, M, 3 * M / 2]),
-        ([2 * M, 0, 0], [2 * M + M / 5, M, 3 * M / 2]),
-        ([2 * M, 13 * M / 10, 0], [2 * M + M / 5, 2 * M, 3 * M / 2]),
-        ([2 * M, M, 0], [2 * M + M / 5, 13 * M / 10, M / 2]),
-        ([2 * M, M, M], [2 * M + M / 5, 13 * M / 10, 3 * M / 2]),
+        ([2 * M, 0, 0], [2 * M + M / 5, y0, 3 * M / 2]),
+        ([2 * M, y1, 0], [2 * M + M / 5, 2 * M, 3 * M / 2]),
+        ([2 * M, y0, 0], [2 * M + M / 5, y1, z0]),
+        ([2 * M, y0, z1], [2 * M + M / 5, y1, 3 * M / 2]),
     ];
     for (minimum, maximum) in solids {
         faces.extend(solid_box_faces(minimum, maximum));

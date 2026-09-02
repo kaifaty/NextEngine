@@ -53,6 +53,12 @@ struct Fixture {
         double opening_y1 = 0.0;
         double opening_z0 = 0.0;
         double opening_z1 = 0.0;
+        /// NGQ8 revision 3: `flush` clamps sample centres to the opening
+        /// faces themselves instead of one radius inside them.
+        bool flush = false;
+        /// NGQ8 revision 3: leave the one-cell ring of divider cells around
+        /// the opening without fixed density samples.
+        bool open_ring = false;
     } spill;
 };
 

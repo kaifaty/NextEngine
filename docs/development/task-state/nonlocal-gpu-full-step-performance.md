@@ -1348,9 +1348,15 @@
   (`--stream-lane spill`); record G3 as a bounded failure, no retune.
 - **Rejected:** widening the opening or the gate after the run; porting
   the full W0F internal-plane machinery for one visual scene.
-- **Reconsider when:** a scene needs the drain rate itself (open a contact
-  discriminator on the opening lip and the ghost layers inside the pipe),
-  or the presentation solver moves into the engine.
+- **Amendment (revisions 2-4, user-directed):** `spill-narrow`
+  (`0.15 x 0.2 m`), `--spill-lip margin|flush|open` and `--iterations`
+  measured a discharge coefficient of `0.35..0.44` for every admissible
+  variant; HG8B holds bounded, HG8C and HG8D are refuted. A realistic
+  `0.6` needs a profile-level discriminator (viscosity terms, release
+  lift, shelf support), not more geometry switches.
+- **Reconsider when:** a scene needs the real drain rate (open the profile
+  discriminator with its own corpus evidence), or the presentation solver
+  moves into the engine.
 
 ### D-049 — Specifications follow the evidence: presentation-only GPU water
 
@@ -1451,7 +1457,10 @@
 | HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | selected bounded: density-only fixed layers remove the stall, put the crest at the wall and settle the floor layer at `1.13--1.17` (control `2.25--2.27`) | 48k cost under the solver contract |
 | HG7C | the stall comes from the contact clamp or the sheet itself | falsified for the stall: unchanged clamp, stall gone with density support | closed |
 | HG7E | fixed samples may take part in every term | falsified: no-slip drag slows the front to `0.40x`; density-only keeps `1.18x` | closed |
-| HG8A | a positional clamp plus density-only fixed solids handle axis-aligned interior walls with an opening | supported bounded: `0 m` penetration, arrival before step 480; drainage `0.611` at 4 s against `<= 0.6` (throttled, not retuned) | opening-lip/contact discriminator if throughput matters |
+| HG8A | a positional clamp plus density-only fixed solids handle axis-aligned interior walls with an opening | supported bounded: `0 m` penetration, arrival before step 480; drainage `0.611` at 4 s against `<= 0.6` (throttled, not retuned) | closed |
+| HG8B | the one-radius clamp margin inside the opening throttles the flow | supported bounded: `flush` lip raises `Cd` `0.35 -> 0.40` (wide), `0.39 -> 0.44` (narrow) | exposed as `--stream-spill-lip flush`; default unchanged |
+| HG8C | fixed samples around the opening throttle the flow | refuted: removing the ring halves `Cd` (`0.19 / 0.20`) | closed |
+| HG8D | the five-iteration solve throttles the flow | refuted: 10 and 20 iterations lower `Cd` (`0.39 / 0.33`, `0.38 / 0.28`) | closed; the gap to a real orifice (`0.62`) is in the profile terms, a separate discriminator |
 
 ## Do not retry
 

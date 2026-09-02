@@ -83,9 +83,9 @@ void print_usage() {
               << "       nonlocal-feasibility --game-visual-corpus --frames <prefix>\n"
               << "       nonlocal-feasibility --game-surface-prototype\n"
               << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
-              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam|spill> "
+              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam|spill|spill-narrow> "
                  "[--steps 960] [--every 4] [--cycles 1] [--workers 3] "
-                 "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>] [--boundary-layers 0|1|2] [--boundary-support full|density] [--boundary-lid 1|0]\n"
+                 "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>] [--boundary-layers 0|1|2] [--boundary-support full|density] [--boundary-lid 1|0] [--spill-lip margin|flush|open] [--iterations 0..50]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -190,6 +190,8 @@ int main(int argc, char** argv) {
             int boundary_layers = 0;
             std::string boundary_support = "full";
             bool boundary_lid = true;
+            std::string spill_lip = "margin";
+            int iterations_override = 0;
             for (int index = 2; index + 1 < argc; index += 2) {
                 const std::string key = argv[index];
                 const std::string value = argv[index + 1];
@@ -215,6 +217,10 @@ int main(int argc, char** argv) {
                     boundary_support = value;
                 } else if (key == "--boundary-lid") {
                     boundary_lid = value == "1" || value == "true";
+                } else if (key == "--spill-lip") {
+                    spill_lip = value;
+                } else if (key == "--iterations") {
+                    iterations_override = std::stoi(value);
                 } else {
                     print_usage();
                     return 2;
@@ -229,7 +235,8 @@ int main(int argc, char** argv) {
             std::signal(SIGPIPE, SIG_IGN);
             const auto report = nextengine::nonlocal::run_cuda_game_surface_stream(
                 lane, steps, every, cycles, workers, extractor, surface_model, std::cout,
-                particle_dump, boundary_layers, boundary_support, boundary_lid);
+                particle_dump, boundary_layers, boundary_support, boundary_lid, spill_lip,
+                iterations_override);
             std::cerr << report.json << '\n';
             return report.passed ? 0 : 1;
         }
