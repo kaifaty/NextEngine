@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V31 / P0_PROTOCOL_FROZEN / P1_OWNER_NEXT / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V31 / P0_P1_COMPLETE / T0_TRUTH_NEXT / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -20,9 +20,10 @@
 - **Planning authority:** [Roadmap V31](../../plans/physical-sound-synthesis-roadmap-v31.md)
   preserves V30's real gates but makes source scouting bounded; causal baseline,
   synthetic truth and validator mechanics now advance without real-quality credit.
-- **P0 result:** the [causal baseline owner](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
-  freezes two analytic fixtures, seven isolated interventions, deterministic
-  resources and typed fallback twice exactly with zero signal/model access.
+- **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
+  and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
+  pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
+  six typed fallbacks close with zero signal/model/network access.
 - **Q1-M result:** [role-power audit](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md)
   accounts for all 109 identities twice exactly with zero signal access. Two
   projects miss the 9-project role floor, exact Steel is `23/32`, rejects are
@@ -34,22 +35,8 @@
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
   freezes masked physical coordinates without guessing X0 Glass constants.
-- **M0a-I result:** [implementation conformance](../physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md)
-  passes full-entry A/B exactly at commit `6b04dc5f`, implementation root
-  `9df63e614ff1cd4e46531b4157379306d9bc128da6f92e2886ea0810790f2e46`;
-  no official model-derived value has opened.
-- **M0a-E result:** [official run A](../physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md)
-  rejected before model construction because a legal contact was off-vertex on
-  the coarse mesh. No model value opened, no output published and B did not run.
-- **P0/P0a:** P0's surface semantics remain frozen at `4fff3ebd…65e7`, but
-  complete-preprocessing smoke proved its inherited alignment could not place
-  context peaks `87/73/39` at sample `512` without padding. [P0a](../physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md)
-  freezes bounded zero padding at `54522c26…49e8`; no model value opened.
-- **R0 result:** [implementation conformance](../physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md)
-  passes full-entry A/B and actual official contexts at commit `db85c799`, root
-  `d013ec35…f456`; no model/query/protected value opened.
-- **Next action:** implement V31 P1's deterministic modal owner under the exact
-  P0 profile; S0 may audit only bounded concrete source leads.
+- **Next action:** freeze V31 T0 clean truth and adversarial mutation outcomes
+  against the exact P1 owner; S0 may audit only bounded concrete source leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -87,7 +74,7 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V31 R0–PR | `P0_PROTOCOL_FROZEN / P1_OWNER_NEXT / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | P0 passes exact/zero-signal; bounded source batches cannot block P1–M1, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
+| V31 R0–PR | `P0_P1_COMPLETE / T0_TRUTH_NEXT / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | P1 passes exact synthetic mechanics/fallback; bounded source batches cannot block T0–M1, but S1/V1/M2 and every real admission claim still require the unchanged `6/27` frontier to close. |
 
 ## Material transition: V31 convergent execution order
 
@@ -99,7 +86,7 @@
   protected signal has opened.
 - **Decision:** E3 stays OOD and the `6/27`, exact-Steel and `16/35` gates do not
   change. Source work becomes bounded batches while P0–M1 advance without real credit.
-- **Smallest next action:** implement P1 modes/rendering and typed fallback without opening real or model values.
+- **Smallest next action:** freeze T0 clean/mutation expectations before implementing validator mechanics.
 
 ## Durable negative knowledge
 
@@ -173,7 +160,7 @@
 | D-051 | V29 keeps Glass immutable; Q1-M proves the two-project exact-Steel release is source-power OOD and assigns no role. Q1a source growth and P0 truth remain independent prerequisites. | A fresh current exposure ledger plus at least nine role-capable projects closes unchanged Q1 gates, or P0 truth rejects the hybrid. |
 | D-052 | V30 makes internet acquisition, whole-project role power, independent validation, physics-locked ML, one-shot admission and deterministic cooking separate certificates. Provider failure publishes no partial corpus or source credit. | A successful Q1a capture proves the existing evidence factory insufficient, or a cheaper autonomous path satisfies the same independence, causal and fallback gates. |
 | D-053 | E2 passes capture and audit A/B exactly with zero signal, but E3 rejects whole-project power despite raw `32/73`; E4 may target only the measured `6/27` weaker-role frontier. | A fresh metadata increment closes the unchanged partition gate or invalidates an E2 identity. |
-| D-054 | V31 makes source scouting bounded and moves the immediate boundary to a deterministic causal modal owner. Synthetic truth may qualify mechanics but cannot grant real material, validator or admission credit. | A fresh source closes S1 or evidence proves P0–M1 cannot be evaluated independently of protected real roles. |
+| D-054 | V31 keeps source scouting bounded; P0/P1 now freeze and pass the deterministic causal modal owner. Synthetic truth may qualify mechanics and mutations but cannot grant real material, validator or admission credit. | A fresh source closes S1 or evidence proves T0–M1 cannot be evaluated independently of protected real roles. |
 
 ## Open hypotheses
 
@@ -247,8 +234,8 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** Q1a owner, E2, V31 and the P0 owner/result are in Git; generated artifacts remain external.
+- **Workspace:** Q1a/E2/V31 and the P0/P1 owners/results are in Git; generated artifacts remain external.
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
 - **Quality:** B0/C0/M0b pass; F0/I1 reject; no real formula, validator, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V31 P1 deterministic modal owner; fallback remains authority.
+- **Next commit boundary:** V31 T0 truth and mutation library; fallback remains authority.
