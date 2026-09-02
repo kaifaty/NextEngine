@@ -677,6 +677,114 @@ __global__ void clamp_spill_contact(
     position[index] = p;
 }
 
+// NGQ8 revision 9: under-floor pipe scene in device units (metres).
+struct SpillPipeDevice {
+    float shelf_top;
+    float wall_x0;
+    float wall_x1;
+    float shaft_x0;
+    float shaft_x1;
+    float duct_y0;
+    float duct_y1;
+    float z0;
+    float z1;
+    float pipe_x1;
+    float pipe_wall;
+};
+
+__device__ inline bool spill_pipe_in_box(float3 p, float3 lo, float3 hi) {
+    return p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y && p.z >= lo.z && p.z <= hi.z;
+}
+
+__device__ inline float3 spill_pipe_clamp_box(float3 p, float3 lo, float3 hi) {
+    return make_float3(
+        fminf(fmaxf(p.x, lo.x), hi.x), fminf(fmaxf(p.y, lo.y), hi.y),
+        fminf(fmaxf(p.z, lo.z), hi.z));
+}
+
+__device__ inline float spill_pipe_dist2(float3 a, float3 b) {
+    const float dx = a.x - b.x;
+    const float dy = a.y - b.y;
+    const float dz = a.z - b.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+// Allowed sample centres: inside a channel shrunk by one radius, or outside
+// every solid expanded by one radius. Channels end one radius past their
+// mouths so they join the free region without a gap.
+__device__ inline bool spill_pipe_allowed(float3 p, const SpillPipeDevice& g, float r) {
+    const float3 shaft_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 shaft_hi = make_float3(g.shaft_x1 - r, g.shelf_top + r, g.z1 - r);
+    const float3 duct_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 duct_hi = make_float3(g.pipe_x1 + r, g.duct_y1 - r, g.z1 - r);
+    if (spill_pipe_in_box(p, shaft_lo, shaft_hi) || spill_pipe_in_box(p, duct_lo, duct_hi)) {
+        return true;
+    }
+    const bool shelf = p.x < g.wall_x0 + r && p.y < g.shelf_top + r;
+    const bool wall = p.x > g.wall_x0 - r && p.x < g.wall_x1 + r;
+    const bool pipe = p.x > g.wall_x1 - r && p.x < g.pipe_x1 + r
+        && p.y > g.duct_y0 - g.pipe_wall - r && p.y < g.duct_y1 + g.pipe_wall + r
+        && p.z > g.z0 - g.pipe_wall - r && p.z < g.z1 + g.pipe_wall + r;
+    return !(shelf || wall || pipe);
+}
+
+// NGQ8 revision 9 clamp: a sample inside a solid moves to the nearest of
+// the channel interiors or the exit faces of the solids that contain it,
+// repeated a few times so a concave corner (shelf under the divider) is
+// left through two short moves instead of one long one. Faces glued to
+// another solid (shelf +x, pipe body -x) are never exits. Positional only.
+__global__ void clamp_spill_pipe_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float radius,
+    SpillPipeDevice g) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    float3 p = position[index];
+    const float r = radius;
+    const float3 shaft_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 shaft_hi = make_float3(g.shaft_x1 - r, g.shelf_top + r, g.z1 - r);
+    const float3 duct_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 duct_hi = make_float3(g.pipe_x1 + r, g.duct_y1 - r, g.z1 - r);
+    for (int pass = 0; pass < 4 && !spill_pipe_allowed(p, g, r); ++pass) {
+        float3 best = p;
+        float best_dist = 3.4e38F;
+        const auto consider = [&](float3 candidate) {
+            const float dist = spill_pipe_dist2(p, candidate);
+            if (dist < best_dist) {
+                best_dist = dist;
+                best = candidate;
+            }
+        };
+        consider(spill_pipe_clamp_box(p, shaft_lo, shaft_hi));
+        consider(spill_pipe_clamp_box(p, duct_lo, duct_hi));
+        if (p.x < g.wall_x0 + r && p.y < g.shelf_top + r) {
+            consider(make_float3(p.x, g.shelf_top + r, p.z));
+        }
+        if (p.x > g.wall_x0 - r && p.x < g.wall_x1 + r) {
+            consider(make_float3(g.wall_x0 - r, p.y, p.z));
+            consider(make_float3(g.wall_x1 + r, p.y, p.z));
+        }
+        const float pipe_y0 = g.duct_y0 - g.pipe_wall - r;
+        const float pipe_y1 = g.duct_y1 + g.pipe_wall + r;
+        const float pipe_z0 = g.z0 - g.pipe_wall - r;
+        const float pipe_z1 = g.z1 + g.pipe_wall + r;
+        if (p.x > g.wall_x1 - r && p.x < g.pipe_x1 + r && p.y > pipe_y0 && p.y < pipe_y1
+            && p.z > pipe_z0 && p.z < pipe_z1) {
+            consider(make_float3(g.pipe_x1 + r, p.y, p.z));
+            consider(make_float3(p.x, pipe_y0, p.z));
+            consider(make_float3(p.x, pipe_y1, p.z));
+            consider(make_float3(p.x, p.y, pipe_z0));
+            consider(make_float3(p.x, p.y, pipe_z1));
+        }
+        p = best;
+    }
+    position[index] = p;
+}
+
 template <typename NeighborIndex>
 __global__ void compute_density(
     const float3* position,
@@ -2548,7 +2656,18 @@ public:
                         static_cast<float>(fixture_.contact_maximum.x) - radius,
                         static_cast<float>(fixture_.contact_maximum.y) - radius,
                         static_cast<float>(fixture_.contact_maximum.z) - radius));
-                if (fixture_.spill.enabled) {
+                if (fixture_.spill.enabled && fixture_.spill.under_floor) {
+                    const Fixture::Spill& s = fixture_.spill;
+                    const SpillPipeDevice geometry{
+                        static_cast<float>(s.shelf_top),  static_cast<float>(s.wall_x0),
+                        static_cast<float>(s.wall_x1),    static_cast<float>(s.shaft_x0),
+                        static_cast<float>(s.shaft_x1),   static_cast<float>(s.opening_y0),
+                        static_cast<float>(s.opening_y1), static_cast<float>(s.opening_z0),
+                        static_cast<float>(s.opening_z1), static_cast<float>(s.pipe_x1),
+                        static_cast<float>(s.pipe_wall)};
+                    clamp_spill_pipe_contact<<<blocks_for(count_), THREADS>>>(
+                        current_, solver_fixed, count_, radius, geometry);
+                } else if (fixture_.spill.enabled) {
                     clamp_spill_contact<<<blocks_for(count_), THREADS>>>(
                         current_, solver_fixed, count_, radius,
                         static_cast<float>(fixture_.spill.shelf_top),
@@ -7603,12 +7722,113 @@ Fixture game_fixture(
     return fixture;
 }
 
+// NGQ8 revision 9: solid material of the under-floor pipe scene (shelf,
+// divider, protruding pipe body) minus the shaft and duct channels.
+bool spill_pipe_solid(const Vec3& p, const Fixture::Spill& spill) {
+    const bool shaft = p.x > spill.shaft_x0 && p.x < spill.shaft_x1 && p.z > spill.opening_z0
+        && p.z < spill.opening_z1 && p.y > spill.opening_y0;
+    const bool duct = p.y > spill.opening_y0 && p.y < spill.opening_y1 && p.z > spill.opening_z0
+        && p.z < spill.opening_z1 && p.x > spill.shaft_x0 && p.x < spill.pipe_x1;
+    if (shaft || duct) {
+        return false;
+    }
+    const bool shelf = p.x < spill.wall_x0 && p.y < spill.shelf_top;
+    const bool wall = p.x > spill.wall_x0 && p.x < spill.wall_x1;
+    const bool pipe = p.x > spill.wall_x1 && p.x < spill.pipe_x1
+        && p.y > spill.opening_y0 - spill.pipe_wall && p.y < spill.opening_y1 + spill.pipe_wall
+        && p.z > spill.opening_z0 - spill.pipe_wall && p.z < spill.opening_z1 + spill.pipe_wall;
+    return shelf || wall || pipe;
+}
+
+// NGQ8 revision 9: fixed density-only samples in every solid lattice cell
+// within two cells of a non-solid cell (shelf top layers, shaft and duct
+// linings, the whole divider, the pipe body).
+std::size_t append_spill_pipe_solids(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    const Fixture::Spill& spill) {
+    const std::size_t before = fixture.particles.size();
+    const auto centre = [&](int x, int y, int z) {
+        return Vec3{
+            box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+            box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+            box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+        };
+    };
+    const auto solid = [&](int x, int y, int z) {
+        return spill_pipe_solid(centre(x, y, z), spill);
+    };
+    for (int x = 0; x < box.cells[0]; ++x) {
+        for (int y = 0; y < box.cells[1]; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                if (!solid(x, y, z)) {
+                    continue;
+                }
+                bool near_free = false;
+                for (int dx = -2; dx <= 2 && !near_free; ++dx) {
+                    for (int dy = -2; dy <= 2 && !near_free; ++dy) {
+                        for (int dz = -2; dz <= 2 && !near_free; ++dz) {
+                            const int nx = x + dx;
+                            const int ny = y + dy;
+                            const int nz = z + dz;
+                            if (nx < 0 || ny < 0 || nz < 0 || nx >= box.cells[0]
+                                || ny >= box.cells[1] || nz >= box.cells[2]) {
+                                continue;
+                            }
+                            near_free = !solid(nx, ny, nz);
+                        }
+                    }
+                }
+                if (near_free) {
+                    fixture.particles.push_back({centre(x, y, z), {}, true});
+                }
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+// NGQ8 revision 9: depth of one fluid sample inside the pipe-scene solids
+// (distance to the nearest exit face), zero inside a channel or free space.
+double spill_pipe_penetration(const Vec3& p, const Fixture::Spill& spill) {
+    constexpr double e = 1e-5;
+    const bool z_window = p.z >= spill.opening_z0 - e && p.z <= spill.opening_z1 + e;
+    const bool shaft = p.x >= spill.shaft_x0 - e && p.x <= spill.shaft_x1 + e && z_window
+        && p.y >= spill.opening_y0 - e;
+    const bool duct = p.y >= spill.opening_y0 - e && p.y <= spill.opening_y1 + e && z_window
+        && p.x >= spill.shaft_x0 - e && p.x <= spill.pipe_x1 + e;
+    if (shaft || duct) {
+        return 0.0;
+    }
+    double penetration = 0.0;
+    if (p.x < spill.wall_x0 && p.y < spill.shelf_top) {
+        penetration = std::max(penetration, spill.shelf_top - p.y);
+    }
+    if (p.x > spill.wall_x0 && p.x < spill.wall_x1) {
+        penetration = std::max(penetration, std::min(p.x - spill.wall_x0, spill.wall_x1 - p.x));
+    }
+    const double py0 = spill.opening_y0 - spill.pipe_wall;
+    const double py1 = spill.opening_y1 + spill.pipe_wall;
+    const double pz0 = spill.opening_z0 - spill.pipe_wall;
+    const double pz1 = spill.opening_z1 + spill.pipe_wall;
+    if (p.x > spill.wall_x1 && p.x < spill.pipe_x1 && p.y > py0 && p.y < py1 && p.z > pz0
+        && p.z < pz1) {
+        const double depth = std::min(
+            {spill.pipe_x1 - p.x, p.y - py0, py1 - p.y, p.z - pz0, pz1 - p.z});
+        penetration = std::max(penetration, depth);
+    }
+    return penetration;
+}
+
 // NGQ8: fixed density-only samples filling the top two shelf layers and the
 // whole divider slab minus the opening, on the same lattice as the box.
 std::size_t append_spill_solids(
     Fixture& fixture,
     const GameQualityBox& box,
     const Fixture::Spill& spill) {
+    if (spill.under_floor) {
+        return append_spill_pipe_solids(fixture, box, spill);
+    }
     const std::size_t before = fixture.particles.size();
     const auto cell = [&](double value, double origin) {
         return static_cast<int>(std::llround((value - origin) / GAME_SPACING));
@@ -7656,6 +7876,9 @@ std::size_t append_spill_solids(
 // Penetration of one fluid sample into the shelf or the divider (outside the
 // opening), zero when the sample is in free space.
 double spill_penetration(const Vec3& p, const Fixture::Spill& spill) {
+    if (spill.under_floor) {
+        return spill_pipe_penetration(p, spill);
+    }
     double penetration = 0.0;
     if (p.x < spill.wall_x0 && p.y < spill.shelf_top) {
         penetration = std::max(penetration, spill.shelf_top - p.y);
@@ -10918,6 +11141,31 @@ CommandReport run_cuda_game_surface_stream(
         lattice_x = 40;
         lattice_y = 30;
         lattice_z = 40;
+    } else if (lane == "spill-pipe") {
+        // NGQ8 revision 9 (plan 22): the same two tanks, but the divider is
+        // closed and the upper tank drains through a 0.2 x 0.2 m shaft at
+        // its floor centre into a horizontal duct under the floor that
+        // leaves the divider inside a 0.4 m pipe body (0.1 m walls) with
+        // its open end 0.6 m above the lower floor.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {5.0, 2.0, 1.5}, {100, 40, 30}};
+        lattice_x = 40;
+        lattice_y = 10;
+        lattice_z = 30;
+        spill.enabled = true;
+        spill.under_floor = true;
+        spill.shelf_top = 1.0;
+        spill.wall_x0 = 2.0;
+        spill.wall_x1 = 2.2;
+        spill.shaft_x0 = 0.9;
+        spill.shaft_x1 = 1.1;
+        spill.opening_y0 = 0.5;
+        spill.opening_y1 = 0.7;
+        spill.opening_z0 = 0.65;
+        spill.opening_z1 = 0.85;
+        spill.pipe_x1 = 2.6;
+        spill.pipe_wall = 0.1;
+        spill.flush = true;
+        spill.open_ring = false;
     } else if (lane == "spill" || lane == "spill-narrow") {
         // NGQ8 two-tank spillway (plan 22): the upper tank sits on a 1 m
         // shelf left of a 0.2 m divider whose opening drains into the
@@ -10944,7 +11192,7 @@ CommandReport run_cuda_game_surface_stream(
         }
     } else {
         throw std::invalid_argument(
-            "stream lane must be 4k, 16k, 48k, 48k-dam, spill or spill-narrow");
+            "stream lane must be 4k, 16k, 48k, 48k-dam, spill, spill-narrow or spill-pipe");
     }
     double spill_maximum_penetration = 0.0;
     double spill_upper_fraction = 1.0;
@@ -11114,7 +11362,7 @@ CommandReport run_cuda_game_surface_stream(
                             spill_penetration(particle.position, spill));
                         upper += particle.position.x < spill.wall_x0 ? 1U : 0U;
                         spill_arrived_by_480 = spill_arrived_by_480
-                            || (step <= 480 && particle.position.x > spill.wall_x1
+                            || (step <= 480 && particle.position.x > spill.exit_x()
                                 && particle.position.y < 0.2);
                     }
                     spill_upper_fraction =
@@ -11142,7 +11390,7 @@ CommandReport run_cuda_game_surface_stream(
                                 head_sum += p.y - spill.shelf_top;
                                 ++head_count;
                             }
-                            if (p.x > spill.wall_x1 && p.x < spill.wall_x1 + 0.3
+                            if (p.x > spill.exit_x() && p.x < spill.exit_x() + 0.3
                                 && p.y > spill.opening_y0 - 0.3) {
                                 exit_sum += delta.x / frame_seconds;
                                 ++exit_count;
@@ -11179,13 +11427,17 @@ CommandReport run_cuda_game_surface_stream(
                                 return std::make_pair(fluid_degree > 0U ? fluid_degree - 1U : 0U, fixed_degree);
                             };
                             const auto region = [&](const Vec3& p) {
+                                if (spill.under_floor && p.y < spill.shelf_top
+                                    && p.x < spill.exit_x()) {
+                                    return "pipe";
+                                }
                                 if (p.x < spill.wall_x0) {
                                     return p.y < spill.shelf_top + 0.2 ? "sheet" : "upper";
                                 }
-                                if (p.x <= spill.wall_x1) {
+                                if (!spill.under_floor && p.x <= spill.wall_x1) {
                                     return "pipe";
                                 }
-                                if (p.x < spill.wall_x1 + 0.3 && p.y > spill.opening_y0 - 0.3) {
+                                if (p.x < spill.exit_x() + 0.3 && p.y > spill.opening_y0 - 0.3) {
                                     return "exit";
                                 }
                                 return p.y < 0.3 ? "lower" : "air";
@@ -11215,9 +11467,11 @@ CommandReport run_cuda_game_surface_stream(
                                 + std::to_string(sheet_count > 0U ? sheet_degree_sum / static_cast<double>(sheet_count) : 0.0)
                                 + ",\"fastest\":[" + fast + "]}";
                             // Mean sample height above the shelf is half the
-                            // sheet depth; head = twice the mean.
-                            const double head = head_count > 0U
-                                ? 2.0 * head_sum / static_cast<double>(head_count) : 0.0;
+                            // sheet depth; head = twice the mean, measured
+                            // down to the exit centre for the under-floor pipe.
+                            const double head = (head_count > 0U
+                                ? 2.0 * head_sum / static_cast<double>(head_count) : 0.0)
+                                + (spill.under_floor ? spill.shelf_top - spill.exit_centre_y() : 0.0);
                             const double free_fall = head > 0.0 ? std::sqrt(2.0 * 9.81 * head) : 0.0;
                             const double exit_speed = exit_count > 0U
                                 ? exit_sum / static_cast<double>(exit_count) : 0.0;
@@ -11332,10 +11586,18 @@ CommandReport run_cuda_game_surface_stream(
         const double drained_fraction_2s = spill_upper_at_2s >= 0.0 ? 1.0 - spill_upper_at_2s : 0.0;
         const double fluid_volume = static_cast<double>(dynamic_samples) * GAME_SPACING
             * GAME_SPACING * GAME_SPACING;
-        const double torricelli_flow = opening_area * std::sqrt(2.0 * 9.81 * 0.45);
+        // Under-floor pipe: mean head over the same two seconds from the
+        // shelf top plus half the mean sheet depth down to the exit centre.
+        const double head_reference = spill.under_floor
+            ? spill.shelf_top + 0.25 * (1.0 + std::max(spill_upper_at_2s, 0.0))
+                - spill.exit_centre_y()
+            : 0.45;
+        const double torricelli_flow = opening_area * std::sqrt(2.0 * 9.81 * head_reference);
         const double discharge_coefficient =
             torricelli_flow > 0.0 ? drained_fraction_2s * fluid_volume / 2.0 / torricelli_flow : 0.0;
         output << ",\"spill\":{\"lip\":\"" << spill_lip << "\""
+               << ",\"under_floor\":" << (spill.under_floor ? "true" : "false")
+               << ",\"head_reference_m\":" << head_reference
                << ",\"opening_area_m2\":" << opening_area
                << ",\"discharge_coefficient_2s\":" << discharge_coefficient
                << ",\"maximum_penetration_m\":" << spill_maximum_penetration

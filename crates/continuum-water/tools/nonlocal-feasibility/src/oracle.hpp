@@ -59,6 +59,19 @@ struct Fixture {
         /// NGQ8 revision 3: leave the one-cell ring of divider cells around
         /// the opening without fixed density samples.
         bool open_ring = false;
+        /// NGQ8 revision 9: under-floor pipe. The divider has no opening;
+        /// a vertical shaft from the tank floor centre (`shaft_x0..x1`,
+        /// `opening_z0..z1`) feeds a horizontal duct (`opening_y0..y1`,
+        /// same z) that runs through the shelf and the divider and leaves
+        /// inside a protruding pipe body ending at `pipe_x1`.
+        bool under_floor = false;
+        double shaft_x0 = 0.0;
+        double shaft_x1 = 0.0;
+        double pipe_x1 = 0.0;
+        double pipe_wall = 0.0;
+
+        double exit_x() const { return under_floor ? pipe_x1 : wall_x1; }
+        double exit_centre_y() const { return 0.5 * (opening_y0 + opening_y1); }
     } spill;
 };
 

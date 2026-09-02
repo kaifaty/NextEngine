@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `NGQ8` |
-| Status | `REV 1-8 RUN / TELEPORT AND LIP STEP FIXED / LATE SPEED FOLLOWS HEAD / CD 0.39-0.44 / FILM STALL REPORTED` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
+| Status | `REV 1-9 RUN / TELEPORT AND LIP STEP FIXED / LATE SPEED FOLLOWS HEAD / CD 0.39-0.44 / FILM STALL REPORTED / UNDER-FLOOR PIPE LANE (REV 9) CD 0.13` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
 | Parent | D-048 density-only boundary support; ADR-100 presentation-only water |
 | Purpose | first internal-geometry scene for the presentation candidate: an upper tank drains through a wall opening into a lower tank |
 
@@ -222,3 +222,54 @@ least five samples exit), maximum sample speed after `15 s` `4.06 m/s`
 gain came from the free faces, not the floor step), penetration `0 m`,
 sheet at `0.119` after `100 s`. `flush` stays an admissible option;
 `margin` remains the default by the revision-3 rule.
+
+## Revision 9 (frozen before running): under-floor pipe, user-directed
+
+New lane `spill-pipe`, same outer box, shelf, divider and fluid as the
+narrow lane, but the divider is closed and the upper tank drains through
+its floor:
+
+- Shaft: `x 0.9..1.1, z 0.65..0.85` (`0.2 x 0.2 m`) from the shelf top
+  (`y = 1.0`) down to the duct floor at `y = 0.5`, centred in the tank.
+- Duct: `y 0.5..0.7, z 0.65..0.85`, `x 0.9..2.6`, through the shelf and
+  the divider.
+- Pipe body: `x 2.2..2.6, y 0.4..0.8, z 0.55..0.95` (walls `0.1 m`), open
+  at `x = 2.6`, so the pipe protrudes `0.4 m` from the divider and its exit
+  centre sits `0.6 m` above the lower floor.
+- Contact: a positional clamp that moves a sample inside solid material to
+  the nearest of the two channel interiors or the exit faces of the solids
+  containing it, repeated up to four times (concave corners are left in two
+  short moves); faces glued to another solid are never exits. `flush`
+  semantics: channel faces clamp at one radius.
+- Support: fixed density-only samples in every solid lattice cell within
+  two cells of a non-solid cell (shelf top layers, shaft and duct
+  linings, the whole divider, the pipe body).
+
+Gates (`960` steps, surface every `4`, one cycle, `--stream-spill-lip
+flush`):
+
+| Gate | Definition | Pass |
+| --- | --- | --- |
+| G2 no penetration | maximum fluid penetration into shelf, divider or pipe body outside the channels | `<= 1e-4 m` |
+| G4 arrival | one sample with `x > 2.6` and `y < 0.2` by step `480` | pass |
+| G6 bounded speed | maximum sample speed over the run | `<= 6 m/s` (`1.1 x` free fall from the initial surface at `1.6 m` to the floor) |
+| Cd | discharge coefficient over `2 s` against the `0.04 m^2` duct at the mean head above the exit centre | report, expected `0.3..0.65` |
+| visual | preview capture: the jet leaves the pipe mouth horizontally and arcs into the lower tank | human |
+
+Do not tune the shaft, duct or pipe dimensions, the clamp pass count or
+the support depth after seeing the results.
+
+## Revision 9 result
+
+`spill-pipe`, `960` steps, streamed through `water-preview --surface
+particles`: penetration `0 m` (G2 PASS), first sample past the pipe mouth
+on the lower floor by step `480` (G4 PASS), maximum sample speed
+`3.28 m/s` (G6 PASS, `<= 6`), exit speed `2.07..2.18 m/s` against free
+fall `4.0 m/s` for the `0.80..0.85 m` head (ratio `0.52..0.54`), upper
+fraction `0.917` after `4 s`, `Cd 0.127` at the mean head `0.89 m`:
+below the expected `0.3..0.65`. The `1.7 m` duct of four cells across,
+lined with fixed density samples, throttles the flow well below a free
+orifice; recorded, not retuned. Captures at rendered frames `120` and
+`300` show the jet leaving the pipe mouth horizontally and arcing onto the
+lower floor. Fixed support `36,296` samples (outer box plus scene),
+physics `2.71 ms` per step.

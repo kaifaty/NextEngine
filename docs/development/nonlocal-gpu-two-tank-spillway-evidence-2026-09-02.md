@@ -157,3 +157,39 @@ only to the top and side faces: late speed follows the head, `Cd` keeps
 its `0.443`, penetration `0 m`. The `4 m/s` gate misses by `0.06 m/s` and
 is recorded as such. Extractor binary after revision 8:
 `ff0141d0ac534623...`.
+
+## Revision 9: under-floor pipe (user-directed)
+
+Lane `spill-pipe` (plan 22 revision 9): the divider is closed; a
+`0.2 x 0.2 m` shaft at the upper tank floor centre feeds a horizontal duct
+(`y 0.5..0.7`) under the floor that leaves the divider inside a `0.4 m`
+pipe body with `0.1 m` walls, open at `x = 2.6`, `0.6 m` above the lower
+floor. Contact is a nearest-exit positional clamp over the shelf, divider,
+pipe body and the two channels (up to four moves per step); support is
+every solid lattice cell within two cells of a non-solid cell.
+
+```text
+tool binary       79bab3a3ec7e0f89...
+run               --stream-lane spill-pipe --stream-spill-lip flush --stream-steps 960 --stream-cycles 1 --surface particles --extent 1920x1080
+```
+
+| Gate | Result |
+| --- | --- |
+| G2 penetration | `0 m` PASS |
+| G4 arrival by step 480 | PASS |
+| G6 maximum sample speed | `3.28 m/s` PASS (`<= 6`) |
+| Cd (2 s, head `0.89 m`, `0.04 m^2`) | `0.127` — below the expected `0.3..0.65`, recorded |
+| exit speed / free fall | `2.07..2.18 / 4.0 m/s`, ratio `0.52..0.54` |
+| upper fraction per second | `0.996, 0.972, 0.945, 0.917` |
+| visual | jet leaves the pipe mouth horizontally and arcs onto the lower floor (frames 120, 300) |
+
+Cost: physics `2.71 ms` per step with `36,296` fixed samples; particle
+pass `0.91 ms` GPU p95 in this run (the NGQ10 lane measured `0.32 ms`;
+the graphics timestamps share the GPU with the solver process, so the
+pass cost is not comparable across lanes with different solver load).
+Coverage flips `0.11%` on frames 120..124.
+
+Reading: the long, four-cell-wide duct with fixed linings throttles the
+flow (`Cd 0.13`), so the pipe scene drains about three times slower than
+the wall opening did. A wider duct or a duct without the two-cell lining
+would raise it; both are new frozen revisions, not tuning of this one.

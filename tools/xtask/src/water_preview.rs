@@ -284,15 +284,15 @@ pub(super) fn parse_arguments(
             }
             "--stream-lane" => {
                 stream_lane = arguments.next().ok_or_else(|| {
-                    "water-preview --stream-lane requires 4k, 16k, 48k, 48k-dam, spill or spill-narrow"
+                    "water-preview --stream-lane requires 4k, 16k, 48k, 48k-dam, spill, spill-narrow or spill-pipe"
                         .to_owned()
                 })?;
                 if !matches!(
                     stream_lane.as_str(),
-                    "4k" | "16k" | "48k" | "48k-dam" | "spill" | "spill-narrow"
+                    "4k" | "16k" | "48k" | "48k-dam" | "spill" | "spill-narrow" | "spill-pipe"
                 ) {
                     return Err(
-                        "water-preview --stream-lane must be 4k, 16k, 48k, 48k-dam, spill or spill-narrow"
+                        "water-preview --stream-lane must be 4k, 16k, 48k, 48k-dam, spill, spill-narrow or spill-pipe"
                             .to_owned(),
                     );
                 }
@@ -1766,6 +1766,7 @@ fn build_preview(
     let basin_mesh = match request.stream.as_ref().map(|stream| stream.lane.as_str()) {
         Some("spill") => spill_mesh(mesh_schema.clone(), bounds, SPILL_OPENING_WIDE)?,
         Some("spill-narrow") => spill_mesh(mesh_schema.clone(), bounds, SPILL_OPENING_NARROW)?,
+        Some("spill-pipe") => spill_pipe_mesh(mesh_schema.clone(), bounds)?,
         _ => basin_mesh(mesh_schema.clone(), bounds)?,
     };
     let basin_mesh_revision = basin_mesh
@@ -2268,6 +2269,108 @@ fn spill_mesh(
         ([2 * M, y1, 0], [2 * M + M / 5, 2 * M, 3 * M / 2]),
         ([2 * M, y0, 0], [2 * M + M / 5, y1, z0]),
         ([2 * M, y0, z1], [2 * M + M / 5, y1, 3 * M / 2]),
+    ];
+    for (minimum, maximum) in solids {
+        faces.extend(solid_box_faces(minimum, maximum));
+    }
+    mesh_from_faces(schema, bounds, &faces)
+}
+
+/// NGQ8 revision 9 under-floor pipe scene (plan 22): the shelf with a
+/// square hole at the tank floor centre and the shaft walls under it, the
+/// closed divider, and the protruding pipe body as four slabs around the
+/// open duct. Mirrors the `spill-pipe` lane; presentation only.
+#[cfg(feature = "desktop-sdl-ash")]
+fn spill_pipe_mesh(
+    schema: next_contracts::project::SchemaRefV1,
+    bounds: AabbI64V1,
+) -> Result<NeutralMeshV1, String> {
+    const M: i64 = 1_000_000;
+    let unit = i16::MAX;
+    let (shelf_top, wall_x0, wall_x1) = (M, 2 * M, 2 * M + M / 5);
+    let (sx0, sx1, z0, z1) = (9 * M / 10, 11 * M / 10, 13 * M / 20, 17 * M / 20);
+    let (dy0, dy1, pipe_x1, wall) = (M / 2, 7 * M / 10, 13 * M / 5, M / 10);
+    let depth = 3 * M / 2;
+    let mut faces = basin_faces(bounds);
+    // Shelf top around the hole (four quads), facing up.
+    for (x0, x1, za, zb) in [
+        (0, sx0, 0, depth),
+        (sx1, wall_x0, 0, depth),
+        (sx0, sx1, 0, z0),
+        (sx0, sx1, z1, depth),
+    ] {
+        faces.push((
+            [
+                [x0, shelf_top, za],
+                [x0, shelf_top, zb],
+                [x1, shelf_top, zb],
+                [x1, shelf_top, za],
+            ],
+            [0, unit, 0],
+        ));
+    }
+    // Shaft walls facing inward, down to the duct floor, plus that floor.
+    faces.extend([
+        (
+            [
+                [sx0, dy0, z0],
+                [sx0, shelf_top, z0],
+                [sx0, shelf_top, z1],
+                [sx0, dy0, z1],
+            ],
+            [unit, 0, 0],
+        ),
+        (
+            [
+                [sx1, dy0, z1],
+                [sx1, shelf_top, z1],
+                [sx1, shelf_top, z0],
+                [sx1, dy0, z0],
+            ],
+            [-unit, 0, 0],
+        ),
+        (
+            [
+                [sx0, dy0, z0],
+                [sx1, dy0, z0],
+                [sx1, shelf_top, z0],
+                [sx0, shelf_top, z0],
+            ],
+            [0, 0, unit],
+        ),
+        (
+            [
+                [sx1, dy0, z1],
+                [sx0, dy0, z1],
+                [sx0, shelf_top, z1],
+                [sx1, shelf_top, z1],
+            ],
+            [0, 0, -unit],
+        ),
+        (
+            [
+                [sx0, dy0, z0],
+                [sx0, dy0, z1],
+                [sx1, dy0, z1],
+                [sx1, dy0, z0],
+            ],
+            [0, unit, 0],
+        ),
+    ]);
+    // The shelf without its top (drawn above with the hole) and the closed
+    // divider; the shelf sides hide the duct from outside the basin.
+    faces.extend(
+        solid_box_faces([0, 0, 0], [wall_x0, shelf_top, depth])
+            .into_iter()
+            .skip(1),
+    );
+    faces.extend(solid_box_faces([wall_x0, 0, 0], [wall_x1, 2 * M, depth]));
+    // Pipe body: floor, ceiling and two side slabs around the open duct.
+    let solids: [([i64; 3], [i64; 3]); 4] = [
+        ([wall_x1, dy0 - wall, z0 - wall], [pipe_x1, dy0, z1 + wall]),
+        ([wall_x1, dy1, z0 - wall], [pipe_x1, dy1 + wall, z1 + wall]),
+        ([wall_x1, dy0, z0 - wall], [pipe_x1, dy1, z0]),
+        ([wall_x1, dy0, z1], [pipe_x1, dy1, z1 + wall]),
     ];
     for (minimum, maximum) in solids {
         faces.extend(solid_box_faces(minimum, maximum));

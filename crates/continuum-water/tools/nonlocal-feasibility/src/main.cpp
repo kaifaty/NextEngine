@@ -83,7 +83,7 @@ void print_usage() {
               << "       nonlocal-feasibility --game-visual-corpus --frames <prefix>\n"
               << "       nonlocal-feasibility --game-surface-prototype\n"
               << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
-              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam|spill|spill-narrow> "
+              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam|spill|spill-narrow|spill-pipe> "
                  "[--steps 960] [--every 4] [--cycles 1] [--workers 3] "
                  "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>] [--boundary-layers 0|1|2] [--boundary-support full|density] [--boundary-lid 1|0] [--spill-lip margin|flush|open] [--iterations 0..50] [--surface-components largest|all]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "

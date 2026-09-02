@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8) / ALL-COMPONENT SURFACE (NGQ9) / SCREEN-SPACE FLUID PROTOTYPE (NGQ10, ADR-102) / 48K COST AND LOOK NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENES RUN (NGQ8, UNDER-FLOOR PIPE REV 9) / ALL-COMPONENT SURFACE (NGQ9) / SCREEN-SPACE FLUID PROTOTYPE (NGQ10, ADR-102) / 48K COST AND LOOK NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -1514,6 +1514,7 @@
 | HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
 | HG8H | the `flush` lip's `25 mm` floor step throws samples crossing the lip | supported: `margin` late speed follows the head; rev 8 level floor under `flush` restores that (`0.60 -> 0.20 m/s`) while keeping `Cd 0.443` | closed |
 | HG8I | isolated pipe samples are ejected by fixed-sample over-density | refuted: same pipe under `margin` trickles at head speed | closed |
+| HG8J | a nearest-exit positional clamp over shelf, divider, pipe body and two channels keeps an L-shaped under-floor pipe free of penetration and teleports | supported: `spill-pipe` penetration `0 m`, maximum speed `3.28 m/s`, jet arcs from the pipe mouth; `Cd 0.13` recorded (duct throttles) | closed |
 | HG9A | small water bodies flicker because the frozen extractor keeps only the largest wet component | supported: largest-only drops up to `32%` of wet pixels on the spill drain; keeping every component `>= 9` pixels retains `100%`, stays CPU/GPU exact and passes the closing gates | closed; preview default `all`, corpus keeps `largest` |
 
 ## Do not retry
