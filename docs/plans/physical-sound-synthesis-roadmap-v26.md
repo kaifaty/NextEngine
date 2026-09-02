@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / M0A_E_PREPROCESS_CONFORMANCE_REJECT / NO_MODEL_VALUES_OPENED / P0_PROTOCOL_FROZEN / I0_NEXT / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / M0A_E_PREPROCESS_CONFORMANCE_REJECT / NO_MODEL_VALUES_OPENED / P0_ALIGNMENT_DEFECT / P0A_PROTOCOL_FROZEN / I0_NEXT / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V25](physical-sound-synthesis-roadmap-v25.md) after M0a-E stopped before training; completed D0/T0/X0/M0a-I evidence and every protected-role rule remain binding |
-| Current evidence | [P0 protocol](../development/physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md), SHA-256 `4fff3ebd7b788e527b524ff8615d9e8a449b40121e194ba1eb947c5ea81e65e7`; [M0a-E result](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [off-vertex transfer research](../development/physical-sound-v26-off-vertex-field-transfer-research-2026-09-02.md), [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) and [D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md) |
+| Current evidence | [P0a protocol](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md), SHA-256 `54522c26eb3db62ad316ea6001f9380651f760329f0db8556b441ad286b649e8`; [P0 alignment rebaseline](../development/physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md); [P0 surface protocol](../development/physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md), SHA-256 `4fff3ebd7b788e527b524ff8615d9e8a449b40121e194ba1eb947c5ea81e65e7`; [M0a-E result](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [off-vertex transfer research](../development/physical-sound-v26-off-vertex-field-transfer-research-2026-09-02.md), [M0a-I result](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) and [D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no public schema, content role, runtime model, physics authority or production ProductCheck is promoted |
 | Mandatory fallback | Ordinary authored clips remain authoritative for every reject, OOD query, unavailable source, invalid artifact or tooling failure |
 
@@ -48,8 +48,8 @@ universal material model remain outside V26.
 
 ```mermaid
 flowchart TD
-    R["M0a-E reject + bounded research"] --> P["P0 barycentric query protocol"]
-    P --> I["I0 surface evaluator + official-profile fixture"]
+    R["M0a-E reject + bounded research"] --> P["P0/P0a surface + alignment protocols"]
+    P --> I["I0 evaluator + official-profile fixtures"]
     I --> M["M0b official A/B"]
     M -->|"representation pass"| VP["V0-P validator protocol"]
     M -->|"reject"| MR["Close family; new falsifiable hypothesis"]
@@ -75,8 +75,9 @@ predecessors pass.
 | ID | Package | State | Size | Observable exit criterion |
 | --- | --- | --- | ---: | --- |
 | R0 | M0a-E closeout | `COMPLETE / CONFORMANCE_REJECT` | — | Exact first failure, no-output state, resource record and no-model-value claim are published; run B remains unstarted. |
-| P0 | Surface-query and field-transfer protocol | `COMPLETE / FROZEN / VALUES_UNOPENED` | S | Protocol `4fff3ebd…65e7` freezes triangle membership, tolerances, canonical face tie-break, barycentric interpolation, mutations, M0b equivalence and all-official-shape fixture. |
-| I0 | Deterministic field evaluator | `NEXT / BLOCKS_M0B-E` | M | Complete owning entry plus official-profile structural fixture passes twice byte-exactly for all plate/beam grids and 12 contacts; vertex/edge/interior pass and outside/degenerate/non-finite inputs reject. |
+| P0 | Surface-query and field-transfer protocol | `SURFACE_FROZEN / ALIGNMENT_ASSUMPTION_SUPERSEDED` | S | Protocol `4fff3ebd…65e7` remains authority for triangle membership, tie-break, barycentric interpolation and the official-shape fixture; its inherited unpadded alignment was inconsistent. |
+| P0a | Padded alignment correction | `COMPLETE / FROZEN / VALUES_UNOPENED` | S | Protocol `54522c26…49e8` retains P0 surface semantics and freezes bounded zero padding, exact peak-to-512 placement, source-copy floor and alignment mutations. |
+| I0 | Deterministic evaluator and preprocessor | `NEXT / BLOCKS_M0B-E` | M | Complete owning entry plus surface/alignment fixtures pass twice; all plate/beam grids and contacts resolve, three real contexts align exactly, and invalid/degenerate/non-finite/short inputs reject. |
 | M0b-E | Execution-equivalent official evaluation | `BLOCKED_BY_I0_COMMIT` | M | Under the unchanged seed `3101`, model, losses, 2,000 steps and role order, two bounded runs emit byte-identical canonical artifacts and one terminal `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or conformance/resource result. |
 | V0-P | Validator protocol and role freeze | `MAY_INVENTORY_SIGNAL_BLIND / VALUES_SEALED` | M | Freeze real-only positive, mutation, OOD and untouched-shadow groups, features, thresholds, confidence bound and access order before candidate-sensitive values. |
 | V0-I | Independent Validator V1 | `BLOCKED_BY_M0B_PASS_AND_V0-P` | M–L | Separate owning CLI passes hard, physical, acoustic, mutation and selective-risk fixtures twice; generator targets/checkpoints are unavailable to calibration. |
@@ -92,8 +93,10 @@ predecessors pass.
 
 ### 1. Freeze P0 before changing code
 
-`COMPLETE`: [P0](../development/physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md)
-is frozen at SHA-256 `4fff3ebd…65e7`; no model value opened.
+`COMPLETE / SUPERSEDED IN PART`: [P0](../development/physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md)
+freezes surface semantics at `4fff3ebd…65e7`. I0 then proved its inherited
+unpadded alignment inconsistent before model values. [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md)
+freezes the bounded padding correction at `54522c26…49e8`.
 
 P0 must specify one deterministic algorithm:
 
@@ -111,11 +114,12 @@ unchanged. Its protocol hash freezes before implementation.
 
 ### 2. Build I0 around the missed official shape
 
-Add a small production helper for point-on-triangle evaluation and test it
-through the owning CLI. The structural fixture must reuse exact official grid
-counts and all contact fractions, not merely a convenient subset. It must fail
-if profile contacts, grid denominators, face order, tie-break, tolerance or
-gain-field binding drift.
+Add small production helpers for point-on-triangle evaluation and padded
+peak alignment, then test both through the owning CLI. The structural fixture
+must reuse exact official grid counts, all contact fractions and early/context
+peak cases, not merely a convenient subset. It must fail if profile contacts,
+grid denominators, face order, tie-break, tolerance, padding ceiling, copy
+floor or gain-field binding drift.
 
 Run the existing full-entry fixture twice, the new official-profile structural
 fixture twice, all source/role/tensor/atomic mutations and the relevant T0/X0/
