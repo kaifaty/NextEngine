@@ -16,6 +16,7 @@ layout(set = 0, binding = 0, std140) uniform FluidFrame {
     vec4 sun;
     vec4 spray;
     vec4 spray2;
+    vec4 filter_params;
 } frame;
 
 layout(set = 1, binding = 0) uniform sampler2D depth_in;
@@ -42,9 +43,30 @@ void main() {
     int extent = int(min(ceil(2.0 * sigma), 32.0));
     float low = 2.0 * radius;
     float high = 4.0 * radius;
-    vec2 step = push.direction * frame.viewport.zw;
     float sum = 0.0;
     float weight_sum = 0.0;
+    if (dot(push.direction, push.direction) == 0.0) {
+        // NGQ10 revision 4: 2D narrow-range cleanup of fixed pixel radius
+        // after the separable passes (removes their axis-aligned streaks).
+        int cleanup = int(frame.filter_params.x);
+        float cleanup_sigma = max(float(cleanup) / 3.0, 1e-3);
+        for (int y = -cleanup; y <= cleanup; ++y) {
+            for (int x = -cleanup; x <= cleanup; ++x) {
+                vec2 sample_uv = uv + vec2(float(x), float(y)) * frame.viewport.zw;
+                float sample_depth = texture(depth_in, sample_uv).r;
+                if (sample_depth >= empty || sample_depth < center - low) {
+                    continue;
+                }
+                sample_depth = min(sample_depth, center + high);
+                float weight = exp(-float(x * x + y * y) / (2.0 * cleanup_sigma * cleanup_sigma));
+                sum += weight * sample_depth;
+                weight_sum += weight;
+            }
+        }
+        out_depth = weight_sum > 0.0 ? sum / weight_sum : center;
+        return;
+    }
+    vec2 step = push.direction * frame.viewport.zw;
     for (int i = -extent; i <= extent; ++i) {
         float sample_depth = texture(depth_in, uv + step * float(i)).r;
         if (sample_depth >= empty) {

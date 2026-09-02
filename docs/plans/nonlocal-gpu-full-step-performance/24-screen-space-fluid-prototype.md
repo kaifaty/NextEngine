@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `NGQ10` |
-| Status | `REV 1-2 RUN / G2 G5 PASS / G3 REV 2 FAIL UNDER A FRAME-RATE CONFOUND / G7 SPRAY 0.8% / G8 PARTIAL / REV 3 RUN: G2 G3n G5 PASS, G7 0.8%, G9 PARTIAL (FOAM LOOK)` — evidence `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md` |
+| Status | `REV 1-2 RUN / G2 G5 PASS / G3 REV 2 FAIL UNDER A FRAME-RATE CONFOUND / G7 SPRAY 0.8% / G8 PARTIAL / REV 3 RUN: G2 G3n G5 PASS, G7 0.8%, G9 PARTIAL (FOAM LOOK) / REV 4 RUN: G2 G3n G5 PASS, G10 HUMAN PASS, G11 FAIL BY MAX (15.5 ms mean, 18.7 ms max)` — evidence `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md` |
 | Parent | ADR-102 (Proposed); research note `docs/development/water-rendering-research-2026-09-02.md` |
 | Purpose | first screen-space fluid pass in the SDL3/Ash adapter, fed by the live particle stream of `water-preview` |
 
@@ -204,3 +204,73 @@ Candidates for a next revision, not applied: tint the spray with the
 refracted scene colour instead of white, fewer sub-droplets or lower
 alpha, and a cluster threshold that only applies to airborne components
 (components not touching a larger body or the floor).
+
+## Revision 4 (frozen before running): anisotropic kernels, lonely shrink, cleanup
+
+Reference: Particles4All (matsuoka-601), which renders 100k-300k particles
+with Yu and Turk anisotropic kernels, Laplacian-smoothed positions, a
+narrow-range filter with a 2D cleanup pass, and treats lonely particles
+as small isotropic kernels instead of a spray layer.
+
+Frozen changes:
+
+- Stream frame version 5 appends, after the cluster sizes, one smoothed
+  position (3 x binary32 metres) and one symmetric kernel matrix
+  (6 x binary32, `xx xy xz yy yz zz`) per particle, computed in the
+  research tool per emitted frame from the frame's own positions:
+  - neighbours within `0.1 m`, weight `1 - (r/R)^3`;
+  - smoothed position `x + 0.9 * (weighted centroid - x)`;
+  - covariance of the weighted offsets, Jacobi eigendecomposition;
+    standard deviations `s_i`, clamped from below to `s_1 / 4` (`kr = 4`),
+    scaled by `r / s_ref` where `s_ref` is the per-axis standard
+    deviation of a full lattice neighbourhood under the same weights
+    (so a bulk particle keeps the `35 mm` render radius), capped at
+    `2 r` per axis; kernel `G = R diag(1 / a_i) R^T`;
+  - lonely blend: with `n` neighbours, `G` mixes from the isotropic
+    kernel of radius `0.5 r` at `n <= 3` to the anisotropic one at
+    `n >= 13` (`smoothstep(0.4 * 8, 1.6 * 8, n)`).
+- The bridge renders the smoothed position (velocities still come from
+  the raw positions); `ParticleSurfaceUpdateV1` carries the kernel
+  (packed stride `64` B).
+- Splat: the quad covers the ellipsoid's view-space bounding box; the
+  fragment intersects the view ray with the ellipsoid for depth and uses
+  the chord for thickness (thickness scale unchanged).
+- Depth filter: after the two separable narrow-range passes, one 2D
+  narrow-range cleanup pass of radius `4` px.
+- Spray pass and radius grading disabled for this revision (thresholds
+  `0`, edge scale `1`); every other constant unchanged.
+
+Gates (spill-narrow flush, 960 steps, 1920x1080, particles x3 plus mesh):
+
+| Gate | Definition | Pass |
+| --- | --- | --- |
+| G2 cost | particle pass GPU p95, all passes | `<= 2.0 ms` |
+| G3n stability | coverage flips per stream frame | `<= 0.5%` |
+| G5 roots | unchanged | pass |
+| G11 producer cost | tool extraction time per frame p95 including the kernel computation | `<= 16 ms` (one stream frame) |
+| G10 look (human) | thin layers and the jet read as smooth sheets without lattice rows or beads; lonely particles are small droplets, neither jelly nor foam | human |
+
+Do not change the radius, `kr`, the cap, the lonely blend, lambda or the
+cleanup radius after seeing the results.
+
+## Revision 4 result
+
+Three `particles` runs, one `mesh` baseline, plus one `particles` run at
+frame 200 (`spill-narrow`, `960` steps, `1920x1080`, tool binary
+`8c44c88c4438142e...`):
+
+| Gate | Result |
+| --- | --- |
+| G2 | `447..449 µs` p95, `461..469 µs` max — PASS |
+| G3n | `0.087..0.103%` per stream frame (`1.05..1.07` stream frames per publication) — PASS |
+| G5 | roots identical — PASS |
+| G11 | presentation block (grid, neighbours, clusters, kernels) `15.5..15.8 ms` mean, `17.0..18.7 ms` max per frame; p95 is not instrumented, the maximum exceeds the `16 ms` bound — FAIL by the maximum; real time held (`0.998..1.0`) because three extractor workers overlap |
+| G10 | smooth blue surface in the upper tank, the jet a continuous ribbon, small droplets on the lower floor, no beads, no foam, no jelly; faint lattice bands remain on the tank surface at grazing angles — human PASS |
+
+Apparatus corrections during the run (recorded): the first producer
+implementation built three sorted hash grids per frame and measured
+`59..64 ms`; it was replaced by one dense cell grid and a single fused
+neighbourhood walk (`15.5 ms`), and the Jacobi tolerance was made
+relative (`1e-7` of the trace, at most eight sweeps). Neither changes the
+frozen kernel definition; kernel axes differ only in floating-point
+rounding.

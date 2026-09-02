@@ -170,11 +170,11 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(FLUID_SPLAT_VERTEX_SHADER_BYTES)),
-            "77d972f9e69bce6f9607c7f82a3471324543038c28f074f549009404ff710c23"
+            "45ab330e163d707bf1ec7b4be4443d4e66bb2a3d37a9240dcba1a0e20fd9f1e1"
         );
         assert_eq!(
             hex(sha256(FLUID_SPLAT_FRAGMENT_SHADER_BYTES)),
-            "ea67279b390418b328e4aa88d7d404ae88d43f38b7f7168e47d26f0c4d98f15d"
+            "9e88b4a6d3173f454fe91d5c23f1d1829d014ab7fc7548fe8f274d72dc02b895"
         );
         assert_eq!(
             hex(sha256(FLUID_SCREEN_VERTEX_SHADER_BYTES)),
@@ -182,23 +182,23 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(FLUID_FILTER_FRAGMENT_SHADER_BYTES)),
-            "375e3d3aa3e322d1f77bead43382e9b1b277d78784e0a8c5452b4c0cf563a65c"
+            "d518618b9082efce226e4ed3a5792f5618073e2dc09e05bdac48c56ac50c0aac"
         );
         assert_eq!(
             hex(sha256(FLUID_THICKNESS_FRAGMENT_SHADER_BYTES)),
-            "2065bbd525aa73718087420c96b6a5de7e8c8c135eeba16950e065825a6313eb"
+            "c200a690a50548331edf9b36f686417d524ea8bce1116bd4e098bfd600d61a62"
         );
         assert_eq!(
             hex(sha256(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)),
-            "1ec5379234daf63a1f1d629db77c60ed35d2ea240d152683b8ff1ec8553f3b61"
+            "b12a24602f85c57882a5edb13b8bbe278ce5d1008636a0015ddb0ddb6c3d0752"
         );
         assert_eq!(
             hex(sha256(FLUID_SPRAY_VERTEX_SHADER_BYTES)),
-            "18bd715387a7e76ad4dfed3ae491848e9a2f6dcef7dbdc3fcefa8d1df4b50edc"
+            "e4094f109bb6e0b4bdc5824a1ee1237061c7bd82cb84898e7679c521124a6c9b"
         );
         assert_eq!(
             hex(sha256(FLUID_SPRAY_FRAGMENT_SHADER_BYTES)),
-            "87cea40ebe84848a738a575662d9ecced03d10ad505a25404fbdaae9be6724e1"
+            "58468bada0f2b887ac22621119433ef90ea38dee1d3c149a3b23bb0e495fcaf0"
         );
         let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
         assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);

@@ -23,9 +23,9 @@ use crate::particle_surface::{
 };
 
 /// Fluid frame uniform: view, projection, viewport, params, absorption,
-/// focal, sun, spray, spray2 (seven 16-byte-aligned rows plus two
+/// focal, sun, spray, spray2, filter (eight 16-byte-aligned rows plus two
 /// matrices).
-const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 7;
+const FLUID_UNIFORM_SIZE: vk::DeviceSize = 64 + 64 + 16 * 8;
 /// Depth target clear value; the shaders treat anything at or above
 /// `EMPTY_DEPTH_METRES` as "no fluid".
 const EMPTY_DEPTH_METRES: f32 = 1.0e30;
@@ -405,10 +405,17 @@ impl FluidPassState {
                 (scene_copy.view, linear_sampler),
             ],
         );
+        // NGQ10 revision 4: with the cleanup pass the final smoothed depth
+        // lives in the ping target; without it, in the depth target.
+        let final_depth_view = if profile.cleanup_radius_pixels != 0 {
+            ping_target.view
+        } else {
+            depth_target.view
+        };
         image_set(
             composite_set,
             [
-                (depth_target.view, nearest_sampler),
+                (final_depth_view, nearest_sampler),
                 (thickness_target.view, nearest_sampler),
                 (scene_copy.view, linear_sampler),
             ],
@@ -416,7 +423,7 @@ impl FluidPassState {
         image_set(
             thickness_a_set,
             [
-                (depth_target.view, nearest_sampler),
+                (final_depth_view, nearest_sampler),
                 (thickness_target.view, nearest_sampler),
                 (scene_copy.view, linear_sampler),
             ],
@@ -424,7 +431,7 @@ impl FluidPassState {
         image_set(
             thickness_b_set,
             [
-                (depth_target.view, nearest_sampler),
+                (final_depth_view, nearest_sampler),
                 (thickness_ping.view, nearest_sampler),
                 (scene_copy.view, linear_sampler),
             ],
@@ -685,6 +692,10 @@ impl FluidPassState {
                 self.profile.edge_radius_scale,
             ],
         );
+        write_f32(
+            &mut uniform[240..256],
+            &[self.profile.cleanup_radius_pixels as f32, 0.0, 0.0, 0.0],
+        );
         slot.uniform.write(0, &uniform)?;
 
         let device = &self.device;
@@ -935,7 +946,18 @@ impl FluidPassState {
             ),
         ];
         let filter_b_done = [attachment_to_sampled(self.depth_target.image.image())];
-        let filter_passes = [
+        // Cleanup (direction 0,0): depth -> ping again, so the final depth
+        // is the ping target and the sets above bind it.
+        let cleanup_barriers = [
+            filter_b_done[0],
+            sampled_to_attachment(
+                self.ping_target.image.image(),
+                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            ),
+        ];
+        let cleanup_done = [attachment_to_sampled(self.ping_target.image.image())];
+        let cleanup = self.profile.cleanup_radius_pixels != 0;
+        let mut filter_passes = vec![
             (
                 &splat_done[..],
                 self.ping_target.view,
@@ -949,6 +971,14 @@ impl FluidPassState {
                 [0.0_f32, 1.0],
             ),
         ];
+        if cleanup {
+            filter_passes.push((
+                &cleanup_barriers[..],
+                self.ping_target.view,
+                self.filter_a_set,
+                [0.0_f32, 0.0],
+            ));
+        }
         for (barriers, target_view, image_set, direction) in filter_passes {
             let colors = [vk::RenderingAttachmentInfo::default()
                 .image_view(target_view)
@@ -1001,7 +1031,11 @@ impl FluidPassState {
         // 3b. Two separable Gaussian passes over the thickness:
         // thickness -> thickness_ping -> thickness, sampling the smoothed depth.
         let thickness_a_barriers = [
-            filter_b_done[0],
+            if cleanup {
+                cleanup_done[0]
+            } else {
+                filter_b_done[0]
+            },
             sampled_to_attachment(
                 self.thickness_ping.image.image(),
                 vk::ImageLayout::UNDEFINED,
@@ -1372,6 +1406,18 @@ fn create_pipeline(
                 binding: 0,
                 format: vk::Format::R32G32B32_SFLOAT,
                 offset: 16,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 3,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: 32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 4,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: 48,
             },
         ];
         let vertex_input = if shape.instanced {

@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-102 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 (NGQ10 prototype evidence: `docs/development/nonlocal-gpu-screen-space-fluid-evidence-2026-09-02.md`) |
 | Normative dependencies | [SPEC-04](../04-rendering-and-platform.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md) |
@@ -74,9 +74,12 @@ update types are adapter-owned presentation API consumed by composition
 roots and developer tools, like ADR-101. Each particle of the one set
 carries a producer-side neighbour count; the profile's spray threshold
 splits that set into surface splats and spray discs drawn after the
-composite (0.2, NGQ10 revision 2), still one bounded set. Foam, a second
-particle set, anisotropic ellipsoids and full-resolution refraction are
-later increments under the same ADR. Nothing here changes the ADR-100 authority
+composite (0.2, NGQ10 revision 2), still one bounded set. Each particle
+may also carry a producer-side smoothed position and a symmetric
+anisotropic kernel matrix; the splat then renders the kernel ellipsoid
+(0.3, NGQ10 revision 4, after Yu and Turk 2010). Foam, a second particle
+set and full-resolution refraction are later increments under the same
+ADR. Nothing here changes the ADR-100 authority
 split: gameplay reads `WaterVolume`, never this pass.
 
 ## Product checks

@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -10029,49 +10030,226 @@ namespace {
 
 constexpr char GAME_SURFACE_STREAM_MAGIC[4] = {'N', 'E', 'W', 'S'};
 // Version 2 (NGQ10) appends the fluid particle positions after the indices.
-constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 4U;
-// NGQ10 revision 3: link distance of the presentation connected components
-// appended to every version 4 frame (1.5 spacings).
-constexpr double GAME_SURFACE_CLUSTER_LINK = 1.5 * GAME_SPACING;
-// NGQ10 revision 2: presentation neighbour radius for the per-particle
-// neighbour count appended to every version 3 frame (two spacings).
-constexpr double GAME_SURFACE_NEIGHBOUR_RADIUS = 2.0 * GAME_SPACING;
+constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 5U;
+// NGQ10 revision 4: anisotropic presentation kernels (Yu and Turk 2010).
+constexpr double GAME_SURFACE_ANISO_RADIUS = 2.0 * GAME_SPACING;
+constexpr double GAME_SURFACE_ANISO_LAMBDA = 0.9;
+constexpr double GAME_SURFACE_ANISO_KR = 4.0;
+constexpr double GAME_SURFACE_ANISO_STRETCH = 2.0;
+constexpr double GAME_SURFACE_ANISO_LONELY_SCALE = 0.5;
+constexpr int GAME_SURFACE_ANISO_NEPS = 8;
+constexpr double GAME_SURFACE_RENDER_RADIUS = 0.035;
 
-// Size of the connected component (link distance) every particle belongs
-// to, capped at 65535, via union-find over a uniform hash grid.
-std::vector<std::uint16_t> presentation_cluster_sizes(
+struct PresentationKernel {
+    Vec3 smoothed;
+    double g[6];  // xx xy xz yy yz zz of the unit-space map
+};
+
+// One sorted uniform hash grid over a frame's positions, shared by the
+// neighbour count, the cluster sizes and the kernels (cell = the largest
+// query radius; every query walks the 27 surrounding cells).
+struct PresentationGrid {
+    Vec3 minimum{};
+    double inverse = 0.0;
+    int dims[3] = {0, 0, 0};
+    std::vector<std::uint32_t> cell_start;  // dims product + 1 prefix offsets
+    std::vector<std::uint32_t> sorted;      // particle indices by cell
+
+    PresentationGrid(const std::vector<Particle>& particles, double cell) {
+        inverse = 1.0 / cell;
+        if (particles.empty()) {
+            return;
+        }
+        Vec3 maximum = particles[0].position;
+        minimum = maximum;
+        for (const Particle& particle : particles) {
+            minimum.x = std::min(minimum.x, particle.position.x);
+            minimum.y = std::min(minimum.y, particle.position.y);
+            minimum.z = std::min(minimum.z, particle.position.z);
+            maximum.x = std::max(maximum.x, particle.position.x);
+            maximum.y = std::max(maximum.y, particle.position.y);
+            maximum.z = std::max(maximum.z, particle.position.z);
+        }
+        dims[0] = static_cast<int>(std::floor((maximum.x - minimum.x) * inverse)) + 1;
+        dims[1] = static_cast<int>(std::floor((maximum.y - minimum.y) * inverse)) + 1;
+        dims[2] = static_cast<int>(std::floor((maximum.z - minimum.z) * inverse)) + 1;
+        const std::size_t cells = static_cast<std::size_t>(dims[0]) * dims[1] * dims[2];
+        cell_start.assign(cells + 1U, 0U);
+        std::vector<std::uint32_t> cell_of_particle(particles.size());
+        for (std::size_t index = 0; index < particles.size(); ++index) {
+            const std::uint32_t c = linear(cell_of(particles[index].position));
+            cell_of_particle[index] = c;
+            ++cell_start[c + 1U];
+        }
+        for (std::size_t c = 0; c < cells; ++c) {
+            cell_start[c + 1U] += cell_start[c];
+        }
+        sorted.resize(particles.size());
+        std::vector<std::uint32_t> fill(cell_start.begin(), cell_start.end() - 1);
+        for (std::size_t index = 0; index < particles.size(); ++index) {
+            sorted[fill[cell_of_particle[index]]++] = static_cast<std::uint32_t>(index);
+        }
+    }
+
+    std::array<int, 3> cell_of(const Vec3& p) const {
+        return {static_cast<int>(std::floor((p.x - minimum.x) * inverse)),
+            static_cast<int>(std::floor((p.y - minimum.y) * inverse)),
+            static_cast<int>(std::floor((p.z - minimum.z) * inverse))};
+    }
+
+    std::uint32_t linear(const std::array<int, 3>& cell) const {
+        return static_cast<std::uint32_t>((cell[2] * dims[1] + cell[1]) * dims[0] + cell[0]);
+    }
+
+    // Visits every particle of the 27 cells around `p` in cell order.
+    template <typename Visit>
+    void around(const Vec3& p, Visit&& visit) const {
+        const auto cell = cell_of(p);
+        for (int dz = -1; dz <= 1; ++dz) {
+            const int z = cell[2] + dz;
+            if (z < 0 || z >= dims[2]) {
+                continue;
+            }
+            for (int dy = -1; dy <= 1; ++dy) {
+                const int y = cell[1] + dy;
+                if (y < 0 || y >= dims[1]) {
+                    continue;
+                }
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int x = cell[0] + dx;
+                    if (x < 0 || x >= dims[0]) {
+                        continue;
+                    }
+                    const std::uint32_t c = linear({x, y, z});
+                    for (std::uint32_t slot = cell_start[c]; slot < cell_start[c + 1U]; ++slot) {
+                        visit(static_cast<std::size_t>(sorted[slot]));
+                    }
+                }
+            }
+        }
+    }
+};
+
+// Wall time of the presentation block (neighbours, clusters, kernels) per
+// written frame, for the NGQ10 producer-cost gate.
+std::atomic<std::uint64_t> g_presentation_total_us{0U};
+std::atomic<std::uint64_t> g_presentation_max_us{0U};
+std::atomic<std::uint64_t> g_presentation_frames{0U};
+
+// Eigendecomposition of a symmetric 3x3 (cyclic Jacobi); columns of `v`
+// are the eigenvectors of the eigenvalues in `a`.
+void jacobi_symmetric3(double a[3][3], double v[3][3]) {
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            v[i][j] = i == j ? 1.0 : 0.0;
+        }
+    }
+    // Converges to a relative off-diagonal norm of 1e-7 of the trace; the
+    // kernel axes are presentation values, not an authority.
+    const double trace = a[0][0] + a[1][1] + a[2][2];
+    const double tolerance = 1e-14 * trace * trace + 1e-30;
+    for (int sweep = 0; sweep < 8; ++sweep) {
+        double off = 0.0;
+        for (int p = 0; p < 3; ++p) {
+            for (int q = p + 1; q < 3; ++q) {
+                off += a[p][q] * a[p][q];
+            }
+        }
+        if (off < tolerance) {
+            break;
+        }
+        for (int p = 0; p < 2; ++p) {
+            for (int q = p + 1; q < 3; ++q) {
+                if (std::abs(a[p][q]) < 1e-18) {
+                    continue;
+                }
+                const double theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q]);
+                const double t = (theta >= 0.0 ? 1.0 : -1.0)
+                    / (std::abs(theta) + std::sqrt(theta * theta + 1.0));
+                const double c = 1.0 / std::sqrt(t * t + 1.0);
+                const double s = t * c;
+                for (int k = 0; k < 3; ++k) {
+                    const double akp = a[k][p];
+                    const double akq = a[k][q];
+                    a[k][p] = c * akp - s * akq;
+                    a[k][q] = s * akp + c * akq;
+                }
+                for (int k = 0; k < 3; ++k) {
+                    const double apk = a[p][k];
+                    const double aqk = a[q][k];
+                    a[p][k] = c * apk - s * aqk;
+                    a[q][k] = s * apk + c * aqk;
+                }
+                for (int k = 0; k < 3; ++k) {
+                    const double vkp = v[k][p];
+                    const double vkq = v[k][q];
+                    v[k][p] = c * vkp - s * vkq;
+                    v[k][q] = s * vkp + c * vkq;
+                }
+            }
+        }
+    }
+}
+
+// Per-axis standard deviation of a full lattice neighbourhood under the
+// presentation weights; a bulk particle's kernel is normalised by it.
+double presentation_reference_sigma() {
+    static const double value = [] {
+        const int reach = static_cast<int>(std::ceil(GAME_SURFACE_ANISO_RADIUS / GAME_SPACING));
+        double weight_sum = 0.0;
+        double second = 0.0;
+        for (int x = -reach; x <= reach; ++x) {
+            for (int y = -reach; y <= reach; ++y) {
+                for (int z = -reach; z <= reach; ++z) {
+                    if (x == 0 && y == 0 && z == 0) {
+                        continue;
+                    }
+                    const double dx = x * GAME_SPACING;
+                    const double dy = y * GAME_SPACING;
+                    const double dz = z * GAME_SPACING;
+                    const double r = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    if (r >= GAME_SURFACE_ANISO_RADIUS) {
+                        continue;
+                    }
+                    const double t = r / GAME_SURFACE_ANISO_RADIUS;
+                    const double w = 1.0 - t * t * t;
+                    weight_sum += w;
+                    second += w * dx * dx;
+                }
+            }
+        }
+        return weight_sum > 0.0 ? std::sqrt(second / weight_sum) : GAME_SPACING;
+    }();
+    return value;
+}
+
+// Smoothed positions and anisotropic kernels for every particle of a
+// frame (Yu and Turk 2010 with the Particles4All lonely blend), from a
+// uniform hash grid over the frame's own positions.
+struct PresentationAnalysis {
+    std::vector<std::uint8_t> neighbours;
+    std::vector<std::uint16_t> clusters;
+    std::vector<PresentationKernel> kernels;
+};
+
+// One neighbourhood walk per particle yields the neighbour count (radius
+// `neighbour_radius`), the union-find links (`link`) and the kernel sums.
+PresentationAnalysis presentation_analysis(
     const std::vector<Particle>& particles,
+    const PresentationGrid& grid,
+    double neighbour_radius,
     double link) {
     const std::size_t count = particles.size();
-    std::vector<std::uint16_t> sizes(count, 0U);
+    PresentationAnalysis result;
+    result.neighbours.assign(count, 0U);
+    result.clusters.assign(count, 0U);
+    result.kernels.resize(count);
+    std::vector<PresentationKernel>& kernels = result.kernels;
     if (count == 0U) {
-        return sizes;
+        return result;
     }
-    Vec3 minimum = particles[0].position;
-    for (const Particle& particle : particles) {
-        minimum.x = std::min(minimum.x, particle.position.x);
-        minimum.y = std::min(minimum.y, particle.position.y);
-        minimum.z = std::min(minimum.z, particle.position.z);
-    }
-    const double inverse = 1.0 / link;
-    const auto cell_of = [&](const Vec3& p) {
-        return std::array<long long, 3>{
-            static_cast<long long>(std::floor((p.x - minimum.x) * inverse)),
-            static_cast<long long>(std::floor((p.y - minimum.y) * inverse)),
-            static_cast<long long>(std::floor((p.z - minimum.z) * inverse))};
-    };
-    const auto key_of = [](const std::array<long long, 3>& cell) {
-        return static_cast<std::uint64_t>(cell[0]) * 73856093ULL
-            ^ static_cast<std::uint64_t>(cell[1]) * 19349663ULL
-            ^ static_cast<std::uint64_t>(cell[2]) * 83492791ULL;
-    };
-    std::vector<std::pair<std::uint64_t, std::uint32_t>> entries;
-    entries.reserve(count);
-    for (std::size_t index = 0; index < count; ++index) {
-        entries.emplace_back(key_of(cell_of(particles[index].position)),
-            static_cast<std::uint32_t>(index));
-    }
-    std::sort(entries.begin(), entries.end());
+    const double neighbour_squared = neighbour_radius * neighbour_radius;
+    const double link_squared = link * link;
     std::vector<std::uint32_t> parent(count);
     for (std::size_t index = 0; index < count; ++index) {
         parent[index] = static_cast<std::uint32_t>(index);
@@ -10083,109 +10261,121 @@ std::vector<std::uint16_t> presentation_cluster_sizes(
         }
         return index;
     };
-    const double link_squared = link * link;
+    const double radius = GAME_SURFACE_ANISO_RADIUS;
+    const double inverse = 1.0 / radius;
+    const double radius_squared = radius * radius;
+    const double sigma_reference = presentation_reference_sigma();
+    const double render_radius = GAME_SURFACE_RENDER_RADIUS;
+    const double lonely_radius = GAME_SURFACE_ANISO_LONELY_SCALE * render_radius;
     for (std::size_t index = 0; index < count; ++index) {
         const Vec3& p = particles[index].position;
-        const auto cell = cell_of(p);
-        for (long long dx = -1; dx <= 1; ++dx) {
-            for (long long dy = -1; dy <= 1; ++dy) {
-                for (long long dz = -1; dz <= 1; ++dz) {
-                    const std::uint64_t key = key_of({cell[0] + dx, cell[1] + dy, cell[2] + dz});
-                    auto it = std::lower_bound(entries.begin(), entries.end(),
-                        std::make_pair(key, 0U));
-                    for (; it != entries.end() && it->first == key; ++it) {
-                        const std::size_t other = it->second;
-                        if (other <= index) {
-                            continue;
-                        }
-                        const Vec3 delta = particles[other].position - p;
-                        if (dot(delta, delta) <= link_squared) {
-                            const std::uint32_t a = find(static_cast<std::uint32_t>(index));
-                            const std::uint32_t b = find(static_cast<std::uint32_t>(other));
-                            if (a != b) {
-                                parent[a] = b;
-                            }
-                        }
-                    }
+        double weight_sum = 0.0;
+        Vec3 first{};
+        double second[3][3] = {};
+        int neighbours = 0;
+        unsigned neighbour_count = 0U;
+        grid.around(p, [&](std::size_t other) {
+            if (other == index) {
+                return;
+            }
+            const Vec3 d = particles[other].position - p;
+            const double r2 = dot(d, d);
+            if (r2 <= neighbour_squared) {
+                ++neighbour_count;
+            }
+            if (other > index && r2 <= link_squared) {
+                const std::uint32_t a = find(static_cast<std::uint32_t>(index));
+                const std::uint32_t b = find(static_cast<std::uint32_t>(other));
+                if (a != b) {
+                    parent[a] = b;
                 }
             }
+            if (r2 >= radius_squared) {
+                return;
+            }
+            const double t = std::sqrt(r2) * inverse;
+            const double w = 1.0 - t * t * t;
+            weight_sum += w;
+            first += d * w;
+            const double c[3] = {d.x, d.y, d.z};
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    second[i][j] += w * c[i] * c[j];
+                }
+            }
+            ++neighbours;
+        });
+        result.neighbours[index] = static_cast<std::uint8_t>(std::min(neighbour_count, 255U));
+        PresentationKernel& kernel = kernels[index];
+        const double iso = 1.0 / lonely_radius;
+        if (weight_sum <= 0.0) {
+            kernel.smoothed = p;
+            kernel.g[0] = iso; kernel.g[1] = 0.0; kernel.g[2] = 0.0;
+            kernel.g[3] = iso; kernel.g[4] = 0.0; kernel.g[5] = iso;
+            continue;
         }
+        const Vec3 mean = first / weight_sum;
+        kernel.smoothed = p + mean * GAME_SURFACE_ANISO_LAMBDA;
+        double cov[3][3];
+        const double m[3] = {mean.x, mean.y, mean.z};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                cov[i][j] = second[i][j] / weight_sum - m[i] * m[j];
+            }
+        }
+        double vectors[3][3];
+        jacobi_symmetric3(cov, vectors);
+        double sigma[3];
+        double largest = 0.0;
+        for (int i = 0; i < 3; ++i) {
+            sigma[i] = std::sqrt(std::max(cov[i][i], 0.0));
+            largest = std::max(largest, sigma[i]);
+        }
+        double axes[3];
+        for (int i = 0; i < 3; ++i) {
+            const double clamped = std::max(sigma[i], largest / GAME_SURFACE_ANISO_KR);
+            axes[i] = std::min(
+                std::max(clamped / sigma_reference * render_radius, 1e-4),
+                GAME_SURFACE_ANISO_STRETCH * render_radius);
+        }
+        // Anisotropic G = V diag(1/a) V^T blended with the lonely isotropic
+        // kernel by the neighbour count.
+        const double low = 0.4 * GAME_SURFACE_ANISO_NEPS;
+        const double high = 1.6 * GAME_SURFACE_ANISO_NEPS;
+        const double u = std::min(std::max((neighbours - low) / (high - low), 0.0), 1.0);
+        const double blend = u * u * (3.0 - 2.0 * u);
+        double g[3][3] = {};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                double aniso = 0.0;
+                for (int k = 0; k < 3; ++k) {
+                    aniso += vectors[i][k] * (1.0 / axes[k]) * vectors[j][k];
+                }
+                const double isotropic = i == j ? iso : 0.0;
+                g[i][j] = isotropic + (aniso - isotropic) * blend;
+            }
+        }
+        kernel.g[0] = g[0][0]; kernel.g[1] = g[0][1]; kernel.g[2] = g[0][2];
+        kernel.g[3] = g[1][1]; kernel.g[4] = g[1][2]; kernel.g[5] = g[2][2];
     }
     std::vector<std::uint32_t> component_size(count, 0U);
     for (std::size_t index = 0; index < count; ++index) {
         ++component_size[find(static_cast<std::uint32_t>(index))];
     }
     for (std::size_t index = 0; index < count; ++index) {
-        sizes[index] = static_cast<std::uint16_t>(
+        result.clusters[index] = static_cast<std::uint16_t>(
             std::min<std::uint32_t>(component_size[find(static_cast<std::uint32_t>(index))], 65535U));
     }
-    return sizes;
+    return result;
 }
+// NGQ10 revision 3: link distance of the presentation connected components
+// appended to every version 4 frame (1.5 spacings).
+constexpr double GAME_SURFACE_CLUSTER_LINK = 1.5 * GAME_SPACING;
+// NGQ10 revision 2: presentation neighbour radius for the per-particle
+// neighbour count appended to every version 3 frame (two spacings).
+constexpr double GAME_SURFACE_NEIGHBOUR_RADIUS = 2.0 * GAME_SPACING;
 
-// Fluid neighbours of every particle within the presentation radius (self
-// excluded, capped at 255), from a uniform hash grid over the frame's own
-// positions; independent of the solver's neighbour encoding.
-std::vector<std::uint8_t> presentation_neighbour_counts(
-    const std::vector<Particle>& particles,
-    double radius) {
-    const std::size_t count = particles.size();
-    std::vector<std::uint8_t> counts(count, 0U);
-    if (count == 0U) {
-        return counts;
-    }
-    Vec3 minimum = particles[0].position;
-    for (const Particle& particle : particles) {
-        minimum.x = std::min(minimum.x, particle.position.x);
-        minimum.y = std::min(minimum.y, particle.position.y);
-        minimum.z = std::min(minimum.z, particle.position.z);
-    }
-    const double inverse = 1.0 / radius;
-    const auto cell_of = [&](const Vec3& p) {
-        return std::array<long long, 3>{
-            static_cast<long long>(std::floor((p.x - minimum.x) * inverse)),
-            static_cast<long long>(std::floor((p.y - minimum.y) * inverse)),
-            static_cast<long long>(std::floor((p.z - minimum.z) * inverse))};
-    };
-    const auto key_of = [](const std::array<long long, 3>& cell) {
-        return static_cast<std::uint64_t>(cell[0]) * 73856093ULL
-            ^ static_cast<std::uint64_t>(cell[1]) * 19349663ULL
-            ^ static_cast<std::uint64_t>(cell[2]) * 83492791ULL;
-    };
-    std::vector<std::pair<std::uint64_t, std::uint32_t>> entries;
-    entries.reserve(count);
-    for (std::size_t index = 0; index < count; ++index) {
-        entries.emplace_back(key_of(cell_of(particles[index].position)),
-            static_cast<std::uint32_t>(index));
-    }
-    std::sort(entries.begin(), entries.end());
-    const double radius_squared = radius * radius;
-    for (std::size_t index = 0; index < count; ++index) {
-        const Vec3& p = particles[index].position;
-        const auto cell = cell_of(p);
-        unsigned neighbours = 0U;
-        for (long long dx = -1; dx <= 1; ++dx) {
-            for (long long dy = -1; dy <= 1; ++dy) {
-                for (long long dz = -1; dz <= 1; ++dz) {
-                    const std::uint64_t key = key_of({cell[0] + dx, cell[1] + dy, cell[2] + dz});
-                    auto it = std::lower_bound(entries.begin(), entries.end(),
-                        std::make_pair(key, 0U));
-                    for (; it != entries.end() && it->first == key; ++it) {
-                        const std::size_t other = it->second;
-                        if (other == index) {
-                            continue;
-                        }
-                        const Vec3 delta = particles[other].position - p;
-                        if (dot(delta, delta) <= radius_squared) {
-                            ++neighbours;
-                        }
-                    }
-                }
-            }
-        }
-        counts[index] = static_cast<std::uint8_t>(std::min(neighbours, 255U));
-    }
-    return counts;
-}
+
 constexpr std::uint64_t GAME_SURFACE_STREAM_AUDIT_FRAMES = 60U;
 
 template <typename T>
@@ -10264,16 +10454,41 @@ bool write_presentation_surface_stream_frame(
         write_stream_pod<float>(out, static_cast<float>(particle.position.y));
         write_stream_pod<float>(out, static_cast<float>(particle.position.z));
     }
+    // Versions 3-5: neighbour counts, cluster sizes, smoothed positions and
+    // kernels from one shared grid (cell = the largest query radius).
+    const auto presentation_begin = std::chrono::steady_clock::now();
+    const PresentationGrid grid(particles,
+        std::max(GAME_SURFACE_NEIGHBOUR_RADIUS,
+            std::max(GAME_SURFACE_CLUSTER_LINK, GAME_SURFACE_ANISO_RADIUS)));
+    const PresentationAnalysis analysis = presentation_analysis(
+        particles, grid, GAME_SURFACE_NEIGHBOUR_RADIUS, GAME_SURFACE_CLUSTER_LINK);
+    const std::vector<std::uint8_t>& neighbours = analysis.neighbours;
+    const std::vector<std::uint16_t>& clusters = analysis.clusters;
+    const std::vector<PresentationKernel>& kernels = analysis.kernels;
+    const std::uint64_t presentation_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - presentation_begin).count());
+    g_presentation_total_us.fetch_add(presentation_us);
+    g_presentation_frames.fetch_add(1U);
+    std::uint64_t previous = g_presentation_max_us.load();
+    while (previous < presentation_us
+        && !g_presentation_max_us.compare_exchange_weak(previous, presentation_us)) {
+    }
     // Version 3: one neighbour count per particle in the same order.
-    const std::vector<std::uint8_t> neighbours =
-        presentation_neighbour_counts(particles, GAME_SURFACE_NEIGHBOUR_RADIUS);
     out.write(reinterpret_cast<const char*>(neighbours.data()),
         static_cast<std::streamsize>(neighbours.size()));
     // Version 4: one 16-bit connected-component size per particle.
-    const std::vector<std::uint16_t> clusters =
-        presentation_cluster_sizes(particles, GAME_SURFACE_CLUSTER_LINK);
     for (std::uint16_t size : clusters) {
         write_stream_pod<std::uint16_t>(out, size);
+    }
+    // Version 5: smoothed position and symmetric kernel per particle.
+    for (const PresentationKernel& kernel : kernels) {
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.x));
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.y));
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.z));
+        for (double value : kernel.g) {
+            write_stream_pod<float>(out, static_cast<float>(value));
+        }
     }
     out.flush();
     return static_cast<bool>(out) && vertex == frame.mesh_vertices
@@ -11743,6 +11958,14 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"step_wall_total_ms\":" << total_wall_ms
            << ",\"step_wall_max_ms\":" << maximum_step_wall_ms
            << ",\"stream_wall_ms\":" << stream_wall_ms
+           << ",\"presentation_frames\":" << g_presentation_frames.load()
+           << ",\"presentation_ms_mean\":"
+           << (g_presentation_frames.load() > 0U
+                  ? static_cast<double>(g_presentation_total_us.load())
+                      / static_cast<double>(g_presentation_frames.load()) / 1000.0
+                  : 0.0)
+           << ",\"presentation_ms_max\":"
+           << static_cast<double>(g_presentation_max_us.load()) / 1000.0
            << ",\"first_failure\":\"" << first_failure << "\""
            << ",\"simulation_feedback\":false";
     if (spill.enabled) {

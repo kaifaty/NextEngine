@@ -136,14 +136,10 @@ const PARTICLE_SURFACE_REFRACTION_STRENGTH: f32 = 0.08;
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_THICKNESS_SCALE: f32 = 1.0;
 /// NGQ10 revision 2 spray split, fixed before the run.
-#[cfg(feature = "desktop-sdl-ash")]
-const PARTICLE_SURFACE_SPRAY_THRESHOLD: u32 = 6;
 /// NGQ10 revision 3: sub-droplet spray, fixed before the run (alpha
 /// replaces the revision-2 disc alpha of 0.35).
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_SPRAY_ALPHA: f32 = 0.5;
-#[cfg(feature = "desktop-sdl-ash")]
-const PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD: u32 = 16;
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_SPRAY_SUBDROPLETS: u32 = 12;
 #[cfg(feature = "desktop-sdl-ash")]
@@ -152,8 +148,16 @@ const PARTICLE_SURFACE_SPRAY_SUBDROPLET_RADIUS_MICROMETRES: u32 = 4_000;
 const PARTICLE_SURFACE_SPRAY_STREAK_SECONDS: f32 = 1.0 / 60.0;
 #[cfg(feature = "desktop-sdl-ash")]
 const PARTICLE_SURFACE_BULK_NEIGHBOURS: u32 = 20;
+/// NGQ10 revision 4: anisotropic kernels from the producer, the spray
+/// pass and the radius grading are disabled, one 2D cleanup pass.
 #[cfg(feature = "desktop-sdl-ash")]
-const PARTICLE_SURFACE_EDGE_RADIUS_SCALE: f32 = 0.6;
+const PARTICLE_SURFACE_REV4_SPRAY_THRESHOLD: u32 = 0;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_REV4_CLUSTER_THRESHOLD: u32 = 0;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_REV4_EDGE_RADIUS_SCALE: f32 = 1.0;
+#[cfg(feature = "desktop-sdl-ash")]
+const PARTICLE_SURFACE_CLEANUP_RADIUS_PIXELS: u32 = 4;
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
 #[derive(Clone, Debug, PartialEq)]
@@ -558,7 +562,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
         .map(StreamSession::spawn)
         .transpose()?;
     let source = match stream_session.as_mut() {
-        Some(session) => PreviewSource::Stream(session.take_first_frame()?),
+        Some(session) => PreviewSource::Stream(Box::new(session.take_first_frame()?)),
         None => PreviewSource::Keyframes(
             request
                 .meshes
@@ -748,6 +752,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
                     "spray_streak_seconds": profile.spray_streak_seconds,
                     "bulk_neighbour_count": profile.bulk_neighbour_count,
                     "edge_radius_scale": profile.edge_radius_scale,
+                    "cleanup_radius_pixels": profile.cleanup_radius_pixels,
                 },
                 "publications": report.particle_surface_publications,
                 "uploads": report.particle_surface_uploads,
@@ -1308,13 +1313,23 @@ impl StreamSession {
                     }
                     .map_err(|error| error.to_string())?;
                     let particles = if surface.particles() {
+                        // Revision 4: render the smoothed positions when the
+                        // producer sent them; velocities stay raw.
+                        let render_positions = if frame.particle_smoothed_micrometres.len()
+                            == frame.particles_micrometres.len()
+                        {
+                            frame.particle_smoothed_micrometres
+                        } else {
+                            frame.particles_micrometres
+                        };
                         Some(
                             ParticleSurfaceUpdateV1::new(
                                 sequence,
-                                frame.particles_micrometres,
+                                render_positions,
                                 frame.particle_neighbours,
                                 frame.particle_clusters,
                                 velocities,
+                                frame.particle_kernels,
                             )
                             .map_err(|error| error.to_string())?,
                         )
@@ -1327,8 +1342,8 @@ impl StreamSession {
                             0.0
                         } else {
                             f64::from(set.spray_count(
-                                PARTICLE_SURFACE_SPRAY_THRESHOLD,
-                                PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD,
+                                PARTICLE_SURFACE_REV4_SPRAY_THRESHOLD,
+                                PARTICLE_SURFACE_REV4_CLUSTER_THRESHOLD,
                             )) / f64::from(count)
                         }
                     });
@@ -1641,7 +1656,7 @@ struct WaterPreview {
 #[cfg(feature = "desktop-sdl-ash")]
 enum PreviewSource {
     Keyframes(Vec<ParsedObj>),
-    Stream(super::water_stream::StreamFrame),
+    Stream(Box<super::water_stream::StreamFrame>),
 }
 
 /// Declared envelope for a streamed lane: the solver box plus one pixel
@@ -1694,6 +1709,7 @@ fn build_preview(
             (parsed, bounds, capacity)
         }
         PreviewSource::Stream(frame) => {
+            let frame = *frame;
             let bounds = stream_bounds(&frame)?;
             let (vertex_capacity, index_capacity) =
                 super::water_stream::surface_capacity(frame.box_min_metres, frame.box_max_metres)?;
@@ -1732,14 +1748,15 @@ fn build_preview(
             absorption_per_metre: PARTICLE_SURFACE_ABSORPTION_PER_METRE,
             refraction_strength: PARTICLE_SURFACE_REFRACTION_STRENGTH,
             thickness_scale: PARTICLE_SURFACE_THICKNESS_SCALE,
-            spray_neighbour_threshold: PARTICLE_SURFACE_SPRAY_THRESHOLD,
+            spray_neighbour_threshold: PARTICLE_SURFACE_REV4_SPRAY_THRESHOLD,
             spray_radius_micrometres: PARTICLE_SURFACE_SPRAY_SUBDROPLET_RADIUS_MICROMETRES,
             spray_alpha: PARTICLE_SURFACE_SPRAY_ALPHA,
-            spray_cluster_threshold: PARTICLE_SURFACE_SPRAY_CLUSTER_THRESHOLD,
+            spray_cluster_threshold: PARTICLE_SURFACE_REV4_CLUSTER_THRESHOLD,
             spray_subdroplets: PARTICLE_SURFACE_SPRAY_SUBDROPLETS,
             spray_streak_seconds: PARTICLE_SURFACE_SPRAY_STREAK_SECONDS,
             bulk_neighbour_count: PARTICLE_SURFACE_BULK_NEIGHBOURS,
-            edge_radius_scale: PARTICLE_SURFACE_EDGE_RADIUS_SCALE,
+            edge_radius_scale: PARTICLE_SURFACE_REV4_EDGE_RADIUS_SCALE,
+            cleanup_radius_pixels: PARTICLE_SURFACE_CLEANUP_RADIUS_PIXELS,
         },
     );
     let mut source =

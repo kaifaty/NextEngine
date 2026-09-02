@@ -14,6 +14,7 @@ layout(set = 0, binding = 0, std140) uniform FluidFrame {
     vec4 sun;
     vec4 spray;
     vec4 spray2;
+    vec4 filter_params;
 } frame;
 
 layout(location = 0) in vec2 in_corner;

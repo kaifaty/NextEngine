@@ -9,7 +9,9 @@
 use std::io::Read;
 
 pub(super) const STREAM_MAGIC: [u8; 4] = *b"NEWS";
-pub(super) const STREAM_VERSION: u32 = 4;
+pub(super) const STREAM_VERSION: u32 = 5;
+/// Version 4 added cluster sizes without presentation kernels.
+const STREAM_VERSION_WITH_CLUSTERS: u32 = 4;
 /// Version 2 carried particle centres without neighbour counts.
 const STREAM_VERSION_WITH_PARTICLES: u32 = 2;
 /// Version 3 added neighbour counts without cluster sizes.
@@ -41,8 +43,13 @@ pub(super) struct StreamFrame {
     /// Fluid neighbours per particle within the producer's presentation
     /// radius (version 3+), empty for earlier versions.
     pub(super) particle_neighbours: Vec<u8>,
-    /// Connected-component size per particle (version 4), empty before.
+    /// Connected-component size per particle (version 4+), empty before.
     pub(super) particle_clusters: Vec<u16>,
+    /// Laplacian-smoothed render position per particle (version 5).
+    pub(super) particle_smoothed_micrometres: Vec<[i64; 3]>,
+    /// Symmetric anisotropic kernel per particle, `xx xy xz yy yz zz`
+    /// in inverse metres (version 5).
+    pub(super) particle_kernels: Vec<[f32; 6]>,
 }
 
 /// Reads one frame; `Ok(None)` is a clean end of stream before a header.
@@ -73,6 +80,7 @@ pub(super) fn read_frame(
     let step = take_u32() as i32;
     let cycle = take_u32() as i32;
     if version != STREAM_VERSION
+        && version != STREAM_VERSION_WITH_CLUSTERS
         && version != STREAM_VERSION_WITH_NEIGHBOURS
         && version != STREAM_VERSION_WITH_PARTICLES
         && version != STREAM_VERSION_WITHOUT_PARTICLES
@@ -158,6 +166,8 @@ pub(super) fn read_frame(
     let mut particles_micrometres = Vec::new();
     let mut particle_neighbours = Vec::new();
     let mut particle_clusters = Vec::new();
+    let mut particle_smoothed_micrometres = Vec::new();
+    let mut particle_kernels = Vec::new();
     if version >= STREAM_VERSION_WITH_PARTICLES {
         let mut count_bytes = [0_u8; 8];
         reader
@@ -194,7 +204,7 @@ pub(super) fn read_frame(
                 .read_exact(&mut particle_neighbours)
                 .map_err(|error| format!("surface stream neighbour counts truncated: {error}"))?;
         }
-        if version == STREAM_VERSION {
+        if version >= STREAM_VERSION_WITH_CLUSTERS {
             let mut cluster_bytes = vec![0_u8; particle_count * 2];
             reader
                 .read_exact(&mut cluster_bytes)
@@ -203,6 +213,40 @@ pub(super) fn read_frame(
                 .chunks_exact(2)
                 .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
                 .collect();
+        }
+        if version == STREAM_VERSION {
+            let mut kernel_bytes = vec![0_u8; particle_count * 36];
+            reader
+                .read_exact(&mut kernel_bytes)
+                .map_err(|error| format!("surface stream kernels truncated: {error}"))?;
+            particle_smoothed_micrometres.reserve(particle_count);
+            particle_kernels.reserve(particle_count);
+            for record in kernel_bytes.chunks_exact(36) {
+                let mut values = [0_f32; 9];
+                for (slot, component) in record.chunks_exact(4).enumerate() {
+                    values[slot] = f32::from_le_bytes(component.try_into().unwrap_or([0; 4]));
+                }
+                let mut position = [0_i64; 3];
+                for axis in 0..3 {
+                    let metres = f64::from(values[axis]);
+                    if !metres.is_finite()
+                        || metres < box_min_metres[axis] - SURFACE_PIXEL_PITCH_METRES
+                        || metres > box_max_metres[axis] + SURFACE_PIXEL_PITCH_METRES
+                    {
+                        return Err(
+                            "surface stream smoothed particle lies outside the declared box"
+                                .to_owned(),
+                        );
+                    }
+                    position[axis] = (metres * 1_000_000.0).round() as i64;
+                }
+                let kernel: [f32; 6] = values[3..9].try_into().unwrap_or([0.0; 6]);
+                if kernel.iter().any(|value| !value.is_finite()) {
+                    return Err("surface stream kernel is not finite".to_owned());
+                }
+                particle_smoothed_micrometres.push(position);
+                particle_kernels.push(kernel);
+            }
         }
     }
     Ok(Some(StreamFrame {
@@ -218,6 +262,8 @@ pub(super) fn read_frame(
         particles_micrometres,
         particle_neighbours,
         particle_clusters,
+        particle_smoothed_micrometres,
+        particle_kernels,
     }))
 }
 

@@ -188,3 +188,47 @@ sub-droplets, or a cluster rule restricted to airborne components.
 Apparatus note: revision 2's raw flip gate depended on the presentation
 rate (the interval varied `6.5..20 ms` across this session); the
 normalised G3n figure is the comparable one from now on.
+
+## Revision 4: anisotropic kernels, lonely shrink, cleanup (after Particles4All)
+
+Plan 24 revision 4. The research tool appends per particle a smoothed
+position and a symmetric kernel matrix (stream version 5): neighbours
+within `0.1 m` with weight `1 - (r/R)^3`, Laplacian smoothing `0.9`,
+covariance eigendecomposition, axes `max(s_i, s_1 / 4) * r / s_ref`
+capped at `2 r`, and a lonely blend to an isotropic kernel of radius
+`0.5 r` below `3` neighbours. The adapter splats the ellipsoid (view-ray
+intersection for depth, chord for thickness) and runs a 2D narrow-range
+cleanup of radius `4` px after the separable depth filter. Spray pass and
+radius grading are off.
+
+```text
+tool binary       8c44c88c4438142e...
+shader suite      fluid_surface, eight modules, 256-byte uniform, 64-byte particles
+runs              particles x3 (frames 100..104), particles (frame 200), mesh x1
+```
+
+| Measure | `particles` (3 runs) | `mesh` baseline |
+| --- | --- | --- |
+| pass GPU p95 / p99 / max | `447..449 / 458..464 / 461..469 µs` | n/a (`163 µs` whole frame) |
+| whole-frame GPU p95 | `503..506 µs` | `163 µs` |
+| coverage flips per stream frame (G3n) | `0.087..0.103%` | n/a |
+| producer presentation block mean / max | `15.5..15.8 / 17.0..18.7 ms` | `15.7 / 18.3 ms` |
+| stream real-time ratio | `0.998..1.0` | `1.0` |
+| particle upload per run | `131 MB` (64 B x 12,000 x 2 slots per publication) | n/a |
+| device allocations | `89.3 MB / 36` | `50.5 MB / 27` |
+| roots | identical to revision 1 | identical |
+
+Look (captures at rendered frames 100 and 200, ~steps 150 and 300): the
+upper tank reads as one smooth refracting surface, the jet as a
+continuous ribbon from the lip to the floor, the lower pool as a thin
+sheet with a few small droplets; the sphere beads of revisions 1-2 and
+the foam streaks of revision 3 are gone. Faint lattice bands remain on
+the tank surface at grazing angles.
+
+Producer cost is the open item: `15.5 ms` mean per frame on one worker
+is at the `16 ms` frame budget and the maximum exceeds it; real time
+holds only because three extractor workers overlap. Candidates for a next
+revision, not applied: compute the kernels on the device next to the
+extractor (the solver already owns the neighbour lists), or compute them
+only for particles with a free-surface neighbour deficit and send the
+isotropic kernel for the rest.

@@ -1355,9 +1355,11 @@
   a different capacity or a non-B0 composite (deferred lighting, MSAA),
   or when the interior stripe / bead look is judged unacceptable and a new
   frozen revision changes radius or thickness smoothing. Revision 2 (spray
-  split by neighbour count, thickness smoothing) is in; the remaining
-  bead clusters need a cluster-size criterion and the G3 apparatus must
-  become frame-rate independent before the look is accepted.
+  split by neighbour count, thickness smoothing), revision 3 (cluster
+  spray, sub-droplets) and revision 4 (anisotropic kernels from the
+  producer, lonely shrink, 2D cleanup) are in; revision 4 is the current
+  look. Open: the producer's `15.5 ms` kernel block per frame and the
+  faint lattice bands at grazing angles.
 
 ### D-051 — Presentation surface keeps every water body (NGQ9)
 
@@ -1517,6 +1519,7 @@
 | HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
 | HG8H | the `flush` lip's `25 mm` floor step throws samples crossing the lip | supported: `margin` late speed follows the head; rev 8 level floor under `flush` restores that (`0.60 -> 0.20 m/s`) while keeping `Cd 0.443` | closed |
 | HG8I | isolated pipe samples are ejected by fixed-sample over-density | refuted: same pipe under `margin` trickles at head speed | closed |
+| HG10C | Yu-Turk anisotropic kernels with Laplacian smoothing and a lonely shrink (after Particles4All) remove beads, foam and lattice rows at 12k particles | supported: smooth sheets and a continuous jet, G2/G3n/G5 pass; producer cost `15.5 ms` mean per frame (G11 fails by its maximum), plan 24 rev 4 | closed |
 | HG10B | a cluster-size spray rule with velocity-stretched sub-droplets removes the jelly spheres without changing the solver | supported for the blobs (none remain, G2/G3n/G5 pass); the fragmented pool and jet tail turn into white foam streaks, so the spray shading needs a next revision (plan 24 rev 3) | closed |
 | HG10A | a neighbour-count spray split plus thickness smoothing removes the isolated sphere contours and interior stripes of the screen-space surface | partial: single particles become dots, two-to-five particle clusters keep contours, stripes reduced; G3 confounded by a doubled frame interval (plan 24 rev 2) | closed |
 | HG8J | a nearest-exit positional clamp over shelf, divider, pipe body and two channels keeps an L-shaped under-floor pipe free of penetration and teleports | supported: `spill-pipe` penetration `0 m`, maximum speed `3.28 m/s`, jet arcs from the pipe mouth; `Cd 0.13` recorded (duct throttles) | closed |

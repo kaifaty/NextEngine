@@ -16,10 +16,12 @@ use crate::DesktopAdapterError;
 pub const MAX_PARTICLE_SURFACE_PARTICLES: u32 = 65_536;
 /// Bytes per packed particle: three binary32 metres, one u32 of flags
 /// (neighbour count in the low byte, cluster size above), three binary32
-/// metres per second and one pad.
-pub const PARTICLE_SURFACE_STRIDE: u32 = 32;
+/// metres per second, one pad, then the symmetric kernel `xx xy xz yy` and
+/// `yz zz 0 0` (inverse metres; all zero means isotropic at the profile
+/// radius).
+pub const PARTICLE_SURFACE_STRIDE: u32 = 64;
 
-const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v3";
+const PARTICLE_SURFACE_UPDATE_DOMAIN: &str = "nextengine.desktop.particle-surface-update.v4";
 const MICROMETRES_PER_METRE: f64 = 1_000_000.0;
 
 /// Declares the one bounded particle surface for the whole desktop run.
@@ -58,6 +60,9 @@ pub struct ParticleSurfaceProfileV1 {
     pub bulk_neighbour_count: u32,
     /// Surface splat radius scale at the spray threshold, `0..=1`.
     pub edge_radius_scale: f32,
+    /// Radius in pixels of the 2D narrow-range cleanup pass after the
+    /// separable depth filter; `0` skips it.
+    pub cleanup_radius_pixels: u32,
 }
 
 impl ParticleSurfaceProfileV1 {
@@ -85,6 +90,9 @@ impl ParticleSurfaceProfileV1 {
         if !(0.0..=1.0).contains(&self.edge_radius_scale) {
             return Err(invalid("edge radius scale must lie in 0..=1"));
         }
+        if self.cleanup_radius_pixels > 16 {
+            return Err(invalid("cleanup radius must not exceed 16 pixels"));
+        }
         let finite = self
             .absorption_per_metre
             .iter()
@@ -111,20 +119,24 @@ pub struct ParticleSurfaceUpdateV1 {
     cluster_sizes: Vec<u16>,
     /// Velocity per particle in micrometres per second; empty means rest.
     velocities_micrometres_per_second: Vec<[i32; 3]>,
+    /// Symmetric anisotropic kernel per particle (`xx xy xz yy yz zz`,
+    /// inverse metres); empty means isotropic at the profile radius.
+    kernels: Vec<[f32; 6]>,
     canonical_hash: ContentHash,
     packed_positions: Vec<u8>,
 }
 
 impl ParticleSurfaceUpdateV1 {
     /// Validates the bounded set and binds its content-only canonical hash.
-    /// `neighbour_counts`, `cluster_sizes` and `velocities` are each empty
-    /// or one entry per particle.
+    /// `neighbour_counts`, `cluster_sizes`, `velocities` and `kernels` are
+    /// each empty or one entry per particle.
     pub fn new(
         sequence: u64,
         positions_micrometres: Vec<[i64; 3]>,
         neighbour_counts: Vec<u8>,
         cluster_sizes: Vec<u16>,
         velocities_micrometres_per_second: Vec<[i32; 3]>,
+        kernels: Vec<[f32; 6]>,
     ) -> Result<Self, DesktopAdapterError> {
         if sequence == 0 {
             return Err(invalid("particle update sequence must be positive"));
@@ -152,7 +164,16 @@ impl ParticleSurfaceUpdateV1 {
                 "particle velocities do not match the particle count",
             ));
         }
-        let mut preimage = Vec::with_capacity(count * 39);
+        if !kernels.is_empty() && kernels.len() != count {
+            return Err(invalid("particle kernels do not match the particle count"));
+        }
+        if kernels
+            .iter()
+            .any(|kernel| kernel.iter().any(|value| !value.is_finite()))
+        {
+            return Err(invalid("particle kernel is not finite"));
+        }
+        let mut preimage = Vec::with_capacity(count * 63);
         let mut packed_positions = Vec::with_capacity(count * PARTICLE_SURFACE_STRIDE as usize);
         for (index, position) in positions_micrometres.iter().enumerate() {
             for component in position {
@@ -176,6 +197,12 @@ impl ParticleSurfaceUpdateV1 {
                 packed_positions.extend_from_slice(&(metres_per_second as f32).to_le_bytes());
             }
             packed_positions.extend_from_slice(&0_f32.to_le_bytes());
+            let kernel = kernels.get(index).copied().unwrap_or([0.0; 6]);
+            for value in kernel {
+                preimage.extend_from_slice(&value.to_le_bytes());
+                packed_positions.extend_from_slice(&value.to_le_bytes());
+            }
+            packed_positions.extend_from_slice(&[0_u8; 8]);
         }
         let canonical_hash = domain_hash(PARTICLE_SURFACE_UPDATE_DOMAIN, &preimage);
         Ok(Self {
@@ -184,6 +211,7 @@ impl ParticleSurfaceUpdateV1 {
             neighbour_counts,
             cluster_sizes,
             velocities_micrometres_per_second,
+            kernels,
             canonical_hash,
             packed_positions,
         })
@@ -217,6 +245,11 @@ impl ParticleSurfaceUpdateV1 {
     #[must_use]
     pub fn velocities_micrometres_per_second(&self) -> &[[i32; 3]] {
         &self.velocities_micrometres_per_second
+    }
+
+    #[must_use]
+    pub fn kernels(&self) -> &[[f32; 6]] {
+        &self.kernels
     }
 
     #[must_use]
