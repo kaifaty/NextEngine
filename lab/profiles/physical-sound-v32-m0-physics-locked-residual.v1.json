@@ -1,0 +1,489 @@
+{
+  "access_order": [
+    "identity-and-environment",
+    "train-materialize-and-fit",
+    "development-materialize-and-gate",
+    "candidate-freeze-if-development-pass",
+    "method-holdout-materialize-once-if-frozen",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": true,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "30dfa03c6418ad850ab093046c5524ca30528427",
+  "claim": "SYNTHETIC_PHYSICS_LOCKED_RESIDUAL_REPRESENTATION_ONLY / NO_REAL_MATERIAL_QUALITY_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "controls": {
+    "identity": {
+      "control_id": "p1-identity-v1",
+      "corrections": "all-zero"
+    },
+    "nearest": {
+      "control_id": "nearest-train-row-v1",
+      "distance": "branch-local-normalized-euclidean",
+      "tie_break": "lexicographically-smallest-row-id"
+    },
+    "ridge": {
+      "control_id": "fixed-feature-ridge-v1",
+      "lambda": "0.000001",
+      "numeric": "float64-branch-local"
+    }
+  },
+  "corpus": {
+    "base_fixture_profile": "physical-sound-v31-p0-causal-baseline-v1",
+    "contacts": [
+      [
+        "0.125",
+        "0.25"
+      ],
+      [
+        "0.25",
+        "0.5"
+      ],
+      [
+        "0.375",
+        "0.75"
+      ],
+      [
+        "0.5",
+        "0.5"
+      ],
+      [
+        "0.625",
+        "0.25"
+      ],
+      [
+        "0.75",
+        "0.5"
+      ],
+      [
+        "0.875",
+        "0.75"
+      ],
+      [
+        "0.5",
+        "0.25"
+      ]
+    ],
+    "counts": {
+      "cases": 576,
+      "development": {
+        "cases": 72,
+        "modal_rows": 720,
+        "object_groups": 9
+      },
+      "method_holdout": {
+        "cases": 144,
+        "modal_rows": 1440,
+        "object_groups": 18
+      },
+      "modal_rows": 5760,
+      "object_groups": 72,
+      "train": {
+        "cases": 360,
+        "modal_rows": 3600,
+        "object_groups": 45
+      }
+    },
+    "families": [
+      {
+        "family": "rectangular_plate",
+        "family_code": -1,
+        "fixture_id": "synthetic-plate-reference",
+        "formula_id": "kirchhoff-love-simply-supported-v1",
+        "geometry_component_order": [
+          "length_x_m",
+          "length_y_m",
+          "thickness_m"
+        ],
+        "support": "simply-supported-all-edges",
+        "support_code": -1
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-cantilever-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "cantilever-clamped-u0",
+        "support_code": 0
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-simply-supported-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "simply-supported-both-ends",
+        "support_code": 1
+      }
+    ],
+    "geometry_multiplier_cells": [
+      [
+        "0.75",
+        "0.85",
+        "0.80"
+      ],
+      [
+        "0.85",
+        "1.15",
+        "1.10"
+      ],
+      [
+        "0.95",
+        "0.75",
+        "1.20"
+      ],
+      [
+        "1.00",
+        "1.00",
+        "1.00"
+      ],
+      [
+        "1.10",
+        "0.90",
+        "0.90"
+      ],
+      [
+        "1.20",
+        "1.10",
+        "1.25"
+      ],
+      [
+        "0.80",
+        "1.20",
+        "0.95"
+      ],
+      [
+        "1.25",
+        "0.80",
+        "1.15"
+      ]
+    ],
+    "impulse_ns": "1",
+    "materials": [
+      {
+        "density_kg_m3": "2700",
+        "loss_rate_per_second": "8",
+        "material_id": "synthetic-a",
+        "poisson_ratio": "0.33",
+        "youngs_modulus_pa": "69000000000"
+      },
+      {
+        "density_kg_m3": "7850",
+        "loss_rate_per_second": "12",
+        "material_id": "synthetic-b",
+        "poisson_ratio": "0.29",
+        "youngs_modulus_pa": "200000000000"
+      },
+      {
+        "density_kg_m3": "8900",
+        "loss_rate_per_second": "18",
+        "material_id": "synthetic-c",
+        "poisson_ratio": "0.34",
+        "youngs_modulus_pa": "110000000000"
+      }
+    ],
+    "mode_count": 10,
+    "role_geometry_cells": {
+      "development": [
+        5
+      ],
+      "method_holdout": [
+        6,
+        7
+      ],
+      "train": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "features": {
+    "branch_fields": {
+      "contact": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "family.plate",
+        "family.beam",
+        "support.plate_simple",
+        "support.beam_cantilever",
+        "support.beam_simple",
+        "contact.u_signed",
+        "contact.v_signed",
+        "p1.contact_participation"
+      ],
+      "decay": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "support.plate_simple",
+        "support.beam_cantilever",
+        "support.beam_simple"
+      ],
+      "global_gain": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "family.plate",
+        "family.beam",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ]
+    },
+    "forbidden_fields": [
+      "object_id",
+      "record_id",
+      "role",
+      "geometry_cell_index",
+      "mesh_resolution",
+      "vertex_index",
+      "expected",
+      "validator_decision"
+    ],
+    "normalization": {
+      "contact_signed": "2*x-1",
+      "family_index_a_signed": "2*(a-1)/9-1",
+      "family_index_b_signed": "-1-if-zero-else-2*(b-1)/9-1",
+      "geometry_log_multiplier": "log(multiplier)/log(1.25)",
+      "log_density": "log2(density/2700)/2",
+      "log_frequency": "clamp(log2(frequency_hz/1000)/4,-1.5,1.5)",
+      "log_youngs": "log2(youngs_modulus_pa/69000000000)/2",
+      "loss": "(loss_rate_per_second-12)/6",
+      "ordinal_signed": "2*ordinal/9-1",
+      "poisson": "(poisson_ratio-0.315)/0.035"
+    }
+  },
+  "gates": {
+    "development": {
+      "absolute_rmse_max": {
+        "contact": "0.040",
+        "decay": "0.035",
+        "global_gain": "0.035"
+      },
+      "aggregate_ratio_max_each_control": "0.85",
+      "branch_ratio_max_ridge_and_nearest": "0.90",
+      "contact_zero_ablation_worsening_min": "1.05",
+      "material_zero_ablation_worsening_min": "1.05"
+    },
+    "hard": {
+      "correction_bounds_exact": true,
+      "finite_output": true,
+      "frequency_and_order_bit_exact": true,
+      "impulse_probe_ratios": [
+        "0.5",
+        "1",
+        "2"
+      ],
+      "mesh_resolution_feature_forbidden": true,
+      "nodal_zero_exact": true,
+      "positive_decay": true,
+      "remesh_common_contact_exact": true,
+      "render_peak_strict_max": "0.95",
+      "signed_gain_sign_preserved": true,
+      "t0_mutation_reason_identities_unchanged": true,
+      "v0a_parent_identities_unchanged": true
+    },
+    "method_holdout": {
+      "aggregate_ratio_max_best_control": "0.90",
+      "branch_ratio_max_best_control": "0.95",
+      "zero_denominator_rule": "candidate-must-be-exact-zero"
+    }
+  },
+  "model": {
+    "activation": "silu",
+    "candidate_id": "m0-physics-locked-residual-v1",
+    "dtype": "float64",
+    "heads": {
+      "contact": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 12,
+        "output": "contact_log_participation_multiplier",
+        "output_bound": "0.25",
+        "parameter_count": 497
+      },
+      "decay": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 11,
+        "output": "log_decay_multiplier",
+        "output_bound": "0.25",
+        "parameter_count": 481
+      },
+      "global_gain": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 13,
+        "output": "global_log_gain_delta",
+        "output_bound": "0.20",
+        "parameter_count": 513
+      }
+    },
+    "initializer": {
+      "bias": "zero",
+      "generator": "numpy-PCG64",
+      "order": "lexicographic-tensor-name",
+      "seed": 3201,
+      "weight": "uniform(-sqrt(6/(fan_in+fan_out)),sqrt(6/(fan_in+fan_out)))"
+    },
+    "parameter_count": 1491,
+    "parameter_count_max": 1500,
+    "shared_trunk": false
+  },
+  "numeric_profile": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "execution": "single-thread-cpu-reference",
+    "randomness": "seeded-initialization-only",
+    "render_frames": 144000,
+    "sample_rate_hz": 48000,
+    "scalar_format": "ieee754-binary64-little-endian",
+    "tensor_order": "lexicographic-name"
+  },
+  "oracle": {
+    "contact": {
+      "bound": "0.22",
+      "expression": "bound*tanh(0.50*p1_contact+0.35*sin(2*pi*u)*cos(pi*v)+0.25*ordinal*support+0.15*family*(2*u-1))"
+    },
+    "decay": {
+      "bound": "0.20",
+      "expression": "bound*tanh(0.55*loss+0.25*log_frequency+0.20*support*ordinal+0.15*log_youngs*log_density)"
+    },
+    "global_gain": {
+      "bound": "0.16",
+      "expression": "bound*tanh(0.45*ordinal*geometry0+0.35*geometry2+0.25*log_youngs*ordinal-0.20*log_density+0.15*family*geometry1)"
+    },
+    "transcendentals": "python-math-binary64"
+  },
+  "parent": {
+    "p0_profile": {
+      "path": "lab/profiles/physical-sound-v31-p0-causal-baseline.v1.json",
+      "sha256": "c6b7f816d65bdcaa18618a72d40cfedb6ed970359d3a1cf8f28825cd4c686a3d"
+    },
+    "p1_owner": {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    "p1_result": {
+      "path": "docs/development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md",
+      "sha256": "16e3f6e23280eb3c6d77d52132b6d216768bf8383baa668ed3dd16ca5ac08683"
+    },
+    "t0_owner": {
+      "path": "lab/scripts/physical_sound_v32_t0_truth_mutations_v1.py",
+      "sha256": "4a0c5a5ea7cece8dfca2c8d346695bc826b9b375d94c2ef5aa1d723760391d6f"
+    },
+    "t0_profile": {
+      "path": "lab/profiles/physical-sound-v32-t0-truth-mutations.v1.json",
+      "sha256": "44d83804398b2e08a54dbe28e4e3269098b1112785d8377dac34a11d4e5eebe8"
+    },
+    "t0_result": {
+      "path": "docs/development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md",
+      "sha256": "b17631b4032d632bb0ae9d30e05a421895756d65ce961109da94fed962c15ce9"
+    },
+    "v0a_owner": {
+      "path": "lab/scripts/physical_sound_v32_v0a_modal_equivalence_validator_v1.py",
+      "sha256": "a946f96307dc01bccab6151ef2049796677210edd1ced9d2518e842630f49584"
+    },
+    "v0a_profile": {
+      "path": "lab/profiles/physical-sound-v32-v0a-modal-equivalence-validator.v1.json",
+      "sha256": "bb3e6cb2f6f0e52e80dc31df14f7887e9f3fc14ecca6e9a541d670b716118094"
+    },
+    "v0a_result": {
+      "path": "docs/development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md",
+      "sha256": "1fc5809eefb7dac86a71d79ffe39a9d5cacf27d81bfd46330524e91d23050aa2"
+    },
+    "v28_reject": {
+      "path": "docs/development/physical-sound-v28-r2-official-feasibility-result-2026-09-02.md",
+      "sha256": "bde206a8033f80d6161487a89bc0069933a32ddb727696305a6df0e18b748056"
+    }
+  },
+  "profile_id": "physical-sound-v32-m0-physics-locked-residual-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md",
+    "sha256": "fc646a410dd51216ca1bfe050cf338eca920f006715d2266d0a2fcc1ccb19781"
+  },
+  "publication": {
+    "candidate_freeze_only_after_development_pass": true,
+    "max_file_count": 8,
+    "method_holdout_only_after_candidate_freeze": true,
+    "required_common_files": [
+      "corpus-manifest.json",
+      "control-report.json",
+      "candidate-weights.bin",
+      "development-predictions.bin",
+      "evidence.json",
+      "report.json"
+    ],
+    "success_only_files": [
+      "candidate-freeze.json",
+      "method-holdout-report.json"
+    ]
+  },
+  "research": {
+    "path": "docs/development/physical-sound-v32-m0-physics-locked-residual-research-2026-09-02.md",
+    "sha256": "d5eedd6c69e720da770b676d37ecde9391b041b0203ad851521d44dee0d1cf59"
+  },
+  "resources": {
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300,
+    "network_requests": 0,
+    "real_signal_values_decoded": 0
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v32-m0-physics-locked-residual-profile.v1",
+  "training": {
+    "batch": "full-train-role",
+    "device": "cpu",
+    "gradient_norm_clip": "1",
+    "learning_rate": "0.003",
+    "loss": "mean(MSE(decay)/0.20^2,MSE(global_gain)/0.16^2,MSE(contact)/0.22^2)",
+    "optimizer": "AdamW",
+    "seed": 3201,
+    "steps": 1200,
+    "threads": {
+      "interop": 1,
+      "intraop": 1
+    },
+    "weight_decay": "0.000001"
+  }
+}
