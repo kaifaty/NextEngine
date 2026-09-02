@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7 REV 2, REV 3 SETTLED FLOOR PASS) / ADR-100 PROPOSED (PRESENTATION-ONLY AUTHORITY) / 48K COST AND MATERIAL NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7) / ADR-100 PROPOSED / SPILL SCENE RUNS (NGQ8, G3 THROTTLED) / 48K COST AND MATERIAL NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -1330,6 +1330,28 @@
   step-cost decision is made under the solver contract, or the accepted
   dynamic corpus is extended past the wall phase with these layers.
 
+### D-050 — Two-tank spillway: interior geometry through clamp and solids
+
+- **Observation:** the user asked for a scene with two tanks at different
+  heights and a drain from the upper one. The game tool had only one
+  analytic box; the CPU reference lane's internal plane patches are not
+  ported.
+- **Evidence:** plan 22 (frozen before the run) and
+  `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`:
+  `12,000` fluid plus `35,472` fixed samples, `3.11 ms` physics per step,
+  `0 m` penetration, arrival by step 480, upper fraction `0.611` at 960.
+- **Conclusion:** a positional clamp for one slab with a rectangular
+  opening plus a shelf, with density-only fixed samples filling the solids,
+  is enough for a presentation scene; throughput is about `3x` below a free
+  orifice.
+- **Decision:** keep `spill` as a lane of the stream tool and the preview
+  (`--stream-lane spill`); record G3 as a bounded failure, no retune.
+- **Rejected:** widening the opening or the gate after the run; porting
+  the full W0F internal-plane machinery for one visual scene.
+- **Reconsider when:** a scene needs the drain rate itself (open a contact
+  discriminator on the opening lip and the ghost layers inside the pipe),
+  or the presentation solver moves into the engine.
+
 ### D-049 — Specifications follow the evidence: presentation-only GPU water
 
 - **Observation:** SPEC-38/ADR-076 still named CPU DFSPH as the water
@@ -1429,6 +1451,7 @@
 | HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | selected bounded: density-only fixed layers remove the stall, put the crest at the wall and settle the floor layer at `1.13--1.17` (control `2.25--2.27`) | 48k cost under the solver contract |
 | HG7C | the stall comes from the contact clamp or the sheet itself | falsified for the stall: unchanged clamp, stall gone with density support | closed |
 | HG7E | fixed samples may take part in every term | falsified: no-slip drag slows the front to `0.40x`; density-only keeps `1.18x` | closed |
+| HG8A | a positional clamp plus density-only fixed solids handle axis-aligned interior walls with an opening | supported bounded: `0 m` penetration, arrival before step 480; drainage `0.611` at 4 s against `<= 0.6` (throttled, not retuned) | opening-lip/contact discriminator if throughput matters |
 
 ## Do not retry
 

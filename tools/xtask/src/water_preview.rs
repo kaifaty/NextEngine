@@ -200,11 +200,15 @@ pub(super) fn parse_arguments(
             }
             "--stream-lane" => {
                 stream_lane = arguments.next().ok_or_else(|| {
-                    "water-preview --stream-lane requires 4k, 16k, 48k or 48k-dam".to_owned()
+                    "water-preview --stream-lane requires 4k, 16k, 48k, 48k-dam or spill".to_owned()
                 })?;
-                if !matches!(stream_lane.as_str(), "4k" | "16k" | "48k" | "48k-dam") {
+                if !matches!(
+                    stream_lane.as_str(),
+                    "4k" | "16k" | "48k" | "48k-dam" | "spill"
+                ) {
                     return Err(
-                        "water-preview --stream-lane must be 4k, 16k, 48k or 48k-dam".to_owned(),
+                        "water-preview --stream-lane must be 4k, 16k, 48k, 48k-dam or spill"
+                            .to_owned(),
                     );
                 }
             }
@@ -1410,7 +1414,15 @@ fn build_preview(
     let basin_material_revision = basin_material
         .asset_revision()
         .map_err(|error| error.to_string())?;
-    let basin_mesh = basin_mesh(mesh_schema.clone(), bounds)?;
+    let basin_mesh = if request
+        .stream
+        .as_ref()
+        .is_some_and(|stream| stream.lane == "spill")
+    {
+        spill_mesh(mesh_schema.clone(), bounds)?
+    } else {
+        basin_mesh(mesh_schema.clone(), bounds)?
+    };
     let basin_mesh_revision = basin_mesh
         .asset_revision()
         .map_err(|error| error.to_string())?;
@@ -1850,15 +1862,69 @@ fn smooth_normals(positions: &[[i64; 3]], indices: &[u32]) -> Result<Vec<[i16; 3
 /// inward normals are front faces under the B0 counter-clockwise rule; the
 /// wall between the camera and the water is therefore back-face culled.
 #[cfg(feature = "desktop-sdl-ash")]
-fn basin_mesh(
+type MeshFace = ([[i64; 3]; 4], [i16; 3]);
+
+/// Six outward faces of one solid box (winding follows the normal).
+fn solid_box_faces(minimum: [i64; 3], maximum: [i64; 3]) -> [MeshFace; 6] {
+    let [x0, y0, z0] = minimum;
+    let [x1, y1, z1] = maximum;
+    let unit = i16::MAX;
+    [
+        (
+            [[x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]],
+            [0, unit, 0],
+        ),
+        (
+            [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
+            [0, -unit, 0],
+        ),
+        (
+            [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]],
+            [unit, 0, 0],
+        ),
+        (
+            [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
+            [-unit, 0, 0],
+        ),
+        (
+            [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]],
+            [0, 0, unit],
+        ),
+        (
+            [[x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]],
+            [0, 0, -unit],
+        ),
+    ]
+}
+
+/// NGQ8 two-tank spillway (plan 22): the outer basin plus the shelf and the
+/// divider pieces around the opening, in the solver's metres. The geometry
+/// mirrors the `spill` lane of the research tool and is presentation only.
+fn spill_mesh(
     schema: next_contracts::project::SchemaRefV1,
     bounds: AabbI64V1,
 ) -> Result<NeutralMeshV1, String> {
+    const M: i64 = 1_000_000;
+    let mut faces = basin_faces(bounds);
+    let solids: [([i64; 3], [i64; 3]); 5] = [
+        ([0, 0, 0], [2 * M, M, 3 * M / 2]),
+        ([2 * M, 0, 0], [2 * M + M / 5, M, 3 * M / 2]),
+        ([2 * M, 13 * M / 10, 0], [2 * M + M / 5, 2 * M, 3 * M / 2]),
+        ([2 * M, M, 0], [2 * M + M / 5, 13 * M / 10, M / 2]),
+        ([2 * M, M, M], [2 * M + M / 5, 13 * M / 10, 3 * M / 2]),
+    ];
+    for (minimum, maximum) in solids {
+        faces.extend(solid_box_faces(minimum, maximum));
+    }
+    mesh_from_faces(schema, bounds, &faces)
+}
+
+/// Floor plus four inward-facing walls of the basin bounds.
+fn basin_faces(bounds: AabbI64V1) -> Vec<MeshFace> {
     let [x0, y0, z0] = bounds.min();
     let [x1, y1, z1] = bounds.max();
     let unit = i16::MAX;
-    // (corners in winding order, normal)
-    let faces: [([[i64; 3]; 4], [i16; 3]); 5] = [
+    vec![
         (
             [[x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]],
             [0, unit, 0],
@@ -1879,7 +1945,24 @@ fn basin_mesh(
             [[x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y1, z1]],
             [0, 0, -unit],
         ),
-    ];
+    ]
+}
+
+fn basin_mesh(
+    schema: next_contracts::project::SchemaRefV1,
+    bounds: AabbI64V1,
+) -> Result<NeutralMeshV1, String> {
+    let faces = basin_faces(bounds);
+    mesh_from_faces(schema, bounds, &faces)
+}
+
+fn mesh_from_faces(
+    schema: next_contracts::project::SchemaRefV1,
+    bounds: AabbI64V1,
+    faces: &[MeshFace],
+) -> Result<NeutralMeshV1, String> {
+    let [x0, y0, z0] = bounds.min();
+    let [x1, y1, z1] = bounds.max();
     let mut positions = Vec::with_capacity(20);
     let mut normals = Vec::with_capacity(20);
     let mut uv = Vec::with_capacity(20);
@@ -1889,7 +1972,7 @@ fn basin_mesh(
             .map_err(|_| "water-preview basin vertex overflow".to_owned())?;
         for (corner_index, corner) in corners.iter().enumerate() {
             positions.push(*corner);
-            normals.push(normal);
+            normals.push(*normal);
             uv.push(match corner_index {
                 0 => [0, 0],
                 1 => [0, 65_536],
@@ -1899,6 +1982,8 @@ fn basin_mesh(
         }
         indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
     }
+    let index_count = u32::try_from(indices.len())
+        .map_err(|_| "water-preview basin index overflow".to_owned())?;
     let mesh_bounds = AabbI64V1::new(
         [x0, y0, z0],
         [
@@ -1922,7 +2007,7 @@ fn basin_mesh(
         vec![uv],
         indices,
         vec![
-            NeutralMeshPrimitiveV1::new(MeshPrimitiveTopologyV1::Triangles, 0, 30, 0)
+            NeutralMeshPrimitiveV1::new(MeshPrimitiveTopologyV1::Triangles, 0, index_count, 0)
                 .map_err(|error| error.to_string())?,
         ],
     )

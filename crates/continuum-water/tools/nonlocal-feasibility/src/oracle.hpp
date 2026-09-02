@@ -42,6 +42,18 @@ struct Fixture {
     /// incompressibility term only; viscosity and surface terms skip them.
     bool boundary_density_only = false;
     int trace_length = 1;
+    /// NGQ8: interior shelf + divider with one rectangular opening, applied
+    /// after the outer-box clamp (positional, presentation candidate only).
+    struct Spill {
+        bool enabled = false;
+        double shelf_top = 0.0;
+        double wall_x0 = 0.0;
+        double wall_x1 = 0.0;
+        double opening_y0 = 0.0;
+        double opening_y1 = 0.0;
+        double opening_z0 = 0.0;
+        double opening_z1 = 0.0;
+    } spill;
 };
 
 struct EnergyComponents {

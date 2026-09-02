@@ -632,6 +632,43 @@ __global__ void clamp_analytic_box_contact(
     position[index].z = fminf(fmaxf(position[index].z, lower.z), upper.z);
 }
 
+// NGQ8 spill clamp: interior divider slab with one opening plus a shelf
+// left of the divider. Runs after the outer-box clamp; positional only.
+__global__ void clamp_spill_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float radius,
+    float shelf_top,
+    float wall_x0,
+    float wall_x1,
+    float opening_y0,
+    float opening_y1,
+    float opening_z0,
+    float opening_z1) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    float3 p = position[index];
+    if (p.x > wall_x0 - radius && p.x < wall_x1 + radius) {
+        const bool window = p.y > opening_y0 && p.y < opening_y1 && p.z > opening_z0
+            && p.z < opening_z1;
+        if (window) {
+            p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - radius);
+            p.z = fminf(fmaxf(p.z, opening_z0 + radius), opening_z1 - radius);
+        } else if (p.x < 0.5F * (wall_x0 + wall_x1)) {
+            p.x = wall_x0 - radius;
+        } else {
+            p.x = wall_x1 + radius;
+        }
+    }
+    if (p.x < wall_x0 && p.y < shelf_top + radius) {
+        p.y = shelf_top + radius;
+    }
+    position[index] = p;
+}
+
 template <typename NeighborIndex>
 __global__ void compute_density(
     const float3* position,
@@ -2503,6 +2540,17 @@ public:
                         static_cast<float>(fixture_.contact_maximum.x) - radius,
                         static_cast<float>(fixture_.contact_maximum.y) - radius,
                         static_cast<float>(fixture_.contact_maximum.z) - radius));
+                if (fixture_.spill.enabled) {
+                    clamp_spill_contact<<<blocks_for(count_), THREADS>>>(
+                        current_, solver_fixed, count_, radius,
+                        static_cast<float>(fixture_.spill.shelf_top),
+                        static_cast<float>(fixture_.spill.wall_x0),
+                        static_cast<float>(fixture_.spill.wall_x1),
+                        static_cast<float>(fixture_.spill.opening_y0),
+                        static_cast<float>(fixture_.spill.opening_y1),
+                        static_cast<float>(fixture_.spill.opening_z0),
+                        static_cast<float>(fixture_.spill.opening_z1));
+                }
             });
         }
         timed(intervals, EventInterval::Stage::Density, [&] {
@@ -7546,6 +7594,72 @@ Fixture game_fixture(
     return fixture;
 }
 
+// NGQ8: fixed density-only samples filling the top two shelf layers and the
+// whole divider slab minus the opening, on the same lattice as the box.
+std::size_t append_spill_solids(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    const Fixture::Spill& spill) {
+    const std::size_t before = fixture.particles.size();
+    const auto cell = [&](double value, double origin) {
+        return static_cast<int>(std::llround((value - origin) / GAME_SPACING));
+    };
+    const int shelf_y = cell(spill.shelf_top, box.minimum.y);
+    const int wall_x0 = cell(spill.wall_x0, box.minimum.x);
+    const int wall_x1 = cell(spill.wall_x1, box.minimum.x);
+    const int opening_y0 = cell(spill.opening_y0, box.minimum.y);
+    const int opening_y1 = cell(spill.opening_y1, box.minimum.y);
+    const int opening_z0 = cell(spill.opening_z0, box.minimum.z);
+    const int opening_z1 = cell(spill.opening_z1, box.minimum.z);
+    const auto push = [&](int x, int y, int z) {
+        fixture.particles.push_back({
+            {
+                box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+                box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+                box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+            },
+            {},
+            true,
+        });
+    };
+    for (int x = 0; x < wall_x0; ++x) {
+        for (int y = std::max(0, shelf_y - 2); y < shelf_y; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                push(x, y, z);
+            }
+        }
+    }
+    for (int x = wall_x0; x < wall_x1; ++x) {
+        for (int y = 0; y < box.cells[1]; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                if (y >= opening_y0 && y < opening_y1 && z >= opening_z0 && z < opening_z1) {
+                    continue;
+                }
+                push(x, y, z);
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+// Penetration of one fluid sample into the shelf or the divider (outside the
+// opening), zero when the sample is in free space.
+double spill_penetration(const Vec3& p, const Fixture::Spill& spill) {
+    double penetration = 0.0;
+    if (p.x < spill.wall_x0 && p.y < spill.shelf_top) {
+        penetration = std::max(penetration, spill.shelf_top - p.y);
+    }
+    if (p.x > spill.wall_x0 && p.x < spill.wall_x1) {
+        const bool window = p.y > spill.opening_y0 && p.y < spill.opening_y1
+            && p.z > spill.opening_z0 && p.z < spill.opening_z1;
+        if (!window) {
+            penetration = std::max(
+                penetration, std::min(p.x - spill.wall_x0, spill.wall_x1 - p.x));
+        }
+    }
+    return penetration;
+}
+
 Vec3 game_center_of_mass(const std::vector<Particle>& fluid) {
     Vec3 result{};
     for (const Particle& particle : fluid) {
@@ -10676,6 +10790,7 @@ CommandReport run_cuda_game_surface_stream(
     int lattice_x = 0;
     int lattice_y = 10;
     int lattice_z = 0;
+    Fixture::Spill spill;
     if (lane == "4k") {
         box = GameQualityBox{{0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
         lattice_x = 20;
@@ -10700,9 +10815,29 @@ CommandReport run_cuda_game_surface_stream(
         lattice_x = 40;
         lattice_y = 30;
         lattice_z = 40;
+    } else if (lane == "spill") {
+        // NGQ8 two-tank spillway (plan 22): the upper tank sits on a 1 m
+        // shelf left of a 0.2 m divider whose opening drains into the
+        // empty lower tank.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {5.0, 2.0, 1.5}, {100, 40, 30}};
+        lattice_x = 40;
+        lattice_y = 10;
+        lattice_z = 30;
+        spill.enabled = true;
+        spill.shelf_top = 1.0;
+        spill.wall_x0 = 2.0;
+        spill.wall_x1 = 2.2;
+        spill.opening_y0 = 1.0;
+        spill.opening_y1 = 1.3;
+        spill.opening_z0 = 0.5;
+        spill.opening_z1 = 1.0;
     } else {
-        throw std::invalid_argument("stream lane must be 4k, 16k, 48k or 48k-dam");
+        throw std::invalid_argument("stream lane must be 4k, 16k, 48k, 48k-dam or spill");
     }
+    double spill_maximum_penetration = 0.0;
+    double spill_upper_fraction = 1.0;
+    bool spill_arrived_by_480 = false;
+    std::string spill_drain_curve;
     std::uint64_t completed_steps = 0U;
     std::uint64_t audits = 0U;
     int completed_cycles = 0;
@@ -10722,6 +10857,11 @@ CommandReport run_cuda_game_surface_stream(
     for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
          ++cycle) {
         std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z, lattice_y);
+        if (spill.enabled) {
+            for (Particle& particle : fluid) {
+                particle.position.y += spill.shelf_top;
+            }
+        }
         dynamic_samples = fluid.size();
         double physics_since_frame_ms = 0.0;
         const auto emit = [&](int step) {
@@ -10769,7 +10909,12 @@ CommandReport run_cuda_game_surface_stream(
         // floor and wall neighbourhoods their density support (D-047).
         Fixture fixture = game_fixture(
             profile, "game-stream-" + lane, fluid, box, profile.fixed_iterations,
-            profile.max_neighbors, boundary_layers, boundary_lid);
+            profile.max_neighbors, boundary_layers, boundary_lid && !spill.enabled);
+        if (spill.enabled) {
+            append_spill_solids(fixture, box, spill);
+            fixture.spill = spill;
+            fixture.pair_capacity = fixture.particles.size() * profile.max_neighbors;
+        }
         boundary_samples = fixture.particles.size() - fluid.size();
         fixture.boundary_density_only = boundary_support == "density";
         fixture.advected = true;
@@ -10836,6 +10981,24 @@ CommandReport run_cuda_game_surface_stream(
                     if (!finite) {
                         first_failure = "nonfinite_state";
                         break;
+                    }
+                }
+                if (spill.enabled) {
+                    std::size_t upper = 0U;
+                    for (const Particle& particle : fluid) {
+                        spill_maximum_penetration = std::max(
+                            spill_maximum_penetration,
+                            spill_penetration(particle.position, spill));
+                        upper += particle.position.x < spill.wall_x0 ? 1U : 0U;
+                        spill_arrived_by_480 = spill_arrived_by_480
+                            || (step <= 480 && particle.position.x > spill.wall_x1
+                                && particle.position.y < 0.2);
+                    }
+                    spill_upper_fraction =
+                        static_cast<double>(upper) / static_cast<double>(fluid.size());
+                    if (step % 240 == 0) {
+                        spill_drain_curve += (spill_drain_curve.empty() ? "" : ",")
+                            + std::to_string(spill_upper_fraction);
                     }
                 }
                 ++emitted_in_cycle;
@@ -10916,8 +11079,19 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"step_wall_max_ms\":" << maximum_step_wall_ms
            << ",\"stream_wall_ms\":" << stream_wall_ms
            << ",\"first_failure\":\"" << first_failure << "\""
-           << ",\"simulation_feedback\":false"
-           << ",\"device\":" << device_json() << '}';
+           << ",\"simulation_feedback\":false";
+    if (spill.enabled) {
+        output << ",\"spill\":{\"maximum_penetration_m\":" << spill_maximum_penetration
+               << ",\"upper_fraction_final\":" << spill_upper_fraction
+               << ",\"arrived_by_step_480\":" << (spill_arrived_by_480 ? "true" : "false")
+               << ",\"upper_fraction_per_second\":[" << spill_drain_curve << ']'
+               << ",\"gates\":{\"g2_penetration\":\""
+               << (spill_maximum_penetration <= 1e-4 ? "PASS" : "FAIL")
+               << "\",\"g3_drainage\":\"" << (spill_upper_fraction <= 0.6 ? "PASS" : "FAIL")
+               << "\",\"g4_arrival\":\"" << (spill_arrived_by_480 ? "PASS" : "FAIL")
+               << "\"}}";
+    }
+    output << ",\"device\":" << device_json() << '}';
     return {passed, output.str()};
 }
 
