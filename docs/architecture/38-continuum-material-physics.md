@@ -272,6 +272,53 @@ mechanical response, and only later a closed atomic free-water/terrain flux
 batch. Cross-region transfer, lossy sleep and two-phase poromechanics are
 separately gated later work.
 
+## Water tiers and practices (ADR-104)
+
+Water scales by tiers, never by particle count. The survey of shipping
+engines and games (`docs/development/water-engines-research-2026-09-02.md`)
+shows the same split everywhere: a level or height/shallow-water field for
+the body, a bounded particle or 2D system for active water, rendering for
+the look. These practices bind every later water increment:
+
+1. **Lattice cells are the large-body tier.** A map-wide body is a
+   `WaterFlowNetworkV1` whose cells form a regular lattice over the
+   terrain and whose edges are `Open` sills to the four neighbours (the
+   Timberborn column model and the virtual-pipes model, made exact).
+   Floods, channels and terrain-following water cost one edge evaluation
+   per wet neighbour pair, are saved with the world and need no float
+   profile. The lattice is authored per region with a declared cell size
+   and cell count bound; it is not global and it is not adaptive.
+2. **Only active water steps.** A cell whose stored volume and every
+   incident edge state are unchanged from the previous tick, and whose
+   neighbours are likewise unchanged, is at rest and is skipped; a
+   command or a neighbour change wakes it. Rest is exact (no flux), so
+   skipping changes no root. The activity set is derived state, rebuilt
+   on restore, never saved.
+3. **Presentation is spawned at edges.** Jets, falls, splashes and foam
+   are spawned by the presentation stage from the exact flux of a gate,
+   sill, pipe mouth or waterfall edge and return visually to the
+   destination cell's surface; the authoritative volume never leaves the
+   network (the hybrid rule of Chentanez and Müller applied across the
+   authority split).
+4. **Rotational flow is presentation.** Whirlpools, eddies and flow
+   lines come from either a presentation-only shallow-water grid (height
+   plus 2D velocity) fed by the network's levels and edge fluxes, or an
+   authored vortex field around a `Sink` edge for the particle pass.
+   Gameplay effects of a whirlpool (pull, damage, transport) read the
+   exact edge flux and the cell geometry, never the visual field.
+5. **Waves are a layer.** Ripples, wakes and wind waves are a
+   presentation layer on the cell surfaces (wave packets or surface
+   wavelets over the height field), artist-controlled, with no gameplay
+   reading.
+6. **Exact queries, no readback.** Gameplay, AI and audio read levels,
+   volumes and fluxes through the SPEC-26 queries on the committed
+   network. Nothing reads a presentation texture, particle set or grid
+   back into gameplay; a presentation stage that cannot run degrades the
+   look only.
+7. **One writer per substance.** The network is the only writer of
+   water volume; presentation stages are pure functions of the committed
+   network plus their own reconstructible caches.
+
 ## Presentation
 
 Debug points/spheres and diagnostic overlays remain the mandatory research

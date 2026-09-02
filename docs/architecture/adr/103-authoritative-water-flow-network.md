@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-103 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
@@ -105,6 +105,25 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
   presentation increment under ADR-101/ADR-102.
 - Coupling to rigid bodies (buoyancy, drag) stays with the later
   crate-coupled consumer named by ADR-100.
+
+### Later increments under this ADR (SPEC-38 2.1 practices)
+
+Ordered by value, each with its own frozen plan and evidence:
+
+1. `WaterFlowLatticeV1`: an authored regular lattice of cells with
+   `Open` edges to the four neighbours, declared cell size and bound,
+   materialised into the same network record (floods, channels,
+   terrain-following water).
+2. Activity-based stepping: a derived rest set so unchanged cells and
+   edges are skipped without changing any root; rebuilt on restore.
+3. Edge-driven presentation: the particle pass spawns jets and falls from
+   gate, sill and pipe-mouth fluxes; the still surface and ring read cell
+   levels.
+4. `CONTINUUM-WATER-BUOYANCY-P1` (ADR-104): buoyancy and drag from exact
+   cell levels through the one-pass reaction batch.
+5. Rotational presentation: a presentation-only shallow-water grid fed by
+   levels and fluxes, or an authored vortex around a `Sink` edge.
+6. A wave layer over cell surfaces.
 
 ## Implementation (R8d, first increment, plan `continuum-water/07`)
 

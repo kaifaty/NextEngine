@@ -183,9 +183,11 @@
 ## Next action
 
 0. Water mechanics (ADR-103): done in R8d (`CONTINUUM-WATER-FLOW-P1 =
-   PASS`). Next increments under the same ADR: surface meshes for the
-   vessels, a jet spawned at the gate mouth from the edge flux in the
-   particle pass, and the lattice-cell network for map-wide water.
+   PASS`). Next increments follow the SPEC-38 2.1 practices in ADR-103
+   0.3 order: the lattice tier, activity-based stepping, edge-driven
+   presentation (jet at the gate mouth), buoyancy from exact levels,
+   rotational presentation, the wave layer; surface meshes for the two
+   vessels ride the first presentation increment.
 1. Presentation solver in the game root: declare the basin mesh as an
    ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
    (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and
