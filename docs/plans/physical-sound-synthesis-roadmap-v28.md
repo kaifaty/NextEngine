@@ -3,8 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / H0_COMPLETE / R0_FROZEN / R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED / Q0_SIGNAL_BLIND_NEXT / GENERATOR_SUCCESSOR_REQUIRES_FRESH_RESEARCH / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `SUPERSEDED_BY_V29 / H0_COMPLETE / R0_FROZEN / R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V27](physical-sound-synthesis-roadmap-v27.md) as planning authority; its R0/R1 evidence, protected-role order and stop rules remain binding |
+| Replaced by | [Roadmap V29](physical-sound-synthesis-roadmap-v29.md); V28 evidence and closed-family stop rules remain immutable |
 | Current evidence | [R2 result](../development/physical-sound-v28-r2-official-feasibility-result-2026-09-02.md) `REPEAT_EXACT_REPRESENTATION_REJECT`; [R1 result](../development/physical-sound-v28-r1-m0c-owner-resource-result-2026-09-02.md) at implementation `d316982d`, root `524411d3…6d32`; [R0 protocol](../development/physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md) `28cab428…9000`, [V28 resource research](../development/physical-sound-v28-prefix-bounded-training-research-2026-09-02.md), [V27 R1](../development/physical-sound-v27-r1-official-feasibility-result-2026-09-02.md) and [V27 R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; the accepted authored-clip path remains production authority |
 | User constraint | All real evidence is found online; the user records nothing and does not approve sounds one by one |
