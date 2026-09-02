@@ -27,15 +27,27 @@ def sound_html(
     title: str = "Steel plate hit",
     description: str = "A 3mm steel plate hit with a hammer.",
     license_url: str = "https://creativecommons.org/publicdomain/zero/1.0/",
+    player_username: str | None = None,
+    open_graph_author: str | None = None,
 ) -> bytes:
+    username = author if player_username is None else player_username
+    open_graph_identity = ""
+    author_link = ""
+    if open_graph_author is not None:
+        open_graph_identity = f"""
+<meta property="og:url" content="https://freesound.org/people/{open_graph_author}/sounds/{sound_id}/">
+<meta property="og:audio:artist" content="{open_graph_author}">"""
+        author_link = f'<a href="/people/{open_graph_author}/">author</a>'
     return f"""<!doctype html>
 <html><head>
 <title>Freesound - {title} by {author}</title>
 <meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{description}">
+{open_graph_identity}
 </head><body>
-<div class="bw-player" data-sound-id="{sound_id}" data-username="{author}"
+<div class="bw-player" data-sound-id="{sound_id}" data-username="{username}"
  data-user-id="{author_id}" data-title="{title}"></div>
+{author_link}
 <a href="/people/{author}/packs/{pack_id}/">pack</a>
 <a href="{license_url}">license</a>
 </body></html>""".encode()
@@ -101,6 +113,23 @@ class PublisherEvidenceTests(unittest.TestCase):
         self.assertEqual(sound["license_expression"], "CC0-1.0")
         self.assertEqual(sound["title"], "Steel plate hit")
         self.assertEqual(sound["author_id"], "7")
+
+    def test_current_empty_player_username_requires_exact_page_identity(self) -> None:
+        sound = q1a.normalized_sound(
+            sound_html(player_username="", open_graph_author="publisher"),
+            "publisher",
+            13,
+            11,
+        )
+        self.assertEqual(sound["uploader"], "publisher")
+
+        with self.assertRaisesRegex(q1a.Q1ASourceGrowthError, "uploader identity"):
+            q1a.normalized_sound(
+                sound_html(player_username="", open_graph_author="impostor"),
+                "publisher",
+                13,
+                11,
+            )
 
     def test_wrong_uploader_pack_or_license_is_rejected(self) -> None:
         with self.assertRaisesRegex(q1a.Q1ASourceGrowthError, "uploader identity"):

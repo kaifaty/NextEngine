@@ -551,9 +551,29 @@ def selected_player(
         for player in parser.players
         if player.get("data-sound-id") == str(sound_id)
     ]
-    if len(matches) != 1 or matches[0].get("data-username") != author:
+    if len(matches) != 1:
         raise Q1ASourceGrowthError(f"{context} lacks exact sound/uploader identity")
     player = matches[0]
+    player_username = player.get("data-username", "")
+    if player_username:
+        if player_username != author:
+            raise Q1ASourceGrowthError(
+                f"{context} lacks exact sound/uploader identity"
+            )
+    else:
+        expected_sound_url = (
+            f"https://freesound.org/people/{author}/sounds/{sound_id}/"
+        )
+        expected_author_link = f"/people/{author}/"
+        if (
+            parser.meta.get("og:url") != expected_sound_url
+            or parser.meta.get("og:audio:artist") != author
+            or expected_author_link not in parser.links
+            or not parser.page_title.endswith(f" by {author}")
+        ):
+            raise Q1ASourceGrowthError(
+                f"{context} lacks exact sound/uploader identity"
+            )
     if not player.get("data-user-id", "").isdigit():
         raise Q1ASourceGrowthError(f"{context} lacks canonical uploader id")
     return player

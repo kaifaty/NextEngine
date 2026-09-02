@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / Q1A_OWNER_COMPLETE / Q1A_CAPTURE_PENDING / Q1M_SOURCE_POWER_OOD / VALIDATOR_FIRST / PHYSICS_LOCKED_ML / INTERNET_ONLY / NO_PER_SOUND_HUMAN_REVIEW / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / E2_REPEAT_EXACT_ZERO_SIGNAL / E3_WHOLE_PROJECT_POWER_OOD / E4_GAP_DIRECTED_NEXT / VALIDATOR_FIRST / PHYSICS_LOCKED_ML / INTERNET_ONLY / NO_PER_SOUND_HUMAN_REVIEW / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V29](physical-sound-synthesis-roadmap-v29.md) as planning authority; V29 evidence, thresholds, role-order rules and stop conditions remain immutable |
-| Current evidence | [Q1-M result](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [Q1a protocol](../development/physical-sound-v29-q1a-metal-source-growth-protocol-2026-09-02.md), [Q1a acquisition control](../development/physical-sound-v29-q1a-acquisition-control-result-2026-09-02.md) |
+| Current evidence | [E2 source-growth result](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [Q1-M result](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [Q1a protocol](../development/physical-sound-v29-q1a-metal-source-growth-protocol-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; authored clips and deterministic gameplay acoustic facts remain authoritative |
 | Product-owner constraint | Evidence comes from the internet. The user records no impacts and is not a per-sound validator. |
 
@@ -101,9 +101,9 @@ They join only after a fresh role freeze and a known-truth generator pass.
 | --- | --- | --- | --- |
 | E0 | Preserve Q0-M/Q1-M | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | The 109 existing identities, historical Glass exclusions and Q1-M OOD result reproduce without role or protected-signal access. |
 | E1 | Metadata acquisition owner | `COMPLETE / COMMIT_0c07a943` | The checked-in Q1a owner rejects identity/license/material conflicts, repository exposure, hashes/symlinks/output replacement and any signal counter; focused Q0/Q1/Q1a tests pass. |
-| E2 | Official Q1a capture and audit | `PENDING_PROVIDER_COOLDOWN / NO_ARTIFACT` | One atomic external capture binds every frozen HTML URL and remains zero-signal. Offline audit A/B is recursively byte-identical. No raw page enters Git. |
-| E3 | Whole-project power planner | `IMPLEMENTED / RESULT_PENDING_E2` | Report both raw floors and an exhaustive whole-project partition. A raw aggregate pass cannot hide a protected-role deficit. |
-| E4 | Gap-directed source growth | `CONDITIONAL` | If E3 is OOD, search only the exact best-frontier deficits. Prefer a new multi-object project carrying both exact Steel and non-Metal groups; add no redundant same-project recordings merely to inflate counts. |
+| E2 | Official Q1a capture and audit | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL` | One atomic external capture binds every frozen HTML URL and remains zero-signal. Offline audit A/B is recursively byte-identical. No raw page enters Git. |
+| E3 | Whole-project power planner | `COMPLETE / PARTITION_OOD / FRONTIER_6_STEEL_27_NON_METAL` | Report both raw floors and an exhaustive whole-project partition. A raw aggregate pass cannot hide a protected-role deficit. |
+| E4 | Gap-directed source growth | `NEXT / ROLE_B_DEFICIT_6_STEEL_27_NON_METAL` | Search only the exact best-frontier deficits. Prefer a new multi-object project carrying both exact Steel and non-Metal groups; add no redundant same-project recordings merely to inflate counts. |
 | Q1R | Fresh Metal role freeze | `BLOCKED_BY_E3_FEASIBLE` | At least nine independent role-capable project revisions exist; each protected role receives at least two projects, 16 exact-Steel positive groups and 35 non-Metal reject parents, while at least five projects remain for unprotected roles. Current exposure is complete and every role freezes before signal access. |
 | Q2 | Independent Validator V1 | `BLOCKED_BY_Q1R` | One external CLI combines hard PCM/provenance checks, physical-time and spectral specialists, a hash-pinned frozen BEATs candidate and an explicit grouped OOD/risk owner. CLAP remains report-only. |
 | Q3 | Validator qualification | `BLOCKED_BY_Q2` | Calibration-only choices produce a grouped 95% false-pass upper bound `<= 0.10` and useful-coverage lower bound `>= 0.80` on untouched project/object-disjoint holdout; mutations and leave-project-out checks pass twice exactly. |
@@ -187,11 +187,11 @@ claims and reproducible failures, not one mutable universal formula table.
 
 ## Immediate queue and commit boundaries
 
-1. **E2:** after provider cooldown, run one fresh atomic Q1a capture, offline
-   audit A/B and recursive comparison; commit only the compact result.
-2. **E4 or Q1R:** if partition is OOD, publish the exact frontier deficits and
-   add the smallest independent internet project increment. If feasible, rerun
-   Q1-M unchanged and freeze roles before any PCM access.
+1. **E4:** add the smallest independent internet project increment that can
+   close the measured role-B deficits of six exact-Steel and 27 non-Metal
+   groups while preserving five reserved projects; keep every payload sealed.
+2. **E3 or Q1R:** rerun the unchanged whole-project planner. If still OOD,
+   publish the new exact frontier; if feasible, freeze roles before PCM access.
 3. **P0 in parallel:** freeze the classical modal control, physical
    counterfactual fixtures and complete-entry CPU resource owner.
 4. **Q2/Q3:** implement and qualify Validator V1 only after Q1R; failure is a
