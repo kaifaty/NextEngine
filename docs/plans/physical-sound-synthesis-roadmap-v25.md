@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / M0_PROTOCOL_FROZEN / M0_IMPLEMENTATION_NEXT / MODEL_VALUES_UNOPENED / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V24_EVIDENCE_PLANE_COMPLETE / M0_ONEHOT_CAUSAL_DEFECT / M0A_PROTOCOL_FROZEN / M0A_IMPLEMENTATION_IN_PROGRESS / MODEL_VALUES_UNOPENED / AUTOMATIC_VALIDATOR_REQUIRED / INTERNET_ONLY_REAL_EVIDENCE / OFFLINE_COOKED_CLIPS / RUNTIME_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V24](physical-sound-synthesis-roadmap-v24.md) as planning authority; every frozen V24 protocol, hash and spent-role rule remains binding |
-| Current evidence | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) and [M0 protocol](../development/physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md) |
+| Current evidence | [D0 result](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0 result](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md), [X0 result](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), [M0 conformance rebaseline](../development/physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md) and [M0a protocol](../development/physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no public schema, runtime model, physics authority or production ProductCheck is promoted |
 | Mandatory fallback | The ordinary authored clip remains authoritative for every reject, OOD result, missing source, unsupported query or tooling failure |
 
@@ -18,7 +18,7 @@ must require no local recording and no per-sound human approval.
 The product-shaped V25 outcome is achieved only when all of the following are
 true:
 
-1. the already frozen exact-object M0 neural student produces a reproducible
+1. the already frozen exact-object M0a neural student produces a reproducible
    pass against its classical controls;
 2. an independent validator is frozen and calibrated from real controls,
    mutations and OOD groups that are disjoint from generator selection;
@@ -29,7 +29,7 @@ true:
 5. a deterministic cooker produces byte-identical ordinary clips and one demo
    prop uses them with a complete authored fallback.
 
-A reproducible reject at M0, V0, M1 or A0 is still a valid scientific terminal
+A reproducible reject at M0a, V0, M1 or A0 is still a valid scientific terminal
 result: it closes the branch without tuning on opened values, but does not
 claim the product-shaped V25 outcome.
 
@@ -45,7 +45,7 @@ universal material model are not V25 scope.
 | Analytic teacher | `T0 REPEAT_EXACT_PASS` | Twelve plate/beam objects, 144 contact rows, ten modes per object and exact remesh/force controls provide causal synthetic supervision. |
 | Internet pilot | `X0 REPEAT_EXACT_PASS` | Four exact Blue Bowl transfer rows and three identified recordings are represented without inventing absent physical axes; row `2407` remains sealed. |
 | Combined corpus record | `VALIDATED / AXIS_INCOMPLETE_BY_DESIGN` | The actual D0 owner accepts all 151 rows; incomplete real axes remain absent and cannot become supervision. |
-| Exact-object student protocol | `FROZEN / VALUES_UNOPENED` | One CPU-only seed/model/loss/control schedule, access order, resource ceiling and stop rule are fixed before implementation. |
+| Exact-object student protocol | `M0 SUPERSEDED / M0A FROZEN / VALUES_UNOPENED` | M0's one-hot input could not expose isolated `E`/density gates. M0a adds masked causal material coordinates while retaining the CPU seed, widths, schedule, roles, limits and stop rule. |
 
 These results prove the research substrate, not sound quality, Metal admission,
 validator reliability, a cooked atlas or runtime readiness.
@@ -54,10 +54,10 @@ validator reliability, a cooked atlas or runtime readiness.
 
 ```mermaid
 flowchart TD
-    E["D0 + T0 + X0 evidence"] --> MI["M0-I implementation conformance"]
-    MI --> ME["M0-E official A/B evaluation"]
+    E["D0 + T0 + X0 evidence"] --> MI["M0a-I implementation conformance"]
+    MI --> ME["M0a-E official A/B evaluation"]
     ME -->|"representation pass"| VP["V0-P validator protocol and real role freeze"]
-    ME -->|"representation reject"| MR["M0 result and new falsifiable research hypothesis"]
+    ME -->|"representation reject"| MR["M0a result and new falsifiable research hypothesis"]
     VP --> VI["V0-I independent validator release"]
     VI --> MS["S0 Metal source and role freeze"]
     MS --> M1["M1 cross-object Metal candidate"]
@@ -71,7 +71,7 @@ flowchart TD
     W0 --> P3
 ```
 
-M0 implementation and signal-blind V0 source inventory may overlap. Validator
+M0a implementation and signal-blind V0 source inventory may overlap. Validator
 thresholds, candidate-sensitive features and protected values may not open
 early merely to shorten the path.
 
@@ -80,12 +80,12 @@ early merely to shorten the path.
 | ID | Package | State | Size | Observable exit criterion |
 | --- | --- | --- | ---: | --- |
 | R0 | V24 evidence closeout | `COMPLETE` | — | D0, T0 and X0 pass twice; combined V3 SHA-256 is `c43ba8eac68e32a8ef8fbe37d3ffa3d21db1d59e0443766cee1d98f51cad70bb`; no model, validator or runtime authority follows from it. |
-| M0-I | Student implementation conformance | `NEXT / VALUES_UNOPENED` | M | Implement deterministic preprocessing, role-gated access, controls, fixed PyTorch model, canonical tensor containers, MLflow diagnostic boundary, atomic publication and full-entry contract fixtures. Two fixture executions are byte-identical and every declared mutation fails closed. |
-| M0-E | Exact-object official evaluation | `BLOCKED_BY_M0-I_COMMIT` | M | Run the frozen `3101`, CPU-only, 2,000-step candidate twice under `1,800 s`, `4 GiB` and `256 MiB`; freeze weights before one-shot method holdout; publish exactly one `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or resource/conformance result. |
+| M0a-I | Causal-material student implementation conformance | `IN_PROGRESS / VALUES_UNOPENED` | M | Implement deterministic preprocessing including masked physical-material coordinates, role-gated access, controls, fixed PyTorch model, canonical tensor containers, MLflow diagnostic boundary, atomic publication and full-entry fixtures. Two fixture executions are byte-identical; causal input mutations are observable and every declared corruption fails closed. |
+| M0a-E | Exact-object official evaluation | `BLOCKED_BY_M0A-I_COMMIT` | M | Run the frozen `3101`, CPU-only, 2,000-step candidate twice under `1,800 s`, `4 GiB` and `256 MiB`; freeze weights before one-shot method holdout; publish exactly one `PASS`, `REPRESENTATION_REJECT`, `DOMAIN_GAP_REJECT` or resource/conformance result. |
 | V0-P | Validator protocol and role freeze | `MAY_INVENTORY_SIGNAL_BLIND / VALUES_SEALED` | M | Freeze real-only calibration, positive holdout, mutation, OOD and untouched shadow groups; declare feature versions, thresholds, false-pass bound and access order before any candidate-sensitive value. |
-| V0-I | Independent Validator V1 | `BLOCKED_BY_M0_PASS_AND_V0-P` | M–L | A separate owning CLI passes hard, physical, real-acoustic, mutation and selective-risk fixtures twice exactly; generator targets/checkpoints and candidate development outputs are unavailable to calibration. |
+| V0-I | Independent Validator V1 | `BLOCKED_BY_M0A_PASS_AND_V0-P` | M–L | A separate owning CLI passes hard, physical, real-acoustic, mutation and selective-risk fixtures twice exactly; generator targets/checkpoints and candidate development outputs are unavailable to calibration. |
 | S0 | Metal evidence freeze | `BLOCKED_BY_V0-P` | M | Internet-only sources provide hash-closed object/family-disjoint train, development, method-holdout, validator and admission roles. Missing geometry, force, support, composition or listener axes narrow the claim or produce `FallbackOutOfDomain`. |
-| M1 | Cross-object Metal candidate | `BLOCKED_BY_M0_PASS_V0-I_S0` | L | One preregistered geometry-conditioned successor beats compatible classical controls on object-disjoint development and a one-shot method holdout without seed, threshold, object or checkpoint selection. |
+| M1 | Cross-object Metal candidate | `BLOCKED_BY_M0A_PASS_V0-I_S0` | L | One preregistered geometry-conditioned successor beats compatible classical controls on object-disjoint development and a one-shot method holdout without seed, threshold, object or checkpoint selection. |
 | A0 | Protected Metal admission | `BLOCKED_BY_M1` | S | Frozen generator and validator open exactly one untouched Metal shadow; `Pass` is possible only when every hard/physical/mutation/OOD gate and the declared false-pass bound succeed. |
 | K0 | Deterministic clip cooker | `BLOCKED_BY_A0_PASS` | M | The accepted record cooks twice into byte-identical bounded 48 kHz clips plus provenance; invalid, stale, OOD or unsupported input publishes nothing and selects the authored clip. |
 | D1 | Demo prop | `BLOCKED_BY_K0` | M | One opt-in prop plays the cooked clips through the existing presentation-only audio path. Feature-off, missing asset, corrupt asset and unsupported contact all reproduce ordinary authored fallback behavior. |
@@ -95,7 +95,7 @@ early merely to shorten the path.
 
 ## Immediate implementation sequence
 
-### 1. Close M0-I before opening model values
+### 1. Close M0a-I before opening model values
 
 Implement the frozen protocol through complete entry points, not isolated
 helpers. The conformance fixture must prove:
@@ -111,9 +111,9 @@ helpers. The conformance fixture must prove:
 - interrupted training or publication leaves no partial candidate.
 
 Commit this implementation and its value-independent fixture before the first
-official M0 run. That commit is the rollback boundary for the model family.
+official M0a run. That commit is the rollback boundary for the model family.
 
-### 2. Execute M0-E once as a scientific decision
+### 2. Execute M0a-E once as a scientific decision
 
 Run official A/B without changing architecture, losses, seed, capacity,
 thresholds, contacts or step count. Compare canonical artifacts, then open
@@ -159,7 +159,7 @@ only and cannot change gameplay hearing, physics, save or replay.
 
 ## Stop and branch rules
 
-- Do not modify the frozen M0 family from official development or holdout
+- Do not modify the frozen M0a family from official development or holdout
   values. A successor requires a new hypothesis, protocol and fresh roles.
 - Do not let synthetic targets or generator predictions calibrate V0. If real
   groups cannot bound false-pass risk, return `VALIDATOR_INSUFFICIENT` and stop
@@ -178,8 +178,8 @@ only and cannot change gameplay hearing, physics, save or replay.
 
 | Checkpoint | Meaning |
 | --- | --- |
-| M0-I | The whole neural experiment can run reproducibly without leaking protected evidence. |
-| M0-E | We have a trustworthy answer to whether the fixed exact-object neural representation beats its classical controls. |
+| M0a-I | The causal-material neural experiment can run reproducibly without leaking protected evidence or hiding an unobservable physical gate. |
+| M0a-E | We have a trustworthy answer to whether the fixed exact-object neural representation beats its classical controls. |
 | V0-I | Bad, implausible and out-of-domain sounds can be rejected automatically without the generator judging itself. |
 | A0 | One unseen Metal object has passed the frozen automatic test exactly once. |
 | K0 + D1 | The admitted result is an ordinary deterministic asset audible in the demo, with the original clip always available. |
@@ -187,7 +187,7 @@ only and cannot change gameplay hearing, physics, save or replay.
 
 ## Verification policy
 
-- M0/V0 research code uses focused Python tests, complete owning-entry fixture
+- M0a/V0 research code uses focused Python tests, complete owning-entry fixture
   runs, mutation coverage, A/B canonical-byte comparison, resource measurement,
   `git diff --check` and the external-registry boundary scan.
 - K0 content work adds the relevant focused cooker/content-package checks.
@@ -208,6 +208,6 @@ complete authored fallback. Every source and decision is hash-bound, no local
 recording or per-sound approval is required, and no neural model runs in the
 game.
 
-If M0, V0, M1 or A0 rejects, V25 closes that branch with a reproducible result
+If M0a, V0, M1 or A0 rejects, V25 closes that branch with a reproducible result
 and the feature remains fallback-only. A new roadmap may then name one fresh
 falsifiable hypothesis; it may not tune against the opened reject.

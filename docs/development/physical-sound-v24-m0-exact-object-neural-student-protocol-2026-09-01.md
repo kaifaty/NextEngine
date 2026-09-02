@@ -3,7 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Date frozen | `2026-09-01` |
-| Status | `FROZEN_BEFORE_IMPLEMENTATION / MODEL_VALUES_UNOPENED / ONE_CPU_SEED / BLUE_BOWL_DISCLOSED_DEVELOPMENT_ONLY` |
+| Status | `SUPERSEDED_BEFORE_IMPLEMENTATION_BY_M0A / MODEL_VALUES_UNOPENED / NO_OFFICIAL_EXECUTION` |
+| Superseded by | [V25 M0a causal-material protocol](physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md); the implementation-conformance defect is recorded in the [rebaseline](physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md) |
 | Roadmap package | V24 `M0` |
 | Input authority | [X0 result](physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md), combined V3 SHA-256 `c43ba8eac68e32a8ef8fbe37d3ffa3d21db1d59e0443766cee1d98f51cad70bb` |
 | Product effect | None; external feasibility evidence only, never validator, material admission or runtime authority |
