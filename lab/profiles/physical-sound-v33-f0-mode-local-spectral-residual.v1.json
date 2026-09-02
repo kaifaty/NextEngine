@@ -1,0 +1,760 @@
+{
+  "access_order": [
+    "f0-identity-and-static-freeze",
+    "i0-discarded-nonofficial-conformance",
+    "d0-train-materialize-and-fit",
+    "d0-development-materialize-and-gate",
+    "candidate-freeze-if-development-pass",
+    "h0-method-holdout-materialize-once-if-frozen",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed_after_f0": true,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "898b663b5fb15bf5f55bbc063cac4535bf72e5a0",
+  "claim": "SYNTHETIC_FRESH_ROLE_MODE_LOCAL_SPECTRAL_REPRESENTATION_ONLY / NO_REAL_MATERIAL_QUALITY_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "controls": {
+    "identity": {
+      "control_id": "p1-identity-v1",
+      "corrections": "all-zero"
+    },
+    "nearest": {
+      "contact_features": "complete-32-field-spectral-mode-local",
+      "control_id": "nearest-train-row-v2",
+      "distance": "branch-local-normalized-squared-euclidean",
+      "role_scope": "train-only",
+      "tie_break": "lexicographically-smallest-row-id"
+    },
+    "raw_mlp": {
+      "activation": "silu",
+      "contact_input_count": 12,
+      "control_id": "v32-raw-coordinate-mlp-fresh-retrain-v1",
+      "dtype": "float64",
+      "hidden_widths": [
+        16,
+        16
+      ],
+      "parameter_count": 1491,
+      "seed": 3302,
+      "topology": "v32-three-independent-heads"
+    },
+    "raw_ridge": {
+      "control_id": "raw-feature-ridge-v2",
+      "feature_set": "v32-branch-local",
+      "intercept": "unregularized-from-centred-means",
+      "lambda": "0.000001",
+      "numeric": "float64",
+      "solver": "numpy-linalg-solve"
+    },
+    "spectral_ridge": {
+      "contact_feature_set": "complete-32-field-spectral-mode-local",
+      "control_id": "spectral-mode-local-ridge-v1",
+      "intercept": "unregularized-from-centred-means",
+      "lambda": "0.000001",
+      "numeric": "float64",
+      "solver": "numpy-linalg-solve"
+    }
+  },
+  "corpus": {
+    "base_fixture_profile": "physical-sound-v31-p0-causal-baseline-v1",
+    "contacts": {
+      "development": [
+        [
+          "0.11",
+          "0.57"
+        ],
+        [
+          "0.31",
+          "0.19"
+        ],
+        [
+          "0.47",
+          "0.73"
+        ],
+        [
+          "0.63",
+          "0.91"
+        ],
+        [
+          "0.79",
+          "0.41"
+        ],
+        [
+          "0.93",
+          "0.23"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0.07",
+          "0.77"
+        ],
+        [
+          "0.27",
+          "0.53"
+        ],
+        [
+          "0.41",
+          "0.29"
+        ],
+        [
+          "0.61",
+          "0.47"
+        ],
+        [
+          "0.77",
+          "0.97"
+        ],
+        [
+          "0.89",
+          "0.13"
+        ]
+      ],
+      "train": [
+        [
+          "0.08",
+          "0.18"
+        ],
+        [
+          "0.16",
+          "0.68"
+        ],
+        [
+          "0.28",
+          "0.36"
+        ],
+        [
+          "0.34",
+          "0.84"
+        ],
+        [
+          "0.44",
+          "0.12"
+        ],
+        [
+          "0.58",
+          "0.62"
+        ],
+        [
+          "0.66",
+          "0.32"
+        ],
+        [
+          "0.82",
+          "0.88"
+        ],
+        [
+          "0.92",
+          "0.46"
+        ],
+        [
+          "0.22",
+          "0.92"
+        ],
+        [
+          "0.72",
+          "0.08"
+        ],
+        [
+          "0.88",
+          "0.72"
+        ]
+      ]
+    },
+    "counts": {
+      "cases": 1512,
+      "development": {
+        "cases": 432,
+        "modal_rows": 4320,
+        "role_local_geometry_groups": 36,
+        "strata": {
+          "contact-only": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          },
+          "geometry-only": {
+            "cases": 216,
+            "modal_rows": 2160,
+            "role_local_geometry_groups": 18
+          },
+          "joint": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          }
+        }
+      },
+      "method_holdout": {
+        "cases": 432,
+        "modal_rows": 4320,
+        "role_local_geometry_groups": 36,
+        "strata": {
+          "contact-only": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          },
+          "geometry-only": {
+            "cases": 216,
+            "modal_rows": 2160,
+            "role_local_geometry_groups": 18
+          },
+          "joint": {
+            "cases": 108,
+            "modal_rows": 1080,
+            "role_local_geometry_groups": 18
+          }
+        }
+      },
+      "modal_rows": 15120,
+      "role_local_geometry_groups": 126,
+      "train": {
+        "cases": 648,
+        "modal_rows": 6480,
+        "role_local_geometry_groups": 54
+      },
+      "unique_geometry_groups": 90
+    },
+    "families": [
+      {
+        "family": "rectangular_plate",
+        "family_code": -1,
+        "fixture_id": "synthetic-plate-reference",
+        "formula_id": "kirchhoff-love-simply-supported-v1",
+        "geometry_component_order": [
+          "length_x_m",
+          "length_y_m",
+          "thickness_m"
+        ],
+        "support": "simply-supported-all-edges",
+        "support_code": -1
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-cantilever-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "cantilever-clamped-u0",
+        "support_code": 0
+      },
+      {
+        "family": "rectangular_beam",
+        "family_code": 1,
+        "fixture_id": "synthetic-beam-reference",
+        "formula_id": "euler-bernoulli-simply-supported-v1",
+        "geometry_component_order": [
+          "length_m",
+          "width_m",
+          "height_m"
+        ],
+        "support": "simply-supported-both-ends",
+        "support_code": 1
+      }
+    ],
+    "geometry_multiplier_cells": [
+      [
+        "0.78",
+        "0.92",
+        "1.06"
+      ],
+      [
+        "0.88",
+        "1.22",
+        "0.84"
+      ],
+      [
+        "0.96",
+        "0.82",
+        "1.14"
+      ],
+      [
+        "1.04",
+        "1.18",
+        "0.94"
+      ],
+      [
+        "1.14",
+        "0.86",
+        "1.22"
+      ],
+      [
+        "1.22",
+        "1.04",
+        "1.08"
+      ],
+      [
+        "0.82",
+        "1.08",
+        "1.18"
+      ],
+      [
+        "1.18",
+        "0.78",
+        "0.88"
+      ],
+      [
+        "0.92",
+        "1.24",
+        "1.02"
+      ],
+      [
+        "1.24",
+        "0.96",
+        "1.16"
+      ]
+    ],
+    "impulse_ns": "1",
+    "materials": [
+      {
+        "density_kg_m3": "3100",
+        "loss_rate_per_second": "9.5",
+        "material_id": "synthetic-d",
+        "poisson_ratio": "0.27",
+        "youngs_modulus_pa": "83000000000"
+      },
+      {
+        "density_kg_m3": "6400",
+        "loss_rate_per_second": "14.5",
+        "material_id": "synthetic-e",
+        "poisson_ratio": "0.305",
+        "youngs_modulus_pa": "155000000000"
+      },
+      {
+        "density_kg_m3": "8100",
+        "loss_rate_per_second": "21",
+        "material_id": "synthetic-f",
+        "poisson_ratio": "0.23",
+        "youngs_modulus_pa": "225000000000"
+      }
+    ],
+    "mode_count": 10,
+    "role_plan": {
+      "development": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            6,
+            7
+          ],
+          "stratum": "geometry-only"
+        },
+        {
+          "contact_set": "development",
+          "geometry_cells": [
+            4,
+            5
+          ],
+          "stratum": "contact-only"
+        },
+        {
+          "contact_set": "development",
+          "geometry_cells": [
+            6,
+            7
+          ],
+          "stratum": "joint"
+        }
+      ],
+      "method_holdout": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            8,
+            9
+          ],
+          "stratum": "geometry-only"
+        },
+        {
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            2,
+            3
+          ],
+          "stratum": "contact-only"
+        },
+        {
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            8,
+            9
+          ],
+          "stratum": "joint"
+        }
+      ],
+      "train": [
+        {
+          "contact_set": "train",
+          "geometry_cells": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "stratum": "train"
+        }
+      ]
+    }
+  },
+  "features": {
+    "branch_fields": {
+      "contact": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "family.plate",
+        "family.beam",
+        "support.plate_simple",
+        "support.beam_cantilever",
+        "support.beam_simple",
+        "contact.u_signed",
+        "contact.v_signed",
+        "p1.contact_participation",
+        "contact.fourier_u_sin_1",
+        "contact.fourier_u_cos_1",
+        "contact.fourier_v_sin_1",
+        "contact.fourier_v_cos_1",
+        "contact.fourier_u_sin_2",
+        "contact.fourier_u_cos_2",
+        "contact.fourier_v_sin_2",
+        "contact.fourier_v_cos_2",
+        "contact.fourier_u_sin_3",
+        "contact.fourier_u_cos_3",
+        "contact.fourier_v_sin_3",
+        "contact.fourier_v_cos_3",
+        "contact.fourier_u_sin_4",
+        "contact.fourier_u_cos_4",
+        "contact.fourier_v_sin_4",
+        "contact.fourier_v_cos_4",
+        "p1.contact_participation_u_minus",
+        "p1.contact_participation_u_plus",
+        "p1.contact_participation_v_minus",
+        "p1.contact_participation_v_plus"
+      ],
+      "decay": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "support.plate_simple",
+        "support.beam_cantilever",
+        "support.beam_simple"
+      ],
+      "global_gain": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "family.plate",
+        "family.beam",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ]
+    },
+    "forbidden_fields": [
+      "object_id",
+      "record_id",
+      "role",
+      "stratum",
+      "geometry_cell_index",
+      "contact_set",
+      "contact_index",
+      "mesh_resolution",
+      "vertex_index",
+      "expected",
+      "validator_decision"
+    ],
+    "lift": {
+      "axis_order_within_frequency": [
+        "sin(k*pi*u)",
+        "cos(k*pi*u)",
+        "sin(k*pi*v)",
+        "cos(k*pi*v)"
+      ],
+      "boundary_rule": "clamp(x+signed_h,0,1)-and-retain-actual-distance",
+      "contact_base_input_count": 12,
+      "contact_input_count": 32,
+      "fourier_orders": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "local_stencil_offset": "0.0625",
+      "local_stencil_order": [
+        "u_minus",
+        "u_plus",
+        "v_minus",
+        "v_plus"
+      ],
+      "mode_field_owner": "physical-sound-v31-p1-modal-owner-v1",
+      "transcendentals": "python-math-binary64"
+    },
+    "normalization": {
+      "contact_signed": "2*x-1",
+      "family_index_a_signed": "2*(a-1)/9-1",
+      "family_index_b_signed": "-1-if-zero-else-2*(b-1)/9-1",
+      "geometry_log_multiplier": "log(multiplier)/log(1.25)",
+      "log_density": "log2(density/3100)/2",
+      "log_frequency": "clamp(log2(frequency_hz/1000)/4,-1.5,1.5)",
+      "log_youngs": "log2(youngs_modulus_pa/83000000000)/2",
+      "loss": "(loss_rate_per_second-15)/6",
+      "ordinal_signed": "2*ordinal/9-1",
+      "poisson": "(poisson_ratio-0.275)/0.05"
+    }
+  },
+  "gates": {
+    "development": {
+      "absolute_rmse_max": {
+        "contact_aggregate": "0.035",
+        "contact_each_stratum": "0.045",
+        "decay": "0.035",
+        "global_gain": "0.035"
+      },
+      "aggregate_ratio_max_each_control": {
+        "identity": "0.85",
+        "nearest": "0.85",
+        "raw_ridge": "0.85"
+      },
+      "contact_context_zero_ablation_worsening_min": "1.10",
+      "contact_each_stratum_ratio_max_best_control": "0.95",
+      "contact_ratio_max_each_control": {
+        "nearest": "0.85",
+        "raw_mlp": "0.80",
+        "raw_ridge": "0.85",
+        "spectral_ridge": "0.90"
+      },
+      "decay_global_ratio_max_ridge_and_nearest": "0.90",
+      "full_lift_zero_ablation_worsening_min": "1.10",
+      "material_zero_ablation_worsening_min": "1.05",
+      "stencil_zero_ablation_worsening_min": "1.03"
+    },
+    "hard": {
+      "branch_feature_isolation": true,
+      "correction_bounds_exact": true,
+      "finite_output": true,
+      "forbidden_fields_absent": true,
+      "frequency_and_order_bit_exact": true,
+      "impulse_probe_ratios": [
+        "0.5",
+        "1",
+        "2"
+      ],
+      "mesh_resolution_feature_forbidden": true,
+      "method_holdout_zero_before_development_pass": true,
+      "nodal_zero_exact": true,
+      "positive_decay": true,
+      "real_and_protected_signal_zero": true,
+      "remesh_common_contact_exact": true,
+      "render_peak_strict_max": "0.95",
+      "signed_gain_sign_preserved": true,
+      "t0_mutation_reason_identities_unchanged": true,
+      "v0a_parent_identities_unchanged": true
+    },
+    "method_holdout": {
+      "absolute_rmse_max": {
+        "contact_aggregate": "0.040",
+        "contact_each_stratum": "0.050"
+      },
+      "aggregate_ratio_max_best_non_neural_control": "0.90",
+      "branch_ratio_max_best_non_neural_control": "0.95",
+      "contact_each_stratum_ratio_max_best_control": "0.98",
+      "contact_ratio_max_raw_mlp": "0.95",
+      "zero_denominator_rule": "candidate-must-be-exact-zero"
+    }
+  },
+  "model": {
+    "activation": "silu",
+    "candidate_id": "mode-local-spectral-residual-v1",
+    "dtype": "float64",
+    "heads": {
+      "contact": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 32,
+        "output": "contact_log_participation_multiplier",
+        "output_bound": "0.25",
+        "parameter_count": 817
+      },
+      "decay": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 11,
+        "output": "log_decay_multiplier",
+        "output_bound": "0.25",
+        "parameter_count": 481
+      },
+      "global_gain": {
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "input_count": 13,
+        "output": "global_log_gain_delta",
+        "output_bound": "0.20",
+        "parameter_count": 513
+      }
+    },
+    "initializer": {
+      "bias": "zero",
+      "generator": "numpy-PCG64",
+      "order": "lexicographic-tensor-name",
+      "seed": 3301,
+      "weight": "uniform(-sqrt(6/(fan_in+fan_out)),sqrt(6/(fan_in+fan_out)))"
+    },
+    "parameter_count": 1811,
+    "parameter_count_max": 2000,
+    "shared_trunk": false
+  },
+  "numeric_profile": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "execution": "single-thread-cpu-reference",
+    "randomness": "seeded-initialization-only",
+    "render_frames": 144000,
+    "sample_rate_hz": 48000,
+    "scalar_format": "ieee754-binary64-little-endian",
+    "tensor_order": "lexicographic-name"
+  },
+  "oracle": {
+    "contact": {
+      "bound": "0.22",
+      "components": {
+        "curvature_u": "phi_u_plus+phi_u_minus-2*p1_contact",
+        "difference_u": "phi_u_plus-phi_u_minus",
+        "difference_v": "phi_v_plus-phi_v_minus",
+        "surface_a": "sin(pi*u)*cos(2*pi*v)",
+        "surface_b": "cos(3*pi*u)*sin(pi*v)"
+      },
+      "expression": "bound*tanh(0.26*p1_contact+0.18*difference_u-0.14*difference_v+0.20*surface_a+0.17*surface_b+0.12*ordinal*support+0.10*family*(2*u-1)+0.08*log_frequency*curvature_u)"
+    },
+    "decay": {
+      "bound": "0.20",
+      "expression": "bound*tanh(0.42*loss+0.28*log_frequency+0.18*support*ordinal+0.13*log_youngs*log_density+0.11*poisson*family_index_a)"
+    },
+    "global_gain": {
+      "bound": "0.16",
+      "expression": "bound*tanh(0.34*ordinal*geometry0+0.29*geometry2+0.22*log_youngs*ordinal-0.18*log_density+0.17*family*geometry1+0.12*geometry0*geometry2)"
+    },
+    "transcendentals": "python-math-binary64"
+  },
+  "parent": {
+    "p0_profile": {
+      "path": "lab/profiles/physical-sound-v31-p0-causal-baseline.v1.json",
+      "sha256": "c6b7f816d65bdcaa18618a72d40cfedb6ed970359d3a1cf8f28825cd4c686a3d"
+    },
+    "p1_owner": {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    "p1_result": {
+      "path": "docs/development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md",
+      "sha256": "16e3f6e23280eb3c6d77d52132b6d216768bf8383baa668ed3dd16ca5ac08683"
+    },
+    "t0_result": {
+      "path": "docs/development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md",
+      "sha256": "b17631b4032d632bb0ae9d30e05a421895756d65ce961109da94fed962c15ce9"
+    },
+    "v0a_result": {
+      "path": "docs/development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md",
+      "sha256": "1fc5809eefb7dac86a71d79ffe39a9d5cacf27d81bfd46330524e91d23050aa2"
+    },
+    "v32_m0_profile": {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    "v32_m1_owner": {
+      "path": "lab/scripts/physical_sound_v32_m1_known_truth_tournament_v1.py",
+      "sha256": "8475767e8c9fd085a95bbeeefe4c6ffca767f9b201b1b6ecd2f6fc73e4f10407"
+    },
+    "v32_m1_result": {
+      "path": "docs/development/physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md",
+      "sha256": "46c1ae5540b3df468639085d8701a17f7c48e60e3e48e6a57cd31d24acd024e6"
+    }
+  },
+  "profile_id": "physical-sound-v33-f0-mode-local-spectral-residual-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v33-f0-fresh-role-spectral-freeze-protocol-2026-09-02.md",
+    "sha256": "aff11077eb3ec8148c877cde87094d482bf098aa4e6af9f93f8e1e66ff60fa1a"
+  },
+  "publication": {
+    "candidate_freeze_only_after_development_pass": true,
+    "fresh_external_output": true,
+    "max_file_count": 10,
+    "method_holdout_only_after_candidate_freeze": true,
+    "required_common_files": [
+      "corpus-manifest.json",
+      "control-report.json",
+      "candidate-weights.bin",
+      "raw-mlp-control-weights.bin",
+      "development-predictions.bin",
+      "evidence.json",
+      "report.json"
+    ],
+    "success_only_files": [
+      "candidate-freeze.json",
+      "method-holdout-predictions.bin",
+      "method-holdout-report.json"
+    ]
+  },
+  "research": {
+    "path": "docs/development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md",
+    "sha256": "f33ddd89f269e66cfb630e50a280a5793faa8e9d3a42e9e8d15345f605ae3b1c"
+  },
+  "resources": {
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300,
+    "network_requests": 0,
+    "real_signal_values_decoded": 0
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v33-f0-mode-local-spectral-residual-profile.v1",
+  "training": {
+    "batch": "full-train-role",
+    "candidate_seed": 3301,
+    "device": "cpu",
+    "gradient_norm_clip": "1",
+    "learning_rate": "0.003",
+    "loss": "mean(MSE(decay)/0.20^2,MSE(global_gain)/0.16^2,MSE(contact)/0.22^2)",
+    "optimizer": "AdamW",
+    "raw_mlp_control_seed": 3302,
+    "scheduler": "none",
+    "steps": 1200,
+    "threads": {
+      "interop": 1,
+      "intraop": 1
+    },
+    "weight_decay": "0.000001"
+  }
+}

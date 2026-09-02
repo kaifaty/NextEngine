@@ -3,10 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_COMPLETE / F0_NEXT / V32_M1_FAMILY_CLOSED / FRESH_SYNTHETIC_ROLES_REQUIRED / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / R0_F0_COMPLETE / I0_NEXT / V32_M1_FAMILY_CLOSED / FRESH_SYNTHETIC_ROLES_FROZEN / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V32](physical-sound-synthesis-roadmap-v32.md) as planning authority; all V32 evidence, one-use roles, source thresholds and closed-family decisions remain immutable |
 | Research basis | [V33 mode-local spectral successor research](../development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) |
 | Trigger evidence | [V32 M1 terminal result](../development/physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) |
+| Current evidence | [F0 fresh-role spectral freeze](../development/physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | Evidence comes from the internet; the user records no impacts and does not validate sounds one by one |
 
@@ -112,8 +113,10 @@ P1 modal-field and declared low-order surface components; it cannot copy the
 disclosed V32 oracle. Coefficients, role membership and commitments freeze
 before candidate execution.
 
-Train, development and method-holdout remain case/group closed. Development
-and holdout each report three disjoint case strata:
+Train, development and method-holdout exact case identities are disjoint.
+Geometry groups intentionally recur only in `contact-only` strata so that
+contact generalization can be isolated; `geometry-only` and `joint` use unseen
+geometry. Development and holdout each report three disjoint case strata:
 
 | Stratum | Geometry | Contact | Question |
 | --- | --- | --- | --- |
@@ -131,7 +134,7 @@ passes in full.
 
 ```mermaid
 flowchart TD
-    R0["R0 bounded research: complete"] --> F0["F0 fresh roles and mechanics freeze"]
+    R0["R0 bounded research: complete"] --> F0["F0 fresh roles and mechanics freeze: complete"]
     F0 --> I0["I0 value-independent conformance"]
     I0 --> D0["D0 fresh development tournament"]
     D0 -->|"Pass"| H0["H0 one-shot method holdout"]
@@ -163,8 +166,8 @@ failed upstream role.
 | ID | Deliverable | State | Exit criterion |
 | --- | --- | --- | --- |
 | R0 | Bounded successor research | [`COMPLETE`](../development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) | Primary prior art, six competing hypotheses, selected smallest candidate, fresh-evidence rule and terminal stop conditions are recorded without opening a new oracle/model value. |
-| F0 | Fresh-role and mechanics freeze | `NEXT` | Canonical profile binds new materials/cells/contacts, truth-bank commitment, three strata, exact feature lift/stencil, candidate/controls, seed/training, access order, metrics, A/B semantics and resources before values. |
-| I0 | Value-independent owner conformance | `BLOCKED_BY_F0` | Complete owning entry point proves dependency/hash closure, feature dimensions, boundary stencil behavior, parameter count, zero protected access, atomic failure and all P1 invariants on discarded non-official fixtures. |
+| F0 | Fresh-role and mechanics freeze | [`COMPLETE / REPEAT_EXACT / ZERO_NEW_VALUES`](../development/physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) | Canonical profile binds new materials/cells/contacts, truth-bank commitment, three strata, exact feature lift/stencil, candidate/controls, seed/training, access order, metrics, A/B semantics and resources before values. |
+| I0 | Value-independent owner conformance | `NEXT` | Complete owning entry point proves dependency/hash closure, feature dimensions, boundary stencil behavior, parameter count, zero protected access, atomic failure and all P1 invariants on discarded non-official fixtures. |
 | D0 | Fresh development tournament | `BLOCKED_BY_I0` | A/B artifacts repeat exactly; every hard gate passes; contact beats raw MLP, nearest and spectral ridge at frozen aggregate and per-stratum bounds; decay/global gain do not regress. Otherwise close before holdout. |
 | H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate and controls open the committed holdout once; every branch/stratum and aggregate comparison passes twice exactly with no post-development change. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without opening signal. |
@@ -225,9 +228,9 @@ an automatic V33 retry.
 
 1. **V33.0 — complete:** record the M1 failure cluster, primary prior art,
    competing hypotheses, selected small successor and stop rules.
-2. **V33.1 — next:** freeze F0 canonical corpus/truth/feature profile without
-   materializing train, development or holdout targets.
-3. **V33.2:** implement the complete external owner and focused contract probes;
+2. **V33.1 — complete:** F0 freezes the canonical corpus/truth/feature profile
+   twice exactly without materializing train, development or holdout targets.
+3. **V33.2 — next:** implement the complete external owner and focused contract probes;
    run I0 only on discarded non-official fixtures.
 4. **V33.3:** execute D0 in two fresh CPU processes. On any miss, publish one
    terminal reject and keep H0 at exact zero access.
