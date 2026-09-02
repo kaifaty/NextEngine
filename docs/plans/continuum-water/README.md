@@ -1,10 +1,15 @@
 # Continuum water — standalone implementation roadmap
 
-Status: `RESEARCH_ONLY / ACTIVE_W2_RESEARCH / INTEGRATION_BLOCKED`; post-v1 isolated program. Governing candidate
+Status: `RESEARCH_ONLY / ACTIVE_W2_RESEARCH / INTEGRATION_BLOCKED / ADR-100_PROPOSED`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
-as the promotion guardrail.
+as the promotion guardrail. Proposed
+[ADR-100](../../architecture/adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md)
+reframes water V1 as an exact CPU `WaterVolume` for gameplay plus
+non-authoritative presentation dynamics; the CPU lane below stays the
+research oracle, and the Nonlocal GPU game candidate is tracked in
+`docs/development/task-state/nonlocal-gpu-full-step-performance.md`.
 The original W0B numeric/profile/corpus closure remains hash-frozen evidence,
 but W1-RC1 independently reproduced its hydro non-convergence and requires a
 W0C calibration reclosure. W0C diagnostics reject the ceiling-only repair,

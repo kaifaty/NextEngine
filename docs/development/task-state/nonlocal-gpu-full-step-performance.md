@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7 REV 2, REV 3 SETTLED FLOOR PASS) / 48K COST AND MATERIAL NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL STALL RESOLVED (NGQ7 REV 2, REV 3 SETTLED FLOOR PASS) / ADR-100 PROPOSED (PRESENTATION-ONLY AUTHORITY) / 48K COST AND MATERIAL NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -1330,6 +1330,35 @@
   step-cost decision is made under the solver contract, or the accepted
   dynamic corpus is extended past the wall phase with these layers.
 
+### D-049 — Specifications follow the evidence: presentation-only GPU water
+
+- **Observation:** SPEC-38/ADR-076 still named CPU DFSPH as the water
+  authority with GPU correspondence-only, a crate-coupled first consumer
+  and debug points as presentation, while the facts are: CPU lane `67x`
+  over budget, GPU candidate at budget and live in the production renderer
+  through a path no SPEC described, and a boundary rule (density-only
+  support) that no profile text carried.
+- **Evidence:** D-038 through D-048; `docs/roadmap.md` water row; the
+  user's choice among (A) GPU as authority, (B) CPU port of the game
+  model, (C) authority separate from presentation.
+- **Conclusion:** the product needs exact, replayable, headless-checkable
+  water queries and a watchable surface; only (C) gives both without a GPU
+  `CanonicalFloatExecutionProfile`, a Vulkan compute port or a vendor
+  dependency in the workspace.
+- **Decision:** Proposed ADR-100 (authoritative CPU `WaterVolume`,
+  presentation-only dynamics, density-only boundary rule, height-field
+  surface path, first consumer = basin + wading/swimming + live surface)
+  and ADR-101 (declared dynamic surface ring, bounded frame capture);
+  SPEC-38 1.7, SPEC-30 4.1, SPEC-04 2.15, index/routing/traceability rows.
+  Nothing is Accepted; no contract type is added; CUDA stays outside the
+  workspace.
+- **Rejected:** (A) GPU authority for V1 (same-device reproducibility,
+  vendor toolchain); (B) a CPU port as the only path (budget); presentation
+  water feeding buoyancy or contact.
+- **Reconsider when:** a runtime consumer for `WaterVolume` is scheduled
+  (acceptance of ADR-100), a Vulkan compute port of the presentation solver
+  is proposed, or a later consumer needs GPU-side gameplay coupling.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1424,4 +1453,6 @@
 4. Keep the NCGP16 CPU free-surface result as a diagnostic reference and
    counterexample corpus, not a prerequisite for accepting a simpler game
    model.
-5. Preserve CPU DFSPH and keep SPEC-38/ADR-076 Proposed throughout.
+5. Preserve CPU DFSPH and keep SPEC-38/ADR-076/ADR-100/ADR-101 Proposed
+   throughout; acceptance of ADR-100 needs a `WaterVolume` runtime consumer,
+   not more research evidence.

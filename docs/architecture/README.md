@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.69 |
-| Последняя проверка | 2026-08-29 |
-| Заменяет | INDEX-001 2.68; indexes the bounded Proposed SPEC-47/ADR-099 streaming-TTS vertical |
+| Версия | 2.70 |
+| Последняя проверка | 2026-09-02 |
+| Заменяет | INDEX-001 2.69; indexes Proposed ADR-100/ADR-101 (authoritative water volume, presentation-only GPU water, dynamic surface ring) and the SPEC-04/30/38 revisions that follow them |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -154,7 +154,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-01 | [System architecture](01-system-architecture.md) | Accepted |
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
 | SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
-| SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted |
+| SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted; 2.15 names the Proposed ADR-101 developer frame capture and dynamic surface ring |
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes PHYS-P6 and ADR-098 adds the current optional directional capability clamp before fixed-PD rate limiting |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
@@ -180,7 +180,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline plus ADR-098 intact-topology capability envelope; learned injury routes remain Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |
-| SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted; R5i preserves atomic V3 complete-or-none animation-LOD publication and prior-snapshot retention |
+| SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted; 4.1 admits the Proposed ADR-101 declared dynamic surface ring as a renderer-private third vertex path |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073 plus bounded R4d social/work/economy and tier-cadence vertical under ADR-074 |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
@@ -188,7 +188,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
-| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
+| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 1.7 splits water V1 into an authoritative `WaterVolume` and non-authoritative presentation dynamics (ADR-100), binds density-only boundary support and the candidate presentation surface; nothing is a current runtime contract |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed successor stage-8 `WorldDynamicsStep`, runtime-owned DAG, exact identity, epoch persistence and fail-stop transaction; current schedule remains unchanged |
@@ -282,7 +282,7 @@ traceability — навигационная карта, не admission authority
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
 | ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction and third-person semantics; R5g base-rig/LBS plus bounded pose-corrective/deformation-LOD projection is current, while condition/injury schemas and the complete lower-limb severity matrix remain Proposed |
-| ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum strategy, partially narrowed by ADR-081; no current backend/schema/save claim |
+| ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum strategy, partially narrowed by ADR-081 and, for water V1, by Proposed ADR-100; no current backend/schema/save claim |
 | ADR-077 | [Layered physical world and living-structures track](adr/077-layered-physical-world-and-living-structures-track.md) | Proposed destructible-tree profile, partially narrowed by ADR-081; V0B remains open and there is no current backend/schema/save claim |
 | ADR-078 | [World substrate and arcane physical-interaction track](adr/078-world-substrate-and-arcane-physical-interaction-track.md) | Proposed telekinesis-first architecture, partially narrowed by ADR-081; numeric A0B remains open and no current schema/runtime claim exists |
 | ADR-079 | [Thermochemical material-process track](adr/079-thermochemical-material-process-track.md) | Proposed enthalpy-first parcel owner, partially narrowed by ADR-081; no current schema/runtime claim |
@@ -306,12 +306,16 @@ traceability — навигационная карта, не admission authority
 | ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
+| ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume`, the Nonlocal GPU candidate animates only the presentation surface, boundary density support is density-only |
+| ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
 
 ## Proposed tracks
 
-- SPEC-38/ADR-076 — post-v1 local water and deformable-material research; CPU
-  DFSPH is the candidate water authority, GPU remains correspondence-only and
-  the main R8 integration track stays inactive until the serial oracle passes.
+- SPEC-38/ADR-076/ADR-100 — post-v1 local water and deformable-material
+  research; under Proposed ADR-100 water V1 gameplay reads an exact CPU
+  `WaterVolume` while the Nonlocal GPU candidate animates only the
+  presentation surface through ADR-101; the main R8 integration track stays
+  inactive until a runtime consumer exists.
 - SPEC-39/SPEC-40/ADR-077 — post-v1 layered physical-world and living-
   structures research; the selected tree vertical is blocked on V0B numeric,
   material and corpus calibration before solver code.

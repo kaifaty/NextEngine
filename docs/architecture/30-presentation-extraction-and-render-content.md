@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 4.0 |
-| Последняя проверка | 2026-08-29 |
+| Версия | 4.1 |
+| Последняя проверка | 2026-09-02 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 | Дополнительные зависимости V4.0 | [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-47](47-streaming-tts-and-spatial-speech-presentation.md), [ADR-099](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
-| Заменяет | SPEC-30 3.9; clarifies the current audio companion projection and bounded Proposed spatial-speech extension |
+| Дополнительные зависимости V4.1 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-101](adr/101-presentation-only-dynamic-surface-ring.md) |
+| Заменяет | SPEC-30 4.0; admits the Proposed ADR-101 declared dynamic surface ring as a third renderer-private vertex path |
 
 ## Authority boundary
 
@@ -153,7 +154,14 @@ Reduced selects Essential, Base selects none and Culled emits no renderer work.
 B0 hashes the resulting vertex stream and uploads position plus the locked
 UV/normal template through a per-frame-slot host-visible Vulkan vertex ring.
 Static draws keep the existing indexed-indirect path; skinned draws bind their
-exact dynamic stream. Backend handles, descriptor sets, command buffers,
+exact dynamic stream. Under Proposed [ADR-101](adr/101-presentation-only-dynamic-surface-ring.md)
+a composition root may additionally declare bounded dynamic surfaces: one
+exact catalog mesh revision each, fixed capacity, one per-frame-slot
+vertex/index ring, immutable updates validated against the catalog bounds
+and published next to the snapshot. The catalog mesh keeps identity,
+material and bounds; updates are renderer-private caches outside every
+snapshot, frame-plan and gameplay root, and an undeclared or over-capacity
+update fails closed. Backend handles, descriptor sets, command buffers,
 SPIR-V compiler objects and Vulkan structs remain private. Stable pipeline/
 cache keys derive only from exact content/profile/interface inputs; cache state
 is reconstructible.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.6 |
-| Last verified | 2026-08-18 |
+| Version | 1.7 |
+| Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.6 binds the W0H fixed accelerated pressure algorithm and projected-KKT gate over unchanged W0F physical operations and W0G energy semantics while retaining ADR-081 promotion guardrails and Proposed status |
+| Candidate revision note | Version 1.7 follows [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): water V1 splits into an authoritative `WaterVolume` and non-authoritative presentation dynamics, binds density-only boundary support and the candidate presentation surface, and moves crate coupling to a later consumer; the W0H CPU reference lane and ADR-081 guardrails are unchanged |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -20,9 +20,11 @@ snow is shipped. The umbrella work-package index is maintained in
 water execution is maintained independently in
 [the water roadmap](../plans/continuum-water/README.md).
 
-The first selected consumer is one sealed water basin containing one movable
-PhysX crate and read-only debug-particle presentation. Dry terrain is a
-separate numerical lane. Global ocean/weather, cross-region particle transfer,
+The first selected consumer is one sealed water basin with an authoritative
+`WaterVolume`, player wading/swimming classification from its queries and
+live presentation dynamics on its free surface (ADR-100). The movable PhysX
+crate and any continuum reaction batch belong to a later consumer under its
+own ADR. Dry terrain is a separate numerical lane. Global ocean/weather, cross-region particle transfer,
 adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
 vehicle simulation and production sleep conversion are outside the first
 water consumer.
@@ -33,10 +35,30 @@ save/replay formats and public contracts remain unchanged.
 
 ## Candidate authority and canonical water state
 
-Physical Embodiment is the future owner of active continuum state. CPU DFSPH
-is the sole candidate canonical water solver for V1. A GPU implementation is
-an optional correspondence mirror and cannot emit authoritative commands,
-events, checkpoints or body impulses.
+Physical Embodiment is the future owner of active continuum state. Under
+ADR-100 water V1 has two owners with one direction of flow:
+
+- **`WaterVolume` is the authoritative water.** A bounded set of sealed
+  regions in the portable CPU core, each binding an exact integer extent, a
+  still-water level, an optional authored level schedule and a profile
+  revision. Submersion depth, wading/swimming classification and any later
+  buoyancy read only this volume through SPEC-26 queries. It changes only
+  through validated `WorldCommand` transactions, publishes exact roots,
+  saves and replays with the world on `game` and `headless`, and needs no
+  floating-point execution profile.
+- **Presentation dynamics are non-authoritative.** A presentation stage may
+  animate the free surface with any solver, including the Nonlocal GPU
+  candidate, and publish a bounded height-field surface to the renderer
+  through the ADR-101 dynamic surface path. No command, event, query, save,
+  reaction or root reads it; renderer cadence, device loss, GPU vendor,
+  missing capability or a stopped presentation process fall back to the
+  still surface of the authoritative level. `headless` never executes it.
+
+CPU DFSPH remains the research oracle lane for particle-water fidelity and
+for any later authoritative particle solver; it is not a shipping promise.
+A GPU particle solver cannot emit authoritative commands, events,
+checkpoints or body impulses; GPU authority would require a new ADR with a
+GPU `CanonicalFloatExecutionProfile`.
 
 One future active water region owns a bounded material-specific SoA. At every
 accepted 240 Hz substep its complete future-affecting sample state is:
@@ -96,6 +118,13 @@ V1 enables no warm start, surface tension, viscosity/vorticity model,
 adaptive split/merge or variable time step. Analytical plane and box
 boundaries are part of the reference solver rather than deferred to rigid
 coupling. A capability/profile mismatch fails before region activation.
+
+Every particle-water candidate, reference or presentation, inherits one
+boundary rule (ADR-100, evidence D-047/D-048): floor and wall
+neighbourhoods carry boundary density support, and fixed boundary samples
+contribute to density and the incompressibility term only, never to
+viscosity or surface terms. Analytic contact without density support lets a
+floor monolayer compress in plane until it carries no pressure and stalls.
 
 W0H changes only the algorithm used to solve W0F's existing non-negative
 pressure quadratic program. A zero inverse-diagonal coordinate has multiplier
@@ -220,12 +249,20 @@ separately gated later work.
 
 ## Presentation
 
-V1 extracts bounded immutable sample records after an accepted physical
-commit. Debug points/spheres and diagnostic overlays are the mandatory path.
-Surface reconstruction, screen-space fluid, foam, spray and wetness are
-non-authoritative optional stages and do not block first promotion. Renderer
-cadence, camera state and device/cache loss cannot change a water root,
-reaction batch or gameplay result.
+Debug points/spheres and diagnostic overlays remain the mandatory research
+presentation of any particle lane. The candidate free-surface presentation
+(ADR-100/ADR-101) is a top-down height field over a fixed pixel grid of one
+quarter particle spacing: sphere-cap projection, largest 8-connected
+component, one 3x3 close, local fill, a 5x5 grayscale closing of the height
+and one bilateral pass with range sigma equal to the particle radius. It
+publishes one bounded vertex/index update per frame into a declared dynamic
+surface ring whose catalog mesh keeps identity, material and bounds; the
+render-content catalog, snapshot and frame plan are built once per run. GPU
+and CPU implementations are equivalent when masks and mesh counts are
+identical and depths agree within `1 um`. The height field cannot represent
+overhangs or spray; screen-space fluid, foam, spray and wetness remain
+non-authoritative optional stages. Renderer cadence, camera state and
+device/cache loss cannot change a water root or gameplay result.
 
 ## Failure semantics
 
@@ -254,12 +291,14 @@ recorded command trace without test-only mutation.
 
 | Check | Required result |
 |---|---|
+| `CONTINUUM-WATER-VOLUME-P1` | Activate one sealed basin `WaterVolume`, query submersion at authored points, save/load and replay; exact roots on `game` and `headless`, queries never read presentation, level changes only through commands. |
+| `CONTINUUM-WATER-PRESENT-P1` | Drive the basin surface from the presentation solver for a bounded window with capture; one catalog/snapshot/frame plan per run, declared ring capacity respected, gameplay roots identical with and without presentation, capture diagnostic only. |
 | `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean positive compression and projected-KKT residual each `<= 0.01%` within `2..=50` pressure-operator applications; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized impulse residual `<= 1%`; W0G absolute energy drift `<= 1%` for reversible/control scenarios and positive energy excess `<= 1%` for named static-impact scenarios with deficit/stage accounting; mandatory hydro/dam-break/orifice reference RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
 | `CONTINUUM-COUPLING-P1` | One-pass reaction closure, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
 | `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
 | `CONTINUUM-TERRAIN-P1` | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
-| conditional `performance` | `50k` water meets the standalone THOTH `4/6 ms` p95/p99 stop target; before integration, the full combined workload must pass the successor mutually exclusive `world-dynamics-step` row measured across every substep in one gameplay tick. `10k` and `100k` remain report profiles, with `100k` not a production promise. |
+| conditional `performance` | The presentation solver owns its own budget row: `48k` presentation water at the THOTH `4/6 ms` p95/p99 stop target on the reference host; a missed budget lowers surface cadence or sample count, never gameplay. An authoritative particle solver, if ever proposed, must additionally pass the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. `10k` and `100k` remain report profiles. |
 
 The CPU oracle also compares published curves with aggregate output from an
 independently executed SPlisHSPlasH revision. External solver code, generated
@@ -269,12 +308,14 @@ before production promotion.
 
 ## Promotion boundary
 
-No public contract is added for the serial lab. When the basin becomes a real
-runtime consumer, the smallest candidate public set is
-`ContinuumRegionDefinitionV1`, `ContinuumWaterProfileV1`,
-`ContinuumWaterCanonicalStateV1`, `ContinuumBodyReactionBatchV1`,
-`ContinuumPresentationSnapshotV1` and a composite successor to
-`PhysicsWorldCheckpointV2`. Exact schemas require the later Accepted
+No public contract is added for the serial lab or the developer water
+bridge. When the basin becomes a real runtime consumer, the smallest
+candidate public set is `WaterVolumeDefinitionV1`, `WaterVolumeStateV1` and
+its query records, `ContinuumWaterProfileV1` for the presentation solver and
+a composite successor to `PhysicsWorldCheckpointV2` for the volume;
+`ContinuumWaterCanonicalStateV1`, `ContinuumBodyReactionBatchV1` and
+`ContinuumPresentationSnapshotV1` follow only the later crate-coupled
+consumer. Exact schemas require the later Accepted
 promotion ADR and synchronized SPEC-02/03/21/25/26/30, routing, traceability
 and roadmap updates.
 
