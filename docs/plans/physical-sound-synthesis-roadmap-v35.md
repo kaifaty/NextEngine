@@ -3,13 +3,14 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ACTIVE / R0_F0_C0_B0_I0_COMPLETE / D0_NEXT / FRESH_TARGETS_UNOPENED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `TERMINAL / SUPERSEDED_BY_V36 / R0_F0_C0_B0_I0_COMPLETE / D0_REPEAT_EXACT_POST_ACCESS_OWNER_FAULT / NO_QUALITY_INFERENCE / H0_UNOPENED / V35_FAMILY_CLOSED / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V34](physical-sound-synthesis-roadmap-v34.md) as planning authority; V34 is terminal and every opened role remains spent |
 | Research basis | [V35 geometry-conditioned hybrid research](../development/physical-sound-v35-geometry-conditioned-hybrid-research-2026-09-02.md) |
 | F0 evidence | [Repeat-exact target-safe profile freeze](../development/physical-sound-v35-f0-geometry-hybrid-profile-freeze-result-2026-09-02.md) |
 | C0 evidence | [Repeat-exact P1 witness and hybrid-support census](../development/physical-sound-v35-c0-witness-and-coverage-census-result-2026-09-02.md) |
 | B0 evidence | [Repeat-exact local-expert and coverage-gate conformance](../development/physical-sound-v35-b0-local-gate-conformance-result-2026-09-03.md) |
 | I0 evidence | [Repeat-exact complete-owner and terminal-path proof](../development/physical-sound-v35-i0-complete-owner-terminal-proof-result-2026-09-03.md) |
+| Terminal evidence | [D0 repeat-exact post-access owner fault](../development/physical-sound-v35-d0-development-tournament-result-2026-09-03.md) |
 | Trigger evidence | [V34 H0 terminal metric reject](../development/physical-sound-v34-h0-method-holdout-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | All evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
@@ -35,6 +36,14 @@ fresh target-safe synthetic roles
 V35 does not promise that neural synthesis wins. The method must beat nearest
 and a stronger continuous local interpolator on fresh evidence. If the
 non-neural control wins, it becomes the scientific baseline and V35 ML closes.
+
+V35 is now terminal. D0 opened all `6,480` train and `4,320` development
+targets, trained the four declared models and then repeat-exactly faulted in the
+development-prediction path because `RoleData` was passed to `len()`. The
+atomic three-file fault artifacts expose no target, weight, prediction or
+metric values, so model quality remains unobserved. The roles are nevertheless
+spent, H0 is retired unopened and [Roadmap V36](physical-sound-synthesis-roadmap-v36.md)
+replaces this plan with a fresh-role, sealed single-path experiment.
 
 ## Immutable boundaries
 
@@ -93,9 +102,9 @@ flowchart TD
     F0 --> C0["C0 zero-target witness and coverage census"]
     C0 --> B0["B0 local expert and gate conformance"]
     B0 --> I0["I0 discarded complete-owner proof"]
-    I0 --> D0["D0 one-shot fresh development"]
-    D0 -->|"Pass"| H0["H0 one-shot method holdout"]
-    D0 -->|"Reject/fault"| GF["P1 plus authored fallback"]
+    I0 --> D0["D0 repeat-exact post-access owner fault"]
+    D0 -->|"Terminal fault"| GF["P1 plus authored fallback"]
+    D0 -.->|"Retired unopened"| H0["H0 not run"]
     H0 -->|"Reject/fault"| GF
 
     S0["S0 bounded internet source batches"] -->|"power feasible"| S1["S1 protected real-role freeze"]
@@ -127,8 +136,8 @@ scores. No downstream stage may reinterpret a failed upstream role.
 | C0 | Signal-blind witness/coverage census | [`COMPLETE / REPEAT_EXACT / ZERO_VALUES`](../development/physical-sound-v35-c0-witness-and-coverage-census-result-2026-09-02.md) | All `8,640` evaluation rows have nonempty P1 witnesses, exactly `216` train neighbors, both experts reachable and zero OOD/forbidden input; all `6,480` train rows retain `215` neighbors after causal case-group leave-out. |
 | B0 | Local expert/gate conformance | [`COMPLETE / REPEAT_EXACT / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v35-b0-local-gate-conformance-result-2026-09-03.md) | All `6,480` discarded rows prove continuous local/gate execution, exact train-permutation invariance, `215`-row case/remesh leave-out, same-equation zero distance, no equality split, bounded blend and strict OOD. |
 | I0 | Complete-owner terminal proof | [`COMPLETE / REPEAT_EXACT / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v35-i0-complete-owner-terminal-proof-result-2026-09-03.md) | `34` files cover the complete `6,480 / 4,320 / 13` discarded owner shape, B0 execution, Pass/metric/hard/resource/pre-access terminals and both publication failpoints atomically. |
-| D0 | Fresh development tournament | `NEXT` | Candidate beats nearest and continuous local control in aggregate and each transfer stratum, passes both-expert ablations and every hard/resource gate, then freezes one candidate with zero H0 access. |
-| H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate repeats exactly without training and independently passes all aggregate/branch/stratum, P1 hard, provenance and resource gates. Reject/fault closes V35 permanently. |
+| D0 | Fresh development tournament | [`REPEAT_EXACT_POST_ACCESS_OWNER_FAULT / NO_QUALITY_INFERENCE`](../development/physical-sound-v35-d0-development-tournament-result-2026-09-03.md) | Both processes open all `10,800` targets and train all `6,972` parameters, then atomically reject at `development-predictions` on `TypeError: object of type 'RoleData' has no len()`; three files/stdout match exactly. |
+| H0 | One-shot method holdout | `RETIRED_UNOPENED / EXACT_ZERO_ACCESS` | D0 did not pass. No candidate exists and the V35 method-holdout builder was never called. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with five projects reserved for other one-use roles. |
 | V1 | Independent real validator | `BLOCKED_BY_S1` | Project/object-disjoint calibration reaches grouped 95% false-pass upper bound `<=0.10` and useful-coverage lower bound `>=0.80`; mutations and leave-project-out repeat. |
@@ -172,6 +181,7 @@ or subjective listening cannot waive one failed relative gate.
 | B0 exposes discontinuity, self-retrieval, order dependence or split detection | Close implementation; official roles remain unopened. |
 | I0 terminal/access/atomicity fault | Close owner; publish no official artifacts. |
 | D0 candidate loses any frozen control/stratum or ablation | Close V35 before H0; do not tune from development. |
+| D0 owner faults after target access | Close V35 before H0 even without published metrics; a successor requires fresh roles and a stronger executable-owner contract. |
 | H0 reject/fault | Close V35 and every candidate permanently; no fresh wrapper around spent evidence. |
 | Continuous local control wins | Record that compact ML adds no synthetic value; promote it only as a future baseline, not as V35 admission. |
 | All compact methods fail | Research a topology/operator representation under a new roadmap; do not expand V35 in place. |
@@ -191,11 +201,11 @@ or subjective listening cannot waive one failed relative gate.
    gate and cross-fit anti-leakage on discarded analytic fields.
 5. **V35.4 — complete:** import B0 plus the frozen V34 terminal publisher and prove
    the complete discarded official-shape owner and every terminal path.
-6. **V35.5 — next:** implement and freeze the complete D0 owner with official
-   values still unopened, then execute D0 once in two fresh processes; freeze one candidate only
-   after a complete repeat-exact pass.
-7. **V35.6:** execute H0 once without retraining; admit the synthetic method or
-   permanently close V35.
+6. **V35.5 — terminal:** the frozen D0 owner executes twice, opens train and
+   development, and repeat-exactly publishes a post-access owner fault before
+   metrics; V35 closes with no quality inference.
+7. **V35.6 — retired unopened:** H0 never runs because D0 did not pass and no
+   candidate was frozen.
 8. **V35.S:** continue source discovery in batches of at most three named
    primary-source leads; keep source roles independent from synthetic work.
 9. **V35.7:** only after H0+S1, qualify V1 and run M2/M3/A0 in their one-use
@@ -217,5 +227,6 @@ or subjective listening cannot waive one failed relative gate.
 - Product/runtime promotion requires a separate Accepted ADR, affected SPEC,
   routing update and consumer-backed ProductChecks.
 
-SPEC-45 remains `Proposed`. V35 adds no public schema, content role, runtime
-model, production gate or shipped capability.
+SPEC-45 remains `Proposed`. V35 added no public schema, content role, runtime
+model, production gate or shipped capability. Roadmap V36 is the current
+planning authority.
