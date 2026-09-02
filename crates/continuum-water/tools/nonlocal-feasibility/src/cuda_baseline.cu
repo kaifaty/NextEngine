@@ -10628,8 +10628,12 @@ CommandReport run_cuda_game_surface_stream(
     int workers,
     const std::string& extractor_name,
     const std::string& surface_model_name,
-    std::ostream& frames) {
+    std::ostream& frames,
+    const std::string& particle_dump_prefix) {
     const StreamExtractorMode extractor_mode = parse_stream_extractor_mode(extractor_name);
+    if (!particle_dump_prefix.empty() && !game_frame_prefix_valid(particle_dump_prefix)) {
+        throw std::invalid_argument("particle dump prefix contains unsupported characters");
+    }
     int surface_model = 0;
     if (surface_model_name == "closing") {
         surface_model = 1;
@@ -10695,6 +10699,27 @@ CommandReport run_cuda_game_surface_stream(
         dynamic_samples = fluid.size();
         double physics_since_frame_ms = 0.0;
         const auto emit = [&](int step) {
+            if (!particle_dump_prefix.empty()) {
+                // Research diagnostic only: sample-ordered float positions of
+                // this emitted frame, so velocities follow from differences.
+                std::ofstream dump(
+                    particle_dump_prefix + "-cycle" + std::to_string(cycle) + "-step"
+                        + std::to_string(step) + ".bin",
+                    std::ios::binary);
+                const std::uint64_t count = fluid.size();
+                dump.write(reinterpret_cast<const char*>(&count), sizeof(count));
+                for (const Particle& particle : fluid) {
+                    const float values[3] = {
+                        static_cast<float>(particle.position.x),
+                        static_cast<float>(particle.position.y),
+                        static_cast<float>(particle.position.z)};
+                    dump.write(reinterpret_cast<const char*>(values), sizeof(values));
+                }
+                if (!dump) {
+                    first_failure = "particle_dump";
+                    return false;
+                }
+            }
             StreamExtractionJob job;
             job.fluid = fluid;
             job.step = step;

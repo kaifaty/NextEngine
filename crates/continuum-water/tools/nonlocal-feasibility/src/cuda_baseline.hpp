@@ -120,7 +120,8 @@ CommandReport run_cuda_game_surface_stream(
     int workers,
     const std::string& extractor_name,
     const std::string& surface_model_name,
-    std::ostream& frames);
+    std::ostream& frames,
+    const std::string& particle_dump_prefix = {});
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

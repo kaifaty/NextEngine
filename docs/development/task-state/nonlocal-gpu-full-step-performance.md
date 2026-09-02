@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / LIVE WATER WATCHABLE (CAPTURE, CLOSING SURFACE, BASIN) / MATERIAL AND FRONT EDGES NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE / WALL MONOLAYER STALL OBSERVED (D-033 RECONSIDERATION MET) / SOLVER DECISION PENDING` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -29,12 +29,14 @@
   change closes that gap. The stream lanes keep float state on the device
   and audit diagnostics every 60 frames, so they do not reproduce the
   accepted corpus roots and must not be cited as such.
-- **Current action:** the bridge is watchable (`--until-close`), capturable
-  (`--capture-frame`/`--capture-png`) and the streamed surface uses the
-  NGQ6 revision-2 closing over the frozen sphere mask, verified CPU/GPU on
-  every frame. Remaining visual work is the water material under the locked
-  B0 shader and the raw sphere heights at mask boundaries; a 48k real-time
-  claim would need a solver-side change under its own contract.
+- **Current action:** the bridge is watchable, capturable and streams the
+  NGQ6 revision-2 surface. Watching the 16k dam break past the accepted
+  96-step corpus exposed a solver artifact: the one-particle floor sheet
+  that leads the front stalls at the far wall (step 240), compresses `2.6x`
+  in plane and acts as an invisible obstacle for `~0.7 s` while the bulk
+  jumps `0.5 m` upstream. This meets D-033's reconsideration condition for
+  analytic-only contact; the next step is a solver-side discriminator
+  (boundary density support), which is the user's call.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -1258,6 +1260,41 @@
 - **Reconsider when:** a lane with a different pitch or radius needs another
   element size, or overhangs require a non-height-field representation.
 
+### D-047 — The front monolayer stalls at the wall: analytic contact alone is insufficient
+
+- **Observation:** on the live 16k lane the wet front reaches the far wall
+  at step 220 as a one-particle floor sheet (`mean y = 0.025 m`, `100%`
+  below `0.06 m`) moving at `+2.5 m/s`. By step 240 the `3.7--4.0 m` band
+  holds `608` particles in that monolayer at `+0.06 m/s`, i.e. compressed
+  `2.6x` in plane (`~31 mm` spacing), and it stays stopped and single-layer
+  until step 360; the surface at the wall stays `~50 mm` while a `0.42 m`
+  crest forms at `x = 3.4--3.55 m`. Only from step 400 does the wall band
+  gain a second layer and move again.
+- **Evidence:** particle dumps `/tmp/nonlocal-wall-dump/p16k-cycle0-step*.bin`
+  from `--dump-particles` (every 4 steps, sample order stable), the streamed
+  height profile table in this session, and the user's screenshot of the
+  same phenomenon. The contact kernel is a positional clamp with free
+  tangential motion; the rendered walls coincide with the contact box within
+  `12.5 mm`, so there is no geometric obstacle.
+- **Conclusion:** a floor monolayer without boundary density support can
+  compress in plane until the 3D kernel reads rest density, so it carries no
+  pressure and cannot be pushed; the bulk then jumps onto it upstream. The
+  accepted dynamic corpus (96 steps, front at `2.7 m`) never contained the
+  wall phase, so its PASS does not cover this.
+- **Decision:** record the artifact as a solver-model finding, not a
+  presentation defect; do not mask it in extraction or rendering. Propose a
+  frozen solver-side discriminator (two-layer boundary density support for
+  floor and walls in the game profile, gate: wall-band monolayer in-plane
+  compression `<= 1.2` and no stall while the bulk arrives, plus step cost)
+  and stop pending the user's decision, because it changes physics under
+  its own contract and cost.
+- **Rejected:** hiding the stalled layer in the surface model, adding
+  friction or damping to the clamp to "explain" it, and extending the
+  visual corpus claim to the wall phase.
+- **Reconsider when:** the user authorizes the solver discriminator, or a
+  density-correction-only variant proves equivalent without boundary
+  samples.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1324,6 +1361,8 @@
 | HG6J | the visible streaks are particle-scale lattice texture | falsified: 50 mm ridge amplitude `7 mm`; `19--21%` of pixels are sphere-cap pits `> 50 mm` | closed |
 | HG6K | a dome envelope over the sphere mask fills pits without inventing water | falsified by its gate: lift p95 `0.27 m` at the falling column | closed; do not retune |
 | HG6L | a 5x5 grayscale closing fills pits while leaving the bulk surface | selected bounded: median lift `<= 10 mm`, `0` ceiling violations, pits `> 100 mm` gone, CPU/GPU exact masks | material and front edges |
+| HG7A | the invisible obstacle is a geometry or rendering mismatch | falsified: walls and contact box coincide within `12.5 mm`, the front reaches `3.994 m`, the wall band stays `50 mm` thin | closed |
+| HG7B | the obstacle is a stalled, in-plane compressed floor monolayer without boundary density support | supported bounded: `2.6x` compression, `~0 m/s` for `120` steps, second layer restores motion | solver-side discriminator (boundary support) |
 
 ## Do not retry
 
@@ -1336,10 +1375,13 @@
 
 ## Next action
 
-1. Water material within the locked B0 shader interface (base colour,
-   roughness/specular of the neutral material) judged through captures;
-   then the raw sphere heights at mask boundaries (front edges).
-2. Only if a runtime consumer appears: a compute-written ring without the
+1. User decision: run the frozen solver-side discriminator for the wall
+   monolayer stall (boundary density support in the game profile with the
+   D-047 gates and a step-cost measurement) before more presentation work,
+   because the artifact is visible in every wall interaction.
+2. Otherwise: water material within the locked B0 shader interface and the
+   raw sphere heights at mask boundaries.
+3. Only if a runtime consumer appears: a compute-written ring without the
    staging copy and an in-process ownership decision under its own ADR.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
