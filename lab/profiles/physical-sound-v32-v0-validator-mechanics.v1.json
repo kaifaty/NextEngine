@@ -1,0 +1,210 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "real_thresholds_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_mechanics_authority": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "d67bfabfb9d3d682b5c51be091a273131c7a8048",
+  "cache": {
+    "candidate_view_hash": "sha256-canonical-json",
+    "domain_separator": "nextengine.physical-sound-v32-v0-feature-cache.v1\\0",
+    "hash_composition": [
+      "profile_sha256_bytes",
+      "candidate_view_sha256_bytes",
+      "candidate_audio_sha256_bytes",
+      "target_clean_record_sha256_bytes"
+    ],
+    "warm_cold_equivalence_required": true
+  },
+  "candidate_view": {
+    "allowed_fields": [
+      "schema",
+      "record_id",
+      "target_case_id",
+      "audio",
+      "modal",
+      "lineage"
+    ],
+    "ignored_field_invariance_required": true,
+    "ignored_fields": [
+      "kind",
+      "source_case_id",
+      "expected",
+      "mutation",
+      "invariant_checks"
+    ]
+  },
+  "claim": "SYNTHETIC_VALIDATOR_MECHANICS_ONLY / NO_REAL_THRESHOLDS_MATERIAL_QUALITY_VALIDATOR_RELEASE_ML_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision_contract": {
+    "clean_decision": "Pass",
+    "expected_pass_count": 9,
+    "expected_reject_count": 7,
+    "mutation_decision": "Reject",
+    "out_of_domain": {
+      "decision": "OutOfDomain",
+      "reason_code": "UnsupportedTargetCase"
+    },
+    "reason_precedence": [
+      "ProvenanceMismatch",
+      "PcmClipping",
+      "RetrievalCopyDetected",
+      "ModalCoverageCollapsed",
+      "ModalParameterMismatch",
+      "PhysicalDecayMismatch",
+      "TemporalEvolutionFrozen",
+      "EnvelopeOrderMismatch",
+      "IntegrityMismatch"
+    ]
+  },
+  "numeric_profile": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "execution": "single-thread-cpu-reference",
+    "float_wav_encoding": "mono-ieee-float32-little-endian",
+    "frame_count": 144000,
+    "randomness": "forbidden",
+    "sample_rate_hz": 48000,
+    "scalar_format": "ieee754-binary64-little-endian"
+  },
+  "parent": {
+    "t0_owner": {
+      "path": "lab/scripts/physical_sound_v32_t0_truth_mutations_v1.py",
+      "sha256": "4a0c5a5ea7cece8dfca2c8d346695bc826b9b375d94c2ef5aa1d723760391d6f"
+    },
+    "t0_profile": {
+      "path": "lab/profiles/physical-sound-v32-t0-truth-mutations.v1.json",
+      "sha256": "44d83804398b2e08a54dbe28e4e3269098b1112785d8377dac34a11d4e5eebe8"
+    },
+    "t0_result": {
+      "path": "docs/development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md",
+      "sha256": "b17631b4032d632bb0ae9d30e05a421895756d65ce961109da94fed962c15ce9"
+    }
+  },
+  "profile_id": "physical-sound-v32-v0-validator-mechanics-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v32-v0-validator-mechanics-protocol-2026-09-02.md",
+    "sha256": "301822d41da601d40705e9ea477a5b6e9eaa85085bc4c60f5590e5417709b525"
+  },
+  "publication": {
+    "artifact_order": "lexicographic-path-bytes",
+    "candidate_count": 16,
+    "candidate_files": [
+      "features.json",
+      "decision.json"
+    ],
+    "expected_file_count": 35,
+    "records_path": "records/<record-id>",
+    "top_level_files": [
+      "validator-mechanics-release.json",
+      "evidence.json",
+      "report.json"
+    ]
+  },
+  "resources": {
+    "max_candidate_count": 16,
+    "max_file_count": 35,
+    "max_input_bytes": 268435456,
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v32-v0-validator-mechanics-profile.v1",
+  "specialists": {
+    "envelope_order": {
+      "block_count": 12,
+      "block_size_samples": 12000,
+      "carrier_mask_relative_floor": "0.0001",
+      "monotonic_relative_tolerance": "0.000001",
+      "reason_code": "EnvelopeOrderMismatch",
+      "statistic": "median-abs-sample-over-target-carrier"
+    },
+    "integrity": {
+      "clipping_comparison": "abs(sample)>=full_scale",
+      "dc_over_rms_max": "0.5",
+      "full_scale": "1",
+      "minimum_rms": "0.000000000001",
+      "reason_code": "IntegrityMismatch",
+      "strict_canonical_wav": true
+    },
+    "modal_structure": {
+      "collapse_reason_code": "ModalCoverageCollapsed",
+      "parameter_reason_code": "ModalParameterMismatch",
+      "parameter_tolerance": "0"
+    },
+    "physical_decay": {
+      "reason_code": "PhysicalDecayMismatch",
+      "tolerance": "0"
+    },
+    "provenance": {
+      "reason_code": "ProvenanceMismatch",
+      "rule": "optional-actual-declared-pair-equal-and-parent-exists"
+    },
+    "retrieval": {
+      "reason_code": "RetrievalCopyDetected",
+      "rule": "audio-hash-equals-clean-different-target"
+    },
+    "temporal_evolution": {
+      "de_envelope": "multiply-by-exp-target-decay-time",
+      "lag_samples": 256,
+      "minimum_rms": "0.000000000001",
+      "normalized_rms_max": "0.00001",
+      "reason_code": "TemporalEvolutionFrozen"
+    }
+  },
+  "truth": {
+    "clean_case_ids": [
+      "baseline-plate",
+      "baseline-beam",
+      "intervention-youngs-modulus",
+      "intervention-density",
+      "intervention-thickness",
+      "intervention-uniform-scale",
+      "intervention-impulse",
+      "intervention-contact",
+      "intervention-support"
+    ],
+    "evidence_sha256": "b55bb66e798e199d40e166686f94bfe35f7f09457585d3edd80250e2e5bcd9b3",
+    "mutation_expectations": [
+      {
+        "reason_code": "PhysicalDecayMismatch",
+        "record_id": "mutation-wrong-decay"
+      },
+      {
+        "reason_code": "TemporalEvolutionFrozen",
+        "record_id": "mutation-frozen-carrier"
+      },
+      {
+        "reason_code": "EnvelopeOrderMismatch",
+        "record_id": "mutation-shuffled-envelope"
+      },
+      {
+        "reason_code": "ModalCoverageCollapsed",
+        "record_id": "mutation-mode-collapse"
+      },
+      {
+        "reason_code": "RetrievalCopyDetected",
+        "record_id": "mutation-spectral-copy"
+      },
+      {
+        "reason_code": "PcmClipping",
+        "record_id": "mutation-clipping"
+      },
+      {
+        "reason_code": "ProvenanceMismatch",
+        "record_id": "mutation-provenance-mismatch"
+      }
+    ],
+    "report_sha256": "60ab3dd66ed6fd1ae0eba0e25da9cc2a703528e8bf1b775ace56c3fd2be927ec",
+    "truth_release_sha256": "6a5ff92000e27b8db325f29a670055147bcc891267087100876866b341a5b1d9"
+  }
+}
