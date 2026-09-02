@@ -8073,10 +8073,39 @@ struct PresentationSurfaceFrame {
     double isotropic_maximum_depth_change = 0.0;
     std::uint64_t mesh_vertices = 0;
     std::uint64_t mesh_triangles = 0;
+    /// 0 = frozen NGQ5 sphere-cap heights; 1 = NGQ6 revision-2 heights: a
+    /// 5x5 grayscale closing of the sphere-cap height over the unchanged
+    /// sphere mask, before the unchanged NGQ5 pipeline.
+    int model = 0;
+    /// NGQ6 metrics: signed change against the raw sphere height on common
+    /// pixels (median, p95, minimum) and the count of pixels above the local
+    /// 5x5 raw maximum (structurally zero for a closing).
+    double lift_p50 = 0.0;
+    double lift_p95 = 0.0;
+    double lift_min = 0.0;
+    std::uint64_t ceiling_violations = 0;
     double extraction_ms = 0.0;
     std::string input_root;
     std::string root;
 };
+
+/// NGQ6 revision-2 presentation height source. Sphere-cap projection leaves
+/// pits wherever the top layer's circles (radius `r` at spacing `2r`) do not
+/// cover a pixel and a deeper particle shows through. A grayscale closing
+/// (dilation then erosion over the raw wet mask) with a 5x5 element, i.e.
+/// +-2 pixels = +-25 mm, fills pits narrower than the element and leaves
+/// wider structures and fronts unchanged. `height` is the closed field and
+/// `ceiling` the 5x5 local raw maximum, which bounds it structurally.
+/// Revision 1 (a broad dome envelope of support `2 * spacing`) was refuted
+/// by its own gate: it bridged real vertical gaps by up to `0.27 m`.
+struct GameDomeField {
+    bool valid = false;
+    std::vector<double> height;
+    std::vector<double> ceiling;
+};
+
+constexpr int GAME_CLOSING_RADIUS_PIXELS = 2;
+constexpr double GAME_CLOSING_LIFT_P50_LIMIT = GAME_RADIUS;
 
 struct PresentationSurfaceLane {
     std::string id;
@@ -8476,6 +8505,12 @@ SurfaceMaskComponents label_surface_mask(
 
 std::string presentation_surface_root(const PresentationSurfaceFrame& frame) {
     std::ostringstream material;
+    if (frame.model != 0) {
+        material << "nextengine.nonlocal.presentation-surface-frame-closing.v2\n"
+                 << std::hexfloat << frame.lift_p50 << ':' << frame.lift_p95 << ':'
+                 << frame.lift_min << ':' << std::defaultfloat
+                 << frame.ceiling_violations << '\n';
+    }
     material << "nextengine.nonlocal.presentation-surface-frame.v3\n"
              << frame.valid << ':' << frame.passed << ':' << frame.step << ':'
              << frame.width << ':' << frame.height << ':' << frame.raw_wet_pixels
@@ -8504,9 +8539,61 @@ std::string presentation_surface_root(const PresentationSurfaceFrame& frame) {
     return sha256_hex(material.str());
 }
 
+GameDomeField game_surface_dome_field(
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    const GameSurfaceFrame& raw) {
+    (void)fluid;
+    (void)box;
+    GameDomeField field;
+    const std::size_t pixels = static_cast<std::size_t>(raw.width) * raw.height;
+    if (!raw.valid || raw.wet.size() != pixels || raw.depth.size() != pixels) {
+        return field;
+    }
+    const auto filter = [&](const std::vector<double>& input, bool maximum) {
+        std::vector<double> output(pixels, 0.0);
+        for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+            for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+                const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                    + static_cast<std::size_t>(x);
+                if (raw.wet[pixel] == 0U) {
+                    continue;
+                }
+                double value = input[pixel];
+                for (std::int32_t dz = -GAME_CLOSING_RADIUS_PIXELS;
+                     dz <= GAME_CLOSING_RADIUS_PIXELS; ++dz) {
+                    for (std::int32_t dx = -GAME_CLOSING_RADIUS_PIXELS;
+                         dx <= GAME_CLOSING_RADIUS_PIXELS; ++dx) {
+                        const std::int32_t nx = x + dx;
+                        const std::int32_t nz = z + dz;
+                        if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                            || nz >= static_cast<std::int32_t>(raw.height)) {
+                            continue;
+                        }
+                        const std::size_t neighbor = static_cast<std::size_t>(nz)
+                            * raw.width + static_cast<std::size_t>(nx);
+                        if (raw.wet[neighbor] == 0U) {
+                            continue;
+                        }
+                        value = maximum ? std::max(value, input[neighbor])
+                                        : std::min(value, input[neighbor]);
+                    }
+                }
+                output[pixel] = value;
+            }
+        }
+        return output;
+    };
+    field.ceiling = filter(raw.depth, true);
+    field.height = filter(field.ceiling, false);
+    field.valid = true;
+    return field;
+}
+
 PresentationSurfaceFrame extract_presentation_surface(
     const GameSurfaceFrame& raw,
-    const GameQualityBox& box) {
+    const GameQualityBox& box,
+    const GameDomeField* dome = nullptr) {
     const auto begin = std::chrono::steady_clock::now();
     PresentationSurfaceFrame frame;
     frame.step = raw.step;
@@ -8514,11 +8601,15 @@ PresentationSurfaceFrame extract_presentation_surface(
     frame.height = raw.height;
     frame.raw_wet_pixels = raw.wet_pixels;
     frame.input_root = raw.root;
+    frame.model = dome != nullptr ? 1 : 0;
     const std::size_t pixels = static_cast<std::size_t>(raw.width) * raw.height;
     const bool dimensions_valid = raw.width != 0U && raw.height != 0U
         && raw.wet.size() == pixels && raw.depth.size() == pixels;
     bool input_valid = raw.valid && dimensions_valid && raw.wet_pixels != 0U
-        && game_surface_root(raw) == raw.root;
+        && game_surface_root(raw) == raw.root
+        && (dome == nullptr
+            || (dome->valid && dome->height.size() == pixels && dome->ceiling.size() == pixels));
+    const std::vector<double>& height_source = dome != nullptr ? dome->height : raw.depth;
     if (input_valid) {
         for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
             input_valid = input_valid && (raw.wet[pixel] == 0U
@@ -8618,7 +8709,7 @@ PresentationSurfaceFrame extract_presentation_surface(
                 continue;
             }
             if (retained[pixel] != 0U) {
-                base_depth[pixel] = raw.depth[pixel];
+                base_depth[pixel] = height_source[pixel];
                 continue;
             }
             double sum = 0.0;
@@ -8634,7 +8725,7 @@ PresentationSurfaceFrame extract_presentation_surface(
                     const std::size_t neighbor = static_cast<std::size_t>(nz)
                         * raw.width + static_cast<std::size_t>(nx);
                     if (retained[neighbor] != 0U) {
-                        sum += raw.depth[neighbor];
+                        sum += height_source[neighbor];
                         ++count;
                     }
                 }
@@ -8695,6 +8786,7 @@ PresentationSurfaceFrame extract_presentation_surface(
 
     std::vector<double> depth_changes;
     std::vector<double> isotropic_depth_changes;
+    std::vector<double> lifts;
     frame.local_fill_only = true;
     std::uint32_t surface_min_x = frame.width;
     std::uint32_t surface_max_x = 0U;
@@ -8732,6 +8824,11 @@ PresentationSurfaceFrame extract_presentation_surface(
                 }
                 frame.local_fill_only = frame.local_fill_only && retained_neighbor;
             }
+        }
+        if (raw_wet && surface_wet && dome != nullptr) {
+            lifts.push_back(frame.depth[pixel] - raw.depth[pixel]);
+            frame.ceiling_violations += static_cast<std::uint64_t>(
+                frame.depth[pixel] > dome->ceiling[pixel] + 1.0e-9);
         }
         if (raw_wet && surface_wet) {
             const double change = std::abs(frame.depth[pixel] - raw.depth[pixel]);
@@ -8787,18 +8884,26 @@ PresentationSurfaceFrame extract_presentation_surface(
             }
         }
     }
+    if (!lifts.empty()) {
+        frame.lift_p50 = game_percentile(lifts, 0.50);
+        frame.lift_p95 = game_percentile(lifts, 0.95);
+        frame.lift_min = *std::min_element(lifts.begin(), lifts.end());
+    }
     frame.valid = frame.wet_pixels != 0U && frame.common_pixels != 0U
         && std::all_of(frame.depth.begin(), frame.depth.end(), [](double value) {
             return std::isfinite(value);
         });
-    frame.passed = frame.valid && frame.components == 1U
+    const bool mask_passed = frame.valid && frame.components == 1U
         && frame.local_fill_only
         && *std::max_element(frame.bounding_box_expansion_pixels.begin(),
                frame.bounding_box_expansion_pixels.end()) <= 1U
         && frame.area_ratio >= 0.95 && frame.area_ratio <= 1.40
-        && frame.common_coverage >= 0.95 && frame.depth_rmse <= 0.025
-        && frame.depth_p95_change <= 0.050 && frame.mesh_vertices != 0U
+        && frame.common_coverage >= 0.95 && frame.mesh_vertices != 0U
         && frame.mesh_triangles != 0U;
+    frame.passed = dome == nullptr
+        ? (mask_passed && frame.depth_rmse <= 0.025 && frame.depth_p95_change <= 0.050)
+        : (mask_passed && frame.lift_p50 <= GAME_CLOSING_LIFT_P50_LIMIT
+            && frame.ceiling_violations == 0U);
     frame.extraction_ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - begin).count();
     frame.root = presentation_surface_root(frame);
@@ -9691,6 +9796,48 @@ __global__ void surface_splat_kernel(
     }
 }
 
+/// NGQ6 revision-2 grayscale filters over the raw wet mask: `maximum`
+/// selects the dilation, otherwise the erosion. Two passes form the closing.
+__global__ void surface_closing_filter_kernel(
+    const unsigned char* wet,
+    const unsigned long long* input_bits,
+    unsigned width,
+    unsigned height,
+    bool maximum,
+    unsigned long long* output_bits) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    if (wet[pixel] == 0U) {
+        output_bits[pixel] = 0ULL;
+        return;
+    }
+    const int x = static_cast<int>(pixel % width);
+    const int z = static_cast<int>(pixel / width);
+    // Non-negative doubles order like their bit patterns, so max/min on the
+    // bits equals max/min on the heights.
+    unsigned long long value = input_bits[pixel];
+    for (int dz = -GAME_CLOSING_RADIUS_PIXELS; dz <= GAME_CLOSING_RADIUS_PIXELS; ++dz) {
+        for (int dx = -GAME_CLOSING_RADIUS_PIXELS; dx <= GAME_CLOSING_RADIUS_PIXELS; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= static_cast<int>(width)
+                || nz >= static_cast<int>(height)) {
+                continue;
+            }
+            const unsigned neighbor = static_cast<unsigned>(nz) * width
+                + static_cast<unsigned>(nx);
+            if (wet[neighbor] == 0U) {
+                continue;
+            }
+            const unsigned long long candidate = input_bits[neighbor];
+            value = maximum ? max(value, candidate) : min(value, candidate);
+        }
+    }
+    output_bits[pixel] = value;
+}
+
 __device__ bool surface_neighbor_all(
     const unsigned char* mask, unsigned width, unsigned height, int x, int z) {
     bool all = true;
@@ -9748,7 +9895,7 @@ __global__ void surface_erode_kernel(
 __global__ void surface_base_depth_kernel(
     const unsigned char* closed,
     const unsigned char* retained,
-    const unsigned long long* depth_bits,
+    const unsigned long long* height_bits,
     unsigned width,
     unsigned height,
     double* base_depth,
@@ -9762,7 +9909,7 @@ __global__ void surface_base_depth_kernel(
         return;
     }
     if (retained[pixel] != 0U) {
-        base_depth[pixel] = __longlong_as_double(static_cast<long long>(depth_bits[pixel]));
+        base_depth[pixel] = __longlong_as_double(static_cast<long long>(height_bits[pixel]));
         return;
     }
     const int x = static_cast<int>(pixel % width);
@@ -9780,7 +9927,7 @@ __global__ void surface_base_depth_kernel(
             const unsigned neighbor = static_cast<unsigned>(nz) * width
                 + static_cast<unsigned>(nx);
             if (retained[neighbor] != 0U) {
-                sum += __longlong_as_double(static_cast<long long>(depth_bits[neighbor]));
+                sum += __longlong_as_double(static_cast<long long>(height_bits[neighbor]));
                 ++count;
             }
         }
@@ -9846,8 +9993,8 @@ __global__ void surface_bilateral_kernel(
 /// are not computed; `verify` mode compares against that reference instead.
 class GpuSurfaceExtractor {
 public:
-    GpuSurfaceExtractor(const GameQualityBox& box, std::size_t particle_capacity)
-        : box_(box), particle_capacity_(particle_capacity) {
+    GpuSurfaceExtractor(const GameQualityBox& box, std::size_t particle_capacity, int model)
+        : box_(box), particle_capacity_(particle_capacity), model_(model) {
         const double cells_x = (box.maximum.x - box.minimum.x) / GAME_VISUAL_PIXEL_PITCH;
         const double cells_z = (box.maximum.z - box.minimum.z) / GAME_VISUAL_PIXEL_PITCH;
         width_ = static_cast<unsigned>(std::llround(cells_x));
@@ -9882,6 +10029,8 @@ public:
             "create surface stream");
         check_cuda(cudaMalloc(&positions_, particle_capacity * sizeof(float3)), "surface positions");
         check_cuda(cudaMalloc(&depth_bits_, pixels_ * sizeof(unsigned long long)), "surface depth bits");
+        check_cuda(cudaMalloc(&dome_bits_, pixels_ * sizeof(unsigned long long)), "surface dome bits");
+        check_cuda(cudaMalloc(&ceiling_bits_, pixels_ * sizeof(unsigned long long)), "surface ceiling bits");
         check_cuda(cudaMalloc(&wet_, pixels_), "surface wet");
         check_cuda(cudaMalloc(&retained_, pixels_), "surface retained");
         check_cuda(cudaMalloc(&dilated_, pixels_), "surface dilated");
@@ -9899,6 +10048,8 @@ public:
         cudaStreamSynchronize(stream_);
         cudaFree(positions_);
         cudaFree(depth_bits_);
+        cudaFree(dome_bits_);
+        cudaFree(ceiling_bits_);
         cudaFree(wet_);
         cudaFree(retained_);
         cudaFree(dilated_);
@@ -9924,6 +10075,7 @@ public:
         frame.step = step;
         frame.width = width_;
         frame.height = height_;
+        frame.model = model_;
         if (fluid.empty() || fluid.size() > particle_capacity_) {
             failure = "gpu_surface_particle_capacity";
             return false;
@@ -9979,19 +10131,32 @@ public:
                        cudaMemcpyHostToDevice, stream_),
             "upload surface retained");
         const int blocks = blocks_for(pixels_);
+        if (model_ != 0) {
+            surface_closing_filter_kernel<<<blocks, THREADS, 0, stream_>>>(
+                wet_, depth_bits_, width_, height_, true, ceiling_bits_);
+            surface_closing_filter_kernel<<<blocks, THREADS, 0, stream_>>>(
+                wet_, ceiling_bits_, width_, height_, false, dome_bits_);
+        }
         surface_dilate_kernel<<<blocks, THREADS, 0, stream_>>>(retained_, width_, height_, dilated_);
         surface_erode_kernel<<<blocks, THREADS, 0, stream_>>>(dilated_, width_, height_, closed_);
         surface_base_depth_kernel<<<blocks, THREADS, 0, stream_>>>(
-            closed_, retained_, depth_bits_, width_, height_, base_depth_, error_);
+            closed_, retained_, model_ != 0 ? dome_bits_ : depth_bits_, width_, height_,
+            base_depth_, error_);
         surface_bilateral_kernel<<<blocks, THREADS, 0, stream_>>>(
             closed_, base_depth_, width_, height_, box_.minimum.y, box_.maximum.y, depth_);
         frame.wet.resize(pixels_);
         frame.depth.resize(pixels_);
-        if (raw_depth != nullptr) {
+        if (raw_depth != nullptr || model_ != 0) {
             host_depth_bits_.resize(pixels_);
             check_cuda(cudaMemcpyAsync(host_depth_bits_.data(), depth_bits_,
                            pixels_ * sizeof(unsigned long long), cudaMemcpyDeviceToHost, stream_),
                 "download surface raw depth");
+        }
+        if (model_ != 0) {
+            host_ceiling_bits_.resize(pixels_);
+            check_cuda(cudaMemcpyAsync(host_ceiling_bits_.data(), ceiling_bits_,
+                           pixels_ * sizeof(unsigned long long), cudaMemcpyDeviceToHost, stream_),
+                "download surface ceiling");
         }
         check_cuda(cudaMemcpyAsync(frame.wet.data(), closed_, pixels_, cudaMemcpyDeviceToHost, stream_),
             "download surface closed");
@@ -10005,13 +10170,42 @@ public:
             failure = "gpu_surface_fill";
             return false;
         }
+        const auto bits_to_double = [](std::uint64_t bits) {
+            double value = 0.0;
+            std::memcpy(&value, &bits, sizeof(value));
+            return value;
+        };
         if (raw_depth != nullptr) {
             raw_depth->resize(pixels_);
             for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
-                std::uint64_t bits = host_depth_bits_[pixel];
-                double value = 0.0;
-                std::memcpy(&value, &bits, sizeof(value));
-                (*raw_depth)[pixel] = value;
+                (*raw_depth)[pixel] = bits_to_double(host_depth_bits_[pixel]);
+            }
+        }
+        if (model_ != 0) {
+            std::vector<double> lifts;
+            lifts.reserve(frame.raw_wet_pixels);
+            for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
+                if (frame.wet[pixel] == 0U || raw_wet[pixel] == 0U) {
+                    continue;
+                }
+                lifts.push_back(frame.depth[pixel] - bits_to_double(host_depth_bits_[pixel]));
+                frame.ceiling_violations += static_cast<std::uint64_t>(
+                    frame.depth[pixel] > bits_to_double(host_ceiling_bits_[pixel]) + 1.0e-9);
+            }
+            if (!lifts.empty()) {
+                // Same nearest-rank definition as `game_percentile` without
+                // the full sort; this runs on every live frame.
+                const auto nearest_rank = [&lifts](double probability) {
+                    const std::size_t rank = static_cast<std::size_t>(
+                        std::ceil(probability * static_cast<double>(lifts.size())));
+                    const std::size_t index = std::max<std::size_t>(1U, rank) - 1U;
+                    std::nth_element(lifts.begin(), lifts.begin() + static_cast<std::ptrdiff_t>(index),
+                        lifts.end());
+                    return lifts[index];
+                };
+                frame.lift_min = *std::min_element(lifts.begin(), lifts.end());
+                frame.lift_p50 = nearest_rank(0.50);
+                frame.lift_p95 = nearest_rank(0.95);
             }
         }
         bool finite_depths = true;
@@ -10042,12 +10236,18 @@ public:
             failure = "gpu_surface_invalid";
             return false;
         }
+        if (model_ != 0
+            && (frame.lift_p50 > GAME_CLOSING_LIFT_P50_LIMIT || frame.ceiling_violations != 0U)) {
+            failure = "gpu_surface_closing_gate";
+            return false;
+        }
         return true;
     }
 
 private:
     GameQualityBox box_;
     std::size_t particle_capacity_;
+    int model_ = 0;
     unsigned width_ = 0U;
     unsigned height_ = 0U;
     std::size_t pixels_ = 0U;
@@ -10055,6 +10255,8 @@ private:
     cudaStream_t stream_{};
     float3* positions_ = nullptr;
     unsigned long long* depth_bits_ = nullptr;
+    unsigned long long* dome_bits_ = nullptr;
+    unsigned long long* ceiling_bits_ = nullptr;
     unsigned char* wet_ = nullptr;
     unsigned char* retained_ = nullptr;
     unsigned char* dilated_ = nullptr;
@@ -10065,6 +10267,7 @@ private:
     std::vector<float3> host_positions_;
     std::vector<std::uint8_t> host_retained_;
     std::vector<unsigned long long> host_depth_bits_;
+    std::vector<unsigned long long> host_ceiling_bits_;
 };
 
 enum class StreamExtractorMode { Cpu, Gpu, Verify };
@@ -10094,6 +10297,16 @@ struct GpuSurfaceVerification {
     double gpu_total_ms = 0.0;
 };
 
+/// NGQ6 accumulators over streamed frames (CPU or GPU, whichever was emitted).
+struct DomeSurfaceStats {
+    std::uint64_t frames = 0U;
+    std::uint64_t gate_failures = 0U;
+    double maximum_lift_p50 = 0.0;
+    double maximum_lift_p95 = 0.0;
+    double minimum_lift = 0.0;
+    std::uint64_t ceiling_violations = 0U;
+};
+
 struct StreamExtractionJob {
     std::vector<Particle> fluid;
     int step = 0;
@@ -10115,9 +10328,10 @@ public:
         const GameQualityBox& box,
         unsigned workers,
         StreamExtractorMode mode,
-        std::size_t particle_capacity)
+        std::size_t particle_capacity,
+        int surface_model)
         : out_(out), box_(box), capacity_(std::max(1U, workers) * 2U), mode_(mode),
-          particle_capacity_(particle_capacity) {
+          particle_capacity_(particle_capacity), surface_model_(surface_model) {
         for (unsigned index = 0; index < std::max(1U, workers); ++index) {
             workers_.emplace_back([this] { run(); });
         }
@@ -10126,6 +10340,11 @@ public:
     GpuSurfaceVerification verification() const {
         std::lock_guard<std::mutex> lock(mutex_);
         return verification_;
+    }
+
+    DomeSurfaceStats dome_stats() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return dome_stats_;
     }
 
     StreamExtractor(const StreamExtractor&) = delete;
@@ -10198,7 +10417,7 @@ private:
         std::unique_ptr<GpuSurfaceExtractor> gpu;
         if (mode_ != StreamExtractorMode::Cpu) {
             try {
-                gpu = std::make_unique<GpuSurfaceExtractor>(box_, particle_capacity_);
+                gpu = std::make_unique<GpuSurfaceExtractor>(box_, particle_capacity_, surface_model_);
             } catch (const std::exception& error) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 if (failure_.empty()) {
@@ -10235,11 +10454,26 @@ private:
                 if (!raw.valid) {
                     failure = "surface_observer";
                 } else {
-                    frame = extract_presentation_surface(raw, box_);
-                    extraction_ms = frame.extraction_ms;
-                    frame_ready = frame.valid;
-                    if (!frame.valid) {
-                        failure = "surface_extraction";
+                    GameDomeField dome;
+                    if (surface_model_ != 0) {
+                        const auto dome_begin = std::chrono::steady_clock::now();
+                        dome = game_surface_dome_field(job.fluid, box_, raw);
+                        observer_ms += std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - dome_begin).count();
+                    }
+                    if (surface_model_ != 0 && !dome.valid) {
+                        failure = "surface_dome_field";
+                    } else {
+                        frame = extract_presentation_surface(
+                            raw, box_, surface_model_ != 0 ? &dome : nullptr);
+                        extraction_ms = frame.extraction_ms;
+                        frame_ready = frame.valid;
+                        if (!frame.valid) {
+                            failure = "surface_extraction";
+                        } else if (surface_model_ != 0 && !frame.passed) {
+                            failure = "surface_closing_gate";
+                            frame_ready = false;
+                        }
                     }
                 }
                 if (failure.empty() && mode_ == StreamExtractorMode::Verify) {
@@ -10305,6 +10539,19 @@ private:
                 observer_total_ms_ += observer_ms;
                 extraction_total_ms_ += extraction_ms;
                 frame_wall_max_ms_ = std::max(frame_wall_max_ms_, frame_wall_ms);
+                if (surface_model_ != 0 && (frame_ready || failure == "surface_closing_gate"
+                        || failure == "gpu_surface_closing_gate")) {
+                    ++dome_stats_.frames;
+                    dome_stats_.gate_failures += static_cast<std::uint64_t>(!frame_ready);
+                    dome_stats_.maximum_lift_p50 =
+                        std::max(dome_stats_.maximum_lift_p50, frame.lift_p50);
+                    dome_stats_.maximum_lift_p95 =
+                        std::max(dome_stats_.maximum_lift_p95, frame.lift_p95);
+                    dome_stats_.minimum_lift = dome_stats_.frames == 1U
+                        ? frame.lift_min
+                        : std::min(dome_stats_.minimum_lift, frame.lift_min);
+                    dome_stats_.ceiling_violations += frame.ceiling_violations;
+                }
                 verification_.frames += verified.frames;
                 verification_.raw_mask_mismatch_pixels += verified.raw_mask_mismatch_pixels;
                 verification_.closed_mask_mismatch_pixels +=
@@ -10353,7 +10600,9 @@ private:
     std::size_t capacity_;
     StreamExtractorMode mode_;
     std::size_t particle_capacity_;
+    int surface_model_ = 0;
     GpuSurfaceVerification verification_;
+    DomeSurfaceStats dome_stats_;
     mutable std::mutex mutex_;
     std::condition_variable condition_;
     std::vector<StreamExtractionJob> queue_;
@@ -10378,8 +10627,15 @@ CommandReport run_cuda_game_surface_stream(
     int cycles,
     int workers,
     const std::string& extractor_name,
+    const std::string& surface_model_name,
     std::ostream& frames) {
     const StreamExtractorMode extractor_mode = parse_stream_extractor_mode(extractor_name);
+    int surface_model = 0;
+    if (surface_model_name == "closing") {
+        surface_model = 1;
+    } else if (surface_model_name != "sphere") {
+        throw std::invalid_argument("stream surface model must be sphere or closing");
+    }
     if (steps < 1 || steps > 100000 || every < 1 || every > steps || cycles < 0
         || cycles > 1000000 || workers < 1 || workers > 16) {
         throw std::invalid_argument(
@@ -10431,7 +10687,8 @@ CommandReport run_cuda_game_surface_stream(
     const auto stream_begin = std::chrono::steady_clock::now();
     StreamExtractor extractor(
         frames, box, static_cast<unsigned>(workers), extractor_mode,
-        static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y) * lattice_z);
+        static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y) * lattice_z,
+        surface_model);
     for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
          ++cycle) {
         std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z, lattice_y);
@@ -10545,6 +10802,7 @@ CommandReport run_cuda_game_surface_stream(
     }
     const std::uint64_t frames_written = extractor.frames_written();
     const GpuSurfaceVerification verification = extractor.verification();
+    const DomeSurfaceStats dome_stats = extractor.dome_stats();
     const double total_extraction_ms = extractor.extraction_total_ms();
     const double total_observer_ms = extractor.observer_total_ms();
     const double frame_wall_max_ms = extractor.frame_wall_max_ms();
@@ -10565,6 +10823,15 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"frame_every_steps\":" << every
            << ",\"extraction_workers\":" << extractor.worker_count()
            << ",\"extractor\":\"" << extractor_name << "\""
+           << ",\"surface_model\":\"" << surface_model_name << "\""
+           << ",\"closing_surface\":{\"frames\":" << dome_stats.frames
+           << ",\"gate_failures\":" << dome_stats.gate_failures
+           << ",\"maximum_lift_p50_m\":" << dome_stats.maximum_lift_p50
+           << ",\"maximum_lift_p95_m\":" << dome_stats.maximum_lift_p95
+           << ",\"minimum_lift_m\":" << dome_stats.minimum_lift
+           << ",\"ceiling_violations\":" << dome_stats.ceiling_violations
+           << ",\"lift_p50_limit_m\":" << GAME_CLOSING_LIFT_P50_LIMIT
+           << ",\"closing_radius_pixels\":" << GAME_CLOSING_RADIUS_PIXELS << '}'
            << ",\"gpu_verification\":{\"frames\":" << verification.frames
            << ",\"raw_mask_mismatch_pixels\":" << verification.raw_mask_mismatch_pixels
            << ",\"closed_mask_mismatch_pixels\":" << verification.closed_mask_mismatch_pixels

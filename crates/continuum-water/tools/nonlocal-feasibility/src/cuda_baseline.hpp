@@ -119,6 +119,7 @@ CommandReport run_cuda_game_surface_stream(
     int cycles,
     int workers,
     const std::string& extractor_name,
+    const std::string& surface_model_name,
     std::ostream& frames);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
