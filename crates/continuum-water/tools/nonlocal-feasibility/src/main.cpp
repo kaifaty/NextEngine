@@ -85,7 +85,7 @@ void print_usage() {
               << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
               << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam> "
                  "[--steps 960] [--every 4] [--cycles 1] [--workers 3] "
-                 "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>]\n"
+                 "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>] [--boundary-layers 0|1|2] [--boundary-support full|density]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -187,6 +187,8 @@ int main(int argc, char** argv) {
             std::string extractor = "cpu";
             std::string surface_model = "sphere";
             std::string particle_dump;
+            int boundary_layers = 0;
+            std::string boundary_support = "full";
             for (int index = 2; index + 1 < argc; index += 2) {
                 const std::string key = argv[index];
                 const std::string value = argv[index + 1];
@@ -206,6 +208,10 @@ int main(int argc, char** argv) {
                     surface_model = value;
                 } else if (key == "--dump-particles") {
                     particle_dump = value;
+                } else if (key == "--boundary-layers") {
+                    boundary_layers = std::stoi(value);
+                } else if (key == "--boundary-support") {
+                    boundary_support = value;
                 } else {
                     print_usage();
                     return 2;
@@ -220,7 +226,7 @@ int main(int argc, char** argv) {
             std::signal(SIGPIPE, SIG_IGN);
             const auto report = nextengine::nonlocal::run_cuda_game_surface_stream(
                 lane, steps, every, cycles, workers, extractor, surface_model, std::cout,
-                particle_dump);
+                particle_dump, boundary_layers, boundary_support);
             std::cerr << report.json << '\n';
             return report.passed ? 0 : 1;
         }

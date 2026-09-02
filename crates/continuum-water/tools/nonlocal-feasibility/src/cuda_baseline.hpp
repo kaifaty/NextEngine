@@ -121,7 +121,9 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& extractor_name,
     const std::string& surface_model_name,
     std::ostream& frames,
-    const std::string& particle_dump_prefix = {});
+    const std::string& particle_dump_prefix = {},
+    int boundary_layers = 0,
+    const std::string& boundary_support = "full");
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

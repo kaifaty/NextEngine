@@ -1280,6 +1280,8 @@ __global__ void accumulate_fused_owner_terms_p1(
     const float* density,
     const int* offsets,
     const NeighborIndex* neighbors,
+    const std::uint8_t* fixed,
+    bool density_only_support,
     float* source,
     float* matrix,
     int count,
@@ -1344,13 +1346,15 @@ __global__ void accumulate_fused_owner_terms_p1(
             density_diagonal += diagonal;
             density_diagonal += diagonal;
         }
+        // NGQ7 revision 2: a fixed boundary sample supports density only.
+        const bool density_only_neighbor = density_only_support && fixed[neighbor] != 0U;
 
         if constexpr (BulkEnabled || ShearEnabled) {
             // Retained O2 specialized viscosity association and add order.
             const float3 reference_delta =
                 subtract3(reference[neighbor], reference[particle]);
             const float viscosity_radius = length3(reference_delta);
-            if (viscosity_radius > CUDA_PAIR_EPSILON) {
+            if (!density_only_neighbor && viscosity_radius > CUDA_PAIR_EPSILON) {
                 const float3 direction = multiply3(1.0F / viscosity_radius, reference_delta);
                 const float components[3] = {direction.x, direction.y, direction.z};
                 const float weight = device_cubic_weight(viscosity_radius, horizon, scale);
@@ -1391,7 +1395,7 @@ __global__ void accumulate_fused_owner_terms_p1(
         if constexpr (SurfaceEnabled) {
             // Retained surface owner association and add order.
             const float surface_radius = length3(subtract3(own, other));
-            if (surface_radius > CUDA_PAIR_EPSILON) {
+            if (!density_only_neighbor && surface_radius > CUDA_PAIR_EPSILON) {
                 const float positive = surface_positive_cuda(surface_radius, spacing);
                 const float negative = surface_negative_cuda(surface_radius, spacing);
                 const float diagonal = surface_coefficient * positive / surface_radius;
@@ -2617,11 +2621,13 @@ private:
 
     template <bool Bulk, bool Shear, bool Surface>
     void enqueue_fused_owner_terms(const float3* solver_reference) {
+        const std::uint8_t* solver_fixed = uses_cell_local_storage() ? sorted_fixed_ : fixed_;
+        const bool density_only_support = fixture_.boundary_density_only;
         if (neighbor_reuse_mode_ == NeighborReuseMode::CertifiedVerletP4) {
             accumulate_fused_owner_terms_p1<std::uint16_t, Bulk, Shear, Surface, true>
                 <<<blocks_for(count_), THREADS>>>(
                     solver_reference, current_, density_, neighbor_offsets_, compact_neighbors_,
-                    source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -2630,7 +2636,7 @@ private:
             accumulate_fused_owner_terms_p1<std::uint16_t, Bulk, Shear, Surface>
                 <<<blocks_for(count_), THREADS>>>(
                     solver_reference, current_, density_, neighbor_offsets_, compact_neighbors_,
-                    source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -2638,8 +2644,8 @@ private:
         } else {
             accumulate_fused_owner_terms_p1<int, Bulk, Shear, Surface>
                 <<<blocks_for(count_), THREADS>>>(
-                    solver_reference, current_, density_, neighbor_offsets_, neighbors_, source_,
-                    matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_reference, current_, density_, neighbor_offsets_, neighbors_,
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -7505,7 +7511,8 @@ Fixture game_fixture(
     const std::vector<Particle>& fluid,
     const GameQualityBox& box,
     int iterations,
-    std::size_t neighbor_capacity = 123U) {
+    std::size_t neighbor_capacity = 123U,
+    int boundary_layers = 0) {
     Fixture fixture;
     fixture.name = name;
     fixture.rest_density = profile.rest_density;
@@ -7521,7 +7528,7 @@ Fixture game_fixture(
     fixture.terms = profile.terms;
     fixture.iterations = iterations;
     fixture.particles = fluid;
-    const std::size_t boundary = append_game_boundary(fixture, box, 0);
+    const std::size_t boundary = append_game_boundary(fixture, box, boundary_layers);
     fixture.pair_capacity = (fluid.size() + boundary) * neighbor_capacity;
     fixture.analytic_box_contact = true;
     fixture.contact_minimum = box.minimum;
@@ -10629,8 +10636,16 @@ CommandReport run_cuda_game_surface_stream(
     const std::string& extractor_name,
     const std::string& surface_model_name,
     std::ostream& frames,
-    const std::string& particle_dump_prefix) {
+    const std::string& particle_dump_prefix,
+    int boundary_layers,
+    const std::string& boundary_support) {
+    if (boundary_support != "full" && boundary_support != "density") {
+        throw std::invalid_argument("stream boundary support must be full or density");
+    }
     const StreamExtractorMode extractor_mode = parse_stream_extractor_mode(extractor_name);
+    if (boundary_layers < 0 || boundary_layers > 2) {
+        throw std::invalid_argument("stream boundary layers must be 0, 1 or 2");
+    }
     if (!particle_dump_prefix.empty() && !game_frame_prefix_valid(particle_dump_prefix)) {
         throw std::invalid_argument("particle dump prefix contains unsupported characters");
     }
@@ -10687,6 +10702,7 @@ CommandReport run_cuda_game_surface_stream(
     double maximum_step_wall_ms = 0.0;
     std::size_t maximum_degree = 0U;
     std::size_t dynamic_samples = 0U;
+    std::size_t boundary_samples = 0U;
     std::string first_failure;
     const auto stream_begin = std::chrono::steady_clock::now();
     StreamExtractor extractor(
@@ -10739,9 +10755,13 @@ CommandReport run_cuda_game_surface_stream(
         // particle state on the device and `execute(capture, advance)` hands
         // the published positions/velocities to the next step without a
         // host round trip. Host state is refreshed only on emitted frames.
+        // NGQ7: optional fixed lattice complement on all box faces gives the
+        // floor and wall neighbourhoods their density support (D-047).
         Fixture fixture = game_fixture(
             profile, "game-stream-" + lane, fluid, box, profile.fixed_iterations,
-            profile.max_neighbors);
+            profile.max_neighbors, boundary_layers);
+        boundary_samples = fixture.particles.size() - fluid.size();
+        fixture.boundary_density_only = boundary_support == "density";
         fixture.advected = true;
         // The persistent grid is sized once from the initial column; give it
         // the whole basin so particles never leave the neighbor grid.
@@ -10771,7 +10791,7 @@ CommandReport run_cuda_game_surface_stream(
             if (audit) {
                 maximum_degree = std::max(maximum_degree, run.state.maximum_degree);
                 step_valid = step_valid && game_finite(run, fluid.size())
-                    && run.state.next_position.size() == fluid.size()
+                    && run.state.next_position.size() == fluid.size() + boundary_samples
                     && run.state.directed_pairs <= fixture.pair_capacity
                     && run.state.maximum_degree <= profile.max_neighbors;
                 ++audits;
@@ -10792,7 +10812,7 @@ CommandReport run_cuda_game_surface_stream(
                     }
                 } else {
                     gpu.download_positions(published);
-                    if (published.size() != fluid.size()) {
+                    if (published.size() != fluid.size() + boundary_samples) {
                         first_failure = "output_size";
                         break;
                     }
@@ -10844,6 +10864,9 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile)) << "\""
            << ",\"binary_sha256\":\"" << executable_hash() << "\""
            << ",\"dynamic_samples\":" << dynamic_samples
+           << ",\"boundary_layers\":" << boundary_layers
+           << ",\"boundary_support\":\"" << boundary_support << "\""
+           << ",\"boundary_samples\":" << boundary_samples
            << ",\"requested_steps\":" << steps
            << ",\"frame_every_steps\":" << every
            << ",\"extraction_workers\":" << extractor.worker_count()

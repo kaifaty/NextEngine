@@ -38,6 +38,9 @@ struct Fixture {
     Vec3 contact_maximum{};
     double particle_radius = 0.0;
     bool advected = false;
+    /// NGQ7 revision 2: fixed boundary samples support density and the
+    /// incompressibility term only; viscosity and surface terms skip them.
+    bool boundary_density_only = false;
     int trace_length = 1;
 };
 
