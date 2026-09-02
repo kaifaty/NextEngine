@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V29_ADOPTED / V28_R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED / Q0_M_METAL_ROLE_REBASELINE_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_RESEARCH / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V29_ADOPTED / V28_M0C_CLOSED / Q0M_REPEAT_EXACT_ZERO_SIGNAL_IDENTITIES_FEASIBLE / Q1M_ROLE_POWER_FREEZE_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_RESEARCH / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -22,10 +22,10 @@
   separate prerequisites. The historical split remains Glass-specific and
   cannot be relabelled for Metal; internet evidence, automatic admission,
   deterministic cooking and authored fallback remain binding.
-- **R0 protocol:** [M0c prefix/resource gate](../physical-sound-v28-r0-m0c-prefix-resource-protocol-2026-09-02.md)
-  is frozen at `28cab428…9000`: only the synthetic render horizon may change;
-  exact loss/gradient, complete-entry and two `10,000`-step resource gates must
-  pass before official access.
+- **Q0-M result:** [source inventory](../physical-sound-v29-q0m-metal-source-inventory-result-2026-09-02.md)
+  passes twice byte-exactly with zero signal access. After 30 historical
+  exclusions, 23 exact-Steel, 39 broad-Metal and 70 non-Metal identities remain
+  across two projects; roles, freshness and effective power remain unfrozen.
 - **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
@@ -44,8 +44,8 @@
 - **R0 result:** [implementation conformance](../physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md)
   passes full-entry A/B and actual official contexts at commit `db85c799`, root
   `d013ec35…f456`; no model/query/protected value opened.
-- **Next action:** freeze Q0-M Metal source identities, one-use roles and power
-  from metadata only. In parallel P0 may freeze one physics-locked modal plus
+- **Next action:** freeze Q1-M exposure, cluster power and one-use roles from
+  Q0-M identities. In parallel P0 may freeze one physics-locked modal plus
   learned-correction family; neither lane may open protected signal values.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
@@ -84,18 +84,18 @@
 | V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V29 Q0-M–P4 | `Q0_M_METAL_ROLE_REBASELINE_NEXT / VALIDATOR_AND_GENERATOR_LANES_SEPARATE` | The old Glass-target split cannot validate Metal. Q0-M/Q1-M source power and P0/P1 causal known truth must pass before real Metal training, cooker/demo, Glass/Wood or promotion. |
+| V29 Q0-M–P4 | `Q0M_IDENTITIES_FEASIBLE / Q1M_ROLE_POWER_FREEZE_NEXT / LANES_SEPARATE` | Q0-M leaves 23 exact-Steel, 39 broad-Metal and 70 non-Metal groups after historical exclusion. Q1-M power and P0/P1 causal truth must pass before real training or cooking. |
 
-## Material transition: V29 separates validator truth from generator truth
+## Material transition: Q0-M opens only the role/power audit
 
-- **Observation:** M0c is causally rejected, while the existing frozen
-  validator split defines Glass as target and Metal as reject evidence.
-- **Evidence:** V28 A/B causal failures plus the PS-2 immutable target/reject
-  semantics and AV-P0C's `0.7923` false-pass upper bound.
-- **Conclusion:** neither M0c nor a relabelled Glass validator can admit Metal.
-- **Decision:** Q0-M rebuilds Metal roles/power; P0 freezes a physics-locked
-  hybrid generator independently. Protected signals remain sealed.
-- **Smallest next action:** metadata-only Q0-M source/role/power inventory.
+- **Observation:** exact source identity is now sufficient, but 109 available
+  groups have no fresh one-use role or effective cluster-power certificate.
+- **Evidence:** Q0-M repeats exactly with 23 Steel and 70 non-Metal candidates
+  across two projects; all source payload and protected counters remain zero.
+- **Conclusion:** source search need not precede Q1, but Q2 remains blocked.
+- **Decision:** Q1-M freezes exact Steel policy, exposure, power and roles;
+  P0 freezes the hybrid generator independently. Signals remain sealed.
+- **Smallest next action:** Q1-M metadata-only exposure/power protocol.
 
 ## Durable negative knowledge
 
@@ -166,7 +166,7 @@
 | D-047 | V28 H0 proves the frozen synthetic loss observes only the first `4,096` of `144,000` rendered samples; five random fixtures preserve losses/components/gradients exactly and measured steps are `83.7×` faster. Fresh M0c may change only this render horizon after a full-owner cost oracle. | A frozen equivalence fixture differs, a future loss consumes a later sample, or the official-shape cost oracle misses its preregistered envelope. |
 | D-049 | R0 `28cab428…9000` and R1 root `524411d3…6d32` admit M0c execution: exact prefix/gradients, complete-entry A/B and two 10,000-step runs pass at `164.616/155.428 s` and `~1.01 GB`. This authorizes fresh official R2 only, not a quality/runtime claim. | R2 finds an implementation/access defect or a frozen M0c identity/hash mismatch before its values open. |
 | D-050 | R2 A/B repeat all six artifacts and close M0c: output-space frequency/gain/spectrum improve, but decay, remesh and physical interventions reject before holdout. Opened values may attribute failure but cannot select a nearby retry or automatically authorize waveform/codec latent. | A fresh preregistered family structurally enforces physical interventions/remesh invariance on unopened evidence, or a source/access defect invalidates R2. |
-| D-051 | V29 keeps the Glass-target split immutable, rebuilds Metal validator roles from metadata and separates a frozen multi-specialist validator from a physics-locked modal-plus-learned-correction generator. | Q0-M proves the source semantics were misread, or P0 known truth falsifies the bounded hybrid factorization before protected real access. |
+| D-051 | V29 keeps the Glass split immutable; Q0-M proves two-project identity power after exact exclusion, while Q1 roles/power and the physics-locked generator remain independent prerequisites. | Q1 finds effective/fresh protected power insufficient, or P0 known truth falsifies the bounded hybrid factorization. |
 
 ## Open hypotheses
 
@@ -175,7 +175,7 @@
 | H1: deterministic scale-separated ridge generalizes poles/damping | B0 passes twice exactly at `4.434/15.891 cents` and `0.001226/0.004701` damping | Synthetic truth is not a real-material claim | `CLOSED_SYNTHETIC_PASS`; freeze B0 hash |
 | H2: prefix-bounded M0c preserves the model hypothesis within budget | Exact execution/resource pass; frequency/gain/spectrum beat ridge | Decay, remesh and all physical counterfactuals fail repeat-exactly | `CLOSED_REPRESENTATION_REJECT`; fresh family only |
 | H3: composite integrity/fill/reachability detects missing contact support | C0 passes twice: zero valid false OOD, every mutation cell `1.0` | Synthetic scope only | `CLOSED_SYNTHETIC_PASS`; freeze exact C0 hashes |
-| H4: automatic validator reaches useful bounded risk | M0b calibrates synthetic metrics and I1 actual acoustics pass | No Metal-correct independent validator or shadow result | V29 Q0-M/Q1-M/Q2/Q3 then A0 |
+| H4: automatic validator reaches useful bounded risk | Q0-M proves raw two-project identity counts | No role-power freeze, Metal validator or shadow result | V29 Q1-M/Q2/Q3 then A0 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V29 K0/D0 after Metal A0 Pass |
 
 ## Do not retry
@@ -240,11 +240,11 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** V24 D0/T0 and V25 M0a-I implementations are in Git; datasets,
+- **Workspace:** Q0-M owner/protocol/result are in Git; inventories, datasets,
   PCM, weights and generated audio remain external.
 - **Isolation:** object-92 PCM/force/YAML numeric values remain sealed; object
   41 microphone and every protected role also remain sealed.
 - **Quality:** B0/C0/M0b pass; F0 conformance and V20 I1 reject. No real
   formula, validator, atlas or runtime integration exists; fallback is authority.
-- **Next commit boundary:** V29 Q0-M metadata-only Metal source/role/power
-  freeze; fallback remains authority.
+- **Next commit boundary:** V29 Q1-M metadata-only exposure/power/role freeze;
+  fallback remains authority.

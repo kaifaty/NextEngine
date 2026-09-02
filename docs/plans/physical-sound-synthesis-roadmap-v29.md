@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / V28_M0C_CLOSED / METAL_ROLE_REBASELINE_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_GENERATOR_RESEARCH / INTERNET_ONLY / AUTOMATIC_ADMISSION / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V28_M0C_CLOSED / Q0M_SOURCE_IDENTITIES_FEASIBLE / Q1M_ROLE_POWER_FREEZE_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_GENERATOR_RESEARCH / INTERNET_ONLY / AUTOMATIC_ADMISSION / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V28](physical-sound-synthesis-roadmap-v28.md) as planning authority; all V28 evidence, protected-value access records and closed-family stop rules remain immutable |
 | Research basis | [V29 rebaseline](../development/physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; current authored clips and deterministic gameplay acoustic facts remain authority |
@@ -55,7 +55,7 @@ evidence; it is never relabelled or used to tune Metal thresholds.
 
 ```mermaid
 flowchart TD
-    S0["S0 preserve V28 evidence"] --> Q0["Q0-M Metal metadata and role freeze"]
+    S0["S0 preserve V28 evidence"] --> Q0["Q0-M Metal metadata inventory"]
     Q0 --> Q1["Q1-M power and split freeze"]
     Q1 --> Q2["Q2 Validator V1 implementation"]
     Q2 --> Q3["Q3 Validator qualification"]
@@ -84,8 +84,8 @@ sources; Q2/Q3 may use only validator-designated sources.
 | ID | Package | State | Exit criterion |
 | --- | --- | --- | --- |
 | S0 | V28 closure and lineage | `COMPLETE` | V28 R2 remains the repeat-exact `REPRESENTATION_REJECT`; M0c values cannot select a retry and all protected access records remain immutable. |
-| Q0-M | Signal-blind Metal source inventory | `NEXT` | Hash-freeze exact online source/project/object/material identities, licenses/provenance, declared acquisition axes and missing axes without decoding protected signal values. The old Glass target split is excluded from Metal positives. |
-| Q1-M | Metal power and role freeze | `BLOCKED_BY_Q0-M` | Freeze source/project/object-disjoint `validator-development`, `validator-calibration`, `validator-holdout`, generator roles and `joint-admission-shadow`; prove at least `35` independent reject parents, `16` Metal positive groups and multi-project coverage for each protected validator evaluation required by the protocol. |
+| Q0-M | Signal-blind Metal source inventory | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL / IDENTITIES_FEASIBLE` | [Q0-M](../development/physical-sound-v29-q0m-metal-source-inventory-result-2026-09-02.md) preserves exact labels and excludes 30 historical overlaps; 23 exact-Steel, 39 broad-Metal and 70 non-Metal groups remain across two project revisions. No role or freshness claim. |
+| Q1-M | Metal power and role freeze | `NEXT` | Freeze source/project/object-disjoint `validator-development`, `validator-calibration`, `validator-holdout`, generator roles and `joint-admission-shadow`; prove at least `35` independent reject parents, `16` Metal positive groups and multi-project coverage for each protected validator evaluation required by the protocol. |
 | Q2 | Independent Validator V1 | `BLOCKED_BY_Q1-M` | A separate CLI combines hard PCM/provenance checks, causal envelope/decay, temporal-spectral descriptors, a hash-pinned frozen BEATs candidate and explicit OOD abstention. CLAP remains report-only. Two clean runs are byte-identical and no generator dependency exists. |
 | Q3 | Validator qualification | `BLOCKED_BY_Q2` | Calibration alone selects thresholds. One object/project-disjoint validator holdout meets the frozen false-pass upper bound, positive-coverage lower bound, mutation rejection and leave-project-out requirements. Failure closes the validator release; it does not tune from holdout or open joint shadow. |
 | P0 | Physics-locked generator protocol | `READY / PARALLEL_WITH_Q` | Freeze one classical differentiable modal control and one neural correction model whose outputs are bounded damping/radiation/modal-participation corrections around classical geometry/material modes. Bind resource, remesh and counterfactual gates before values. |
@@ -257,11 +257,10 @@ learned corrections, validator releases and immutable failures.
 
 ## Immediate execution order
 
-1. Freeze Q0-M metadata-only Metal source inventory and prove whether enough
-   source/project/object identities exist.
-2. If feasible, freeze Q1-M roles, counts, cluster method, thresholds policy
-   and protected-access order; otherwise publish OOD and acquire another
-   internet source.
+1. Preserve Q0-M's repeat-exact zero-signal identity result; it grants no role
+   or protected-access credit.
+2. Freeze Q1-M roles, counts, cluster method, thresholds policy and protected-
+   access order; publish OOD if freshness or effective power is insufficient.
 3. In parallel, freeze P0's one physics-locked generator family and
    value-independent resource/counterfactual owner.
 4. Implement/qualify Q2/Q3 and run P1 known truth independently.
