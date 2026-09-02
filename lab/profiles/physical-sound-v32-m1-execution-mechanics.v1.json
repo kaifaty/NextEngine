@@ -1,0 +1,153 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": true,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "969eaf17bf127ca4389cc119974265c4423899db",
+  "candidate_serialization": {
+    "dtype": "little-endian-float64",
+    "format": "magic-version-lexicographic-name-rank-shape-values",
+    "framework_checkpoint_forbidden": true,
+    "prediction_branch_order": [
+      "decay",
+      "global_gain",
+      "contact"
+    ]
+  },
+  "claim": "SYNTHETIC_KNOWN_TRUTH_TOURNAMENT_ONLY / NO_REAL_MATERIAL_QUALITY_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "controls": {
+    "identity": "exact-binary64-zero",
+    "nearest": {
+      "distance": "branch-local-squared-euclidean",
+      "scan_order": "canonical-row-id",
+      "tie_break": "lexicographically-smallest-row-id"
+    },
+    "ridge": {
+      "intercept": "unregularized-from-centred-means",
+      "lambda": "0.000001",
+      "solver": "numpy-linalg-solve-float64"
+    }
+  },
+  "dependencies": {
+    "m0_conformance_result": {
+      "path": "docs/development/physical-sound-v32-m0-physics-locked-residual-conformance-result-2026-09-02.md",
+      "sha256": "8d3c52f292a4ac18376f3ecfd7f9ce54b00a9154082ff54879a50de65df592dd"
+    },
+    "m0_owner": {
+      "path": "lab/scripts/physical_sound_v32_m0_physics_locked_residual_v1.py",
+      "sha256": "2965a3aca9d3da9774bb9f51b0180276b073e60fb1df3e667d32e072128f0e51"
+    },
+    "m0_profile": {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    "m0_protocol": {
+      "path": "docs/development/physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md",
+      "sha256": "fc646a410dd51216ca1bfe050cf338eca920f006715d2266d0a2fcc1ccb19781"
+    },
+    "t0_result": {
+      "path": "docs/development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md",
+      "sha256": "b17631b4032d632bb0ae9d30e05a421895756d65ce961109da94fed962c15ce9"
+    },
+    "v0a_result": {
+      "path": "docs/development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md",
+      "sha256": "1fc5809eefb7dac86a71d79ffe39a9d5cacf27d81bfd46330524e91d23050aa2"
+    }
+  },
+  "development_ablations": {
+    "contact_zero_feature_indices": [
+      9,
+      10,
+      11
+    ],
+    "material_zero_feature_indices": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "retrain": false
+  },
+  "execution": {
+    "comparison": "two-fresh-processes-a-b-byte-exact",
+    "deterministic_algorithms": true,
+    "interop_threads": 1,
+    "intraop_threads": 1,
+    "run_b_is_retry": false
+  },
+  "hard_gate_scope": {
+    "corrected_render_roles": [
+      "development",
+      "method_holdout"
+    ],
+    "dependency_identity_roles": [
+      "t0_result",
+      "v0a_result"
+    ],
+    "impulse_ratios": [
+      "0.5",
+      "1",
+      "2"
+    ],
+    "protected_roles": "all-m0-hard-gates",
+    "train": "finite-features-targets-and-p1-construction"
+  },
+  "metrics": {
+    "aggregate": "mean(rmse_decay/0.20,rmse_global_gain/0.16,rmse_contact/0.22)",
+    "best_control": "minimum-measured-role-rmse-among-identity-ridge-nearest",
+    "branch": "sqrt(mean((prediction-oracle)^2))",
+    "zero_denominator": "exact-zero-numerator-passes-and-reports-zero-else-fail"
+  },
+  "profile_id": "physical-sound-v32-m1-execution-mechanics-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v32-m1-execution-mechanics-protocol-2026-09-02.md",
+    "sha256": "26d43b1a38371810f08a9eda9a49eda32f3350f3a8e918d920d00d83f7e892ca"
+  },
+  "publication": {
+    "common_files": [
+      "corpus-manifest.json",
+      "control-report.json",
+      "candidate-weights.bin",
+      "development-predictions.bin",
+      "evidence.json",
+      "report.json"
+    ],
+    "development_pass_file": "candidate-freeze.json",
+    "fresh_external_output": true,
+    "holdout_opened_file": "method-holdout-report.json",
+    "maximum_files": 8
+  },
+  "revision": 1,
+  "role_order": [
+    "train",
+    "development",
+    "method_holdout"
+  ],
+  "row_order": [
+    "role",
+    "family_index",
+    "material_index",
+    "geometry_cell_index",
+    "contact_index",
+    "modal_ordinal"
+  ],
+  "schema": "nextengine.experimental-physical-sound-v32-m1-execution-mechanics-profile.v1",
+  "terminal_decisions": [
+    "PASS_KNOWN_TRUTH_TOURNAMENT",
+    "REJECT_DEVELOPMENT",
+    "REJECT_METHOD_HOLDOUT",
+    "REJECT_HARD_GATE",
+    "REJECT_RESOURCE",
+    "REJECT_NONDETERMINISTIC",
+    "CONTRACT_REJECT"
+  ]
+}
