@@ -155,9 +155,13 @@ classical owner as research machinery and authored clips as product fallback.
 
 ## Resource and access accounting
 
-The owner records monotonic wall duration, process peak RSS, output byte count,
-role row/case/group counts, network requests and real/protected signal values.
-The latter three must remain exact zero. Wall time must not exceed 300 seconds,
+The owner records deterministic within-limit flags, output byte count, role
+row/case/group counts, network requests and real/protected signal values in its
+artifact closure. The outer execution harness records the actual monotonic wall
+duration and process peak RSS for each fresh process. Operational wall/RSS
+numbers are deliberately excluded from byte-exact artifact preimages; their
+per-process pass/fail flags are included. Network requests and real/protected
+signal values must remain exact zero. Wall time must not exceed 300 seconds,
 peak RSS must not exceed 1 GiB and output must not exceed 64 MiB. A resource
 failure is terminal; thresholds, roles and steps are not reduced.
 
