@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V33 / R0_F0_I0_COMPLETE / D0_NEXT / V32_M1_FAMILY_CLOSED / FRESH_SYNTHETIC_ROLES_FROZEN / VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V33_TERMINAL / D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_ZERO_ACCESS / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-02` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V33 I0](../physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md)
-  proves the complete `1,811`-parameter spectral owner, raw-MLP/ridge/nearest
-  controls, clamped stencil and all P1 hard gates twice exactly on 18 discarded
-  cases while every official target/model role stays unopened.
+- **Current conclusion:** [V33 D0](../physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md)
+  repeats the same post-training `nodal_zero_exact` contract reject because
+  development has no nodal witness. No artifact or quality inference is valid;
+  train/development are spent and holdout remains exact zero.
 - **Planning authority:** [Roadmap V33](../../plans/physical-sound-synthesis-roadmap-v33.md)
   selects one fixed spectral plus P1 mode-local contact successor, fresh roles
   and separate geometry/contact/joint generalization strata;
@@ -44,7 +44,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V33 R0/F0/I0:** [bounded research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) selects the representation; [F0](../physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) freezes fresh roles and [I0](../physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md) passes complete-owner conformance without official values.
-- **Next action:** execute D0 train/development in two fresh CPU processes; any hard/metric miss closes V33 before holdout. S0 remains independent and bounded to three named leads.
+- **Next action:** supersede V33 with fresh roles only after a zero-target per-role hard-gate witness census and discarded-fixture whole-owner terminal-publication preflight are frozen. S0 remains independent and bounded to three named leads.
 - **Spend rule:** object `41` becomes a permanent acquisition-OOD fixture. Do
   not lower force coverage, choose favorable contacts or open its microphone,
   development, holdout, validator or shadow roles.
@@ -83,14 +83,14 @@
 | V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
-| V33 R0–PR | `R0_F0_I0_COMPLETE / D0_NEXT / FRESH_SYNTHETIC_ROLES_FROZEN / SOURCE_FRONTIER_PRESERVED / REAL_RELEASE_BLOCKED` | I0 proves one spectral+mode-local owner with zero official values; D0 must now beat all frozen controls before holdout, and all real `6/27` gates remain unchanged. |
+| V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
 
-## Material transition: V33 mode-local successor
+## Material transition: V33 protocol-coverage reject
 
-- **Evidence:** [F0](../physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) freezes the profile; [I0](../physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md) repeats exact feature, control, stencil and P1-hard evidence with zero official access.
-- **Conclusion:** implementation uncertainty is closed; only D0 can answer whether the frozen representation generalizes better than its controls.
-- **Decision:** owner `8a12af…f5b0` is frozen for D0; its discarded losses cannot select changes, and holdout stays sealed until full development pass.
-- **Smallest next action:** run D0 A/B once under the `300 s / 1 GiB` envelope, or retain P1/authored fallback on any miss.
+- **Evidence:** [D0](../physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) returns the same exit/stdout/stderr twice after development access and before artifact publication.
+- **Conclusion:** the official role lacks the exact nodal witness required by its own hard gate; candidate quality remains unobserved.
+- **Decision:** close V33, never open its H0 and do not repair/retry its spent roles. Preserve the spectral hypothesis only under a fresh preregistered protocol.
+- **Smallest next action:** freeze a zero-target structural witness census and whole-owner atomic-terminal preflight before any successor model run.
 
 ## Durable negative knowledge
 
@@ -169,7 +169,7 @@
 | D-056 | V0a passes repeat-exactly with `9 Pass / 7 Reject`, both lawful alias classes and plate→beam rejection. It grants M0 protocol sequencing only, never real validation or ProductCheck credit. | A V0a identity/probe defect appears before M0 values or a fresh preregistered mutation escapes the frozen specialist conjunction. |
 | D-057 | M0 cannot predict frequency or consume mesh resolution/object/role labels. Three bounded positive multipliers preserve P1 nodes, signs, impulse scaling and remesh identity structurally; M1 is one-shot. | Value-independent conformance falsifies a structural invariant or official M1 closes the family without selecting a nearby retry. |
 | D-058 | M0 owner conformance passes repeat-exactly at 1,491 parameters with zero development/holdout rows. The 3-step loss is a discarded finite-gradient probe, never candidate evidence. | An identity/test defect appears before M1 or M1 returns its frozen terminal pass/reject/resource result. |
-| D-059 | V33 F0 freezes one fixed surface-spectral plus P1 mode-local lift and I0 owner `8a12af…f5b0` proves its complete mechanics with zero official values. D0 must beat raw MLP, nearest and spectral ridge; no SIREN/GNN/capacity sweep is authorized. | D0/H0 rejects, an I0 identity defect appears before D0, or new primary evidence motivates a materially different topology representation under a new roadmap. |
+| D-059 | V33 D0 is spent and closed after a repeat-exact post-training `nodal_zero_exact` protocol reject with no artifact or quality inference. H0 stays exact zero. | Never reopen V33; a successor needs fresh roles, zero-target hard-gate witness census and whole-owner terminal-publication preflight. |
 
 ## Open hypotheses
 
@@ -243,8 +243,8 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace:** Q1a/E2/V32 and V33 R0/F0/I0 are in Git; generated artifacts remain external.
+- **Workspace:** Q1a/E2/V32 and V33 R0/F0/I0/D0 are in Git; generated artifacts remain external.
 - **Isolation:** every Q1 role and payload stays sealed; object 41/92 rules also
   remain unchanged.
-- **Quality:** B0/C0/M0b, T0/V0a and V33 F0/I0 mechanics pass; V19 F0 and V20 I1 remain rejected; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
-- **Next commit boundary:** V33 D0 one-shot fresh development tournament; fallback remains authority.
+- **Quality:** B0/C0/M0b, T0/V0a and V33 F0/I0 mechanics pass, but D0 is a protocol reject with no quality inference; no real formula, validator release, atlas or runtime integration exists and fallback remains authority.
+- **Next commit boundary:** fresh-role successor roadmap with structural/terminal-path preflights before training; fallback remains authority.

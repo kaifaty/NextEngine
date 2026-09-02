@@ -3,11 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / R0_F0_I0_COMPLETE / D0_NEXT / V32_M1_FAMILY_CLOSED / FRESH_SYNTHETIC_ROLES_FROZEN / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `TERMINAL / R0_F0_I0_COMPLETE / D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / V33_FAMILY_CLOSED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V32](physical-sound-synthesis-roadmap-v32.md) as planning authority; all V32 evidence, one-use roles, source thresholds and closed-family decisions remain immutable |
 | Research basis | [V33 mode-local spectral successor research](../development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) |
 | Trigger evidence | [V32 M1 terminal result](../development/physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) |
-| Current evidence | [I0 mode-local spectral owner conformance](../development/physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md) |
+| Terminal evidence | [D0 fresh-development contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | Evidence comes from the internet; the user records no impacts and does not validate sounds one by one |
 
@@ -136,7 +136,7 @@ passes in full.
 flowchart TD
     R0["R0 bounded research: complete"] --> F0["F0 fresh roles and mechanics freeze: complete"]
     F0 --> I0["I0 value-independent conformance: complete"]
-    I0 --> D0["D0 fresh development tournament"]
+    I0 --> D0["D0 contract reject: no nodal witness"]
     D0 -->|"Pass"| H0["H0 one-shot method holdout"]
     D0 -->|"Reject"| GF["P1 plus authored fallback"]
     H0 -->|"Reject"| GF
@@ -168,8 +168,8 @@ failed upstream role.
 | R0 | Bounded successor research | [`COMPLETE`](../development/physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md) | Primary prior art, six competing hypotheses, selected smallest candidate, fresh-evidence rule and terminal stop conditions are recorded without opening a new oracle/model value. |
 | F0 | Fresh-role and mechanics freeze | [`COMPLETE / REPEAT_EXACT / ZERO_NEW_VALUES`](../development/physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md) | Canonical profile binds new materials/cells/contacts, truth-bank commitment, three strata, exact feature lift/stencil, candidate/controls, seed/training, access order, metrics, A/B semantics and resources before values. |
 | I0 | Value-independent owner conformance | [`COMPLETE / REPEAT_EXACT / OFFICIAL_VALUES_UNOPENED`](../development/physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md) | Complete owning entry point proves dependency/hash closure, feature dimensions, boundary stencil behavior, parameter count, zero protected access, atomic failure and all P1 invariants on discarded non-official fixtures. |
-| D0 | Fresh development tournament | `NEXT` | A/B artifacts repeat exactly; every hard gate passes; contact beats raw MLP, nearest and spectral ridge at frozen aggregate and per-stratum bounds; decay/global gain do not regress. Otherwise close before holdout. |
-| H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate and controls open the committed holdout once; every branch/stratum and aggregate comparison passes twice exactly with no post-development change. |
+| D0 | Fresh development tournament | [`REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE`](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) | Both processes deterministically reject because development has no exact nodal-zero witness. Train/development are spent; no metric or artifact closure is admissible. |
+| H0 | One-shot method holdout | `RETIRED_UNOPENED / EXACT_ZERO_ACCESS` | D0 did not pass. The committed holdout is never opened by V33. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without opening signal. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with at least five further projects reserved for other one-use roles. |
 | V1 | Real validator qualification | `BLOCKED_BY_S1` | Project/object-disjoint calibration obtains grouped 95% false-pass upper bound `<=0.10` and useful-coverage lower bound `>=0.80`; mutation and leave-project-out checks repeat. |
@@ -232,10 +232,10 @@ an automatic V33 retry.
    twice exactly without materializing train, development or holdout targets.
 3. **V33.2 — complete:** the complete external owner and focused contract probes
    pass I0 twice exactly on discarded non-official fixtures.
-4. **V33.3 — next:** execute D0 in two fresh CPU processes. On any miss, publish one
-   terminal reject and keep H0 at exact zero access.
-5. **V33.4:** only after D0 pass, hash-freeze the candidate and spend H0 once;
-   publish pass/reject without tuning.
+4. **V33.3 — terminal:** both D0 processes repeat the same post-training
+   `nodal_zero_exact` contract reject and publish no artifact. No quality
+   inference is allowed; train/development are spent and H0 remains exact zero.
+5. **V33.4 — retired unopened:** D0 did not pass, so H0 can never run in V33.
 6. **V33.S:** continue source batches only at coherent boundaries, at most three
    named primary-source leads per batch.
 7. **V33.5:** after both H0 and S1 pass, qualify V1 independently and execute
