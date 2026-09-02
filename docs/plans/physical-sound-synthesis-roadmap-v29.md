@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / V28_M0C_CLOSED / Q0M_SOURCE_IDENTITIES_FEASIBLE / Q1M_ROLE_POWER_FREEZE_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_GENERATOR_RESEARCH / INTERNET_ONLY / AUTOMATIC_ADMISSION / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / V28_M0C_CLOSED / Q0M_SOURCE_IDENTITIES_FEASIBLE / Q1M_SOURCE_POWER_OOD / Q1AM_SOURCE_GROWTH_NEXT / VALIDATOR_FIRST / CAUSAL_HYBRID_GENERATOR_RESEARCH / INTERNET_ONLY / AUTOMATIC_ADMISSION / CLIP_FALLBACK / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V28](physical-sound-synthesis-roadmap-v28.md) as planning authority; all V28 evidence, protected-value access records and closed-family stop rules remain immutable |
 | Research basis | [V29 rebaseline](../development/physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; current authored clips and deterministic gameplay acoustic facts remain authority |
@@ -33,6 +33,15 @@ corpus cannot validate Metal because its Metal entries are explicit
 power the first gate. The old Glass split remains immutable diagnostic
 evidence; it is never relabelled or used to tune Metal thresholds.
 
+[Q1-M](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md)
+then proved that the raw Q0 counts cannot populate the protected topology:
+there are two project revisions against a nine-project role floor, `23/32`
+exact-Steel groups for the two protected evaluations and exactly `70/70`
+non-Metal rejects, leaving none for development/calibration. All `109`
+identities are exposure-accounted, but none has a current freshness
+certificate. The current release is therefore terminal OOD and Q1a-M source
+growth is next; no protected signal or role opened.
+
 ## Program invariants
 
 1. **Three certificates stay separate.** Generator capability, validator
@@ -56,8 +65,10 @@ evidence; it is never relabelled or used to tune Metal thresholds.
 ```mermaid
 flowchart TD
     S0["S0 preserve V28 evidence"] --> Q0["Q0-M Metal metadata inventory"]
-    Q0 --> Q1["Q1-M power and split freeze"]
-    Q1 --> Q2["Q2 Validator V1 implementation"]
+    Q0 --> Q1["Q1-M v1 power audit: source OOD"]
+    Q1 --> Q1A["Q1a-M independent internet source growth"]
+    Q1A --> Q1R["fresh Q1-M role freeze"]
+    Q1R --> Q2["Q2 Validator V1 implementation"]
     Q2 --> Q3["Q3 Validator qualification"]
 
     S0 --> P0["P0 causal-hybrid protocol"]
@@ -75,8 +86,8 @@ flowchart TD
     W0 --> P4["P4 product decision"]
 ```
 
-Q0–Q3 and P0–P1 may progress independently. They meet only after both sides
-have immutable release identities. P2 may use only generator-designated
+Q1a/Q2/Q3 and P0–P1 may progress independently. They meet only after both
+sides have immutable release identities. P2 may use only generator-designated
 sources; Q2/Q3 may use only validator-designated sources.
 
 ## Work packages
@@ -85,12 +96,13 @@ sources; Q2/Q3 may use only validator-designated sources.
 | --- | --- | --- | --- |
 | S0 | V28 closure and lineage | `COMPLETE` | V28 R2 remains the repeat-exact `REPRESENTATION_REJECT`; M0c values cannot select a retry and all protected access records remain immutable. |
 | Q0-M | Signal-blind Metal source inventory | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL / IDENTITIES_FEASIBLE` | [Q0-M](../development/physical-sound-v29-q0m-metal-source-inventory-result-2026-09-02.md) preserves exact labels and excludes 30 historical overlaps; 23 exact-Steel, 39 broad-Metal and 70 non-Metal groups remain across two project revisions. No role or freshness claim. |
-| Q1-M | Metal power and role freeze | `NEXT` | Freeze source/project/object-disjoint `validator-development`, `validator-calibration`, `validator-holdout`, generator roles and `joint-admission-shadow`; prove at least `35` independent reject parents, `16` Metal positive groups and multi-project coverage for each protected validator evaluation required by the protocol. |
-| Q2 | Independent Validator V1 | `BLOCKED_BY_Q1-M` | A separate CLI combines hard PCM/provenance checks, causal envelope/decay, temporal-spectral descriptors, a hash-pinned frozen BEATs candidate and explicit OOD abstention. CLAP remains report-only. Two clean runs are byte-identical and no generator dependency exists. |
+| Q1-M | Metal power and role freeze | `COMPLETE / REPEAT_EXACT / ZERO_SIGNAL / SOURCE_POWER_OOD / NO_ROLE_ASSIGNMENT` | [Q1-M](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md) accounts for all `109` identities but finds `2/9` role projects, `2/4` protected projects, `23/32` exact-Steel positives, `70/70` protected rejects and zero current freshness-certified groups. All protected payloads remain sealed. |
+| Q1a-M | Independent Metal source growth | `NEXT` | Freeze at least seven additional independent internet project revisions, at least nine additional exact-Steel groups before unprotected needs, reject capacity beyond the protected `70` floor and one current metadata-only exposure ledger. Then rerun Q1-M as a fresh release with unchanged gates. |
+| Q2 | Independent Validator V1 | `BLOCKED_BY_Q1a-M_AND_FRESH_Q1-M` | A separate CLI combines hard PCM/provenance checks, causal envelope/decay, temporal-spectral descriptors, a hash-pinned frozen BEATs candidate and explicit OOD abstention. CLAP remains report-only. Two clean runs are byte-identical and no generator dependency exists. |
 | Q3 | Validator qualification | `BLOCKED_BY_Q2` | Calibration alone selects thresholds. One object/project-disjoint validator holdout meets the frozen false-pass upper bound, positive-coverage lower bound, mutation rejection and leave-project-out requirements. Failure closes the validator release; it does not tune from holdout or open joint shadow. |
 | P0 | Physics-locked generator protocol | `READY / PARALLEL_WITH_Q` | Freeze one classical differentiable modal control and one neural correction model whose outputs are bounded damping/radiation/modal-participation corrections around classical geometry/material modes. Bind resource, remesh and counterfactual gates before values. |
 | P1 | Synthetic known-truth tournament | `BLOCKED_BY_P0` | Complete-owner A/B repeats exactly; classical control and neural candidate are tested on unopened geometry/material/remesh truth. The candidate must pass decay, remesh and Young's-modulus/density/thickness/scale interventions before real PCM access. |
-| P2 | Disclosed-real Metal training | `BLOCKED_BY_P1_PASS_AND_Q1-M` | Train one frozen candidate on generator-only internet roles with exact meshes/contact/force where published. Compare against classical inverse-fit and retrieval baselines; validator sources, thresholds and shadow remain inaccessible. |
+| P2 | Disclosed-real Metal training | `BLOCKED_BY_P1_PASS_AND_FRESH_Q1-M` | Train one frozen candidate on generator-only internet roles with exact meshes/contact/force where published. Compare against classical inverse-fit and retrieval baselines; validator sources, thresholds and shadow remain inaccessible. |
 | P3 | Metal method holdout | `BLOCKED_BY_P2` | Open one untouched object/project-disjoint generator holdout once. Candidate beats both controls on preregistered causal and acoustic metrics without checkpoint, threshold or architecture selection. |
 | A0 | Joint Metal admission | `BLOCKED_BY_Q3_PASS_AND_P3_PASS` | Freeze generator, cooker preprofile and Validator V1 hashes, then open one joint admission shadow exactly once. All hard physics, acoustic, false-pass, coverage and OOD gates pass automatically, or the result is terminal Reject/OOD. |
 | K0 | Deterministic clip cooker | `BLOCKED_BY_A0_PASS` | One accepted record renders/cooks twice to byte-identical bounded 48 kHz PCM plus provenance. Invalid, stale, oversized, corrupt or OOD input publishes nothing and resolves to the declared authored fallback. |
@@ -247,7 +259,7 @@ learned corrections, validator releases and immutable failures.
 | Boundary | Minimum verification | Commit boundary |
 | --- | --- | --- |
 | V29 docs | `git diff --check`, direct link/path/identifier validation | Research, roadmap and planning-context update |
-| Q0-M/Q1-M | Exact source identity replay, leakage/power audit, no-signal access audit | Inventory and role/power freeze separately |
+| Q0-M/Q1-M/Q1a-M | Exact source identity replay, leakage/power audit, current exposure audit and no-signal access audit | Inventory, power result and each source-growth increment separately |
 | Q2/Q3 | Python/Rust format/lint/focused tests, model/checkpoint hash validation, exact repeats, grouped risk and access audit | Implementation, release and qualification separately |
 | P0/P1 | Complete owner fixtures, resource oracle, remesh/counterfactual truth and exact repeats | Protocol, implementation and truth result separately |
 | P2/P3/A0 | Split audit, controls, one-use access log and immutable terminal report | Candidate, method holdout and admission separately |
@@ -257,10 +269,12 @@ learned corrections, validator releases and immutable failures.
 
 ## Immediate execution order
 
-1. Preserve Q0-M's repeat-exact zero-signal identity result; it grants no role
+1. Preserve Q0-M and Q1-M as exact zero-signal evidence: raw identities exist,
+   but the current two-project release is source-power OOD and grants no role
    or protected-access credit.
-2. Freeze Q1-M roles, counts, cluster method, thresholds policy and protected-
-   access order; publish OOD if freshness or effective power is insufficient.
+2. Run Q1a-M source growth: add independent exact-Steel/reject-bearing internet
+   projects and a current exposure ledger, then rerun Q1-M as a fresh release
+   without weakening `16/35` or project-disjoint gates.
 3. In parallel, freeze P0's one physics-locked generator family and
    value-independent resource/counterfactual owner.
 4. Implement/qualify Q2/Q3 and run P1 known truth independently.
