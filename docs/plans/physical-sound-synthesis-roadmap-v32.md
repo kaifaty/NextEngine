@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / P0_P1_T0_COMPLETE / V0_V1_CLEAN_FALSE_POSITIVE_REJECT / V0A_PROTOCOL_FROZEN / V0A_IMPLEMENTATION_NEXT / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
+| Status | `ADOPTED / P0_P1_T0_V0A_COMPLETE / V0_V1_REJECT_PRESERVED / M0_PROTOCOL_NEXT / VALIDATOR_FIRST / BOUNDED_SOURCE_SCOUTING / REAL_RELEASE_BLOCKED_BY_SOURCE_POWER / OFFLINE_ML_ONLY / NO_PER_SOUND_HUMAN_REVIEW / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V31](physical-sound-synthesis-roadmap-v31.md) as planning authority; V31/V30 evidence identities, source-power thresholds, one-use roles and closed experiment families remain immutable |
 | Current implementation | [P0 causal baseline](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md), [P1 deterministic modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) and [T0 truth/mutation release](../development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) |
 | Current real-data frontier | [V30 E2 source-growth result](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md): the weaker protected role remains short by six exact-Steel and 27 non-Metal groups |
@@ -125,9 +125,9 @@ passes exactly.
 | --- | --- | --- | --- |
 | F0 | Deterministic causal foundation | `COMPLETE` | P0/P1 repeat byte-exactly; plate/beam controls, nine remesh pairs, energy bounds, seven interventions and six typed fallbacks pass with zero signal/model/network access. |
 | T0 | Truth and mutation release | [`COMPLETE / REPEAT_EXACT_PASS`](../development/physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) | Nine clean P1 cases and seven frozen corruptions—wrong decay, frozen carrier, shuffled envelope, mode collapse, spectral copy, clipping and provenance mismatch—publish exact expected outcomes twice byte-identically. |
-| V0 | Validator mechanics release | [`V1_REJECT / CLEAN_CAUSAL_ALIAS / V0A_PROTOCOL_FROZEN / IMPLEMENTATION_NEXT`](../development/physical-sound-v32-v0a-modal-equivalence-validator-protocol-2026-09-02.md) | One external CLI passes every clean case, kills every frozen mutation with the expected reason, canonicalizes feature caching, detects OOD and repeats exactly. It carries no real threshold or material-quality claim. |
-| M0 | Bounded correction protocol | `BLOCKED_BY_V0A` | Freeze one CPU-feasible family, parameter bounds, losses, classical/ridge/retrieval controls, full-owner smoke and resource envelope before model values open. |
-| M1 | Known-truth tournament | `BLOCKED_BY_V0_AND_M0` | One candidate run improves the preregistered aggregate over every control while all causal, remesh, decay, energy, resource, determinism and mutation gates pass. A reject closes the family. |
+| V0 | Validator mechanics release | [`COMPLETE / V0A_REPEAT_EXACT_PASS`](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md) | V0a publishes exact `9 Pass / 7 Reject`, passes lawful modal aliases, retains plate→beam retrieval rejection, canonicalizes cache/OOD and repeats exactly. It carries no real threshold or material-quality claim. |
+| M0 | Bounded correction protocol | `PROTOCOL_NEXT / UNBLOCKED_BY_V0A` | Freeze one CPU-feasible family, parameter bounds, losses, classical/ridge/retrieval controls, full-owner smoke and resource envelope before model values open. |
+| M1 | Known-truth tournament | `BLOCKED_BY_M0` | One candidate run improves the preregistered aggregate over every control while all causal, remesh, decay, energy, resource, determinism and mutation gates pass. A reject closes the family. |
 | S0 | Bounded source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three concrete primary-source leads without opening signal and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta`. |
 | S1 | Fresh protected-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Two disjoint protected roles each have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with at least five projects reserved for other one-use roles. |
 | V1 | Real validator qualification | `BLOCKED_BY_S1_AND_V0` | Frozen calibration choices achieve grouped 95% false-pass upper bound `<= 0.10` and useful-coverage lower bound `>= 0.80` on untouched project/object-disjoint roles; leave-project-out and mutation checks repeat. |
@@ -219,9 +219,9 @@ contract through a separate ADR instead of promoting the research envelope.
    evidence and compact result; no real signal, network or model access.
 3. **V32.3 — freeze V0 — complete:** validator interface, specialist ownership, cache
    identity, abstention and expected T0 decision matrix before thresholds/code.
-4. **V32.4 — build V0 — v1 rejected / V0a protocol frozen:** target-ID-only
-   retrieval falsely rejects two clean causal alias classes; implement the
-   frozen modal-equivalence adapter, then rerun all unchanged mechanics/tests.
+4. **V32.4 — build V0 — complete through V0a:** V0-v1 target-ID retrieval is
+   preserved as a clean false-positive reject; V0a passes the unchanged matrix
+   twice with exact modal equivalence and the plate→beam negative control.
 5. **V32.5 — freeze M0:** one compact correction family, baselines, losses,
    hard gates and resource oracle before values.
 6. **V32.6 — run M1 once:** A/B tournament, immutable result and either family
@@ -233,7 +233,7 @@ contract through a separate ADR instead of promoting the research envelope.
 9. **V32.8 — deliver:** K0 clip cooker, D0 fallback-safe demo, then fresh Glass
    domains and Wood.
 
-V32.1–V32.3 are complete and V32.4-v1 is rejected; the immediate next commit implements V0a. A source lead may interrupt only between
+V32.1–V32.4 are complete; the immediate next commit freezes M0 before model values. A source lead may interrupt only between
 commit boundaries and cannot alter frozen truth, model or validator values.
 
 ## Verification policy
