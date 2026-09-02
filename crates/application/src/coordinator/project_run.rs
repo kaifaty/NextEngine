@@ -78,7 +78,7 @@ fn prepare_project_run(
         content_generation,
     } = package;
     let lock = &project.project_lock;
-    let determinism = RuntimeDeterminismBundleV1::core_r5c()
+    let determinism = RuntimeDeterminismBundleV1::core_r8c()
         .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
     let profile = determinism.runtime_profile();
     if determinism.runtime_profile_hash() != lock.runtime_determinism_profile_sha256 {

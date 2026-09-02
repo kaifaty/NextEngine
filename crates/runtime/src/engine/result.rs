@@ -90,6 +90,10 @@ pub enum RejectionCode {
     RpgEventOrderInvalid,
     RpgTransactionAborted,
     RpgCommitmentRejected,
+    WaterVolumeUnknown,
+    WaterVolumeRevisionStale,
+    WaterVolumeLevelOutOfExtent,
+    WaterVolumeRevisionExhausted,
 }
 
 impl RejectionCode {
@@ -135,6 +139,10 @@ impl RejectionCode {
             Self::RpgEventOrderInvalid => "RPG_EVENT_ORDER_INVALID",
             Self::RpgTransactionAborted => "RPG_TRANSACTION_ABORTED",
             Self::RpgCommitmentRejected => "RPG_COMMITMENT_REJECTED",
+            Self::WaterVolumeUnknown => "WATER_VOLUME_UNKNOWN",
+            Self::WaterVolumeRevisionStale => "WATER_VOLUME_REVISION_STALE",
+            Self::WaterVolumeLevelOutOfExtent => "WATER_VOLUME_LEVEL_OUT_OF_EXTENT",
+            Self::WaterVolumeRevisionExhausted => "WATER_VOLUME_REVISION_EXHAUSTED",
         }
     }
 

@@ -197,3 +197,116 @@ fn complete_material_and_combine_contracts_round_trip_and_hash_every_field() {
         changed.profile_hash().expect("changed combine hash")
     );
 }
+
+#[test]
+fn water_volume_set_round_trips_queries_and_commands() {
+    use super::{
+        WaterLevelRampV1, WaterSubmersionClassV1, WaterVolumeCommandV1, WaterVolumeDefinitionV1,
+        WaterVolumeRejectionV1, WaterVolumeSetV1,
+    };
+    use crate::canonical::CanonicalDecodeLimits;
+    use crate::ids::PersistentId;
+
+    let basin = WaterVolumeDefinitionV1 {
+        volume_id: PersistentId::from_bytes([0x21; 16]),
+        minimum_micrometres: [0, 0, 0],
+        maximum_micrometres: [4_000_000, 2_000_000, 2_000_000],
+        initial_level_micrometres: 500_000,
+        swimming_depth_micrometres: 1_200_000,
+        level_ramp: Some(WaterLevelRampV1 {
+            start_tick: 10,
+            end_tick: 20,
+            start_level_micrometres: 500_000,
+            end_level_micrometres: 1_500_000,
+        }),
+        profile_revision: 1,
+    };
+    let set = WaterVolumeSetV1::from_definitions([basin.clone()]).expect("valid basin");
+    let bytes = set.canonical_record().expect("encode");
+    let decoded =
+        WaterVolumeSetV1::from_record(&bytes, CanonicalDecodeLimits::default()).expect("decode");
+    assert_eq!(decoded, set);
+    assert_eq!(
+        set.set_hash().expect("hash"),
+        decoded.set_hash().expect("hash")
+    );
+
+    // Ramp: exact integer interpolation, clamped outside the window.
+    assert_eq!(set.effective_level(basin.volume_id, 0), Some(500_000));
+    assert_eq!(set.effective_level(basin.volume_id, 15), Some(1_000_000));
+    assert_eq!(set.effective_level(basin.volume_id, 99), Some(1_500_000));
+    let probe = set.submersion_at([1_000_000, 0, 1_000_000], 15);
+    assert_eq!(probe.depth_micrometres, 1_000_000);
+    assert_eq!(probe.class, WaterSubmersionClassV1::Wading);
+    assert_eq!(
+        set.submersion_at([9_000_000, 0, 0], 0).class,
+        WaterSubmersionClassV1::Dry
+    );
+
+    // A committed command suspends the ramp and bumps the record revision.
+    let (next, event) = set
+        .apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 0,
+                level_micrometres: 1_800_000,
+            },
+            15,
+        )
+        .expect("commit");
+    assert_eq!(event.previous_level_micrometres, 1_000_000);
+    assert_eq!(event.record_revision, 1);
+    assert_eq!(next.effective_level(basin.volume_id, 15), Some(1_800_000));
+    assert_eq!(
+        next.submersion_at([1_000_000, 0, 1_000_000], 15).class,
+        WaterSubmersionClassV1::Swimming
+    );
+    assert_eq!(
+        next.apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 0,
+                level_micrometres: 1_000_000,
+            },
+            16,
+        )
+        .expect_err("stale"),
+        WaterVolumeRejectionV1::RevisionStale
+    );
+    assert_eq!(
+        next.apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 1,
+                level_micrometres: 2_000_001,
+            },
+            16,
+        )
+        .expect_err("out of extent"),
+        WaterVolumeRejectionV1::LevelOutOfExtent
+    );
+
+    // Overlapping volumes reject; command and event payloads round-trip.
+    let mut overlapping = basin.clone();
+    overlapping.volume_id = PersistentId::from_bytes([0x22; 16]);
+    assert!(WaterVolumeSetV1::from_definitions([basin.clone(), overlapping]).is_err());
+    let command = WaterVolumeCommandV1::SetLevel {
+        volume_id: basin.volume_id,
+        expected_record_revision: 3,
+        level_micrometres: -7,
+    };
+    let command_bytes = command.canonical_payload_bytes().expect("command bytes");
+    assert_eq!(
+        WaterVolumeCommandV1::from_canonical_payload_bytes(
+            &command_bytes,
+            CanonicalDecodeLimits::default()
+        )
+        .expect("command decode"),
+        command
+    );
+    let event_bytes = event.canonical_payload_bytes().expect("event bytes");
+    assert_eq!(
+        super::WaterVolumeChangedV1::from_canonical_payload_bytes(&event_bytes).expect("event"),
+        event
+    );
+}

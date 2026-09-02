@@ -10,6 +10,7 @@ mod profiles;
 mod query;
 mod snapshot;
 mod step;
+mod water;
 
 pub use catalog::{
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,
@@ -47,6 +48,15 @@ pub use step::{
     AcceptedLocomotionIntentV2, AppliedLocomotionResultV1, PhysicalCommandV1, PhysicalEventV1,
     PhysicsStepInputV2, PhysicsStepResultV1,
 };
+pub use water::{
+    MAX_WATER_VOLUMES, WATER_POSITION_LIMIT_MICROMETRES, WATER_VOLUME_CAPABILITY_ID,
+    WATER_VOLUME_COMMAND_KIND_ID, WATER_VOLUME_COMMAND_SCHEMA_ID,
+    WATER_VOLUME_COMMAND_SCHEMA_VERSION, WATER_VOLUME_EVENT_SCHEMA_ID,
+    WATER_VOLUME_EVENT_SCHEMA_VERSION, WATER_VOLUME_PRIORITY_CLASS, WATER_VOLUME_SCHEMA_VERSION,
+    WaterLevelRampV1, WaterSubmersionClassV1, WaterSubmersionV1, WaterVolumeChangedV1,
+    WaterVolumeCommandV1, WaterVolumeDefinitionV1, WaterVolumeRejectionV1, WaterVolumeSetV1,
+    WaterVolumeStateV1,
+};
 
 pub const PHYSICAL_COMMAND_SCHEMA_ID: &str = "nextengine.command.physical";
 pub const PHYSICAL_COMMAND_CAPABILITY_ID: &str = "nextengine.capability.physical-avatar-intent";
@@ -76,9 +86,9 @@ pub const PHYSICS_SNAPSHOT_OWNER_ID: &str = "nextengine.physics";
 pub const PHYSICS_SNAPSHOT_SCHEMA_ID: &str = "nextengine.physics-canonical-snapshot";
 pub const PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v2";
 pub const LEGACY_PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v1";
-pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 2;
 pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID: &str = "nextengine.physics-world-checkpoint";
-pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v1";
+pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v2";
 pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 2;
 pub const CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUERY_SCHEMA_VERSION: u16 = 1;

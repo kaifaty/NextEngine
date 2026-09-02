@@ -14,6 +14,7 @@ use crate::physical_animation::{
 };
 use crate::physics::{
     PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION, PhysicalCommandV1,
+    WATER_VOLUME_COMMAND_SCHEMA_ID, WATER_VOLUME_COMMAND_SCHEMA_VERSION, WaterVolumeCommandV1,
 };
 use crate::rpg::RPG_COMMAND_SCHEMA_ID;
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
@@ -70,6 +71,7 @@ pub enum CommandPayload {
     WorldPopulation(WorldPopulationCommandV1),
     WorldActivity(WorldActivityCommandV1),
     AgentCognition(AgentCognitionCommandV1),
+    WaterVolume(WaterVolumeCommandV1),
 }
 
 impl CommandPayload {
@@ -87,6 +89,7 @@ impl CommandPayload {
                 .canonical_payload_bytes()
                 .map_err(|_| CanonicalError::DuplicateSequenceValue),
             Self::AgentCognition(command) => command.canonical_payload_bytes(),
+            Self::WaterVolume(command) => command.canonical_payload_bytes(),
         }
     }
 }
@@ -406,6 +409,12 @@ impl CanonicalCommandBodyV2 {
                     AgentCognitionCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
                 )
             }
+            (WATER_VOLUME_COMMAND_SCHEMA_ID, WATER_VOLUME_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::WaterVolume(WaterVolumeCommandV1::from_canonical_payload_bytes(
+                    payload_bytes,
+                    limits,
+                )?)
+            }
             (
                 NOOP_COMMAND_SCHEMA_ID
                 | RPG_COMMAND_SCHEMA_ID
@@ -414,7 +423,8 @@ impl CanonicalCommandBodyV2 {
                 | WORLD_ROUTINE_COMMAND_SCHEMA_ID
                 | WORLD_POPULATION_COMMAND_SCHEMA_ID
                 | WORLD_ACTIVITY_COMMAND_SCHEMA_ID
-                | AGENT_COGNITION_COMMAND_SCHEMA_ID,
+                | AGENT_COGNITION_COMMAND_SCHEMA_ID
+                | WATER_VOLUME_COMMAND_SCHEMA_ID,
                 version,
             ) => {
                 return Err(CommandDecodeError::UnsupportedPayloadSchemaVersion(version));

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.7 |
+| Version | 1.8 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.7 follows [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): water V1 splits into an authoritative `WaterVolume` and non-authoritative presentation dynamics, binds density-only boundary support and the candidate presentation surface, and moves crate coupling to a later consumer; the W0H CPU reference lane and ADR-081 guardrails are unchanged |
+| Candidate revision note | Version 1.8 records the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -29,9 +29,11 @@ adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
 vehicle simulation and production sleep conversion are outside the first
 water consumer.
 
-All `CONTINUUM-*` checks remain `NOT_RUN`. Until a later consumer-backed
-Accepted ADR narrows ADR-058 and promotes exact schemas, the production world,
-save/replay formats and public contracts remain unchanged.
+`CONTINUUM-WATER-VOLUME-P1` passes through `xtask water-volume` on the
+reference basin (R8c, first increment); every other `CONTINUUM-*` check
+remains `NOT_RUN`. The authoritative water table lives in the physics world
+checkpoint under Proposed ADR-100 and SPEC-26 2.5; the particle lanes below
+still change no production world, save/replay format or public contract.
 
 ## Candidate authority and canonical water state
 
@@ -309,13 +311,14 @@ before production promotion.
 ## Promotion boundary
 
 No public contract is added for the serial lab or the developer water
-bridge. When the basin becomes a real runtime consumer, the smallest
-candidate public set is `WaterVolumeDefinitionV1`, `WaterVolumeStateV1` and
-its query records, `ContinuumWaterProfileV1` for the presentation solver and
-a composite successor to `PhysicsWorldCheckpointV2` for the volume;
+bridge. The runtime basin consumer now owns `WaterVolumeDefinitionV1`,
+`WaterVolumeStateV1`, `WaterVolumeSetV1` with its `submersion_at` query,
+`WaterVolumeCommandV1` and `WaterVolumeChangedV1` inside
+`PhysicsWorldCheckpointV1` schema version 2 (SPEC-26 2.5).
+`ContinuumWaterProfileV1` for the presentation solver,
 `ContinuumWaterCanonicalStateV1`, `ContinuumBodyReactionBatchV1` and
-`ContinuumPresentationSnapshotV1` follow only the later crate-coupled
-consumer. Exact schemas require the later Accepted
+`ContinuumPresentationSnapshotV1` follow only the later presentation and
+crate-coupled consumers. Exact schemas require the later Accepted
 promotion ADR and synchronized SPEC-02/03/21/25/26/30, routing, traceability
 and roadmap updates.
 

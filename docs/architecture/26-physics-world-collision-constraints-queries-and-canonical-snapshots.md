@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-09-02 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.3; records the bounded R5j compound carried-load consumer on existing V1 descriptor/checkpoint bytes |
+| Заменяет | SPEC-26 2.4; records the Proposed ADR-100 water-volume table as field 4 of `PhysicsWorldCheckpointV1` schema version 2 and its exact submersion query |
+| Дополнительные зависимости V2.5 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -984,6 +985,27 @@ quantized projection, constraint state, contact/query order, physical outcome
 and snapshot roots. Raw sample correspondence MAY be reported separately
 under declared tolerances but cannot change this result.
 
+### Authoritative water volumes (Proposed ADR-100)
+
+`PhysicsWorldCheckpointV1` schema version `2` carries `WaterVolumeSetV1` as
+field 4 next to the catalog and the canonical snapshot: at most `64`
+disjoint sealed regions, each an exact integer micrometre extent, an
+initial level, a swimming depth, an optional authored linear level ramp
+and a profile revision, plus one mutable record per volume (record
+revision, committed level, ramp suspension). The table is outside the
+canonical snapshot and the rigid step never reads it; backends carry it
+unchanged and it changes only through the validated
+`nextengine.command.water-volume` transaction, which emits
+`nextengine.event.water-volume-changed`.
+
+`WaterVolumeSetV1::submersion_at(point, tick)` is an exact query on the
+committed table: the containing volume, `level - y` as depth, and the
+`Dry`/`Wading`/`Swimming` class from the authored swimming depth. It is
+evaluated only against a committed checkpoint, never against presentation
+water, and has no backend, tolerance or float input. The physics checkpoint
+hash domain is `nextengine.physics-world-checkpoint.v2`; earlier checkpoint
+bytes are current-only alpha artifacts and reject before mutation.
+
 ## Persistence, replay and schema evolution
 
 Persistence stores the canonical snapshot/root, exact descriptor/catalog/
@@ -1049,6 +1071,7 @@ or partial snapshot continuation is allowed.
 | `PHYS-QUERY-P1` | every query kind/cardinality, N−1/N/N+1 capacities and 10 000 order permutations | boolean/count/truncation/hit bytes/order/root exact on Windows/Linux; invalid or over-capacity query publishes no partial result | reject the complete query and use only a separately declared deterministic fallback |
 | `PHYS-SNAPSHOT-P1` | 1 000 checkpoint restores with 100-substep continuation across `game`, `headless`, `capture-worker`, worker counts and Windows/Linux | canonical snapshot/projection roots, joint state, query/contact order and outcomes byte-identical; faults expose only complete prior or restored world | retain prior valid checkpoint/save and reject incompatible backend/profile |
 | `MOTOR-ROLLOUT-P1` (future) | `K` candidate chunks from one checkpoint under candidate/worker/completion permutations | exact ordered score/evidence roots, winner and selected chunk; zero command/event/save/RNG/cache side effect escapes a fork | reject rollout profile and retain declared base chunk/procedural route |
+| `CONTINUUM-WATER-VOLUME-P1` (Proposed ADR-100) | `xtask water-volume`: reference basin probes, level command, rejections, checkpoint round trip, restore/continue, repeated generation | exact probe table and roots; rejections leave the table unchanged; restored and live runs converge | reject the region before activation and keep the dry scene |
 
 These checks cover the lower-level descriptor, collision, joint, query and
 snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
@@ -1060,7 +1083,7 @@ snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 | REQ-128 | Every physics world, material, shape and body MUST use bounded versioned engine-owned descriptors, canonical units/right-handed axes and exact IDs/hashes, with no ECS, OS, importer or vendor/backend public type. | PHYS-API-P1 |
 | REQ-129 | Collision filtering, material combination, shape-feature mapping and `ContactEventV1` continuity MUST be backend-independent, bounded and published in complete canonical participant/feature/value order. | PHYS-COLLISION-P1 |
 | REQ-130 | Joint graphs and authoritative scene queries MUST use closed bounded descriptors, exact revisions/snapshot selectors, atomic mutation and complete canonical ordering; callers MUST NOT access backend handles or partial results. | PHYS-JOINT-P1, PHYS-QUERY-P1 |
-| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; active save/replay MUST use portable `PhysicsCanonicalSnapshotV2` inside `PhysicsWorldCheckpointV1` with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1 |
+| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; active save/replay MUST use portable `PhysicsCanonicalSnapshotV2` inside `PhysicsWorldCheckpointV1` (schema version 2, carrying the water table) with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1, CONTINUUM-WATER-VOLUME-P1 |
 
 ## Failure paths
 

@@ -28,6 +28,8 @@ pub const REFERENCE_RELAY_ACTIVE_MATERIAL_ASSET_ID: AssetId = AssetId::from_byte
 pub const REFERENCE_DEFEATED_ENEMY_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd8; 16]);
 pub const REFERENCE_RELAY_APPROACH_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd9; 16]);
 pub const REFERENCE_INDICATOR_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd7; 16]);
+pub const REFERENCE_WATER_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7c; 16]);
+pub const REFERENCE_WATER_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x7d; 16]);
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

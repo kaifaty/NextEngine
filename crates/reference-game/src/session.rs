@@ -690,7 +690,11 @@ fn grounded_capsule_checkpoint(
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
     )?;
     let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, tick_rate, numeric, quantization)?;
-    Ok(PhysicsWorldCheckpointV1::new(catalog, snapshot)?)
+    Ok(PhysicsWorldCheckpointV1::with_water_volumes(
+        catalog,
+        snapshot,
+        crate::water::reference_water_volumes()?,
+    )?)
 }
 
 fn static_box_descriptor(

@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-100 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md) |
@@ -46,12 +46,13 @@ needs for the first water experience.
 1. **`WaterVolume` is the authoritative water.** Physical Embodiment owns a
    bounded set of sealed water regions in the portable CPU core. Each region
    binds an exact integer extent, a still-water level, an optional authored
-   level schedule and a profile revision. Gameplay queries (submersion depth
+   level ramp and a profile revision. Gameplay queries (submersion depth
    at a point, wading/swimming classification, buoyancy for a later
-   consumer) read only this volume through SPEC-26 queries. Its state changes
-   only through validated `WorldCommand` transactions, publishes exact roots,
-   saves and replays with the world and needs no floating-point execution
-   profile.
+   consumer) read only this volume through exact snapshot-bound water
+   queries on the physics owner, in the SPEC-26 query discipline. Its state
+   changes only through validated `WorldCommand` transactions, publishes
+   exact roots, saves and replays with the world and needs no floating-point
+   execution profile.
 2. **Presentation water is non-authoritative.** A separate presentation
    dynamics stage may animate the free surface of a `WaterVolume` with any
    solver, including the Nonlocal GPU candidate, and publish a bounded
@@ -94,11 +95,49 @@ live presentation dynamics on its surface. The PhysX crate coupling of
 ADR-076 moves to a later consumer under its own ADR; until then no continuum
 reaction batch exists and PhysX remains the sole rigid writer.
 
+## Implementation (R8c, first increment)
+
+- `WaterVolumeSetV1` (definitions plus per-volume record state) is field 4
+  of `PhysicsWorldCheckpointV1`, whose schema version becomes `2` (segment
+  `v2`, hash domain `nextengine.physics-world-checkpoint.v2`). It therefore
+  enters the physics leaf of every state root, save segment and replay
+  compare point without a new owner segment. Rigid backends only carry it.
+- `WaterVolumeCommandV1::SetLevel` is the ninth command kind
+  (`core_r8c`, priority `290`, capability
+  `nextengine.capability.water-volume-level`, either phase, no subject
+  target). It commits `WaterVolumeChangedV1`, bumps the record revision and
+  suspends the authored ramp; unknown volume, stale revision, level outside
+  the extent and revision exhaustion are stable rejections.
+- `WaterVolumeSetV1::submersion_at(point, tick)` is the exact query:
+  volumes are disjoint, depth is `level - y`, a depth at or above the
+  authored swimming depth classifies as `Swimming`, otherwise `Wading`, a
+  point above the level or outside every volume is `Dry`.
+- The reference scene declares one basin (`4 x 2 m`, `2 m` deep, level
+  `0.5 m`, swimming depth `1.2 m`) east of the rock proxies.
+- The player consumer classifies the capsule foot point every published
+  frame through the same query; `Wading`/`Swimming` ride the HUD status
+  panel as a label and never write gameplay state.
+- The still-surface fallback is real: an authored basin quad
+  (`4 x 2 m`, catalog mesh `0x7c`, material `0x7d`) is bound as an
+  environment record whose translation is the exact effective level of the
+  authoritative basin at the published tick. It renders through the ordinary
+  presentation snapshot; an ADR-101 ring may later animate the same catalog
+  mesh without touching its identity or bounds.
+- `xtask water-volume` runs `CONTINUUM-WATER-VOLUME-P1` including the
+  production locomotion walk into the basin, the classification before and
+  after a level command and the surface binding translation. The
+  solver-driven surface in the game root (`CONTINUUM-WATER-PRESENT-P1`)
+  is the next increment.
+
 ## Consequences
 
 - SPEC-38 gains the two-owner authority split, the density-only boundary
   rule, the presentation surface path and the new first consumer; the CPU
   DFSPH reference remains the research oracle lane, not a shipping promise.
+- SPEC-26 records the water table inside the physics world checkpoint and
+  the exact water query; SPEC-03 records the checkpoint schema bump. Pre-R8c
+  saves are current-only alpha artifacts under ADR-046 and are rejected
+  before mutation.
 - SPEC-30/SPEC-04 admit the ADR-101 dynamic surface path and developer frame
   capture as presentation-private mechanisms.
 - The `4/6 ms` standalone stop target now applies to the presentation
@@ -110,7 +149,7 @@ reaction batch exists and PhysX remains the sole rigid writer.
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `CONTINUUM-WATER-VOLUME-P1` | Activate one sealed basin `WaterVolume`, query submersion at authored points, save/load and replay. | Exact roots on `game` and `headless`; queries never read presentation; level changes only through commands. | Reject the region before activation; keep the dry variant. |
+| `CONTINUUM-WATER-VOLUME-P1` | `xtask water-volume`: activate the reference basin, probe authored points, raise the level through the production command path, reject stale/out-of-extent/unknown commands, round-trip the physics checkpoint, restore and continue. | Exact probe table, one event per commit, unchanged table on rejection, byte-exact checkpoint, restored and live runs reach the same root, repeated generation identical; `play`/`persistence-replay` keep `game`/`headless` parity. | Reject the region before activation; keep the dry variant. |
 | `CONTINUUM-WATER-PRESENT-P1` | Drive the basin surface from the presentation solver for a bounded window with capture. | One catalog/snapshot/frame plan per run, declared ring capacity respected, gameplay roots unchanged with and without presentation, capture is diagnostic only. | Still surface at the authoritative level. |
 
 ## Considered alternatives

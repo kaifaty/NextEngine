@@ -14,6 +14,8 @@ pub(crate) fn fixture_presentation_bindings(
     rpg: &RpgSnapshotV2,
     _physical_animation: &PhysicalAnimationOwnerV1,
     physics: &PhysicsCanonicalSnapshotV2,
+    water: &next_contracts::physics::WaterVolumeSetV1,
+    tick: u64,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {
         fixture
@@ -54,6 +56,9 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_FOCUS_RING_MESH_ASSET_ID)?;
     let (quest_marker_mesh, quest_marker_bounds) =
         mesh(crate::source::REFERENCE_QUEST_MARKER_MESH_ASSET_ID)?;
+    let (water_surface_mesh, water_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_SURFACE_MESH_ASSET_ID)?;
+    let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
     let enemy_material = revision(crate::source::REFERENCE_ENEMY_MATERIAL_ASSET_ID)?;
@@ -375,6 +380,27 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
     ]);
+    // ADR-100 still-surface fallback: the basin quad follows the exact
+    // authoritative level. Presentation reads the committed water table and
+    // never feeds anything back; a later ADR-101 ring may animate the same
+    // catalog mesh without touching this binding's identity or bounds.
+    bindings.push(PresentationBindingV1 {
+        persistent_id: crate::water::REFERENCE_WATER_BASIN_ID,
+        presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+        incarnation: 0,
+        presentation_layer: 14,
+        mesh_revision: water_surface_mesh,
+        material_revision: water_material,
+        instance_ordinal: 14,
+        local_bounds: water_surface_bounds,
+        feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+        physics_body_id: None,
+        fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+            translation_micrometres: crate::water::water_surface_translation(water, tick)?,
+            orientation_q30: IDENTITY_Q30,
+        },
+        visible: true,
+    });
     if let Some(focus_body_id) = focus_body_id {
         bindings.push(PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x75; 16]),

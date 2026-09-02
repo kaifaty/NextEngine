@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.70 |
+| Версия | 2.71 |
 | Последняя проверка | 2026-09-02 |
-| Заменяет | INDEX-001 2.69; indexes Proposed ADR-100/ADR-101 (authoritative water volume, presentation-only GPU water, dynamic surface ring) and the SPEC-04/30/38 revisions that follow them |
+| Заменяет | INDEX-001 2.70; indexes the R8c water-volume increment (SPEC-26 2.5, SPEC-21 2.1, SPEC-03 2.10, SPEC-38 1.8, ADR-100 0.2) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -153,7 +153,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-00 | [Product contract](00-product-contract.md) | Accepted |
 | SPEC-01 | [System architecture](01-system-architecture.md) | Accepted |
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
-| SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
+| SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted; 2.10 records the physics checkpoint schema 2 with the ADR-100 water table |
 | SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted; 2.15 names the Proposed ADR-101 developer frame capture and dynamic surface ring |
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes PHYS-P6 and ADR-098 adds the current optional directional capability clamp before fixed-PD rate limiting |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
@@ -171,12 +171,12 @@ traceability — навигационная карта, не admission authority
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted; current BodyCondition aggregate and staged impairment/treatment operations are admitted by ADR-098 |
 | SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine, R4b population/navigation, R4c cognition consumer and bounded R4d activity/tier/bulk-time vertical |
-| SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
+| SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted; 2.1 records the `core_r8c` registry with the ADR-100 water-volume command kind |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted; RPG aggregate snapshot/command schema 4 is current-only under ADR-098 |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted; includes optional exact BodySchema-bound anatomy profile, ordinary V7 RPG starter content, current creator package and stable-ID projection |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
-| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded fixed-local carried box on the same body |
+| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded fixed-local carried box on the same body; 2.5 carries the Proposed ADR-100 water-volume table and its exact submersion query |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline plus ADR-098 intact-topology capability envelope; learned injury routes remain Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |
@@ -188,7 +188,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
-| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 1.7 splits water V1 into an authoritative `WaterVolume` and non-authoritative presentation dynamics (ADR-100), binds density-only boundary support and the candidate presentation surface; nothing is a current runtime contract |
+| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 1.8 records the R8c water-volume increment (`CONTINUUM-WATER-VOLUME-P1 = PASS`) on top of the 1.7 authority split; particle lanes are not runtime contracts |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed successor stage-8 `WorldDynamicsStep`, runtime-owned DAG, exact identity, epoch persistence and fail-stop transaction; current schedule remains unchanged |
@@ -306,7 +306,7 @@ traceability — навигационная карта, не admission authority
 | ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
-| ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume`, the Nonlocal GPU candidate animates only the presentation surface, boundary density support is density-only |
+| ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume` (R8c: table in the physics checkpoint, level command, `CONTINUUM-WATER-VOLUME-P1 = PASS`), the Nonlocal GPU candidate animates only the presentation surface |
 | ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
 
 ## Proposed tracks

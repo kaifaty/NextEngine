@@ -79,8 +79,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 37);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 123);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 39);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 125);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -174,8 +174,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         interaction_definition_hash_v2(accept),
         interaction_definition_hash_v2(unconditioned_accept)
     );
-    assert_eq!(activated.render_content_catalog.meshes().len(), 12);
-    assert_eq!(activated.render_content_catalog.materials().len(), 11);
+    assert_eq!(activated.render_content_catalog.meshes().len(), 13);
+    assert_eq!(activated.render_content_catalog.materials().len(), 12);
     assert_eq!(activated.render_content_catalog.textures().len(), 7);
     assert_eq!(
         activated
@@ -257,7 +257,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     }));
     assert_eq!(
         activated.project_lock.runtime_determinism_profile_sha256,
-        next_contracts::identity::RuntimeDeterminismBundleV1::core_r5c()
+        next_contracts::identity::RuntimeDeterminismBundleV1::core_r8c()
             .expect("current determinism bundle")
             .runtime_profile_hash(),
     );

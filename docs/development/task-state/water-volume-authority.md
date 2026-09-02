@@ -1,0 +1,129 @@
+# Task state: authoritative water volume and presentation water (R8c)
+
+| Field | Value |
+| --- | --- |
+| Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / PLAYER_CLASS_AND_STILL_SURFACE_DONE / SOLVER_SURFACE_NEXT` |
+| Branch | `codex/water-research` |
+| Last updated | 2026-09-02 |
+
+## Resume in 60 seconds
+
+- **Decision C is implemented on the gameplay side.** `WaterVolumeSetV1`
+  (definitions plus per-volume record state) is field 4 of
+  `PhysicsWorldCheckpointV1` schema version 2, so it rides the physics leaf of
+  every state root, save segment and replay compare point. Backends only
+  carry it; the rigid step never reads it.
+- **Command path.** `WaterVolumeCommandV1::SetLevel` is the ninth command
+  kind (`core_r8c`, priority 290, capability
+  `nextengine.capability.water-volume-level`). It commits
+  `WaterVolumeChangedV1`, bumps the record revision and suspends the authored
+  ramp; unknown/stale/out-of-extent/exhausted are stable rejections.
+- **Query.** `WaterVolumeSetV1::submersion_at(point, tick)` returns the
+  containing volume, exact depth and `Dry`/`Wading`/`Swimming`.
+- **Reference basin.** `crates/reference-game/src/water.rs`: `4 x 2 m`,
+  `2 m` deep at `x 4.5..8.5, z 1..3`, level `0.5 m`, swimming depth `1.2 m`.
+- **Player consumer.** `next_reference_game::player_submersion` classifies
+  the capsule foot point (pose minus radius plus half segment) against the
+  committed table; the HUD status panel shows `Wading`/`Swimming` (text ids
+  `nextengine.ui.text.hud.water.*`).
+- **Still surface.** Authored quad mesh `0x7c` + material `0x7d` bound as an
+  environment record (`REFERENCE_WATER_BASIN_ID`, layer 14) whose
+  translation is `water_surface_translation(table, tick)`; the level
+  command moves it in the ordinary presentation snapshot.
+- **Check.** `cargo run -p xtask -- water-volume` runs
+  `CONTINUUM-WATER-VOLUME-P1`: probe table, production locomotion walk
+  (`-z` 5, `+x` 65, `+z` 25 ticks) to `[6.5, 0.9, 2.0] m`, Wading ->
+  Swimming across the level command, surface translation `0.5 -> 1.5 m`,
+  three rejections, checkpoint round trip, restore/continue, repeated
+  generation.
+- **Next:** the ADR-101 ring inside the game root fed by the presentation
+  solver stream (`CONTINUUM-WATER-PRESENT-P1`, `RENDER-DYNSURF-P1`); the
+  research CUDA tool stays a separate process behind the neutral stream.
+
+## Required context
+
+- `AGENTS.md`; routing rows "Physics world ..." and "Future continuum
+  materials ..." in `docs/architecture/agent-routing.md`.
+- ADR-100 / ADR-101 (Proposed), SPEC-26 2.5, SPEC-38 1.8, SPEC-03 2.10.
+- Research side and live Vulkan bridge:
+  `docs/development/task-state/nonlocal-gpu-full-step-performance.md`.
+
+## Decisions
+
+### D-001 — Water table inside the physics checkpoint, not a new owner segment
+
+- **Observation:** a new owner segment (the world-activity template) touches
+  save image/store, replay manifests, application roots and the
+  persistence-replay runner (about 80 files across two commits); the physics
+  checkpoint already is the Physical Embodiment save segment and SPEC-38
+  anticipated "a composite successor to the physics checkpoint for the
+  volume".
+- **Decision:** `PhysicsWorldCheckpointV1` schema 1 -> 2 with
+  `water_volumes` as field 4; hash domain `...checkpoint.v2`; `new()` keeps an
+  empty table so every existing fixture compiles unchanged.
+- **Rejected:** separate owner segment (cost without benefit for one table);
+  water inside `PhysicsCanonicalSnapshotV2` (would enter PhysX/training
+  snapshot hashing).
+- **Reconsider when:** a consumer needs water state outside the physics
+  world, or the articulated `PhysicsWorldCheckpointV2` lane needs water.
+
+### D-002 — Level ramp is a pure function of the tick
+
+- **Decision:** the authored ramp is evaluated from the tick in
+  `effective_level`; no per-tick system, delta or schedule change. A
+  committed level command suspends the ramp permanently.
+- **Consequence:** no schedule manifest change (`core_r8c` keeps the R4d
+  schedule) and no per-tick root churn for authored tides.
+
+### D-004 — Still surface through the snapshot, not the ring
+
+- **Observation:** a level-following flat surface needs no per-frame
+  vertex payload; the presentation snapshot already carries exact
+  fallback transforms for non-physics environment records.
+- **Decision:** the basin quad is authored at local `y = 0` and bound with
+  translation `[0, level, 0]`; the ADR-101 ring stays reserved for the
+  solver-driven surface, which replaces vertex payload but not the binding.
+- **Rejected:** authoring the quad at the initial level (would not follow
+  commands or ramps); publishing ring updates for a flat quad (cost without
+  benefit).
+
+### D-003 — Verification issues the level command as a `Tool` principal
+
+- **Observation:** no gameplay mechanic sets a water level yet; the player
+  principal must not carry the water capability.
+- **Decision:** `water-volume` registers a SPEC-21 `Tool` principal with the
+  water capability on the reference session bootstrap and drives the
+  production admission path; game mechanics that change levels will use an
+  `InternalSystem` principal at the Outcome barrier.
+
+## Evidence
+
+- `xtask water-volume` PASS 2026-09-02 (with the player walk and surface
+  binding): matrix digest `fce46535...`, final state root `38372827...`,
+  physics checkpoint `0efdf9d1...` (values change with any
+  profile/registry/content change; they are not golden).
+- `play`, `persistence-replay`, `content-package` PASS after the
+  R8c registry/checkpoint root refresh (play ledger root, creator-smoke
+  scenario expectations, replay pinned root, 39 roots / 125 entries,
+  13 meshes / 12 materials, 10 rendered objects).
+- `host-check`: fmt, clippy, workspace tests and boundary scan PASS across
+  the final runs (the last consolidated run is re-executed after the
+  `0x11` test byte rename; see the commit that follows).
+
+## Do not retry
+
+- GPU particle state as gameplay authority (ADR-100 alternatives).
+- Reading presentation water from any command, query or root.
+
+## Next action
+
+1. Presentation solver in the game root: declare the basin mesh as an
+   ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
+   (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and
+   define `CONTINUUM-WATER-PRESENT-P1` around a bounded capture with
+   identical gameplay roots with and without the solver.
+2. Optional gameplay effect: motor speed scaling from the classification
+   (needs its own bounded evidence; not part of C's authority split).
+3. Keep ADR-100 Proposed until both checks pass, then accept it with the
+   SPEC/routing/traceability updates.

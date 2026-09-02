@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-09-02 |
 | Нормативные зависимости | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V2.0 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-21 1.9; records the public production Replay V10 first-divergence consumer and exact project-compatibility enforcement without changing replay wire semantics |
+| Дополнительные зависимости V2.1 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
+| Заменяет | SPEC-21 2.0; records the current `core_r8c` registry with the ninth ADR-100 water-volume command kind without changing admission, ledger or replay wire semantics |
 
 ## Назначение, authority и граница
 
@@ -1558,6 +1559,13 @@ the same twelve stages and four-system schedule while adding one ingress-only
 capability/priority class. The eighth command kind is a recorded animation
 proposal validated before it lowers into the existing capsule intent; it adds
 no system, schedule stage, transform owner or hidden retry path.
+
+Current `core_r8c` (Proposed ADR-100, R8c) keeps that schedule and adds the
+ninth kind `nextengine.command.water-volume@1` (priority class `290`,
+capability `nextengine.capability.water-volume-level`, either phase, no
+subject target). It changes only the physics owner's water table through the
+common admission, archive, receipt and rejection path; the authored level
+ramp is a pure function of the tick and adds no system or barrier.
 
 The single-shard World Activity system runs after
 cognition at `AgentPlanning`, stages priority-280 internal work, and commits at

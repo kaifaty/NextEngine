@@ -7,6 +7,7 @@ use crate::cognition::{AgentDecisionCommittedV1, COGNITION_SCHEMA_VERSION};
 use crate::command::{CommandPhase, DomainEvent, EventPayload};
 use crate::ids::{CommandId, ContentHash, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
+use crate::physics::WaterVolumeChangedV1;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
 use crate::rpg::SkillProficiency;
 use crate::rpg::{CommitmentStateV1, RpgEventV1};
@@ -206,6 +207,14 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(event.record_revision.to_string()),
             string(event.evidence_hash.to_hex()),
         ]),
+        EventPayload::WaterVolume(event) => JcsValue::Array(vec![
+            string("water_volume_changed"),
+            string(event.volume_id.to_hex()),
+            string(event.record_revision.to_string()),
+            string(event.previous_level_micrometres.to_string()),
+            string(event.current_level_micrometres.to_string()),
+            string(event.boundary_tick.to_string()),
+        ]),
         EventPayload::AgentCognition(event) => JcsValue::Array(vec![
             string("agent_cognition_decision_committed"),
             string(event.subject_id.to_hex()),
@@ -276,6 +285,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::AgentCognition(payload) => {
                     DomainEvent::agent_cognition(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::WaterVolume(payload) => {
+                    DomainEvent::water_volume(tick, phase, command_id, event_slot, payload)?
                 }
             };
             if event.event_slot != event_slot || event.canonical_bytes()? != canonical_bytes {
@@ -520,6 +532,25 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 )?),
             })
         }
+        "water_volume_changed" => EventPayload::WaterVolume(WaterVolumeChangedV1 {
+            volume_id: decode_persistent_id(next(&mut columns, "event.volume_id")?)?,
+            record_revision: decode_u64_string(
+                next(&mut columns, "event.record_revision")?,
+                "event.record_revision",
+            )?,
+            previous_level_micrometres: decode_i64_string(
+                next(&mut columns, "event.previous_level_micrometres")?,
+                "event.previous_level_micrometres",
+            )?,
+            current_level_micrometres: decode_i64_string(
+                next(&mut columns, "event.current_level_micrometres")?,
+                "event.current_level_micrometres",
+            )?,
+            boundary_tick: decode_u64_string(
+                next(&mut columns, "event.boundary_tick")?,
+                "event.boundary_tick",
+            )?,
+        }),
         _ => {
             return Err(ManifestCodecError::UnknownField(format!(
                 "ticks[].expected_events[].payload.{tag}"

@@ -5,7 +5,7 @@
     "project_id": "org.nextengine.creator-smoke",
     "project_revision": 1,
     "authoring_sha256": "b80e7d162b5f195c94ef9e62b831b4f9f4bfcbae3783587c81ce96b495df720b",
-    "project_lock_sha256": "78c291b819f49ca8cc1349e9bb56ea99e73e6088afde0f7f5d012a5728acf4cf",
+    "project_lock_sha256": "bb5dc4724d52c16e4175faf30544201ccf564936d2f5bca827689702ba098fa3",
     "schema_registry_sha256": "73d81f227c760b2372a5f69f85624f89d8ca5c01c674a530c7aa8ed0d87214e1",
     "content_manifest_sha256": "747bdef09daf3611d073578293c4209728523c8df79290aabd99d985b6e550dc",
     "world_partition_sha256": "11825354928447b5dd69000eda19c3128a9ac91b5350e00c7e4dd16e1782657a",
@@ -32,22 +32,22 @@
     {
       "probe": "command-archive-root",
       "assertion_id": "archive-root",
-      "expected": "1983132a906e8f2e3eb393d0e9c9c05ee4d9993018ce550bc00b6141d9eb36d0"
+      "expected": "397da399bac91bee5064037e09c4e22af760ac93385a3ad01854d21a109bf05a"
     },
     {
       "probe": "final-save-generation-hash",
       "assertion_id": "final-save",
-      "expected": "e0c6f0837fa478bb87995fe19025fb097e706d12b9433d8dc5d963289edd1280"
+      "expected": "48cea4d0196ab5a81127490e2fe3dce34bdcee8a7a90eca6c6d655d03f712b31"
     },
     {
       "probe": "command-identity-index-root",
       "assertion_id": "identity-index",
-      "expected": "bbab5443104f1b30690d50ae202c9c8a7d4e6d733345d9145d63d400fd43f0c0"
+      "expected": "485b03cffcc7ce63f080a5f1353e51d72a48ae8d396cc9e90f950ccd12e6208f"
     },
     {
       "probe": "command-ledger-hash",
       "assertion_id": "ledger-hash",
-      "expected": "67231995987e46d54cd83c8abb76bd907fb66ddcc955d67ef9e556bcc7850ee7"
+      "expected": "ce4f7028d93a630ecc321c9c6b9f9b5f90ec66c57caeed038fea1892c8f2a4a8"
     },
     {
       "probe": "events",
@@ -67,7 +67,7 @@
     {
       "probe": "authoritative-state-root",
       "assertion_id": "runtime-state-root",
-      "expected": "c36043c14e5712616e9528a70b5008311d44b0d492e5a7f0cd8aa2a49da1b78b"
+      "expected": "e7eacef0c1127328bacf313a20caf73b7d1ed13d03fbf93a7359163082fc0d55"
     },
     {
       "probe": "ticks",

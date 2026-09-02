@@ -6,7 +6,7 @@ use next_contracts::ids::ContentHash;
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
-    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1,
+    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1, WaterVolumeSetV1,
 };
 
 use crate::{GroundedCapsuleQuery, GroundedCapsuleWorld, ReferencePhysicsError};
@@ -57,6 +57,10 @@ pub trait PhysicsWorldBackend: Debug {
     fn numeric_profile(&self) -> &AuthoritativeNumericProfileV1;
     fn quantization_profile(&self) -> &PhysicsQuantizationProfileV1;
     fn set_checkpoint_revision(&mut self, revision: u64);
+    /// Replaces the ADR-100 authoritative water table of the checkpoint.
+    /// The table is outside the canonical snapshot and never read by the
+    /// rigid step; backends only carry it.
+    fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1);
     fn step(
         &mut self,
         input: &PhysicsStepInputV2,
@@ -114,6 +118,10 @@ where
 
     fn set_checkpoint_revision(&mut self, revision: u64) {
         GroundedCapsuleWorld::set_checkpoint_revision(self, revision);
+    }
+
+    fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1) {
+        GroundedCapsuleWorld::set_water_volumes(self, water_volumes);
     }
 
     fn step(
@@ -269,6 +277,15 @@ impl PhysicsWorldHost {
 
     pub fn set_checkpoint_revision(&mut self, revision: u64) {
         self.world.set_checkpoint_revision(revision);
+    }
+
+    #[must_use]
+    pub fn water_volumes(&self) -> &WaterVolumeSetV1 {
+        &self.world.checkpoint().water_volumes
+    }
+
+    pub fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1) {
+        self.world.set_water_volumes(water_volumes);
     }
 
     pub fn step(

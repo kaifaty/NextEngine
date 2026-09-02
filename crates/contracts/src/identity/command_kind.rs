@@ -21,6 +21,8 @@ use crate::physical_animation::{
 };
 use crate::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
+    WATER_VOLUME_CAPABILITY_ID, WATER_VOLUME_COMMAND_KIND_ID, WATER_VOLUME_COMMAND_SCHEMA_ID,
+    WATER_VOLUME_COMMAND_SCHEMA_VERSION, WATER_VOLUME_PRIORITY_CLASS,
 };
 use crate::rpg::{
     RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
@@ -114,25 +116,31 @@ pub struct CommandKindRegistryV1 {
 
 impl CommandKindRegistryV1 {
     pub fn core_r4b() -> Result<Self, IdentityContractError> {
-        Self::core(false, false, false)
+        Self::core(false, false, false, false)
     }
 
     pub fn core_r4c() -> Result<Self, IdentityContractError> {
-        Self::core(true, false, false)
+        Self::core(true, false, false, false)
     }
 
     pub fn core_r4d() -> Result<Self, IdentityContractError> {
-        Self::core(true, true, false)
+        Self::core(true, true, false, false)
     }
 
     pub fn core_r5c() -> Result<Self, IdentityContractError> {
-        Self::core(true, true, true)
+        Self::core(true, true, true, false)
+    }
+
+    /// R8c adds the ADR-100 water level command kind.
+    pub fn core_r8c() -> Result<Self, IdentityContractError> {
+        Self::core(true, true, true, true)
     }
 
     fn core(
         include_agent_cognition: bool,
         include_world_activity: bool,
         include_root_motion: bool,
+        include_water_volume: bool,
     ) -> Result<Self, IdentityContractError> {
         let entry = |payload_schema_id: &str,
                      payload_schema_version: u32,
@@ -233,6 +241,17 @@ impl CommandKindRegistryV1 {
             )?;
             entries.insert(key, value);
         }
+        if include_water_volume {
+            let (key, value) = entry(
+                WATER_VOLUME_COMMAND_SCHEMA_ID,
+                WATER_VOLUME_COMMAND_SCHEMA_VERSION,
+                WATER_VOLUME_COMMAND_KIND_ID,
+                WATER_VOLUME_PRIORITY_CLASS,
+                b"nextengine.command-validator.water-volume.v1\0",
+                WATER_VOLUME_CAPABILITY_ID,
+            )?;
+            entries.insert(key, value);
+        }
         let value = Self {
             schema_version: COMMAND_KIND_REGISTRY_SCHEMA_VERSION,
             entries,
@@ -304,6 +323,10 @@ impl CommandKindRegistryV1 {
                     AGENT_COGNITION_COMMAND_SCHEMA_ID,
                     CommandPayload::AgentCognition(_)
                 )
+                | (
+                    WATER_VOLUME_COMMAND_SCHEMA_ID,
+                    CommandPayload::WaterVolume(_)
+                )
         )
     }
 
@@ -318,6 +341,7 @@ impl CommandKindRegistryV1 {
             WORLD_POPULATION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             WORLD_ACTIVITY_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             AGENT_COGNITION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
+            WATER_VOLUME_COMMAND_SCHEMA_ID => true,
             _ => false,
         }
     }
@@ -656,6 +680,33 @@ mod tests {
         assert!(!CommandKindRegistryV1::allows_phase(
             entry,
             CommandPhase::Outcome,
+        ));
+    }
+
+    #[test]
+    fn r8c_water_volume_entry_allows_both_phases_and_preserves_r5c() {
+        let historical = CommandKindRegistryV1::core_r5c().expect("R5c registry");
+        let current = CommandKindRegistryV1::core_r8c().expect("R8c registry");
+        assert_eq!(historical.entries.len(), 8);
+        assert_eq!(current.entries.len(), 9);
+        assert!(
+            historical
+                .entries
+                .iter()
+                .all(|(key, entry)| current.entries.get(key) == Some(entry))
+        );
+        let schema = SchemaId::new(WATER_VOLUME_COMMAND_SCHEMA_ID).expect("schema");
+        let entry = current
+            .descriptor(&schema, WATER_VOLUME_COMMAND_SCHEMA_VERSION)
+            .expect("water-volume command is registered");
+        assert_eq!(entry.priority_class, WATER_VOLUME_PRIORITY_CLASS);
+        assert!(CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Ingress
+        ));
+        assert!(CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Outcome
         ));
     }
 }

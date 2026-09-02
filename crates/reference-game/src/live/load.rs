@@ -105,6 +105,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
 
         let mut input = self.input.clone();

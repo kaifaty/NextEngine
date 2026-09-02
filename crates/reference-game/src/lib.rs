@@ -15,6 +15,7 @@ mod source;
 mod topology;
 mod ui;
 mod ui_dialogue;
+mod water;
 
 pub mod audio;
 
@@ -61,3 +62,9 @@ pub use ui::{
     pause_menu_semantic_ui_records, read_only_screen_semantic_ui_records_for_ids,
 };
 pub use ui_dialogue::dialogue_semantic_ui_records_for_ids;
+pub use water::{
+    REFERENCE_WATER_BASIN_ID, REFERENCE_WATER_BASIN_INITIAL_LEVEL_MICROMETRES,
+    REFERENCE_WATER_BASIN_MAXIMUM_MICROMETRES, REFERENCE_WATER_BASIN_MINIMUM_MICROMETRES,
+    REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES, player_submersion,
+    reference_water_basin_definition, reference_water_volumes, water_surface_translation,
+};

@@ -523,6 +523,8 @@ pub fn run_reference_game_with_backend(
         &runtime.rpg_snapshot(),
         &physical_animation,
         runtime.physics_snapshot(),
+        &runtime.physics_checkpoint().water_volumes,
+        runtime.next_tick(),
     )?;
     let presentation_epoch = next_contracts::project::domain_hash(
         "nextengine.presentation-snapshot-epoch.v1",

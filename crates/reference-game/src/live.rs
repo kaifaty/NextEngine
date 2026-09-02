@@ -262,6 +262,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
         let presentation_extractor =
             PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
@@ -417,6 +419,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
         let (presentation_extractor, persisted_snapshot) =
             PresentationExtractorV1::begin_authoritative_recovery_from_bytes(
@@ -715,13 +719,24 @@ impl ReferenceGameDriverV2 {
             ui_screen,
             dialogue,
             ui_suspend_causal_hash,
-            self.current_audio_subtitle(prepared_runtime.next_tick()),
+            crate::ui::LiveHudStatusV1 {
+                active_subtitle: self.current_audio_subtitle(prepared_runtime.next_tick()),
+                player_water: crate::water::player_submersion(
+                    &self.fixture,
+                    prepared_runtime.physics_snapshot(),
+                    &prepared_runtime.physics_checkpoint().water_volumes,
+                    prepared_runtime.next_tick(),
+                )?
+                .class,
+            },
         )?;
         let presentation_bindings = fixture_presentation_bindings(
             &self.fixture,
             &prepared_runtime.rpg_snapshot(),
             &physical_animation,
             prepared_runtime.physics_snapshot(),
+            &prepared_runtime.physics_checkpoint().water_volumes,
+            prepared_runtime.next_tick(),
         )?;
         let skinning_records = fixture_character_skinning_records(
             &self.fixture,

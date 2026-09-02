@@ -478,6 +478,41 @@ pub struct PhysicalCharacterConformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WaterProbeDetailsV1 {
+    pub label: String,
+    pub point_um: [i64; 3],
+    pub in_volume: bool,
+    pub depth_um: i64,
+    pub class: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaterVolumeDetailsV1 {
+    pub check_id: String,
+    pub basin_id: String,
+    pub player_pose_um: [i64; 3],
+    pub player_class_initial: String,
+    pub player_class_raised: String,
+    pub surface_translation_initial_um: [i64; 3],
+    pub surface_translation_raised_um: [i64; 3],
+    pub initial_level_um: i64,
+    pub committed_level_um: i64,
+    pub initial_probes: Vec<WaterProbeDetailsV1>,
+    pub raised_probes: Vec<WaterProbeDetailsV1>,
+    pub committed_commands: u64,
+    pub rejected_commands: u64,
+    pub water_events: u64,
+    pub checkpoint_round_trip: bool,
+    pub restored_run_identical: bool,
+    pub repeated_run_identical: bool,
+    pub final_state_root: String,
+    pub final_physics_checkpoint_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RootMotionConformanceDetailsV1 {
     pub cycles: u64,
     pub accepted_cycles: u64,

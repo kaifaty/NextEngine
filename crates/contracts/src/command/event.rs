@@ -5,7 +5,7 @@ use crate::canonical::{
 };
 use crate::cognition::{AGENT_COGNITION_EVENT_SCHEMA_ID, AgentDecisionCommittedV1};
 use crate::ids::{CommandId, ContentHash, EventId, SchemaId, content_hash_from_bytes};
-use crate::physics::PhysicalEventV1;
+use crate::physics::{PhysicalEventV1, WATER_VOLUME_EVENT_SCHEMA_ID, WaterVolumeChangedV1};
 use crate::rpg::RpgEventV1;
 use crate::world_activity::{WORLD_ACTIVITY_EVENT_SCHEMA_ID, WorldActivityChangedV1};
 use crate::world_population::{WORLD_POPULATION_EVENT_SCHEMA_ID, WorldPopulationChangedV1};
@@ -136,6 +136,23 @@ impl DomainEventEnvelopeV2 {
             event_slot,
             SchemaId::new(WORLD_ACTIVITY_EVENT_SCHEMA_ID)?,
             EventPayload::WorldActivity(payload),
+        )
+    }
+
+    pub fn water_volume(
+        tick: u64,
+        phase: CommandPhase,
+        command_id: CommandId,
+        event_slot: u32,
+        payload: WaterVolumeChangedV1,
+    ) -> Result<Self, CanonicalError> {
+        Self::build(
+            tick,
+            phase,
+            command_id,
+            event_slot,
+            SchemaId::new(WATER_VOLUME_EVENT_SCHEMA_ID)?,
+            EventPayload::WaterVolume(payload),
         )
     }
 
@@ -302,6 +319,7 @@ impl EventPayload {
                 .canonical_payload_bytes()
                 .map_err(|_| CanonicalError::DuplicateSequenceValue)?,
             Self::AgentCognition(payload) => payload.canonical_payload_bytes()?,
+            Self::WaterVolume(payload) => payload.canonical_payload_bytes()?,
         };
         encode_canonical_segment(
             EVENT_OWNER_ID,
@@ -321,4 +339,5 @@ pub enum EventPayload {
     WorldPopulation(WorldPopulationChangedV1),
     WorldActivity(WorldActivityChangedV1),
     AgentCognition(AgentDecisionCommittedV1),
+    WaterVolume(WaterVolumeChangedV1),
 }

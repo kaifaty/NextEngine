@@ -407,6 +407,17 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         self.checkpoint.checkpoint_hash()
     }
 
+    #[must_use]
+    pub const fn water_volumes(&self) -> &next_contracts::physics::WaterVolumeSetV1 {
+        &self.checkpoint.water_volumes
+    }
+
+    /// The water table is checkpoint field 4, outside the snapshot and the
+    /// catalog: neither derived hash memo is affected.
+    pub fn set_water_volumes(&mut self, water_volumes: next_contracts::physics::WaterVolumeSetV1) {
+        self.checkpoint.water_volumes = water_volumes;
+    }
+
     pub fn set_checkpoint_revision(&mut self, revision: u64) {
         self.checkpoint.snapshot.checkpoint_revision = revision;
         // checkpoint_revision is canonical snapshot field 4: the mutation

@@ -33,6 +33,7 @@ pub enum PhysicsContractError {
     QueryCapacityExceeded,
     QueryUnsupported,
     SnapshotSelectorMismatch,
+    WaterVolumeInvalid,
 }
 
 impl PhysicsContractError {
@@ -51,6 +52,7 @@ impl PhysicsContractError {
             Self::QueryCapacityExceeded => "PHYS_QUERY_CAPACITY_EXCEEDED",
             Self::QueryUnsupported => "PHYS_QUERY_UNSUPPORTED",
             Self::SnapshotSelectorMismatch => "PHYS_QUERY_SNAPSHOT_MISMATCH",
+            Self::WaterVolumeInvalid => "PHYS_WATER_VOLUME_INVALID",
             _ => "PHYSICS_CONTRACT_INVALID",
         }
     }
@@ -107,6 +109,9 @@ impl Display for PhysicsContractError {
             }
             Self::SnapshotSelectorMismatch => {
                 formatter.write_str("physics query snapshot selector does not match")
+            }
+            Self::WaterVolumeInvalid => {
+                formatter.write_str("water volume definition or state is invalid")
             }
         }
     }
