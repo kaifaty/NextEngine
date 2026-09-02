@@ -1354,10 +1354,11 @@
   variant; HG8B holds bounded, HG8C and HG8D are refuted. A realistic
   `0.6` needs a profile-level discriminator (viscosity terms, release
   lift, shelf support), not more geometry switches.
-- **Amendment (revisions 5-6):** the end-phase ejection the user saw was
-  a clamp teleport (HG8E'); revision 6 fixes it (`28 -> 7 m/s`) and lets
-  the sheet keep draining. The last `~12%` on the shelf and the `6..7 m/s`
-  single droplets are profile-level (monolayer support, isolated samples).
+- **Amendment (revisions 5-8):** the end-phase ejection the user saw was
+  a clamp teleport (HG8E', rev 6: `28 -> 7 m/s`) plus the `flush` lip's
+  floor step (HG8H, rev 8: late droplets now follow the head, max
+  `4.06 m/s`). The last `~12%` on the shelf is profile-level (monolayer
+  support).
 - **Reconsider when:** a scene needs the real drain rate or a fully
   draining sheet (open the profile discriminator with its own corpus
   evidence), or the presentation solver moves into the engine.
@@ -1468,6 +1469,8 @@
 | HG8E' | the spill clamp teleports samples that leave the opening window inside the slab | supported: fastest samples were isolated at pipe height at `13..28 m/s`; the pipe-interior clamp (rev 6) drops them to `7 m/s` and unblocks the sheet | closed |
 | HG8F | the pipe over-compresses a thin stream | refuted: fastest samples carry no fixed neighbours | closed |
 | HG8G | the residual shelf sheet is the D-047 monolayer stall | consistent: sheet degree `92 -> 29..45`, `0.12` of the fluid stays on the shelf with `0.05 m` head | profile-level; not gated |
+| HG8H | the `flush` lip's `25 mm` floor step throws samples crossing the lip | supported: `margin` late speed follows the head; rev 8 level floor under `flush` restores that (`0.60 -> 0.20 m/s`) while keeping `Cd 0.443` | closed |
+| HG8I | isolated pipe samples are ejected by fixed-sample over-density | refuted: same pipe under `margin` trickles at head speed | closed |
 
 ## Do not retry
 

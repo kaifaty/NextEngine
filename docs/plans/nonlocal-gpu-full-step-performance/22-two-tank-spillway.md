@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `NGQ8` |
-| Status | `REV 1-6 RUN / TELEPORT FIXED (REV 6) / CD 0.40-0.44 FLUSH / FILM STALL REPORTED` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
+| Status | `REV 1-8 RUN / TELEPORT AND LIP STEP FIXED / LATE SPEED FOLLOWS HEAD / CD 0.39-0.44 / FILM STALL REPORTED` (evidence: `docs/development/nonlocal-gpu-two-tank-spillway-evidence-2026-09-02.md`) |
 | Parent | D-048 density-only boundary support; ADR-100 presentation-only water |
 | Purpose | first internal-geometry scene for the presentation candidate: an upper tank drains through a wall opening into a lower tank |
 
@@ -180,3 +180,45 @@ corrections were recorded before the final rerun: the penetration test
 treats the opening window as inclusive with a `1e-5 m` binary32 allowance
 (a flush-clamped sample sits exactly on the face). H8E' is supported; H8G
 (film stall) stands as a profile limitation, not gated.
+
+## Revision 7 (frozen before running): late droplet speed
+
+Observation (user, confirmed): after `40 s` the few samples leaving the
+narrow pipe travel at `3..5 m/s` while the head supports `1 m/s`.
+
+| ID | Causal hypothesis | Frozen test | Prediction |
+| --- | --- | --- | --- |
+| H8H | the `flush` lip puts the pipe floor for sample centres at `1.000 m` while the shelf lift holds `1.025 m`; a sample crossing the lip is thrown `25 mm` in one step | rerun `spill-narrow` with `--spill-lip margin` (consistent floors) | late exit speed falls to the head speed; if not, H8H is refuted |
+| H8I | an isolated sample inside the pipe reads `~60` fixed neighbours as over-density and is pushed along the pipe regardless of head | same two runs, compare the late exit speed | late exit speed is the same `3..5 m/s` under both lips |
+
+No other value changes. Report: late (`>= 40 s`) exit speed per second and
+the fastest samples' regions under both lips.
+
+## Revision 7 result
+
+H8H is supported: under `margin` the late exit speed follows the head
+(`1.05, 0.92, 0.82, 0.32 m/s` at `40..70 s`, maximum sample speed
+`<= 3 m/s`), under `flush` it rises to `4..5 m/s` with `6 m/s` droplets.
+H8I is refuted (same pipe, same fixed support, different result). The
+revision-3 `flush` gain of `0.05` in `Cd` therefore includes this floor
+step and is not admissible as measured.
+
+## Revision 8 (frozen before running): flush on the free faces only
+
+Frozen change: `flush` keeps the floor margin of one radius (the pipe floor
+stays level with the shelf lift) and applies the zero margin only to the
+top and the two side faces of the opening. Gate on `spill-narrow`,
+`24,000` steps: late exit speed (`>= 40 s`, while at least five samples
+exit) within `1.1x` free fall for the head, maximum sample speed after
+`15 s` `<= 4 m/s`; `Cd` reported. If the gate fails, `flush` is retired
+and `margin` stays the only lip.
+
+## Revision 8 result
+
+`spill-narrow` flush with the level floor: late exit speed follows the
+head (`0.60, 0.54, 0.49, 0.20 m/s` at `40..70 s`; ratio `<= 0.43` while at
+least five samples exit), maximum sample speed after `15 s` `4.06 m/s`
+(gate `<= 4`: fails by `0.06 m/s`, recorded), `Cd 0.443` (the revision-3
+gain came from the free faces, not the floor step), penetration `0 m`,
+sheet at `0.119` after `100 s`. `flush` stays an admissible option;
+`margin` remains the default by the revision-3 rule.

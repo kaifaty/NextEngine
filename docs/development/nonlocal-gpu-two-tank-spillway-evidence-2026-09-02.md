@@ -2,7 +2,7 @@
 
 ## Result and claim ceiling
 
-`NGQ8 REV 1-6 RUN / TELEPORT FIXED / DISCHARGE 0.40-0.44 WITH FLUSH LIP / FILM STALL REPORTED`: the first
+`NGQ8 REV 1-8 RUN / TELEPORT AND LIP STEP FIXED / LATE SPEED FOLLOWS HEAD / DISCHARGE 0.39-0.44 / FILM STALL REPORTED`: the first
 interior-geometry presentation scene (upper tank on a `1 m` shelf, `0.2 m`
 divider with a `0.3 x 0.5 m` opening, empty lower tank) runs on the accepted
 `cap160.v6` game profile with the positional spill clamp and density-only
@@ -137,3 +137,23 @@ the release height; the residual sheet stall is the D-047 monolayer effect
 on the shelf (fluid degree `29..45` against `92` in the bulk) and is a
 profile limitation, not a geometry one. The frozen revision-6 gates
 therefore fail narrowly and are recorded as such.
+
+## Revisions 7-8: late droplet speed (user observation)
+
+After revision 6 the user still saw the last droplets leave faster than
+the trickle should. Frozen comparison on `spill-narrow`, `24,000` steps:
+
+| lip | exit speed at 40 / 50 / 60 / 70 s (m/s) | free fall for the head | max sample speed after 15 s |
+| --- | --- | --- | ---: |
+| `flush` (rev 6) | `1.90 / 3.00 / 4.44 / 4.32` | `1.67 / 1.54 / 1.32 / 1.17` | `7.0` |
+| `margin` | `1.05 / 0.92 / 0.82 / 0.32` | `1.77 / 1.59 / 1.42 / 1.19` | `3.0` |
+| `flush` (rev 8, level floor) | `0.60 / 0.54 / 0.49 / 0.20` | `1.66 / 1.53 / 1.31 / 1.16` | `4.06` |
+
+H8H holds: the `flush` lip had put the pipe floor for sample centres
+`25 mm` below the shelf lift, so a sample crossing the lip was thrown by
+that step; H8I (pipe over-density) is refuted by the `margin` run. Revision
+8 keeps the opening floor level with the shelf and applies the zero margin
+only to the top and side faces: late speed follows the head, `Cd` keeps
+its `0.443`, penetration `0 m`. The `4 m/s` gate misses by `0.06 m/s` and
+is recorded as such. Extractor binary after revision 8:
+`ff0141d0ac534623...`.

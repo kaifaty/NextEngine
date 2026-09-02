@@ -652,16 +652,18 @@ __global__ void clamp_spill_contact(
         return;
     }
     float3 p = position[index];
+    // NGQ8 revision 8: the opening floor always keeps one radius so it stays
+    // level with the shelf lift; `flush` applies only to the free faces.
     if (p.x >= wall_x0 && p.x <= wall_x1) {
         // NGQ8 revision 6: inside the slab a sample can only be in the pipe;
         // keep it in the opening window instead of pushing it through a face.
-        p.y = fminf(fmaxf(p.y, opening_y0 + lip_margin), opening_y1 - lip_margin);
+        p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - lip_margin);
         p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
     } else if (p.x > wall_x0 - radius && p.x < wall_x1 + radius) {
         const bool window = p.y > opening_y0 && p.y < opening_y1 && p.z > opening_z0
             && p.z < opening_z1;
         if (window) {
-            p.y = fminf(fmaxf(p.y, opening_y0 + lip_margin), opening_y1 - lip_margin);
+            p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - lip_margin);
             p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
         } else if (p.x < wall_x0) {
             p.x = wall_x0 - radius;
