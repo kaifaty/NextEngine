@@ -3,12 +3,13 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ACTIVE / R0_F0_C0_B0_COMPLETE / I0_NEXT / FRESH_TARGETS_UNOPENED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `ACTIVE / R0_F0_C0_B0_I0_COMPLETE / D0_NEXT / FRESH_TARGETS_UNOPENED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V34](physical-sound-synthesis-roadmap-v34.md) as planning authority; V34 is terminal and every opened role remains spent |
 | Research basis | [V35 geometry-conditioned hybrid research](../development/physical-sound-v35-geometry-conditioned-hybrid-research-2026-09-02.md) |
 | F0 evidence | [Repeat-exact target-safe profile freeze](../development/physical-sound-v35-f0-geometry-hybrid-profile-freeze-result-2026-09-02.md) |
 | C0 evidence | [Repeat-exact P1 witness and hybrid-support census](../development/physical-sound-v35-c0-witness-and-coverage-census-result-2026-09-02.md) |
 | B0 evidence | [Repeat-exact local-expert and coverage-gate conformance](../development/physical-sound-v35-b0-local-gate-conformance-result-2026-09-03.md) |
+| I0 evidence | [Repeat-exact complete-owner and terminal-path proof](../development/physical-sound-v35-i0-complete-owner-terminal-proof-result-2026-09-03.md) |
 | Trigger evidence | [V34 H0 terminal metric reject](../development/physical-sound-v34-h0-method-holdout-result-2026-09-02.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | All evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
@@ -125,8 +126,8 @@ scores. No downstream stage may reinterpret a failed upstream role.
 | F0 | Fresh profile and method freeze | [`COMPLETE / REPEAT_EXACT / ZERO_VALUES`](../development/physical-sound-v35-f0-geometry-hybrid-profile-freeze-result-2026-09-02.md) | Hash-closed fresh roles/truth and exact geometry key, neural/local experts, gate, nine controls, three ablations, gates and resources pass twice exactly with zero official target/model/prior-value/signal access. |
 | C0 | Signal-blind witness/coverage census | [`COMPLETE / REPEAT_EXACT / ZERO_VALUES`](../development/physical-sound-v35-c0-witness-and-coverage-census-result-2026-09-02.md) | All `8,640` evaluation rows have nonempty P1 witnesses, exactly `216` train neighbors, both experts reachable and zero OOD/forbidden input; all `6,480` train rows retain `215` neighbors after causal case-group leave-out. |
 | B0 | Local expert/gate conformance | [`COMPLETE / REPEAT_EXACT / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v35-b0-local-gate-conformance-result-2026-09-03.md) | All `6,480` discarded rows prove continuous local/gate execution, exact train-permutation invariance, `215`-row case/remesh leave-out, same-equation zero distance, no equality split, bounded blend and strict OOD. |
-| I0 | Complete-owner terminal proof | `NEXT` | Discarded official-shape execution imports the frozen V34 publisher and B0 owner, covers Pass/metric/hard/resource/pre-access terminals and repeats artifacts/stdout exactly without official role access. |
-| D0 | Fresh development tournament | `BLOCKED_BY_I0` | Candidate beats nearest and continuous local control in aggregate and each transfer stratum, passes both-expert ablations and every hard/resource gate, then freezes one candidate with zero H0 access. |
+| I0 | Complete-owner terminal proof | [`COMPLETE / REPEAT_EXACT / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v35-i0-complete-owner-terminal-proof-result-2026-09-03.md) | `34` files cover the complete `6,480 / 4,320 / 13` discarded owner shape, B0 execution, Pass/metric/hard/resource/pre-access terminals and both publication failpoints atomically. |
+| D0 | Fresh development tournament | `NEXT` | Candidate beats nearest and continuous local control in aggregate and each transfer stratum, passes both-expert ablations and every hard/resource gate, then freezes one candidate with zero H0 access. |
 | H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate repeats exactly without training and independently passes all aggregate/branch/stratum, P1 hard, provenance and resource gates. Reject/fault closes V35 permanently. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with five projects reserved for other one-use roles. |
@@ -188,9 +189,10 @@ or subjective listening cannot waive one failed relative gate.
    census twice exactly; reject any degenerate stratum before target access.
 4. **V35.3 — complete:** implement and prove local interpolation, continuous
    gate and cross-fit anti-leakage on discarded analytic fields.
-5. **V35.4 — next:** import B0 plus the frozen V34 terminal publisher and prove
+5. **V35.4 — complete:** import B0 plus the frozen V34 terminal publisher and prove
    the complete discarded official-shape owner and every terminal path.
-6. **V35.5:** execute D0 once in two fresh processes; freeze one candidate only
+6. **V35.5 — next:** implement and freeze the complete D0 owner with official
+   values still unopened, then execute D0 once in two fresh processes; freeze one candidate only
    after a complete repeat-exact pass.
 7. **V35.6:** execute H0 once without retraining; admit the synthetic method or
    permanently close V35.
