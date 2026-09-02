@@ -3,6 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date frozen | `2026-09-02` |
+| Protocol revision | `m0a-v1.1`; corrects the pre-implementation beam support identifier to the exact T0 value, with no model/value change |
 | Status | `FROZEN_BEFORE_IMPLEMENTATION_COMPLETION / MODEL_VALUES_UNOPENED / ONE_CPU_SEED / BLUE_BOWL_DISCLOSED_DEVELOPMENT_ONLY` |
 | Roadmap package | V25 `M0-I` and `M0-E` |
 | Supersedes | [V24 M0](physical-sound-v24-m0-exact-object-neural-student-protocol-2026-09-01.md) before official execution because its isolated `E`/density gates were not observable from one-hot inputs |
@@ -74,7 +75,7 @@ Every transform is hash-cached outside Git and recomputed A/B:
    `physical_parameters_known` mask. T0 values are the exact frozen teacher
    table below. X0 values are all zero with mask `0`; the Glass semantic label
    remains known and does not authorize numeric inference.
-6. Append support one-hot `[cantilever-clamped-root,
+6. Append support one-hot `[cantilever-clamped-u0,
    simply-supported-all-edges]` plus `support_known`. X0 support uses zeros and
    mask `0`.
 7. T0 targets are log frequency, log decay and signed normalized gain. The
