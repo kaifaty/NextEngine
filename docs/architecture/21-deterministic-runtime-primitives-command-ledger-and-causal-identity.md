@@ -1571,7 +1571,7 @@ ramp is a pure function of the tick and adds no system or barrier.
 Current `core_r8d` (Proposed ADR-103, R8d) keeps that schedule and adds the
 tenth kind `nextengine.command.water-flow@1` (priority class `291`,
 capability `nextengine.capability.water-flow-control`, either phase, no
-subject target) for gates, pumps and sources. Unlike the level ramp, the
+subject target) for gates, pumps, sources and sinks. Unlike the level ramp, the
 flow network does mutate state every tick: its exact integer Jacobi step
 runs inside the physics owner's tick directly after the rigid step and
 before the physics checkpoint hash, so it needs no schedule stage or

@@ -50,9 +50,10 @@ needs for the first water experience.
    at a point, wading/swimming classification, buoyancy for a later
    consumer) read only this volume through exact snapshot-bound water
    queries on the physics owner, in the SPEC-26 query discipline. Its state
-   changes only through validated `WorldCommand` transactions, publishes
-   exact roots, saves and replays with the world and needs no floating-point
-   execution profile.
+   changes only through validated `WorldCommand` transactions (and, for
+   volumes that are cells of the ADR-103 network, through that network's
+   exact per-tick step), publishes exact roots, saves and replays with the
+   world and needs no floating-point execution profile.
 2. **Presentation water is non-authoritative.** A separate presentation
    dynamics stage may animate the free surface of a `WaterVolume` with any
    solver, including the Nonlocal GPU candidate, and publish a bounded
@@ -99,8 +100,9 @@ reaction batch exists and PhysX remains the sole rigid writer.
 ## Implementation (R8c, first increment)
 
 - `WaterVolumeSetV1` (definitions plus per-volume record state) is field 4
-  of `PhysicsWorldCheckpointV1`, whose schema version becomes `2` (segment
-  `v2`, hash domain `nextengine.physics-world-checkpoint.v2`). It therefore
+  of `PhysicsWorldCheckpointV1`, whose schema version became `2` in R8c
+  (segment `v2`, hash domain `nextengine.physics-world-checkpoint.v2`) and
+  is `3` since ADR-103 (segment `v3`, domain `...v3`). It therefore
   enters the physics leaf of every state root, save segment and replay
   compare point without a new owner segment. Rigid backends only carry it.
 - `WaterVolumeCommandV1::SetLevel` is the ninth command kind
@@ -144,7 +146,8 @@ reaction batch exists and PhysX remains the sole rigid writer.
 - The `4/6 ms` standalone stop target now applies to the presentation
   solver's own budget row, not to gameplay correctness; a missed budget lowers
   surface cadence or sample count, never gameplay.
-- Determinism, save, replay and cross-target roots cover `WaterVolume` only.
+- Determinism, save, replay and cross-target roots cover `WaterVolume` and,
+  since ADR-103, `WaterFlowNetworkV1`.
 
 ## Product checks
 

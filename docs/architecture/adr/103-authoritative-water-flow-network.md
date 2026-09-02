@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-103 |
 | Status | Proposed |
-| Version | 0.3 |
+| Version | 0.4 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
@@ -44,7 +44,9 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
    `floor + volume / area` in exact integer arithmetic (volume in cubic
    millimetres, area in square millimetres, level in micrometres). The
    R8c `SetLevel` command remains the authored override: it rewrites the
-   cell volume to the level and suspends the ramp, as today.
+   committed level, and the cell's volume is recomputed from that level at
+   the next flow step (`synced_record_revision`); cells cannot carry an
+   authored ramp.
 2. **Edges carry water by head.** An edge joins two cells (or a cell and
    the outside) and is one of:
    - `Open`: a sill of width `w` at height `s` (weir / free surface
@@ -66,22 +68,29 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
    for short openings, `0.13` for long lined ducts, `c_w = 0.385`).
 3. **One exact step per simulation tick.** The step is Jacobi: every
    edge flux is evaluated from the state at the start of the tick with
-   integer square roots, each flux is limited to the water available
-   above the sill on its source side and to half the volume that would
-   equalise the two levels, then per cell the outgoing fluxes are scaled
+   integer square roots, each `Open`/`Pipe`/`Gate` flux is limited to the
+   water available above the sill on its source side and to half the
+   volume that would equalise the two levels (a `Pump` by its source
+   cell's volume, a `Sink` by its cell's volume, a `Source` unbounded),
+   then per cell the outgoing fluxes are scaled
    down (integer, largest-remainder) so a cell never goes negative, then
    all fluxes apply. Total volume changes only by sources and sinks and
-   the difference is exact. The edge order is the record order; there is
+   the difference is exact. Edges evaluate in ascending edge-id order,
+   which also fixes the largest-remainder tie-break; there is
    no floating point anywhere, so `game` and `headless` produce identical
    roots and no execution profile is needed.
 4. **Commands and events.** `WaterFlowCommandV1` (`SetGate`, `SetPump`,
-   `SetSource`) is the tenth command kind, in the water capability
-   family, validated against the edge kind, opening range and record
-   revision; each commit publishes `WaterFlowChangedV1` and bumps the
-   edge revision. Unknown edge, wrong kind, stale revision and revision
-   exhaustion are stable rejections.
-5. **Checkpoint.** `WaterFlowNetworkV1` (edge definitions, per-edge
-   state, per-cell volumes) is field 5 of `PhysicsWorldCheckpointV1`,
+   `SetSource`; the last sets the rate of a `Source` or a `Sink`) is the
+   tenth command kind, in the water capability family, validated against
+   the edge kind, opening range (`0..=1000`), rate range (`0..=1 m^3/s`)
+   and record revision; each commit publishes `WaterFlowChangedV1` and
+   bumps the edge revision. Unknown edge, wrong kind, stale revision,
+   opening out of range, rate out of range and revision exhaustion are
+   the six stable rejections.
+5. **Checkpoint.** `WaterFlowNetworkV1` (the integration tick rate, edge
+   definitions, per-edge state, per-cell volumes with the water-volume
+   record revision each was last synchronised with) is field 5 of
+   `PhysicsWorldCheckpointV1`,
    whose schema version becomes `3`. It rides the physics leaf of every
    state root, save segment and replay compare point; rigid backends only
    carry it. Bounds: at most `MAX_WATER_VOLUMES` cells and `256` edges
@@ -103,8 +112,9 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
   admits it, the first increment does not build it.
 - Wave, ripple and flow presentation on cell surfaces is a later
   presentation increment under ADR-101/ADR-102.
-- Coupling to rigid bodies (buoyancy, drag) stays with the later
-  crate-coupled consumer named by ADR-100.
+- Coupling to rigid bodies (buoyancy, drag) is the
+  `CONTINUUM-WATER-BUOYANCY-P1` consumer of ADR-104, which needs its own
+  short ADR narrowing ADR-058 and a frozen plan before code.
 
 ### Later increments under this ADR (SPEC-38 2.1 practices)
 
@@ -161,6 +171,9 @@ Ordered by value, each with its own frozen plan and evidence:
   presentation solvers.
 - Every state root changes once (schema 3); the pinned goldens are
   refreshed in the same increment with the evidence.
+- The step at the record bounds costs `183 us` in a release build (plan 07
+  G6, `50 us` not met); it clones two maps and computes in `i128`, and is
+  report-only until a consumer freezes a bound.
 - SPEC-38 gains the network owner and the calibration table; SPEC-26
   gains the two queries; the routing and traceability rows for water name
   `CONTINUUM-WATER-FLOW-P1`.
@@ -169,7 +182,7 @@ Ordered by value, each with its own frozen plan and evidence:
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `CONTINUUM-WATER-FLOW-P1` | Two vessels at different levels joined by a pipe, a gate on the pipe, a source and a sink; step for a bounded number of ticks on `game` and `headless`, save at the middle, restore, continue, replay. | Total volume equals the initial volume plus sources minus sinks exactly at every tick; the two levels converge to within `1 mm` of the common level within the frozen time bound; closing the gate stops the exchange within one tick; identical roots live, restored and replayed; unknown edge, wrong kind, stale revision and out-of-range opening rejected without mutation; no presentation state is read. | The network is absent from the world and cells keep their authored levels (R8c behaviour). |
+| `CONTINUUM-WATER-FLOW-P1` | Two vessels at different levels joined by a pipe, a gate on the pipe, a source and a sink; step for a bounded number of ticks on `game` and `headless`, save at the middle, restore, continue, replay. | Total volume equals the initial volume plus sources minus sinks exactly at every tick; vessel A drains to within `1 mm` of its floor no later than twice the analytic Torricelli drain time plus the gate closure (the common-level case is the contract unit test `communicating_vessels_equalise_when_floors_allow`); closing the gate stops the exchange within one tick; identical roots live, restored and replayed; unknown edge, wrong kind, stale revision and out-of-range opening rejected without mutation; no presentation state is read. | The network is absent from the world and cells keep their authored levels (R8c behaviour). |
 
 ## Considered alternatives
 

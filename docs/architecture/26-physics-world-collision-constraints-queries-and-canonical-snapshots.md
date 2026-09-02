@@ -988,16 +988,21 @@ under declared tolerances but cannot change this result.
 
 ### Authoritative water volumes (Proposed ADR-100)
 
-`PhysicsWorldCheckpointV1` schema version `2` carries `WaterVolumeSetV1` as
-field 4 next to the catalog and the canonical snapshot: at most `64`
+`PhysicsWorldCheckpointV1` schema version `3` (introduced at schema `2` in
+R8c, bumped by ADR-103) carries `WaterVolumeSetV1` as field 4 next to the catalog and the canonical snapshot: at most `64`
 disjoint sealed regions, each an exact integer micrometre extent, an
 initial level, a swimming depth, an optional authored linear level ramp
 and a profile revision, plus one mutable record per volume (record
 revision, committed level, ramp suspension). The table is outside the
 canonical snapshot and the rigid step never reads it; backends carry it
 unchanged and it changes only through the validated
-`nextengine.command.water-volume` transaction, which emits
-`nextengine.event.water-volume-changed`.
+`nextengine.command.water-volume` transaction (event
+`nextengine.event.water-volume-changed`) and, for volumes that are cells of
+the ADR-103 network, through the exact per-tick flow step, which rewrites
+the committed level without a command, an event or a record-revision
+change. A cell cannot carry an authored ramp; a checkpoint that binds a
+ramped volume as a cell rejects at validation, before activation or
+restore.
 
 `WaterVolumeSetV1::submersion_at(point, tick)` is an exact query on the
 committed table: the containing volume, `level - y` as depth, and the
@@ -1013,8 +1018,13 @@ bytes are current-only alpha artifacts and reject before mutation.
 as field 5: at most `256` edges over the water-volume cells (open sill,
 pipe, gate, pump, source, sink; every coefficient a permille profile
 value), one mutable state per edge (record revision, gate opening, pump
-switch, rate, last flux) and one exact stored volume per cell in cubic
-millimetres. Cells are the water volumes themselves; the level a
+switch, rate, last flux), the integration tick rate (`1..=1000` per
+second, `0` only for an empty network; it MUST equal the world
+`TickRateProfileV1` gameplay rate and the physics owner rejects a mismatch
+before activation) and, per cell, one exact stored volume in cubic
+millimetres plus the water-volume record revision it was last
+synchronised with (an authored `SetLevel` rewrites the committed level and
+the volume is recomputed from it at the next step). Cells are the water volumes themselves; the level a
 submersion query sees is `floor + volume / area` in integer arithmetic,
 saturated at the cell ceiling. The network changes through the validated
 `nextengine.command.water-flow` transaction (`SetGate`, `SetPump`,
@@ -1025,7 +1035,23 @@ the water above the sill and half the equalising volume, per-cell
 largest-remainder scaling so no cell goes negative, total volume changed
 only by sources and sinks. `cell_volume(id)` and `edge_flux(id)` are the
 two exact queries. The rigid step never reads the network; backends carry
-it unchanged.
+it unchanged. Flux limits apply per kind: `Open`, `Pipe` and `Gate` fluxes
+are bounded by the water above the sill on the source side and by half the
+equalising volume; a `Pump` by its source cell's volume; a `Sink` by its
+cell's volume; a `Source` is unbounded. Edges evaluate in ascending edge-id
+order. The command rejects with six stable codes:
+`WATER_FLOW_EDGE_UNKNOWN`, `WATER_FLOW_EDGE_KIND_MISMATCH`,
+`WATER_FLOW_REVISION_STALE`, `WATER_FLOW_OPENING_OUT_OF_RANGE` (opening
+`> 1000`), `WATER_FLOW_RATE_OUT_OF_RANGE` (rate outside `0..=1 m^3/s`)
+and `WATER_FLOW_REVISION_EXHAUSTED`; `SetSource` sets the rate of a
+`Source` or a `Sink`. Record bounds: `64` cells, `256` edges, one network
+per world, every cell incident to at least one edge, areas `<= 1000 m^2`,
+widths `<= 1000 m`, rates `<= 1 m^3/s`, sills and inverts within the
+canonical position range. An arithmetic or validation failure inside the
+flow step is an invariant fault that stops the physical run with the prior
+checkpoint retained. Water motion alone does not advance the world
+revision (the rigid snapshot hash is unchanged); it changes the physics
+checkpoint hash and therefore every state root.
 
 ## Persistence, replay and schema evolution
 

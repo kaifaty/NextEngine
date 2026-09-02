@@ -6,7 +6,7 @@
 | Status | Proposed |
 | Version | 1.4 |
 | Decision date | 2026-08-16 |
-| Last verified | 2026-08-18 |
+| Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Candidate revision note | Version 1.4 binds the W0G reversible/static-impact energy semantics over unchanged W0F operations without promoting this Proposed track |
 | Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes the world-generation key, unprofiled private-float, unbounded continuation, implicit fault-domain and legacy-budget clauses. Partially [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) (Proposed): for water V1 it supersedes GPU correspondence-only, the crate-coupled first consumer and debug-points-only presentation. Partially [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md): it supersedes the water clauses (CPU DFSPH as the canonical water candidate, the canonical particle water boundary, exact active-sample persistence and checkpoint epochs for water, the particle reaction batch as the water coupling source); the terrain clauses, the one-pass composite step and the rigid-writer authority remain. |
@@ -175,7 +175,8 @@ integration track. A later production proposal must additionally prove:
   stress/report-only;
 - one-pass crate float/impact and failure atomicity;
 - exact active save/restart continuation;
-- Windows/Linux canonical-root equality before production promotion;
+- (retired by ADR-090/ADR-104) Windows/Linux canonical-root equality before
+  production promotion;
 - identical `game`/`headless` semantics and the authored dry pre-activation
   fallback.
 

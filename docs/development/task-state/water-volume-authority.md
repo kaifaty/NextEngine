@@ -11,7 +11,7 @@
 
 - **Decision C is implemented on the gameplay side.** `WaterVolumeSetV1`
   (definitions plus per-volume record state) is field 4 of
-  `PhysicsWorldCheckpointV1` schema version 2, so it rides the physics leaf of
+  `PhysicsWorldCheckpointV1` schema version 3 (2 at R8c), so it rides the physics leaf of
   every state root, save segment and replay compare point. Backends only
   carry it; the rigid step never reads it.
 - **Command path.** `WaterVolumeCommandV1::SetLevel` is the ninth command
@@ -56,7 +56,7 @@
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum
   materials ..." in `docs/architecture/agent-routing.md`.
-- ADR-100 / ADR-101 (Proposed), SPEC-26 2.5, SPEC-38 1.8, SPEC-03 2.10.
+- ADR-100 / ADR-101 / ADR-102 / ADR-103 / ADR-104 (Proposed), SPEC-26 2.6, SPEC-38 2.2, SPEC-03 2.11, SPEC-21 2.2.
 - Research side and live Vulkan bridge:
   `docs/development/task-state/nonlocal-gpu-full-step-performance.md`.
 
@@ -195,5 +195,5 @@
    identical gameplay roots with and without the solver.
 2. Optional gameplay effect: motor speed scaling from the classification
    (needs its own bounded evidence; not part of C's authority split).
-3. Keep ADR-100 Proposed until both checks pass, then accept it with the
+3. Keep ADR-100/103/104 Proposed until the four `CONTINUUM-WATER-*` checks pass, then accept them with the
    SPEC/routing/traceability updates.

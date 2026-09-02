@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.9 |
+| Version | 2.2 |
 | Last verified | 2026-09-02 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](adr/103-authoritative-water-flow-network.md), [ADR-104](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
 | Candidate revision note | Version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
@@ -34,7 +34,7 @@ pass through `xtask water-volume` and `xtask water-flow`; the remaining
 product checks are `CONTINUUM-WATER-PRESENT-P1` and
 `CONTINUUM-WATER-BUOYANCY-P1` (ADR-104). The research checks below are
 reports, not promotion gates. The authoritative water table lives in the physics world
-checkpoint under Proposed ADR-100 and SPEC-26 2.5; the particle lanes below
+checkpoint under Proposed ADR-100 and SPEC-26 2.6; the particle lanes below
 still change no production world, save/replay format or public contract.
 
 ## Candidate authority and canonical water state
@@ -73,8 +73,10 @@ A GPU particle solver cannot emit authoritative commands, events,
 checkpoints or body impulses; GPU authority would require a new ADR with a
 GPU `CanonicalFloatExecutionProfile`.
 
-One future active water region owns a bounded material-specific SoA. At every
-accepted 240 Hz substep its complete future-affecting sample state is:
+Research form only (ADR-104; nothing below is canonical, saved or replayed):
+a future active water research region owns a bounded material-specific SoA.
+At every accepted 240 Hz substep its complete future-affecting sample state
+is:
 
 ```text
 WaterSampleCanonicalStateV1 {
@@ -98,10 +100,10 @@ branches. Publication performs exactly one checked
 round-to-nearest-ties-to-even conversion to the SPEC-21 fixed-point boundary.
 The next substep starts only from that published canonical state. Nonfinite,
 overflow or out-of-range conversion rejects the candidate; private float state
-cannot survive the boundary. Production also requires exact Windows/Linux roots
-on adversarial rounding and convergence cases. Failure after two remediation
-cycles leaves this authority research-only or forces a separate fixed-point/
-soft-float decision.
+cannot survive the boundary. Same-target exactness on the Linux reference
+host is the gate (ADR-090); no Windows requirement exists. Failure after two
+remediation cycles leaves this research authority research-only or forces a
+separate fixed-point/soft-float decision.
 
 Material-specific active state remains separate: a future MPM solid needs
 deformation gradient, affine velocity and plastic/internal variables in its
@@ -209,13 +211,21 @@ analytical boundary admits no particle crossing. Halo exchange, cross-region
 neighbor pairs, ownership transfer, camera-selected activation and active
 eviction are forbidden.
 
-First production persistence stores the exact active water state in the same
-atomic physical owner checkpoint as the PhysX canonical state. A sidecar
+Water V1 persistence and fallback are the exact table and network inside
+the physics checkpoint: a corrupt or unsupported segment rejects before
+mutation, and a world without a network keeps its authored levels (R8c
+behaviour); no capability is needed. The paragraphs that follow are the
+research form of particle persistence.
+
+Research form: first production persistence would store the exact active
+water state in the same atomic physical owner checkpoint as the PhysX
+canonical state. A sidecar
 cannot commit, restore or fail independently. Save-at-N/resume-to-M must reach
 the same canonical root as uninterrupted execution. Neighbor structures,
 pressure scratch and render buffers are rebuilt.
 
-That production profile defines a fixed positive checkpoint epoch. At every
+Research form: that production profile would define a fixed positive
+checkpoint epoch. At every
 epoch, with or without a save request, it reconstructs and validates a fresh
 PhysX scene from canonical state before atomic replacement. Saves publish only
 after this barrier, and uninterrupted comparison runs execute the same barrier.
@@ -230,8 +240,8 @@ Worst-case sample, neighbor, pair, reaction-batch and rigid-participant
 capacities are admitted before freeze. User-expressible denial is an ordinary
 activation/action rejection; exhaustion after admission is an invariant fault.
 
-Before activation, missing or rejected continuum capability selects an
-authored dry basin variant. After activation, the runtime cannot silently
+Research form: before activation, missing or rejected continuum capability
+would select an authored dry basin variant. After activation, the runtime cannot silently
 substitute decorative water, freeze the water while PhysX advances, switch to
 GPU authority or downgrade to the dry variant. An active fatal failure retains
 the last complete checkpoint and stops the affected physical run with a typed
@@ -249,7 +259,8 @@ A later water/ice consumer must atomically bind parcel inventory/enthalpy to
 the continuum region and pass `THERMOCHEM-CONTINUUM-P1`; neither owner may
 derive an independently mutable copy.
 
-The V1 water roadmap still forbids warm start. SPEC-44 may evaluate a learned
+Research form: the particle water roadmap still forbids warm start. SPEC-44
+may evaluate a learned
 warm-start proposal only as an independent post-promotion report/shadow branch
 after the classical reference, production and exact-persistence gates pass. It
 cannot change W1-W6, production initialization or work, CPU authority, GPU
@@ -280,39 +291,46 @@ shows the same split everywhere: a level or height/shallow-water field for
 the body, a bounded particle or 2D system for active water, rendering for
 the look. These practices bind every later water increment:
 
-1. **Lattice cells are the large-body tier.** A map-wide body is a
+1. **Lattice cells are the large-body tier (planned, ADR-103 0.3).** A map-wide body is a
    `WaterFlowNetworkV1` whose cells form a regular lattice over the
    terrain and whose edges are `Open` sills to the four neighbours (the
    Timberborn column model and the virtual-pipes model, made exact).
    Floods, channels and terrain-following water cost one edge evaluation
    per wet neighbour pair, are saved with the world and need no float
    profile. The lattice is authored per region with a declared cell size
-   and cell count bound; it is not global and it is not adaptive.
-2. **Only active water steps.** A cell whose stored volume and every
+   and cell count bound; it is not global and it is not adaptive. The
+   lattice increment needs its own bounds (cells and edges per region; the
+   first increment admits `64` cells and `256` edges per world) and a rule
+   for face-sharing cells, because `WaterVolumeDefinitionV1` extents are
+   closed intervals and face-sharing volumes currently reject as
+   overlapping.
+2. **Only active water steps (planned).** A cell whose stored volume and every
    incident edge state are unchanged from the previous tick, and whose
    neighbours are likewise unchanged, is at rest and is skipped; a
    command or a neighbour change wakes it. Rest is exact (no flux), so
    skipping changes no root. The activity set is derived state, rebuilt
-   on restore, never saved.
-3. **Presentation is spawned at edges.** Jets, falls, splashes and foam
+   on restore, never saved; a skipped edge records flux `0`.
+3. **Presentation is spawned at edges (planned).** Jets, falls, splashes and foam
    are spawned by the presentation stage from the exact flux of a gate,
    sill, pipe mouth or waterfall edge and return visually to the
    destination cell's surface; the authoritative volume never leaves the
    network (the hybrid rule of Chentanez and Müller applied across the
    authority split).
-4. **Rotational flow is presentation.** Whirlpools, eddies and flow
+4. **Rotational flow is presentation (planned).** Whirlpools, eddies and flow
    lines come from either a presentation-only shallow-water grid (height
    plus 2D velocity) fed by the network's levels and edge fluxes, or an
    authored vortex field around a `Sink` edge for the particle pass.
    Gameplay effects of a whirlpool (pull, damage, transport) read the
    exact edge flux and the cell geometry, never the visual field.
-5. **Waves are a layer.** Ripples, wakes and wind waves are a
+5. **Waves are a layer (planned).** Ripples, wakes and wind waves are a
    presentation layer on the cell surfaces (wave packets or surface
    wavelets over the height field), artist-controlled, with no gameplay
    reading.
 6. **Exact queries, no readback.** Gameplay, AI and audio read levels,
    volumes and fluxes through the SPEC-26 queries on the committed
-   network. Nothing reads a presentation texture, particle set or grid
+   network; presentation stages read `effective_level` of the committed
+   physics checkpoint at the published tick (and later `edge_flux`),
+   nothing else. Nothing reads a presentation texture, particle set or grid
    back into gameplay; a presentation stage that cannot run degrades the
    look only.
 7. **One writer per substance.** The network is the only writer of
@@ -381,17 +399,18 @@ promotion gates):
 | Check | Required result |
 |---|---|
 | `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean positive compression and projected-KKT residual each `<= 0.01%` within `2..=50` pressure-operator applications; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized impulse residual `<= 1%`; W0G absolute energy drift `<= 1%` for reversible/control scenarios and positive energy excess `<= 1%` for named static-impact scenarios with deficit/stage accounting; mandatory hydro/dam-break/orifice reference RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
-| `CONTINUUM-COUPLING-P1` (particle form) | One-pass reaction closure from a particle set, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
-| `CONTINUUM-PERSISTENCE-P1` (particle form) | Exact active particle save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
+| `CONTINUUM-PARTICLE-COUPLING-R1` (research, formerly `CONTINUUM-COUPLING-P1`) | One-pass reaction closure from a particle set, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
+| `CONTINUUM-PARTICLE-PERSISTENCE-R1` (research, formerly `CONTINUUM-PERSISTENCE-P1`) | Exact active particle save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
 | `CONTINUUM-TERRAIN-P1` (separate lane) | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
+| conditional `performance` (network) | The exact flow step at the record bounds (`64` cells, `256` edges) on the reference host in a release build: currently `183 us` per step (plan 07, G6 `50 us` not met); report-only until a bound is frozen with a consumer. |
 | conditional `performance` | The presentation solver owns its own budget row: `48k` presentation water at the THOTH `4/6 ms` p95/p99 stop target on the reference host; a missed budget lowers surface cadence or sample count, never gameplay. An authoritative particle solver, if ever proposed, must additionally pass the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. `10k` and `100k` remain report profiles. |
 
 The CPU oracle also compares published curves with aggregate output from an
 independently executed SPlisHSPlasH revision. External solver code, generated
 trajectories and heavy reports remain outside Git. Same-target exactness is the
-research gate; Windows/Linux canonical-root equality is additionally required
-before production promotion.
+research gate; same-target exactness on the Linux reference host is the
+only root gate (ADR-090).
 
 ## Promotion boundary
 
@@ -402,10 +421,15 @@ bridge. The runtime basin consumer now owns `WaterVolumeDefinitionV1`,
 `PhysicsWorldCheckpointV1` schema version 3 (SPEC-26 2.6), next to the
 ADR-103 `WaterFlowNetworkV1`, `WaterFlowCommandV1` and
 `WaterFlowChangedV1` of the flow network.
-`ContinuumWaterProfileV1` for the presentation solver,
-`ContinuumWaterCanonicalStateV1`, `ContinuumBodyReactionBatchV1` and
-`ContinuumPresentationSnapshotV1` follow only the later presentation and
-crate-coupled consumers. Exact schemas require the later Accepted
+The public water contracts are these types with their record, query,
+rejection and helper types (`WaterLevelRampV1`, `WaterSubmersionV1`,
+`WaterFlowEdgeV1`, `WaterFlowEdgeKindV1`, `WaterFlowEdgeStateV1`,
+`WaterFlowCellStateV1`, `WaterFlowStepV1`, both rejection enums and the
+exact helpers). `ContinuumWaterProfileV1` for the presentation solver,
+`ContinuumBodyReactionBatchV1` and `ContinuumPresentationSnapshotV1` follow
+only the later presentation and buoyancy consumers;
+`ContinuumWaterCanonicalStateV1` is a research tool type and never a
+contract (ADR-104). Exact schemas require the later Accepted
 promotion ADR and synchronized SPEC-02/03/21/25/26/30, routing, traceability
 and roadmap updates.
 

@@ -86,7 +86,7 @@ split: gameplay reads `WaterVolume`, never this pass.
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `RENDER-PARTICLE-SURFACE-P1` | Publish bounded particle sets for one declared profile over a bounded run with frame capture on the reference host. | One catalog/snapshot/frame plan; pass GPU time within the declared budget at 1080p; silhouette coverage change between consecutive frames under a fixed camera below the frozen threshold; rejected batches leave the prior set; capture diagnostic only. | Still ADR-100 surface; pass reported unavailable. |
+| `RENDER-PARTICLE-SURFACE-P1` | Publish bounded particle sets for one declared profile over a bounded run with frame capture on the reference host. | One catalog/snapshot/frame plan; pass GPU time within the declared budget at 1080p; silhouette coverage change per published particle set under a fixed camera below the frozen threshold (the per-stream-frame apparatus of plan 24, revision 3); rejected batches leave the prior set; capture diagnostic only. | Still ADR-100 surface; pass reported unavailable. |
 
 ## Considered alternatives
 

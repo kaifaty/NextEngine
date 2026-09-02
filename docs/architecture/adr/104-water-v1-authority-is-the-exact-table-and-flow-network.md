@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-104 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-02 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md), [ADR-102](102-presentation-particle-surface-pass.md), [ADR-103](103-authoritative-water-flow-network.md) |
-| Supersedes | ADR-076 water clauses: "CPU `f64` DFSPH is the sole canonical candidate for water V1", the canonical particle water boundary, exact active-sample persistence and checkpoint epochs for water, and the particle reaction batch as the coupling path; the SPEC-38 1.x promotion ladder that placed `CONTINUUM-WATER-REF-P1`, `CONTINUUM-COUPLING-P1`, `CONTINUUM-PERSISTENCE-P1` and `CONTINUUM-MIRROR-P1` before water promotion |
+| Supersedes | ADR-076 water clauses and the water promotion ladder of its "Product impact and promotion" section (including the Windows/Linux root requirement retired by ADR-090): "CPU `f64` DFSPH is the sole canonical candidate for water V1", the canonical particle water boundary, exact active-sample persistence and checkpoint epochs for water, and the particle reaction batch as the coupling path; the SPEC-38 1.x promotion ladder that placed `CONTINUUM-WATER-REF-P1`, `CONTINUUM-COUPLING-P1`, `CONTINUUM-PERSISTENCE-P1` and `CONTINUUM-MIRROR-P1` before water promotion |
 | Superseded by | none |
 
 ## Context
@@ -58,12 +58,20 @@ down a ladder the product no longer needs.
 3. **Rigid coupling for water V1 reads exact levels.** Buoyancy and drag
    on PhysX bodies, when a consumer needs them, are computed from the
    exact cell level and the body's exact submerged geometry and delivered
-   through the existing one-pass reaction batch of ADR-076/081 (one
+   through the one-pass reaction batch defined by ADR-076/081 (one
    composite `PhysicalStep`, one exchange tuple, PhysX the sole rigid
-   writer). The batch source is the network, never a particle set.
+   writer), whose first implementation is this buoyancy consumer; it
+   needs a short ADR narrowing ADR-058 and a frozen plan
+   (`continuum-water/08`) before code. The batch source is the network or
+   a plain `WaterVolume` level, never a particle set. The plan fixes the
+   drag law, the exact submerged geometry of the reference box, the
+   substep at which the batch applies (the same tick as the flow step;
+   no delayed reaction) and the batch record.
 4. **Research lanes stay research.** `CONTINUUM-WATER-REF-P1`,
-   `CONTINUUM-MIRROR-P1`, the particle `CONTINUUM-PERSISTENCE-P1` and the
-   particle `CONTINUUM-COUPLING-P1` remain research reports and
+   `CONTINUUM-MIRROR-P1`, `CONTINUUM-PARTICLE-PERSISTENCE-R1` and
+   `CONTINUUM-PARTICLE-COUPLING-R1` (the former particle forms of
+   `CONTINUUM-PERSISTENCE-P1` and `CONTINUUM-COUPLING-P1`) remain research
+   reports and
    calibration sources with their frozen plans and evidence; they are not
    product promotion gates and are not scheduled. Their numbers
    (discharge coefficients, exit speeds, boundary support findings) enter
@@ -82,10 +90,11 @@ down a ladder the product no longer needs.
 | `CONTINUUM-WATER-PRESENT-P1` | presentation surface in the game root with identical roots with and without the solver (planned) |
 | `CONTINUUM-WATER-BUOYANCY-P1` | exact-level buoyancy/drag batch on one reference body through the one-pass coupling path; identical roots on `game` and `headless`; the batch never reads presentation (planned, first coupling consumer) |
 | `RENDER-DYNSURF-P1`, `RENDER-PARTICLE-SURFACE-P1` | presentation paths (ADR-101/102) |
-| conditional `performance` | the presentation solver's own budget row; the network step is reported per edge count |
+| conditional `performance` | the presentation solver's own budget row; the network step is reported per edge count (`183 us` at `64` cells / `256` edges today, no frozen bound yet) |
 
-Water is promoted (ADR-100, ADR-103 and this ADR Accepted, SPEC-38 water
-clauses Accepted) when the four `CONTINUUM-WATER-*` checks pass on the
+Water is promoted (ADR-100, ADR-103 and this ADR Accepted; SPEC-38
+Accepted for water, with any still-open terrain clauses moved to their own
+Proposed SPEC) when the four `CONTINUUM-WATER-*` checks pass on the
 reference host with pinned roots and the routing/traceability/roadmap
 updates land.
 
