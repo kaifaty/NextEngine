@@ -3,10 +3,13 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-02` |
-| Status | `BOUNDED_RESEARCH_COMPLETE / BARYCENTRIC_SURFACE_EVALUATION_SELECTED / PROTOCOL_NOT_YET_FROZEN` |
+| Status | `BOUNDED_RESEARCH_COMPLETE / BARYCENTRIC_SURFACE_EVALUATION_SELECTED / P0_PROTOCOL_FROZEN` |
 | Trigger | [M0a-E implementation-conformance reject](physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md) |
 | Scope | Deterministic evaluation of a per-vertex modal-gain field at the same physical surface query across coarse/refined meshes |
 | Product effect | None; research-only preprocessing with authored fallback unchanged |
+
+The selected semantics are frozen by the [P0 protocol](physical-sound-v26-p0-barycentric-surface-query-protocol-2026-09-02.md),
+SHA-256 `4fff3ebd7b788e527b524ff8615d9e8a449b40121e194ba1eb947c5ea81e65e7`.
 
 ## Falsifiable problem
 
