@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
-use crate::gpu_content::{B0GpuContent, DepthAttachment, UiOverlayState};
+use crate::gpu_content::{B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState};
+use crate::run_state::{DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 mod capabilities;
 mod overlay;
@@ -34,7 +35,25 @@ pub(super) struct GraphicsContext {
     frame_slots: Vec<FrameSlot>,
     next_frame_slot: usize,
     frame_profiler: Option<VulkanFrameProfiler>,
+    capture: Option<FrameCaptureState>,
 }
+
+/// Bounded developer capture of one frame: a host-visible destination and the
+/// pending copy recorded in that frame's command buffer.
+struct FrameCaptureState {
+    request: DesktopFrameCaptureRequestV1,
+    buffer: Option<BufferAllocation>,
+    pending: Option<PendingFrameCapture>,
+    captured: Option<DesktopCapturedFrameV1>,
+}
+
+#[derive(Clone, Copy)]
+struct PendingFrameCapture {
+    rendered_frame_index: u64,
+    extent: [u32; 2],
+    format: vk::Format,
+}
+
 #[derive(Clone, Copy)]
 struct FrameSlot {
     command_buffer: vk::CommandBuffer,
@@ -256,6 +275,7 @@ impl GraphicsContext {
             &swapchain_loader,
             vk::SwapchainKHR::null(),
             &mut old_swapchain_retired,
+            options.frame_capture.is_some(),
         )?;
         debug_assert!(!old_swapchain_retired);
         initialization.swapchain = swapchain;
@@ -373,6 +393,12 @@ impl GraphicsContext {
             frame_slots,
             next_frame_slot: 0,
             frame_profiler,
+            capture: options.frame_capture.map(|request| FrameCaptureState {
+                request,
+                buffer: None,
+                pending: None,
+                captured: None,
+            }),
         })
     }
 
@@ -382,6 +408,7 @@ impl GraphicsContext {
         dynamic_surfaces: &BTreeMap<AssetRevisionRefV1, Arc<DynamicSurfaceUpdateV1>>,
         window: &Window,
         event_and_frame_source_update_microseconds: u64,
+        rendered_frame_index: u64,
     ) -> Result<Option<SubmittedB0Frame>, DesktopAdapterError> {
         if self.swapchain.is_none() {
             self.recreate_swapchain(window)?;
@@ -639,12 +666,91 @@ impl GraphicsContext {
         unsafe {
             self.device.cmd_end_rendering(frame_slot.command_buffer);
         }
+        let capture_this_frame = self.capture.as_ref().is_some_and(|capture| {
+            capture.captured.is_none()
+                && capture.pending.is_none()
+                && capture.request.rendered_frame_index == rendered_frame_index
+        });
+        let mut presentable_layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+        if capture_this_frame {
+            let byte_count = u64::from(swapchain.extent.width)
+                .checked_mul(u64::from(swapchain.extent.height))
+                .and_then(|pixels| pixels.checked_mul(4))
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            let buffer = BufferAllocation::new(
+                &self.instance,
+                self.physical_device,
+                &self.device,
+                byte_count,
+                vk::BufferUsageFlags::TRANSFER_DST,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )?;
+            let to_transfer = [vk::ImageMemoryBarrier2::default()
+                .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
+                .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
+                .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .new_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
+                .image(swapchain.images[image_usize])
+                .subresource_range(subresource)];
+            let to_transfer_dependency =
+                vk::DependencyInfo::default().image_memory_barriers(&to_transfer);
+            let region = [vk::BufferImageCopy::default()
+                .buffer_offset(0)
+                .buffer_row_length(0)
+                .buffer_image_height(0)
+                .image_subresource(
+                    vk::ImageSubresourceLayers::default()
+                        .aspect_mask(vk::ImageAspectFlags::COLOR)
+                        .mip_level(0)
+                        .base_array_layer(0)
+                        .layer_count(1),
+                )
+                .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                .image_extent(vk::Extent3D {
+                    width: swapchain.extent.width,
+                    height: swapchain.extent.height,
+                    depth: 1,
+                })];
+            // SAFETY: the swapchain was created with transfer-source usage for
+            // this run, rendering has ended, the destination buffer covers the
+            // tightly packed image, and it outlives the submission.
+            unsafe {
+                self.device
+                    .cmd_pipeline_barrier2(frame_slot.command_buffer, &to_transfer_dependency);
+                self.device.cmd_copy_image_to_buffer(
+                    frame_slot.command_buffer,
+                    swapchain.images[image_usize],
+                    vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    buffer.buffer,
+                    &region,
+                );
+            }
+            presentable_layout = vk::ImageLayout::TRANSFER_SRC_OPTIMAL;
+            if let Some(capture) = self.capture.as_mut() {
+                capture.buffer = Some(buffer);
+                capture.pending = Some(PendingFrameCapture {
+                    rendered_frame_index,
+                    extent: [swapchain.extent.width, swapchain.extent.height],
+                    format: swapchain.format,
+                });
+            }
+        }
         let to_present = [vk::ImageMemoryBarrier2::default()
-            .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
-            .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
+            .src_stage_mask(if capture_this_frame {
+                vk::PipelineStageFlags2::TRANSFER
+            } else {
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT
+            })
+            .src_access_mask(if capture_this_frame {
+                vk::AccessFlags2::TRANSFER_READ
+            } else {
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE
+            })
             .dst_stage_mask(vk::PipelineStageFlags2::NONE)
             .dst_access_mask(vk::AccessFlags2::NONE)
-            .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .old_layout(presentable_layout)
             .new_layout(vk::ImageLayout::PRESENT_SRC_KHR)
             .image(swapchain.images[image_usize])
             .subresource_range(subresource)];
@@ -774,6 +880,7 @@ impl GraphicsContext {
             &self.swapchain_loader,
             old_swapchain,
             &mut old_swapchain_retired,
+            self.capture.is_some(),
         )
         .inspect_err(|_| {
             if old_swapchain_retired {
@@ -828,6 +935,41 @@ impl GraphicsContext {
         }
         self.swapchain = replacement;
         Ok(())
+    }
+
+    /// Reads the completed developer capture, if any. Must be called after
+    /// [`Self::wait_idle`] so the copy that wrote the buffer has completed.
+    pub(super) fn take_captured_frame(
+        &mut self,
+    ) -> Result<Option<DesktopCapturedFrameV1>, DesktopAdapterError> {
+        let Some(capture) = self.capture.as_mut() else {
+            return Ok(None);
+        };
+        if let Some(captured) = capture.captured.take() {
+            return Ok(Some(captured));
+        }
+        let (Some(pending), Some(buffer)) = (capture.pending.take(), capture.buffer.take()) else {
+            return Ok(None);
+        };
+        let byte_count = usize::try_from(
+            u64::from(pending.extent[0])
+                .checked_mul(u64::from(pending.extent[1]))
+                .and_then(|pixels| pixels.checked_mul(4))
+                .ok_or(DesktopAdapterError::CounterOverflow)?,
+        )
+        .map_err(|_| DesktopAdapterError::CounterOverflow)?;
+        let mut rgba8 = vec![0_u8; byte_count];
+        buffer.read(0, &mut rgba8)?;
+        if pending.format == vk::Format::B8G8R8A8_SRGB {
+            for pixel in rgba8.chunks_exact_mut(4) {
+                pixel.swap(0, 2);
+            }
+        }
+        Ok(Some(DesktopCapturedFrameV1 {
+            rendered_frame_index: pending.rendered_frame_index,
+            extent: pending.extent,
+            rgba8,
+        }))
     }
 
     pub(super) fn wait_idle(&mut self) -> Result<(), DesktopAdapterError> {
@@ -916,12 +1058,23 @@ fn create_swapchain(
     swapchain_loader: &ash::khr::swapchain::Device,
     old_swapchain: vk::SwapchainKHR,
     old_swapchain_retired: &mut bool,
+    capture_requested: bool,
 ) -> Result<Option<SwapchainState>, DesktopAdapterError> {
     debug_assert!(!*old_swapchain_retired);
     // SAFETY: physical device and surface share a live instance.
     let capabilities = unsafe {
         surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?
     };
+    let mut image_usage = vk::ImageUsageFlags::COLOR_ATTACHMENT;
+    if capture_requested {
+        if !capabilities
+            .supported_usage_flags
+            .contains(vk::ImageUsageFlags::TRANSFER_SRC)
+        {
+            return Err(DesktopAdapterError::FrameCaptureUnsupported);
+        }
+        image_usage |= vk::ImageUsageFlags::TRANSFER_SRC;
+    }
     // SAFETY: same ownership as the capability query.
     let formats =
         unsafe { surface_loader.get_physical_device_surface_formats(physical_device, surface)? };
@@ -949,7 +1102,7 @@ fn create_swapchain(
         .image_color_space(selected_format.color_space)
         .image_extent(extent)
         .image_array_layers(1)
-        .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+        .image_usage(image_usage)
         .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
         .queue_family_indices(&queue_families)
         .pre_transform(capabilities.current_transform)

@@ -63,6 +63,7 @@ pub enum DesktopAdapterError {
         previous: u64,
         actual: u64,
     },
+    FrameCaptureUnsupported,
 }
 
 impl DesktopAdapterError {
@@ -115,6 +116,7 @@ impl DesktopAdapterError {
             Self::DynamicSurfaceSequenceRegressed { .. } => {
                 "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID"
             }
+            Self::FrameCaptureUnsupported => "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED",
         }
     }
 
@@ -222,6 +224,9 @@ impl Display for DesktopAdapterError {
             Self::DynamicSurfaceSequenceRegressed { previous, actual } => write!(
                 formatter,
                 "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID: previous {previous}, got {actual}"
+            ),
+            Self::FrameCaptureUnsupported => formatter.write_str(
+                "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED: the presentation surface does not allow transfer-source swapchain images",
             ),
         }
     }

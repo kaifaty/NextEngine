@@ -85,6 +85,25 @@ pub struct DesktopRunOptions {
     /// capacity; the adapter allocates one host-visible ring per frame slot
     /// once and never rebuilds the render-content catalog to refresh it.
     pub dynamic_surfaces: Vec<DynamicSurfaceProfileV1>,
+    /// Bounded developer capture of one rendered frame (SPEC-04 diagnostics
+    /// only). The swapchain is created with transfer-source usage when set;
+    /// a surface without that usage fails closed before the first frame.
+    pub frame_capture: Option<DesktopFrameCaptureRequestV1>,
+}
+
+/// Which rendered frame to copy back to host memory.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopFrameCaptureRequestV1 {
+    /// Zero-based index among successfully submitted frames.
+    pub rendered_frame_index: u64,
+}
+
+/// One rendered frame in tightly packed sRGB-encoded RGBA8, top row first.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesktopCapturedFrameV1 {
+    pub rendered_frame_index: u64,
+    pub extent: [u32; 2],
+    pub rgba8: Vec<u8>,
 }
 
 impl Default for DesktopRunOptions {
@@ -109,6 +128,7 @@ impl Default for DesktopRunOptions {
             ui_subtitles_enabled: true,
             prefer_borderless_fullscreen_when_display_matches: false,
             dynamic_surfaces: Vec::new(),
+            frame_capture: None,
         }
     }
 }
@@ -202,6 +222,9 @@ pub struct DesktopRunReport {
     pub dynamic_surface_draws: u64,
     /// Canonical hash of the current update per declared surface at exit.
     pub dynamic_surface_hashes: Vec<(AssetRevisionRefV1, ContentHash)>,
+    /// The requested developer capture, present only when that frame was
+    /// submitted and its copy completed.
+    pub captured_frame: Option<DesktopCapturedFrameV1>,
 }
 
 #[derive(Debug, Default)]

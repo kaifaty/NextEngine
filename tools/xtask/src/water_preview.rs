@@ -53,6 +53,12 @@ const WATER_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xf1; 16]);
 const WATER_TEXTURE_ASSET_ID: AssetId = AssetId::from_bytes([0xf2; 16]);
 #[cfg(feature = "desktop-sdl-ash")]
 const WATER_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xf3; 16]);
+#[cfg(feature = "desktop-sdl-ash")]
+const BASIN_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xf6; 16]);
+#[cfg(feature = "desktop-sdl-ash")]
+const BASIN_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xf7; 16]);
+#[cfg(feature = "desktop-sdl-ash")]
+const BASIN_TEXTURE_ASSET_ID: AssetId = AssetId::from_bytes([0xf9; 16]);
 
 pub(super) struct WaterPreviewRequest {
     /// One OBJ renders the static catalog path. Two or more OBJ keyframes
@@ -67,6 +73,16 @@ pub(super) struct WaterPreviewRequest {
     stream: Option<StreamRequest>,
     /// Dynamic surface ring residency: `device` (default) or `host` control.
     device_local_ring: bool,
+    /// Render until the window is closed instead of a bounded frame count.
+    until_close: bool,
+    /// Copy one rendered frame to a PNG file (developer evidence only).
+    capture: Option<CaptureRequest>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct CaptureRequest {
+    rendered_frame_index: u64,
+    png: PathBuf,
 }
 
 /// `nonlocal-feasibility --game-surface-stream` child-process parameters.
@@ -82,6 +98,9 @@ pub(super) struct StreamRequest {
     workers: u32,
     /// Surface extractor inside the solver process: `cpu`, `gpu` or `verify`.
     extractor: String,
+    /// Presentation height model inside the solver process: `sphere` (frozen
+    /// NGQ5) or `closing` (NGQ6 revision 2).
+    surface_model: String,
     /// Stream seconds published per wall second; zero disables pacing and
     /// publishes every frame as soon as it arrives.
     rate: f64,
@@ -102,8 +121,12 @@ pub(super) fn parse_arguments(
     let mut stream_cycles = 0_u32;
     let mut stream_workers = 3_u32;
     let mut stream_extractor = "gpu".to_owned();
+    let mut stream_surface_model = "closing".to_owned();
     let mut stream_rate = 1.0_f64;
     let mut device_local_ring = true;
+    let mut until_close = false;
+    let mut capture_frame: Option<u64> = None;
+    let mut capture_png: Option<PathBuf> = None;
     let bounded_u32 = |arguments: &mut dyn Iterator<Item = String>,
                        name: &str,
                        low: u32,
@@ -121,6 +144,32 @@ pub(super) fn parse_arguments(
     };
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
+            "--until-close" => {
+                until_close = true;
+            }
+            "--capture-frame" => {
+                capture_frame = Some(
+                    arguments
+                        .next()
+                        .ok_or_else(|| {
+                            "water-preview --capture-frame requires an index".to_owned()
+                        })?
+                        .parse()
+                        .map_err(|_| "water-preview capture frame index is invalid".to_owned())?,
+                );
+            }
+            "--capture-png" => {
+                let value = PathBuf::from(
+                    arguments
+                        .next()
+                        .ok_or_else(|| "water-preview --capture-png requires a path".to_owned())?,
+                );
+                capture_png = Some(if value.is_relative() {
+                    root.join(value)
+                } else {
+                    value
+                });
+            }
             "--ring" => {
                 device_local_ring = match arguments
                     .next()
@@ -164,6 +213,16 @@ pub(super) fn parse_arguments(
             }
             "--stream-workers" => {
                 stream_workers = bounded_u32(&mut arguments, "--stream-workers", 1, 16)?;
+            }
+            "--stream-surface-model" => {
+                stream_surface_model = arguments.next().ok_or_else(|| {
+                    "water-preview --stream-surface-model requires sphere or closing".to_owned()
+                })?;
+                if !matches!(stream_surface_model.as_str(), "sphere" | "closing") {
+                    return Err(
+                        "water-preview --stream-surface-model must be sphere or closing".to_owned(),
+                    );
+                }
             }
             "--stream-extractor" => {
                 stream_extractor = arguments.next().ok_or_else(|| {
@@ -239,6 +298,7 @@ pub(super) fn parse_arguments(
         cycles: stream_cycles,
         workers: stream_workers,
         extractor: stream_extractor,
+        surface_model: stream_surface_model,
         rate: stream_rate,
     });
     if let Some(stream) = &stream {
@@ -253,6 +313,24 @@ pub(super) fn parse_arguments(
             "water-preview requires --mesh <surface.obj> or --stream-binary <path>".to_owned(),
         );
     }
+    let capture = match (capture_frame, capture_png) {
+        (Some(rendered_frame_index), Some(png)) => Some(CaptureRequest {
+            rendered_frame_index,
+            png,
+        }),
+        (None, None) => None,
+        _ => {
+            return Err(
+                "water-preview --capture-frame and --capture-png must be given together".to_owned(),
+            );
+        }
+    };
+    if let Some(capture) = &capture
+        && !until_close
+        && capture.rendered_frame_index >= frames
+    {
+        return Err("water-preview --capture-frame must be below --frames".to_owned());
+    }
     Ok(WaterPreviewRequest {
         meshes,
         frames,
@@ -260,6 +338,8 @@ pub(super) fn parse_arguments(
         hold,
         stream,
         device_local_ring,
+        until_close,
+        capture,
     })
 }
 
@@ -312,10 +392,20 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     let options = next_desktop_sdl_ash::DesktopRunOptions {
         title: "Next Engine — Nonlocal Water Preview".to_owned(),
         initial_extent: request.extent,
-        maximum_frames: Some(request.frames),
-        maximum_event_loop_iterations: Some(request.frames.saturating_mul(8)),
-        frame_profiling_sample_capacity: u32::try_from(request.frames)
-            .map_err(|_| "water-preview profiling capacity overflow".to_owned())?,
+        maximum_frames: (!request.until_close).then_some(request.frames),
+        maximum_event_loop_iterations: (!request.until_close)
+            .then(|| request.frames.saturating_mul(8)),
+        frame_profiling_sample_capacity: if request.until_close {
+            next_desktop_sdl_ash::MAX_FRAME_PROFILING_SAMPLES
+        } else {
+            u32::try_from(request.frames)
+                .map_err(|_| "water-preview profiling capacity overflow".to_owned())?
+        },
+        frame_capture: request.capture.as_ref().map(|capture| {
+            next_desktop_sdl_ash::DesktopFrameCaptureRequestV1 {
+                rendered_frame_index: capture.rendered_frame_index,
+            }
+        }),
         audio_output_enabled: false,
         dynamic_surfaces: dynamic
             .map(|dynamic| vec![dynamic.profile])
@@ -363,6 +453,27 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     {
         return Err("water-preview Vulkan report does not contain the planned draw".to_owned());
     }
+    let capture_json = match (&request.capture, &report.captured_frame) {
+        (Some(capture), Some(frame)) => {
+            let png = encode_png_rgba8(frame.extent, &frame.rgba8)?;
+            std::fs::write(&capture.png, &png)
+                .map_err(|error| format!("{}: {error}", capture.png.display()))?;
+            Some(serde_json::json!({
+                "rendered_frame_index": frame.rendered_frame_index,
+                "extent": frame.extent,
+                "png": capture.png,
+                "png_sha256": format!("{:x}", Sha256::digest(&png)),
+                "rgba8_sha256": format!("{:x}", Sha256::digest(&frame.rgba8)),
+            }))
+        }
+        (Some(capture), None) => {
+            return Err(format!(
+                "water-preview did not reach capture frame {}",
+                capture.rendered_frame_index
+            ));
+        }
+        (None, _) => None,
+    };
     if let Some(dynamic) = dynamic {
         if report.dynamic_surface_publications != feed_summary.publications {
             return Err("water-preview adapter accepted a different publication count".to_owned());
@@ -486,6 +597,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "cycles": stream.cycles,
             "workers": stream.workers,
             "extractor": stream.extractor,
+            "surface_model": stream.surface_model,
             "rate": stream.rate,
             "frames_received": feed_summary.frames_received,
             "frames_published": feed_summary.publications,
@@ -537,6 +649,8 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "timing": timing,
             "dynamic_surface": dynamic_surface,
             "stream": stream,
+            "capture": capture_json,
+            "until_close": request.until_close,
         })
     );
     Ok(())
@@ -545,7 +659,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
 #[cfg(not(feature = "desktop-sdl-ash"))]
 pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
     Err(format!(
-        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}, {} ring) requires --features desktop-sdl-ash",
+        "water-preview for {} keyframe(s), stream {:?} ({} frames at {}x{}, hold {}, {} ring, until-close {}, capture {:?}) requires --features desktop-sdl-ash",
         request.meshes.len(),
         request.stream.as_ref().map(|stream| stream.lane.as_str()),
         request.frames,
@@ -556,7 +670,12 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             "device-local"
         } else {
             "host-visible"
-        }
+        },
+        request.until_close,
+        request
+            .capture
+            .as_ref()
+            .map(|capture| capture.rendered_frame_index)
     ))
 }
 
@@ -580,6 +699,59 @@ fn nearest_rank_f64(values: &[f64], percentile: usize) -> Option<f64> {
     ordered.sort_by(f64::total_cmp);
     let rank = (ordered.len() * percentile).div_ceil(100);
     ordered.get(rank.saturating_sub(1)).copied()
+}
+
+/// Minimal PNG encoder (8-bit RGBA, filter type zero, one zlib stream) for
+/// developer evidence; it adds no image dependency to the workspace.
+#[cfg(feature = "desktop-sdl-ash")]
+fn encode_png_rgba8(extent: [u32; 2], rgba8: &[u8]) -> Result<Vec<u8>, String> {
+    use std::io::Write as _;
+    let [width, height] = extent;
+    let row_bytes = usize::try_from(width)
+        .ok()
+        .and_then(|width| width.checked_mul(4))
+        .ok_or_else(|| "water-preview capture width overflow".to_owned())?;
+    let expected = usize::try_from(height)
+        .ok()
+        .and_then(|height| height.checked_mul(row_bytes))
+        .ok_or_else(|| "water-preview capture height overflow".to_owned())?;
+    if rgba8.len() != expected || width == 0 || height == 0 {
+        return Err("water-preview capture payload does not match its extent".to_owned());
+    }
+    let mut filtered = Vec::with_capacity(expected + height as usize);
+    for row in rgba8.chunks_exact(row_bytes) {
+        filtered.push(0);
+        filtered.extend_from_slice(row);
+    }
+    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder
+        .write_all(&filtered)
+        .and_then(|()| encoder.finish())
+        .map_err(|error| format!("water-preview PNG compression failed: {error}"))
+        .and_then(|compressed| {
+            let mut png = Vec::new();
+            png.extend_from_slice(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);
+            let mut ihdr = Vec::with_capacity(13);
+            ihdr.extend_from_slice(&width.to_be_bytes());
+            ihdr.extend_from_slice(&height.to_be_bytes());
+            ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+            for (kind, payload) in [
+                (b"IHDR", ihdr.as_slice()),
+                (b"IDAT", compressed.as_slice()),
+                (b"IEND", &[][..]),
+            ] {
+                let length = u32::try_from(payload.len())
+                    .map_err(|_| "water-preview PNG chunk overflow".to_owned())?;
+                png.extend_from_slice(&length.to_be_bytes());
+                let mut hasher = crc32fast::Hasher::new();
+                hasher.update(kind);
+                hasher.update(payload);
+                png.extend_from_slice(kind);
+                png.extend_from_slice(payload);
+                png.extend_from_slice(&hasher.finalize().to_be_bytes());
+            }
+            Ok(png)
+        })
 }
 
 /// One converted stream frame ready for publication.
@@ -625,6 +797,8 @@ impl StreamSession {
                 &request.workers.to_string(),
                 "--extractor",
                 request.extractor.as_str(),
+                "--surface-model",
+                request.surface_model.as_str(),
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -1097,7 +1271,7 @@ fn build_preview(
         .ok_or_else(|| "reference project has no material schema".to_owned())?;
 
     let texture = NeutralTextureV1::new(
-        texture_schema,
+        texture_schema.clone(),
         WATER_TEXTURE_ASSET_ID,
         1,
         NeutralTextureDimensionV1::D2,
@@ -1116,7 +1290,7 @@ fn build_preview(
         .asset_revision()
         .map_err(|error| error.to_string())?;
     let material = NeutralMaterialV1::new(
-        material_schema,
+        material_schema.clone(),
         WATER_MATERIAL_ASSET_ID,
         1,
         [52_000, 58_000, u16::MAX, u16::MAX],
@@ -1144,6 +1318,63 @@ fn build_preview(
     )
     .map_err(|error| error.to_string())?;
     let material_revision = material
+        .asset_revision()
+        .map_err(|error| error.to_string())?;
+    // A static basin (floor plus four inward-facing walls at the declared
+    // envelope) gives the water a visual reference. It is ordinary static
+    // catalog content and never changes during the run.
+    let basin_texture = NeutralTextureV1::new(
+        texture_schema.clone(),
+        BASIN_TEXTURE_ASSET_ID,
+        1,
+        NeutralTextureDimensionV1::D2,
+        [1, 1, 1],
+        1,
+        NeutralTextureColorSpaceV1::Srgb,
+        NeutralTextureAlphaSemanticsV1::Opaque,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![NeutralTextureMipLevelV1::new(
+            [1, 1, 1],
+            vec![168, 166, 160, 255],
+        )],
+    )
+    .map_err(|error| error.to_string())?;
+    let basin_texture_revision = basin_texture
+        .asset_revision()
+        .map_err(|error| error.to_string())?;
+    let basin_material = NeutralMaterialV1::new(
+        material_schema.clone(),
+        BASIN_MATERIAL_ASSET_ID,
+        1,
+        [u16::MAX, u16::MAX, u16::MAX, u16::MAX],
+        MaterialColorSpaceV1::Linear,
+        0,
+        u16::MAX,
+        [0; 3],
+        MaterialColorSpaceV1::Linear,
+        0,
+        65_536,
+        u16::MAX,
+        MaterialAlphaModeV1::Opaque,
+        0,
+        false,
+        vec![
+            NeutralMaterialTextureBindingV1::new(
+                MaterialTextureSlotV1::BaseColor,
+                basin_texture_revision,
+                0,
+                UvTransformV1::identity(),
+            )
+            .map_err(|error| error.to_string())?,
+        ],
+        Vec::new(),
+    )
+    .map_err(|error| error.to_string())?;
+    let basin_material_revision = basin_material
+        .asset_revision()
+        .map_err(|error| error.to_string())?;
+    let basin_mesh = basin_mesh(mesh_schema.clone(), bounds)?;
+    let basin_mesh_revision = basin_mesh
         .asset_revision()
         .map_err(|error| error.to_string())?;
     // The catalog mesh is the stable identity and declared presentation
@@ -1178,17 +1409,26 @@ fn build_preview(
     authoring_preimage.extend_from_slice(mesh_revision.record_sha256.as_bytes());
     authoring_preimage.extend_from_slice(material_revision.record_sha256.as_bytes());
     authoring_preimage.extend_from_slice(texture_revision.record_sha256.as_bytes());
+    authoring_preimage.extend_from_slice(basin_mesh_revision.record_sha256.as_bytes());
+    authoring_preimage.extend_from_slice(basin_material_revision.record_sha256.as_bytes());
+    authoring_preimage.extend_from_slice(basin_texture_revision.record_sha256.as_bytes());
     source.authoring_sha256 =
-        domain_hash("nextengine.water-preview.authoring.v1", &authoring_preimage);
+        domain_hash("nextengine.water-preview.authoring.v2", &authoring_preimage);
     source.render_records.extend([
         NeutralRenderRecordV1::from(mesh.clone()),
         NeutralRenderRecordV1::from(texture),
         NeutralRenderRecordV1::from(material),
+        NeutralRenderRecordV1::from(basin_mesh.clone()),
+        NeutralRenderRecordV1::from(basin_texture),
+        NeutralRenderRecordV1::from(basin_material),
     ]);
     source.root_asset_ids.extend([
         WATER_MESH_ASSET_ID,
         WATER_TEXTURE_ASSET_ID,
         WATER_MATERIAL_ASSET_ID,
+        BASIN_MESH_ASSET_ID,
+        BASIN_TEXTURE_ASSET_ID,
+        BASIN_MATERIAL_ASSET_ID,
     ]);
     let cooked = next_project::cook_project_v7(source).map_err(|error| error.to_string())?;
     let epoch = domain_hash(
@@ -1212,6 +1452,23 @@ fn build_preview(
         QuantizedPresentationTransformV1::default(),
         true,
     );
+    let basin_scene = ScenePresentationRecordV2::new(
+        16,
+        PresentationObjectKeyV1 {
+            snapshot_epoch: epoch,
+            persistent_id: PersistentId::from_bytes([0xf8; 16]),
+            presentation_role: PresentationRoleV1::Environment,
+            incarnation: 0,
+        },
+        basin_mesh_revision,
+        basin_material_revision,
+        0,
+        basin_mesh.bounds(),
+        ScenePresentationFlagsV1::NONE,
+        QuantizedPresentationTransformV1::default(),
+        QuantizedPresentationTransformV1::default(),
+        true,
+    );
     // Frame the declared envelope: look at its centre from above and behind
     // so both lanes fit the same viewport.
     let centre = [
@@ -1220,7 +1477,7 @@ fn build_preview(
         (bounds.min()[2] + bounds.max()[2]) / 2,
     ];
     let span = (bounds.max()[0] - bounds.min()[0]).max(bounds.max()[2] - bounds.min()[2]);
-    let distance = span.saturating_mul(3).saturating_div(2).max(2_400_000);
+    let distance = span.saturating_mul(9).saturating_div(10).max(2_000_000);
     let focus = centre;
     let camera_result = CameraResultSampleV1 {
         pose: QuantizedPresentationTransformV1 {
@@ -1266,7 +1523,7 @@ fn build_preview(
             "nextengine.water-preview.presentation-profile.v1",
             b"static-obj",
         ),
-        vec![scene],
+        vec![scene, basin_scene],
         vec![camera],
         8,
         1,
@@ -1552,6 +1809,89 @@ fn smooth_normals(positions: &[[i64; 3]], indices: &[u32]) -> Result<Vec<[i16; 3
         .collect()
 }
 
+/// Floor plus four walls of the declared envelope, faces wound so that the
+/// inward normals are front faces under the B0 counter-clockwise rule; the
+/// wall between the camera and the water is therefore back-face culled.
+#[cfg(feature = "desktop-sdl-ash")]
+fn basin_mesh(
+    schema: next_contracts::project::SchemaRefV1,
+    bounds: AabbI64V1,
+) -> Result<NeutralMeshV1, String> {
+    let [x0, y0, z0] = bounds.min();
+    let [x1, y1, z1] = bounds.max();
+    let unit = i16::MAX;
+    // (corners in winding order, normal)
+    let faces: [([[i64; 3]; 4], [i16; 3]); 5] = [
+        (
+            [[x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]],
+            [0, unit, 0],
+        ),
+        (
+            [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]],
+            [unit, 0, 0],
+        ),
+        (
+            [[x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [x1, y0, z0]],
+            [-unit, 0, 0],
+        ),
+        (
+            [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]],
+            [0, 0, unit],
+        ),
+        (
+            [[x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y1, z1]],
+            [0, 0, -unit],
+        ),
+    ];
+    let mut positions = Vec::with_capacity(20);
+    let mut normals = Vec::with_capacity(20);
+    let mut uv = Vec::with_capacity(20);
+    let mut indices = Vec::with_capacity(30);
+    for (corners, normal) in faces {
+        let base = u32::try_from(positions.len())
+            .map_err(|_| "water-preview basin vertex overflow".to_owned())?;
+        for (corner_index, corner) in corners.iter().enumerate() {
+            positions.push(*corner);
+            normals.push(normal);
+            uv.push(match corner_index {
+                0 => [0, 0],
+                1 => [0, 65_536],
+                2 => [65_536, 65_536],
+                _ => [65_536, 0],
+            });
+        }
+        indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+    let mesh_bounds = AabbI64V1::new(
+        [x0, y0, z0],
+        [
+            x1.checked_add(1)
+                .ok_or_else(|| "water-preview basin bounds overflow".to_owned())?,
+            y1.checked_add(1)
+                .ok_or_else(|| "water-preview basin bounds overflow".to_owned())?,
+            z1.checked_add(1)
+                .ok_or_else(|| "water-preview basin bounds overflow".to_owned())?,
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+    NeutralMeshV1::new(
+        schema,
+        BASIN_MESH_ASSET_ID,
+        1,
+        mesh_bounds,
+        positions,
+        Some(normals),
+        None,
+        vec![uv],
+        indices,
+        vec![
+            NeutralMeshPrimitiveV1::new(MeshPrimitiveTopologyV1::Triangles, 0, 30, 0)
+                .map_err(|error| error.to_string())?,
+        ],
+    )
+    .map_err(|error| error.to_string())
+}
+
 #[cfg(any(feature = "desktop-sdl-ash", test))]
 fn planar_uv(positions: &[[i64; 3]], bounds: AabbI64V1) -> Vec<[i32; 2]> {
     let min = bounds.min();
@@ -1672,6 +2012,8 @@ mod tests {
             hold: 1,
             stream: None,
             device_local_ring: true,
+            until_close: false,
+            capture: None,
         };
         let source = PreviewSource::Keyframes(
             request
@@ -1683,8 +2025,8 @@ mod tests {
         );
         let preview = build_preview(&request, source).expect("builds B0 preview");
         std::fs::remove_file(path).expect("removes bounded OBJ fixture");
-        assert_eq!(preview.visible_object_count, 1);
-        assert_eq!(preview.indexed_draw_count, 1);
+        assert_eq!(preview.visible_object_count, 2);
+        assert_eq!(preview.indexed_draw_count, 2);
         assert!(preview.dynamic.is_none());
         assert_eq!(preview.keyframes.len(), 1);
     }
@@ -1713,6 +2055,8 @@ mod tests {
             hold: 2,
             stream: None,
             device_local_ring: true,
+            until_close: false,
+            capture: None,
         };
         let source = PreviewSource::Keyframes(
             request
@@ -1750,7 +2094,7 @@ mod tests {
                 .map(|mesh| mesh.bounds()),
             Some(preview.bounds)
         );
-        assert_eq!(preview.visible_object_count, 1);
-        assert_eq!(preview.indexed_draw_count, 1);
+        assert_eq!(preview.visible_object_count, 2);
+        assert_eq!(preview.indexed_draw_count, 2);
     }
 }

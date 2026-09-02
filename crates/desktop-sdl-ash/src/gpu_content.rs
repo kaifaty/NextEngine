@@ -21,10 +21,8 @@ use next_render::B0FramePlanV1;
 use self::pipeline::{
     PipelineState, draw_push_constant_bytes, frame_raster_state, identity_matrix_bytes,
 };
-pub(crate) use self::resources::DepthAttachment;
-use self::resources::{
-    BufferAllocation, DescriptorState, ShadowMap, TextureResource, upload_content,
-};
+pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
+use self::resources::{DescriptorState, ShadowMap, TextureResource, upload_content};
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
 use crate::dynamic_surface::{

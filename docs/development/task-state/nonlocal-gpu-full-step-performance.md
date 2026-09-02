@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ENGINE VULKAN LIVE STREAM PASS (4K+16K REAL TIME, 48K PACED 0.7X) / VISUAL QUALITY NEXT` |
+| Status | `ACTIVE / LIVE WATER WATCHABLE (CAPTURE, CLOSING SURFACE, BASIN) / MATERIAL AND FRONT EDGES NEXT` |
 | Updated | `2026-09-02` |
 | Task key | `nonlocal-gpu-full-step-performance` |
 | Scope | Qualify the original compact/fused Nonlocal GPU path for game-quality water, selectively adding only observed necessary semantics |
@@ -29,10 +29,12 @@
   change closes that gap. The stream lanes keep float state on the device
   and audit diagnostics every 60 frames, so they do not reproduce the
   accepted corpus roots and must not be cited as such.
-- **Current action:** the bridge is complete for its purpose; remaining
-  presentation work is visual (GPU smooth normals, water material) and a
-  screenshot readback for human evidence. A 48k real-time claim would need
-  a solver-side change under its own contract, not more bridge work.
+- **Current action:** the bridge is watchable (`--until-close`), capturable
+  (`--capture-frame`/`--capture-png`) and the streamed surface uses the
+  NGQ6 revision-2 closing over the frozen sphere mask, verified CPU/GPU on
+  every frame. Remaining visual work is the water material under the locked
+  B0 shader and the raw sphere heights at mask boundaries; a 48k real-time
+  claim would need a solver-side change under its own contract.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -88,6 +90,7 @@
 - `docs/development/nonlocal-gpu-engine-live-stream-evidence-2026-09-01.md`
 - `docs/development/nonlocal-gpu-engine-gpu-extraction-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-engine-48k-live-lane-evidence-2026-09-02.md`
+- `docs/development/nonlocal-gpu-engine-visual-surface-evidence-2026-09-02.md`
 - `docs/development/nonlocal-gpu-step92-diagnosis-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-product-gate-evidence-2026-08-31.md`
 - `docs/development/nonlocal-gpu-eulerian-step112-evidence-2026-08-31.md`
@@ -1208,6 +1211,53 @@
   change under its own contract, or a lower accepted physics cadence moves
   the 48k step below `~3.5 ms` wall.
 
+### D-045 — Frame capture, run-until-close and a first look
+
+- **Observation:** the adapter gained a bounded developer capture (one
+  rendered frame copied through a transfer-source swapchain into host memory
+  and reported as sRGB RGBA8) and `water-preview` a PNG writer plus
+  `--until-close`; the monitor already runs FIFO at 200 Hz. The first live
+  16k capture showed dark streaks and banding that measurement attributed
+  to sphere-cap pits: `19--21%` of interior pixels lie `> 50 mm` below the
+  maximum of their 8 neighbours even in settled water, while the 50 mm
+  lattice ridge is only `7 mm`.
+- **Evidence:** capture PNG `85caec85...`, raw JSON `d148e1fb...`, pit
+  statistics in the visual-surface report; `platform`/`host-check` PASS after
+  the adapter change.
+- **Conclusion:** the visible defect was the raw height model, not shading
+  or normals; the capture path is required to judge presentation work.
+- **Decision:** keep the capture as SPEC-04 developer diagnostics only; no
+  root or gameplay path reads it.
+- **Rejected:** a software frame limiter (FIFO already bounds the window)
+  and committing PNGs (captures stay outside Git).
+- **Reconsider when:** a displayless capture target exists under SPEC-04's
+  Proposed offscreen path.
+
+### D-046 — NGQ6: dome envelope refuted, 5x5 closing accepted
+
+- **Observation:** revision 1 (dome envelope, support `2 * spacing`) failed
+  its frozen `lift p95 <= 2r` gate on frame 11 of both lanes with lifts of
+  `0.27 / 0.22 m`: it bridged real vertical gaps in the falling column. An
+  offline experiment on the streamed sphere frames showed a grayscale
+  closing fills the pits instead: 5x5 reduces `> 50 mm` pits from `19.3%`
+  to `2.1%` and `> 100 mm` to `0` at step 480 with a median lift of `5 mm`.
+- **Evidence:** dome raw JSON `2cb1944a.../4196eb2d...`; closing verify
+  runs `241 / 121 / 61` frames (4k/16k/48k) with `0` gate failures, max
+  median lift `10.4 mm`, `0` ceiling violations, CPU/GPU masks and counts
+  identical, depth within `2.3e-8 m` (`d6d6967f.../ab0494cb.../c1a82829...`);
+  live captures `34c8da95.../0d2d8271.../9462e57d...`.
+- **Conclusion:** the p95 lift is the pit depth, so it cannot be a gate; the
+  structural bounds (mask unchanged, height under the local raw maximum)
+  plus a median-lift limit are the right frozen observables for a closing.
+- **Decision:** `closing` is the live default (`--stream-surface-model`);
+  the sphere model stays the corpus reference. A static basin mesh and a
+  closer camera are part of the preview scene.
+- **Rejected:** tuning the dome support after the failure, a wider bilateral
+  (pits exceed its range sigma), and an SPH kernel height that changes the
+  mask.
+- **Reconsider when:** a lane with a different pitch or radius needs another
+  element size, or overhangs require a non-height-field representation.
+
 ## Hypothesis ledger
 
 | ID | Hypothesis | Current evidence | Next discriminator |
@@ -1271,6 +1321,9 @@
 | HG6G | ring residency, not CPU packing, dominates the 16k refresh cost | falsified: producer packing cut refresh `469 -> 97 us` on the host ring; device-local then halved GPU time only | closed; keep both |
 | HG6H | the frozen extraction ports to GPU without changing the accepted surface | selected bounded: identical masks/counts on all verified frames, depth within `6.9e-8 m`, `0.6--1.2 ms` per frame | 48k live lane |
 | HG6I | the 48k production size reaches real time through the bridge | falsified on this host: `3.87 ms` GPU per `4.17 ms` step before bridge cost; paced `0.7x` is continuous | solver-side contract, not bridge work |
+| HG6J | the visible streaks are particle-scale lattice texture | falsified: 50 mm ridge amplitude `7 mm`; `19--21%` of pixels are sphere-cap pits `> 50 mm` | closed |
+| HG6K | a dome envelope over the sphere mask fills pits without inventing water | falsified by its gate: lift p95 `0.27 m` at the falling column | closed; do not retune |
+| HG6L | a 5x5 grayscale closing fills pits while leaving the bulk surface | selected bounded: median lift `<= 10 mm`, `0` ceiling violations, pits `> 100 mm` gone, CPU/GPU exact masks | material and front edges |
 
 ## Do not retry
 
@@ -1283,12 +1336,10 @@
 
 ## Next action
 
-1. Visual quality of the live surface: reconstruct smooth normals on the
-   GPU in the stream process (or in the renderer), then a water material
-   beyond the flat B0 base colour; both presentation-only.
-2. A bounded screenshot/readback path in the desktop adapter so live water
-   can be captured as human evidence without changing any root.
-3. Only if a runtime consumer appears: a compute-written ring without the
+1. Water material within the locked B0 shader interface (base colour,
+   roughness/specular of the neutral material) judged through captures;
+   then the raw sphere heights at mask boundaries (front edges).
+2. Only if a runtime consumer appears: a compute-written ring without the
    staging copy and an in-process ownership decision under its own ADR.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the

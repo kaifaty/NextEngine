@@ -700,6 +700,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                         current_dynamic_surfaces.current(),
                         window,
                         event_and_frame_source_update_microseconds,
+                        rendered_frames,
                     );
                 drop(current_dynamic_surfaces);
                 drop(current_snapshot);
@@ -796,6 +797,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             device_allocation_count,
             frame_plan_metrics,
             ui_overlay_counters,
+            captured_frame,
         ) = {
             let graphics = self
                 .graphics
@@ -803,12 +805,14 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
             graphics.wait_idle()?;
             let (bytes, allocations) = graphics.device_allocation_stats()?;
+            let captured_frame = graphics.take_captured_frame()?;
             (
                 graphics.take_frame_profiling(),
                 bytes,
                 allocations,
                 graphics.frame_plan_metrics(),
                 graphics.ui_overlay_counters(),
+                captured_frame,
             )
         };
         let report = DesktopRunReport {
@@ -858,6 +862,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             dynamic_surface_upload_bytes: completion.dynamic_surface_upload_bytes,
             dynamic_surface_draws: completion.dynamic_surface_draws,
             dynamic_surface_hashes: self.dynamic_surfaces.borrow().current_hashes(),
+            captured_frame,
         };
         self.finalizer.finish();
         Ok(report)

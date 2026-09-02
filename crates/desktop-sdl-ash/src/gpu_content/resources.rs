@@ -5,16 +5,16 @@ use next_contracts::project::AssetRevisionRefV1;
 
 use super::{B0GpuContentError, FRAME_UNIFORM_SIZE, MINIMUM_BUFFER_SIZE, PreparedContent};
 
-pub(super) struct BufferAllocation {
-    pub(super) device: ash::Device,
-    pub(super) buffer: vk::Buffer,
+pub(crate) struct BufferAllocation {
+    pub(crate) device: ash::Device,
+    pub(crate) buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     size: vk::DeviceSize,
     allocation_size: vk::DeviceSize,
 }
 
 impl BufferAllocation {
-    pub(super) fn new(
+    pub(crate) fn new(
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
@@ -81,7 +81,40 @@ impl BufferAllocation {
         self.allocation_size
     }
 
-    pub(super) fn write(
+    /// Copies `bytes.len()` bytes out of a host-visible allocation. The
+    /// caller must have established that no submitted work still writes it.
+    pub(crate) fn read(
+        &self,
+        offset: vk::DeviceSize,
+        bytes: &mut [u8],
+    ) -> Result<(), B0GpuContentError> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let byte_count =
+            u64::try_from(bytes.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
+        if offset
+            .checked_add(byte_count)
+            .is_none_or(|end| end > self.size)
+        {
+            return Err(B0GpuContentError::CountOverflow);
+        }
+        // SAFETY: this allocation was created HOST_VISIBLE for every caller of
+        // `read`; the checked range lies within the allocation.
+        let mapped = unsafe {
+            self.device
+                .map_memory(self.memory, offset, byte_count, vk::MemoryMapFlags::empty())
+        }?;
+        // SAFETY: Vulkan returned a readable mapping for `byte_count` bytes and
+        // the destination slice is valid and non-overlapping.
+        unsafe {
+            std::ptr::copy_nonoverlapping(mapped.cast::<u8>(), bytes.as_mut_ptr(), bytes.len());
+            self.device.unmap_memory(self.memory);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write(
         &self,
         offset: vk::DeviceSize,
         bytes: &[u8],
