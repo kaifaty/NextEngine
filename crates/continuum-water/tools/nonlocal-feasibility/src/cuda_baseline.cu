@@ -1301,6 +1301,11 @@ __global__ void accumulate_fused_owner_terms_p1(
     if (particle >= count) {
         return;
     }
+    // NGQ7 revision 4: a fixed owner's row is never read back (the update
+    // keeps it at its reference), so density-only support skips it.
+    if (density_only_support && fixed[particle] != 0U) {
+        return;
+    }
 
     const float density_ratio = fmaxf(density[particle], rest_density) / rest_density;
     const float density_coefficient = kappa * time_step * time_step / rest_density;
@@ -7481,10 +7486,12 @@ GameContactResult game_sweep_box(
 std::size_t append_game_boundary(
     Fixture& fixture,
     const GameQualityBox& box,
-    int layers) {
+    int layers,
+    bool with_lid = true) {
     const std::size_t before = fixture.particles.size();
+    const int top = with_lid ? box.cells[1] + layers : box.cells[1];
     for (int x = -layers; x < box.cells[0] + layers; ++x) {
-        for (int y = -layers; y < box.cells[1] + layers; ++y) {
+        for (int y = -layers; y < top; ++y) {
             for (int z = -layers; z < box.cells[2] + layers; ++z) {
                 if (x >= 0 && x < box.cells[0] && y >= 0 && y < box.cells[1]
                     && z >= 0 && z < box.cells[2]) {
@@ -7512,7 +7519,8 @@ Fixture game_fixture(
     const GameQualityBox& box,
     int iterations,
     std::size_t neighbor_capacity = 123U,
-    int boundary_layers = 0) {
+    int boundary_layers = 0,
+    bool boundary_lid = true) {
     Fixture fixture;
     fixture.name = name;
     fixture.rest_density = profile.rest_density;
@@ -7528,7 +7536,8 @@ Fixture game_fixture(
     fixture.terms = profile.terms;
     fixture.iterations = iterations;
     fixture.particles = fluid;
-    const std::size_t boundary = append_game_boundary(fixture, box, boundary_layers);
+    const std::size_t boundary =
+        append_game_boundary(fixture, box, boundary_layers, boundary_lid);
     fixture.pair_capacity = (fluid.size() + boundary) * neighbor_capacity;
     fixture.analytic_box_contact = true;
     fixture.contact_minimum = box.minimum;
@@ -10638,7 +10647,8 @@ CommandReport run_cuda_game_surface_stream(
     std::ostream& frames,
     const std::string& particle_dump_prefix,
     int boundary_layers,
-    const std::string& boundary_support) {
+    const std::string& boundary_support,
+    bool boundary_lid) {
     if (boundary_support != "full" && boundary_support != "density") {
         throw std::invalid_argument("stream boundary support must be full or density");
     }
@@ -10759,7 +10769,7 @@ CommandReport run_cuda_game_surface_stream(
         // floor and wall neighbourhoods their density support (D-047).
         Fixture fixture = game_fixture(
             profile, "game-stream-" + lane, fluid, box, profile.fixed_iterations,
-            profile.max_neighbors, boundary_layers);
+            profile.max_neighbors, boundary_layers, boundary_lid);
         boundary_samples = fixture.particles.size() - fluid.size();
         fixture.boundary_density_only = boundary_support == "density";
         fixture.advected = true;
@@ -10866,6 +10876,7 @@ CommandReport run_cuda_game_surface_stream(
            << ",\"dynamic_samples\":" << dynamic_samples
            << ",\"boundary_layers\":" << boundary_layers
            << ",\"boundary_support\":\"" << boundary_support << "\""
+           << ",\"boundary_lid\":" << (boundary_lid ? "true" : "false")
            << ",\"boundary_samples\":" << boundary_samples
            << ",\"requested_steps\":" << steps
            << ",\"frame_every_steps\":" << every

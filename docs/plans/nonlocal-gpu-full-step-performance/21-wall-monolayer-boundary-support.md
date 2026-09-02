@@ -129,3 +129,26 @@ G1a above `1.2` during the impact but G1c within `1.2` means transient
 compaction under load rather than a stalled layer; G1c above `1.2` means
 the floor layer stays over-dense and the density support is still
 incomplete.
+
+## Revision 4 (cost, exactness-gated)
+
+Two cost reductions for the density-only complement, each admitted only if
+the fluid trajectory is bit-identical to revision 2 on the stored dumps:
+
+- fixed owners skip the fused owner-terms kernel (their rows are never
+  read back because the update keeps them at their reference);
+- `--boundary-lid 0` omits the lid layers where the water never reaches
+  the box top.
+
+| Variant | lane | boundary samples | physics per step | trajectory versus reference |
+| --- | --- | ---: | ---: | --- |
+| revision 2 | 16k | `22,224` | `2.49 ms` | reference |
+| skip fixed owners | 16k | `22,224` | `2.25 ms` | identical, `121` frames, max diff `0` |
+| revision 2, one layer | 48k | `11,768` | `5.35 ms` | reference (no dumps) |
+| skip fixed owners | 48k | `11,768` | `4.98 ms` | reference for the lid comparison |
+| skip, no lid | 48k | `8,324` | `4.84 ms` | identical to the lid run, `121` frames, max diff `0` |
+
+Skipping fixed owners is adopted as part of `density` support. The lid
+stays on by default because dam lanes can splash to the box top; `--boundary-lid 0`
+is available for fill lanes and was verified only on the 48k fill for 480
+steps.

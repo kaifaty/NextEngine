@@ -118,6 +118,24 @@ By the plan's own interpretation, a G1a peak above `1.2` with G1c inside
 density support is complete at rest; the control keeps a `2.25x` floor
 layer even when settled.
 
+## Revision 4: cost of the complement (exactness-gated)
+
+Fixed owners now skip the fused owner-terms kernel under density-only
+support (their rows are never read back), and `--boundary-lid 0` can omit
+the lid layers. Both were admitted only after bit-identical particle dumps:
+
+| Variant | lane | boundary samples | physics per step | execute wall per step | dumps versus reference | raw JSON |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| skip fixed owners | 16k, 2 layers | `22,224` | `2.25 ms` | `3.17 ms` | identical to revision 2 over `121` frames | `r4/16k-L2-lid1-skip` |
+| skip fixed owners | 48k, 1 layer | `11,768` | `4.98 ms` | `6.75 ms` | reference for the lid test | `r4/48k-L1-lid1-skip` |
+| skip, no lid | 48k, 1 layer | `8,324` | `4.84 ms` | `6.57 ms` | identical to the lid run over `121` frames | `r4/48k-L1-lid0-nolid` |
+
+Sources after revision 4: `cuda_baseline.cu` and `main.cpp` hashes are in
+the commit that introduces them. 48k with density-only support therefore
+costs `4.98 ms` of physics per 240 Hz step (`0.62x` real time unpaced with
+the wrapper overhead), against `3.86 ms` without support; the live bridge
+keeps paced playback for 48k.
+
 ## Live captures (16k, density-only support, closing surface)
 
 | rendered frame | solver step | render critical p95 | real-time ratio | PNG SHA-256 | raw JSON |

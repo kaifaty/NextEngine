@@ -38,8 +38,9 @@
   live bridge now defaults to density-only support (one layer on 48k, u16
   bound). Revision 3 split the compression observable: the floor layer
   peaks at `1.32 / 1.29` during impact and settles at `1.13 / 1.17` inside
-  the `1.2` gate (control `2.25 / 2.27`). Open: 48k physics rises to
-  `5.35 ms` per step with one layer.
+  the `1.2` gate (control `2.25 / 2.27`). Revision 4 makes fixed owners
+  skip the term kernel (bit-identical dumps) so 48k costs `4.98 ms` physics
+  per step with one layer (`3.86` without support); 48k stays paced.
 - **Performance baseline:** the exact historical fixed-work GPU source at
   `e2b533b49102bdff6684a7b68aa917ca635cc9e6` was rebuilt with CUDA `13.3.73`
   and rerun twice on the RTX 3080. Its old coherent/advected 50k corpus remains
@@ -1411,14 +1412,12 @@
 
 ## Next action
 
-1. 48k: decide under the solver contract whether one density-only layer at
-   `5.35 ms` physics per step is the game candidate, whether fixed rows can
-   leave the solve, or whether the lid can be dropped; the bridge itself
-   is unchanged.
+1. Presentation: water material within the locked B0 shader interface and
+   the raw sphere heights at mask boundaries, judged through captures.
 2. Extend the accepted dynamic corpus past the wall phase with density-only
-   layers (new roots, new evidence) when the solver contract admits them.
-3. Presentation: water material within the locked B0 shader interface and
-   the raw sphere heights at mask boundaries.
+   layers (new roots, new evidence) when the solver contract admits them;
+   the 48k game candidate is one density-only layer at `4.98 ms` physics
+   per step, paced in the bridge.
 3. If later runtime integration exceeds the budget,
    transplant only the smallest responsible semantic block; do not port the
    whole research solver automatically.
