@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `TERMINAL / R0_F0_C0_T0_D0_COMPLETE / H0_REPEAT_EXACT_METRIC_REJECT / GEOMETRY_ONLY_CONTACT_LOSES_NEAREST / V34_FAMILY_CLOSED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `TERMINAL / SUPERSEDED_BY_V35 / R0_F0_C0_T0_D0_COMPLETE / H0_REPEAT_EXACT_METRIC_REJECT / GEOMETRY_ONLY_CONTACT_LOSES_NEAREST / V34_FAMILY_CLOSED / REAL_RELEASE_BLOCKED / AUTHORED_FALLBACK` |
 | Replaces | [Roadmap V33](physical-sound-synthesis-roadmap-v33.md) as planning authority; V33 roles remain spent/closed and its H0 remains exact zero |
 | Research basis | [V34 protocol-closure rebaseline](../development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md) |
 | Trigger evidence | [V33 D0 terminal contract reject](../development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md) |
