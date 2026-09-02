@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-02` |
-| Status | `ADOPTED / P0A_FROZEN / I0_NEXT / MODEL_QUALITY_UNOBSERVED / AUTOMATIC_VALIDATOR_REQUIRED / METAL_FIRST / OFFLINE_COOKED_CLIPS / RUNTIME_ML_NOT_AUTHORIZED` |
+| Status | `ADOPTED / R0_REPEAT_EXACT_PASS / OFFICIAL_CONTEXT_PREFLIGHT_PASS / R1_NEXT / MODEL_QUALITY_UNOBSERVED / AUTOMATIC_VALIDATOR_REQUIRED / METAL_FIRST / OFFLINE_COOKED_CLIPS / RUNTIME_ML_NOT_AUTHORIZED` |
 | Replaces | [Roadmap V26](physical-sound-synthesis-roadmap-v26.md) as planning authority; V26 evidence, frozen protocols, protected-role order and spent experiments remain binding |
-| Current evidence | [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) `54522c26…49e8`, [P0 rebaseline](../development/physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [M0a-E](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [M0a-I](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [V24 D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md) and [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) |
+| Current evidence | [R0 result](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md), implementation root `d013ec35…f456`; [P0a](../development/physical-sound-v26-p0a-barycentric-and-padded-alignment-protocol-2026-09-02.md) `54522c26…49e8`, [P0 rebaseline](../development/physical-sound-v26-p0-implementation-conformance-rebaseline-2026-09-02.md), [M0a-E](../development/physical-sound-v25-m0a-official-evaluation-result-2026-09-02.md), [M0a-I](../development/physical-sound-v25-m0a-implementation-conformance-result-2026-09-02.md), [V24 D0](../development/physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [T0](../development/physical-sound-v24-t0-analytic-teacher-result-2026-09-01.md) and [X0](../development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; the accepted clip path remains production authority |
 | User constraint | Evidence comes from published internet sources; no user recording and no per-sound human approval |
 
@@ -95,8 +95,8 @@ predecessors permit them.
 
 | ID | Package | State | Size | Observable exit criterion |
 | --- | --- | --- | ---: | --- |
-| R0 | Deterministic preprocessing owner | `NEXT` | M | New M0b entry owns barycentric field sampling and bounded padded alignment; 48 surface queries, all three real contexts, full-entry and mutation fixtures pass twice; M0a stays unchanged. |
-| R1 | Compact-representation feasibility | `BLOCKED_BY_R0` | M | One hash-closed A/B run under the frozen seed/model/loss/schedule ends in exactly one terminal decision and emits reproducible artifacts or no quality claim. |
+| R0 | Deterministic preprocessing owner | `COMPLETE / REPEAT_EXACT_PASS` | M | [R0](../development/physical-sound-v27-r0-preprocessing-owner-result-2026-09-02.md) passes full-entry A/B, 48 surface queries, mutations and all three real contexts at root `d013ec35…f456`; M0a stays unchanged. |
+| R1 | Compact-representation feasibility | `NEXT / MANIFEST_NOT_YET_FROZEN` | M | One hash-closed A/B run under the frozen seed/model/loss/schedule ends in exactly one terminal decision and emits reproducible artifacts or no quality claim. |
 | Q0 | Validator protocol and source inventory | `SIGNAL_BLIND_WORK_ALLOWED` | M | Freeze positive groups, negative mutations, OOD groups, feature families, access order, confidence method and minimum evidence before candidate-sensitive values. |
 | Q1 | Independent Validator V1 | `BLOCKED_BY_Q0_AND_R1_PASS` | L | Separate CLI passes hard, physical, acoustic, mutation and selective-risk fixtures twice; generator code/checkpoints are unavailable to calibration. |
 | R2A | Physical-coefficient neural field | `CONDITIONAL_ON_R1_PASS` | L | Predict object-global modes/damping plus contact-conditioned gains/residuals and beat frozen ridge/retrieval controls on object-disjoint development. |
@@ -154,9 +154,9 @@ a required production gate or a way to rescue a failed automatic decision.
 
 ## Immediate execution order
 
-1. Finish R0: implement the P0a alignment helper, bind it with the existing
-   surface evaluator in a complete M0b owner and run all conformance fixtures.
-2. Freeze the exact implementation root, then execute R1 A/B once under the
+1. `COMPLETE`: R0 binds P0a surface/alignment in the owning M0b entry and
+   passes conformance plus official-context preflight at `d013ec35…f456`.
+2. Freeze the exact R1 manifest, then execute R1 A/B once under the
    existing resource and access limits.
 3. In parallel, perform only signal-blind Q0 source inventory; freeze the full
    validator protocol before any Metal candidate-sensitive value is opened.
