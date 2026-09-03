@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / D0R_COMPLETE_ENTRY_READINESS_NEXT / D0_PRE_ACCESS_BLOCKED / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_D0R_REPEAT_EXACT_PASS / D0_ONE_SHOT_NEXT / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V36](physical-sound-synthesis-roadmap-v36.md) как программный план; замороженные V36 D0/H0 runner, protocol, profile и seal переносятся без изменений |
-| Текущее evidence | [D0R complete-entry readiness research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth protocol/composite seal](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 repeat-exact full-count rehearsal/seal](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 repeat-exact complete-owner/terminal proof](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 repeat-exact full-shape structure/cost proof](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) и [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) |
+| Текущее evidence | [D0R repeat-exact complete-entry result/seal](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth protocol/composite seal](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 repeat-exact full-count rehearsal/seal](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 repeat-exact complete-owner/terminal proof](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 repeat-exact full-shape structure/cost proof](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) и [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь не записывает удары и не подтверждает каждый звук; реальные данные ищутся в интернете, решение принимает автоматический pipeline |
 
@@ -103,7 +103,7 @@ flowchart TD
     N0 --> NRA["NR QSO-v0 A0 contract: complete"]
     NRA --> NRF["NR F0-E0 complete"]
     NRF --> NRT["NR T0 exact truth/composite seal: complete"]
-    NRT --> NRP["NR D0R complete-entry readiness"]
+    NRT --> NRP["NR D0R complete-entry readiness: complete"]
     NRP --> NRD["NR one-shot QSO D0/H0"]
     N1["N1 V36 method holdout: not run"]
     EF["EF freeze/reject evidence correction"] --> NRF
@@ -131,7 +131,7 @@ generator representation. G0 начинается только после `NR Pa
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
 | N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
 | N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
-| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_PASS / D0R_READINESS_NEXT / D0_BLOCKED`](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md) | T0 closes exact targets, but the complete-entry audit found ordinary control/optimizer/metric/hard-gate choices still under-specified. D0R must execute and seal the actual D0 owner on full nonzero artificial data before any official capability. Official targets remain zero. |
+| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_D0R_PASS / D0_NEXT`](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md) | D0R freezes every remaining executable choice and repeat-exactly passes the actual target-aware owner over `10,800` nonzero artificial rows with seal `e3c33767…e3e5f`. Official targets remain zero; scientific quality is unknown until one-shot D0. |
 | EF | Freeze/reject evidence correction | `COMPLETE / X0_ATOMIC_RULE_PASS` | A0 makes reject/freeze states mutually exclusive; X0 proves natural `Pass`, all rejects/faults, H0 freeze validation and four failpoints twice exactly. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
@@ -196,11 +196,11 @@ engine schema. Каждая принятая запись связывает:
    PRF коэффициентов, normalizations/reductions и `row_id -> mixture` binding.
    T0 без official target access фиксирует 72 коэффициента, все 15,120 metadata
    rows, mutation proof и composite seal `7bae65cc…61573` поверх E0.
-9. **V37.6b — next:** comprehensive pre-access audit фиксирует все оставшиеся
+9. **V37.6b — complete:** comprehensive pre-access audit фиксирует все оставшиеся
    degrees of freedom в training, controls, metrics, hard gates и publication;
    actual D0 owner проходит full-count nonzero artificial A/B и получает D0R
-   readiness seal при нулевом official access.
-10. **V37.7:** только D0R-seal-verifying provider один раз открывает D0 A/B; H0 A/B
+   readiness seal `e3c33767…e3e5f` при нулевом official access.
+10. **V37.7 — next:** только E0/T0/D0R-seal-verifying provider один раз открывает D0 A/B; H0 A/B
    разрешён исключительно после точного D0 `Pass` freeze.
 11. **V37.S:** продолжить S0 metadata-only internet discovery партиями до
    `S1 Feasible` либо честного `NoEligibleDelta`.

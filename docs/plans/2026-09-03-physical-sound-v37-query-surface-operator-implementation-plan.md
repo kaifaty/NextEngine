@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / D0R_COMPLETE_ENTRY_READINESS_NEXT / D0_BLOCKED_BEFORE_D0R_SEAL / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_D0R_REPEAT_EXACT_PASS / D0_ONE_SHOT_NEXT / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [D0R complete-entry readiness research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [D0R complete-entry result/seal](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -122,7 +122,7 @@ Exit: A/B trees and stdout are exact, stderr is empty and every official target
 counter remains zero. Neither F0 nor E0 is rewritten; official capability
 creation now requires the composite seal.
 
-### Commit 5b — D0R complete-entry readiness — `NEXT`
+### Commit 5b — D0R complete-entry readiness — `COMPLETE`
 
 The [bounded audit](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md)
 found a second pre-access exactness defect: control, optimizer, metric and hard
@@ -135,7 +135,12 @@ Exit: the complete measurement procedure is repeat-exact and every official
 target/capability counter remains zero. Only the D0R-sealed owner may later
 receive an official D0 provider.
 
-### Commit 6 — D0/H0 one-shot evidence
+Result: both complete `6,480` train + `4,320` development executions returned
+natural `Pass` with byte-identical four-file trees. All 22 metric, 11 hard and
+five resource gates passed; seal `e3c33767…e3e5f` binds the exact target-aware
+owner/profile and frozen environment without opening any official value.
+
+### Commit 6 — D0/H0 one-shot evidence — `NEXT`
 
 Deliver:
 
