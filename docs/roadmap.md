@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-09-04 |
-| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP. Its first exact `4,096,000`-transition standing run is a negative `NO_AUTHORITY` result. ADR-100 now adds the distinct bounded standing V2 optimizer objective, and its CPU PhysX reward-scale preflight passes; the same-budget seed-42 V2 run is explicitly authorized pending exact GPU preflight. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142 or authority over R8b. |
+| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP. Its bounded-reward V2 run completed all `4,096,000` transitions: numerical scale is fixed and final-20 training survival reaches `1,721.33` ticks, but deterministic final/peak-region policies fall at ticks `100/97`, so the standing gate fails and no unchanged rerun is authorized. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142 or authority over R8b. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. Final R7c V2 evidence closes the R2 hard-performance gap and B-12. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -1959,7 +1959,8 @@ are not part of R8a. The current Linux `host-check`, `play`,
 `INJURY-EMBODIMENT-P1` remains `NOT_RUN`.
 
 **Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /
-FIRST_LEARNED_LOCOMOTION / V2_REWARD_IMPLEMENTED / CPU_PREFLIGHT_PASS`. Product priority moves to the
+FIRST_LEARNED_LOCOMOTION / V2_RUN_COMPLETE / REWARD_SCALE_FIXED /
+STANDING_GATE_FAIL / NO_AUTHORITY`. Product priority moves to the
 smallest player-visible learned-Motor result on the frozen Stage 0 V1
 humanoid. R8b is a new separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
@@ -2167,7 +2168,8 @@ further work must enter an explicitly selected R8 program and cannot
 retroactively add release ceremony to R7.
 
 The selected post-v1 queue now contains exactly one active package:
-**R8b first learned locomotion (`ACTIVE_R&D / V2_REWARD_IMPLEMENTED / CPU_PREFLIGHT_PASS`)**. Its durable
+**R8b first learned locomotion (`ACTIVE_R&D / V2_RUN_COMPLETE /
+REWARD_SCALE_FIXED / STANDING_GATE_FAIL / NO_AUTHORITY`)**. Its durable
 resume surface is
 [r8b-first-learned-locomotion.md](development/task-state/r8b-first-learned-locomotion.md).
 The exact seed-42 standing V1 run completed all `4,096,000` transitions, but
@@ -2177,8 +2179,16 @@ ticks. V1 checkpoints are excluded from evaluation/resume. ADR-100 and
 `nextengine.motor.env.humanoid-standing.v2` replace only that optimizer
 objective with eight bounded Q16 components; the production CPU PhysX
 32-tick zero-action probe stays inside the exact component and total bounds.
-The same-budget seed-42 V2 run is authorized after a new generation and GPU
-reset/reward preflight. The ceiling remains `NO_AUTHORITY` because
+The independent seed-42 V2 generation passed GPU reset/reward preflight and its
+same-budget run completed all `4,096,000` transitions with 1,000 finite metric
+records and 21 hash-closed checkpoints. Final value loss is `6.876` instead of
+V1's approximately `5.33e18`; final-20 reported survival is `1,721.33` ticks
+and the peak reported mean is `2,623.84/3,600`. Deterministic seed-1001
+evaluation nevertheless terminates at tick `100` for `model_999.pt` and tick
+`97` for `model_800.pt`. The remaining four seeds, walking and another
+unchanged V2 run are therefore stopped pending one bounded diagnosis of the
+actor-mean/noise, checkpoint-volatility and low-height-objective hypotheses.
+The ceiling remains `NO_AUTHORITY` because the quality gate fails and
 `MODEL-MIRROR-P1` is `NOT_RUN`. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains
 immutable and outside this queue.

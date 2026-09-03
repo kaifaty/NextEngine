@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / V2_REWARD_IMPLEMENTED / CPU_PREFLIGHT_PASS / GPU_PREFLIGHT_PENDING / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V2_RUN_COMPLETE / REWARD_SCALE_FIXED / STANDING_GATE_FAIL / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
@@ -11,21 +11,24 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R8b remains the selected post-v1 WIP. Standing V1 is
-  retired from optimizer use; ADR-100 and
-  `nextengine.motor.env.humanoid-standing.v2` now isolate the environment-scale
-  fix without changing PPO, body, seed or budget.
-- **Why:** The V1 run did not test body learnability because raw effort/action
-  units dominated its return. V2 bounds every component to `[0, 65536]` Q16
-  and the total to `[-148768, 114688]`; its production CPU PhysX 32-tick
-  zero-action probe passes those bounds.
-- **Next action:** Create and activate one new external V2 generation, pass the
-  Isaac reset/reward-scale probe and trainer preflight, then start the
-  explicitly authorized seed-42 `4,096,000`-transition run.
-- **Current blocker:** GPU preflight and the new generation closure are not yet
-  complete. `MODEL-MIRROR-P1` also remains `NOT_RUN` because the CPU
-  recorder/correspondence reader NPZ layouts differ and no paired V2 GPU
-  recorder exists; this blocks authority, not the bounded optimizer experiment.
+- **Current conclusion:** The bounded-reward V2 discriminator completed all
+  `4,096,000` transitions. It fixes the V1 numerical failure and learns much
+  longer stochastic rollouts, but it does not produce an admissible standing
+  policy: deterministic actor-mean evaluation falls at tick `100` for
+  `model_999.pt` and tick `97` for the peak-region `model_800.pt`.
+- **Why:** Final value loss is `6.876` instead of V1's approximately `5.33e18`,
+  all metrics are finite, and final-20 reported mean episode length is
+  `1,721.33` versus V1's `62.39`. The best reported training mean reaches
+  `2,623.84/3,600` at iteration `818`, but the held-out deterministic result
+  falsifies complete standing under this exact budget/profile.
+- **Next action:** Do not spend another unchanged V2 run. First discriminate
+  whether the remaining failure is actor-mean versus stochastic-policy quality,
+  checkpoint-selection volatility, or a low-height reward exploit; then change
+  one identified cause under a new V3 identity.
+- **Current blocker:** The required five-seed `3,600`-tick standing gate fails on
+  the first deterministic seed, so the remaining seeds and walking stage are
+  not run. `MODEL-MIRROR-P1` also remains `NOT_RUN`; this blocks authority even
+  if later policy quality passes.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -54,7 +57,11 @@
 | R8b standing outcome | Early-20 mean episode length `101.51`, final-20 `62.39`, best `111.16` at iteration 9 versus required `3,600`; final TensorBoard projection reports effort `-241,795,296`, action-rate `-1,513,819`, upright `0.480` and pose `-21.325` | Classify the first content failure as `Environment`: raw-unit penalties dominate and improvement in scalar return is anti-correlated with standing |
 | Standing V2 reward identity | ADR-100; environment `nextengine.motor.env.humanoid-standing.v2`; manifest `b39b4ae2…5f04`; eight components each `[0,65536]` Q16; total `[-148768,114688]` | Reuse the frozen V1 body/control/termination while changing only the optimizer objective and current translator closure |
 | Standing V2 CPU no-training probe | Production PhysX motor-lab, seed root `42…42`, one slot, 32 zero-action ticks; no terminal; all component/total bounds pass; observed total `32697..104730` Q16 | Reward scale is executable and commensurate on the canonical CPU path; this is not policy quality or CPU/Isaac correspondence |
-| R8b evaluation/correspondence | `NOT_RUN` | A five-seed evaluation cannot rescue a checkpoint whose training survival is about one second; CPU/Isaac and runtime claims remain blocked |
+| Standing V2 generation and GPU preflight | Generation `nextengine.training.generation.r8b-standing.v2`, manifest `8ab18b39…dee`; exact descriptor `89299e79…c90` and USD `5524a778…e54d`; four-slot ten-step reset/reward smoke passes with exact resets and bounded rewards | The intended clean V2 inputs execute on the RTX 3080; this is preflight, not correspondence or policy quality |
+| Standing V2 optimizer run | `r8b-standing-v2-seed42-v1` completed `4,096,000` samples; metrics `3d734c3d…cf`, 1,000 finite records; all 21 checkpoint hashes close; final `model_999.pt` `0d7eb3e4…890` | Reward-scale fix succeeds numerically and materially improves training survival, but does not itself grant a standing claim |
+| Standing V2 learning outcome | Early-20 reported mean length `99.72`; final-20 `1,721.33`; peak reported mean `2,623.84/3,600` at iteration `818`; final value loss `6.876`, maximum `260.783` | The body/profile can acquire a partial standing behavior; the exact run remains volatile and below the complete-episode gate |
+| Standing V2 deterministic evaluation | Seed `1001`: final `model_999.pt` terminates at tick `100`; peak-region `model_800.pt` terminates at tick `97`; neither truncates at `3,600` | Stop the five-seed matrix at the first failed gate and reject both obvious checkpoint selectors; do not start walking or promote authority |
+| R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | GPU reset/reward smoke is not paired CPU/Isaac trajectory evidence; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
 
@@ -166,17 +173,22 @@
   BodySchema/reset edits, motion imitation or a larger budget.
 - **Consequences:** The next run is a direct discriminator for H1. It may begin
   only after exact generation, GPU reset/reward and trainer preflight pass.
-- **Uncertainty:** Whether bounded reward alone yields complete standing.
-- **Reconsider when:** V2 metrics either demonstrate a credible survival trend
-  or fail under the unchanged budget.
+- **Outcome:** The exact V2 run completed and fixed numerical scale, but the
+  first deterministic held-out episode failed at tick `100`; bounded reward
+  alone is insufficient for complete standing under this profile and budget.
+- **Uncertainty:** Whether the remaining gap is primarily learned action-noise
+  dependence, checkpoint volatility or an objective exploit around low height.
+- **Reconsider when:** A bounded diagnostic distinguishes those explanations;
+  do not repeat V2 unchanged.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: the frozen V1 body can learn complete-episode standing with the smallest MLP profile | Procedural standing and the body/actuation path execute | The only full run optimized incompatible raw reward scales and therefore did not test body learnability | A new bounded-unit standing profile and smallest pre-training reward-scale probe |
+| H1: the frozen V1 body can learn complete-episode standing with the smallest MLP profile | V2 training mean survival rises from about `100` to a peak `2,623.84` ticks | Final and peak-region deterministic policies fall at ticks `100` and `97`; the exact-budget complete-standing claim is falsified | Compare stochastic-policy and actor-mean rollouts for closed checkpoints before changing PPO or reward |
 | H2: immutable standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No R8b walking comparison exists | Compare declared standing-parent initialization with the smallest clean control under one fixed budget |
 | H3: Isaac can shorten iteration without changing candidate admissibility | Descriptor/mirror infrastructure exists | Current correspondence readiness is `NOT_RUN` | Exact mirror preflight followed by CPU final evaluation |
+| H4: V2 training reward permits a low-height survival strategy that does not transfer to deterministic standing | Long training episodes can report root-height tracking near zero while remaining above the `0.25 m` fall threshold | One failed deterministic evaluation still has mean height tracking `0.751`; it does not isolate this cause | Inspect closed-checkpoint rollout height/termination distributions and compare them with action-noise mode |
 
 ## Required context
 
@@ -200,13 +212,13 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Keep `r8b-standing-seed42-v1` immutable and excluded from checkpoint
-   selection. Its missing metrics binding cannot be repaired in place.
-2. Keep the Accepted standing V2 reward identity and CPU preflight exact.
-3. Admit it under a new external generation, run the GPU reset/reward and
-   trainer preflights, then execute the already authorized unchanged-budget
-   discriminator. Only a promising result proceeds to five frozen evaluation
-   seeds and later `MODEL-MIRROR-P1` work.
+1. Keep both completed V1 and V2 external runs immutable. V1 is dimensionally
+   invalid for optimization; V2 is the exact negative/partial-learning control.
+2. Do not run seeds `1002..1005`, walking, correspondence or another optimizer
+   budget until one bounded diagnostic distinguishes stochastic action-noise
+   dependence, checkpoint volatility and low-height reward exploitation.
+3. If one cause is isolated, freeze the smallest one-variable V3 change and
+   its rollback/non-regression check before authorizing more GPU compute.
 
 ## Do not retry
 
@@ -227,19 +239,17 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** The first external optimizer run completed, but standing
-  V1 is retired from further optimizer use. A source change now closes metrics
-  for future generic runs and makes checkpoint selection reject incomplete
-  metrics closure; it does not alter the immutable completed manifest.
-- **Checks:** Run process exit, sample count, finite metrics and all 21 declared
-  checkpoint hashes pass. The generic diagnostic tool rejects this manifest
-  family and confirms the missing metrics binding; held-out evaluation and
-  correspondence are intentionally not run.
-- **Remaining risk:** Learned standing feasibility remains unknown because the
-  first objective was dimensionally broken. A standing V2 identity and full
-  CPU/Isaac correspondence are still required before any authority claim.
-  Kimodo retarget yield, physical admissibility, learning benefit and exact
-  license closure remain unmeasured and deferred.
+- **Workspace state:** Commit `3435b164…` implements ADR-100, bounded standing
+  V2 and its hash-closed profile. Its independent external generation and
+  optimizer run are complete and immutable; no checkpoint is selected.
+- **Checks:** Focused Python/Rust reward checks, workspace `host-check` and
+  `persistence-replay` pass. Run sample count, 1,000 finite metrics records and
+  all 21 declared checkpoint hashes pass. GPU reset/reward smoke passes.
+- **Remaining risk:** Numerical reward scale is fixed, but deterministic policy
+  quality fails the first held-out seed. CPU/Isaac correspondence, five-seed
+  quality, walking and runtime authority remain blocked. Kimodo retarget yield,
+  physical admissibility, learning benefit and exact license closure remain
+  unmeasured and deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.
