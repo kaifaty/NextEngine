@@ -97,6 +97,93 @@ pub const WATER_JET_LIFETIME_FRAMES: u32 = 120;
 /// Droplet render radius for the particle profile.
 pub const WATER_JET_RADIUS_MICROMETRES: u32 = 30_000;
 
+/// Plan 17 (L7): depression of the ring at the edge of a floating box.
+pub const WATER_WAKE_DEPTH_MICROMETRES: i64 = 8_000;
+/// Plan 17 (L7): the depression falls to zero over this distance.
+pub const WATER_WAKE_FALLOFF_MICROMETRES: i64 = 350_000;
+/// Plan 17 (L7): a box sheds droplets above this vertical speed.
+pub const WATER_SPLASH_SPEED_THRESHOLD_MICROMETRES_PER_SECOND: i64 = 300_000;
+/// Plan 17 (L7): one droplet per this much vertical speed above the threshold.
+pub const WATER_SPLASH_SPEED_PER_DROPLET_MICROMETRES_PER_SECOND: i64 = 20_000;
+/// Plan 17 (L7): droplets per box per frame at most.
+pub const WATER_SPLASH_MAX_PER_BOX: u32 = 64;
+/// Plan 17 (L7): launch speed of a splash droplet, outward and up.
+pub const WATER_SPLASH_LAUNCH_SPEED_MICROMETRES_PER_SECOND: i64 = 800_000;
+/// Plan 17 (L7): lifetime of a splash droplet in presentation frames.
+pub const WATER_SPLASH_LIFETIME_FRAMES: u32 = 60;
+
+/// Plan 17: one committed dynamic box of the checkpoint (the union of its
+/// box shapes at the committed translation, the ADR-105 bounds rule) and
+/// its vertical velocity; the stage's wake and splash input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WaterFloatingBoxV1 {
+    pub minimum_micrometres: [i64; 3],
+    pub maximum_micrometres: [i64; 3],
+    pub vertical_velocity_micrometres_per_second: i64,
+}
+
+/// The floating-box inputs of the stage from a committed checkpoint: every
+/// active `Dynamic` body with box shapes, in body id order.
+#[must_use]
+pub fn floating_boxes(
+    checkpoint: &next_contracts::physics::PhysicsWorldCheckpointV1,
+) -> Vec<WaterFloatingBoxV1> {
+    let mut boxes = Vec::new();
+    for (body_id, body) in &checkpoint.catalog.bodies {
+        if body.motion_kind != next_contracts::physics::PhysicsMotionKindV1::Dynamic {
+            continue;
+        }
+        let Some(state) = checkpoint.snapshot.sorted_body_states.get(body_id) else {
+            continue;
+        };
+        if !state.active {
+            continue;
+        }
+        let translation = state.pose.translation_micrometres;
+        let mut bounds: Option<([i64; 3], [i64; 3])> = None;
+        for shape in body.shapes.values() {
+            let next_contracts::physics::PhysicsGeometryV1::Box {
+                half_extents_micrometres,
+            } = shape.geometry
+            else {
+                continue;
+            };
+            let mut minimum = [0_i64; 3];
+            let mut maximum = [0_i64; 3];
+            for axis in 0..3 {
+                let centre = translation[axis]
+                    .saturating_add(shape.local_pose.translation_micrometres[axis]);
+                minimum[axis] = centre.saturating_sub(half_extents_micrometres[axis]);
+                maximum[axis] = centre.saturating_add(half_extents_micrometres[axis]);
+            }
+            bounds = Some(match bounds {
+                None => (minimum, maximum),
+                Some((low, high)) => (
+                    [
+                        low[0].min(minimum[0]),
+                        low[1].min(minimum[1]),
+                        low[2].min(minimum[2]),
+                    ],
+                    [
+                        high[0].max(maximum[0]),
+                        high[1].max(maximum[1]),
+                        high[2].max(maximum[2]),
+                    ],
+                ),
+            });
+        }
+        if let Some((minimum_micrometres, maximum_micrometres)) = bounds {
+            boxes.push(WaterFloatingBoxV1 {
+                minimum_micrometres,
+                maximum_micrometres,
+                vertical_velocity_micrometres_per_second: state
+                    .linear_velocity_micrometres_per_second[1],
+            });
+        }
+    }
+    boxes
+}
+
 /// One surface quad update in the quad's local space (the binding adds the
 /// exact level): a `columns x rows` grid over the volume's plan.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -173,6 +260,7 @@ pub fn compute_water_presentation_frame(
     volumes: &WaterVolumeSetV1,
     network: &WaterFlowNetworkV1,
     bindings: &[WaterSurfaceBindingV1],
+    boxes: &[WaterFloatingBoxV1],
     tick: u64,
     frame_index: u64,
 ) -> WaterPresentationFrameV1 {
@@ -182,13 +270,144 @@ pub fn compute_water_presentation_frame(
             continue;
         };
         let amplitude = ripple_amplitude(network, binding.volume_id);
-        surfaces.push(surface_grid(binding, definition, amplitude, frame_index));
+        // Plan 17: the boxes floating in this volume (plan overlap, bottom
+        // below the level) depress the ring around their plan rectangle.
+        let level = volumes.effective_level(binding.volume_id, tick);
+        let wakes: Vec<&WaterFloatingBoxV1> = boxes
+            .iter()
+            .filter(|floating| level.is_some_and(|level| floats_in(floating, definition, level)))
+            .collect();
+        surfaces.push(surface_grid(
+            binding,
+            definition,
+            amplitude,
+            &wakes,
+            frame_index,
+        ));
     }
+    let mut jet = jet_particles(volumes, network, tick, frame_index);
+    splash_particles(volumes, boxes, tick, frame_index, &mut jet);
     WaterPresentationFrameV1 {
         tick,
         frame_index,
         surfaces,
-        jet: jet_particles(volumes, network, tick, frame_index),
+        jet,
+    }
+}
+
+fn floats_in(
+    floating: &WaterFloatingBoxV1,
+    definition: &WaterVolumeDefinitionV1,
+    level: i64,
+) -> bool {
+    floating.minimum_micrometres[0] < definition.maximum_micrometres[0]
+        && floating.maximum_micrometres[0] > definition.minimum_micrometres[0]
+        && floating.minimum_micrometres[2] < definition.maximum_micrometres[2]
+        && floating.maximum_micrometres[2] > definition.minimum_micrometres[2]
+        && floating.minimum_micrometres[1] < level
+}
+
+/// Wake depression at `(x, z)`: full depth at the box's plan rectangle,
+/// linear to zero over the falloff distance (Chebyshev distance).
+fn wake_depth(x: i64, z: i64, wakes: &[&WaterFloatingBoxV1]) -> i64 {
+    let mut depth = 0_i64;
+    for floating in wakes {
+        let dx = (floating.minimum_micrometres[0] - x).max(x - floating.maximum_micrometres[0]);
+        let dz = (floating.minimum_micrometres[2] - z).max(z - floating.maximum_micrometres[2]);
+        let distance = dx.max(dz).max(0);
+        if distance >= WATER_WAKE_FALLOFF_MICROMETRES {
+            continue;
+        }
+        depth = depth.max(
+            WATER_WAKE_DEPTH_MICROMETRES * (WATER_WAKE_FALLOFF_MICROMETRES - distance)
+                / WATER_WAKE_FALLOFF_MICROMETRES,
+        );
+    }
+    depth
+}
+
+/// Plan 17 (L7): stateless splash droplets around the waterline of every
+/// box whose vertical speed exceeds the threshold; the same age rule as
+/// the jet, appended to the jet list inside its particle bound.
+fn splash_particles(
+    volumes: &WaterVolumeSetV1,
+    boxes: &[WaterFloatingBoxV1],
+    tick: u64,
+    frame_index: u64,
+    jet: &mut WaterJetParticlesV1,
+) {
+    let gravity = i128::from(WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED);
+    let fps = i128::from(WATER_PRESENTATION_FRAMES_PER_SECOND);
+    // 0.8 m/s split evenly between outward and up (cos 45 in q15).
+    let launch = i128::from(WATER_SPLASH_LAUNCH_SPEED_MICROMETRES_PER_SECOND) * 23_170 / 32_767;
+    for floating in boxes {
+        let speed = floating
+            .vertical_velocity_micrometres_per_second
+            .abs()
+            .saturating_sub(WATER_SPLASH_SPEED_THRESHOLD_MICROMETRES_PER_SECOND);
+        if speed <= 0 {
+            continue;
+        }
+        let Some(level) = volumes
+            .definitions
+            .iter()
+            .find_map(|(volume_id, definition)| {
+                let level = volumes.effective_level(*volume_id, tick)?;
+                floats_in(floating, definition, level).then_some(level)
+            })
+        else {
+            continue;
+        };
+        let count = (speed / WATER_SPLASH_SPEED_PER_DROPLET_MICROMETRES_PER_SECOND)
+            .clamp(0, i64::from(WATER_SPLASH_MAX_PER_BOX));
+        let remaining = i64::from(WATER_JET_MAX_PARTICLES)
+            - i64::try_from(jet.positions_micrometres.len()).unwrap_or(i64::MAX);
+        let count = count.min(remaining.max(0));
+        if count == 0 {
+            continue;
+        }
+        let [x0, _, z0] = floating.minimum_micrometres;
+        let [x1, _, z1] = floating.maximum_micrometres;
+        let width = (x1 - x0).max(1);
+        let depth = (z1 - z0).max(1);
+        let perimeter = 2 * (width + depth);
+        let lifetime = i128::from(WATER_SPLASH_LIFETIME_FRAMES);
+        let stride = (lifetime * 65_536 / i128::from(count)).max(1);
+        for k in 0..count {
+            // Droplet `k` starts on the waterline at perimeter offset
+            // `k * perimeter / count` and flies outward from that edge.
+            let along = k * perimeter / count;
+            let (start_x, start_z, out_x, out_z) = if along < width {
+                (x0 + along, z0, 0, -1)
+            } else if along < width + depth {
+                (x1, z0 + (along - width), 1, 0)
+            } else if along < 2 * width + depth {
+                (x1 - (along - width - depth), z1, 0, 1)
+            } else {
+                (x0, z1 - (along - 2 * width - depth), -1, 0)
+            };
+            let age =
+                (i128::from(frame_index) * 65_536 + i128::from(k) * stride) % (lifetime * 65_536);
+            // t seconds = age / (65536 * fps)
+            let travel = launch * age / (65_536 * fps);
+            let rise = travel - gravity * age * age / (2 * 65_536 * 65_536 * fps * fps);
+            if rise < 0 {
+                continue;
+            }
+            let x = i128::from(start_x) + i128::from(out_x) * travel;
+            let z = i128::from(start_z) + i128::from(out_z) * travel;
+            let vy = launch - gravity * age / (65_536 * fps);
+            jet.positions_micrometres.push([
+                i64::try_from(x).unwrap_or(i64::MAX),
+                i64::try_from(i128::from(level) + rise).unwrap_or(i64::MAX),
+                i64::try_from(z).unwrap_or(i64::MAX),
+            ]);
+            jet.velocities_micrometres_per_second.push([
+                i32::try_from(i128::from(out_x) * launch).unwrap_or(0),
+                i32::try_from(vy.clamp(-2_000_000_000, 2_000_000_000)).unwrap_or(0),
+                i32::try_from(i128::from(out_z) * launch).unwrap_or(0),
+            ]);
+        }
     }
 }
 
@@ -217,6 +436,7 @@ fn surface_grid(
     binding: &WaterSurfaceBindingV1,
     definition: &WaterVolumeDefinitionV1,
     amplitude: i64,
+    wakes: &[&WaterFloatingBoxV1],
     frame_index: u64,
 ) -> WaterSurfaceUpdateV1 {
     let columns = WATER_SURFACE_GRID_COLUMNS as usize;
@@ -241,6 +461,9 @@ fn surface_grid(
                 ripple += sin_q15(turns + frame * wave.phase_per_frame_turns_q16 * 2);
             }
             height += amplitude * ripple / (2 * 32_767);
+        }
+        if !wakes.is_empty() {
+            height -= wake_depth(x, z, wakes);
         }
         // Below the cap: the catalog mesh bounds are exclusive at their
         // maximum, and the ripple cap is the authored bound.
@@ -418,14 +641,85 @@ mod tests {
     }
 
     #[test]
+    fn floating_box_depresses_the_ring_and_sheds_droplets_when_fast() {
+        let volumes = crate::water::reference_water_volumes().expect("volumes");
+        let network = crate::water::reference_water_flow(&volumes).expect("network");
+        let bindings = reference_water_surface_bindings();
+        let basin = &volumes.definitions[&crate::water::REFERENCE_WATER_BASIN_ID];
+        let level = volumes
+            .effective_level(crate::water::REFERENCE_WATER_BASIN_ID, 1)
+            .expect("basin level");
+        let centre_x = (basin.minimum_micrometres[0] + basin.maximum_micrometres[0]) / 2;
+        let centre_z = (basin.minimum_micrometres[2] + basin.maximum_micrometres[2]) / 2;
+        let floating = |vertical_velocity| WaterFloatingBoxV1 {
+            minimum_micrometres: [centre_x - 250_000, level - 200_000, centre_z - 250_000],
+            maximum_micrometres: [centre_x + 250_000, level + 300_000, centre_z + 250_000],
+            vertical_velocity_micrometres_per_second: vertical_velocity,
+        };
+        let still = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
+        let slow = compute_water_presentation_frame(
+            &volumes,
+            &network,
+            &bindings,
+            &[floating(200_000)],
+            1,
+            7,
+        );
+        let fast = compute_water_presentation_frame(
+            &volumes,
+            &network,
+            &bindings,
+            &[floating(1_000_000)],
+            1,
+            7,
+        );
+        // The wake: vertices near the box sit lower, far vertices are unchanged,
+        // every vertex stays inside the ripple cap.
+        let basin_surface = |frame: &WaterPresentationFrameV1| {
+            frame
+                .surfaces
+                .iter()
+                .find(|surface| surface.volume_id == crate::water::REFERENCE_WATER_BASIN_ID)
+                .expect("basin surface")
+                .positions_micrometres
+                .clone()
+        };
+        let (still_positions, slow_positions) = (basin_surface(&still), basin_surface(&slow));
+        let mut lowered = 0;
+        for (a, b) in still_positions.iter().zip(&slow_positions) {
+            let distance = (a[0] - centre_x).abs().max(a[2] - centre_z).abs();
+            assert!(b[1] >= -WATER_RIPPLE_CAP_MICROMETRES);
+            if distance > 250_000 + WATER_WAKE_FALLOFF_MICROMETRES {
+                assert_eq!(a[1], b[1]);
+            } else if b[1] < a[1] {
+                lowered += 1;
+            }
+        }
+        assert!(lowered > 0);
+        // Droplets only above the speed threshold, inside the particle bound.
+        assert_eq!(slow.jet, still.jet);
+        assert!(fast.jet.positions_micrometres.len() > still.jet.positions_micrometres.len());
+        assert!(fast.jet.positions_micrometres.len() <= WATER_JET_MAX_PARTICLES as usize);
+        assert_eq!(
+            fast.jet.positions_micrometres.len(),
+            fast.jet.velocities_micrometres_per_second.len()
+        );
+        for position in &fast.jet.positions_micrometres[still.jet.positions_micrometres.len()..] {
+            assert!(position[1] >= level);
+            assert!((position[0] - centre_x).abs() <= 400_000);
+            assert!((position[2] - centre_z).abs() <= 400_000);
+        }
+    }
+
+    #[test]
     fn frame_is_pure_bounded_and_reads_only_the_checkpoint() {
         let volumes = crate::water::reference_water_volumes().expect("volumes");
         let network = crate::water::reference_water_flow(&volumes).expect("network");
         let stepped = network.step(&volumes).expect("step");
         let (volumes, network) = (stepped.volumes, stepped.network);
         let bindings = reference_water_surface_bindings();
-        let first = compute_water_presentation_frame(&volumes, &network, &bindings, 1, 7);
-        let again = compute_water_presentation_frame(&volumes, &network, &bindings, 1, 7);
+        let first = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
+        let again = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
         assert_eq!(first, again);
         assert_eq!(first.surfaces.len(), 3);
         for surface in &first.surfaces {
@@ -451,7 +745,7 @@ mod tests {
         // The gate carries water after one step, so the jet exists and
         // moves between the frames.
         assert!(!first.jet.positions_micrometres.is_empty());
-        let later = compute_water_presentation_frame(&volumes, &network, &bindings, 1, 8);
+        let later = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 8);
         assert_ne!(first.jet, later.jet);
     }
 }

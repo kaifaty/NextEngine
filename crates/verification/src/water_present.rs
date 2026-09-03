@@ -16,7 +16,7 @@ use next_contracts::render_content::AabbI64V1;
 use next_reference_game::{
     WATER_JET_MAX_PARTICLES, WATER_RIPPLE_CAP_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY,
     WATER_SURFACE_VERTEX_CAPACITY, WaterPresentationFrameV1, WaterSurfaceBindingV1,
-    compute_water_presentation_frame, cooked_project_rpg_snapshot,
+    compute_water_presentation_frame, cooked_project_rpg_snapshot, floating_boxes,
     reference_water_surface_bindings,
 };
 use next_runtime::RuntimeState;
@@ -219,6 +219,7 @@ fn run_generation(
 
         final_physics_checkpoint_hash = staged_report.physics_checkpoint_hash;
         let checkpoint = staged.physics_checkpoint();
+        let boxes = floating_boxes(checkpoint);
         let published_tick = staged_report.tick;
         for frame_offset in 0..FRAMES_PER_TICK {
             let frame_index = tick * FRAMES_PER_TICK + frame_offset;
@@ -227,6 +228,7 @@ fn run_generation(
                 &checkpoint.water_volumes,
                 &checkpoint.water_flow,
                 &bindings,
+                &boxes,
                 published_tick,
                 frame_index,
             );
@@ -240,6 +242,7 @@ fn run_generation(
                 &checkpoint.water_volumes,
                 &checkpoint.water_flow,
                 &bindings,
+                &boxes,
                 published_tick,
                 frame_index,
             );

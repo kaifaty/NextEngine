@@ -215,6 +215,7 @@ impl ReferenceGameDriverV2 {
             &checkpoint.water_volumes,
             &checkpoint.water_flow,
             &crate::water_presentation::reference_water_surface_bindings(),
+            &crate::water_presentation::floating_boxes(checkpoint),
             self.runtime.next_tick(),
             frame_index,
         )

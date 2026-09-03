@@ -39,8 +39,8 @@ through SDL's own event queue) for diagnostics that need real input:
 | L3 refraction and depth colour (done 2026-09-03, plan 13) | the water pass after the opaque scene: scene colour copy, normal-offset refraction, absorption by the ray path length (the ADR-102 constants) | roots identical; the crate's submerged half is tinted |
 | L4 wave spectrum on the ring (done 2026-09-03, plan 14) | four world-space directional waves with deep-water periods plus the flux ripple, `20 mm` cap, animated detail normal in the water pass | roots identical; stage cost `104 us` |
 | L5 planar reflection (done 2026-09-03, plan 15) | one mirrored scene pass about the largest water surface's level into a screen-sized target, sampled by the water pass at the pixel's own position over the analytic sky; front-face culling and a plane clip | one catalog/frame plan per run; `5.3` frames per tick |
-| L6 caustics (plan 17) | animated caustic light on the scene point under the surface, computed in the water pass and fading with the path length | roots identical |
-| L7 crate wake and splash (plan 17) | ring depression around every floating box; splash droplets from the committed vertical speed through the ADR-102 particle lane | roots identical; capture |
+| L6 caustics (done 2026-09-03, plan 17) | animated caustic light on the scene point under the surface, computed in the water pass and fading with the path length | roots identical |
+| L7 crate wake and splash (done 2026-09-03, plan 17) | ring depression around every floating box; splash droplets from the committed vertical speed through the ADR-102 particle lane | roots identical; capture |
 | L8 DLSS-ready outputs | motion vectors, thin G-buffer (albedo, normal + roughness, linear depth), jitter, HUD after the scene composite, per-group mask; no SDK | render tests; no vendor dependency in the workspace |
 
 DLSS itself: revisit when NVIDIA documents DLSS 5 for native Linux

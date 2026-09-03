@@ -92,8 +92,8 @@
 - **Water look L4 done (plan 14, 2026-09-03):** ambient wave spectrum in the stage (`AMBIENT_WAVES`), animated detail normal in the water pass.
 - **Water look L5 done (plan 15, 2026-09-03):** mirrored reflection pass (`b0_reflect` suite, set 3 binding 3 of the water pass).
 - **Basin rim done (plan 16, 2026-09-03):** static body `0x89` with five box shapes (`REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES`, `0.6 m` high, `0.15 m` thick, a `1 m` opening on the south side) and the compound mesh `0x8e` bound as an `Environment` presentation record; the scene roots moved (43 roots, 129 records, 17 meshes, 14 rendered objects) and every pinned count was refreshed.
-- **Next (plan `continuum-water/11`):** the water look continues with L6 (caustics)
-  and L7 (crate wake and splash) under the frozen plan `continuum-water/17`, then L8 (DLSS-ready buffers), then the
+- **Water look L6 + L7 done (plan 17, 2026-09-03, revision 2):** caustic term in `water_scene` (vertical-depth attenuation after an invisible revision 1), stage wake depression and splash droplets from the committed boxes (`floating_boxes`, `WaterFloatingBoxV1`; `compute_water_presentation_frame` gained the box input); stage cost `136 us` max.
+- **Next (plan `continuum-water/11`):** the water look continues with L8 (DLSS-ready buffers), then the
   recorded cost revisions and the scale practices; gameplay gates/pumps
   and player buoyancy are deferred by decision.
 - Research note on engine and game water models:

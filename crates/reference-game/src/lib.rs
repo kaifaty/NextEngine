@@ -84,5 +84,5 @@ pub use water_presentation::{
     WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WATER_PRESENTATION_FRAMES_PER_SECOND,
     WATER_RIPPLE_CAP_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY, WATER_SURFACE_VERTEX_CAPACITY,
     WaterJetParticlesV1, WaterPresentationFrameV1, WaterSurfaceBindingV1, WaterSurfaceUpdateV1,
-    compute_water_presentation_frame, reference_water_surface_bindings,
+    compute_water_presentation_frame, floating_boxes, reference_water_surface_bindings,
 };

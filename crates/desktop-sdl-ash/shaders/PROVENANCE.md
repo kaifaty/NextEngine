@@ -145,3 +145,17 @@ Linux `glslang` 15.1.0:
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o b0_reflect.frag.spv b0_reflect.frag
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
 ```
+
+## Water look L6 (plan `continuum-water/17`)
+
+`water_scene` gained the caustic term: two animated sine lattices over the
+scene point under the surface, sharpened and faded by the path length,
+multiplied into the transmitted scene colour (renderer-local constants
+only; no interface change). Revision 2 of the plan attenuates by the
+vertical depth of the scene point instead of the path length and squares
+the lattice product instead of raising it to the fourth power. Recompiled with the same pinned Linux
+`glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
+```

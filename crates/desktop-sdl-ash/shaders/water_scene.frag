@@ -44,6 +44,8 @@ const vec3 SKY_HORIZON = vec3(0.48, 0.60, 0.68);
 const vec3 SKY_ZENITH = vec3(0.10, 0.20, 0.34);
 const float DETAIL_NORMAL_OFFSET = 0.03;
 const float REFLECTION_DISTORTION = 0.02;
+const float CAUSTIC_STRENGTH = 1.0;
+const float CAUSTIC_ABSORPTION_PER_METRE = 1.0;
 
 vec3 scene_world_position(vec2 uv, float depth) {
     vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
@@ -121,6 +123,26 @@ void main() {
         scene = texture(scene_color, refracted_uv).rgb;
         behind = scene_world_position(refracted_uv, refracted_depth);
         thickness = max(distance(behind, in_world_position), 0.0);
+    }
+
+    // WL6 caustics (plan 17 revision 2): two animated sine lattices over
+    // the scene point under the surface, sharpened, fading with the
+    // vertical depth of that point.
+    {
+        float t = water.shore.w;
+        vec2 p = behind.xz;
+        vec2 c1 = vec2(cos(radians(30.0)), sin(radians(30.0)));
+        vec2 c2 = vec2(cos(radians(120.0)), sin(radians(120.0)));
+        float k1 = 6.2831853 / 0.35;
+        float k2 = 6.2831853 / 0.23;
+        float a = 0.5 + 0.5 * sin(k1 * dot(c1, p) - k1 * 0.25 * t);
+        float b = 0.5 + 0.5 * sin(k2 * dot(c2, p) - k2 * 0.4 * t);
+        float caustic = pow(a * b, 2.0);
+        float depth_below = max(in_world_position.y - behind.y, 0.0);
+        float submerged = smoothstep(0.0, 0.05, depth_below);
+        scene *= 1.0
+            + CAUSTIC_STRENGTH * caustic * exp(-CAUSTIC_ABSORPTION_PER_METRE * depth_below)
+            * submerged;
     }
 
     // Lit water body (WL1) and the transmitted, absorbed scene behind it.
