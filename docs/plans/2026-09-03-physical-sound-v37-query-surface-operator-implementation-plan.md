@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_REPEAT_EXACT_PASS / X0_NEXT / ZERO_SCIENTIFIC_TARGET_VALUES_EVALUATED` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_REPEAT_EXACT_PASS / E0_NEXT / ZERO_F0_OR_OFFICIAL_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -73,7 +73,7 @@ Deliver:
 Exit: every structural row is supported, no OOD/overlap exists and A/B reports
 are exact. Cost failure stops before target access.
 
-### Commit 4 — X0 complete owner and terminal publisher
+### Commit 4 — X0 complete owner and terminal publisher — `COMPLETE`
 
 Deliver:
 
@@ -147,8 +147,9 @@ touches that boundary.
 
 ## Immediate action
 
-Implement Commit 4 only. Bind materialization, fit, prediction, controls,
-metrics, hard/resource gates and atomic terminal publication into one complete
-owner, then mutation-test every D0/H0 terminal, access-order and failpoint path
-on discarded surrogate values. Do not open D0/H0, create an official
-capability or publish candidate authority outside a natural surrogate `Pass`.
+Implement Commit 5 only. Run the full frozen F0 row counts, candidate and eight
+controls through the exact X0 owner boundary twice, compare every external byte,
+measure wall/RSS and check in one execution seal binding the owner, publisher,
+profile, dependencies, topology and rehearsal roots. Do not open D0/H0 or create
+an official capability unless the complete E0 rehearsal passes under
+`300 s / 1 GiB / 64 MiB` with zero forbidden access.
