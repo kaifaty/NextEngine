@@ -164,13 +164,15 @@ def make_fixture(root: Path) -> dict[str, Path]:
         "study_id": "fixture",
     }
     d1_access = {
-        "content_objects_opened": 0,
-        "model_values_read": 0,
-        "pcm_sample_values_decoded": 0,
-        "protected_values_read": 0,
-        "real_target_values_decoded": 0,
+        "counters": {
+            "content_objects_opened": 0,
+            "model_values_read": 0,
+            "pcm_sample_values_decoded": 0,
+            "protected_values_read": 0,
+            "real_target_values_decoded": 0,
+            "waveform_bytes_read": 0,
+        },
         "schema": b0.D1_ACCESS_SCHEMA,
-        "waveform_bytes_read": 0,
     }
     d1_report = {
         "decision": "CorpusIndexCompiled",

@@ -430,6 +430,7 @@ def validate_d1(
     index = documents["d1-corpus-index.json"]
     if access.get("schema") != D1_ACCESS_SCHEMA:
         raise ControlTournamentError("D1 access schema changed")
+    counters = require_dict(access.get("counters"), "D1 access counters")
     for name in (
         "content_objects_opened",
         "model_values_read",
@@ -438,7 +439,7 @@ def validate_d1(
         "real_target_values_decoded",
         "waveform_bytes_read",
     ):
-        if access.get(name) != 0:
+        if counters.get(name) != 0:
             raise ControlTournamentError("D1 opened forbidden content")
     if (
         report.get("schema") != D1_REPORT_SCHEMA
