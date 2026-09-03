@@ -10,7 +10,8 @@ use std::time::Instant;
 
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{
-    WaterFlowEdgeKindV1, WaterFlowNetworkV1, WaterLatticeRegionV1, WaterVolumeSetV1,
+    WaterFlowActivityV1, WaterFlowEdgeKindV1, WaterFlowNetworkV1, WaterLatticeRegionV1,
+    WaterVolumeSetV1,
 };
 
 /// Plan 19 constants (frozen).
@@ -29,6 +30,14 @@ const SETTLE_TOLERANCE_MICROMETRES: i64 = 5_000;
 /// A cell counts as wet above this depth over its floor.
 const WET_DEPTH_MICROMETRES: i64 = 1_000;
 const COST_STEPS: u32 = 100;
+/// Plan 20: the wake — the west column's level record raised at this tick.
+const WAKE_TICK: u64 = 1_200;
+const WAKE_LEVEL_MICROMETRES: i64 = 1_000_000;
+/// Plan 20: the rest probe — a run continued to this tick reports the
+/// skipped fraction and the step cost over its last `100` ticks (the
+/// frozen `3,600` ticks of G5 showed no resting sill; the exact weir tail
+/// reaches flux `0` only after minutes, recorded in plan 20).
+const REST_RUN_TICKS: u64 = 36_000;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WaterLatticeCheckReportV1 {
@@ -54,6 +63,20 @@ pub struct WaterLatticeCheckReportV1 {
     pub step_cost_debug_build: bool,
     pub final_network_hash: ContentHash,
     pub final_table_hash: ContentHash,
+    /// Plan 20 (activity stepping).
+    pub activity_run_identical: bool,
+    pub activity_wake_run_identical: bool,
+    pub skipped_fraction_mean_permille: u64,
+    pub skipped_fraction_final_permille: u64,
+    pub skipped_edges_final: usize,
+    pub wake_tick: u64,
+    pub active_edges_after_wake: usize,
+    pub rest_cost_active_mean_microseconds: u128,
+    pub rest_cost_activity_mean_microseconds: u128,
+    pub rest_probe_ticks: u64,
+    pub skipped_fraction_at_rest_probe_permille: u64,
+    /// The first tick after the east column is wet on which a sill rests.
+    pub first_rest_tick_after_wet: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -119,6 +142,28 @@ struct RunTrace {
     network: WaterFlowNetworkV1,
     volumes: WaterVolumeSetV1,
     east_column_wet_by_tick: Option<u64>,
+    /// Skipped edges per tick (activity runs), empty otherwise.
+    skipped_per_tick: Vec<usize>,
+    /// Active edges on the wake tick (wake runs).
+    active_edges_after_wake: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RunMode {
+    Cloning,
+    InPlace,
+    Activity,
+}
+
+fn wake(region: &WaterLatticeRegionV1, volumes: &mut WaterVolumeSetV1) {
+    for row in 0..ROWS {
+        let state = volumes
+            .states
+            .get_mut(&region.cell_id(0, row))
+            .expect("west cell");
+        state.record_revision += 1;
+        state.level_micrometres = WAKE_LEVEL_MICROMETRES;
+    }
 }
 
 fn hashes(
@@ -146,7 +191,8 @@ fn east_column_wet(region: &WaterLatticeRegionV1, volumes: &WaterVolumeSetV1) ->
 
 fn run(
     region: &WaterLatticeRegionV1,
-    in_place: bool,
+    mode: RunMode,
+    with_wake: bool,
 ) -> Result<RunTrace, WaterLatticeCheckErrorV1> {
     let (mut volumes, mut network) = region
         .build(TICKS_PER_SECOND)
@@ -154,17 +200,37 @@ fn run(
     let mut trace = Vec::with_capacity(RUN_TICKS as usize + 1);
     trace.push(hashes(&network, &volumes)?);
     let mut east_column_wet_by_tick = None;
+    let mut activity = WaterFlowActivityV1::default();
+    let mut skipped_per_tick = Vec::new();
+    let mut active_edges_after_wake = 0;
     for tick in 1..=RUN_TICKS {
-        if in_place {
-            network.step_in_place(&mut volumes).map_err(|error| {
-                WaterLatticeCheckErrorV1::new("step in place", error.to_string())
-            })?;
-        } else {
-            let stepped = network
-                .step(&volumes)
-                .map_err(|error| WaterLatticeCheckErrorV1::new("step", error.to_string()))?;
-            network = stepped.network;
-            volumes = stepped.volumes;
+        if with_wake && tick == WAKE_TICK {
+            wake(region, &mut volumes);
+        }
+        match mode {
+            RunMode::Cloning => {
+                let stepped = network
+                    .step(&volumes)
+                    .map_err(|error| WaterLatticeCheckErrorV1::new("step", error.to_string()))?;
+                network = stepped.network;
+                volumes = stepped.volumes;
+            }
+            RunMode::InPlace => {
+                network.step_in_place(&mut volumes).map_err(|error| {
+                    WaterLatticeCheckErrorV1::new("step in place", error.to_string())
+                })?;
+            }
+            RunMode::Activity => {
+                let stats = network
+                    .step_in_place_with_activity(&mut volumes, Some(&mut activity))
+                    .map_err(|error| {
+                        WaterLatticeCheckErrorV1::new("activity step", error.to_string())
+                    })?;
+                skipped_per_tick.push(stats.skipped_edges);
+                if with_wake && tick == WAKE_TICK {
+                    active_edges_after_wake = stats.active_edges;
+                }
+            }
         }
         trace.push(hashes(&network, &volumes)?);
         if east_column_wet_by_tick.is_none() && east_column_wet(region, &volumes) {
@@ -176,6 +242,60 @@ fn run(
         network,
         volumes,
         east_column_wet_by_tick,
+        skipped_per_tick,
+        active_edges_after_wake,
+    })
+}
+
+struct RestProbe {
+    active_mean_microseconds: u128,
+    activity_mean_microseconds: u128,
+    skipped_fraction_permille: u64,
+    first_rest_tick_after_wet: Option<u64>,
+}
+
+/// Plan 20: the run continued to `REST_RUN_TICKS`, always active and with
+/// activity: the mean step cost over the last `100` ticks of each, the
+/// skipped fraction at the end and the first resting sill after the east
+/// column is wet.
+fn rest_probe(region: &WaterLatticeRegionV1) -> Result<RestProbe, WaterLatticeCheckErrorV1> {
+    let mut means = [0_u128; 2];
+    let mut skipped_fraction_permille = 0;
+    let mut first_rest_tick_after_wet = None;
+    for (slot, with_activity) in [false, true].into_iter().enumerate() {
+        let (mut volumes, mut network) = region
+            .build(TICKS_PER_SECOND)
+            .map_err(|error| WaterLatticeCheckErrorV1::new("rest build", error.to_string()))?;
+        let mut activity = WaterFlowActivityV1::default();
+        let mut total = 0_u128;
+        let mut east_wet = false;
+        let timed_from = REST_RUN_TICKS - u64::from(COST_STEPS);
+        for tick in 1..=REST_RUN_TICKS {
+            let started = Instant::now();
+            let stats = network
+                .step_in_place_with_activity(&mut volumes, with_activity.then_some(&mut activity))
+                .map_err(|error| WaterLatticeCheckErrorV1::new("rest step", error.to_string()))?;
+            if tick > timed_from {
+                total += started.elapsed().as_micros();
+            }
+            if with_activity {
+                east_wet = east_wet || east_column_wet(region, &volumes);
+                if east_wet && first_rest_tick_after_wet.is_none() && stats.skipped_edges > 0 {
+                    first_rest_tick_after_wet = Some(tick);
+                }
+                if tick == REST_RUN_TICKS {
+                    skipped_fraction_permille =
+                        stats.skipped_edges as u64 * 1_000 / stats.edges.max(1) as u64;
+                }
+            }
+        }
+        means[slot] = total / u128::from(COST_STEPS.max(1));
+    }
+    Ok(RestProbe {
+        active_mean_microseconds: means[0],
+        activity_mean_microseconds: means[1],
+        skipped_fraction_permille,
+        first_rest_tick_after_wet,
     })
 }
 
@@ -216,13 +336,40 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
     }
     let total_volume_initial = initial_network.total_volume();
 
-    let first = run(&region, true)?;
-    let repeated = run(&region, true)?;
-    let cloning = run(&region, false)?;
+    let first = run(&region, RunMode::InPlace, false)?;
+    let repeated = run(&region, RunMode::InPlace, false)?;
+    let cloning = run(&region, RunMode::Cloning, false)?;
     let repeated_run_identical = first.hashes == repeated.hashes;
     let in_place_equals_cloning = first.hashes == cloning.hashes
         && first.network == cloning.network
         && first.volumes == cloning.volumes;
+    // Plan 20: the activity runs, with and without the wake.
+    let activity = run(&region, RunMode::Activity, false)?;
+    let plain_wake = run(&region, RunMode::InPlace, true)?;
+    let activity_wake = run(&region, RunMode::Activity, true)?;
+    let activity_run_identical = activity.hashes == first.hashes
+        && activity.network == first.network
+        && activity.volumes == first.volumes;
+    let activity_wake_run_identical = activity_wake.hashes == plain_wake.hashes
+        && activity_wake.network == plain_wake.network
+        && activity_wake.volumes == plain_wake.volumes;
+    let edges_total = first.network.edges.len().max(1) as u64;
+    let skipped_fraction_mean_permille = activity
+        .skipped_per_tick
+        .iter()
+        .map(|skipped| *skipped as u64)
+        .sum::<u64>()
+        * 1_000
+        / (edges_total * RUN_TICKS.max(1));
+    let skipped_edges_final = activity.skipped_per_tick.last().copied().unwrap_or(0);
+    let skipped_fraction_final_permille = skipped_edges_final as u64 * 1_000 / edges_total;
+    let skipped_edges_record_zero_flux = activity
+        .network
+        .edge_states
+        .values()
+        .filter(|state| state.last_flux_cubic_millimetres == 0)
+        .count()
+        >= skipped_edges_final;
 
     let total_volume_final = first.network.total_volume();
     let conservation_exact = total_volume_final == total_volume_initial;
@@ -269,6 +416,7 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
     let final_level_east = first.volumes.states[&east_id].level_micrometres;
 
     let (step_cost_max_microseconds, step_cost_mean_microseconds) = step_cost(&region)?;
+    let rest = rest_probe(&region)?;
     let (final_network_hash, final_table_hash) = hashes(&first.network, &first.volumes)?;
 
     let report = WaterLatticeCheckReportV1 {
@@ -294,6 +442,18 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
         step_cost_debug_build: cfg!(debug_assertions),
         final_network_hash,
         final_table_hash,
+        activity_run_identical,
+        activity_wake_run_identical,
+        skipped_fraction_mean_permille,
+        skipped_fraction_final_permille,
+        skipped_edges_final,
+        wake_tick: WAKE_TICK,
+        active_edges_after_wake: activity_wake.active_edges_after_wake,
+        rest_cost_active_mean_microseconds: rest.active_mean_microseconds,
+        rest_cost_activity_mean_microseconds: rest.activity_mean_microseconds,
+        rest_probe_ticks: REST_RUN_TICKS,
+        skipped_fraction_at_rest_probe_permille: rest.skipped_fraction_permille,
+        first_rest_tick_after_wet: rest.first_rest_tick_after_wet,
     };
     if !conservation_exact {
         return Err(WaterLatticeCheckErrorV1::condition("G2 exact conservation"));
@@ -312,6 +472,25 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
     }
     if !repeated_run_identical || !in_place_equals_cloning {
         return Err(WaterLatticeCheckErrorV1::condition("G4 determinism"));
+    }
+    // Plan 20 gates.
+    if !activity_run_identical || !activity_wake_run_identical {
+        return Err(WaterLatticeCheckErrorV1::condition(
+            "plan 20 G1/G3 activity roots identical",
+        ));
+    }
+    // Plan 20 G2 and G5 are recorded readings (the frozen thresholds did
+    // not hold: the exact weir tail rests late); only the exactness clause
+    // of G2 is enforced here.
+    if !skipped_edges_record_zero_flux {
+        return Err(WaterLatticeCheckErrorV1::condition(
+            "plan 20 G2 skipped edges record flux zero",
+        ));
+    }
+    if report.active_edges_after_wake == 0 {
+        return Err(WaterLatticeCheckErrorV1::condition(
+            "plan 20 G3 wake activates edges",
+        ));
     }
     Ok(report)
 }

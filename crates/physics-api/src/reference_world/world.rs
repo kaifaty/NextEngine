@@ -41,6 +41,10 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) query: Q,
     memoized_snapshot_hash: OnceLock<Result<ContentHash, CanonicalError>>,
     memoized_catalog_hash: OnceLock<Result<ContentHash, CanonicalError>>,
+    /// Plan 20 (SPEC-38 practice 2): the flow step's activity set. Derived
+    /// state: never canonical, never compared, reset when the table or the
+    /// network is replaced, empty after a restore.
+    water_flow_activity: next_contracts::physics::WaterFlowActivityV1,
 }
 
 // The memoized hashes are derived caches of exact canonical bytes, never
@@ -317,6 +321,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             query,
             memoized_snapshot_hash: OnceLock::new(),
             memoized_catalog_hash: OnceLock::new(),
+            water_flow_activity: next_contracts::physics::WaterFlowActivityV1::default(),
         };
         world.validate_activation_snapshot()?;
         Ok(world)
@@ -350,6 +355,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             return Ok(None);
         };
         Ok(Some(Self {
+            water_flow_activity: next_contracts::physics::WaterFlowActivityV1::default(),
             checkpoint: self.checkpoint.clone(),
             tick_rate_profile: self.tick_rate_profile,
             numeric_profile: self.numeric_profile.clone(),
@@ -428,6 +434,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     /// catalog: neither derived hash memo is affected.
     pub fn set_water_volumes(&mut self, water_volumes: next_contracts::physics::WaterVolumeSetV1) {
         self.checkpoint.water_volumes = water_volumes;
+        self.water_flow_activity = next_contracts::physics::WaterFlowActivityV1::default();
     }
 
     #[must_use]
@@ -439,6 +446,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     /// catalog: neither derived hash memo is affected.
     pub fn set_water_flow(&mut self, water_flow: next_contracts::physics::WaterFlowNetworkV1) {
         self.checkpoint.water_flow = water_flow;
+        self.water_flow_activity = next_contracts::physics::WaterFlowActivityV1::default();
     }
 
     /// Plan 07 revision 2: the exact flow step over fields 4 and 5 in
@@ -452,7 +460,11 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         }
         self.checkpoint
             .water_flow
-            .step_in_place(&mut self.checkpoint.water_volumes)
+            .step_in_place_with_activity(
+                &mut self.checkpoint.water_volumes,
+                Some(&mut self.water_flow_activity),
+            )
+            .map(|_| ())
     }
 
     pub fn set_checkpoint_revision(&mut self, revision: u64) {

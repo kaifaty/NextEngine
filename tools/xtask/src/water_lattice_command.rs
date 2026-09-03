@@ -29,6 +29,18 @@ pub(super) fn run() -> Result<(), String> {
             step_cost_debug_build: report.step_cost_debug_build,
             final_network_hash: report.final_network_hash.to_hex(),
             final_table_hash: report.final_table_hash.to_hex(),
+            activity_run_identical: report.activity_run_identical,
+            activity_wake_run_identical: report.activity_wake_run_identical,
+            skipped_fraction_mean_permille: report.skipped_fraction_mean_permille,
+            skipped_fraction_final_permille: report.skipped_fraction_final_permille,
+            skipped_edges_final: report.skipped_edges_final,
+            wake_tick: report.wake_tick,
+            active_edges_after_wake: report.active_edges_after_wake,
+            rest_cost_active_mean_us: report.rest_cost_active_mean_microseconds.to_string(),
+            rest_cost_activity_mean_us: report.rest_cost_activity_mean_microseconds.to_string(),
+            rest_probe_ticks: report.rest_probe_ticks,
+            skipped_fraction_at_rest_probe_permille: report.skipped_fraction_at_rest_probe_permille,
+            first_rest_tick_after_wet: report.first_rest_tick_after_wet,
         },
     )
 }

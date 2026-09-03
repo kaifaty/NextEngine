@@ -512,6 +512,18 @@ pub struct WaterLatticeDetailsV1 {
     pub step_cost_debug_build: bool,
     pub final_network_hash: String,
     pub final_table_hash: String,
+    pub activity_run_identical: bool,
+    pub activity_wake_run_identical: bool,
+    pub skipped_fraction_mean_permille: u64,
+    pub skipped_fraction_final_permille: u64,
+    pub skipped_edges_final: usize,
+    pub wake_tick: u64,
+    pub active_edges_after_wake: usize,
+    pub rest_cost_active_mean_us: String,
+    pub rest_cost_activity_mean_us: String,
+    pub rest_probe_ticks: u64,
+    pub skipped_fraction_at_rest_probe_permille: u64,
+    pub first_rest_tick_after_wet: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

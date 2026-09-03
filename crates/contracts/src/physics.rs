@@ -136,10 +136,10 @@ pub use water_flow::{
     WATER_FLOW_CAPABILITY_ID, WATER_FLOW_COMMAND_KIND_ID, WATER_FLOW_COMMAND_SCHEMA_ID,
     WATER_FLOW_COMMAND_SCHEMA_VERSION, WATER_FLOW_EVENT_SCHEMA_ID, WATER_FLOW_EVENT_SCHEMA_VERSION,
     WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED, WATER_FLOW_PRIORITY_CLASS,
-    WATER_FLOW_SCHEMA_VERSION, WaterFlowCellStateV1, WaterFlowChangedV1, WaterFlowCommandV1,
-    WaterFlowEdgeKindV1, WaterFlowEdgeStateV1, WaterFlowEdgeV1, WaterFlowNetworkV1,
-    WaterFlowRejectionV1, WaterFlowStepV1, cell_area_square_millimetres, isqrt_i128,
-    level_from_volume, volume_from_level,
+    WATER_FLOW_SCHEMA_VERSION, WaterFlowActivityV1, WaterFlowCellStateV1, WaterFlowChangedV1,
+    WaterFlowCommandV1, WaterFlowEdgeKindV1, WaterFlowEdgeStateV1, WaterFlowEdgeV1,
+    WaterFlowNetworkV1, WaterFlowRejectionV1, WaterFlowStepStatsV1, WaterFlowStepV1,
+    cell_area_square_millimetres, isqrt_i128, level_from_volume, volume_from_level,
 };
 pub use water_lattice::{
     WATER_LATTICE_CELL_ID_DOMAIN, WATER_LATTICE_EDGE_ID_DOMAIN, WaterLatticeRegionV1,

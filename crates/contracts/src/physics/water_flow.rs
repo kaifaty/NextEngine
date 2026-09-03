@@ -762,6 +762,24 @@ pub struct WaterFlowStepV1 {
     pub volumes: WaterVolumeSetV1,
 }
 
+/// SPEC-38 practice 2 (plan `continuum-water/20`): the cell and edge
+/// states after the previous step, in id order. Derived state: never part
+/// of a canonical record or checkpoint, empty after a restore (one fully
+/// active step rebuilds it).
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct WaterFlowActivityV1 {
+    pub cell_states: Vec<WaterFlowCellStateV1>,
+    pub edge_states: Vec<WaterFlowEdgeStateV1>,
+}
+
+/// Edge counts of one activity step.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct WaterFlowStepStatsV1 {
+    pub edges: usize,
+    pub active_edges: usize,
+    pub skipped_edges: usize,
+}
+
 impl WaterFlowNetworkV1 {
     #[must_use]
     pub fn empty() -> Self {
@@ -1016,8 +1034,28 @@ impl WaterFlowNetworkV1 {
         &mut self,
         volumes: &mut WaterVolumeSetV1,
     ) -> Result<(), PhysicsContractError> {
+        self.step_in_place_with_activity(volumes, None).map(|_| ())
+    }
+
+    /// The in-place step with SPEC-38 practice 2 (plan
+    /// `continuum-water/20`): with `Some(activity)`, an edge whose command
+    /// state and endpoint cell states equal the inputs of the previous
+    /// step, and whose previous flux was `0`, is at rest and skipped — its
+    /// flux is a pure function of those inputs and would be `0` again —
+    /// and the activity then holds this step's inputs; `None` steps every
+    /// edge. The result is the same either way.
+    pub fn step_in_place_with_activity(
+        &mut self,
+        volumes: &mut WaterVolumeSetV1,
+        activity: Option<&mut WaterFlowActivityV1>,
+    ) -> Result<WaterFlowStepStatsV1, PhysicsContractError> {
+        let mut stats = WaterFlowStepStatsV1 {
+            edges: self.edges.len(),
+            active_edges: 0,
+            skipped_edges: 0,
+        };
         if self.is_empty() {
-            return Ok(());
+            return Ok(stats);
         }
         self.validate_against(volumes)?;
         // Cell geometry and the volume synchronised with authored overrides.
@@ -1030,9 +1068,34 @@ impl WaterFlowNetworkV1 {
             level: i64,
             outflow: i64,
             inflow: i64,
+            /// Unchanged since the previous step (activity only).
+            resting: bool,
         }
+        // The activity describes this network when it holds one entry per
+        // cell and per edge in id order; anything else means "all active".
+        let activity_valid = activity.as_deref().is_some_and(|activity| {
+            activity.cell_states.len() == self.cells.len()
+                && activity.edge_states.len() == self.edge_states.len()
+                && activity
+                    .cell_states
+                    .iter()
+                    .zip(self.cells.keys())
+                    .all(|(state, id)| state.cell_id == *id)
+                && activity
+                    .edge_states
+                    .iter()
+                    .zip(self.edge_states.keys())
+                    .all(|(state, id)| state.edge_id == *id)
+        });
         let mut cells: Vec<Cell> = Vec::with_capacity(self.cells.len());
         let mut ordinals: BTreeMap<PersistentId, usize> = BTreeMap::new();
+        // Plan 20: the states after the authored sync are this step's
+        // inputs; they replace the activity once the rest decisions are made.
+        let mut next_cell_states = Vec::with_capacity(if activity.is_some() {
+            self.cells.len()
+        } else {
+            0
+        });
         for (cell_id, cell_state) in &mut self.cells {
             let definition = &volumes.definitions[cell_id];
             let state = &volumes.states[cell_id];
@@ -1054,6 +1117,13 @@ impl WaterFlowNetworkV1 {
                 area,
                 cell_state.volume_cubic_millimetres,
             );
+            let resting = activity_valid
+                && activity
+                    .as_deref()
+                    .is_some_and(|activity| activity.cell_states[cells.len()] == *cell_state);
+            if activity.is_some() {
+                next_cell_states.push(*cell_state);
+            }
             ordinals.insert(*cell_id, cells.len());
             cells.push(Cell {
                 id: *cell_id,
@@ -1064,6 +1134,7 @@ impl WaterFlowNetworkV1 {
                 level,
                 outflow: 0,
                 inflow: 0,
+                resting,
             });
         }
         let hz = i128::from(self.ticks_per_second);
@@ -1082,11 +1153,39 @@ impl WaterFlowNetworkV1 {
         }
         // Edges and edge states share one key set (`validate`), so they
         // walk in lockstep without a lookup per edge.
-        for (edge, state) in self.edges.values().zip(self.edge_states.values()) {
+        for (edge_index, (edge, state)) in self
+            .edges
+            .values()
+            .zip(self.edge_states.values())
+            .enumerate()
+        {
             let ordinal_a = ordinals[&edge.cell_a];
             let ordinal_b = edge.cell_b.map(|id| ordinals[&id]);
             let a = &cells[ordinal_a];
             let b = ordinal_b.map(|ordinal| &cells[ordinal]);
+            // Plan 20: an edge at rest computes flux `0` again; skip it. The
+            // command state is compared with the previous flux masked.
+            let resting = activity_valid
+                && state.last_flux_cubic_millimetres == 0
+                && a.resting
+                && b.is_none_or(|b| b.resting)
+                && activity.as_deref().is_some_and(|activity| {
+                    let previous = WaterFlowEdgeStateV1 {
+                        last_flux_cubic_millimetres: 0,
+                        ..activity.edge_states[edge_index]
+                    };
+                    previous == *state
+                });
+            if resting {
+                stats.skipped_edges += 1;
+                flows.push(Flow {
+                    source: None,
+                    sink: None,
+                    flux: 0,
+                });
+                continue;
+            }
+            stats.active_edges += 1;
             let mut flux: i128 = match edge.kind {
                 WaterFlowEdgeKindV1::Open {
                     sill_micrometres,
@@ -1281,7 +1380,14 @@ impl WaterFlowNetworkV1 {
                 ramp_suspended: state.ramp_suspended,
             };
         }
-        Ok(())
+        if let Some(activity) = activity {
+            activity.cell_states = next_cell_states;
+            activity.edge_states.clear();
+            activity
+                .edge_states
+                .extend(self.edge_states.values().copied());
+        }
+        Ok(stats)
     }
 
     pub fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
@@ -1767,5 +1873,81 @@ mod tests {
                 "radicand {value}"
             );
         }
+    }
+
+    #[test]
+    fn activity_step_skips_resting_edges_and_matches_the_full_step() {
+        // Plan 20: the activity run equals the always-active run on every
+        // tick, skips settled sills, and wakes on a level record change.
+        let (volumes, network) = two_vessels();
+        let mut plain_network = network.clone();
+        let mut plain_volumes = volumes.clone();
+        let mut active_network = network;
+        let mut active_volumes = volumes;
+        let mut activity = WaterFlowActivityV1::default();
+        let mut skipped_seen = 0;
+        for tick in 1..=600 {
+            if tick == 400 {
+                // A committed level record on vessel A wakes the network.
+                for volumes in [&mut plain_volumes, &mut active_volumes] {
+                    let state = volumes.states.get_mut(&id(1)).expect("vessel a");
+                    state.record_revision += 1;
+                    state.level_micrometres += 200_000;
+                }
+            }
+            plain_network
+                .step_in_place(&mut plain_volumes)
+                .expect("plain step");
+            let stats = active_network
+                .step_in_place_with_activity(&mut active_volumes, Some(&mut activity))
+                .expect("activity step");
+            assert_eq!(stats.active_edges + stats.skipped_edges, stats.edges);
+            skipped_seen += stats.skipped_edges;
+            if tick == 400 {
+                assert_eq!(stats.skipped_edges, 0, "the wake steps every edge");
+            }
+            assert_eq!(plain_network, active_network, "tick {tick}");
+            assert_eq!(plain_volumes, active_volumes, "tick {tick}");
+        }
+        // The vessels never rest: a source and a sink run every tick.
+        assert_eq!(skipped_seen, 0);
+        // A dry pair of lattice cells rests from the second step on and
+        // wakes when one cell's level record changes.
+        let region = super::super::water_lattice::WaterLatticeRegionV1 {
+            region_id: id(0x4d),
+            origin_micrometres: [0; 3],
+            cell_size_micrometres: [1_000_000, 1_000_000],
+            columns: 2,
+            rows: 1,
+            ceiling_micrometres: 2_000_000,
+            floor_micrometres: vec![0, 0],
+            initial_level_micrometres: vec![0, 0],
+            sill_coefficient_permille: 600,
+            profile_revision: 1,
+        };
+        let (mut dry_volumes, mut dry_network) = region.build(30).expect("dry pair");
+        let mut dry_activity = WaterFlowActivityV1::default();
+        let first = dry_network
+            .step_in_place_with_activity(&mut dry_volumes, Some(&mut dry_activity))
+            .expect("first step");
+        assert_eq!((first.active_edges, first.skipped_edges), (1, 0));
+        let second = dry_network
+            .step_in_place_with_activity(&mut dry_volumes, Some(&mut dry_activity))
+            .expect("second step");
+        assert_eq!((second.active_edges, second.skipped_edges), (0, 1));
+        let west = region.cell_id(0, 0);
+        let state = dry_volumes.states.get_mut(&west).expect("west cell");
+        state.record_revision += 1;
+        state.level_micrometres = 500_000;
+        let woken = dry_network
+            .step_in_place_with_activity(&mut dry_volumes, Some(&mut dry_activity))
+            .expect("woken step");
+        assert_eq!((woken.active_edges, woken.skipped_edges), (1, 0));
+        assert!(
+            dry_network
+                .edge_flux(region.edge_id(west, region.cell_id(1, 0)))
+                .unwrap()
+                > 0
+        );
     }
 }
