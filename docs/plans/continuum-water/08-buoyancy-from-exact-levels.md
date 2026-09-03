@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WB1` |
-| Status | `FROZEN / BLOCKED_BY_PREREQUISITE (no free rigid dynamics in the canonical world)` |
+| Status | `FROZEN / NOT_RUN (prerequisite WR1, plan 10, delivered 2026-09-03)` |
 | Parent | ADR-105 (Proposed); ADR-104 product check `CONTINUUM-WATER-BUOYANCY-P1`; ADR-076/081 one-pass step and exchange tuple |
 | Purpose | the first rigid coupling of water: buoyancy and drag from exact levels through an exact impulse batch in the physics step input |
 
@@ -36,7 +36,10 @@ model for dynamic boxes (mass in the body descriptor, gravity, floor
 contact, velocity integration) or, narrower, buoyancy applied as a
 kinematic level-following rule. The plan stays frozen; its gates are
 unchanged; which prerequisite to take is a product decision recorded in
-the water task-state.
+the water task-state. Resolved 2026-09-03 by plan `continuum-water/10`
+(WR1): dynamic boxes carry `mass_microkilograms` and integrate exact
+vertical free-body motion with floor support; the batch can now move a
+crate through a velocity change of `impulse / mass`.
 
 ## Frozen gates
 

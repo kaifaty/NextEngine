@@ -196,12 +196,30 @@ pub struct PhysicsBodyDescriptorV1 {
     pub initial_linear_velocity_micrometres_per_second: [i64; 3],
     pub initial_angular_velocity_q16: [i64; 3],
     pub active: bool,
+    /// Authored mass in microkilograms: `1..=MAXIMUM_BODY_MASS_MICROKILOGRAMS`
+    /// for `Dynamic` bodies (the impulse divisor of reaction batches),
+    /// exactly `0` for `Static` and `Kinematic` bodies (WR1).
+    pub mass_microkilograms: u64,
     pub shapes: BTreeMap<PhysicsShapeIdV1, PhysicsShapeDescriptorV1>,
 }
+
+/// SPEC-26 dynamic mass range upper bound (`1,000,000,000 kg`).
+pub const MAXIMUM_BODY_MASS_MICROKILOGRAMS: u64 = 1_000_000_000_000_000;
 
 impl PhysicsBodyDescriptorV1 {
     pub fn validate(&self) -> Result<(), PhysicsContractError> {
         if self.descriptor_revision == 0 || self.shapes.is_empty() {
+            return Err(PhysicsContractError::InvalidDescriptor);
+        }
+        let mass_valid = match self.motion_kind {
+            PhysicsMotionKindV1::Dynamic => {
+                (1..=MAXIMUM_BODY_MASS_MICROKILOGRAMS).contains(&self.mass_microkilograms)
+            }
+            PhysicsMotionKindV1::Static | PhysicsMotionKindV1::Kinematic => {
+                self.mass_microkilograms == 0
+            }
+        };
+        if !mass_valid {
             return Err(PhysicsContractError::InvalidDescriptor);
         }
         self.initial_pose.validate()?;
@@ -252,6 +270,7 @@ impl PhysicsBodyDescriptorV1 {
             ),
             field_bool(7, self.active),
             CanonicalField::new(8, CANONICAL_TYPE_MAP, encode_sequence(shapes)?),
+            field_u64(9, self.mass_microkilograms),
         ])
     }
 
@@ -271,6 +290,7 @@ impl PhysicsBodyDescriptorV1 {
                 (6, CANONICAL_TYPE_BYTES),
                 (7, CANONICAL_TYPE_BOOL),
                 (8, CANONICAL_TYPE_MAP),
+                (9, CANONICAL_TYPE_U64),
             ],
         )?;
         let mut shapes = BTreeMap::new();
@@ -299,6 +319,7 @@ impl PhysicsBodyDescriptorV1 {
             )?,
             initial_angular_velocity_q16: decode_i64_vec3(&field_from(&fields, 6)?.payload)?,
             active: read_bool_fields(&fields, 7)?,
+            mass_microkilograms: read_u64_fields(&fields, 9)?,
             shapes,
         };
         value.validate()?;

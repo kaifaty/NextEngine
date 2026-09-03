@@ -230,6 +230,7 @@ fn grounded_test_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(capsule_shape_id, capsule_shape)]),
     };
     let floor_body_id = PhysicsBodyIdV1 {
@@ -265,6 +266,7 @@ fn grounded_test_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(floor_shape_id, floor_shape)]),
     };
     let mut bodies = BTreeMap::from([(capsule_body_id, capsule), (floor_body_id, floor)]);
@@ -303,6 +305,7 @@ fn grounded_test_checkpoint(
                 initial_linear_velocity_micrometres_per_second: [0; 3],
                 initial_angular_velocity_q16: [0; 3],
                 active: true,
+                mass_microkilograms: 0,
                 shapes: BTreeMap::from([(wall_shape_id, wall_shape)]),
             },
         );

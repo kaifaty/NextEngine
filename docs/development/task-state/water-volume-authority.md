@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
-| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_DYNAMICS_THEN_BUOYANCY_NEXT` |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_BOXES_DONE (WR1) / BUOYANCY_BATCH_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-03 |
 
@@ -59,10 +59,24 @@
   `cargo run -p xtask -- water-present` runs
   `CONTINUUM-WATER-PRESENT-P1` (roots identical with and without the
   stage, capacities, purity, `98 us` release cost).
-- **Next:** exact vertical free-body dynamics for dynamic boxes (mass,
-  gravity, floor contact) under SPEC-26, then the ADR-105 buoyancy batch
-  (plan `continuum-water/08`); the research CUDA tool stays a separate
-  process behind the neutral stream.
+- **Free-body boxes (WR1, plan `continuum-water/10`).**
+  `PhysicsBodyDescriptorV1.mass_microkilograms` (field 9; `1..=10^15`
+  for `Dynamic`, `0` otherwise) and, in `GroundedCapsuleWorld` shared by
+  both backends, exact vertical free-body motion for up to `16` dynamic
+  boxes: gravity into `v_y`, a swept move against static solids, other
+  boxes, the capsule bounds and carried boxes, inelastic support. The R5b
+  push box declares `20 kg` and rests on the floor, so only the catalog
+  hash moved the reference roots. Tests: `reference_world/tests/free_body.rs`.
+- **Open fault (not WR1):** `cargo run -p xtask --features physx --
+  physics-backend-parity` fails before comparing anything with `parity
+  fixture has an unsupported shape` on `e834f83a` too; the parity
+  fixture (`crates/verification/src/physics_parity.rs`,
+  `collect_static_boxes`) rejects a static body of the current reference
+  scene. Fix in its own increment.
+- **Next:** the ADR-105 buoyancy batch (plan `continuum-water/08`): the
+  crate scene, `WaterBuoyancyBatchV1` in the step input, `xtask
+  water-buoyancy`; the research CUDA tool stays a separate process behind
+  the neutral stream.
 
 ## Required context
 
@@ -174,6 +188,28 @@
 - **Reconsider when:** a wave layer needs history (SPEC-38 practice 7
   would then own a bounded presentation-only state with its own writer).
 
+### D-008 — Dynamic boxes are exact vertical free bodies inside the shared canonical world
+
+- **Observation:** ADR-105 needs a body that a reaction batch can move,
+  the canonical world integrated only the capsule (boxes were push-only),
+  and the PhysX backend supplies sweep queries to the same
+  `GroundedCapsuleWorld`, so any box motion written there is shared by
+  both backends by construction.
+- **Decision:** mass as `mass_microkilograms` on `PhysicsBodyDescriptorV1`
+  (field 9, always encoded; catalog hashes and pinned roots regenerated
+  once); per substep every dynamic box adds `g / physics_hz` to `v_y`,
+  sweeps `v_y / physics_hz` against static solids, other boxes, the
+  capsule's axis-aligned bounds and carried boxes, and zeroes `v_y` on a
+  cut sweep; horizontal motion stays push-only; up to `16` boxes.
+- **Rejected:** a kinematic level-following rule for floating crates
+  (no free fall, no support, no path to drag); PhysX dynamic actors for
+  boxes (the backend would own motion the canonical world cannot
+  reproduce); an exact capsule-shaped sweep for boxes over the avatar
+  (an `isqrt` per pair for a rounding the capsule's own distance test
+  already tolerates through the axis-aligned bound).
+- **Reconsider when:** a consumer needs horizontal free motion, box-box
+  chain pushes, restitution or friction, or reported box-support contacts.
+
 ### D-003 — Verification issues the level command as a `Tool` principal
 
 - **Observation:** no gameplay mechanic sets a water level yet; the player
@@ -223,13 +259,12 @@
    `continuum-water/09`; the human look gate G6 stays open until a walk
    to the vessels with the capture flags). Decided 2026-09-03 (D-007):
    the presentation stage first, then the free-body increment.
-1. Exact vertical free-body dynamics for dynamic boxes (mass in the
-   descriptor, gravity, floor contact, integer integration in
-   `GroundedCapsuleWorld` shared by both backends) under a frozen plan
-   and a SPEC-26 increment; then plan `continuum-water/08` (ADR-105
-   buoyancy batch). After that the remaining SPEC-38 2.2 practices in
-   ADR-103 order (lattice tier, activity stepping, rotational
-   presentation).
+1. Free-body boxes: done in WR1 (plan `continuum-water/10`, SPEC-26
+   2.7; G7 cost recorded as a reading, see the plan result). Next: plan
+   `continuum-water/08` (ADR-105 buoyancy batch) on the crate scene with
+   `impulse / mass` velocity changes applied at the first substep. After
+   that the remaining SPEC-38 2.2 practices in ADR-103 order (lattice
+   tier, activity stepping, rotational presentation).
 2. Optional gameplay effect: motor speed scaling from the classification
    (needs its own bounded evidence; not part of C's authority split).
 3. Keep ADR-100/103/104 Proposed until the four `CONTINUUM-WATER-*` checks pass, then accept them with the

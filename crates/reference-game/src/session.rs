@@ -540,6 +540,7 @@ fn grounded_capsule_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         // R5j's carried load is a fixed local compound shape on the same
         // kinematic body. It therefore has no second transform/save owner.
         shapes: BTreeMap::from([
@@ -720,6 +721,7 @@ fn static_box_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(
             shape_id,
             box_shape_descriptor(
@@ -815,9 +817,13 @@ fn r5b_course_static_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes,
     }
 }
+
+/// `20 kg`: the R5b push box mass (plan `continuum-water/10`, WR1).
+pub const REFERENCE_PUSH_BOX_MASS_MICROKILOGRAMS: u64 = 20_000_000;
 
 fn r5b_course_dynamic_descriptor(
     body_id: PhysicsBodyIdV1,
@@ -835,6 +841,7 @@ fn r5b_course_dynamic_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: REFERENCE_PUSH_BOX_MASS_MICROKILOGRAMS,
         shapes: BTreeMap::from([(
             shape_id,
             box_shape_descriptor(
@@ -874,6 +881,7 @@ fn r5b_course_sensor_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(shape_id, shape)]),
     }
 }
@@ -910,6 +918,7 @@ fn relay_gate_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         // These four boxes match the authored relay mesh: two pillars, the
         // top beam and the central switch. The former single 20-metre-wide
         // test wall extended far beyond every visible surface.

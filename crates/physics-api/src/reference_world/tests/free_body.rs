@@ -1,0 +1,262 @@
+//! WR1 (plan `continuum-water/10`): exact vertical free-body dynamics for
+//! dynamic boxes in the bounded capsule profile.
+
+use std::time::Instant;
+
+use next_contracts::physics::{PhysicsMotionKindV1, PhysicsParticipationV1};
+
+use super::fixture::{capsule_state, reconstruct, step, world};
+use super::r5b::{box_body, material_id, rebuild};
+use crate::reference_world::world::MAX_DYNAMIC_BOXES;
+use crate::{ReferencePhysicsError, ReferencePhysicsWorld};
+
+const BOX_HALF_EXTENTS: [i64; 3] = [200_000, 300_000, 200_000];
+/// Fixture gravity (`-9.792 m/s^2`) and physics rate (`60 Hz`).
+const GRAVITY_MICROMETRES_PER_SECOND_SQUARED: i64 = -9_792_000;
+const PHYSICS_HZ: i64 = 60;
+
+fn world_with_boxes(
+    capsule_centre: [i64; 3],
+    boxes: &[(u8, [i64; 3])],
+) -> Result<ReferencePhysicsWorld, ReferencePhysicsError> {
+    let source = world(30, 60, capsule_centre, 0);
+    let material_id = material_id(&source);
+    let mut bodies = source.checkpoint().catalog.bodies.clone();
+    for (byte, translation) in boxes {
+        let (body_id, descriptor) = box_body(
+            *byte,
+            PhysicsMotionKindV1::Dynamic,
+            *translation,
+            BOX_HALF_EXTENTS,
+            PhysicsParticipationV1::Solid,
+            &material_id,
+        );
+        bodies.insert(body_id, descriptor);
+    }
+    rebuild(&source, bodies)
+}
+
+fn box_state(
+    world: &ReferencePhysicsWorld,
+    byte: u8,
+) -> &next_contracts::physics::PhysicsBodyStateV2 {
+    world
+        .snapshot()
+        .sorted_body_states
+        .iter()
+        .find(|(id, _)| id.subject_id.as_bytes()[0] == byte)
+        .map(|(_, state)| state)
+        .expect("box state")
+}
+
+/// Substeps until a box released `drop` above its support touches it under
+/// the integer recurrence `v += g / hz; y += v / hz` from rest.
+fn recurrence_landing_substep(drop_micrometres: i64) -> u64 {
+    let mut velocity = 0_i64;
+    let mut height = drop_micrometres;
+    let mut substeps = 0_u64;
+    while height > 0 {
+        velocity += GRAVITY_MICROMETRES_PER_SECOND_SQUARED / PHYSICS_HZ;
+        height += velocity / PHYSICS_HZ;
+        substeps += 1;
+    }
+    substeps
+}
+
+// G1: a box released 1 m above the floor lands on it exactly and at rest,
+// within one substep of the analytic fall time.
+#[test]
+fn released_box_lands_exactly_on_the_floor() {
+    let mut world = world_with_boxes([0, 900_000, 0], &[(0xa0, [2_000_000, 1_300_000, 0])])
+        .expect("free-body world activates");
+    let initial_revision = box_state(&world, 0xa0).body_revision;
+    let mut landing_tick = None;
+    for tick in 0..60 {
+        step(&mut world, tick, None);
+        let state = box_state(&world, 0xa0);
+        if landing_tick.is_none() && state.pose.translation_micrometres[1] == 300_000 {
+            landing_tick = Some(tick);
+        }
+    }
+    let state = box_state(&world, 0xa0);
+    assert_eq!(state.pose.translation_micrometres, [2_000_000, 300_000, 0]);
+    assert_eq!(state.linear_velocity_micrometres_per_second, [0; 3]);
+    assert!(state.body_revision > initial_revision);
+    let landing_tick = landing_tick.expect("the box lands");
+    let recurrence = recurrence_landing_substep(1_000_000);
+    // Two substeps per gameplay tick: the landing substep lies in the tick.
+    assert!(recurrence.div_ceil(2) == landing_tick + 1);
+    let analytic = (2.0_f64 * 1.0 / 9.792).sqrt() * PHYSICS_HZ as f64;
+    assert!((recurrence as f64 - analytic.ceil()).abs() <= 1.0);
+    assert_eq!(
+        capsule_state(&world).pose.translation_micrometres,
+        [0, 900_000, 0]
+    );
+}
+
+// G2: a resting box keeps its state; restore mid-fall continues identically.
+#[test]
+fn resting_box_is_unchanged_and_mid_fall_restore_is_exact() {
+    let mut world = world_with_boxes(
+        [0, 900_000, 0],
+        &[
+            (0xa0, [2_000_000, 300_000, 0]),
+            (0xa1, [3_000_000, 2_300_000, 0]),
+        ],
+    )
+    .expect("free-body world activates");
+    let resting_before = box_state(&world, 0xa0).clone();
+    for tick in 0..5 {
+        step(&mut world, tick, None);
+    }
+    let mut restored = reconstruct(world.checkpoint().clone(), &world).expect("restore mid-fall");
+    for tick in 5..600 {
+        let expected = step(&mut world, tick, None);
+        let actual = step(&mut restored, tick, None);
+        assert_eq!(actual, expected);
+    }
+    assert_eq!(box_state(&world, 0xa0), &resting_before);
+    assert_eq!(restored.checkpoint(), world.checkpoint());
+    let fallen = box_state(&world, 0xa1);
+    assert_eq!(fallen.pose.translation_micrometres, [3_000_000, 300_000, 0]);
+    assert_eq!(fallen.linear_velocity_micrometres_per_second, [0; 3]);
+}
+
+// G3: a box released above another lands on its top face.
+#[test]
+fn released_box_stacks_on_a_resting_box() {
+    let mut world = world_with_boxes(
+        [0, 900_000, 0],
+        &[
+            (0xa0, [2_000_000, 300_000, 0]),
+            (0xa1, [2_000_000, 1_500_000, 0]),
+        ],
+    )
+    .expect("free-body world activates");
+    let lower_before = box_state(&world, 0xa0).clone();
+    for tick in 0..60 {
+        step(&mut world, tick, None);
+    }
+    assert_eq!(box_state(&world, 0xa0), &lower_before);
+    let upper = box_state(&world, 0xa1);
+    assert_eq!(upper.pose.translation_micrometres, [2_000_000, 900_000, 0]);
+    assert_eq!(upper.linear_velocity_micrometres_per_second, [0; 3]);
+}
+
+// G4: the capsule pushes box A into resting box B; A stops on B's face and
+// B does not move.
+#[test]
+fn pushed_box_stops_at_a_resting_box_without_chain_push() {
+    let mut world = world_with_boxes(
+        [0, 900_000, 0],
+        &[
+            (0xa0, [600_000, 300_000, 0]),
+            (0xa1, [1_500_000, 300_000, 0]),
+        ],
+    )
+    .expect("free-body world activates");
+    let blocker_before = box_state(&world, 0xa1).clone();
+    for tick in 0..12 {
+        step(&mut world, tick, Some([32_767, 0]));
+    }
+    let pushed = box_state(&world, 0xa0);
+    assert_eq!(pushed.pose.translation_micrometres, [1_100_000, 300_000, 0]);
+    assert_eq!(pushed.linear_velocity_micrometres_per_second, [0; 3]);
+    assert_eq!(box_state(&world, 0xa1), &blocker_before);
+    assert_eq!(
+        capsule_state(&world).pose.translation_micrometres[0],
+        600_000
+    );
+}
+
+// G5: a box released above the capsule rests on the capsule's axis-aligned
+// top; the capsule is unchanged and the checkpoint restores.
+#[test]
+fn released_box_rests_on_the_capsule_bounds() {
+    let mut world = world_with_boxes([0, 900_000, 0], &[(0xa0, [0, 2_800_000, 0])])
+        .expect("free-body world activates");
+    for tick in 0..60 {
+        step(&mut world, tick, None);
+    }
+    let state = box_state(&world, 0xa0);
+    assert_eq!(state.pose.translation_micrometres, [0, 2_100_000, 0]);
+    assert_eq!(state.linear_velocity_micrometres_per_second, [0; 3]);
+    assert_eq!(
+        capsule_state(&world).pose.translation_micrometres,
+        [0, 900_000, 0]
+    );
+    let restored =
+        reconstruct(world.checkpoint().clone(), &world).expect("restore with a box on the capsule");
+    assert_eq!(restored.checkpoint(), world.checkpoint());
+}
+
+// Profile bound: sixteen boxes activate, seventeen reject; two boxes that
+// penetrate each other reject.
+#[test]
+fn dynamic_box_bound_and_pair_penetration_are_enforced() {
+    let boxes = |count: usize| {
+        (0..count)
+            .map(|index| {
+                (
+                    0xb0 + index as u8,
+                    [2_000_000 + 500_000 * index as i64, 300_000, 0],
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(MAX_DYNAMIC_BOXES, 16);
+    assert!(world_with_boxes([0, 900_000, 0], &boxes(16)).is_ok());
+    assert_eq!(
+        world_with_boxes([0, 900_000, 0], &boxes(17)).err(),
+        Some(ReferencePhysicsError::UnsupportedProfile)
+    );
+    assert_eq!(
+        world_with_boxes(
+            [0, 900_000, 0],
+            &[
+                (0xa0, [2_000_000, 300_000, 0]),
+                (0xa1, [2_100_000, 300_000, 0]),
+            ],
+        )
+        .err(),
+        Some(ReferencePhysicsError::SnapshotPenetrating)
+    );
+}
+
+// G7 apparatus: one gameplay tick with sixteen resting boxes against the
+// capsule-only baseline. The frozen bound (`200 us`, release) is recorded
+// in the plan evidence from a release run of this test; a debug run only
+// reports.
+#[test]
+fn sixteen_resting_boxes_tick_cost() {
+    let boxes = (0..16_usize)
+        .map(|index| {
+            (
+                0xb0 + index as u8,
+                [2_000_000 + 500_000 * index as i64, 300_000, 0],
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut baseline = world_with_boxes([0, 900_000, 0], &[]).expect("baseline activates");
+    let mut world = world_with_boxes([0, 900_000, 0], &boxes).expect("sixteen boxes activate");
+    let mut baseline_maximum = 0_u128;
+    let mut maximum = 0_u128;
+    for tick in 0..60 {
+        let started = Instant::now();
+        step(&mut baseline, tick, None);
+        baseline_maximum = baseline_maximum.max(started.elapsed().as_micros());
+        let started = Instant::now();
+        step(&mut world, tick, None);
+        maximum = maximum.max(started.elapsed().as_micros());
+    }
+    eprintln!(
+        "WR1 G7: capsule only {baseline_maximum} us, sixteen resting boxes {maximum} us per tick (debug build: {})",
+        cfg!(debug_assertions)
+    );
+    for byte in 0xb0..0xc0_u8 {
+        assert_eq!(
+            box_state(&world, byte).linear_velocity_micrometres_per_second,
+            [0; 3]
+        );
+    }
+}

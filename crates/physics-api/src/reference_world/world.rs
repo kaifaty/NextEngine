@@ -17,6 +17,9 @@ use super::query::{
     validate_reference_shape,
 };
 
+/// WR1 (plan `continuum-water/10`): the bounded profile accepts this many
+/// free-body dynamic boxes.
+pub const MAX_DYNAMIC_BOXES: usize = 16;
 #[derive(Clone, Debug)]
 pub struct GroundedCapsuleWorld<Q> {
     pub(super) checkpoint: PhysicsWorldCheckpointV1,
@@ -269,7 +272,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         static_boxes.sort_by_key(|shape| shape.shape_id);
         dynamic_boxes.sort_by_key(|shape| shape.shape_id);
         sensor_boxes.sort_by_key(|shape| shape.shape_id);
-        if dynamic_boxes.len() > 1 {
+        if dynamic_boxes.len() > MAX_DYNAMIC_BOXES {
             return Err(ReferencePhysicsError::UnsupportedProfile);
         }
         if checkpoint.catalog.materials.values().any(|material| {

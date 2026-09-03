@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use next_contracts::physics::{
     CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES, CAPSULE_MAX_STEP_HEIGHT_MICROMETRES, PhysicsBodyIdV1,
-    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsShapeIdV1,
+    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsShapeIdV1,
 };
 
 use super::error::ReferencePhysicsError;
@@ -12,7 +12,7 @@ use super::query::{
     GroundedCapsuleSweepRequest, GroundedCapsuleSweepResult, grounded_capsule_collision_filter,
     reference_grounded_capsule_sweep,
 };
-use super::world::GroundedCapsuleWorld;
+use super::world::{GroundedCapsuleWorld, checked_add_vec3, checked_sub_vec3};
 
 pub(super) struct CapsuleSubstep {
     pub body_after: PhysicsBodyStateV2,
@@ -40,6 +40,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         direction: [i16; 2],
     ) -> Result<CapsuleSubstep, ReferencePhysicsError> {
         let dynamic_before = self.prepare_dynamic_states(staged)?;
+        // WR1: every dynamic box falls and finds support before the capsule
+        // integrates against the boxes' new poses.
+        self.integrate_dynamic_boxes(staged, Some(body_before.pose.translation_micrometres))?;
         let mut body_after = body_before.clone();
         let mut forced_hits = BTreeSet::new();
         body_after.linear_velocity_micrometres_per_second[1] = body_after
@@ -375,18 +378,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             .cloned()
             .ok_or(ReferencePhysicsError::BodyMissing)?;
         let moving = binding.at_state(&state)?;
-        let obstacles = self
-            .static_boxes
-            .iter()
-            .filter(|shape| {
-                grounded_capsule_collision_filter(
-                    moving.collision_layer,
-                    moving.collision_mask,
-                    shape,
-                )
-            })
-            .cloned()
-            .collect::<Vec<_>>();
+        // The pushed box stops at static solids and at the other dynamic
+        // boxes (no chain push); the pusher itself is never an obstacle.
+        let obstacles = self.box_obstacles(staged, &moving, None)?;
         let applied = sweep_box_axis(&moving, &obstacles, axis, delta)?;
         let state = staged
             .sorted_body_states
@@ -401,7 +395,93 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         Ok(applied)
     }
 
-    fn prepare_dynamic_states(
+    /// Obstacles for a moving dynamic box: the static solids, the other
+    /// dynamic boxes at their current staged poses and, when given, the
+    /// capsule's axis-aligned bounds plus its attached carried boxes; all
+    /// filtered by the moving box's layer and mask.
+    fn box_obstacles(
+        &self,
+        staged: &PhysicsCanonicalSnapshotV2,
+        moving: &GroundedCapsuleStaticBox,
+        capsule_centre: Option<[i64; 3]>,
+    ) -> Result<Vec<GroundedCapsuleStaticBox>, ReferencePhysicsError> {
+        let mut obstacles = self.static_boxes.to_vec();
+        obstacles.extend(
+            self.current_dynamic_boxes(staged)?
+                .into_iter()
+                .filter(|shape| shape.shape_id != moving.shape_id),
+        );
+        if let Some(centre) = capsule_centre
+            && let Some(capsule_shape_id) = self.capsule_shape_id
+        {
+            let reach = [
+                self.capsule_radius,
+                self.capsule_half_segment
+                    .checked_add(self.capsule_radius)
+                    .ok_or(ReferencePhysicsError::NumericOverflow)?,
+                self.capsule_radius,
+            ];
+            obstacles.push(GroundedCapsuleStaticBox {
+                shape_id: capsule_shape_id,
+                minimum: checked_sub_vec3(centre, reach)?,
+                maximum: checked_add_vec3(centre, reach)?,
+                contact_reporting: PhysicsContactReportingV1::Disabled,
+                collision_layer: self.capsule_collision_layer,
+                collision_mask: self.capsule_collision_mask,
+            });
+            for attached in self.attached_boxes.iter() {
+                obstacles.push(attached.at_body_centre(centre)?);
+            }
+        }
+        obstacles.retain(|shape| {
+            grounded_capsule_collision_filter(moving.collision_layer, moving.collision_mask, shape)
+        });
+        obstacles.sort_by_key(|shape| shape.shape_id);
+        Ok(obstacles)
+    }
+
+    /// WR1: one vertical free-body substep for every dynamic box in shape-id
+    /// order: gravity into the vertical velocity, a swept move against the
+    /// box obstacles, and inelastic support when the sweep is cut.
+    pub(super) fn integrate_dynamic_boxes(
+        &self,
+        staged: &mut PhysicsCanonicalSnapshotV2,
+        capsule_centre: Option<[i64; 3]>,
+    ) -> Result<(), ReferencePhysicsError> {
+        let physics_hz = i64::from(self.tick_rate_profile.physics_hz());
+        for binding in self.dynamic_boxes.iter() {
+            let state = staged
+                .sorted_body_states
+                .get(&binding.body_id)
+                .cloned()
+                .ok_or(ReferencePhysicsError::BodyMissing)?;
+            let mut vertical_velocity = state.linear_velocity_micrometres_per_second[1]
+                .checked_add(self.gravity_velocity_delta)
+                .ok_or(ReferencePhysicsError::NumericOverflow)?;
+            let delta = vertical_velocity
+                .checked_div(physics_hz)
+                .ok_or(ReferencePhysicsError::NonIntegralProfile)?;
+            let moving = binding.at_state(&state)?;
+            let obstacles = self.box_obstacles(staged, &moving, capsule_centre)?;
+            let applied = sweep_box_axis(&moving, &obstacles, 1, delta)?;
+            if applied != delta {
+                vertical_velocity = 0;
+            }
+            let state = staged
+                .sorted_body_states
+                .get_mut(&binding.body_id)
+                .ok_or(ReferencePhysicsError::BodyMissing)?;
+            state.pose.translation_micrometres[1] = state.pose.translation_micrometres[1]
+                .checked_add(applied)
+                .ok_or(ReferencePhysicsError::NumericOverflow)?;
+            state.linear_velocity_micrometres_per_second[1] = vertical_velocity;
+        }
+        Ok(())
+    }
+
+    /// Clears the push-derived horizontal velocity of every dynamic box for
+    /// the substep; the vertical velocity is free-body state and persists.
+    pub(super) fn prepare_dynamic_states(
         &self,
         staged: &mut PhysicsCanonicalSnapshotV2,
     ) -> Result<BTreeMap<PhysicsBodyIdV1, PhysicsBodyStateV2>, ReferencePhysicsError> {
@@ -412,12 +492,13 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .get_mut(&binding.body_id)
                 .ok_or(ReferencePhysicsError::BodyMissing)?;
             before.insert(binding.body_id, state.clone());
-            state.linear_velocity_micrometres_per_second = [0; 3];
+            state.linear_velocity_micrometres_per_second[0] = 0;
+            state.linear_velocity_micrometres_per_second[2] = 0;
         }
         Ok(before)
     }
 
-    fn finish_dynamic_states(
+    pub(super) fn finish_dynamic_states(
         &self,
         staged: &mut PhysicsCanonicalSnapshotV2,
         before: BTreeMap<PhysicsBodyIdV1, PhysicsBodyStateV2>,

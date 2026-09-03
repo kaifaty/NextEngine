@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::canonical::{CanonicalDecodeLimits, encode_canonical_segment};
-use crate::ids::{ContentHash, PhysicsWorldId, SchemaId, content_hash_from_bytes};
+use crate::ids::{ContentHash, PersistentId, PhysicsWorldId, SchemaId, content_hash_from_bytes};
 use crate::input::TickRateProfileV1;
 
 use super::codec::field_u16;
@@ -309,4 +309,93 @@ fn water_volume_set_round_trips_queries_and_commands() {
         super::WaterVolumeChangedV1::from_canonical_payload_bytes(&event_bytes).expect("event"),
         event
     );
+}
+
+#[test]
+fn body_descriptor_mass_follows_the_motion_kind_and_round_trips() {
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material_id = SchemaId::new("nextengine.physics.material.test-zero").expect("material id");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: material_id.clone(),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x31; 16]),
+        body_slot: 0,
+    };
+    let shape_id = PhysicsShapeIdV1 {
+        body_id,
+        shape_slot: 0,
+    };
+    let shape = PhysicsShapeDescriptorV1 {
+        shape_id,
+        descriptor_revision: 1,
+        local_pose: PhysicsPoseV1::default(),
+        geometry: PhysicsGeometryV1::Box {
+            half_extents_micrometres: [200_000, 300_000, 200_000],
+        },
+        material_id,
+        collision_layer: 1,
+        collision_mask: u64::MAX,
+        participation: PhysicsParticipationV1::Solid,
+        contact_reporting: PhysicsContactReportingV1::Disabled,
+    };
+    let body = |motion_kind, mass_microkilograms| PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [0, 300_000, 0],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms,
+        shapes: BTreeMap::from([(shape_id, shape.clone())]),
+    };
+    for (motion_kind, mass) in [
+        (PhysicsMotionKindV1::Dynamic, 0),
+        (
+            PhysicsMotionKindV1::Dynamic,
+            MAXIMUM_BODY_MASS_MICROKILOGRAMS + 1,
+        ),
+        (PhysicsMotionKindV1::Static, 1),
+        (PhysicsMotionKindV1::Kinematic, 20_000_000),
+    ] {
+        assert_eq!(
+            body(motion_kind, mass).validate(),
+            Err(PhysicsContractError::InvalidDescriptor)
+        );
+    }
+    let dynamic = body(PhysicsMotionKindV1::Dynamic, 20_000_000);
+    dynamic.validate().expect("20 kg dynamic body");
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([2; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(body_id, dynamic)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog with one dynamic body");
+    let bytes = catalog.canonical_bytes().expect("catalog encode");
+    let decoded =
+        PhysicsWorldCatalogV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("catalog decode");
+    assert_eq!(decoded, catalog);
+    assert_eq!(decoded.bodies[&body_id].mass_microkilograms, 20_000_000);
 }

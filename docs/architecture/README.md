@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.77 |
+| Версия | 2.78 |
 | Последняя проверка | 2026-09-03 |
-| Заменяет | INDEX-001 2.76; records SPEC-38 2.3, ADR-100 0.3 and ADR-104 0.3 with `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1) |
+| Заменяет | INDEX-001 2.77; records SPEC-26 2.7 (WR1: body mass and exact vertical free-body dynamics for dynamic boxes) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -176,7 +176,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted; includes optional exact BodySchema-bound anatomy profile, ordinary V7 RPG starter content, current creator package and stable-ID projection |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
-| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded PhysX training substrate; 2.6 carries the Proposed ADR-100 water table (field 4) and the Proposed ADR-103 flow network (field 5) in `PhysicsWorldCheckpointV1` schema 3 with their exact queries |
+| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded PhysX training substrate; 2.7 gives `PhysicsBodyDescriptorV1` a mass (field 9) and up to `16` dynamic boxes exact vertical free-body dynamics (WR1); 2.6 carries the Proposed ADR-100 water table (field 4) and the Proposed ADR-103 flow network (field 5) in `PhysicsWorldCheckpointV1` schema 3 with their exact queries |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline plus ADR-098 intact-topology capability envelope; learned injury routes remain Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |

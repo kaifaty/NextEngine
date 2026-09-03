@@ -204,11 +204,12 @@ fn capsule_falls_to_lower_support_and_resumes_locomotion() {
 }
 
 #[test]
-fn second_dynamic_box_is_rejected_by_bounded_profile() {
+fn seventeenth_dynamic_box_is_rejected_by_bounded_profile() {
     let source = world(30, 60, [0, 900_000, 0], 0);
     let material_id = material_id(&source);
     let mut bodies = source.checkpoint().catalog.bodies.clone();
-    for (byte, x) in [(0xc0, 600_000), (0xc1, 1_200_000)] {
+    for index in 0..17_i64 {
+        let (byte, x) = (0xc0 + index as u8, 600_000 + 600_000 * index);
         let (body_id, descriptor) = box_body(
             byte,
             PhysicsMotionKindV1::Dynamic,
@@ -225,7 +226,7 @@ fn second_dynamic_box_is_rejected_by_bounded_profile() {
     );
 }
 
-fn material_id(world: &ReferencePhysicsWorld) -> SchemaId {
+pub(super) fn material_id(world: &ReferencePhysicsWorld) -> SchemaId {
     world
         .checkpoint()
         .catalog
@@ -236,7 +237,7 @@ fn material_id(world: &ReferencePhysicsWorld) -> SchemaId {
         .clone()
 }
 
-fn box_body(
+pub(super) fn box_body(
     identity_byte: u8,
     motion_kind: PhysicsMotionKindV1,
     translation: [i64; 3],
@@ -265,7 +266,7 @@ fn box_body(
     (body_id, body(body_id, motion_kind, translation, shape))
 }
 
-fn rebuild(
+pub(super) fn rebuild(
     source: &ReferencePhysicsWorld,
     bodies: BTreeMap<PhysicsBodyIdV1, PhysicsBodyDescriptorV1>,
 ) -> Result<ReferencePhysicsWorld, ReferencePhysicsError> {

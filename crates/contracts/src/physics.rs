@@ -22,7 +22,8 @@ pub use contact::{
     derive_physics_contact_id,
 };
 pub use descriptors::{
-    PhysicsBodyDescriptorV1, PhysicsMaterialDescriptorV1, PhysicsShapeDescriptorV1,
+    MAXIMUM_BODY_MASS_MICROKILOGRAMS, PhysicsBodyDescriptorV1, PhysicsMaterialDescriptorV1,
+    PhysicsShapeDescriptorV1,
 };
 pub use error::PhysicsContractError;
 pub use material::{

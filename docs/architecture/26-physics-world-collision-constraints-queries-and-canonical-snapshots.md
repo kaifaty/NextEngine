@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-09-02 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-09-03 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.5; records the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
+| Заменяет | SPEC-26 2.6; 2.7 records the WR1 increment (plan `continuum-water/10`): `mass_microkilograms` as field 9 of `PhysicsBodyDescriptorV1` and exact vertical free-body dynamics for up to `16` dynamic boxes in the bounded capsule profile. 2.6 recorded the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
 | Дополнительные зависимости V2.5 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Дополнительные зависимости V2.6 | [ADR-103](adr/103-authoritative-water-flow-network.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
@@ -320,6 +320,24 @@ before activation. The box:
 - reconstructs entirely from the unchanged catalog plus
   `PhysicsCanonicalSnapshotV2` body/contact state.
 
+Dynamic boxes are exact free bodies along the vertical axis (WR1, plan
+`continuum-water/10`). The profile accepts up to `16` solid identity-rotation
+dynamic boxes, one shape each, with a positive mass. Each physics substep,
+before the capsule integrates and in shape-id order, every dynamic box adds
+the solver-profile gravity to its vertical velocity (`g / physics_hz`, the
+capsule's delta), sweeps `v_y / physics_hz` along `y` against the static
+solids, the other dynamic boxes at their current staged poses, the capsule's
+axis-aligned bounds (`centre ± [r, half_segment + r, r]`) and the attached
+carried boxes (all filtered by layer/mask), moves by the applied delta and
+zeroes its vertical velocity when the sweep was cut. Horizontal motion is
+push-only: the capsule push sweeps the box against the static solids and the
+other dynamic boxes (no chain push) and the box's horizontal velocity is the
+applied push times `physics_hz` for that substep. Body revisions bump
+exactly when pose or velocity change; boxes never sleep; box-to-support
+contacts are not reported through contact continuity. Activation rejects a
+dynamic box that penetrates a static solid or another dynamic box it collides
+with, and a world without an avatar integrates its boxes the same way.
+
 The production carried-load layer is opt-in: a visible wall owns a coincident
 filtered clearance proxy while the ordinary world-layer proxy still serves
 the capsule and dynamic push box. The carried collider's `200×300×200` mm
@@ -486,6 +504,7 @@ PhysicsBodyDescriptorV1 {
   initial_pose: PhysicsPoseV1,
   initial_linear_velocity: PhysicsVec3V1,
   initial_angular_velocity: PhysicsVec3V1,
+  mass_microkilograms,            // current field 9: 1..=10^15 for Dynamic, 0 otherwise
   mass_properties: Option<PhysicsMassPropertiesV1>,
   gravity_scale,
   linear_damping,
@@ -501,6 +520,11 @@ PhysicsBodyDescriptorV1 {
 `PhysicsMassPropertiesV1` contains positive mass, local center-of-mass pose,
 three positive principal inertia values and their canonical local orientation.
 It is required exactly for `Dynamic`, absent for `Static` and `Kinematic`.
+The current `PhysicsBodyDescriptorV1` carries the mass alone as
+`mass_microkilograms` (canonical field 9, always encoded): `1..=10^15`
+for `Dynamic` bodies, exactly `0` for `Static` and `Kinematic` bodies;
+a descriptor outside that rule rejects. The mass is the impulse divisor of
+reaction batches (ADR-105) and does not change free fall.
 Backend-computed mass/inertia is not authoritative. Shape IDs are unique and
 strictly sorted. Initial velocities of `Static` bodies are exact zero.
 
