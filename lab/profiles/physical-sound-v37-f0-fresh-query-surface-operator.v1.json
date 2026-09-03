@@ -1,0 +1,827 @@
+{
+  "access_order": [
+    "a0-query-surface-contract",
+    "f0-fresh-operator-truth-and-role-freeze",
+    "c0-zero-target-structural-and-cost-census",
+    "x0-complete-owner-and-terminal-conformance",
+    "e0-full-surrogate-rehearsal-and-execution-seal",
+    "d0-one-shot-fresh-development",
+    "h0-one-shot-method-holdout",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "c0_allowed_after_f0": true,
+    "external_research_only": true,
+    "model_execution_allowed": false,
+    "network_allowed": false,
+    "official_capability_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "runtime_authority": false,
+    "signal_decode_allowed": false,
+    "synthetic_only": true,
+    "target_evaluation_allowed": false,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "a4a2f5622ed492ffb32d5bfc663f52797f643663",
+  "claim": "TARGET_FREE_FRESH_QUERY_SURFACE_OPERATOR_IDENTITY_SCIENCE_AND_ROLE_FREEZE_ONLY / NO_TARGET_EVALUATION_MODEL_EXECUTION_OFFICIAL_CAPABILITY_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "corpus": {
+    "contacts": {
+      "development": [
+        [
+          "0",
+          "0.653"
+        ],
+        [
+          "0.313",
+          "0.237"
+        ],
+        [
+          "0.537",
+          "0.787"
+        ],
+        [
+          "0.617",
+          "0.937"
+        ],
+        [
+          "0.807",
+          "0.367"
+        ],
+        [
+          "0.953",
+          "0.283"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0",
+          "0.827"
+        ],
+        [
+          "0.217",
+          "0.573"
+        ],
+        [
+          "0.427",
+          "0.253"
+        ],
+        [
+          "0.557",
+          "0.537"
+        ],
+        [
+          "0.727",
+          "0.983"
+        ],
+        [
+          "0.893",
+          "0.113"
+        ]
+      ],
+      "train": [
+        [
+          "0",
+          "0.413"
+        ],
+        [
+          "0.117",
+          "0.683"
+        ],
+        [
+          "0.263",
+          "0.457"
+        ],
+        [
+          "0.347",
+          "0.917"
+        ],
+        [
+          "0.493",
+          "0.173"
+        ],
+        [
+          "0.583",
+          "0.647"
+        ],
+        [
+          "0.673",
+          "0.307"
+        ],
+        [
+          "0.743",
+          "0.963"
+        ],
+        [
+          "0.853",
+          "0.437"
+        ],
+        [
+          "0.193",
+          "0.947"
+        ],
+        [
+          "0.707",
+          "0.067"
+        ],
+        [
+          "0.983",
+          "0.727"
+        ]
+      ]
+    },
+    "families": [
+      {
+        "family_id": "rectangular-plate",
+        "formula_id": "kirchhoff-love-simply-supported-v1",
+        "support_id": "simply-supported-all-edges"
+      },
+      {
+        "family_id": "rectangular-beam",
+        "formula_id": "euler-bernoulli-cantilever-v1",
+        "support_id": "cantilever-clamped-u0"
+      },
+      {
+        "family_id": "rectangular-beam",
+        "formula_id": "euler-bernoulli-simply-supported-v1",
+        "support_id": "simply-supported-both-ends"
+      }
+    ],
+    "geometry_cells": [
+      [
+        "0.813",
+        "0.877",
+        "1.019"
+      ],
+      [
+        "0.907",
+        "1.173",
+        "0.883"
+      ],
+      [
+        "0.947",
+        "0.791",
+        "1.157"
+      ],
+      [
+        "1.083",
+        "1.127",
+        "0.907"
+      ],
+      [
+        "1.127",
+        "0.937",
+        "1.263"
+      ],
+      [
+        "1.173",
+        "1.083",
+        "1.047"
+      ],
+      [
+        "0.857",
+        "1.137",
+        "1.117"
+      ],
+      [
+        "1.137",
+        "0.827",
+        "0.927"
+      ],
+      [
+        "0.887",
+        "1.293",
+        "0.977"
+      ],
+      [
+        "0.977",
+        "0.867",
+        "1.237"
+      ],
+      [
+        "1.207",
+        "0.957",
+        "0.847"
+      ],
+      [
+        "0.837",
+        "1.247",
+        "1.073"
+      ],
+      [
+        "1.053",
+        "0.817",
+        "1.197"
+      ],
+      [
+        "0.923",
+        "1.217",
+        "0.857"
+      ],
+      [
+        "1.267",
+        "0.897",
+        "1.023"
+      ],
+      [
+        "0.867",
+        "1.057",
+        "1.307"
+      ],
+      [
+        "1.197",
+        "1.147",
+        "0.817"
+      ],
+      [
+        "1.017",
+        "0.947",
+        "1.277"
+      ]
+    ],
+    "materials": [
+      {
+        "density_kg_m3": "2873",
+        "loss_rate_per_second": "0.71",
+        "material_id": "synthetic-qso-alpha-v1",
+        "poisson_ratio": "0.217",
+        "youngs_modulus_pa": "53100000000"
+      },
+      {
+        "density_kg_m3": "5189",
+        "loss_rate_per_second": "1.47",
+        "material_id": "synthetic-qso-beta-v1",
+        "poisson_ratio": "0.293",
+        "youngs_modulus_pa": "111000000000"
+      },
+      {
+        "density_kg_m3": "7361",
+        "loss_rate_per_second": "2.83",
+        "material_id": "synthetic-qso-gamma-v1",
+        "poisson_ratio": "0.337",
+        "youngs_modulus_pa": "183000000000"
+      }
+    ],
+    "mode_count": 10,
+    "operator_mixtures": {
+      "development": [
+        {
+          "component_weights": [
+            "0.27",
+            "0.48",
+            "0.25"
+          ],
+          "mixture_id": "qso-v37-development-mixture-0"
+        },
+        {
+          "component_weights": [
+            "0.33",
+            "0.22",
+            "0.45"
+          ],
+          "mixture_id": "qso-v37-development-mixture-1"
+        }
+      ],
+      "method_holdout": [
+        {
+          "component_weights": [
+            "0.24",
+            "0.41",
+            "0.35"
+          ],
+          "mixture_id": "qso-v37-method-holdout-mixture-0"
+        },
+        {
+          "component_weights": [
+            "0.38",
+            "0.20",
+            "0.42"
+          ],
+          "mixture_id": "qso-v37-method-holdout-mixture-1"
+        }
+      ],
+      "train": [
+        {
+          "component_weights": [
+            "0.50",
+            "0.30",
+            "0.20"
+          ],
+          "mixture_id": "qso-v37-train-mixture-0"
+        },
+        {
+          "component_weights": [
+            "0.35",
+            "0.45",
+            "0.20"
+          ],
+          "mixture_id": "qso-v37-train-mixture-1"
+        },
+        {
+          "component_weights": [
+            "0.30",
+            "0.25",
+            "0.45"
+          ],
+          "mixture_id": "qso-v37-train-mixture-2"
+        },
+        {
+          "component_weights": [
+            "0.42",
+            "0.28",
+            "0.30"
+          ],
+          "mixture_id": "qso-v37-train-mixture-3"
+        }
+      ]
+    },
+    "role_identity_prefix": "physical-sound-v37-fresh-query-surface-operator-v1",
+    "role_plan": {
+      "development": [
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "contact_set": "development",
+          "geometry_cells": [
+            0,
+            1
+          ],
+          "mixture_set": "train",
+          "stratum": "contact-only",
+          "surface_set": "train"
+        },
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "contact_set": "train",
+          "geometry_cells": [
+            6,
+            7,
+            8,
+            9
+          ],
+          "mixture_set": "development",
+          "stratum": "geometry-only",
+          "surface_set": "development"
+        },
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "contact_set": "development",
+          "geometry_cells": [
+            10,
+            11
+          ],
+          "mixture_set": "development",
+          "stratum": "joint",
+          "surface_set": "development"
+        }
+      ],
+      "method_holdout": [
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            2,
+            3
+          ],
+          "mixture_set": "train",
+          "stratum": "contact-only",
+          "surface_set": "train"
+        },
+        {
+          "contact_indices": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "contact_set": "train",
+          "geometry_cells": [
+            12,
+            13,
+            14,
+            15
+          ],
+          "mixture_set": "method_holdout",
+          "stratum": "geometry-only",
+          "surface_set": "method_holdout"
+        },
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "contact_set": "method_holdout",
+          "geometry_cells": [
+            16,
+            17
+          ],
+          "mixture_set": "method_holdout",
+          "stratum": "joint",
+          "surface_set": "method_holdout"
+        }
+      ],
+      "train": [
+        {
+          "contact_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "contact_set": "train",
+          "geometry_cells": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "mixture_set": "train",
+          "stratum": "train",
+          "surface_set": "train"
+        }
+      ]
+    },
+    "surface_functions": {
+      "development": [
+        {
+          "function_id": "qso-v37-development-surface-0",
+          "seed": 370111
+        },
+        {
+          "function_id": "qso-v37-development-surface-1",
+          "seed": 370112
+        },
+        {
+          "function_id": "qso-v37-development-surface-2",
+          "seed": 370113
+        },
+        {
+          "function_id": "qso-v37-development-surface-3",
+          "seed": 370114
+        }
+      ],
+      "method_holdout": [
+        {
+          "function_id": "qso-v37-method-holdout-surface-0",
+          "seed": 370121
+        },
+        {
+          "function_id": "qso-v37-method-holdout-surface-1",
+          "seed": 370122
+        },
+        {
+          "function_id": "qso-v37-method-holdout-surface-2",
+          "seed": 370123
+        },
+        {
+          "function_id": "qso-v37-method-holdout-surface-3",
+          "seed": 370124
+        }
+      ],
+      "train": [
+        {
+          "function_id": "qso-v37-train-surface-0",
+          "seed": 370101
+        },
+        {
+          "function_id": "qso-v37-train-surface-1",
+          "seed": 370102
+        },
+        {
+          "function_id": "qso-v37-train-surface-2",
+          "seed": 370103
+        },
+        {
+          "function_id": "qso-v37-train-surface-3",
+          "seed": 370104
+        },
+        {
+          "function_id": "qso-v37-train-surface-4",
+          "seed": 370105
+        },
+        {
+          "function_id": "qso-v37-train-surface-5",
+          "seed": 370106
+        }
+      ]
+    }
+  },
+  "dependencies": [
+    {
+      "path": "docs/development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md",
+      "sha256": "1137aac54f9982ad425388de7a80b6e2383e2bb98760dc39b85481c6a5d35994"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v33-f0-mode-local-spectral-residual.v1.json",
+      "sha256": "4c1869101af3ec2264771e17af5c2e652e5861e36c3a8ab61333e588db88fd52"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v34-f0-target-safe-spectral-recovery.v1.json",
+      "sha256": "7be7e96a2899d0e4ef7aad668368669886d7f45adac34ec6676afbbe6b45e429"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v35-f0-geometry-conditioned-hybrid.v1.json",
+      "sha256": "019cadd51254c27da32e35ab39b35551ba965198f33282feb975af83cb9304cc"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v36-f0-fresh-role-unchanged-science.v1.json",
+      "sha256": "6c71249f4cf999bbed14a5e311fdd7d04776722af1ce0943a2b00012690eb3a8"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-a0-query-surface-contract.v1.json",
+      "sha256": "a67fb9d45ce091a9901cdd99ddb066eb9d9b1e92b054858dde956016004433f9"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    }
+  ],
+  "profile_id": "physical-sound-v37-f0-fresh-query-surface-operator-v1",
+  "resources": {
+    "field_cache_max_bytes": 33554432,
+    "max_combined_trained_parameters": 70000,
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300,
+    "network_requests": 0,
+    "real_signal_values_decoded": 0
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-f0-fresh-query-surface-operator-profile.v1",
+  "science": {
+    "baselines": [
+      "continuous-local-interpolation-v1",
+      "fixed-rbf-integral-ridge-v1",
+      "nearest-causal-surface-query-v1",
+      "qso-field-only-ablation-v1",
+      "qso-no-interaction-ablation-v1",
+      "qso-no-topology-ablation-v1",
+      "qso-query-only-ablation-v1",
+      "v36-shaped-pointwise-mlp-v1"
+    ],
+    "candidate": {
+      "activation": "silu",
+      "candidate_id": "query-conditioned-surface-operator-v0",
+      "contact_parameter_count": 11449,
+      "dtype": "float64-cpu",
+      "field_query_interaction": "concat-field-query-elementwise-product-and-p1-query",
+      "graph_layers": 2,
+      "head_input_width": 73,
+      "latent_width": 24,
+      "node_input_width": 22,
+      "parameter_count": 12443,
+      "parameter_count_max": 13000,
+      "query_input_width": 24,
+      "query_integral": "canonical-area-weighted-query-kernel-sum",
+      "topology": "node-encoder-two-residual-graph-integrals-query-integral-query-trunk-interaction-head",
+      "training": {
+        "batch_rows": 1024,
+        "candidate_seed": 370201,
+        "gradient_clip_norm": "1.0",
+        "learning_rate": "0.002",
+        "loss": "mean-squared-error-on-three-bounded-log-multipliers",
+        "optimizer": "adam-v37-frozen-float64",
+        "steps": 96,
+        "weight_decay": "0"
+      },
+      "unchanged_decay_global_head_parameter_count": 994
+    },
+    "context_feature_names": [
+      "family.beam",
+      "family.plate",
+      "geometry.log_multiplier_0",
+      "geometry.log_multiplier_1",
+      "geometry.log_multiplier_2",
+      "material.log_density",
+      "material.log_youngs",
+      "material.loss",
+      "material.poisson",
+      "mode.log_frequency",
+      "mode.ordinal_signed",
+      "support.beam_cantilever",
+      "support.beam_simple",
+      "support.plate_simple"
+    ],
+    "control_contracts": {
+      "continuous-local-interpolation-v1": {
+        "definition": "canonical-train-fields-area-weighted-anisotropic-rbf-query-interpolation",
+        "fit": "none"
+      },
+      "fixed-rbf-integral-ridge-v1": {
+        "definition": "fixed-query-integrals-plus-unregularized-intercept",
+        "fit": "float64-closed-form-ridge",
+        "lambda": "0.000001"
+      },
+      "nearest-causal-surface-query-v1": {
+        "definition": "nearest-compatible-train-query-in-canonical-physical-context",
+        "fit": "none",
+        "tie_break": "lexicographically-smallest-row-id"
+      },
+      "qso-field-only-ablation-v1": {
+        "definition": "remove-query-trunk-and-branch-query-product",
+        "optimizer": "same-as-candidate",
+        "seed_ref": "science.neural_control_seeds.field_only",
+        "steps": 96
+      },
+      "qso-no-interaction-ablation-v1": {
+        "definition": "remove-elementwise-field-query-product",
+        "optimizer": "same-as-candidate",
+        "seed_ref": "science.neural_control_seeds.no_interaction",
+        "steps": 96
+      },
+      "qso-no-topology-ablation-v1": {
+        "definition": "zero-graph-integral-messages-keep-node-and-query-encoders",
+        "optimizer": "same-as-candidate",
+        "seed_ref": "science.neural_control_seeds.no_topology",
+        "steps": 96
+      },
+      "qso-query-only-ablation-v1": {
+        "definition": "remove-field-branch-and-branch-query-product",
+        "optimizer": "same-as-candidate",
+        "seed_ref": "science.neural_control_seeds.query_only",
+        "steps": 96
+      },
+      "v36-shaped-pointwise-mlp-v1": {
+        "definition": "v36-contact-feature-shape-without-local-blend",
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "optimizer": "same-as-candidate",
+        "seed_ref": "science.neural_control_seeds.v36_shaped_pointwise_mlp",
+        "steps": 96
+      }
+    },
+    "inherited_branches": {
+      "decay": "v36-bounded-decay-head-architecture-and-gates-unchanged",
+      "global_gain": "v36-bounded-global-gain-head-architecture-and-gates-unchanged"
+    },
+    "metrics": {
+      "development": {
+        "ablation_worsening_min": {
+          "field_only_contact_and_joint": "1.05",
+          "no_interaction_joint": "1.08",
+          "no_topology_geometry_and_joint": "1.05",
+          "query_only_contact_and_joint": "1.05"
+        },
+        "contact_aggregate_rmse_max": "0.030",
+        "contact_each_stratum_ratio_max_best_control": "0.95",
+        "contact_each_stratum_rmse_max": "0.040",
+        "contact_ratio_max_each_frozen_control": "0.92",
+        "decay_global_ratio_max_nearest_and_ridge": "0.90"
+      },
+      "hard": [
+        "branch-feature-isolation",
+        "bounded-contact-correction",
+        "canonical-edge-reduction-order",
+        "field-branch-reachable",
+        "finite-output",
+        "forbidden-labels-absent",
+        "frequency-and-order-bit-exact",
+        "impulse-scaling-exact",
+        "method-holdout-zero-before-development-pass",
+        "nodal-zero-exact",
+        "positive-decay",
+        "query-trunk-reachable",
+        "real-and-protected-signal-zero",
+        "remesh-probe-graph-root-exact",
+        "signed-gain-sign-preserved",
+        "topology-propagation-reachable",
+        "train-permutation-exact"
+      ],
+      "method_holdout": {
+        "ablation_worsening_min": "1.03",
+        "contact_aggregate_rmse_max": "0.040",
+        "contact_each_stratum_ratio_max_best_control": "0.97",
+        "contact_each_stratum_rmse_max": "0.050",
+        "zero_denominator_rule": "candidate-must-be-exact-zero"
+      },
+      "primary_strata": [
+        "contact-only",
+        "geometry-only",
+        "joint"
+      ]
+    },
+    "neural_control_seeds": {
+      "field_only": 370204,
+      "no_interaction": 370206,
+      "no_topology": 370205,
+      "query_only": 370203,
+      "v36_shaped_pointwise_mlp": 370202
+    },
+    "scientific_diff_from_v36": [
+      "baselines",
+      "candidate.family",
+      "candidate.field_query_interaction",
+      "candidate.representation",
+      "candidate.topology_layers",
+      "truth.contact_components"
+    ],
+    "truth": {
+      "contact": {
+        "bound": "0.25",
+        "components": [
+          {
+            "formula_id": "qso-v37-local-anisotropic-integral-v1",
+            "kernel": "area*mode*exp(-parallel_distance_sq/sigma_parallel_sq-perpendicular_distance_sq/sigma_perpendicular_sq)",
+            "seed": 370021
+          },
+          {
+            "formula_id": "qso-v37-two-hop-canonical-graph-diffusion-v1",
+            "kernel": "two-symmetric-degree-normalized-adjacency-steps-then-query-integral",
+            "seed": 370022
+          },
+          {
+            "formula_id": "qso-v37-global-low-rank-field-query-interaction-v1",
+            "kernel": "rank-four-area-field-moments-times-query-geometry-mode-features",
+            "rank": 4,
+            "seed": 370023
+          }
+        ],
+        "composition": "bound*tanh(mixture.local*local+mixture.diffusion*diffusion+mixture.global*global)"
+      },
+      "decay": {
+        "bound": "0.25",
+        "formula_id": "qso-v37-fresh-bounded-decay-control-v1",
+        "seed": 370024,
+        "structure": "v36-bounded-decay-truth-family-with-fresh-coefficients"
+      },
+      "global_gain": {
+        "bound": "0.20",
+        "formula_id": "qso-v37-fresh-bounded-global-gain-control-v1",
+        "seed": 370025,
+        "structure": "v36-bounded-global-gain-truth-family-with-fresh-coefficients"
+      },
+      "surface_function_family": "seeded-canonical-probe-polynomial-and-harmonic-field-v1",
+      "target_axis_count": 3
+    }
+  },
+  "seeds": {
+    "case_enumeration_seed": 370001,
+    "permutation_seeds": [
+      370301,
+      370302,
+      370303
+    ],
+    "role_seeds": {
+      "development": 370011,
+      "method_holdout": 370012,
+      "train": 370013
+    }
+  },
+  "selection_policy": "surface-and-mixture-index-equals-canonical-case-ordinal-modulo-declared-set-width",
+  "terminal_publication": {
+    "fault": "neither-candidate-document",
+    "pass": "candidate-freeze-and-bundle-authority",
+    "scientific_reject": "rejected-candidate-evidence-only"
+  }
+}
