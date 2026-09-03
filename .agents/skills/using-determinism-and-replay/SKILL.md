@@ -1,9 +1,17 @@
 ---
 name: using-determinism-and-replay
-description: Use when designing a system whose past behaviour must be recoverable as a fact — RL training substrates, multi-agent simulations, deterministic game engines, replay-debuggable services, multiplayer lockstep, or any pipeline where "I cannot reproduce that bug" is unacceptable. Use when teams disagree about what "snapshot", "seed", or "replay" mean across modules. Use when cross-machine or cross-process determinism is required, or a regulator will ask "what was the input at tick T?". Architecture-level — how to design a deterministic system. For verifying an existing simulation against known patterns, use `/check-determinism` from yzmir-simulation-foundations instead.
+description: Use only when designing or materially changing replay architecture, seed/RNG ownership, snapshot semantics, divergence localization, or cross-process/cross-machine equivalence guarantees. Do not use for a seeded offline experiment, deterministic content cooker, pure transform, model training run, or focused repeatability test that preserves the existing replay contract.
 ---
 
 # Using Determinism and Replay
+
+## Scope gate
+
+This is an architecture pack, not a default reproducibility checklist. If the
+task is a bounded implementation or experiment under an existing determinism
+contract, stop here: apply that contract and add the smallest focused test. Do
+not emit the numbered artifact set below. Use the rest of this pack only when
+the requested change actually redesigns replay/determinism semantics.
 
 ## Overview
 
@@ -37,7 +45,8 @@ Do **not** use this pack when:
 
 ## Start Here
 
-If your input is a system being designed (or significantly redesigned) and you have not run this pack before:
+If replay/determinism semantics are being designed or significantly redesigned
+and the scope gate above passes:
 
 1. Read `determinism-vs-reproducibility.md` — fix the vocabulary before fighting about implementation. Pick a determinism class, emit `01-determinism-class.md`.
 2. Read `seed-governance.md` — seeds are inputs, not implementation details. Decide where they live and how they propagate, emit `02-seed-governance-spec.md`.

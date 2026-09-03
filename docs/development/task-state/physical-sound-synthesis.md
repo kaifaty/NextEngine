@@ -7,11 +7,15 @@
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
 | Definition of done | One evidence-selected bounded-neural material/archetype pack, independently qualified validator and deterministic cooker process untouched holdout/shadow roles exactly once and supply one fallback-safe demo prop; the same pipeline can then start fresh Steel, Glass and Wood packs without per-sound human approval |
+| Primary deliverable | A playable ML-produced impact WAV and fallback-safe demo, with honest experimental/admission status |
+| Last primary artifact | DiffSound `09-step150-ridge-amplitude-transient.wav` and its deterministic Q30 transfer; no newer listenable ML candidate |
+| Supporting-only checkpoints | `2+ / OUTCOME_DEBT`: stop new roadmap/protocol work; the next development checkpoint must produce a report-only WAV or expose a concrete execution blocker |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
 - **Current conclusion:** [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) is `COMPLETE / REPEAT_EXACT / NO_USEFUL_TEACHER`: it reproduces global/ridge/retrieval on 24 supported C0R development parents, retains global median `1.312187716`, performs zero cross-contract comparisons and finds zero independently scoreable non-real teachers.
+- **Outcome guard:** the program accumulated supporting infrastructure without a post-DiffSound listenable ML artifact. Do not create V47 or another protocol-only checkpoint. Admission remains closed, but a clearly labelled report-only candidate WAV is the next primary artifact.
 - **Planning authority:** [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md) is the long-lived execution roadmap. M0 is blocked; E0 second-project/parent power and V0 independent-validator source growth are the parallel next packages.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
 - **V32 truth result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
@@ -19,7 +23,7 @@
 - **C0/C0R result:** the old [C0 corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md) remains immutable historical evidence, while [C0R](../physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md) supersedes its role projections with a 65-parent disjoint corpus and grants only corrected B0R/R0R and C1 authority.
 - **B0/R0/B0R/R0R result:** old B0/R0 are historical after repair. Corrected [B0R/R0R](../physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md) freezes global median `1.312187716`, project balanced accuracy `0.783333333`, material improvement `-0.098113339` with bootstrap 95% `[-0.162685572, -0.028345252]`, and a `49`-parent deficit. Exact Steel remains absent from train.
 - **External controls:** Clatter is a frozen empirical-modal baseline with 36 value-identical groups. B0 proves it and V31 analytic P1 lack independent compatible truth; D0 closes current NISR/VibraVerse revisions and structural rows remain zero. IETeasy is train-only under a different NDAC-75 contract.
-- **Next action:** freeze one metadata-first E0/V0 source-power protocol before new payload: seek a second descriptor-to-signal real project, close the `34`-parent deficit and add independent validator calibration from published internet sources. Do not start M0 unless a new exact synthetic/structural preflight creates an independently scoreable lane.
+- **Next artifact:** use already disclosed inputs in one bounded report-only ML lab and render its prediction to a playable WAV, or expose the exact execution blocker. This grants no admission or runtime authority. E0/V0 source growth remains the later evidence path, but no new protocol or roadmap may precede the audible checkpoint.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
@@ -50,7 +54,7 @@
 
 - **Evidence:** [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) final seal `bdb00f87` precedes target access; A/B reproduce five artifacts, read only 134 C0R train/development targets (`682,733` bytes), preserve all forbidden counters at zero and return `NoUsefulTeacher`.
 - **Conclusion/decision:** global prototype remains the disclosed floor (`1.312187716`; project-balanced mean `1.326293656`), but Clatter, analytic P1, train-only IETeasy and empty synthetic/structural lanes cannot be independently ranked on a common target. M0 has no authority.
-- **Smallest next action:** preregister E0/V0 metadata/source-power intake for a second descriptor-to-signal project, 34 more supported parents and independent validator calibration; a future teacher requires its own exact source preflight.
+- **Smallest next action:** render one existing disclosed ML/control prediction as a report-only WAV with its baseline comparison. Do not add a protocol; E0/V0 resumes after the audible checkpoint.
 
 ## Durable negative knowledge
 
@@ -68,7 +72,18 @@
   admissible shortcuts. Unexplained energy remains uncertainty/fallback until
   a separately preregistered residual family passes held evidence.
 
-## Stable decisions
+## Active decisions
+
+| Decision | Smallest decisive evidence | Reconsider when |
+| --- | --- | --- |
+| Physical sound stays presentation-only and keeps an authored fallback. | SPEC-45 is `Proposed`; current integration does not affect gameplay/replay state. | A superseding Accepted ADR. |
+| The user supplies no local recordings; evidence is internet-sourced. | Product-owner constraint D-006. | Explicit product-owner reversal. |
+| Validation must become automatic, but it does not block report-only WAVs. | Per-sound human review does not scale; the post-DiffSound outcome debt proves admission-first sequencing hides audible progress. | A simpler automatic policy proves bounded risk, or the user changes the goal. |
+| Runtime ML remains out of scope; accepted outputs are cooked offline. | Existing deterministic/fallback boundary. | A measured runtime need plus a separate Accepted ADR. |
+| B0 supplies no useful trusted teacher and cannot authorize admission. | V46 B0 result: global floor `1.312187716`, zero independently scoreable non-real teachers. | A new compatible independent source or an exact B0 defect. |
+| Do not create another roadmap/protocol-only checkpoint. | No post-DiffSound listenable ML artifact despite multiple support packages. | One report-only ML WAV is rendered or a concrete blocker requires a product decision. |
+
+## Historical decision index — not required on resume
 
 | ID | Decision | Reconsideration condition |
 | --- | --- | --- |
@@ -212,7 +227,23 @@
 - Dropping object-92 contact `35`, treating 35 complete quartets as a pass or
   fetching the already-proven irrelevant 12-GiB checkpoint.
 
-## Required context
+## Active required context
+
+Read only what the immediate action needs, at most these seven current sources:
+
+1. [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md).
+2. [B0 result](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md).
+3. [D1 corpus result](../physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md).
+4. [Recipe V3 result](../physical-sound-v45-t0-recipe-v3-result-2026-09-03.md).
+5. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
+6. [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md).
+7. Exact implementation or run artifact required by the next experiment.
+
+## Historical context index — not required on resume
+
+The list below preserves discovery links only. Do not read it recursively or as
+a prerequisite for the next experiment; Git and the active sources above carry
+the current path.
 
 Read in precedence order:
 
@@ -245,4 +276,4 @@ Current program: [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.
 
 ## Handoff
 
-- **Workspace/quality/next:** Roadmap V46 is active. B0 is complete/repeat-exact and returns `NoUsefulTeacher`: the C0R global floor remains `1.312187716`, but no synthetic/structural/empirical control has independent compatible truth. E0/V0 internet-source power is next; real support remains `71/105`, deficit 34. M0, fitting, admission and product authority remain blocked, and authored fallback is mandatory.
+- **Workspace/quality/next:** Roadmap V46 remains the stable roadmap and B0 remains `NoUsefulTeacher`. The task has outcome debt: before more E0/V0 infrastructure, render one already disclosed report-only ML/control prediction as a playable WAV or report the exact execution blocker. Real support remains `71/105`; admission, runtime authority and replacement of the authored fallback remain blocked.

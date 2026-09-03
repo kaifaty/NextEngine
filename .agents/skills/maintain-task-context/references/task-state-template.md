@@ -7,13 +7,16 @@
 | Task key | `<stable-task-slug>` |
 | Scope | `<one bounded outcome>` |
 | Definition of done | `<observable completion criterion>` |
+| Primary deliverable | `<what the user can inspect, run, hear or see>` |
+| Last primary artifact | `<path/result/date, or None>` |
+| Supporting-only checkpoints | `<0, 1, or 2 — at 2 the next checkpoint produces the primary artifact or exposes a concrete blocker>` |
 | Authority | Working context only; name the sources that outrank this file |
 
 ## Resume in 60 seconds
 
 - **Current conclusion:** <what is believed now>
 - **Why:** <smallest decisive evidence>
-- **Next action:** <one smallest useful step>
+- **Next artifact:** <smallest end-to-end user-observable result>
 - **Current blocker:** <blocker or `None`>
 - **Do not retry:** <approach and exact reason>
 - **Reconsider when:** <new evidence that would reopen the decision>
@@ -26,15 +29,9 @@
 
 ## Decisions that still constrain the work
 
-### D-001 — <decision title>
-
-- **Observation:** <objective observation>
-- **Evidence:** <exact source, hash, first failing boundary or comparison>
-- **Decision:** <what changes now>
-- **Rejected alternatives:** <what must not be repeated and why>
-- **Consequences:** <what future work must do differently>
-- **Uncertainty:** <what remains unknown>
-- **Reconsider when:** <falsifiable reopening condition>
+| Decision | Smallest decisive evidence | Reconsider when |
+| --- | --- | --- |
+| <what future work must do> | <path, result or exact failing boundary> | <falsifiable condition> |
 
 ## Open hypotheses
 
@@ -44,12 +41,15 @@
 
 ## Required context
 
-Read these sources in precedence order before acting:
+Read only the sources needed for the immediate action, at most seven:
 
 1. `<routing or normative authority>`
 2. `<roadmap or tracked profile/manifest>`
 3. `<implementation plan or domain contract>`
 4. `<bounded evidence/research report>`
+
+Historical and superseded links belong in Git or an explicitly non-required
+index; they are not recursive resume input.
 
 ## Next action
 
