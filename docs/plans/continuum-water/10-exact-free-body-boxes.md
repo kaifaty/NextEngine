@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WR1` |
-| Status | `RUN / G1-G6 PASS (parity check itself broken before WR1) / G7 FAIL (reading recorded)` (2026-09-03) |
+| Status | `RUN / G1-G7 PASS (G7 steady state, cold tick recorded)` (2026-09-03) |
 | Parent | SPEC-26 current bounded profile; ADR-105 (Proposed) and plan `continuum-water/08`, whose prerequisite this is (task-state D-006/D-007) |
 | Purpose | give dynamic boxes mass, gravity and floor support in the canonical world shared by both backends, so that a water reaction batch can move a crate; nothing else about the bounded profile changes |
 
@@ -71,15 +71,28 @@ sweep pass; the product checks are recorded in the task-state:
 | G3 stack | the upper box lands on the lower box's top face (`y = 900,000 um`) and rests; the lower box is unchanged — PASS |
 | G4 push into a box | box A stops at `x = 1,100,000 um` with its face on box B, B is unchanged, the capsule stops at `600,000 um` (the R5b blocker numbers) — PASS |
 | G5 capsule support | the box released above the capsule rests at `y = 2,100,000 um` (bottom on the capsule's axis-aligned top at `1.8 m`); the capsule pose is unchanged; the checkpoint restores — PASS |
-| G6 determinism | `physics-collision`, `play`, `persistence-replay` and `host-check` PASS with the regenerated catalog hash; the reference and PhysX backends share the integrator by construction (the PhysX backend supplies sweep queries to the same `GroundedCapsuleWorld`, and `play`/`persistence-replay` run under `RequirePhysX`). `physics-backend-parity` could not be run: it stops before any comparison with `parity fixture has an unsupported shape` on the parent commit `e834f83a` as well (a pre-existing fixture fault, recorded in the task-state) — PASS with that reservation |
-| G7 cost | release build, `60` ticks: capsule only `111 us`, sixteen resting boxes `416 us` per gameplay tick (`~19 us` per box per tick over two substeps) — FAIL against `200 us` |
+| G6 determinism | `physics-collision`, `play`, `persistence-replay` and `host-check` PASS with the regenerated catalog hash; the reference and PhysX backends share the integrator by construction (the PhysX backend supplies sweep queries to the same `GroundedCapsuleWorld`, and `play`/`persistence-replay` run under `RequirePhysX`); `physics-backend-parity` (`--features physx`) PASS with `100,000` compared substeps and `10,000` registration permutations after the fixture fix below — PASS |
+| G7 cost | release build, `60` ticks, the physics step alone (apparatus corrected, see below): sixteen resting boxes — steady-state maximum `124-174 us`, mean `116-121 us` per gameplay tick over two runs; capsule only `30 us` mean; the cold first tick `245-256 us` (one-time allocation warm-up) exceeds the bound — PASS in steady state, cold tick recorded |
 
-G7 reading (recorded, not tuned): each box substep rebuilds the obstacle
-list (every other box through `current_dynamic_boxes`, an allocation and a
-sort) and the capsule step re-derives the boxes again; the cost is
-quadratic in the box count. A next revision may build the obstacle set
-once per substep and reuse it; the frozen `200 us` bound stays the target
-of that revision.
+G7 apparatus correction (2026-09-03, revision 2 of the evidence, no
+physics change): the first measurement (`416 us`) timed the fixture's
+`step` helper, which rebuilds the step input every tick and hashes the
+whole catalog and snapshot without the world's memo; that is test
+scaffolding, not the physics step. The corrected apparatus builds the
+input outside the timed region and reports the first (cold) tick, the
+steady-state maximum and the mean for `0/1/4/8/16` boxes. Attribution
+from a temporary instrumented run (not committed): per gameplay tick with
+sixteen boxes the box integration costs about `38 us` and the per-substep
+snapshot hash about `51 us` more than without boxes; the cost is linear in
+the box count (`~5.6 us` per box per tick).
 
 Apparatus (recorded): the sixteen-box cost scene spaces the boxes `0.5 m`
 apart so that all sixteen rest on the `20 m` fixture floor.
+
+Parity fixture fix (2026-09-03): `physics-backend-parity` had stopped
+before any comparison with `parity fixture has an unsupported shape` on
+the parent commit as well, because `collect_static_boxes` rejected every
+non-solid static shape while the reference scene carries sensor and
+query-only shapes that the canonical world never sweeps against. The
+fixture now skips those shapes (a rotated solid still rejects) and the
+check passes.

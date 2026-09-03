@@ -157,8 +157,13 @@ fn collect_static_boxes(
             else {
                 return Err(PhysicsBackendParityError::FixtureShape);
             };
-            if shape.participation != PhysicsParticipationV1::Solid
-                || body_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
+            // Sensor and query-only shapes are not sweep obstacles in the
+            // canonical world (SPEC-26 bounded profile); only a rotated
+            // solid is outside the fixture's shape family.
+            if shape.participation != PhysicsParticipationV1::Solid {
+                continue;
+            }
+            if body_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
                 || shape.local_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
             {
                 return Err(PhysicsBackendParityError::FixtureShape);

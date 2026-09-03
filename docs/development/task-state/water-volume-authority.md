@@ -67,12 +67,12 @@
   boxes, the capsule bounds and carried boxes, inelastic support. The R5b
   push box declares `20 kg` and rests on the floor, so only the catalog
   hash moved the reference roots. Tests: `reference_world/tests/free_body.rs`.
-- **Open fault (not WR1):** `cargo run -p xtask --features physx --
-  physics-backend-parity` fails before comparing anything with `parity
-  fixture has an unsupported shape` on `e834f83a` too; the parity
-  fixture (`crates/verification/src/physics_parity.rs`,
-  `collect_static_boxes`) rejects a static body of the current reference
-  scene. Fix in its own increment.
+- **Parity check repaired (2026-09-03):** `cargo run -p xtask --features
+  physx -- physics-backend-parity` PASS (`100,000` substeps, `10,000`
+  permutations); its fixture had rejected the sensor and query-only
+  static shapes of the reference scene. WR1 G7 re-measured with the
+  physics step alone: `116-121 us` mean, `124-174 us` steady maximum for
+  sixteen boxes (plan 10 result).
 - **Next:** the ADR-105 buoyancy batch (plan `continuum-water/08`): the
   crate scene, `WaterBuoyancyBatchV1` in the step input, `xtask
   water-buoyancy`; the research CUDA tool stays a separate process behind
@@ -260,7 +260,7 @@
    to the vessels with the capture flags). Decided 2026-09-03 (D-007):
    the presentation stage first, then the free-body increment.
 1. Free-body boxes: done in WR1 (plan `continuum-water/10`, SPEC-26
-   2.7; G7 cost recorded as a reading, see the plan result). Next: plan
+   2.7; G7 within the bound in steady state after the apparatus fix). Next: plan
    `continuum-water/08` (ADR-105 buoyancy batch) on the crate scene with
    `impulse / mass` velocity changes applied at the first substep. After
    that the remaining SPEC-38 2.2 practices in ADR-103 order (lattice

@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use next_contracts::physics::{PhysicsMotionKindV1, PhysicsParticipationV1};
 
-use super::fixture::{capsule_state, reconstruct, step, world};
+use super::fixture::{capsule_state, reconstruct, step, step_input, world};
 use super::r5b::{box_body, material_id, rebuild};
 use crate::reference_world::world::MAX_DYNAMIC_BOXES;
 use crate::{ReferencePhysicsError, ReferencePhysicsWorld};
@@ -229,34 +229,45 @@ fn dynamic_box_bound_and_pair_penetration_are_enforced() {
 // reports.
 #[test]
 fn sixteen_resting_boxes_tick_cost() {
-    let boxes = (0..16_usize)
-        .map(|index| {
-            (
-                0xb0 + index as u8,
-                [2_000_000 + 500_000 * index as i64, 300_000, 0],
-            )
-        })
-        .collect::<Vec<_>>();
-    let mut baseline = world_with_boxes([0, 900_000, 0], &[]).expect("baseline activates");
-    let mut world = world_with_boxes([0, 900_000, 0], &boxes).expect("sixteen boxes activate");
-    let mut baseline_maximum = 0_u128;
-    let mut maximum = 0_u128;
-    for tick in 0..60 {
-        let started = Instant::now();
-        step(&mut baseline, tick, None);
-        baseline_maximum = baseline_maximum.max(started.elapsed().as_micros());
-        let started = Instant::now();
-        step(&mut world, tick, None);
-        maximum = maximum.max(started.elapsed().as_micros());
+    let scene = |count: usize| {
+        (0..count)
+            .map(|index| {
+                (
+                    0xb0 + index as u8,
+                    [2_000_000 + 500_000 * index as i64, 300_000, 0],
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut readings = Vec::new();
+    for count in [0_usize, 1, 4, 8, 16] {
+        let mut world = world_with_boxes([0, 900_000, 0], &scene(count)).expect("boxes activate");
+        let mut samples = Vec::with_capacity(60);
+        for tick in 0..60 {
+            // The step input (with its own snapshot and catalog hashes) is
+            // built outside the timed region: the gate measures the step.
+            let input = step_input(&world, tick, None);
+            let started = Instant::now();
+            world.step(&input).expect("physics step");
+            samples.push(started.elapsed().as_micros());
+        }
+        for (byte, _) in scene(count) {
+            assert_eq!(
+                box_state(&world, byte).linear_velocity_micrometres_per_second,
+                [0; 3]
+            );
+        }
+        let first = samples[0];
+        let steady = &samples[1..];
+        let steady_maximum = steady.iter().copied().max().unwrap_or(0);
+        let mean = samples.iter().sum::<u128>() / samples.len() as u128;
+        readings.push(format!(
+            "{count} boxes: first tick {first} us, steady maximum {steady_maximum} us, mean {mean} us"
+        ));
     }
     eprintln!(
-        "WR1 G7: capsule only {baseline_maximum} us, sixteen resting boxes {maximum} us per tick (debug build: {})",
-        cfg!(debug_assertions)
+        "WR1 G7 (per gameplay tick, debug build: {}): {}",
+        cfg!(debug_assertions),
+        readings.join("; ")
     );
-    for byte in 0xb0..0xc0_u8 {
-        assert_eq!(
-            box_state(&world, byte).linear_velocity_micrometres_per_second,
-            [0; 3]
-        );
-    }
 }
