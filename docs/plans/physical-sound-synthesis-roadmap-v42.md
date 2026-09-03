@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / B0_COMPLETE / R0_NEXT / V0_READY / DESCRIPTOR_SIGNAL_REQUIRED / PROTECTED_ADMISSION_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / R0_COMPLETE / C1_NEXT / V0_READY / CORPUS_SIGNAL_INSUFFICIENT / PROTECTED_ADMISSION_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V41](physical-sound-synthesis-roadmap-v41.md) как planning authority после terminal B0; D1/C0/B0 и все предыдущие terminal results остаются immutable exact evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не продвигает public schema, runtime model или production consumer |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов/микрофона и обязательного ручного прослушивания каждого звука |
@@ -13,12 +13,19 @@
 [B0](../development/physical-sound-v41-b0-grouped-baseline-result-2026-09-03.md)
 показал, что на текущих данных coarse material label недостаточно: простой
 глобальный прототип обгоняет material prototype, retrieval, nearest, ridge и
-маленький MLP. Поэтому мы не запускаем более крупную сеть вслепую. Сначала
-доказываем, что доступные движку признаки предмета — форма, размеры, полость,
-толщина, материал, опора и точка удара там, где они опубликованы — действительно
-предсказывают звук лучше глобального среднего. Одновременно отделяем свойства
-предмета от почерка датасета/микрофона и замораживаем независимый автоматический
-validator. Только после этого маленькая нейросеть учит bounded residual к
+маленький MLP. [R0](../development/physical-sound-v42-r0-domain-information-audit-result-2026-09-03.md)
+уточнил причину: source project хорошо угадывается по acoustic target
+(`0.763333333` balanced accuracy, permutation `p=0.000488162`), а coarse
+material при строгом leave-project-out ухудшает median RMSE на `12.29%`.
+Простое oracle project-centering материал не спасает. Поэтому мы не запускаем
+более крупную сеть вслепую и не пытаемся вычесть один «почерк микрофона».
+
+Следующий критический шаг — C1: собрать из опубликованных источников достаточное
+число независимых parents и доступные движку признаки предмета — форму, размеры,
+полость, толщину, материал, опору и точку удара. B1 должен доказать, что эти
+признаки предсказывают звук лучше глобального среднего. Параллельно V0
+замораживает независимый автоматический validator. Только после обоих
+доказательств маленькая нейросеть может учить bounded residual к
 детерминированной физической основе.
 
 Конечный продукт не запускает сеть во время игры. Он получает обычный набор
@@ -31,6 +38,7 @@ validator. Только после этого маленькая нейросе�
 | D1 component roster | `COMPLETE / REPEAT_EXACT` | Один Blue Bowl больше не пересекает generator и validator roles. |
 | C0 disclosed corpus | `COMPLETE / REPEAT_EXACT` | 139 записей, 278 PCM/feature objects, 67 физических parents и immutable `44 train / 70 development / 25 validator` projections существуют во внешнем store. |
 | B0 baseline surface | `COMPLETE / REPEAT_EXACT` | Глобальный prototype задаёт floor: median parent RMSE `1.337593650`; ridge `1.443077073`, MLP `1.484006315`. |
+| R0 domain/information audit | `COMPLETE / REPEAT_EXACT / CORPUS_SIGNAL_INSUFFICIENT` | Project signal силён, но coarse material проигрывает global в cross-project test; planning floor — `125` supported evaluation parents. |
 | Steel specialization | `NOT_ESTABLISHED` | В train нет exact Steel; три development Steel parents проверяют только перенос coarse `metallic`. |
 | Independent admission | `SOURCE_POWER_OOD` | Protected role frontier всё ещё не закрывает дефициты `13/34` и `13/31`. |
 | Product/runtime | `NOT_PROMOTED` | SPEC-45 остаётся `Proposed`; demo и runtime продолжают использовать authored clips. |
@@ -71,9 +79,9 @@ impulse scaling и remesh invariants. Любое неподдержанное с
 
 ```mermaid
 flowchart LR
-    B0["B0 global floor — complete"] --> R0["R0 domain and information audit"]
-    R0 --> T0["T0 recipe representation"]
-    R0 --> C1["C1 descriptor and disclosed-source growth"]
+    B0["B0 global floor — complete"] --> R0["R0 audit — complete"]
+    R0 --> C1["C1 descriptors and source growth — next"]
+    C1 --> T0["T0 recipe representation"]
     T0 --> B1["B1 descriptor baselines"]
     C1 --> B1
     B1 --> M0["M0 bounded model freeze"]
@@ -105,10 +113,10 @@ research candidate, never a release decision.
 | ID | Состояние | Проверяемый выход |
 | --- | --- | --- |
 | B0 | `COMPLETE / REPEAT_EXACT` | Six baselines share one 105-D masked grouped surface. Global prototype is the immutable floor; validator/protected/PCM/network access is zero. |
-| R0 | `NEXT` | Decompose B0 error by project, material, parent and target group; run leave-project-out controls, project-identity predictability and raw-vs-project-normalized comparisons. Return exactly `DescriptorSignalPlausible`, `DomainNormalizationRequired` or `CorpusSignalInsufficient`; train no candidate. |
+| R0 | `COMPLETE / REPEAT_EXACT / CORPUS_SIGNAL_INSUFFICIENT` | On 46 strict cross-project parents, material median relative improvement is `-0.122864043`, bootstrap 95% `[-0.168145282, -0.050277002]`; project balanced accuracy is `0.763333333`, `p=0.000488162`; oracle centering also fails. No candidate was trained. |
 | V0 | `READY / INDEPENDENT` | Using only validator-calibration real groups plus frozen lawful/corrupt mutations, freeze integrity, temporal, spectral/modal, embedding, retrieval, OOD and aggregation specialists before generator outputs. This establishes mechanics only, not real admission quality. |
-| T0 | `AFTER_R0` | Freeze explicit recipe V2, masks, uncertainty, source-nuisance normalization and deterministic renderer. Synthetic roundtrip, scale, decay, ordering, remesh, finite/resource and mutation gates repeat exactly. |
-| C1 | `AFTER_R0 / INTERNET_ONLY` | Add runtime-available parent descriptors with source/provenance and missingness masks; audio-derived values never enter inputs. Metadata-first power analysis freezes required new disclosed projects before payload access. Exact Steel training requires at least two independent generator-train project families; otherwise Steel remains transfer/OOD. |
+| C1 | `NEXT / INTERNET_ONLY` | Add runtime-available parent descriptors with source/provenance and missingness masks; audio-derived values never enter inputs. Grow toward R0's planning floor of `125` supported evaluation parents under metadata-first whole-project roles. Exact Steel training requires at least two independent generator-train project families; otherwise Steel remains transfer/OOD. |
+| T0 | `AFTER_C1_DESCRIPTOR_CONTRACT` | Freeze explicit recipe V2, masks, uncertainty, permitted source-nuisance treatment and deterministic renderer. Synthetic roundtrip, scale, decay, ordering, remesh, finite/resource and mutation gates repeat exactly. |
 | B1 | `AFTER_T0_AND_C1` | Global B0 floor, descriptor prototype, kNN/medoid and masked ridge run on the same grouped leave-project-out surface. Best descriptor baseline must improve paired median RMSE by `>=5%`, have positive grouped-bootstrap 95% lower improvement bound, not regress P90 and avoid unsupported-material claims. Otherwise return to C1, not M0. |
 | M0 | `BLOCKED_BY_B1_SIGNAL` | Freeze one compact `StructuredRecipeNet-v2`, at most one substantively distinct comparator, exact inputs/outputs, masked losses, physics projection, ablations, seed/budget/stopping rule and complete-entry/atomicity tests before candidate values. |
 | M1 | `BLOCKED_BY_M0_AND_V0` | Train only on generator-train. Rank on grouped generator-development against global and best B1 baseline; report per-project/material/recipe-group deltas, retrieval, OOD, uncertainty, ablations and resource use automatically. |
@@ -123,21 +131,19 @@ research candidate, never a release decision.
 | X0 | `AFTER_WORKING_P0` | Glass-thin, bottle, thick-jar and Wood become separate material/archetype packs with fresh data power, model, validator and admission records; Steel evidence is not inherited. |
 | PR | `AFTER_WORKING_P0 / ADR_REQUIRED` | A concrete Linux consumer plus enabled/disabled/fault/cost evidence may justify the smallest Accepted production contract. |
 
-## R0: сначала выясняем, что именно сломано
+## R0: что именно сломано — COMPLETE
 
-R0 не подбирает новый model. Он отвечает на три вопроса текущими disclosed
-данными:
+R0 ничего не обучал и вернул terminal `CorpusSignalInsufficient`. Среди `42`
+eligible parents акустический target узнаёт source project с balanced accuracy
+`0.763333333` против permutation-null median `0.253333333`. Но после исключения
+всего query project material prototype улучшает лишь `16/46` parents, а median
+relative improvement равен `-0.122864043`. Даже oracle source-centred view
+улучшает только `6/44` parents и даёт median `-0.137309564`.
 
-1. Насколько легко по acoustic target угадать project/source?
-2. Даёт ли material label сигнал после leave-project-out separation?
-3. Какие target groups сильнее всего меняются из-за capture domain, а какие —
-   вместе с physical parent?
-
-Обязательные controls: global, material-only, project-only и material+project;
-within-project/within-material distance decomposition; leave-one-project-out;
-parent bootstrap; raw, level-normalized и source-centred diagnostic views.
-Project-centred values нельзя использовать как runtime targets, если у cook нет
-эквивалентного source-neutral transform.
+Следствие: domain shift реален, но не сводится к одному additive project offset;
+coarse material и простая нормализация недостаточны. Повторять их или подбирать
+более крупную material-only сеть нельзя. Полный exact record находится в
+[R0 result](../development/physical-sound-v42-r0-domain-information-audit-result-2026-09-03.md).
 
 ## C1: какие признаки разрешено дать сети
 
@@ -216,12 +222,14 @@ are separate packs. A pass for one cannot promote another.
 ## Упорядоченный implementation queue
 
 1. **V42.0 — B0 — COMPLETE:** preserve the global floor and exact result.
-2. **V42.1 — R0 — NEXT:** implement domain/information audit and choose the
-   target/descriptor remediation, without training a candidate.
-3. **V42.2 — V0:** freeze automatic validator mechanics on its isolated role.
-4. **V42.3 — T0:** freeze recipe V2 and deterministic renderer/invariants.
-5. **V42.4 — C1:** enrich descriptors and grow disclosed exact-Steel source
-   power under metadata-first roles.
+2. **V42.1 — R0 — COMPLETE:** preserve the repeat-exact
+   `CorpusSignalInsufficient` result and close material-only/project-centering.
+3. **V42.2 — C1 — NEXT:** enrich source-backed runtime descriptors and grow
+   disclosed independent-parent power toward the frozen planning floor.
+4. **V42.3 — V0 — READY / INDEPENDENT:** freeze automatic validator mechanics
+   on its isolated role; it may proceed in parallel with C1.
+5. **V42.4 — T0:** after C1 freezes the descriptor contract, freeze recipe V2
+   and deterministic renderer/invariants.
 6. **V42.5 — B1:** prove runtime-available descriptor signal against global
    floor; stop before ML if it fails.
 7. **V42.6 — M0:** freeze bounded neural family, comparator and full harness.
@@ -252,6 +260,8 @@ are separate packs. A pass for one cannot promote another.
 
 - Do not train a larger MLP merely because B0's MLP was small. B1 must first
   prove runtime-available input signal beyond the global floor.
+- Do not retry coarse material-only or simple project-mean centering: R0 closed
+  both on the current disclosed corpus.
 - Do not treat project-centering, filename or source ID as deployable object
   information.
 - Do not claim Steel specialization without exact Steel generator-train power.

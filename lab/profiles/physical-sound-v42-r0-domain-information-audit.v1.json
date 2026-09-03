@@ -1,0 +1,192 @@
+{
+  "audit_policy": {
+    "bootstrap": {
+      "confidence_interval_percent": [
+        2.5,
+        97.5
+      ],
+      "iterations": 8192,
+      "seed": 4201,
+      "statistic": "median_paired_relative_improvement"
+    },
+    "cross_source_parent_policy": "exclude_from_project_statistics_report_separately",
+    "leave_one_parent_out_controls": [
+      "global",
+      "coarse_material",
+      "project",
+      "project_and_coarse_material"
+    ],
+    "leave_project_out_controls": [
+      "global",
+      "coarse_material"
+    ],
+    "parent_weighting": "equal_weight_per_physical_parent",
+    "permutation": {
+      "iterations": 4096,
+      "label_shuffle": "within_coarse_material",
+      "seed": 4200,
+      "statistic": "nearest_project_centroid_balanced_accuracy"
+    },
+    "project_identity": "c0_family_id",
+    "source_centering": "descriptive_oracle_project_mean_not_deployable",
+    "target_scaler": "b0_generator_train_mean_std"
+  },
+  "authority": {
+    "admission_authority": false,
+    "candidate_model_training_authority": false,
+    "descriptor_or_recipe_freeze_authority": false,
+    "diagnostic_audit_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_access_authority": false
+  },
+  "decision_policy": {
+    "domain_signal": {
+      "maximum_permutation_p_value": 0.01,
+      "minimum_accuracy_lift_over_null_median": 0.2,
+      "minimum_balanced_accuracy": 0.7,
+      "minimum_eligible_parents": 30
+    },
+    "material_signal": {
+      "minimum_bootstrap_lower_relative_improvement": 0.0,
+      "minimum_improved_parent_fraction": 0.6,
+      "minimum_median_relative_improvement": 0.05
+    },
+    "normalization_recovery": {
+      "minimum_improved_parent_fraction": 0.6,
+      "minimum_median_relative_improvement": 0.05
+    },
+    "precedence": [
+      "DescriptorSignalPlausible_if_raw_material_signal_passes",
+      "DomainNormalizationRequired_if_domain_and_normalization_recovery_pass",
+      "CorpusSignalInsufficient_otherwise"
+    ]
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 6466,
+      "path": "docs/development/physical-sound-v41-b0-grouped-baseline-result-2026-09-03.md",
+      "sha256": "5862f5efbd7b3d7808b8ac216d3b03d903f194e1dd27a5230811822fede08328"
+    },
+    {
+      "bytes": 7237,
+      "path": "docs/development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md",
+      "sha256": "5817acb69a2352faf98fcb9b9d68b18d9bbc03dc2b6e956ff44ed92b504a8992"
+    },
+    {
+      "bytes": 5540,
+      "path": "lab/profiles/physical-sound-v41-b0-grouped-baselines.v1.json",
+      "sha256": "f0dcb617bb6c2e1fd22ff1ce418ed5df959966b979be2cf9f1ffbe67e9e13fdc"
+    },
+    {
+      "bytes": 41270,
+      "path": "lab/scripts/physical_sound_v41_b0_grouped_baselines_v1.py",
+      "sha256": "47f5dbb8b2648480a1a911db42dcfc3201184b664006ed5af671d960e0a9c539"
+    },
+    {
+      "bytes": 43845,
+      "path": "lab/scripts/physical_sound_v42_r0_domain_information_audit_v1.py",
+      "sha256": "490d7c2047b5192abf3eeaf015d4beb5afd419dddef9e0e0a26b70d302cc2e2e"
+    }
+  ],
+  "environment": {
+    "numpy_version": "2.5.2"
+  },
+  "expected_counts": {
+    "combined_parents": 56,
+    "cross_source_parents": 1,
+    "development_parents": 30,
+    "development_records": 70,
+    "leave_project_out_supported_parents": 46,
+    "project_classifier_eligible_parents": 42,
+    "project_count": 7,
+    "single_source_parents": 55,
+    "source_centered_supported_parents": 44,
+    "train_parents": 26,
+    "train_records": 44
+  },
+  "input_bindings": {
+    "baseline": {
+      "metrics": {
+        "bytes": 22262,
+        "path": "metrics.json",
+        "sha256": "ae2e5b3d34e8f9ae70286ef35743a91f5f025cf4ffc82a89781cc25067929d28"
+      },
+      "profile": {
+        "bytes": 5540,
+        "path": "profile.json",
+        "sha256": "f0dcb617bb6c2e1fd22ff1ce418ed5df959966b979be2cf9f1ffbe67e9e13fdc"
+      },
+      "report": {
+        "bytes": 4779,
+        "path": "report.json",
+        "sha256": "b884475708f3ee0be09fdd01c8f78797eba68939c60a20275434e5903b0da7ac"
+      },
+      "representation": {
+        "bytes": 4239,
+        "path": "representation.json",
+        "sha256": "a0276e87e731fba350452518fe59f49bce91b9afa08b02ebd3a9112a6b23d016"
+      }
+    },
+    "corpus": {
+      "corpus_card": {
+        "bytes": 1415,
+        "path": "corpus-card.json",
+        "sha256": "a75dd496c94b26e49de6e49c050208f7abaf865fcc67a33e5485346cbbbed3a4"
+      },
+      "development_projection": {
+        "bytes": 90450,
+        "path": "projections/generator_development.json",
+        "sha256": "baeeb5ab36806ceb8fbe06bc581d0eb3bf1cf872939390129262eb8134c16f1e"
+      },
+      "profile": {
+        "bytes": 7028,
+        "path": "profile.json",
+        "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+      },
+      "report": {
+        "bytes": 2040,
+        "path": "report.json",
+        "sha256": "9a1489f63bd66298c3a19123b98ecf9226c3c0db21d226fa6f7c4d6cfc12879b"
+      },
+      "train_projection": {
+        "bytes": 57916,
+        "path": "projections/generator_train.json",
+        "sha256": "a1a468cd41328f8dbdc9d2f879fbb90a66ee7448762e7fb703702576d41127ee"
+      }
+    }
+  },
+  "material_taxonomy": {
+    "Aluminium": "metallic",
+    "Ceramic": "ceramic",
+    "Foam": "foam",
+    "Glass": "glass",
+    "Hard Plastic": "polymer",
+    "Iron": "metallic",
+    "Metal": "metallic",
+    "Other Plastic": "polymer",
+    "Paper": "paper",
+    "Plastic": "polymer",
+    "Polycarbonate": "polymer",
+    "Soft Plastic": "polymer",
+    "Steel": "metallic",
+    "Wood": "wood"
+  },
+  "power_policy": {
+    "alpha_two_sided": 0.05,
+    "minimum_independent_projects_per_priority_material_train": 2,
+    "practical_relative_improvement": 0.05,
+    "target_power": 0.8,
+    "z_alpha_two_sided": 1.959963985,
+    "z_power": 0.841621234
+  },
+  "profile_id": "physical-sound-v42-r0-domain-information-audit-v1",
+  "schema": "nextengine.experimental-physical-sound-v42-r0-profile.v1"
+}
