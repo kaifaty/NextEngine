@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_F0_REPEAT_EXACT_PASS / C0_NEXT / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_F0_C0_REPEAT_EXACT_PASS / X0_NEXT / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V36](physical-sound-synthesis-roadmap-v36.md) как программный план; замороженные V36 D0/H0 runner, protocol, profile и seal переносятся без изменений |
-| Текущее evidence | [F0 repeat-exact fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md), [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) и [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) |
+| Текущее evidence | [C0 repeat-exact full-shape structure/cost proof](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md), [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) и [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь не записывает удары и не подтверждает каждый звук; реальные данные ищутся в интернете, решение принимает автоматический pipeline |
 
@@ -101,7 +101,7 @@ hybrid на contact transfer; H0 не открывался. Следующая �
 flowchart TD
     R0["R0 ML-first rebaseline: complete"] --> N0["N0 V36 D0 MetricReject: complete"]
     N0 --> NRA["NR QSO-v0 A0 contract: complete"]
-    NRA --> NRF["NR F0 complete; C0-E0 preflight: next"]
+    NRA --> NRF["NR F0-C0 complete; X0-E0 preflight: next"]
     NRF --> NRD["NR one-shot QSO D0/H0"]
     N1["N1 V36 method holdout: not run"]
     EF["EF freeze/reject evidence correction"] --> NRF
@@ -129,7 +129,7 @@ generator representation. G0 начинается только после `NR Pa
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
 | N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
 | N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
-| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_REPEAT_EXACT_PASS / C0_NEXT`](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md) | A0 freezes typed field/query and conditional publication; F0 freezes 1,512 disjoint cases, three operator components, eight controls, contribution gates and resources with zero target/truth evaluation/model/official access. C0 must now prove full-shape structure and cost. |
+| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_REPEAT_EXACT_PASS / X0_NEXT`](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md) | A0/F0 freeze the typed boundary and fresh science; C0 proves all 15,120 query rows, 9,720 fields, remesh/permutation/topology/ablation reachability and nine full cost paths repeat-exactly inside `300 s / 1 GiB` with zero scientific target/truth/official access. X0 complete-owner terminal conformance is next. |
 | EF | Freeze/reject evidence correction | `A0_TYPED_RULE_PASS / X0_COMPLETE_PUBLISHER_PENDING` | A0 makes reject/freeze states mutually exclusive and rejects legacy V36 metadata as H0 authority; X0 must repeat the rule through complete atomic terminal/failpoint fixtures. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
@@ -184,9 +184,10 @@ engine schema. Каждая принятая запись связывает:
 5. **V37.4 — complete:** F0 repeat-exactly выделяет свежие disjoint operator
    identities и до вычисления values замораживает 1,512 cases, три truth
    components, восемь controls/ablations, metrics, thresholds и ceilings.
-6. **V37.5 — next:** C0 строит все full-shape контейнеры без targets, доказывает
-   reachability/remesh/cost и останавливается до values при любом reject.
-7. **V37.6:** X0 связывает complete owner и atomic terminal publisher; E0 затем
+6. **V37.5 — complete:** C0 repeat-exactly строит `15,120` target-free query
+   rows, доказывает full-shape reachability/remesh/permutation и исполняет
+   candidate плюс восемь controls за `~34 s` при пике ниже `1 GiB`.
+7. **V37.6 — next:** X0 связывает complete owner и atomic terminal publisher; E0 затем
    дважды исполняет полный discarded D0/H0 и единственный создаёт execution seal.
 8. **V37.7:** только seal-verifying provider один раз открывает D0 A/B; H0 A/B
    разрешён исключительно после точного D0 `Pass` freeze.
@@ -229,9 +230,9 @@ engine schema. Каждая принятая запись связывает:
 
 ## Проверка изменений roadmap
 
-Текущий status update является documentation-only отражением отдельного A0
+Текущий status update является documentation-only отражением отдельного C0
 code commit. Для него обязательны `git diff --check`, проверка локальных
-links/paths/identifiers и согласованность с main roadmap и task-state. A0
+links/paths/identifiers и согласованность с main roadmap и task-state. C0
 evidence отдельно включает Ruff/compile/strict typing, focused Python tests,
 fresh-process A/B и registry/boundary checks; Cargo ProductCheck не применим,
 пока production consumer отсутствует.
