@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / C1A_NEXT / C0_IDENTITY_REPAIR_REQUIRED / V0_BLOCKED_BY_IDENTITY_AND_POWER / M0_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / C1A_COMPLETE / D2_C0R_NEXT / V0_BLOCKED_BY_IDENTITY_AND_POWER / M0_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V42](physical-sound-synthesis-roadmap-v42.md) как planning authority; прежние terminal results остаются immutable evidence, но C0 больше не доказывает межролевую изоляцию |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не вводит public schema, runtime model или production consumer |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательной ручной приёмки каждого звука |
@@ -27,7 +27,9 @@
 есть ещё и конфликт материала: `Wood` в ObjectFolder против `Ceramic` на
 странице AV-MSF.
 
-Это не доказывает, что прежние численные B0/R0 измерения вычислены неверно:
+Повторяемый [C1A audit](../development/physical-sound-v43-c1a-lineage-audit-result-2026-09-03.md)
+подтвердил оба aliases и fail-closed repair plan. Это не доказывает, что
+прежние численные B0/R0 измерения вычислены неверно:
 они не читали validator rows. Но оно отменяет C0 claim о полной физической
 изоляции ролей, делает нынешний V0 непригодным для независимой калибровки и
 требует нового baseline на исправленном корпусе.
@@ -71,7 +73,7 @@ offline tooling.
 
 ```mermaid
 flowchart LR
-    C1A["C1A lineage audit — next"] --> D2["D2 roster repair"]
+    C1A["C1A lineage audit — complete"] --> D2["D2 roster repair — next"]
     D2 --> C0R["C0R corrected corpus"]
     C0R --> B0R["B0R/R0R corrected floor"]
     C0R --> C1["C1 descriptors and disclosed growth"]
@@ -110,8 +112,8 @@ cook или runtime integration.
 
 | ID | Состояние | Проверяемый выход |
 | --- | --- | --- |
-| C1A | `NEXT / METADATA_AND_IDENTITY_ONLY` | Hash-bound audit воспроизводит официальный source relationship, точные object-ID aliases и label conflicts без чтения acoustic features, candidate values или protected roles; повтор A/B идентичен. |
-| D2 | `BLOCKED_BY_C1A` | Новый immutable roster co-locates весь derived AV-MSF family с его disclosed source component; подтверждённые aliases объединяются, а конфликтующие labels получают quarantine/missing mask. Никакой in-place правки D1/C0. |
+| C1A | `COMPLETE / REPEAT_EXACT` | Hash-bound audit воспроизводит официальный source relationship, два object-ID aliases и label conflict без чтения acoustic features, candidate values или protected roles; A/B inventory root `e11341f3…510b`. |
+| D2 | `NEXT / AUTHORIZED_BY_C1A` | Новый immutable roster co-locates весь derived AV-MSF family с его disclosed source component; подтверждённые aliases объединяются, а конфликтующие labels получают quarantine/missing mask. Никакой in-place правки D1/C0. |
 | C0R | `BLOCKED_BY_D2` | Новый корпус и projections публикуются атомарно. Ожидаемый planning result `64 train / 70 development / 5 validator` records и `34 / 30 / 1` parents должен быть пересчитан самим owner, а не принят из roadmap как факт. |
 | B0R/R0R | `BLOCKED_BY_C0R` | Все global/material/retrieval/ridge/MLP controls и domain audit повторяются на C0R. Публикуются новый immutable global floor, supported strata и grouped-power target; старые B0/R0 остаются historical controls. |
 | C1 | `BLOCKED_BY_C0R / INTERNET_ONLY` | Versioned parent descriptors содержат только authoring/runtime-available форму, размеры, полость, толщину, массу, материал, опору, impact zone, confidence, units, provenance и missingness. Dataset/project ID и audio-derived targets запрещены как inputs. |
@@ -236,9 +238,9 @@ features, checkpoints, generated clips, caches и credentials остаются �
 
 ## Упорядоченный implementation queue
 
-1. **V43.0 — C1A — NEXT:** завершить metadata-only lineage audit и
-   repeat-exact evidence record.
-2. **V43.1 — D2/C0R:** выпустить новый roster/corpus, соединить aliases,
+1. **V43.0 — C1A — COMPLETE / REPEAT_EXACT:** сохранить hash-bound lineage
+   result и terminal `C0_IDENTITY_REPAIR_REQUIRED`.
+2. **V43.1 — D2/C0R — NEXT:** выпустить новый roster/corpus, соединить aliases,
    quarantine object `80` material и удалить AV-MSF из validator role.
 3. **V43.2 — B0R/R0R:** заново заморозить corrected global floor, domain audit
    и parent-power target.

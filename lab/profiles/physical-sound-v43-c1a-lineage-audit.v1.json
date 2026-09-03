@@ -1,0 +1,152 @@
+{
+  "alias_claims": [
+    {
+      "av_msf_material": "Glass",
+      "canonical_parent_id": "realimpact-6-bowl--objectfolder-real-object-6",
+      "finding": "ConfirmedPhysicalAlias",
+      "object_id": "6",
+      "objectfolder_material": "Glass",
+      "objectfolder_name": "Blue_Bowl"
+    },
+    {
+      "av_msf_material": "Ceramic",
+      "canonical_parent_id": "objectfolder-real-object-80--av-msf-object-80",
+      "finding": "QuarantineIdentityConflict",
+      "object_id": "80",
+      "objectfolder_material": "Wood",
+      "objectfolder_name": "Spoon_Holder"
+    }
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": [
+      "v43_d2_c0r_identity_repair"
+    ],
+    "candidate_training_authority": false,
+    "descriptor_baseline_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "decision": "C0_IDENTITY_REPAIR_REQUIRED",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 7237,
+      "path": "docs/development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md",
+      "sha256": "5817acb69a2352faf98fcb9b9d68b18d9bbc03dc2b6e956ff44ed92b504a8992"
+    },
+    {
+      "bytes": 8145,
+      "path": "docs/development/physical-sound-v42-r0-domain-information-audit-result-2026-09-03.md",
+      "sha256": "231e5b5a044cbb161784a4f08fc521c8460338d1e0fcda5ba92737a054cccca8"
+    },
+    {
+      "bytes": 7028,
+      "path": "lab/profiles/physical-sound-v41-c0-disclosed-corpus.v1.json",
+      "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+    },
+    {
+      "bytes": 29385,
+      "path": "lab/scripts/physical_sound_v43_c1a_lineage_audit_v1.py",
+      "sha256": "a8686afde4c442927a34c111ec580fa48cdb8687affcb4d1007a82a5773057fe"
+    }
+  ],
+  "evidence_bindings": {
+    "av-msf-object-6.png": {
+      "bytes": 518113,
+      "sha256": "2d43a80005321d647c401657cd852fec83c2042ef239f23139ba0a7b77a5f23e"
+    },
+    "av-msf-object-80.png": {
+      "bytes": 198841,
+      "sha256": "c1df691e00f2d5455d51995ef266809a4d93d2af774233a30b6f74d22af24c95"
+    },
+    "av-msf-page.html": {
+      "bytes": 27239,
+      "sha256": "b7e20b4f6af55f0037379c78b23e4841869daed70d84c240187eaa50b8900b49"
+    },
+    "av-msf-paper-v2.pdf": {
+      "bytes": 20890679,
+      "sha256": "018dd701b2b7e76e55bf768f24ed613f2ca1a4b49af28e3ec06287d87feb2426"
+    },
+    "av-msf-paper-v2.txt": {
+      "bytes": 83342,
+      "sha256": "d87a207d29171c304df365ddd90a93ff814dd75d7b5bee26f7093e4935b4b35d"
+    },
+    "objectfolder-object-6-clip-0.mp4": {
+      "bytes": 675243,
+      "sha256": "8efe186609fd47205fc935e1f0f7e1a14701f2c0744144afca1de904454a494c"
+    },
+    "objectfolder-object-80-clip-0.mp4": {
+      "bytes": 863355,
+      "sha256": "5a00f685a16735562bd10a5a4fe53fbaad9a50dd45aa705d71dea0c427e9fe58"
+    },
+    "objectfolder-real-download.html": {
+      "bytes": 34749,
+      "sha256": "0111f57a336fdeb805eb03543fb10b2cb174f8d0bcb7ef5f0e30c17324e06db0"
+    }
+  },
+  "evidence_policy": {
+    "allow_network": false,
+    "av_msf_dataset_marker": "we evaluate our method on objectfolder real [12] and realimpact [2], two real-world multisensory datasets that include impact sound recordings.",
+    "metadata_only": true,
+    "source_urls": {
+      "av_msf_page": "https://zisenshao.github.io/AV-MSF/",
+      "av_msf_paper": "https://arxiv.org/abs/2608.05145",
+      "objectfolder_real": "https://objectfolder.stanford.edu/objectfolder-real-download"
+    }
+  },
+  "expected_counts": {
+    "alias_findings": 2,
+    "av_msf_family_records": 20,
+    "corrected_physical_parents": {
+      "generator_development": 30,
+      "generator_train": 34,
+      "validator_calibration": 1
+    },
+    "corrected_role_records": {
+      "generator_development": 70,
+      "generator_train": 64,
+      "validator_calibration": 5
+    },
+    "current_physical_parents": 67,
+    "current_role_records": {
+      "generator_development": 70,
+      "generator_train": 44,
+      "validator_calibration": 25
+    },
+    "objectfolder_family_records": 15
+  },
+  "input_bindings": {
+    "generator_development": {
+      "bytes": 90450,
+      "sha256": "baeeb5ab36806ceb8fbe06bc581d0eb3bf1cf872939390129262eb8134c16f1e"
+    },
+    "generator_train": {
+      "bytes": 57916,
+      "sha256": "a1a468cd41328f8dbdc9d2f879fbb90a66ee7448762e7fb703702576d41127ee"
+    },
+    "manifest": {
+      "bytes": 297303,
+      "sha256": "3ccc89cb4022209b756f470adbc388aa098eaedfcfb056ba0230ad23b71034e9"
+    },
+    "profile": {
+      "bytes": 7028,
+      "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+    },
+    "validator_calibration": {
+      "bytes": 31634,
+      "sha256": "7a11eba70172d0c24e23cfbc4a3907a8572e5783d603e7ef4c8d0d00d69551ff"
+    }
+  },
+  "profile_id": "physical-sound-v43-c1a-lineage-audit-v1",
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v43-c1a-profile.v1"
+}
