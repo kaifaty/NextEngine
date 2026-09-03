@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ADOPTED / V37_QSO_V0_D0_REPEAT_EXACT_METRIC_REJECT / H0_PERMANENTLY_CLOSED / DATA_AND_VALIDATOR_FIRST / DISCLOSED_DEVELOPMENT_BAKEOFF / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ADOPTED / S0_IMPROVED_FRONTIER_6_STEEL_23_NON_METAL / V37_QSO_V0_CLOSED / H0_PERMANENTLY_CLOSED / DATA_AND_VALIDATOR_FIRST / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) как planning authority; V37 identities, targets, seals и terminal result остаются immutable отрицательным evidence |
-| Текущее evidence | [V37 D0 terminal result](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V30 source frontier](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [V29 source-power audit](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
+| Текущее evidence | [V38 S0 source increment](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), [V37 D0 terminal result](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V30 source frontier](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [V29 source-power audit](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь ничего не записывает и не подтверждает звуки вручную; реальные данные поступают из опубликованных internet sources, решение принимает автоматический pipeline |
 
@@ -91,8 +91,10 @@ holdout, validator qualification и joint shadow остаются однораз
 | validator qualification | false-pass/coverage и leave-project-out certificate | Нет, один раз на release |
 | joint admission shadow | совместная проверка frozen generator/validator/domain | Нет, один раз |
 
-Текущий source frontier не позволяет построить эти роли: лучшей второй
-protected роли не хватает шести exact-Steel и 27 non-Metal parent groups. Эти
+Текущий source frontier не позволяет построить эти роли: [первый V38 S0
+increment](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md)
+добавил IETeasy и уменьшил дефицит лучшей второй protected роли до шести
+exact-Steel и 23 non-Metal parent groups. Эти
 числа нельзя уменьшать вслед за удобством найденных данных.
 
 ## Критический путь
@@ -130,7 +132,7 @@ model-selection итерация не начинается до immutable role f
 | ID | Результат | Состояние | Критерий выхода |
 | --- | --- | --- | --- |
 | L0 | Закрыть V37 | [`COMPLETE / QSO_V0_METRIC_REJECT`](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md) | A/B stdout и complete trees совпадают; `11/11` hard и `5/5` resource gates проходят, `11/22` metric gates проходят, candidate authority false, H0 zero/unopened. |
-| S0 | Gap-directed source discovery | `NEXT / FRONTIER_6_STEEL_27_NON_METAL` | Каждая bounded batch начинается с не более трёх named primary-source leads, читает metadata до payload и возвращает `ImprovedFrontier`, `Feasible` или `NoEligibleDelta`. |
+| S0 | Gap-directed source discovery | `ACTIVE / FIRST_INCREMENT_IMPROVED_FRONTIER_6_STEEL_23_NON_METAL` | Каждая bounded batch начинается с не более трёх named primary-source leads, читает metadata до payload и возвращает `ImprovedFrontier`, `Feasible` или `NoEligibleDelta`. |
 | S1 | Immutable role freeze | `BLOCKED_BY_S0_FEASIBLE` | Две protected роли получают не менее двух projects, 16 exact-Steel и 35 non-Metal parent groups каждая; ещё пять whole projects остаются для остальных roles. Exposure и duplicate/parent leakage равны нулю. |
 | C0 | Disclosed corpus build | `BLOCKED_BY_S1` | Только generator train/development и validator calibration payloads декодируются в external store; hashes, axes, quality/integrity checks и missing-axis claims воспроизводятся. Protected counters остаются zero. |
 | V0 | Validator calibration | `BLOCKED_BY_C0` | Независимый ensemble hard/temporal/spectral/representation/OOD specialists заморожен только по calibration roles; generator outputs не использованы. |
@@ -203,25 +205,27 @@ G0 — намеренно не one-shot. Автоматизация должна
 
 ## Упорядоченная очередь реализации
 
-1. **V38.0 — этот commit:** закрыть V37/QSO-v0, принять V38 и сохранить H0
+1. **V38.0 — complete:** закрыть V37/QSO-v0, принять V38 и сохранить H0
    unopened.
-2. **V38.1 — next:** провести одну gap-directed S0 internet batch по максимум
-   трём named multi-object leads, способным улучшить обе части frontier
-   `6 exact-Steel / 27 non-Metal`; payload остаётся sealed.
-3. **V38.2:** rerun неизменённый whole-project planner; при `Feasible` создать
-   S1 role freeze, при `NoEligibleDelta` зафиксировать точный OOD frontier.
-4. **V38.3:** реализовать C0 external disclosed-corpus builder и target-free
-   validator/generator benchmark contracts; protected counters остаются zero.
-5. **V38.4:** откалибровать V0 и один раз выполнить V1 qualification.
-6. **V38.5:** выполнить bounded R0 research, заморозить максимум три fresh
+2. **V38.1 — complete:** metadata-only batch по IETeasy, RSAudio и DiffImpact
+   допускает один IETeasy project с `0/4`; payload остаётся sealed.
+3. **V38.2 — complete:** неизменённый whole-project planner улучшает frontier
+   с `6/27` до `6/23`, но возвращает `feasible=false`; S0 продолжается.
+4. **V38.3 — next:** выполнить следующую максимум-трёх-lead S0 batch против
+   точного `6/23`; параллельно реализовать только target-free части C0 external
+   disclosed-corpus builder и validator/generator benchmark contracts.
+5. **V38.4:** после S1 завершить C0 disclosed payload build; protected counters
+   остаются zero.
+6. **V38.5:** откалибровать V0 и один раз выполнить V1 qualification.
+7. **V38.6:** выполнить bounded R0 research, заморозить максимум три fresh
    generator families и selection budget.
-7. **V38.6:** запустить автоматический G0 bake-off на disclosed roles; если ни
+8. **V38.7:** запустить автоматический G0 bake-off на disclosed roles; если ни
    одна family не побеждает controls, завершить `NoCandidate` без holdout.
-8. **V38.7:** заморозить G1 и один раз выполнить G2 method holdout.
-9. **V38.8:** после V1+G2 Pass один раз выполнить A0 joint admission.
-10. **V38.9:** после A0 Pass реализовать K0 cooker и P0 demo/fallback vertical.
-11. **V38.10:** повторить независимые releases для Glass archetypes и Wood.
-12. **V38.11:** только после P0 подготовить promoting ADR и affected Linux
+9. **V38.8:** заморозить G1 и один раз выполнить G2 method holdout.
+10. **V38.9:** после V1+G2 Pass один раз выполнить A0 joint admission.
+11. **V38.10:** после A0 Pass реализовать K0 cooker и P0 demo/fallback vertical.
+12. **V38.11:** повторить независимые releases для Glass archetypes и Wood.
+13. **V38.12:** только после P0 подготовить promoting ADR и affected Linux
     ProductChecks.
 
 Внутренний WIP limit — один protected experiment gate. Metadata discovery,

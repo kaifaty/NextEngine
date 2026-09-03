@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V38_ADOPTED / V37_QSO_V0_D0_METRIC_REJECT_CLOSED / H0_UNOPENED / DATA_VALIDATOR_FIRST / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V38_ADOPTED / S0_IMPROVED_FRONTIER_6_STEEL_23_NON_METAL / DATA_VALIDATOR_FIRST / H0_UNOPENED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
@@ -23,6 +23,7 @@
 - **E2 result:** [source-growth audit](../physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md)
   repeats exactly with zero signal; raw `10 / 32 / 73` still leaves the best
   second protected role six Steel and 27 non-Metal groups short.
+- **V38 S0 result:** [IETeasy metadata increment](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md) adds one project and four polymer groups with zero signal; the unchanged planner improves the exact frontier to six Steel and 23 non-Metal groups.
 - **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
@@ -34,7 +35,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** run one gap-directed metadata-only S0 internet batch over at most three named multi-object leads that can improve both deficits (`6` exact-Steel, `27` non-Metal), then rerun the unchanged whole-project planner. Do not open payload signal.
+- **Next action:** run another gap-directed metadata-only S0 batch over at most three DOI/versioned multi-object leads against `6 exact-Steel / 23 non-Metal`; target-free harness work may proceed in parallel. Do not open payload signal.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
@@ -68,13 +69,13 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V38 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_FAULT_CLOSED / V36_D0_METRIC_REJECT_CLOSED / V37_D0_METRIC_REJECT_CLOSED / V38_DATA_VALIDATOR_FIRST` | V37 owner/determinism pass, but QSO-v0 fails scientific D0 (`11/22` metrics); H0 remains unopened. V38 requires source power and independent validation before disclosed-real model selection. |
+| V34–V38 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V38_S0_IMPROVED_FRONTIER_6_23 / DATA_VALIDATOR_FIRST` | QSO-v0 fails scientific D0 (`11/22` metrics); H0 remains unopened. V38 S0 adds IETeasy metadata-only power but still requires `6/23` and independent validation before disclosed-real model selection. |
 
-## Material transition: V37 terminal reject and V38 rebaseline
+## Material transition: V38 S0 source increment
 
-- **Evidence:** [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md) A/B are byte-identical; all `11/11` hard and `5/5` resource gates pass, but only `11/22` metrics pass and the field-only ablation does not worsen results.
-- **Conclusion/decision:** QSO-v0 is a scientific representation reject, not an owner failure. Do not tune spent D0. V38 makes internet source power and independent validator qualification prerequisites and permits bounded ML iteration only on disclosed development roles.
-- **Smallest next action:** one metadata-only source batch targeting the exact `6/27` frontier, followed by the unchanged whole-project role-power planner.
+- **Evidence:** [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md) admits DOI-versioned IETeasy as `0 exact-Steel / 4 non-Metal`; RSAudio lacks accessible object mapping and DiffImpact lacks exact source-video identities. No signal opened.
+- **Conclusion/decision:** unchanged exhaustive allocation improves from `6/27` to `6/23` but stays infeasible. Preserve strict Steel and whole-project rules; continue S0 and only target-free harness work.
+- **Smallest next action:** one more maximum-three-lead metadata batch against `6/23`, then the same planner.
 
 ## Durable negative knowledge
 
@@ -169,6 +170,7 @@
 | D-072 | Pre-access audit revokes E0-only authorization: F0 omitted exact coefficient/reduction/row-mixture semantics. T0 supplies 72 seed-derived coefficients, frozen environment, full metadata roots and artificial mutations; composite seal `7bae65cc…61573` solely authorizes D0, with official targets still zero. | Any T0/E0 binding drifts, or D0 returns its terminal result; never choose missing truth details after official access. |
 | D-073 | D0R correctly sealed the provider-ready owner; official D0 then repeat-exactly returns `MetricReject`, publishes rejected evidence only and leaves H0 unopened. | Never rerun or reinterpret D0R artificial success as QSO quality. |
 | D-074 | V38 makes source power and independently qualified validation the critical path. Up to three fresh families may iterate on disclosed train/development roles under a frozen budget; only one frozen candidate may open method holdout and joint shadow. | A cheaper autonomous protocol achieves the same project independence, bounded validator risk, causal gates and authored fallback, or source power proves permanently unavailable. |
+| D-075 | IETeasy contributes four non-Metal groups and zero strict-Steel groups, improving the planner frontier to `6/23`; RSAudio and DiffImpact receive zero power until exact accessible source identities exist. | A source-identity defect invalidates IETeasy or fresh versioned metadata makes either deferred lead auditable. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -176,7 +178,7 @@
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Local controls remain competitive and beat QSO-v0 on several axes | They do not close contact-only/joint transfer as a general generator | Retain as mandatory control, not a standalone successor |
 | H3: explicit field/query operator can recover contact transfer | D0R proves the complete target-aware owner and artificial ablations | V37 D0 passes only `11/22` metrics; field-only ablation refutes the declared contribution | `REJECTED`; never retry QSO-v0 or tune from spent D0 |
-| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice without label or human-review authority | E3 rejects whole-project partition; no real validator/shadow result | S1/V0 real qualification after source-power closure |
+| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice; V38 S0 improves source power to `6/23` | Partition remains infeasible; no real validator/shadow result | S1/V0 real qualification after source-power closure |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V38 K0/P0 after Steel A0 Pass |
 
 ## Do not retry
@@ -216,7 +218,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
+Current program: [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -245,4 +247,4 @@ Current program: [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.
 
 ## Handoff
 
-- **Workspace/quality/next:** V37 QSO-v0 is terminally closed after byte-identical D0 `MetricReject`; H0 stayed unopened. Roadmap V38 is active. Run one metadata-only, maximum-three-lead S0 batch against the `6 exact-Steel / 27 non-Metal` frontier, then rerun the unchanged whole-project planner.
+- **Workspace/quality/next:** V38 S0 admits IETeasy metadata-only power and improves the unchanged planner frontier to `6 exact-Steel / 23 non-Metal`; no signal or role opened. Continue one bounded source batch, then rerun the same planner; target-free harness work may proceed.
