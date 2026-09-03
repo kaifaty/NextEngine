@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / MULTI_FIDELITY_REBASELINE / R0_SOURCE_CLAIM_LEDGER_COMPLETE / T0_RECIPE_V3_COMPLETE / C0_CLATTER_NEXT / 10_SOURCES / ZERO_NEW_POWER_CREDIT / 71_REAL_ACOUSTIC_PARENTS / DEFICIT_34 / PSEL_BLOCKED / REAL_TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / MULTI_FIDELITY_REBASELINE / R0_T0_C0_COMPLETE / CLATTER_84_LABELS_36_UNIQUE_PRIORS / S0_SYNTHETIC_PREFLIGHTS_NEXT / 10_SOURCES / ZERO_NEW_POWER_CREDIT / 71_REAL_ACOUSTIC_PARENTS / DEFICIT_34 / PSEL_BLOCKED / REAL_TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V44](physical-sound-synthesis-roadmap-v44.md) как planning authority; все V44 exact results и source-power gates остаются immutable evidence |
 | Исследование | [V45 multi-fidelity evidence rebaseline](../development/physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; V45 не создаёт public schema, runtime inference или production authority |
@@ -132,8 +132,12 @@ is complete and repeat-exact: ten sources are partitioned with zero payload
 access and zero new parent/project credit. [T0](../development/physical-sound-v45-t0-recipe-v3-result-2026-09-03.md)
 is also complete and repeat-exact: the fixed `189`-coordinate Recipe V3,
 observation masks, lane isolation and deterministic projection pass with all
-eight external-access counters at zero. C0 is next. C0–MS can make scientific
-progress before G0 reaches the real parent floor, but MS has no authority beyond
+eight external-access counters at zero. [C0](../development/physical-sound-v45-c0-clatter-external-control-result-2026-09-03.md)
+is now complete: its pre-access seal precedes `13,203` decoded values, and two
+external runs reproduce all 84 Recipe V3 controls and WAVs exactly. The nominal
+84 buckets contain only 36 unique modal priors, so later controls group those
+duplicates rather than counting random renders as power. S0–MS can make
+scientific progress before G0 reaches the real parent floor. S0 is next, but MS has no authority beyond
 synthetic-teacher usefulness. MR remains blocked until PSEL/B1 and V0 are
 frozen. Protected roles remain unopened until exactly one LabWinner exists.
 
@@ -143,7 +147,7 @@ frozen. Protected roles remain unopened until exactly one LabWinner exists.
 | --- | --- | --- | --- |
 | R0 | `COMPLETE / REPEAT_EXACT / NO_PAYLOAD_AUTHORITY` | [Result](../development/physical-sound-v45-r0-source-claim-ledger-result-2026-09-03.md) partitions ten exact sources into empirical-prior, synthetic-modal, structural-transfer, real-acoustic and validator-prospect lanes; all eight forbidden counters, physical-parent credit, project credit and protected prospects are zero. | Immutable planning evidence only; it authorizes T0 schema work, not payload, corpus, training, validation or runtime. |
 | T0 | `COMPLETE / REPEAT_EXACT / VALUE_FREE` | [Result](../development/physical-sound-v45-t0-recipe-v3-result-2026-09-03.md) freezes a `189`-coordinate integer Recipe V3, observation masks, neutral target records and lane-isolated deterministic projection; roundtrip, missing-label, ordered-mode, positive-decay, energy, Nyquist, finite/resource and corruption tests pass. | Representation authority only; no external payload, training, validator, admission, cooker, demo or runtime authority. |
-| C0 | `AFTER_T0 / CLATTER_EXTERNAL_CONTROL` | A value-free protocol pins Clatter commit `79cac6c…04806`, inventory and decoder semantics; two external runs reproduce the same neutral prior/control roots and seeded renders. No external code/data enters runtime or Git. | `ExternalPriorUnavailableOrIncompatible`; keep literature-only control. |
+| C0 | `COMPLETE / REPEAT_EXACT / EXTERNAL_CONTROL_ONLY` | [Result](../development/physical-sound-v45-c0-clatter-external-control-result-2026-09-03.md) binds Clatter commit `79cac6c…04806`, 84-file tree and decoder before numeric access; two external runs reproduce tree root `90019ff5…2514`, 84 neutral priors and seeded renders. The 84 labels collapse to 36 unique modal heads. | Baseline only: group value-identical rows; no real parent, material-truth, training, validator or runtime credit. |
 | S0 | `AFTER_T0 / BOUNDED_ONLY` | Exact NISR and VibraVerse revisions, upstream geometry/generation alias components, generation provenance and separate preregistered small samples pass integrity, modal-target and counterfactual checks without bulk download. | `SyntheticTeacherUntrusted` per source; rejected labels/sounds are not used and the other source receives no substitute credit. |
 | X0a | `AFTER_T0` | One Delft plate profile binds dimensions/material/support, 25 locations, three repeats and force/acceleration channels; frozen controls test location, transfer and damping consistency. | `StructuralTransferOOD`; no acoustic or material generalization claim. |
 | X0b | `AFTER_X0A` | Cello metadata-only axis/cost audit proves that bridge rows add a separable transfer discriminator beyond assembly confounds. | Defer without downloading payload. |
@@ -181,8 +185,9 @@ definitions, but not fitted weights, calibration rows or selection outputs.
    sources repeat-exactly with zero payload access and zero power credit.
 2. **V45.1 — T0 — COMPLETE:** the value-free `189`-coordinate Recipe V3,
    target masks, lane isolation and deterministic projection pass twice exactly.
-3. **V45.2 — C0 — NEXT:** freeze and run the external Clatter prior/control probe.
-4. **V45.3 — S0:** run separate bounded NISR and VibraVerse
+3. **V45.2 — C0 — COMPLETE:** pre-access-sealed Clatter decoding and 84
+   external controls repeat exactly; retain 36 unique modal-prior groups.
+4. **V45.3 — S0 — NEXT:** run separate bounded NISR and VibraVerse
    metadata/generation/sample preflights; no bulk acquisition.
 5. **V45.4 — X0:** materialize the Delft structural control, then decide the
    cello bridge probe from metadata-only cost/axis evidence.
@@ -241,6 +246,7 @@ definitions, but not fitted weights, calibration rows or selection outputs.
 
 Roadmap and research changes use the documentation cheap path:
 `git diff --check` plus direct validation of changed links, paths and
-identifiers. R0/T0 code uses formatting/static analysis and focused owner tests.
+identifiers. R0/T0/C0 code uses formatting/static analysis and focused owner tests;
+C0 additionally requires a pre-access seal plus two external repeat-exact runs.
 No ProductCheck is required until a production consumer or architecture
 promotion is introduced.
