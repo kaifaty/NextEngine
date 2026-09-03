@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / D1_ALIAS_REPAIR_COMPLETE / C0_NEXT / DISCLOSED_LAB_FIRST / PROTECTED_ADMISSION_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / C0_COMPLETE / B0_NEXT / V0_READY / DISCLOSED_LAB_FIRST / PROTECTED_ADMISSION_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V40](physical-sound-synthesis-roadmap-v40.md) как planning authority; I0/D0 и все terminal results сохраняются как exact evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; public/runtime contract и production consumer не продвигаются этим roadmap |
 | Ограничение владельца продукта | Данные берутся из опубликованных internet sources; локальные удары, микрофон и ручное одобрение каждого звука не требуются |
@@ -25,6 +25,13 @@ authored fallback.
 object `6` — один Blue Bowl. Обе families теперь входят в один
 `generator_train` component, а независимый AV-MSF занимает
 `validator_calibration`. Старый D0 остаётся неизменяемым evidence дефекта.
+
+[C0](../development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md)
+превратил disclosed internet evidence в 139 hash-verified canonical записей и
+67 role-disjoint физических parents. Корпус содержит 135 identified recordings
+и четыре REALIMPACT transfer rows, canonical mono PCM16 `48 kHz`, immutable
+role projections, явные axis masks и waveform-derived modal/decay/transient
+pseudo-targets. Dataset, WAV и features остаются во внешнем store.
 
 ## Почему новый порядок практичнее
 
@@ -48,7 +55,7 @@ object `6` — один Blue Bowl. Обе families теперь входят в 
 
 ```mermaid
 flowchart LR
-    D0["D0 disclosed roles — complete"] --> C0["C0 external corpus"]
+    D1["D1 component-disjoint roles — complete"] --> C0["C0 external corpus — complete"]
     C0 --> B0["B0 deterministic baselines"]
     C0 --> V0["V0 automatic lab validator"]
     B0 --> M0["M0 StructuredRecipeNet-v1"]
@@ -123,9 +130,9 @@ generator outputs. Прослушивание остаётся необязат�
 | I0 | `COMPLETE / SOURCE_POWER_OOD` | Exact clean frontier остаётся `9 Steel / 7 non-Metal`; лучшие protected roles имеют дефициты `13/34` и `13/31`. |
 | D0 | `COMPLETE / ROLE_PROJECTION_SUPERSEDED_BY_D1` | Исходные девять disclosed families и zero-access evidence сохранены; их первая роль-проекция разнесла один Blue Bowl между generator и validator. |
 | D1 | `COMPLETE / REPEAT_EXACT_ALIAS_REPAIR` | [Metadata-only repair](../development/physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md) объединяет REALIMPACT/ObjectFolder Blue Bowl в generator-train, переводит независимый AV-MSF в validator-calibration, сохраняет `5/2/2`, clean/protected access `0` и запрещает дальнейшее перемещение ролей. |
-| C0 | `NEXT` | Один external content-addressed owner связывает exact D0 root, проверяет каждый source hash, создаёт canonical mono `48 kHz` segments, parent IDs, observed-axis masks, acoustic targets/uncertainty и immutable train/development/calibration projections. Два запуска дают одинаковое дерево; dataset/WAV/features остаются вне Git. |
-| B0 | `AFTER_C0` | На одной grouped surface воспроизводятся retrieval-copy, global/modal prototype, nearest/local, ridge и малый pointwise MLP. Они задают обязательный минимум для сети. |
-| V0 | `AFTER_C0` | Validator-only projects и synthetic corruptions замораживают specialists, embedding, thresholds, OOD и aggregation без generator outputs. Calibration pass разрешает только lab tournament. |
+| C0 | `COMPLETE / REPEAT_EXACT` | [Content-addressed corpus](../development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md) связывает exact D1 root, проверяет 139 source payloads, создаёт 278 canonical PCM/feature objects, 67 parent IDs, полные axis masks и immutable `44 train / 70 development / 25 calibration` projections. Два запуска дают одинаковое дерево; dataset/WAV/features остаются вне Git. |
+| B0 | `NEXT` | На одной grouped surface воспроизводятся retrieval-copy, global/modal prototype, nearest/local, ridge и малый pointwise MLP. Они задают обязательный минимум для сети. |
+| V0 | `READY_AFTER_C0` | Validator-only projects и synthetic corruptions замораживают specialists, embedding, thresholds, OOD и aggregation без generator outputs. Calibration pass разрешает только lab tournament. |
 | M0 | `AFTER_C0_AND_B0` | StructuredRecipeNet-v1, losses/masks, deterministic renderer, не более одного distinct comparator, budgets и complete-entry checks заморожены до target access. |
 | M1 | `AFTER_M0_AND_V0` | Autonomous runner обучает только на generator-train, сравнивает на grouped generator-development, считает ablations/leakage/OOD и останавливается по frozen budget. |
 | L0 | `AFTER_M1` | Публикуется ровно один external `LabWinner` bundle либо `NoCandidate`; audition clips разрешены, product/admission authority — нет. |
@@ -160,8 +167,8 @@ protected values.
 
 1. **V41.0 — D1 — COMPLETE:** исправить cross-role Blue Bowl alias до чтения
    payload и заморозить component-disjoint `5/2/2` roster.
-2. **V41.1 — C0:** построить реальный disclosed corpus и доказать A/B exactness,
-   parent isolation и полноту axis masks.
+2. **V41.1 — C0 — COMPLETE:** построить реальный disclosed corpus и доказать
+   A/B exactness, parent isolation и полноту axis masks.
 3. **V41.2 — B0:** запустить простые baselines и зафиксировать grouped surface,
    которую обязана превзойти сеть.
 4. **V41.3 — V0:** собрать автоматический validator и corruption suite отдельно

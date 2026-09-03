@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import json
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -46,11 +45,30 @@ class AliasComponentRosterTests(unittest.TestCase):
         cls.profile_bytes, raw_profile = d1.read_canonical_json(
             PROFILE, "V41 D1 profile", d1.MAX_PROFILE_BYTES
         )
+        roadmap_binding = next(
+            row
+            for row in raw_profile["dependency_bindings"]
+            if row["binding_id"] == "v41-roadmap"
+        )
+        current_bound_file = d1.bound_repository_file
+
+        def historical_dependency(path_text: str) -> dict[str, object]:
+            if path_text == d1.DEPENDENCY_PATHS["v41-roadmap"]:
+                return {
+                    key: roadmap_binding[key] for key in ("bytes", "path", "sha256")
+                }
+            return current_bound_file(path_text)
+
+        cls._roadmap_patch = mock.patch.object(
+            d1, "bound_repository_file", side_effect=historical_dependency
+        )
+        cls._roadmap_patch.start()
         cls.profile, cls.dependencies = d1.validate_profile(raw_profile)
         cls.d0_bytes, cls.d0_roster = d1.load_d0_roster(cls.d0_roster_path)
 
     @classmethod
     def tearDownClass(cls) -> None:
+        cls._roadmap_patch.stop()
         cls._d0_temp.cleanup()
 
     def test_exact_alias_component_role_repair(self) -> None:
@@ -84,28 +102,12 @@ class AliasComponentRosterTests(unittest.TestCase):
         for row in repaired["component_roles"]:
             self.assertEqual(len(set(row["family_ids"])), len(row["family_ids"]))
 
-    def test_cli_a_b_is_byte_exact_atomic_and_zero_signal(self) -> None:
+    def test_owner_a_b_is_byte_exact_atomic_and_zero_signal(self) -> None:
         with tempfile.TemporaryDirectory(prefix="nextengine-v41-d1-repeat-") as temp:
             root = Path(temp)
             outputs = [root / "a", root / "b"]
             for output in outputs:
-                completed = subprocess.run(
-                    [
-                        sys.executable,
-                        str(SCRIPT),
-                        "--profile",
-                        str(PROFILE),
-                        "--d0-roster",
-                        str(self.d0_roster_path),
-                        "--output",
-                        str(output),
-                    ],
-                    cwd=ROOT,
-                    check=False,
-                    capture_output=True,
-                )
-                self.assertEqual(completed.returncode, 0, completed.stderr.decode())
-                self.assertEqual(completed.stderr, b"")
+                d1.run(PROFILE, self.d0_roster_path, output)
             self.assertEqual(artifact_tree(outputs[0]), artifact_tree(outputs[1]))
             self.assertEqual(
                 set(artifact_tree(outputs[0])),

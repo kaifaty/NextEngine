@@ -1,0 +1,218 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": [
+      "v41_b0_baselines",
+      "v41_v0_lab_validator"
+    ],
+    "corpus_build_authority": true,
+    "model_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_release_authority": false
+  },
+  "corpus_policy": {
+    "channel_count": 1,
+    "dc_reference_samples": 480,
+    "normalization_peak": 0.95,
+    "onset_energy_window_samples": 48,
+    "output_container": "wav_pcm_s16le",
+    "pretrigger_samples": 480,
+    "resample_policy": "scipy_resample_poly_kaiser_beta_5_constant_pad",
+    "sample_rate_hz": 48000,
+    "segment_samples": 144000,
+    "silence_peak_floor": 1e-07,
+    "source_payload_policy": "hash_verified_external_research_only"
+  },
+  "d1_binding": {
+    "bytes": 14236,
+    "roster_root_sha256": "778cae737a2d94aa06af894c58ea0a11d85bd74534775bad5bd9dad715dd775e",
+    "sha256": "362bddc6e02808fea89d06b0809e8d9e05b675181dead86da408a8944f9ad7a8"
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 5741,
+      "path": "docs/development/physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md",
+      "sha256": "60562399f3500d0ee0b7032a0c9666a94c0ea37a5bbe85c02f38466ed80d7a78"
+    },
+    {
+      "bytes": 18199,
+      "path": "docs/plans/physical-sound-synthesis-roadmap-v41.md",
+      "sha256": "83ac43ff6a93cbcbdb17cf598390ea81ebbf32e395954fc87dd33f1de4650038"
+    },
+    {
+      "bytes": 6355,
+      "path": "lab/profiles/physical-sound-v41-d1-alias-component-roster.v1.json",
+      "sha256": "fd76c7f628f4bf74668ec435fbad48cf14bef173cc320c483f7448f46ee6e907"
+    },
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    },
+    {
+      "bytes": 26168,
+      "path": "lab/scripts/physical_sound_v41_d1_alias_component_roster_v1.py",
+      "sha256": "9214bc651e4bce3d987d7f53ebfce2808eef5cc0f229c6bcb59a0d4c69ea56fb"
+    }
+  ],
+  "environment": {
+    "ffmpeg": {
+      "bytes": 453104,
+      "path": "/usr/bin/ffmpeg",
+      "sha256": "bdf6aabffdba7411edff8d36c389d695257fcdf823d196020176e117612862f6"
+    },
+    "libarchive": {
+      "bytes": 899224,
+      "path": "/usr/lib/x86_64-linux-gnu/libarchive.so.13",
+      "sha256": "5d8223f24b37f74a607460ac7cb0c6fc7ec23ab27036f3ec711160f78ba476fa"
+    },
+    "numpy_version": "2.5.2",
+    "scipy_version": "1.18.0"
+  },
+  "expected_counts": {
+    "identified_recordings": 135,
+    "physical_parents": 67,
+    "realimpact_transfers": 4,
+    "role_records": {
+      "generator_development": 70,
+      "generator_train": 44,
+      "validator_calibration": 25
+    },
+    "total_records": 139
+  },
+  "family_mapping": [
+    {
+      "family_id": "carnegie-mellon-auditorylab--sound-events-impact-events",
+      "project_id": "sound-events-database-impact-events",
+      "publisher_id": "carnegie-mellon-university-auditorylab"
+    },
+    {
+      "family_id": "freesound-user-ascap--pack-14905",
+      "project_id": "pack-14905-medium-glass-bowl",
+      "publisher_id": "freesound-user-ascap"
+    },
+    {
+      "family_id": "freesound-user-wasserbjorn--pack-41981",
+      "project_id": "pack-41981-metal-clank",
+      "publisher_id": "freesound-user-wasserbjorn"
+    },
+    {
+      "family_id": "iri-csic-upc-ctu--ycb-impact-sounds",
+      "project_id": "ycb-impact-sounds",
+      "publisher_id": "iri-csic-upc-ctu"
+    },
+    {
+      "family_id": "kaffekrus--soundpacks-glass-recordings",
+      "project_id": "soundpacks-glass-recordings",
+      "publisher_id": "kaffekrus"
+    },
+    {
+      "family_id": "samuel-clarke--realimpact",
+      "project_id": "realimpact",
+      "publisher_id": "samuel-clarke"
+    },
+    {
+      "family_id": "stanford-objectfolder--objectfolder-real",
+      "project_id": "objectfolder-real-interactive-demos",
+      "publisher_id": "stanford-vision-and-learning-lab"
+    },
+    {
+      "family_id": "the-language-of-sounds--kronland-material-impact-stimuli",
+      "project_id": "kronland-material-impact-stimuli",
+      "publisher_id": "the-language-of-sounds"
+    },
+    {
+      "family_id": "zisen-shao--av-msf",
+      "project_id": "av-msf",
+      "publisher_id": "zisen-shao"
+    }
+  ],
+  "feature_policy": {
+    "band_count": 24,
+    "band_max_hz": 24000.0,
+    "band_min_hz": 60.0,
+    "damping_floor_db": -30.0,
+    "damping_max_seconds": 1.5,
+    "maximum_modes": 12,
+    "modal_frequency_max_hz": 18000.0,
+    "modal_frequency_min_hz": 80.0,
+    "modal_minimum_distance_hz": 40.0,
+    "modal_prominence_db": 6.0,
+    "spectrogram_hop_samples": 512,
+    "spectrogram_window_samples": 2048,
+    "transient_envelope_bins": 48,
+    "welch_hop_samples": 2048,
+    "welch_window_samples": 8192
+  },
+  "input_bindings": {
+    "identified_manifest": {
+      "bytes": 8968,
+      "sha256": "8c8b56711d135bf1b9dfc85a319e3e02bdb581ed3318524558ed38d48da7f861"
+    },
+    "identified_report": {
+      "bytes": 154699,
+      "sha256": "effef6558f788cdaf523242d429e2da6246df6ec759df598181fab830388cdbe"
+    },
+    "source_manifest": {
+      "bytes": 225115,
+      "sha256": "c913ce1cbf5cd6f966850ce8ad79fd7d4c2316687c36200f91f30188e41d92e5"
+    }
+  },
+  "parent_aliases": [
+    {
+      "family_id": "samuel-clarke--realimpact",
+      "match": {
+        "object_id": "realimpact-6-bowl"
+      },
+      "physical_parent_id": "realimpact-6-bowl--objectfolder-real-object-6"
+    },
+    {
+      "family_id": "stanford-objectfolder--objectfolder-real",
+      "match": {
+        "source_id": "objectfolder-real-demo-6"
+      },
+      "physical_parent_id": "realimpact-6-bowl--objectfolder-real-object-6"
+    }
+  ],
+  "profile_id": "physical-sound-v41-c0-disclosed-corpus-v1",
+  "realimpact_inputs": [
+    {
+      "manifest": {
+        "bytes": 3227,
+        "sha256": "88972e827883dddbd085b1c29c94c77de14b680bb76b448daa08d283edf7c58a"
+      },
+      "root_name": "ps2-realimpact-blue-bowl-e2-range-v1-final"
+    },
+    {
+      "manifest": {
+        "bytes": 3254,
+        "sha256": "03702bc865971b727887abd7a9e7aae172f4c4f498bfbafc535f3a3b3b97ed4c"
+      },
+      "root_name": "ps2-realimpact-greengoblet-e2-range-v1-final"
+    },
+    {
+      "manifest": {
+        "bytes": 3251,
+        "sha256": "6b19612a315671e23b604b900071362352720fe9fdf260cc2c29414419d5bb8d"
+      },
+      "root_name": "ps2-realimpact-shell-plate-e2-range-v1-final"
+    },
+    {
+      "manifest": {
+        "bytes": 3234,
+        "sha256": "05c3cc6fb20c2522413ff86f5a60dce725de807204f2874f9fb1117ea51ea493"
+      },
+      "root_name": "ps2-realimpact-skull-cup-e2-range-v1-final"
+    }
+  ],
+  "schema": "nextengine.experimental-physical-sound-v41-c0-profile.v1"
+}

@@ -49,8 +49,8 @@ inherit the component role and no further role movement is allowed after D1.
   `sha256=fd76c7f628f4bf74668ec435fbad48cf14bef173cc320c483f7448f46ee6e907`;
 - tests:
   `lab/tests/test_physical_sound_v41_d1_alias_component_roster_v1.py`,
-  `9,648 bytes`,
-  `sha256=e17bd37a95ecb5797a7749620cbb1eb217383d6dd897944bd40426b3f4b3d80a`.
+  `9,764 bytes`,
+  `sha256=94ebc6cd41fa7cf109dc9ceb292a71db895903c368c6251387419bb2154b45cb`.
 
 The profile binds D0 owner/profile/result, I0 result, the V24 X0 exact Blue Bowl
 lineage result and Roadmap V41 by path, size and SHA-256. It separately binds
@@ -103,6 +103,8 @@ signal are all exactly zero.
 
 - focused D1 suite: `PASS`, `8/8` tests;
 - combined D0+D1 suites: `PASS`, `16/16` tests;
+- the historical D1 Roadmap V41 binding is replayed as frozen evidence while
+  the living roadmap advances to later completed stages;
 - external CLI A/B and recursive byte comparison: `PASS`;
 - mutations cover role/alias/dependency/authority drift, source-D0 mutation,
   noncanonical JSON, repository/occupied/symlink outputs and late atomic
