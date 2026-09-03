@@ -1,0 +1,168 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "artificial_zero_cost_workload_allowed": true,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "official_capability_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "runtime_authority": false,
+    "scientific_model_parameter_authority": false,
+    "scientific_target_allowed": false,
+    "signal_decode_allowed": false,
+    "synthetic_only": true,
+    "truth_evaluation_allowed": false,
+    "validator_release_authority": false,
+    "x0_allowed_after_c0": true
+  },
+  "baseline_commit": "b06524e543b5e25d0052796ccdcfa64770f3c79d",
+  "claim": "TARGET_FREE_FULL_SHAPE_QUERY_SURFACE_STRUCTURE_REACHABILITY_AND_COST_ONLY / NO_TRUTH_EVALUATION_SCIENTIFIC_TARGET_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "cost_oracle": {
+    "artificial_axis_count": 3,
+    "batch_rows": 1024,
+    "candidate_and_control_order": [
+      "query-conditioned-surface-operator-v0",
+      "continuous-local-interpolation-v1",
+      "fixed-rbf-integral-ridge-v1",
+      "nearest-causal-surface-query-v1",
+      "qso-field-only-ablation-v1",
+      "qso-no-interaction-ablation-v1",
+      "qso-no-topology-ablation-v1",
+      "qso-query-only-ablation-v1",
+      "v36-shaped-pointwise-mlp-v1"
+    ],
+    "cost_initializer": "discarded-torch-manual-seed-xavier-uniform-zero-bias-v1",
+    "dtype": "float64-cpu-single-thread",
+    "expected_combined_neural_parameters": 64074,
+    "expected_contact_parameters": {
+      "qso-each": 11449,
+      "v36-shaped-pointwise-mlp": 865
+    },
+    "expected_model_parameters": {
+      "qso-each": 12443,
+      "v36-shaped-pointwise-mlp": 1859
+    },
+    "field_cache_max_bytes": 33554432,
+    "gradient_clip_norm": "1.0",
+    "gradient_microbatch_rows": 512,
+    "learning_rate": "0.002",
+    "max_combined_trained_parameters": 70000,
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300,
+    "neural_cost_steps": 96,
+    "non_neural_controls_execute_all_three_roles": true,
+    "optimizer": "adamw-weight-decay-zero",
+    "scientific_targets": "forbidden",
+    "workload_values": "constant-artificial-zero-only"
+  },
+  "dependencies": [
+    {
+      "path": "docs/development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md",
+      "sha256": "cb0b830a331a399dca9cb0195c3cb07632c5993b0e2f5da8691dba72f50c5378"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v31-p0-causal-baseline.v1.json",
+      "sha256": "c6b7f816d65bdcaa18618a72d40cfedb6ed970359d3a1cf8f28825cd4c686a3d"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-f0-fresh-query-surface-operator.v1.json",
+      "sha256": "409d84b0dff6b28c0df8976afda198fab5c854b1a1e64788096babe4b486d809"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_f0_fresh_operator_freeze_v1.py",
+      "sha256": "59c97eb426e81691fa1f7f01b835f1fd2cf9639b0c9ffa158defd35386c29fee"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    }
+  ],
+  "expected_role_commitments": {
+    "development": {
+      "case_count": 432,
+      "case_root_sha256": "e2169d83258921c70931d481f009360aadb2c0391c8132600a26ae49df63f8c6",
+      "field_count": 3240,
+      "field_root_sha256": "4eefa59f06c696979fede54349055e8f4581ba630e50728e6b9459a955dd0358",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "b106cf8b4747a622fe5826f937361943b379e7a88430fe62aa75665eaa321915"
+    },
+    "method_holdout": {
+      "case_count": 432,
+      "case_root_sha256": "fc63c586563a715c2154b71bd5be79737dc7e40bcee355082da5f7f65730403a",
+      "field_count": 3240,
+      "field_root_sha256": "aae82fc8f5797a008cdb176ea97dca60cc18ce9c1dc8fa97c251bd53dbbf6283",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "6eaf9c4312b7a71349973c57a90532913490ca6c3095360fb2f1e77dd23889a9"
+    },
+    "train": {
+      "case_count": 648,
+      "case_root_sha256": "5f28770839918c93608875ea57f10868aeff2f392a500b08171509ec37d9a956",
+      "field_count": 3240,
+      "field_root_sha256": "731290c05a0ca6ac57c466f5d4f859484247fcd0739553db631e7b00eb3fa69a",
+      "modal_row_count": 6480,
+      "modal_row_root_sha256": "16ed70a79209b18ae49bb799046a04c8c1c5c374d6aab083813924512822c791"
+    }
+  },
+  "profile_id": "physical-sound-v37-c0-query-surface-structural-cost-v1",
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-c0-query-surface-structural-cost-profile.v1",
+  "structural": {
+    "canonical_probe_grid": {
+      "directed_edges_per_field": 24,
+      "probe_count_per_field": 9,
+      "u_count": 3,
+      "v_count": 3
+    },
+    "context_feature_formula": "frozen-v37-fourteen-physical-context-scalars-v1",
+    "expected_totals": {
+      "cases": 1512,
+      "directed_edges": 233280,
+      "fields": 9720,
+      "modal_rows": 15120,
+      "probes": 87480
+    },
+    "query_support": {
+      "canonical_cell_tie_break": "lower-triangle-when-local-u-plus-v-less-than-or-equal-one",
+      "triangle_count_per_field": 8
+    },
+    "remesh_pair": {
+      "coarse_u": 17,
+      "coarse_v": 13,
+      "fine_u": 33,
+      "fine_v": 25,
+      "projection": "analytic-p1-field-to-fixed-canonical-probes-v1"
+    },
+    "surface_function_realization": {
+      "formula": "p1_mode_value*(1+0.06*sin(2*pi*(a*u+b*v+phase))+0.03*(2*u-1)*(2*v-1))",
+      "formula_id": "seeded-canonical-probe-polynomial-and-harmonic-field-v1",
+      "minimum_positive_envelope": "0.91",
+      "seed_mapping": "a=1+seed%5;b=1+(seed//5)%7;phase=((seed//35)%17)/17"
+    },
+    "topology_reachability": {
+      "graph_layers": 2,
+      "minimum_exact_two_hop_pairs_per_field": 4
+    }
+  },
+  "structural_prohibitions": {
+    "forbidden_import_stems": [
+      "requests",
+      "soundfile",
+      "torchaudio",
+      "urllib"
+    ],
+    "forbidden_profile_sections": [
+      "candidate_weights",
+      "metrics",
+      "predictions",
+      "target_values",
+      "targets",
+      "truth_values"
+    ]
+  }
+}
