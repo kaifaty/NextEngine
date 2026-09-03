@@ -1,0 +1,103 @@
+{
+  "access_policy": {
+    "audio_decode_allowed": false,
+    "feature_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed_at_build": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "waveform_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "descriptor_source_authority": true,
+    "numerical_control_prospect_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "METADATA_ONLY_DESCRIPTOR_AND_NUMERICAL_CONTROL_INCREMENT / NO_WAVEFORM_TRAINING_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 6224,
+      "path": "docs/development/physical-sound-v44-c1-runtime-descriptor-contract-result-2026-09-03.md",
+      "sha256": "a20907a24959cfc1122fd8015e21fe912fcc5f90f4b539943db7aa6e57b05b45"
+    },
+    {
+      "bytes": 6063,
+      "path": "lab/profiles/physical-sound-v43-d2-c0r-identity-repair.v1.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    {
+      "bytes": 6404,
+      "path": "lab/profiles/physical-sound-v44-c1-runtime-descriptor-contract.v1.json",
+      "sha256": "a8bdf313204b89c55f3fbc1a9b2f174ced48a3a337274e8d79c27c14066b9ed1"
+    },
+    {
+      "bytes": 29584,
+      "path": "lab/scripts/physical_sound_v44_g0_structured_source_v1.py",
+      "sha256": "956afaade2dc6f29e6f7714bb42affa87dc1eea2abd99e2fea434ef0dc0a8599"
+    }
+  ],
+  "expected_result": {
+    "c0r_ycb_parents": 29,
+    "descriptor_artifacts": 2,
+    "descriptor_observations": 26,
+    "plate_prospects": 20,
+    "priority_plate_prospects": 15
+  },
+  "input_bindings": {
+    "development_projection": {
+      "bytes": 90451,
+      "path": "projections/generator_development.json",
+      "sha256": "d58b5f236fef911089b49b596a45ddc10ae511db60cb38ab8bb8bd1a50e76c08"
+    },
+    "train_projection": {
+      "bytes": 82647,
+      "path": "projections/generator_train.json",
+      "sha256": "93d397c18c3c8df49f7f687caf79d8e346b7691c0ab1726dd3488bcd8f2bc00e"
+    }
+  },
+  "profile_id": "physical-sound-v44-g0-structured-source-v1",
+  "raw_inputs": {
+    "plate_paper_pdf": {
+      "bytes": 162326,
+      "path": "giordano-mcadams-2006-plates.pdf",
+      "sha256": "f30408f7a9b7a38273cf79fe02636c1e3ddfa82b6012dc069c3b7b2de8e0f5a2"
+    },
+    "plate_paper_text": {
+      "bytes": 86230,
+      "path": "giordano-mcadams-2006-plates.txt",
+      "sha256": "42b99fb5c271661c47a3f45d39b790cf97c1617e5c698f7435beecb82e518b67"
+    },
+    "ycb_paper_pdf": {
+      "bytes": 1293998,
+      "path": "ycb-object-model-set-icar-2015.pdf",
+      "sha256": "71aee0b490a5a19a1f885b9b502738241f01af24677973999e1fc307dabf0aa5"
+    },
+    "ycb_paper_text": {
+      "bytes": 51165,
+      "path": "ycb-object-model-set-icar-2015.txt",
+      "sha256": "f20d240365ad63aab7a0dc9f90efe8416b15fd4ad5b2ceda0a44a5e4a2a36467"
+    }
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0-profile.v1",
+  "source_policy": {
+    "descriptor_fields": [
+      "extent_micrometres",
+      "mass_milligrams"
+    ],
+    "license_expression": "NOASSERTION",
+    "redistribution_policy": "external_research_only",
+    "source_root_name": "ycb-object-properties"
+  }
+}
