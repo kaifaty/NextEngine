@@ -24,6 +24,14 @@
 - Maintain one stable roadmap. A failed experiment updates its evidence or compact task-state; it does not justify a new numbered roadmap. Replace or version a roadmap only when the objective, product sequencing, governing semantics or user direction materially changes.
 - Prefer one reversible experiment plus its focused test/result over separate protocol, freeze, conformance and result packages. Preregistration is reserved for protected/one-shot evidence, substantial irreversible compute or an explicit user request.
 
+## Skill routing
+
+- Trigger a language, library or meta-skill from the immediate obstacle, not merely because the repository happens to use that language, framework or workspace shape.
+- Prefer a narrow project-specific skill over a generic pack. For example, NextEngine TRAIN execution and diagnosis use the dedicated runner/diagnostics skills rather than a general RL or Stable-Baselines3 guide.
+- When a repository-local skill and a global skill have the same name, use the repository-local version only unless it explicitly delegates to the global one.
+- Start with at most one specialist reference. Load another only when observed evidence exposes a second independent boundary.
+- A skill may constrain how the requested work is done, but it must not expand the primary deliverable into its full catalog of optional capabilities, artifacts or audits.
+
 ## Durable task context
 
 - For long-running, resumed, handed-off, research-heavy or approach-changing work, use the repository `maintain-task-context` skill and read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
