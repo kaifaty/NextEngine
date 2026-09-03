@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / R0_COMPLETE / N0_NEXT / V36_D0_SEALED_AND_UNOPENED / ML_FIRST / INTERNET_DATA_ONLY / AUTOMATIC_VALIDATION / OFFLINE_COOKING / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / R0_N0_COMPLETE / V36_D0_REPEAT_EXACT_METRIC_REJECT / V36_CLOSED / H0_UNOPENED / NR_NEXT / ML_FIRST / INTERNET_DATA_ONLY / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V36](physical-sound-synthesis-roadmap-v36.md) как программный план; замороженные V36 D0/H0 runner, protocol, profile и seal переносятся без изменений |
-| Текущее evidence | [V36 E0 execution seal](../development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) и [V36 D0 frozen protocol](../development/physical-sound-v36-d0-fresh-development-protocol-2026-09-03.md) |
+| Текущее evidence | [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md), [V36 E0 execution seal](../development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) и [V36 D0 frozen protocol](../development/physical-sound-v36-d0-fresh-development-protocol-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь не записывает удары и не подтверждает каждый звук; реальные данные ищутся в интернете, решение принимает автоматический pipeline |
 
@@ -33,8 +33,9 @@ Steel, потому что его текущий интернет-corpus бли�
 одного заявленного деревянного домена.
 
 V37 — revision программного плана, а не новая научная роль. Он не создаёт
-`V37 targets` и не изменяет уже запечатанную V36 модель. Ближайший эксперимент
-остаётся V36 D0/H0 с теми же байтами и one-shot правилами.
+`V37 targets`. Замороженный V36 D0 выполнен и repeat-exactly отверг compact
+hybrid на contact transfer; H0 не открывался. Следующая научная роль появится
+только после нового surface/operator hypothesis и complete-path preflight.
 
 ## Главное техническое решение
 
@@ -97,16 +98,15 @@ V37 — revision программного плана, а не новая нау�
 
 ```mermaid
 flowchart TD
-    R0["R0 ML-first rebaseline: complete"] --> N0["N0 sealed V36 D0: next"]
-    N0 -->|"Pass"| N1["N1 V36 method holdout"]
-    N0 -->|"Scientific reject"| NR["NR new representation research"]
-    N0 -->|"Owner fault"| EF["EF reusable experiment framework"]
-    N1 -->|"Pass"| G0["G0 disclosed-real generator"]
-    N1 -->|"Reject/fault"| NR
+    R0["R0 ML-first rebaseline: complete"] --> N0["N0 V36 D0 MetricReject: complete"]
+    N0 --> NR["NR surface/operator research: next"]
+    N1["N1 V36 method holdout: not run"]
+    EF["EF freeze/reject evidence correction"] --> NR
 
     S0["S0 internet source growth"] --> S1["S1 protected role freeze"]
     S1 --> V0["V0 independent validator release"]
     S1 --> G0
+    NR --> G0["G0 disclosed-real generator"]
     G0 --> G1["G1 untouched generator holdout"]
     V0 --> J0["J0 one-shot joint admission"]
     G1 --> J0
@@ -117,21 +117,21 @@ flowchart TD
 ```
 
 S0/S1 и V0 не зависят от научного исхода V36 и остаются полезными при смене
-generator representation. G0 начинается только после `N1 Pass` и `S1`.
+generator representation. G0 начинается только после `NR Pass` и `S1`.
 
 ## Milestones и критерии выхода
 
 | ID | Результат | Состояние | Критерий выхода |
 | --- | --- | --- | --- |
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
-| N0 | V36 fresh development | `NEXT / SEALED_PRE_ACCESS` | Два заранее заданных процесса выполняют один и тот же committed runner без промежуточных правок. Результат byte-exact и терминален: `Pass`, metric/hard/resource reject или owner fault. |
-| N1 | V36 method holdout | `BLOCKED_BY_N0_PASS` | Frozen N0 candidate без обучения один раз открывает H0 и проходит все aggregate, branch, stratum, P1, provenance, trace и resource gates. |
-| NR | Successor representation research | `ONLY_AFTER_SCIENTIFIC_REJECT` | Новый surface/operator hypothesis объясняет конкретный N0/N1 counterexample и проходит новые unopened synthetic roles; V36 не тюнится и не переоткрывается. |
-| EF | Reusable experiment framework | `ONLY_AFTER_POST_ACCESS_OWNER_FAULT` | Capability, role access, fit/eval, terminal publication и artifact comparison становятся reusable tested substrate до выделения следующей научной роли. |
+| N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
+| N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
+| NR | Successor representation research | `NEXT` | Новый surface/operator hypothesis объясняет V36 contact/geometry/joint counterexample и проходит новые unopened synthetic roles; V36 не тюнится и не переоткрывается. |
+| EF | Freeze/reject evidence correction | `REQUIRED_INSIDE_NR_PREFLIGHT` | Complete-path fixtures доказывают, что reject публикует только rejected-candidate evidence, а H0 freeze существует исключительно после `Pass`. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
 | V0 | Independent automatic validator | `BLOCKED_BY_S1` | Grouped 95% false-pass upper bound `<= 0.10`, useful-coverage lower bound `>= 0.80`, corruption suite и leave-project-out проходят повторяемо; candidate outputs не участвовали в calibration. |
-| G0 | Disclosed-real generator training | `BLOCKED_BY_N1_AND_S1` | Frozen hybrid обучается только на disclosed generator roles; protected reads равны нулю, model lineage hash-closed, hard physics выполнены по построению. |
+| G0 | Disclosed-real generator training | `BLOCKED_BY_NR_PASS_AND_S1` | Frozen successor обучается только на disclosed generator roles; protected reads равны нулю, model lineage hash-closed, hard physics выполнены по построению. |
 | G1 | Untouched generator holdout | `BLOCKED_BY_G0` | На project/object-disjoint real holdout candidate превосходит frozen classical/local controls по всем preregistered primary strata и не нарушает causal/OOD/resource gates. |
 | J0 | Joint admission | `BLOCKED_BY_V0_AND_G1` | Frozen generator, validator, domain и cooker preprofile один раз открывают joint shadow и возвращают ровно `Pass`, `Reject` или `FallbackOutOfDomain`. |
 | K0 | Deterministic clip cooker | `BLOCKED_BY_J0_PASS` | Один accepted record дважды создаёт byte-identical bounded 48 kHz PCM atlas с provenance; invalid/OOD input не публикует частичный asset. |
@@ -170,23 +170,25 @@ engine schema. Каждая принятая запись связывает:
 
 1. **V37.0 — этот commit:** зафиксировать ML-first roadmap, сохранив V36 seal
    и scientific protocol без изменений.
-2. **V37.1 — next:** на чистом committed tree повторить финальный pre-access
-   checklist и выполнить V36 D0 A/B. Между A и B ничего не менять.
-3. **V37.2:** закоммитить терминальный D0 report. Только при exact `Pass`
-   подготовить и один раз выполнить H0 без retraining.
-4. **V37.3:** продолжить S0 metadata-only internet discovery партиями до
+2. **V37.1 — complete:** final pre-access checklist прошёл; V36 D0 A/B
+   repeat-exactly вернули `MetricReject`, H0 остался unopened.
+3. **V37.2 — complete:** терминальный D0 report закрывает V36 и фиксирует
+   post-access non-authoritative freeze-metadata defect без repair/retry.
+4. **V37.3 — next:** исследовать topology/surface operator для contact field и
+   заморозить value-free complete-path protocol с однозначным reject/freeze.
+5. **V37.S:** продолжить S0 metadata-only internet discovery партиями до
    `S1 Feasible` либо честного `NoEligibleDelta`.
-5. **V37.4:** собрать validator calibration corpus и выпустить V0 только после
+6. **V37.4:** собрать validator calibration corpus и выпустить V0 только после
    grouped risk/coverage, mutation и leave-project-out gates.
-6. **V37.5:** после N1+S1 обучить G0 на disclosed-real roles и один раз открыть
+7. **V37.5:** после NR+S1 обучить G0 на disclosed-real roles и один раз открыть
    G1 generator holdout.
-7. **V37.6:** заморозить generator, validator, domain и cooker preprofile; один
+8. **V37.6:** заморозить generator, validator, domain и cooker preprofile; один
    раз выполнить J0 admission shadow.
-8. **V37.7:** после J0 Pass реализовать K0 и P0 через существующий audio path с
+9. **V37.7:** после J0 Pass реализовать K0 и P0 через существующий audio path с
    полным authored fallback.
-9. **V37.8:** повторять S1–J0 как независимые releases для Glass archetypes и
+10. **V37.8:** повторять S1–J0 как независимые releases для Glass archetypes и
    Wood; не переносить thresholds или admission credit по material label.
-10. **V37.9:** только после работающего consumer подготовить promoting ADR,
+11. **V37.9:** только после работающего consumer подготовить promoting ADR,
     минимальный public contract и Linux ProductChecks.
 
 Внутренний WIP limit критического пути — один необратимый experiment gate за

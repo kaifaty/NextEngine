@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-03` |
-| Status | `FROZEN_EXECUTION_PACKAGE / SUPERSEDED_AS_PROGRAM_PLAN_BY_V37 / R0_A0_F0_C0_X0_E0_COMPLETE / D0_UNOPENED / EXECUTION_SEALED_PRE_ACCESS` |
+| Status | `CLOSED / D0_REPEAT_EXACT_METRIC_REJECT / H0_UNOPENED / NO_CANDIDATE_AUTHORITY / SUPERSEDED_AS_PROGRAM_PLAN_BY_V37` |
 | Superseded by | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md); V36 D0/H0 runner, protocol, profile, seal and one-shot rules remain unchanged |
 | Replaces | [Roadmap V35](physical-sound-synthesis-roadmap-v35.md), closed after a repeat-exact post-access owner fault; every V35 train/development role is spent and H0 stays unopened |
 | Research basis | [V36 sealed-owner rebaseline](../development/physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) |
@@ -13,6 +13,7 @@
 | C0 evidence | [Repeat-exact fresh structural census](../development/physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md) |
 | X0 evidence | [Repeat-exact mutation and terminal conformance](../development/physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) |
 | E0 evidence | [Repeat-exact full surrogate rehearsal and execution seal](../development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) |
+| D0 evidence | [Repeat-exact fresh development MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) |
 | Architecture | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; no production consumer or promoting ADR |
 | Product-owner constraint | Evidence is internet-sourced or synthetic; the user records no impacts and does not approve sounds one by one |
 
@@ -149,8 +150,8 @@ upstream reject as partial admission.
 | C0 | Fresh structural census | [`COMPLETE / REPEAT_EXACT / ZERO_TRUTH_TARGET_VALUES`](../development/physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md) | Dedicated truth-free structural profile reproduces all F0 roots; every `15,120` P1 row is valid, all witnesses/support close, 216/215 local counts hold, both experts are reachable and OOD count is zero. |
 | X0 | Mutation and lifecycle conformance | [`COMPLETE / REPEAT_EXACT / 38_MUTATIONS / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) | All 38 container/lifecycle/trace mutations reject; eight complete D0/H0 scientific terminals, four failpoints and pre/post-access exception conversion close atomically in two exact processes. |
 | E0 | Full surrogate rehearsal and execution seal | [`COMPLETE / REPEAT_EXACT / FULL_D0_H0 / SEALED / ZERO_OFFICIAL_VALUES`](../development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) | The committed owner completes all four `1,200`-step fits and every D0/H0 control, metric, hard/resource gate and scientific terminal over exact `6,480 / 4,320 / 4,320` discarded rows twice; all 24 files/stdout match and the checked-in seal binds both roots before official access. |
-| D0 | Fresh development tournament | `NEXT / SEALED_PRE_ACCESS` | The unchanged candidate beats nearest and continuous-local controls in aggregate and every transfer stratum, passes both-expert ablations and all hard/resource gates, freezes one candidate and leaves H0 access at zero. |
-| H0 | One-shot method holdout | `BLOCKED_BY_D0_PASS` | Frozen candidate runs without training and independently passes all aggregate/branch/stratum, P1 hard, provenance, trace and resource gates. Any reject/fault closes V36. |
+| D0 | Fresh development tournament | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B match across stdout, stderr and all 12 files. Hard/resources pass, but contact transfer loses every frozen control comparison and 18/28 metric/ablation gates fail. |
+| H0 | One-shot method holdout | `NOT_RUN / PERMANENTLY_CLOSED` | D0 did not pass, candidate authority is false and method-holdout access remains exact zero. |
 | S0 | Bounded internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Each batch audits at most three named primary-source leads and returns `Feasible`, `ImprovedFrontier` or `NoEligibleDelta` without signal access. |
 | S1 | Protected real-role freeze | `BLOCKED_BY_S0_FEASIBLE` | Both protected roles have at least two projects, 16 exact-Steel groups and 35 non-Metal reject parents, with five projects reserved for other one-use roles. |
 | V1 | Independent real validator | `BLOCKED_BY_S1` | Project/object-disjoint calibration reaches grouped 95% false-pass upper bound `<=0.10` and useful-coverage lower bound `>=0.80`; mutations and leave-project-out repeat. |
@@ -220,11 +221,11 @@ a miss.
 6. **V36.5 — complete:** the committed owner runs D0/H0 twice end-to-end on
    full-count/full-step surrogate values; all 24 files/stdout repeat exactly,
    every scientific terminal publishes, and one checked-in seal binds both roots.
-7. **V36.6 — next:** implement the seal-verifying official provider boundary,
-   then execute fresh D0 once in two processes. Freeze one candidate only
-   after complete repeat-exact Pass; any reject/fault closes V36.
-8. **V36.7:** execute H0 once without retraining; admit or permanently close the
-   synthetic method.
+7. **V36.6 — complete:** the seal-verifying official provider and runner
+   executed fresh D0 A/B exactly; both returned the same `MetricReject` with
+   complete access receipts and no forbidden access.
+8. **V36.7 — not run:** D0 reject permanently closes H0 and V36. The compact
+   hybrid is not tuned or retried on spent values.
 9. **V36.S:** independently continue internet-source discovery in batches of at
    most three named primary-source leads.
 10. **V36.8:** only after H0+S1, qualify V1 and execute M2/M3/J0 with one-use,
@@ -248,5 +249,6 @@ a miss.
 - Runtime/product promotion requires a separate Accepted ADR, affected SPEC,
   routing update and consumer-backed ProductChecks.
 
-SPEC-45 remains `Proposed`. V36 adds no public schema, content role, runtime
-model, production gate or shipped capability.
+SPEC-45 remains `Proposed`. V36 is closed and adds no public schema, content
+role, runtime model, production gate or shipped capability. Roadmap V37 owns
+the surface/operator successor research and independent source/validator lane.
