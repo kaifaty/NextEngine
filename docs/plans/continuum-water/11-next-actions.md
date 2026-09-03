@@ -74,6 +74,13 @@ evidence; no law, coefficient or record layout changes.
 - Player-driven gates and pumps through the interaction system (the
   first "communicating vessels" gameplay).
 - Player buoyancy and swimming speed (ADR-105 named it a later consumer).
+- Quiescence threshold in the flow law (decided 2026-09-03, task-state
+  D-010): a future optimisation for lattices beyond the current bounds,
+  not now. Shape when revisited: an authored network field (`0` = off,
+  encoded only when non-zero so existing hashes stay), a head threshold
+  in micrometres rather than a volume, rate edges exempt, an ADR-103
+  revision with regenerated pins. Trade-offs recorded in plan 20 and in
+  the decision.
 - Promotion housekeeping that remains after the ADR acceptance: the
   remaining terrain clauses of SPEC-38 stay `Proposed` under their own
   heading until a terrain consumer exists.

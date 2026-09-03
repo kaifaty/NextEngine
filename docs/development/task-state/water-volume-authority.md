@@ -97,7 +97,7 @@
 - **Acceleration done (2026-09-03, plan 11 section 2):** WB1 buoyancy batch `260 us` → `13 us` mean / `18-25 us` max (plan 08 revisions 2-3: identifiers once per batch, level cache, plan-rectangle reject, `text_id!` identifiers as `Arc<str>` — a representation change of `next_contracts::ids`, canonical bytes unchanged); R8d flow step `183 us` → `28 us` mean / `41-46 us` max (plan 07 revision 2: `WaterFlowNetworkV1::step_in_place`, `PhysicsWorldBackend::step_water_flow`, `i128::isqrt`). Records, fluxes, levels and every root unchanged; the cost reports carry a mean next to the gated maximum.
 - **Lattice tier done (2026-09-03, plan 19, SPEC-38 3.1 practice 1):** `WaterLatticeRegionV1` (`crates/contracts/src/physics/water_lattice.rs`) builds face-sharing cells and open sills; the volume overlap rule is positive-measure; `CONTINUUM-WATER-LATTICE-P1 = PASS` through `xtask water-lattice` (exact conservation, downhill settle within `3.9 mm` of head, repeated and cloning runs identical, `18 us` mean step). The reference scene is unchanged.
 - **Activity stepping done (2026-09-03, plan 20, SPEC-38 3.2 practice 2):** `WaterFlowActivityV1` (derived, never saved, reset with the table or network, empty after restore) and `step_in_place_with_activity`; `GroundedCapsuleWorld` steps with it. Roots identical to the always-stepped run with and without a wake; `water-flow` restored-run and `persistence-replay` PASS. Frozen G2/G5 thresholds FAIL by reading: under the exact weir law a settled sill reaches flux `0` only below about `6 um` of head (first rest `6.8` minutes after the water arrives, `59` percent of sills at `20` minutes, step `17` to `14 us`).
-- **Decision pending (D-010 candidate):** a quiescence clause in ADR-103's flux law (per-tick flux below a frozen threshold records `0`) would let settled water rest within seconds but changes every recorded root; not made without the decision.
+- **Decided 2026-09-03 (D-010):** the quiescence clause of the flux law is deferred; recorded as a future optimisation in plan `continuum-water/11` section 4, to be revisited only with a lattice larger than the current bounds.
 - **Next (plan `continuum-water/11` section 3):** edge-driven
   presentation at scale (practice 3: one presentation record per active
   edge) and rotational presentation (practice 4); gameplay gates/pumps
@@ -253,6 +253,27 @@
   water side would read the rigid outcome it feeds).
 - **Reconsider when:** several batch profiles per world or per-volume
   densities are needed.
+
+### D-010 — No quiescence threshold in the flux law for now (deferred)
+
+- **Observation:** with the activity set of plan 20 the roots are
+  identical to the always-stepped run, but the exact weir law with
+  integer truncation reaches flux `0` only under about `6 um` of head,
+  so settled sills rest minutes after visual settling (`59` percent at
+  `20` minutes). A threshold ("a per-tick flux below `X` records `0`")
+  would rest them in seconds.
+- **Decision (user, 2026-09-03):** not now. The clause changes ADR-103's
+  law and every recorded root, leaves a residual head "staircase" of the
+  threshold's size, scales with cell area if stated in volume, chatters
+  at the boundary, and would silently swallow weak sources, sinks and
+  pumps unless they are excluded. At the current bounds the always-active
+  step costs `17-44 us`, so the practice has nothing to save yet.
+- **Recorded for later (plan 11 section 4):** if a lattice larger than
+  the current `64` cells / `256` edges is authored, introduce the
+  threshold as an authored network field (`0` = off, encoded only when
+  non-zero so existing hashes stay), stated as a head in micrometres
+  rather than a volume, with rate edges (source, sink, pump) exempt, and
+  recorded as an ADR-103 revision with regenerated pins.
 
 ### D-003 — Verification issues the level command as a `Tool` principal
 
