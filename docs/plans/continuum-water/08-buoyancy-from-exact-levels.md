@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WB1` |
-| Status | `FROZEN / NOT_RUN` |
+| Status | `FROZEN / BLOCKED_BY_PREREQUISITE (no free rigid dynamics in the canonical world)` |
 | Parent | ADR-105 (Proposed); ADR-104 product check `CONTINUUM-WATER-BUOYANCY-P1`; ADR-076/081 one-pass step and exchange tuple |
 | Purpose | the first rigid coupling of water: buoyancy and drag from exact levels through an exact impulse batch in the physics step input |
 
@@ -24,6 +24,19 @@
 - Verification `xtask water-buoyancy` (`CONTINUUM-WATER-BUOYANCY-P1`):
   `600` ticks to settle, `SetLevel 1.5 m` at tick `600`, `600` more
   ticks, save at tick `900`, restore and continue, repeat generation.
+
+## Prerequisite found before running (2026-09-03)
+
+The canonical world (`GroundedCapsuleWorld`, used by both the reference and
+the PhysX backend, which supplies only sweep queries) integrates only the
+player capsule. Dynamic boxes have no mass, no gravity and no free
+integration: they move only when pushed (R5b/R5j). A floating crate
+therefore needs a new rigid increment first: an exact vertical free-body
+model for dynamic boxes (mass in the body descriptor, gravity, floor
+contact, velocity integration) or, narrower, buoyancy applied as a
+kinematic level-following rule. The plan stays frozen; its gates are
+unchanged; which prerequisite to take is a product decision recorded in
+the water task-state.
 
 ## Frozen gates
 

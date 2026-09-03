@@ -77,7 +77,13 @@ player capsule is a later consumer.
 
 ## Consequences
 
-- `PhysicsStepInputV2` becomes `V3` (schema bump, pinned roots refresh).
+- `PhysicsStepInputV2` moves to schema `3` with the batch field (the
+  repository keeps type names across schema bumps, as
+  `PhysicsWorldCheckpointV1` does; pinned roots refresh).
+- Prerequisite (found 2026-09-03, plan 08): the canonical world has no
+  free rigid dynamics for boxes (no mass, no gravity); a floating body
+  needs an exact vertical free-body increment for dynamic boxes before
+  this batch can move anything. That increment is its own plan.
 - The reference scene gains one floating crate in the basin.
 - SPEC-26 gains the batch record and the step-input field; SPEC-38's
   coupling section names this ADR as the water V1 coupling path.

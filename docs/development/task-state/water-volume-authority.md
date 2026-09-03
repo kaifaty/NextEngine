@@ -184,9 +184,14 @@
 
 0. Water mechanics (ADR-103): done in R8d (`CONTINUUM-WATER-FLOW-P1 =
    PASS`); the network tick rate is cross-checked against the world
-   profile at activation and restore (2026-09-03). Next: implement plan
-   `continuum-water/08` (ADR-105 buoyancy batch, `PhysicsStepInputV3`,
-   the floating crate, `xtask water-buoyancy`), then the SPEC-38 2.2
+   profile at activation and restore (2026-09-03). Plan
+   `continuum-water/08` (ADR-105 buoyancy batch) is blocked by a
+   prerequisite: the canonical world has no free rigid dynamics for
+   boxes (no mass, no gravity, push-only). Decision pending: (a) an exact
+   vertical free-body increment for dynamic boxes (mass in the
+   descriptor, gravity, floor contact) under SPEC-26, then the batch; or
+   (b) do `CONTINUUM-WATER-PRESENT-P1` first and return to buoyancy with
+   (a). Then the SPEC-38 2.2
    practices in ADR-103 order (lattice tier, activity stepping,
    edge-driven presentation, rotational presentation, wave layer);
    surface meshes for the two vessels ride the first presentation
