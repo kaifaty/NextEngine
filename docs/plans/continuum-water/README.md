@@ -1,6 +1,6 @@
 # Continuum water — standalone implementation roadmap
 
-Status: `RESEARCH_ONLY / ACTIVE_W2_RESEARCH / INTEGRATION_BLOCKED / ADR-100_PROPOSED`; post-v1 isolated program. Governing candidate
+Status: `RESEARCH_ONLY / ACTIVE_W2_RESEARCH / INTEGRATION_BLOCKED / ADR-100_ACCEPTED_2026-09-03`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)

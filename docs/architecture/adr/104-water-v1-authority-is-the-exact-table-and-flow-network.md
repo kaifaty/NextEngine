@@ -3,8 +3,9 @@
 | Field | Value |
 |---|---|
 | ID | ADR-104 |
-| Status | Proposed |
-| Version | 0.3 |
+| Status | Accepted |
+| Version | 1.0 |
+| Decision date | 2026-09-03 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md), [ADR-102](102-presentation-particle-surface-pass.md), [ADR-103](103-authoritative-water-flow-network.md) |
@@ -95,7 +96,9 @@ Water is promoted (ADR-100, ADR-103 and this ADR Accepted; SPEC-38
 Accepted for water, with any still-open terrain clauses moved to their own
 Proposed SPEC) when the four `CONTINUUM-WATER-*` checks pass on the
 reference host with pinned roots and the routing/traceability/roadmap
-updates land.
+updates land. Accepted 2026-09-03: the four checks pass (R8c, R8d, WP1,
+WB1), ADR-100/103/105 and this ADR are Accepted, SPEC-38 3.0 is Accepted
+for water and its terrain clauses moved to Proposed SPEC-39.
 
 ## Consequences
 

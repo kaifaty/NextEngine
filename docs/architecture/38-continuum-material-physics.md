@@ -3,19 +3,22 @@
 | Field | Value |
 |---|---|
 | ID | SPEC-38 |
-| Status | Proposed |
-| Version | 2.4 |
+| Status | Accepted (water); other material lanes in Proposed SPEC-39 |
+| Version | 3.0 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](adr/103-authoritative-water-flow-network.md), [ADR-104](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
-| Candidate revision note | Version 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (ADR-105: the exact impulse batch inside the step input, the reference crate floating on the basin level); version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
+| Candidate revision note | Version 3.0 (2026-09-03) accepts the water clauses under ADR-104: the four `CONTINUUM-WATER-*` checks pass, ADR-100/103/104/105 are Accepted, the dry terrain and other material lanes moved to Proposed [SPEC-39](39-deformable-terrain-and-other-material-lanes.md); version 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (ADR-105: the exact impulse batch inside the step input, the reference crate floating on the basin level); version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
 
-This SPEC defines candidate semantics and promotion gates for bounded local
-continuum materials. It does not authorize runtime schemas, alter the current
-PhysX-only production implementation, or claim that water, sand, mud, soil or
-snow is shipped. The umbrella work-package index is maintained in
+This SPEC records the accepted semantics of water V1 (ADR-104): the exact
+water table, the flow network and the buoyancy batch whose schemas live in
+SPEC-26, the water tiers and practices, the presentation and failure
+semantics, and the research appendix of the particle lanes. Sand, mud,
+soil, snow and deformable terrain are candidate lanes in Proposed
+[SPEC-39](39-deformable-terrain-and-other-material-lanes.md); nothing here
+claims them shipped. The umbrella work-package index is maintained in
 [the continuum specification series](../plans/continuum-material-physics/README.md);
 water execution is maintained independently in
 [the water roadmap](../plans/continuum-water/README.md).
@@ -33,10 +36,10 @@ water consumer.
 `CONTINUUM-WATER-PRESENT-P1` (WP1) and `CONTINUUM-WATER-BUOYANCY-P1` (WB1)
 pass through `xtask water-volume`, `xtask water-flow`, `xtask water-present`
 and `xtask water-buoyancy`; the water V1 ladder of ADR-104 is complete on
-the reference host and its promotion (ADR-100/103/104/105 Accepted) is the
-next decision. The research checks below are
+the reference host and was accepted 2026-09-03 (ADR-100/103/104/105
+Accepted). The research checks below are
 reports, not promotion gates. The authoritative water table lives in the physics world
-checkpoint under Proposed ADR-100 and SPEC-26 2.6; the particle lanes below
+checkpoint under Accepted ADR-100 and SPEC-26 2.8; the particle lanes below
 still change no production world, save/replay format or public contract.
 
 ## Candidate authority and canonical water state
@@ -273,18 +276,10 @@ required by ADR-081.
 
 ## Other material lanes
 
-Dry deformable terrain begins only with one calibrated Drucker-Prager sand
-profile implemented through APIC/MLS-MPM. The MPM lane exclusively owns a
-declared deformable wheel/terrain or foot/terrain contact pair; the matching
-PhysX ground contact is disabled, and MPM emits the sole bounded reaction
-batch. The first consumer is an instrumented prescribed single-wheel rig, not
-a complete vehicle.
-
-Exact active terrain persistence follows dry-sand/contact evidence and
-precedes saturation. Wet material then advances through saturation/drainage,
-mechanical response, and only later a closed atomic free-water/terrain flux
-batch. Cross-region transfer, lossy sleep and two-phase poromechanics are
-separately gated later work.
+Dry deformable terrain, wet material saturation and the other non-water
+lanes are specified in Proposed
+[SPEC-39](39-deformable-terrain-and-other-material-lanes.md); they were
+moved there at the water acceptance (3.0) and keep their gates unchanged.
 
 ## Water tiers and practices (ADR-104)
 
@@ -405,7 +400,7 @@ promotion gates):
 | `CONTINUUM-PARTICLE-COUPLING-R1` (research, formerly `CONTINUUM-COUPLING-P1`) | One-pass reaction closure from a particle set, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
 | `CONTINUUM-PARTICLE-PERSISTENCE-R1` (research, formerly `CONTINUUM-PERSISTENCE-P1`) | Exact active particle save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
-| `CONTINUUM-TERRAIN-P1` (separate lane) | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
+| `CONTINUUM-TERRAIN-P1` (separate lane, SPEC-39) | Specified in Proposed SPEC-39; not a water gate. |
 | conditional `performance` (network) | The exact flow step at the record bounds (`64` cells, `256` edges) on the reference host in a release build: currently `183 us` per step (plan 07, G6 `50 us` not met); report-only until a bound is frozen with a consumer. |
 | conditional `performance` | The presentation solver owns its own budget row: `48k` presentation water at the THOTH `4/6 ms` p95/p99 stop target on the reference host; a missed budget lowers surface cadence or sample count, never gameplay. An authoritative particle solver, if ever proposed, must additionally pass the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. `10k` and `100k` remain report profiles. |
 

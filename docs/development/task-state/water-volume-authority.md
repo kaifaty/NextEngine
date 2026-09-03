@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
-| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_BOXES_DONE (WR1) / CONTINUUM-WATER-BUOYANCY-P1=PASS (WB1) / PROMOTION_DECISION_NEXT` |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_BOXES_DONE (WR1) / CONTINUUM-WATER-BUOYANCY-P1=PASS (WB1) / WATER_V1_ACCEPTED_2026-09-03 / WATER_LOOK_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-03 |
 
@@ -84,12 +84,14 @@
   basin. `cargo run -p xtask -- water-buoyancy` runs
   `CONTINUUM-WATER-BUOYANCY-P1` (settled immersion `0.196 m`, follows a
   `1.5 m` level, dry push box untouched, live/restored/repeated roots).
-- **Next:** the four `CONTINUUM-WATER-*` checks pass on the reference
-  host; the promotion decision (ADR-100/103/104/105 Accepted, SPEC-38
-  Accepted for water) is the next step, then the remaining SPEC-38 2.2
-  practices (lattice tier, activity stepping, rotational presentation)
-  and wake/splash presentation for the crate (ADR-102 increment); the
-  research CUDA tool stays a separate process behind the neutral stream.
+- **Accepted 2026-09-03.** ADR-100/103/104/105 Accepted, SPEC-38 3.0
+  Accepted for water, terrain clauses in Proposed SPEC-39.
+- **Next (plan `continuum-water/11`):** the water look first (surface
+  material, shore fade, refraction, wave spectrum, planar reflection,
+  caustics, crate wake; DLSS-ready buffers, no vendor SDK), then the
+  recorded cost revisions (WB1 G6 batch, WR1 integrator, R8d flow step),
+  then the scale practices; gameplay gates/pumps and player buoyancy are
+  deferred by decision.
 
 ## Required context
 
@@ -97,7 +99,7 @@
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum
   materials ..." in `docs/architecture/agent-routing.md`.
-- ADR-100 / ADR-101 / ADR-102 / ADR-103 / ADR-104 (Proposed), SPEC-26 2.6, SPEC-38 2.2, SPEC-03 2.11, SPEC-21 2.2.
+- ADR-100 / ADR-103 / ADR-104 / ADR-105 (Accepted 2026-09-03), ADR-101 / ADR-102 (Proposed), SPEC-26 2.8, SPEC-38 3.0, SPEC-39 0.1 (terrain), SPEC-03 2.12, SPEC-21 2.2; next actions in `docs/plans/continuum-water/11-next-actions.md`; water look research in `docs/development/water-look-dlss-research-2026-09-03.md`.
 - Research side and live Vulkan bridge:
   `docs/development/task-state/nonlocal-gpu-full-step-performance.md`.
 
@@ -296,11 +298,11 @@
    the presentation stage first, then the free-body increment.
 1. Free-body boxes: done in WR1 (plan `continuum-water/10`, SPEC-26
    2.7). Buoyancy batch: done in WB1 (plan `continuum-water/08`,
-   ADR-105 0.2, SPEC-26 2.8, SPEC-03 2.12, SPEC-38 2.4). Next: the
-   promotion decision for the water ladder (ADR-104), then the remaining
-   SPEC-38 2.2 practices in ADR-103 order (lattice tier, activity
-   stepping, rotational presentation) and a crate wake/splash increment.
+   ADR-105, SPEC-26 2.8, SPEC-03 2.12, SPEC-38). Water V1 accepted
+   2026-09-03. Next: plan `continuum-water/11` in order — the water look
+   (L1-L8), the cost revisions, the scale practices; gameplay gates/pumps
+   and player buoyancy deferred.
 2. Optional gameplay effect: motor speed scaling from the classification
    (needs its own bounded evidence; not part of C's authority split).
-3. Keep ADR-100/103/104 Proposed until the four `CONTINUUM-WATER-*` checks pass, then accept them with the
+3. Done 2026-09-03: ADR-100/103/104/105 accepted after the four `CONTINUUM-WATER-*` checks passed, with the
    SPEC/routing/traceability updates.

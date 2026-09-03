@@ -3,10 +3,11 @@
 | Field | Value |
 |---|---|
 | ID | ADR-103 |
-| Status | Proposed |
-| Version | 0.4 |
+| Status | Accepted |
+| Version | 1.0 |
+| Decision date | 2026-09-03 |
 | Proposal date | 2026-09-02 |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Supersedes | none (extends the ADR-100 `WaterVolume` owner) |
 | Superseded by | none |

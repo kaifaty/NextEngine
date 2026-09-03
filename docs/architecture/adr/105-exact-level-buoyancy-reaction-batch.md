@@ -3,8 +3,9 @@
 | Field | Value |
 |---|---|
 | ID | ADR-105 |
-| Status | Proposed |
-| Version | 0.2 |
+| Status | Accepted |
+| Version | 1.0 |
+| Decision date | 2026-09-03 |
 | Proposal date | 2026-09-03 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](103-authoritative-water-flow-network.md), [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md) |

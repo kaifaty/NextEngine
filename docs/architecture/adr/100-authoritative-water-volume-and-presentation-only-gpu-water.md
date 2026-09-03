@@ -3,8 +3,9 @@
 | Field | Value |
 |---|---|
 | ID | ADR-100 |
-| Status | Proposed |
-| Version | 0.3 |
+| Status | Accepted |
+| Version | 1.0 |
+| Decision date | 2026-09-03 |
 | Proposal date | 2026-09-02 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md) |
