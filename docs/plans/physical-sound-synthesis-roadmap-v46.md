@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / EXECUTION_ROADMAP / FOUNDATION_D1_COMPLETE / CLAIM_MASKED_CORPUS_INDEX / B0_BASELINE_NEXT / RESEARCH_ONLY / OFFLINE_ML / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / EXECUTION_ROADMAP / B0_COMPLETE / NO_USEFUL_TEACHER / E0_V0_NEXT / M0_BLOCKED / RESEARCH_ONLY / OFFLINE_ML / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V45](physical-sound-synthesis-roadmap-v45.md) как planning authority; все V45 и более ранние exact results остаются immutable evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; V46 не создаёт public schema, runtime inference или production authority |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных записей, ударов по предметам и обязательного ручного прослушивания каждого результата |
@@ -45,6 +45,7 @@
 | Clatter comparator | `COMPLETE / REPEAT_EXACT` | Внешне воспроизводятся 84 labels/controls, соответствующие 36 уникальным modal priors; это baseline, не real truth. |
 | NISR/VibraVerse preflight | `COMPLETE / REPEAT_EXACT / UNTRUSTED` | Оба exact sources остановлены до payload: у NISR недоступен заявленный generation document, у VibraVerse отсутствует complete generation lineage. |
 | External corpus compiler | `COMPLETE / REPEAT_EXACT` | 154 real rows, 80 raw parents, 10 projects и 36 Clatter groups сведены в claim-masked index; роли изолированы, все 308 content objects остались закрыты. |
+| Lane-aware control tournament | `COMPLETE / REPEAT_EXACT / NO_USEFUL_TEACHER` | B0 воспроизводит global floor `1.312187716`, не пересекает C0R/NDAC-75/Recipe V3 contracts и находит `0` независимо scoreable non-real teachers; M0 остаётся закрыт. |
 | Disclosed real corpus | `71/105` supported parents | Есть настоящие записи для исследований, но не хватает `34` parents и второго независимого descriptor-to-signal проекта для выбора pack. |
 | Automatic validator release | `NOT_READY` | Есть компоненты и corruption tests, но ещё нет независимой calibration power и frozen release. |
 | Trained candidate / cooked pack / demo | `NOT_RUN` | Ни одна модель пока не имеет admission или product authority. |
@@ -77,13 +78,15 @@ radiation/residual head. Отсутствующий target остаётся mask
 
 ### Контур L — воспроизводимый ML lab
 
-Этот контур можно завершать сейчас, не ожидая полного real corpus:
+Первый проход этого контура завершён без права на M0:
 
-- проверить NISR и VibraVerse как synthetic teachers;
-- материализовать маленькие source-backed modal/transfer fixtures;
-- сравнить analytic, Clatter, ridge и одну bounded neural architecture;
-- доказать unseen-geometry/material/contact counterfactuals;
-- вернуть `SyntheticTeacherUseful` либо `SyntheticTeacherRejected`.
+- NISR и VibraVerse отклонены до payload по generation lineage;
+- structural-transfer rows отсутствуют;
+- [B0](../development/physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md)
+  сохраняет analytic/Clatter как controls, но не называет их teacher без
+  независимой совместимой истины;
+- bounded neural architecture не запускается, пока новый exact source не
+  создаст scoreable synthetic или structural lane.
 
 Результат L не разрешает pack, cooker или demo. Он отвечает на более узкий
 вопрос: умеет ли ML полезно предсказывать части Recipe V3 лучше простых методов.
@@ -108,8 +111,8 @@ radiation/residual head. Отсутствующий target остаётся mask
 | F0 | Foundation | V45 R0/T0/C0 остаются exact и являются единственной исходной representation/control основой. | При дефекте исправляется конкретный owner; старые quality roles не переоткрываются. |
 | D0 | `COMPLETE / REPEAT_EXACT / NO_TRUSTED_SYNTHETIC_TEACHER` | [Result](../development/physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md) отдельно отвергает NISR и VibraVerse по generation lineage при восьми metadata requests и нулевом payload/sample access. | Оба источника остаются закрыты до exact successor lineage; D1/B0 используют zero external synthetic rows, analytic и Clatter controls. |
 | D1 | `COMPLETE / REPEAT_EXACT / CLAIM_MASKED_INDEX` | [Result](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md) сводит 154 real rows и 36 Clatter groups в byte-identical index, доказывает role/project/parent isolation и не открывает 308 content objects. | Corrupt, ambiguous или incomplete row отвергается до target decode; индекс разрешает только B0. |
-| B0 | Multi-fidelity baselines | Analytic, global median, retrieval/ridge и 36-group Clatter сравниваются только на наблюдаемых lanes с project/parent grouping. | `NoUsefulTeacher`; analytic/Clatter остаются control/fallback. |
-| M0 | Synthetic/structural model | Одна заранее зафиксированная multi-head model улучшает лучший simple control на unseen synthetic geometry/material/contact mutations без lane regression. | `SyntheticTeacherRejected`; следующий шаг — новые данные/representation, не перебор seeds и widths. |
+| B0 | `COMPLETE / REPEAT_EXACT / NO_USEFUL_TEACHER` | [Result](../development/physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) воспроизводит global/ridge/retrieval на 24 supported C0R development parents, сохраняет global median `1.312187716`, группирует проекты после parents и не выполняет ни одного cross-contract сравнения. | `0` independently scoreable non-real teachers; analytic/Clatter остаются controls, IETeasy train-only, M0 не авторизован. |
+| M0 | `BLOCKED / NO_TRUSTED_TEACHER` | После нового exact source/preflight одна заранее зафиксированная multi-head model должна улучшить лучший compatible simple control на unseen synthetic geometry/material/contact mutations без lane regression. | До появления scoreable synthetic/structural lane запуск запрещён; затем `SyntheticTeacherRejected` возвращает работу к данным/representation, не к перебору seeds и widths. |
 | E0 | Real-source power | Второй независимый descriptor-to-signal project и суммарно `>=105` supported real parents проходят source, alias, descriptor и event/audio binding. | `RealSourcePowerOOD`; real fitting и material selection остаются закрыты. |
 | PSEL/B1 | Pack and signal gate | Pack выбран signal-blind; runtime descriptors улучшают frozen global floor по median `>=5%`, paired-bootstrap lower 95% bound `>0`, без P90 regression under leave-project-out. | `DescriptorSignalInsufficient`; выбранный pack остаётся `FallbackOnly`. |
 | V0 | Validator V1 | Независимые real projects, corruptions, features, thresholds, false-pass bound, selective coverage и OOD policy заморожены до candidate; generator access к calibration запрещён. | `ValidatorSourcePowerOOD` или `ValidatorUnqualified`; candidate training не начинается. |
@@ -127,14 +130,16 @@ radiation/residual head. Отсутствующий target остаётся mask
 2. **V46.2 — D1 — COMPLETE:** [repeat-exact result](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md)
    публикует claim-masked index, сохраняет разные target contracts и не
    открывает ни один из 308 referenced content objects.
-3. **V46.3 — B0 — NEXT:** выпустить lane-aware baseline table и выбрать control,
-   который действительно нужно превзойти.
-4. **V46.4 — M0:** обучить ровно одну bounded multi-head model; MLflow может
-   хранить external experiment lineage, но не является admission authority.
-5. **V46.5 — E0:** параллельно закрывать второй real project и дефицит `34`,
+3. **V46.3 — B0 — COMPLETE:** [repeat-exact result](../development/physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md)
+   возвращает `NoUsefulTeacher`, сохраняет C0R global floor и оставляет M0
+   закрытым без trusted synthetic/structural supervision.
+4. **V46.4 — E0 — NEXT:** закрывать второй real project и дефицит `34`,
    начиная с CMU/three-object metadata audit и новых source candidates.
-6. **V46.6 — V0:** заморозить независимый validator dataset, corruptions,
+5. **V46.5 — V0 — PARALLEL NEXT:** заморозить независимый validator dataset, corruptions,
    metrics, aggregation, false-pass risk и OOD policy.
+6. **V46.6 — M0 — BLOCKED:** только новый exact source с independently
+   scoreable synthetic/structural lane может открыть одну bounded model;
+   MLflow остаётся external lineage helper, не admission authority.
 7. **V46.7 — PSEL/B1:** автоматически выбрать первый pack и доказать, что
    доступные движку descriptors несут real cross-project signal.
 8. **V46.8 — M1/L0:** выполнить один disclosed fit/tournament и зафиксировать
@@ -182,20 +187,24 @@ checkpoint, threshold, material pack и не является release gate.
 
 ## Ближайший проверяемый результат
 
-D1 завершён: [repeat-exact corpus index](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md)
-явно сохраняет `external_modal_teacher_rows = 0`, изолирует train/development/
-validator по physical parent, project и component, а также оставляет все 308
-referenced content objects закрытыми. Первый следующий checkpoint — B0:
+B0 завершён: [repeat-exact control tournament](../development/physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md)
+возвращает `NoUsefulTeacher`, сохраняет C0R global floor `1.312187716`,
+подтверждает 36 Clatter priors и оставляет все cross-contract comparisons,
+candidate-training steps, PCM, IETeasy target, validator, protected и model
+access на нуле.
 
-- читает только D1 index и заранее разрешённые observed targets;
-- сравнивает analytic owner, historical global median, retrieval/ridge и 36
-  value-distinct Clatter controls;
-- агрегирует по project/physical parent, а не по WAV;
-- не сопоставляет несовместимые target contracts и missing Recipe V3 lanes;
-- возвращает один frozen control floor либо `NoUsefulTeacher` без права
-  начинать ML training.
+Следующий checkpoint — независимый E0/V0 source-power пакет:
 
-Контур E продолжает real-source и validator growth независимо.
+- metadata-first ищет второй descriptor-to-signal real project и новые
+  validator-calibration projects только в опубликованных internet sources;
+- до payload фиксирует source identity, revision/hash, physical-parent aliases,
+  descriptor/event/audio binding, roles и allowed claims;
+- возвращает `RealSourcePowerReady` только при `>=105` supported parents и
+  независимом втором проекте, иначе точный `RealSourcePowerOOD`;
+- параллельно формирует validator calibration power, но не открывает candidate
+  outputs и не использует generator rows как независимую validation truth.
+
+M0 остаётся закрытым до нового exact synthetic/structural teacher preflight.
 
 ## Commit and verification boundaries
 
