@@ -16,6 +16,15 @@ values came from rehearsal or official storage. Provider kind controls access;
 it does not select an alternate fit, prediction, metric, gate or publication
 implementation.
 
+Provider identity may change only publication provenance, never numerical
+work. Surrogate D0/H0 use the discarded E0 claim, zero official-access record
+and a discarded candidate-freeze status. Official D0/H0 use role-specific
+one-shot claims, the exact lifecycle access ledger and an official candidate
+freeze that embeds the verified execution seal. This metadata selection occurs
+outside fit, prediction, metric and gate functions; a zero official receipt on
+an official trace or a discarded freeze on an official candidate is a
+pre-access conformance failure.
+
 The D0 path executes the exact A0 stages: train materialization, local
 cross-fit, candidate, raw-MLP, V34-shaped spectral MLP and no-geometry fits,
 ridge controls, development materialization, hybrid support, predictions,

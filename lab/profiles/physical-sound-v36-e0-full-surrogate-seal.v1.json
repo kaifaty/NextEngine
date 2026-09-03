@@ -64,7 +64,7 @@
   "profile_id": "physical-sound-v36-e0-full-surrogate-seal-v1",
   "protocol": {
     "path": "docs/development/physical-sound-v36-e0-full-surrogate-seal-protocol-2026-09-03.md",
-    "sha256": "8b7784c5f0b8d1dd9bf85db90da05eb787c8e3b4b320b3a7fd648f1c4170041c"
+    "sha256": "4f533b3031c833884e864869371fbbb957ec86a97daa55e453fe4151ac9732d8"
   },
   "rehearsal": {
     "d0_namespace": "discarded-v36-e0-d0-v1",

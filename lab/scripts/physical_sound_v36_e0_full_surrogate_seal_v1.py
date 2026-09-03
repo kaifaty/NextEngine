@@ -34,12 +34,22 @@ PROFILE_SCHEMA = (
 )
 PROFILE_ID = "physical-sound-v36-e0-full-surrogate-seal-v1"
 PROFILE_PATH = "lab/profiles/physical-sound-v36-e0-full-surrogate-seal.v1.json"
-PROFILE_SHA256 = "7932ad1d290a26b6194453119df4b97e2edb1b6cae92dc235440c3b13037f556"
+PROFILE_SHA256 = "eba244b2053d7f292a965d75d6d6b191fdebfb5340cb7b76b485de0cc2bd1a95"
 OWNER_PATH = "lab/scripts/physical_sound_v36_e0_full_surrogate_seal_v1.py"
 CLAIM = (
     "FULL_COUNT_FULL_STEP_DISCARDED_D0_H0_EXACT_OWNER_REHEARSAL_AND_EXECUTION_"
     "SEAL_ONLY / NO_OFFICIAL_TARGET_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_"
     "ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY"
+)
+OFFICIAL_D0_CLAIM = (
+    "FRESH_V36_D0_ONE_SHOT_SYNTHETIC_DEVELOPMENT_EVIDENCE_ONLY / NO_METHOD_"
+    "HOLDOUT_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_"
+    "AUTHORITY"
+)
+OFFICIAL_H0_CLAIM = (
+    "FRESH_V36_H0_ONE_SHOT_SYNTHETIC_METHOD_HOLDOUT_EVIDENCE_ONLY / NO_"
+    "RETRAINING_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_"
+    "RUNTIME_AUTHORITY"
 )
 BRANCHES = ("decay", "global_gain", "contact")
 TARGET_INDEX = {branch: index for index, branch in enumerate(BRANCHES)}
@@ -935,12 +945,92 @@ def owner_identity() -> dict[str, object]:
     return {"bytes": len(data), "path": OWNER_PATH, "sha256": sha256_bytes(data)}
 
 
+def claim_for_provider(kind: contract.ProviderKind) -> str:
+    if kind in (
+        contract.ProviderKind.SURROGATE_D0,
+        contract.ProviderKind.SURROGATE_H0,
+    ):
+        return CLAIM
+    if kind is contract.ProviderKind.OFFICIAL_D0:
+        return OFFICIAL_D0_CLAIM
+    if kind is contract.ProviderKind.OFFICIAL_H0:
+        return OFFICIAL_H0_CLAIM
+    raise E0RehearsalError("unknown provider claim")
+
+
+def execution_seal_record(
+    seal: contract.ExecutionSeal | None,
+) -> dict[str, object] | None:
+    if seal is None:
+        return None
+    return {
+        "contract_schema": seal.contract_schema,
+        "d0_rehearsal_root_sha256": seal.d0_rehearsal_root_sha256,
+        "d0_topology_sha256": seal.d0_topology_sha256,
+        "environment_sha256": seal.environment_sha256,
+        "forbidden_access_count": seal.forbidden_access_count,
+        "h0_rehearsal_root_sha256": seal.h0_rehearsal_root_sha256,
+        "h0_topology_sha256": seal.h0_topology_sha256,
+        "owner_sha256": seal.owner_sha256,
+        "profile_sha256": seal.profile_sha256,
+        "rehearsal_run_count": seal.rehearsal_run_count,
+        "repeat_exact": seal.repeat_exact,
+    }
+
+
+def official_access_record(trace: contract.ExecutionTrace) -> dict[str, int]:
+    access = trace.access
+    official_rows = access.official_d0_target_rows + access.official_h0_target_rows
+    official = trace.provider_kind in (
+        contract.ProviderKind.OFFICIAL_D0,
+        contract.ProviderKind.OFFICIAL_H0,
+    )
+    return {
+        "fresh_v36_truth_values_evaluated": official_rows * contract.TARGET_AXIS_COUNT,
+        "network_requests": access.network_requests,
+        "official_capabilities_issued": int(official),
+        "official_d0_target_rows": access.official_d0_target_rows,
+        "official_h0_target_rows": access.official_h0_target_rows,
+        "prior_generation_numeric_values_read": access.prior_generation_values_read,
+        "protected_signal_values_decoded": access.protected_signal_values_decoded,
+        "real_signal_values_decoded": access.real_signal_values_decoded,
+    }
+
+
+def d0_freeze_status(kind: contract.ProviderKind) -> str:
+    if kind is contract.ProviderKind.SURROGATE_D0:
+        return "DiscardedE0CandidateFrozenAfterPass"
+    if kind is contract.ProviderKind.OFFICIAL_D0:
+        return "OfficialD0CandidateFrozenAfterPass"
+    raise E0RehearsalError("candidate freeze requires a D0 provider")
+
+
+def candidate_freeze_document(
+    context: OwnerContext,
+    capability: contract.AccessCapability,
+    candidate_weights: bytes,
+) -> bytes:
+    return canonical_json(
+        {
+            "candidate_weights_sha256": sha256_bytes(candidate_weights),
+            "execution_seal": execution_seal_record(capability.execution_seal),
+            "owner_sha256": owner_identity()["sha256"],
+            "profile_sha256": PROFILE_SHA256,
+            "provider_kind": capability.provider_kind.value,
+            "provider_namespace": capability.namespace,
+            "publisher_sha256": context.profile["parent"]["publisher"]["sha256"],
+            "status": d0_freeze_status(capability.provider_kind),
+        }
+    )
+
+
 def publish_owner_fault(
     output: Path,
     lifecycle: contract.OwnerLifecycle,
     error: BaseException,
     stage: str,
     maximum_output_bytes: int,
+    provider_kind: contract.ProviderKind,
 ) -> OwnerRun:
     decision = publisher.unexpected_exception_decision(lifecycle.access)
     trace = lifecycle.finish(decision)
@@ -960,7 +1050,7 @@ def publish_owner_fault(
         output,
         repository_root(),
         trace,
-        CLAIM,
+        claim_for_provider(provider_kind),
         payloads,
         maximum_output_bytes,
     )
@@ -992,13 +1082,16 @@ def execute_owner(
     try:
         lifecycle.step(contract.LifecycleStage.PRE_ACCESS_CONTEXT)
         if pipeline is contract.PipelineKind.D0:
-            result = execute_d0_numeric(context, lifecycle, provider, started, output)
+            result = execute_d0_numeric(
+                context, lifecycle, capability, provider, started, output
+            )
         else:
             if candidate_bundle is None:
                 raise E0RehearsalError("H0 requires a frozen D0 candidate bundle")
             result = execute_h0_numeric(
                 context,
                 lifecycle,
+                capability,
                 provider,
                 started,
                 output,
@@ -1015,13 +1108,19 @@ def execute_owner(
         if stage_value is not None:
             stage = stage_value.value
         return publish_owner_fault(
-            output, lifecycle, error, stage, maximum_output_bytes
+            output,
+            lifecycle,
+            error,
+            stage,
+            maximum_output_bytes,
+            capability.provider_kind,
         )
 
 
 def execute_d0_numeric(
     context: OwnerContext,
     lifecycle: contract.OwnerLifecycle,
+    capability: contract.AccessCapability,
     provider: contract.TargetRoleProvider,
     started: float,
     output: Path,
@@ -1141,14 +1240,10 @@ def execute_d0_numeric(
             models["without_explicit_geometry"]
         ),
     }
-    freeze = canonical_json(
-        {
-            "candidate_weights_sha256": sha256_bytes(weights["candidate-weights.bin"]),
-            "owner_sha256": owner_identity()["sha256"],
-            "profile_sha256": PROFILE_SHA256,
-            "publisher_sha256": context.profile["parent"]["publisher"]["sha256"],
-            "status": "DiscardedE0CandidateFrozenAfterPass",
-        }
+    freeze = candidate_freeze_document(
+        context,
+        capability,
+        weights["candidate-weights.bin"],
     )
     evidence = {
         "access": publisher.access_record(trace.access),
@@ -1165,7 +1260,7 @@ def execute_d0_numeric(
                 train_no_geometry_support
             ),
         },
-        "official_access": zero_official_access(),
+        "official_access": official_access_record(trace),
         "owner": owner_identity(),
         "resource_gates": resource_gates,
         "training": training,
@@ -1191,7 +1286,7 @@ def execute_d0_numeric(
         output,
         repository_root(),
         trace,
-        CLAIM,
+        claim_for_provider(capability.provider_kind),
         payloads,
         int(effective["resources"]["max_output_bytes"]),
     )
@@ -1217,16 +1312,34 @@ def execute_d0_numeric(
 
 
 def validate_candidate_bundle(
-    context: OwnerContext, bundle: CandidateBundle
+    context: OwnerContext,
+    capability: contract.AccessCapability,
+    bundle: CandidateBundle,
 ) -> dict[str, Any]:
     freeze = load_json_bytes(bundle.freeze_document, "candidate freeze")
+    if capability.provider_kind is contract.ProviderKind.SURROGATE_H0:
+        expected_provider = contract.ProviderKind.SURROGATE_D0
+    elif capability.provider_kind is contract.ProviderKind.OFFICIAL_H0:
+        expected_provider = contract.ProviderKind.OFFICIAL_D0
+    else:
+        raise E0RehearsalError("candidate validation requires an H0 capability")
+    expected_namespace_prefix = (
+        "discarded-"
+        if expected_provider is contract.ProviderKind.SURROGATE_D0
+        else "v36-"
+    )
     if (
         freeze.get("candidate_weights_sha256") != sha256_bytes(bundle.candidate_weights)
+        or freeze.get("execution_seal")
+        != execution_seal_record(capability.execution_seal)
         or freeze.get("owner_sha256") != owner_identity()["sha256"]
         or freeze.get("profile_sha256") != PROFILE_SHA256
+        or freeze.get("provider_kind") != expected_provider.value
+        or not isinstance(freeze.get("provider_namespace"), str)
+        or not freeze["provider_namespace"].startswith(expected_namespace_prefix)
         or freeze.get("publisher_sha256")
         != context.profile["parent"]["publisher"]["sha256"]
-        or freeze.get("status") != "DiscardedE0CandidateFrozenAfterPass"
+        or freeze.get("status") != d0_freeze_status(expected_provider)
     ):
         raise E0RehearsalError("D0 candidate freeze mismatch")
     return freeze
@@ -1235,6 +1348,7 @@ def validate_candidate_bundle(
 def execute_h0_numeric(
     context: OwnerContext,
     lifecycle: contract.OwnerLifecycle,
+    capability: contract.AccessCapability,
     provider: contract.TargetRoleProvider,
     started: float,
     output: Path,
@@ -1251,7 +1365,7 @@ def execute_h0_numeric(
     train_no_geometry_support = kernel.hybrid_support(train, train, omit_geometry=True)
     fitted = kernel.fit_ridges(train)
     lifecycle.step(contract.LifecycleStage.CANDIDATE_LOAD)
-    freeze = validate_candidate_bundle(context, bundle)
+    freeze = validate_candidate_bundle(context, capability, bundle)
     models = {
         "candidate": decode_weights(bundle.candidate_weights, effective, 35, 3301),
         "raw_mlp": decode_weights(bundle.raw_mlp_weights, effective, 12, 3302),
@@ -1355,7 +1469,7 @@ def execute_h0_numeric(
                 train_no_geometry_support
             ),
         },
-        "official_access": zero_official_access(),
+        "official_access": official_access_record(trace),
         "owner": owner_identity(),
         "resource_gates": resource_gates,
         "training_steps": 0,
@@ -1375,7 +1489,7 @@ def execute_h0_numeric(
         output,
         repository_root(),
         trace,
-        CLAIM,
+        claim_for_provider(capability.provider_kind),
         payloads,
         int(effective["resources"]["max_output_bytes"]),
     )

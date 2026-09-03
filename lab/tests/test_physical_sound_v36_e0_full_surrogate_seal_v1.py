@@ -108,6 +108,76 @@ class FullSurrogateSealTests(unittest.TestCase):
             "method_holdout",
         )
 
+    def test_provider_identity_changes_only_claim_freeze_and_access_provenance(
+        self,
+    ) -> None:
+        self.assertEqual(
+            e0.claim_for_provider(contract.ProviderKind.SURROGATE_D0), e0.CLAIM
+        )
+        self.assertEqual(
+            e0.claim_for_provider(contract.ProviderKind.OFFICIAL_D0),
+            e0.OFFICIAL_D0_CLAIM,
+        )
+        seal = contract.ExecutionSeal(
+            contract_schema=contract.CONTRACT_SCHEMA,
+            owner_sha256="a" * 64,
+            profile_sha256="b" * 64,
+            environment_sha256="c" * 64,
+            d0_rehearsal_root_sha256="d" * 64,
+            h0_rehearsal_root_sha256="e" * 64,
+            d0_topology_sha256=contract.expected_topology_sha256(
+                contract.PipelineKind.D0
+            ),
+            h0_topology_sha256=contract.expected_topology_sha256(
+                contract.PipelineKind.H0
+            ),
+            rehearsal_run_count=2,
+            repeat_exact=True,
+            forbidden_access_count=0,
+        )
+        d0_capability = contract.AccessCapability.official(
+            contract.ProviderKind.OFFICIAL_D0, "v36-test-d0", seal
+        )
+        weights = b"candidate"
+        freeze = json.loads(
+            e0.candidate_freeze_document(self.context, d0_capability, weights)
+        )
+        self.assertEqual(freeze["provider_kind"], "official-d0")
+        self.assertEqual(freeze["status"], "OfficialD0CandidateFrozenAfterPass")
+        self.assertEqual(freeze["execution_seal"], e0.execution_seal_record(seal))
+
+        bundle = e0.CandidateBundle(weights, b"raw", b"v34", b"no-geometry", b"")
+        bundle = e0.CandidateBundle(
+            bundle.candidate_weights,
+            bundle.raw_mlp_weights,
+            bundle.v34_shaped_weights,
+            bundle.without_geometry_weights,
+            e0.candidate_freeze_document(self.context, d0_capability, weights),
+        )
+        h0_capability = contract.AccessCapability.official(
+            contract.ProviderKind.OFFICIAL_H0, "v36-test-h0", seal
+        )
+        self.assertEqual(
+            e0.validate_candidate_bundle(self.context, h0_capability, bundle)["status"],
+            "OfficialD0CandidateFrozenAfterPass",
+        )
+        trace = contract.ExecutionTrace(
+            pipeline=contract.PipelineKind.D0,
+            provider_kind=contract.ProviderKind.OFFICIAL_D0,
+            events=(),
+            terminal=contract.TerminalDecision.PASS,
+            access=contract.AccessLedger(
+                provider_calls=2,
+                train_target_rows=6480,
+                development_target_rows=4320,
+                official_d0_target_rows=10800,
+            ),
+        )
+        access = e0.official_access_record(trace)
+        self.assertEqual(access["official_capabilities_issued"], 1)
+        self.assertEqual(access["official_d0_target_rows"], 10800)
+        self.assertEqual(access["fresh_v36_truth_values_evaluated"], 32400)
+
     def test_immutable_matrix_is_float64_c_contiguous_and_read_only(self) -> None:
         matrix = e0.immutable_matrix(np.asarray([[1.0, 2.0]], dtype=np.float32))
         self.assertEqual(matrix.dtype, np.dtype(np.float64))
