@@ -3,9 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_NEXT / ZERO_NEW_TARGET_VALUES` |
+| Status | `ACTIVE / R0_COMPLETE / A0_REPEAT_EXACT_PASS / F0_NEXT / ZERO_NEW_TARGET_VALUES` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
+| Current evidence | [A0 query-surface contract result](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -21,7 +22,7 @@ consumer pass the later Roadmap V37 gates.
 
 ## Commit boundaries
 
-### Commit 1 — A0 typed query-surface contract
+### Commit 1 — A0 typed query-surface contract — `COMPLETE`
 
 Deliver:
 
@@ -146,6 +147,7 @@ touches that boundary.
 
 ## Immediate action
 
-Implement Commit 1 only. Do not write the fresh truth formula, allocate role
-IDs, train a model or open any new value until the A0 target-free contract and
-conditional candidate disposition pass twice exactly.
+Implement Commit 2 only. Allocate fresh disjoint identity and freeze the
+operator truth/roles, controls, ablations, metrics and ceilings without
+evaluating target values. Do not execute the full-shape model, open D0/H0 or
+construct an official capability until F0 passes twice exactly.
