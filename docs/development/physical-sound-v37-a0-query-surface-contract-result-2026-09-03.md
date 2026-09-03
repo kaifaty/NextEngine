@@ -4,9 +4,9 @@
 | --- | --- |
 | Date | `2026-09-03` |
 | Decision | `REPEAT_EXACT_PREFLIGHT_PASS / ZERO_TARGET_VALUES` |
-| Owner commit | `c1d31e93c0aeae410a639200a9994659411b91f9` |
+| Owner commit | `beaa337ff811306baf1a199bd7863768f1228457` |
 | Contract owner SHA-256 | `b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210` |
-| A0 owner SHA-256 | `6874858c644860d45ab75894360a8b86598e0a3a1bde45557f4733e6b30c066d` |
+| A0 owner SHA-256 | `f411401507d7594de490061d2f4869f8caf83fab3eedf3a418a79429cb7e8ecc` |
 | Profile SHA-256 | `a67fb9d45ce091a9901cdd99ddb066eb9d9b1e92b054858dde956016004433f9` |
 | Claim | `TARGET_FREE_QUERY_SURFACE_CONTAINER_LIFECYCLE_AND_CANDIDATE_DISPOSITION_CONFORMANCE_ONLY / NO_FRESH_TRUTH_TARGET_MODEL_OFFICIAL_CAPABILITY_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY` |
 
@@ -31,6 +31,15 @@ from the later surrogate and official scientific paths. Provider access is
 recorded immediately after materialization, before returned-role or target-
 state validation, so a malformed provider cannot hide an already opened role.
 A0 constructs no official capability and initializes no model parameter.
+
+The first downstream combined A0/F0 run found one value-free evidence defect:
+the A0 report bound mutable roadmap and implementation-plan bytes. Merely
+recording A0 completion therefore made its future replay reject despite no
+contract, profile or scientific-input change. Commit `beaa337f` removes those
+planning documents from the executable evidence closure while retaining the
+stable QSO research, terminal V36 result, contract and profile bindings. The
+corrected A/B below supersedes the first A0 artifact root; no target, truth,
+model or official capability was accessed in either run.
 
 ## Candidate publication correction
 
@@ -75,10 +84,11 @@ declared reason.
 | Observation | Run A | Run B |
 | --- | ---: | ---: |
 | Exit code | `0` | `0` |
-| Artifact files / bytes | `4 / 11,724` | same |
-| Tree-manifest SHA-256 | `97ff7076d29482c6a8b14cfeaacc00d904cbe242dad3efc0cc0c2e58f7f21fb5` | same |
-| stdout bytes / SHA-256 | `1,219 / 66146776…b2997` | same |
-| Outer wall / max RSS | `0.17 s / 34,168 KiB` | `0.17 s / 35,176 KiB` |
+| Artifact files / bytes | `4 / 11,283` | same |
+| Tree-manifest SHA-256 | `dcb0aedaec771f92e6660c5aabcb72727579f44077c97a1a9a3642730001d795` | same |
+| stdout bytes / SHA-256 | `1,219 / 655d5dba…0c5b9` | same |
+| stderr bytes / SHA-256 | `0 / e3b0c442…b855` | same |
+| Outer wall / max RSS | `0.17 s / 35,096 KiB` | `0.18 s / 34,560 KiB` |
 
 Artifact identities:
 
@@ -86,8 +96,8 @@ Artifact identities:
 | --- | --- |
 | `contract.json` | `a1edc7e5ed4fde7cafbd80a6c456f866217ae0fe4c962eb295b09a7a44052e99` |
 | `conformance.json` | `f1ae616dd268f68820b1a36ea5b6498f0b146193d5b22109364083b68ce4b248` |
-| `evidence.json` | `90fe09f14bc76ba42b8c3f403578f7f3a808cfde88f6d3195ac0dfb28316d3ff` |
-| `report.json` | `661467764a6bb35c2700d9dd8855d5374833dd3ff20fe0a81c73ac11231b2997` |
+| `evidence.json` | `81fa95b5a49a1a9d2e84cd837a77f9170c6ef98ce61525152a08508a5edbbc72` |
+| `report.json` | `655d5dba5a4d1311b72308b8e737da7d889e974d1d3e3675627cee1810f0c5b9` |
 
 ## Verification
 

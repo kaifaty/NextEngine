@@ -14,7 +14,7 @@
 - **Current conclusion:** [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. Hard/resources pass, but contact is `2.394927x` nearest and 18/28 metric/ablation gates fail; V36 closes, candidate authority is false and H0 stays unopened.
 - **Planning authority:** [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md)
-  selects QSO-v0; [A0](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) now repeat-exactly closes its target-free typed contract and conditional candidate disposition, so F0 fresh operator truth/role freeze is next while independent data/validator gates remain unchanged.
+  selects QSO-v0; corrected [A0](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) repeat-exactly closes its target-free typed contract and conditional candidate disposition without binding mutable planning docs, so F0 fresh operator truth/role freeze is next while independent data/validator gates remain unchanged.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
   pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
@@ -171,7 +171,7 @@
 | D-066 | V36 E0 freezes owner `6fb8be54…bb9a2`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `b4368696…e516` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
 | D-067 | Pre-access official-provider review revoked first seal `45091c72…48a8`: numerical work was shared, but official traces would have inherited discarded claim/freeze/zero-access metadata. Provider-kind now selects provenance only; weights and predictions remain byte-exact and full E0 was resealed before any fresh target. | A metadata choice changes a numerical hash, or an official trace/freeze/access receipt disagrees with its capability. |
 | D-068 | V37 is an ML-first program rebaseline, not a new target generation: it carries the sealed V36 D0/H0 bytes unchanged, then requires internet-only data, an independent automatic validator, one-shot admission, offline deterministic cooking and authored fallback. | V36 terminal evidence, source-power evidence or a concrete product consumer justifies changing the ordered gates through another explicit roadmap revision. |
-| D-069 | V36 D0 rejects scalar hybrid contact transfer; QSO-v0 is the smallest successor. A0 repeat-exactly freezes its P1-owned graph/query contract, separate lifecycles and `Pass`-only candidate authority with zero target/truth/model/official access; F0 may allocate fresh roles. | Fresh QSO D0/H0 rejects, or F0–E0 proves the representation/cost/determinism contract infeasible before target access. |
+| D-069 | V36 D0 rejects scalar hybrid contact transfer; QSO-v0 is the smallest successor. Corrected A0 repeat-exactly freezes its graph/query contract and `Pass`-only authority with zero value access; a downstream replay removed mutable roadmap/plan bytes from evidence while retaining stable research/terminal/code/profile bindings. F0 may allocate fresh roles. | Fresh QSO D0/H0 rejects, or F0–E0 proves the representation/cost/determinism contract infeasible before target access. |
 
 ## Open hypotheses
 
@@ -247,4 +247,4 @@ Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-- **Workspace/quality/next:** Roadmap V37, V36 terminal evidence and QSO A0 are in Git; A0 is repeat-exact with `14/14` mutations and zero target/truth/model/official access. Implement F0 identity/profile freeze next; no new role/target value exists and source frontier remains `6/27` short.
+- **Workspace/quality/next:** Roadmap V37, V36 terminal evidence and corrected QSO A0 are in Git; A0 is repeat-exact with `14/14` mutations, stable-only evidence bindings and zero target/truth/model/official access. Implement F0 identity/profile freeze next; no new role/target value exists and source frontier remains `6/27` short.
