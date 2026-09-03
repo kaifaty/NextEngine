@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V44_ACTIVE / B0R_R0R_COMPLETE / C1_COMPLETE / G0A_COMPLETE / YCB_26_MASS_EXTENT / PLATE_PROSPECTS_20 / ZERO_DESCRIPTOR_COMPLETE / G0B_NEXT / PSEL_BLOCKED / V0S_OPEN / M0_BLOCKED / S0_SOURCE_POWER_OOD / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V44_ACTIVE / B0R_R0R_COMPLETE / C1_COMPLETE / G0A_COMPLETE / G0B0_IETEASY_PROSPECTIVE_COMPLETE / 15_PARENTS / 150_HASHED_WAVEFORMS / 5_STEEL / ZERO_DESCRIPTOR_COMPLETE / G0B1_NEXT / PSEL_BLOCKED / V0S_OPEN / M0_BLOCKED / S0_SOURCE_POWER_OOD / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
@@ -10,8 +10,8 @@
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 ## Resume in 60 seconds
 
-- **Current conclusion:** [G0A](../physical-sound-v44-g0a-structured-source-increment-result-2026-09-03.md) is `COMPLETE / REPEAT_EXACT`: the frozen C1 intake now observes mass/extents for `26` C0R parents (`56` records), and `20` published plate numerical prospects are preserved. The other axes and descriptor-complete coverage remain zero; no waveform, feature, model, validator or protected value was opened.
-- **Planning authority:** [Roadmap V44](../../plans/physical-sound-synthesis-roadmap-v44.md) makes G0B prospective-parent/corpus growth next and leaves metadata-first V0S open in parallel. PSEL remains blocked by independent-project power and descriptor-to-signal correspondence; model training stays blocked until B1, frozen V0 and their prerequisites pass.
+- **Current conclusion:** [G0B0](../physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md) is `COMPLETE / REPEAT_EXACT`: the new three-level boundary catalogues `15` IETeasy parents and `150` publisher-hashed waveforms, including five Steel specimens, without fetching payload. No parent is corpus-materialized, descriptor-complete coverage remains zero and current supported-parent deficit remains `49`.
+- **Planning authority:** [Roadmap V44](../../plans/physical-sound-synthesis-roadmap-v44.md) makes G0B1 bounded IETeasy payload/target materialization plus second-project source growth next and leaves metadata-first V0S open in parallel. PSEL remains blocked by independent-project power and materialized descriptor-to-target correspondence; model training stays blocked until B1, frozen V0 and their prerequisites pass.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
 - **T0 result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
 - **Q1-M result:** [role-power audit](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md) accounts all 109 identities twice exactly; its old source power is superseded by I0's clean `9/7` and exact `13/34`, `13/31` deficits.
@@ -23,7 +23,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** define G0B's hash-bound prospective-parent/corpus-growth boundary, then inventory independent internet projects that bind physical descriptors to waveforms or transfer responses for the same Steel, Glass or Wood objects. Do not count the single plate paper as PSEL power, train a candidate or select Glass from a favorable disclosed stratum; metadata-first V0S may proceed independently.
+- **Next action:** implement G0B1: hash-verify a bounded IETeasy audio subset, freeze media parsing/target extraction and a disclosed corpus successor, while metadata-only research seeks a second independent Steel descriptor-to-signal project. Do not credit prospective rows as current support, train a candidate or select Glass from a favorable disclosed stratum; V0S may proceed independently.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
@@ -57,12 +57,12 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V44 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V42_R0_HISTORICAL / C1A_D2_C0R_COMPLETE / B0R_R0R_SIGNAL_INSUFFICIENT / C1_COMPLETE / G0A_COMPLETE_PARTIAL_COVERAGE / G0B_NEXT / V0S_OPEN / PSEL_BLOCKED / M0_BLOCKED / S0_SOURCE_POWER_OOD` | G0A adds mass/extents to `26` parents and freezes `20` numerical plate prospects, but descriptor-complete coverage remains zero. G0B must add independently sourced parents with descriptor-to-signal correspondence before PSEL. |
-## Material transition: V44 G0A to G0B
+| V34–V44 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V42_R0_HISTORICAL / C1A_D2_C0R_COMPLETE / B0R_R0R_SIGNAL_INSUFFICIENT / C1_COMPLETE / G0A_COMPLETE / G0B0_IETEASY_PROSPECTIVE_COMPLETE / G0B1_NEXT / V0S_OPEN / PSEL_BLOCKED / M0_BLOCKED / S0_SOURCE_POWER_OOD` | G0B0 binds `15` IETeasy parents to `150` publisher hashes, including five Steel parents, but opens no payload and adds no current support. G0B1 must materialize descriptor-to-target rows and add a second independent project before PSEL. |
+## Material transition: V44 G0B0 to G0B1
 
-- **Evidence:** G0A and its C1 successor repeat exactly. YCB metadata fills mass/extents for `26/64` parents; the plate paper contributes `20` complete numerical prospects but no public waveform binding. Forbidden access stays zero.
-- **Conclusion/decision:** metadata-only enrichment works, but C1 cannot create new corpus parents and one waveform-unbound paper cannot satisfy PSEL. Missing axes stay masked; plate rows are control prospects only. B1, V0, PSEL and training remain blocked.
-- **Smallest next action:** freeze a prospective-parent/corpus-growth boundary, then seek at least two independent descriptor-to-waveform/transfer projects before assigning any material pack.
+- **Evidence:** G0B0 repeats exactly from nineteen official metadata snapshots and current C0R. It verifies `150` unique Mendeley SHA-256 bindings over `15` physical specimens and reads zero audio payload, PCM, feature, model, candidate or protected value.
+- **Conclusion/decision:** IETeasy passes prospective catalogue eligibility only. Its fifteen parents are not C0R/support; five Steel parents come from one project, so materialization, PSEL, B1, V0 and training remain blocked.
+- **Smallest next action:** freeze a bounded IETeasy payload/media/target successor and continue source search until a second independent Steel project makes signal-blind PSEL possible.
 
 ## Durable negative knowledge
 
@@ -170,7 +170,7 @@
 | D-085 | D2/C0R repeat-exactly co-locates all 20 AV-MSF rows in train, merges aliases `6`/`80`, quarantines five object-80 material labels and preserves 278 content objects byte-for-byte. Only B0R/R0R and C1 are authorized; V0 remains source-power OOD. | A defect in the frozen repair inputs, projections, content hashes or atomic publication invalidates C0R before baseline/descriptor values; never restore the leaked projection in place. |
 | D-086 | B0R/R0R repeat-exactly returns `CorrectedCorpusSignalInsufficient`: global median `1.312187716` beats every material/retrieval/ML control, material LPO is `-0.098113339`, project identity is strong and the fresh planning deficit is `49` parents. Only C1/G0 and metadata-first V0S proceed. | C1/B1 source-backed runtime descriptors beat the frozen global floor with grouped cross-project power, or an exact B0R/R0R input/owner/audit defect invalidates the result. |
 | D-087 | C1 repeat-exactly freezes nine runtime descriptor axes and fail-closed internet metadata intake; current C0R has `0` descriptor-complete parents, so only G0 metadata-source growth is authorized. | A frozen input/owner/contract defect invalidates C1, or G0 source evidence changes exact descriptor coverage through a hash-bound successor profile. |
-| D-088 | G0A repeat-exactly adds YCB mass/extents to `26` C0R parents and freezes `20` plate numerical prospects, but no new corpus parent or waveform correspondence. PSEL gets zero credit and G0B is required. | A source/hash/ID-bridge defect invalidates G0A, or independent descriptor-to-signal projects close G0B power through a separately frozen prospective-parent boundary. |
+| D-088 | G0B0 repeat-exactly freezes catalogue/materialization/PSEL eligibility and binds `15` IETeasy parents to `150` publisher-hashed waveforms; five normalize to Steel, but payload and targets stay unopened and one project cannot satisfy PSEL. | A source/hash/sample-folder/material bridge defect invalidates G0B0, or G0B1 materializes exact targets and a second independent Steel project closes signal-blind source power. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -247,4 +247,4 @@ Current program: [Roadmap V44](../../plans/physical-sound-synthesis-roadmap-v44.
 
 ## Handoff
 
-- **Workspace/quality/next:** Roadmap V44 is active. G0A and its C1 successor are `COMPLETE / REPEAT_EXACT`: `26` C0R parents observe mass/extents and `20` plate numerical prospects are frozen, but descriptor-complete coverage stays zero. G0B prospective-parent/corpus growth is next; PSEL is blocked by source power and target correspondence, V0 lacks calibration power, all neural/runtime authority remains blocked, protected S0 is `SourcePowerOOD`, and authored fallback is mandatory.
+- **Workspace/quality/next:** Roadmap V44 is active. G0B0 is `COMPLETE / REPEAT_EXACT`: `15` IETeasy parents bind `150` publisher-hashed waveforms and five normalize to Steel, but payload is unopened, current support stays `56/105` and descriptor-complete coverage stays zero. G0B1 payload/target materialization plus second-project growth is next; PSEL, V0, neural/runtime authority and protected S0 remain blocked, and authored fallback is mandatory.

@@ -1,0 +1,359 @@
+{
+  "access_policy": {
+    "audio_decode_allowed": false,
+    "audio_payload_access_allowed": false,
+    "feature_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed_at_build": false,
+    "outputs_external": true,
+    "protected_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "PROSPECTIVE_PARENT_AND_PUBLISHER_WAVEFORM_BINDING_ONLY / NO_PAYLOAD_ROLE_TARGET_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "contract": {
+    "bytes": 3853,
+    "path": "lab/profiles/physical-sound-v44-g0b-prospective-parent-contract.v1.json",
+    "sha256": "1c8855eba29d20f6308fc66c4222c833eed3d2b08712b2d548a15c2ac6118634"
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 5440,
+      "path": "docs/development/physical-sound-v39-f1-source-frontier-result-2026-09-03.md",
+      "sha256": "3bd82f03b9f1df691fb533b09c611f828da9fc977843157a4c2338556902dfa1"
+    },
+    {
+      "bytes": 7279,
+      "path": "docs/development/physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md",
+      "sha256": "532f51dbe1ac67226fa9f4cb39fc98332c49178fed17fa4a12879bc3a54380ce"
+    },
+    {
+      "bytes": 9156,
+      "path": "docs/development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md",
+      "sha256": "8fe5608a4d4a573c7f7698b41fce6a7b8c347cee96b88fd5e05a4017138b6fec"
+    },
+    {
+      "bytes": 11831,
+      "path": "lab/profiles/physical-sound-v39-f1-source-frontier.v1.json",
+      "sha256": "a0e752a85d4bddcca5e2ae8d171d69aa90df1e2c99db6257b000e8ae95e8a82a"
+    },
+    {
+      "bytes": 6063,
+      "path": "lab/profiles/physical-sound-v43-d2-c0r-identity-repair.v1.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    {
+      "bytes": 6404,
+      "path": "lab/profiles/physical-sound-v44-c1-runtime-descriptor-contract.v1.json",
+      "sha256": "a8bdf313204b89c55f3fbc1a9b2f174ced48a3a337274e8d79c27c14066b9ed1"
+    },
+    {
+      "bytes": 3853,
+      "path": "lab/profiles/physical-sound-v44-g0b-prospective-parent-contract.v1.json",
+      "sha256": "1c8855eba29d20f6308fc66c4222c833eed3d2b08712b2d548a15c2ac6118634"
+    },
+    {
+      "bytes": 33538,
+      "path": "lab/scripts/physical_sound_v44_g0b_iet_prospective_parent_v1.py",
+      "sha256": "927e9db6d164923dda636dcee3327c99763decf06031f51f32f9668d2a4fd51a"
+    }
+  ],
+  "expected_result": {
+    "audio_bytes_declared": 17981616,
+    "descriptor_complete_parents": 0,
+    "existing_c0r_parents": 64,
+    "glass_pack_parents": 0,
+    "independent_project_revisions": 1,
+    "prospective_parents": 15,
+    "publisher_hashed_waveforms": 150,
+    "steel_pack_parents": 5,
+    "wood_pack_parents": 0
+  },
+  "input_bindings": {
+    "development_projection": {
+      "bytes": 90451,
+      "path": "projections/generator_development.json",
+      "sha256": "d58b5f236fef911089b49b596a45ddc10ae511db60cb38ab8bb8bd1a50e76c08"
+    },
+    "train_projection": {
+      "bytes": 82647,
+      "path": "projections/generator_train.json",
+      "sha256": "93d397c18c3c8df49f7f687caf79d8e346b7691c0ab1726dd3488bcd8f2bc00e"
+    }
+  },
+  "profile_id": "physical-sound-v44-g0b-iet-prospective-parent-v1",
+  "project": {
+    "audio_root_folder_id": "7013e754-791b-435d-9837-b7c8ed32b3f8",
+    "doi": "10.17632/srfp7x6wxm.1",
+    "license_expression": "CC-BY-4.0",
+    "project_id": "mendeley-data--10.17632-srfp7x6wxm",
+    "publisher_id": "mendeley-data",
+    "revision_id": "mendeley-data--10.17632-srfp7x6wxm--v1",
+    "source_component_id": "source-component.ieteasy-mendeley-srfp7x6wxm-v1"
+  },
+  "raw_inputs": {
+    "audio_folders": [
+      {
+        "binding": {
+          "bytes": 7590,
+          "path": "audio-files/31d8bf24-bed7-4b21-909b-3d33b1aefb2c.json",
+          "sha256": "ab3a0cbffa8bc328eb45778984984175154de4f89f4951c7dd25a7f7ae207db0"
+        },
+        "folder_id": "31d8bf24-bed7-4b21-909b-3d33b1aefb2c"
+      },
+      {
+        "binding": {
+          "bytes": 7536,
+          "path": "audio-files/349a18df-ccb1-418d-af00-b8a1cf7c2ff9.json",
+          "sha256": "421f6b13c12b2a146200677ac1a2b7889ed87e335a8aed78e48879c09bc70ebf"
+        },
+        "folder_id": "349a18df-ccb1-418d-af00-b8a1cf7c2ff9"
+      },
+      {
+        "binding": {
+          "bytes": 7590,
+          "path": "audio-files/389099a6-28d2-40d5-b83b-8b11ff4cc009.json",
+          "sha256": "6bc1e871853d1a401a4825069f3139862386d20e6e187a3edd5a5ebcc17ccf49"
+        },
+        "folder_id": "389099a6-28d2-40d5-b83b-8b11ff4cc009"
+      },
+      {
+        "binding": {
+          "bytes": 7590,
+          "path": "audio-files/570d9184-ddad-4734-a780-3df84f135676.json",
+          "sha256": "ca9f88313f6dfe62810aa08b1f5583dc5dc2132c2cce4306f5820064fbce863c"
+        },
+        "folder_id": "570d9184-ddad-4734-a780-3df84f135676"
+      },
+      {
+        "binding": {
+          "bytes": 7550,
+          "path": "audio-files/80faf073-cfb5-4539-a51b-84caece46f72.json",
+          "sha256": "d8eb1ed033efab2a8c1f07536e9de97095e442fbc609077b6900ee45dfcb11dc"
+        },
+        "folder_id": "80faf073-cfb5-4539-a51b-84caece46f72"
+      },
+      {
+        "binding": {
+          "bytes": 7548,
+          "path": "audio-files/887ffbfc-10fb-4f06-824a-b93a7e4889c7.json",
+          "sha256": "500c7b12fad1c50c829b87f4e7fbfd6fd7a16a7751c7baf172cc02015928edc0"
+        },
+        "folder_id": "887ffbfc-10fb-4f06-824a-b93a7e4889c7"
+      },
+      {
+        "binding": {
+          "bytes": 7524,
+          "path": "audio-files/91ef6fe0-69ed-4604-8067-d6214811c4ab.json",
+          "sha256": "bd46f8e17caf2cdafbf4aa131be79ee24d2f99ea6d2b5d55dd5c026e1911270d"
+        },
+        "folder_id": "91ef6fe0-69ed-4604-8067-d6214811c4ab"
+      },
+      {
+        "binding": {
+          "bytes": 7532,
+          "path": "audio-files/98f038a8-18e5-4859-8702-e592d1e10975.json",
+          "sha256": "559eeb3467f1d4c65322da8471bd1d3e2d30df460a707634a47423125418f552"
+        },
+        "folder_id": "98f038a8-18e5-4859-8702-e592d1e10975"
+      },
+      {
+        "binding": {
+          "bytes": 7593,
+          "path": "audio-files/9b2cc3e9-692e-46fc-adfc-eba376a0ba11.json",
+          "sha256": "bfe58a1f725c21245b298492e6ade07db2e0419bfd2627c77b01ea70d6081356"
+        },
+        "folder_id": "9b2cc3e9-692e-46fc-adfc-eba376a0ba11"
+      },
+      {
+        "binding": {
+          "bytes": 7590,
+          "path": "audio-files/b14ca671-69c2-4e76-9f76-52dd561d4b94.json",
+          "sha256": "892038cee22de7c78ba335fa90ae38375361d47a69df0fcf099ad92ae681fb3c"
+        },
+        "folder_id": "b14ca671-69c2-4e76-9f76-52dd561d4b94"
+      },
+      {
+        "binding": {
+          "bytes": 7622,
+          "path": "audio-files/bf0ae851-3592-4b04-9edd-67fb866ba8f1.json",
+          "sha256": "5142adb78ecc185cfb61f4de6a13badfd579bb4aa792137dda780adeae253bd0"
+        },
+        "folder_id": "bf0ae851-3592-4b04-9edd-67fb866ba8f1"
+      },
+      {
+        "binding": {
+          "bytes": 7628,
+          "path": "audio-files/bfe65033-b1db-4761-b1af-e78b8c4464ac.json",
+          "sha256": "b4b84d9585b8ee12a7ae5d97fd87ba7a60aca6163dc3c25cf13f558fb1988876"
+        },
+        "folder_id": "bfe65033-b1db-4761-b1af-e78b8c4464ac"
+      },
+      {
+        "binding": {
+          "bytes": 7630,
+          "path": "audio-files/c2d5c141-9dae-45b6-8816-3518f1bc18df.json",
+          "sha256": "d916f532bcc3c4f030849c40a2bb8d9b975c1e4932a869dac0af3a13a7b277fe"
+        },
+        "folder_id": "c2d5c141-9dae-45b6-8816-3518f1bc18df"
+      },
+      {
+        "binding": {
+          "bytes": 7589,
+          "path": "audio-files/dc4e058a-5911-4873-8fbf-4a7ccb6d5fc2.json",
+          "sha256": "9aa4fb63ec8c95e61e142d820f05335f3562f180490e5fc98f653948907f7810"
+        },
+        "folder_id": "dc4e058a-5911-4873-8fbf-4a7ccb6d5fc2"
+      },
+      {
+        "binding": {
+          "bytes": 7590,
+          "path": "audio-files/e06b7b28-d7a4-4563-947b-6c7fc28ce5cf.json",
+          "sha256": "7481813ed0d7c1f1f7e6b697b76e52a67f5d9f9d905d8b8e74b966afad0a6cb1"
+        },
+        "folder_id": "e06b7b28-d7a4-4563-947b-6c7fc28ce5cf"
+      }
+    ],
+    "data_article": {
+      "bytes": 29767,
+      "path": "data-article-bioc.json",
+      "sha256": "da551a053a23a2e92e788e636101ddf9ffc0428e0716ed9d58f1f144414dfdc3"
+    },
+    "dataset_page": {
+      "bytes": 120593,
+      "path": "dataset-page.html",
+      "sha256": "bc0fb69b808f6f12279c4ed0f4cbdde46c011df82c168f8812470e6c9f2f32ea"
+    },
+    "folder_index": {
+      "bytes": 7411,
+      "path": "folders.json",
+      "sha256": "ac09c8544068110da51745a12026aa1282dd64e055bbe689170d1542e1d40ee8"
+    },
+    "hardware_article": {
+      "bytes": 110561,
+      "path": "hardware-article-bioc.json",
+      "sha256": "7190a2b41bf51b896c23e3745c3a0619f5c556a793bbb4e35b8d0367d09d9523"
+    }
+  },
+  "sample_folder_bridge": [
+    {
+      "filename_stem": "6082 aluminium",
+      "folder_id": "c2d5c141-9dae-45b6-8816-3518f1bc18df",
+      "folder_label": "Aluminium 6082",
+      "normalized_material_label": "Aluminium",
+      "sample_id": "6082-aluminium"
+    },
+    {
+      "filename_stem": "AISI 304 steel",
+      "folder_id": "bfe65033-b1db-4761-b1af-e78b8c4464ac",
+      "folder_label": "AISI 304 steel",
+      "normalized_material_label": "Steel",
+      "sample_id": "aisi-304-steel"
+    },
+    {
+      "filename_stem": "AISI 316 steel",
+      "folder_id": "bf0ae851-3592-4b04-9edd-67fb866ba8f1",
+      "folder_label": "AISI 316 steel",
+      "normalized_material_label": "Steel",
+      "sample_id": "aisi-316-steel"
+    },
+    {
+      "filename_stem": "B10 bronze",
+      "folder_id": "389099a6-28d2-40d5-b83b-8b11ff4cc009",
+      "folder_label": "B10 bronze",
+      "normalized_material_label": "Metal",
+      "sample_id": "b10-bronze"
+    },
+    {
+      "filename_stem": "B12 bronze",
+      "folder_id": "31d8bf24-bed7-4b21-909b-3d33b1aefb2c",
+      "folder_label": "B12 bronze",
+      "normalized_material_label": "Metal",
+      "sample_id": "b12-bronze"
+    },
+    {
+      "filename_stem": "BrAl alloy",
+      "folder_id": "dc4e058a-5911-4873-8fbf-4a7ccb6d5fc2",
+      "folder_label": "BrAl alloy",
+      "normalized_material_label": "Metal",
+      "sample_id": "bral"
+    },
+    {
+      "filename_stem": "C45E steel",
+      "folder_id": "b14ca671-69c2-4e76-9f76-52dd561d4b94",
+      "folder_label": "C45E steel",
+      "normalized_material_label": "Steel",
+      "sample_id": "c45e-steel"
+    },
+    {
+      "filename_stem": "Copper",
+      "folder_id": "80faf073-cfb5-4539-a51b-84caece46f72",
+      "folder_label": "Copper",
+      "normalized_material_label": "Metal",
+      "sample_id": "copper"
+    },
+    {
+      "filename_stem": "CW614 brass",
+      "folder_id": "9b2cc3e9-692e-46fc-adfc-eba376a0ba11",
+      "folder_label": "CW614 brass",
+      "normalized_material_label": "Metal",
+      "sample_id": "cw614-brass"
+    },
+    {
+      "filename_stem": "Fe37 drawn",
+      "folder_id": "570d9184-ddad-4734-a780-3df84f135676",
+      "folder_label": "Fe37 drawn",
+      "normalized_material_label": "Steel",
+      "sample_id": "fe37-steel"
+    },
+    {
+      "filename_stem": "Nylon 6",
+      "folder_id": "887ffbfc-10fb-4f06-824a-b93a7e4889c7",
+      "folder_label": "Nylon 6",
+      "normalized_material_label": "Plastic",
+      "sample_id": "nylon-6"
+    },
+    {
+      "filename_stem": "HDPE",
+      "folder_id": "98f038a8-18e5-4859-8702-e592d1e10975",
+      "folder_label": "HDPE",
+      "normalized_material_label": "Plastic",
+      "sample_id": "polizene"
+    },
+    {
+      "filename_stem": "Pom-C",
+      "folder_id": "91ef6fe0-69ed-4604-8067-d6214811c4ab",
+      "folder_label": "Pom-C",
+      "normalized_material_label": "Plastic",
+      "sample_id": "pom-c"
+    },
+    {
+      "filename_stem": "Teflon",
+      "folder_id": "349a18df-ccb1-418d-af00-b8a1cf7c2ff9",
+      "folder_label": "Teflon",
+      "normalized_material_label": "Plastic",
+      "sample_id": "teflon"
+    },
+    {
+      "filename_stem": "X150 steel",
+      "folder_id": "e06b7b28-d7a4-4563-947b-6c7fc28ce5cf",
+      "folder_label": "X150 steel",
+      "normalized_material_label": "Steel",
+      "sample_id": "x150-steel"
+    }
+  ],
+  "schema": "nextengine.experimental-physical-sound-v44-g0b-iet-profile.v1"
+}

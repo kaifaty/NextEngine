@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / B0R_R0R_COMPLETE / C1_COMPLETE / G0A_COMPLETE / YCB_26_MASS_EXTENT_PARENTS / 20_PLATE_NUMERICAL_PROSPECTS / ZERO_DESCRIPTOR_COMPLETE / G0B_NEXT / PSEL_BLOCKED / V0S_OPEN / V0_BLOCKED_BY_POWER / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / B0R_R0R_COMPLETE / C1_COMPLETE / G0A_COMPLETE / G0B0_IETEASY_PROSPECTIVE_COMPLETE / 15_PROSPECTIVE_PARENTS / 150_HASHED_WAVEFORMS / 5_STEEL_PARENTS / ZERO_DESCRIPTOR_COMPLETE / G0B1_NEXT / PSEL_BLOCKED / V0S_OPEN / V0_BLOCKED_BY_POWER / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V43](physical-sound-synthesis-roadmap-v43.md) как planning authority; C1A и D2/C0R остаются immutable repeat-exact evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не создаёт public schema, runtime inference или production authority |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательной ручной приёмки отдельных звуков |
@@ -43,9 +43,19 @@ internet source growth — следующий обязательный шаг, �
 контрольных пластин Giordano/McAdams: по пять Steel, Glass, Wood и Plastic.
 Но это не закрывает G0: C1 не создаёт новых corpus parents, у пластин нет
 публично связанного PCM, источник пластин только один, а descriptor-complete
-parents всё ещё `0`. Поэтому PSEL остаётся заблокированным; G0B должен сначала
-создать отдельную prospective-parent/corpus-growth boundary и найти независимые
-internet projects с descriptor-to-waveform/transfer correspondence.
+parents всё ещё `0`. Поэтому на выходе G0A PSEL оставался заблокированным, а
+G0B должен был создать отдельную prospective-parent/corpus-growth boundary и
+найти независимые internet projects с descriptor-to-waveform/transfer
+correspondence.
+
+[G0B0](../development/physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md)
+теперь фиксирует эту границу и repeat-exactly принимает в prospective catalogue
+IETeasy: `15` прямоугольных физических образцов, точные размеры/массу/подвес и
+`150` publisher-hashed MP3 bindings. Это максимум `5` будущих Steel parents из
+одного независимого проекта. Payload, PCM и targets не открывались; ни один
+parent ещё не материализован в corpus, поэтому текущий дефицит остаётся `49`,
+PSEL заблокирован, а G0B1 должен проверить payload/target path и найти второй
+независимый Steel project.
 
 Главное изменение V44: первый material pack больше не назначается заранее как
 Steel. Его выбирает signal-blind `PSEL` по числу независимых проектов и
@@ -89,6 +99,7 @@ Definition of done для первого вертикального среза:
 | Disclosed numerical floor | `B0R_R0R_COMPLETE / REPEAT_EXACT / SIGNAL_INSUFFICIENT` | Новый global floor — `1.312187716`; нужны runtime descriptors и ещё минимум `49` независимых supported parents, а не большая сеть. |
 | Runtime descriptors | `C1_COMPLETE / G0A_YCB_26_MASS_EXTENT / ZERO_DESCRIPTOR_COMPLETE` | Девять axes, masks, confidence, provenance и missingness frozen; mass/extents теперь известны у `26` parents, остальные неопубликованные axes остаются masked. |
 | Structured physical controls | `G0A_COMPLETE / 20_PLATE_PROSPECTS / NO_WAVEFORM_BINDING` | Пять размеров для каждого из Steel/Glass/Wood/Plastic пригодны только для будущего target-correspondence/T0 control; это не training, validator или PSEL credit. |
+| Prospective source growth | `G0B0_COMPLETE / IETEASY_15_PARENTS / 150_HASHED_WAVEFORMS / PAYLOAD_UNOPENED` | Отдельный контракт различает catalogue, corpus materialization и PSEL. IETeasy даёт пять prospective Steel parents, но только один project; текущий supported-parent deficit не уменьшается до materialization. |
 | Validator mechanics | `SYNTHETIC_CONTROL_EXISTS` | Механика проверялась, но независимых calibration parents/projects недостаточно. |
 | Recipe/renderer | `EXPERIMENTAL_CONTROLS_EXIST` | Нужна одна V2-форма, связанная с новыми descriptors и hard invariants. |
 | Neural generator | `BLOCKED` | Сначала B1 должен доказать deployable descriptor signal, затем V0 — независимую оценку. |
@@ -102,9 +113,10 @@ flowchart LR
     C0R["C0R corrected corpus — complete"] --> B0R["B0R/R0R corrected controls — complete"]
     C0R --> C1["C1 descriptor contract"]
     C1 --> G0A["G0A metadata enrichment — complete"]
-    G0A --> G0B["G0B prospective-parent growth"]
+    G0A --> G0B0["G0B0 IETeasy catalogue — complete"]
+    G0B0 --> G0B1["G0B1 payload + second source"]
     B0R --> PSEL["PSEL first-pack freeze"]
-    G0B --> PSEL
+    G0B1 --> PSEL
 
     C0R --> V0S["V0S validator-source search"]
     V0S --> V0P["V0P calibration power freeze"]
@@ -112,7 +124,7 @@ flowchart LR
 
     C1 --> T0["T0 recipe V2 + renderer"]
     B0R --> B1["B1 descriptor signal gate"]
-    G0B --> B1
+    G0B1 --> B1
     T0 --> B1
     PSEL --> B1
 
@@ -132,7 +144,7 @@ flowchart LR
     K0 --> P0["P0 opt-in demo prop"]
 ```
 
-B0R/R0R, C1 и G0A завершены. G0B теперь ведёт критический путь к PSEL и B1;
+B0R/R0R, C1, G0A и G0B0 завершены. G0B1 теперь ведёт критический путь к PSEL и B1;
 metadata-only V0S может развиваться параллельно, потому что не читает candidate
 outputs и не открывает protected payload. B1 ждёт G0, T0 и PSEL. M0/M1 ждут
 B1 и frozen V0.
@@ -146,8 +158,9 @@ Protected H0/V1/A0 остаются one-shot и принимают ровно о
 | B0R/R0R | `COMPLETE / REPEAT_EXACT / CORRECTED_CORPUS_SIGNAL_INSUFFICIENT` | [Result](../development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md) freezes global median `1.312187716`, 56 supported audit parents, `105`-parent floor and zero forbidden access; object `80` is global-only. | Перейти к C1/G0; сеть не увеличивать. |
 | C1 | `COMPLETE / REPEAT_EXACT / ZERO_DESCRIPTOR_COMPLETE` | [Result](../development/physical-sound-v44-c1-runtime-descriptor-contract-result-2026-09-03.md) freezes nine ordered runtime axes, integer units, masks, confidence, provenance and fail-closed internet metadata intake; `63/64` parents observe material, zero is descriptor-complete and all forbidden reads are zero. | G0 fills only source-published axes; unknown/conflicting values stay masked and are never inferred from audio or identity. |
 | G0A | `COMPLETE / REPEAT_EXACT / PARTIAL_COVERAGE` | [Result](../development/physical-sound-v44-g0a-structured-source-increment-result-2026-09-03.md) binds four published metadata artifacts, adds mass/extents to `26` C0R parents, emits `20` numerical plate prospects and keeps every forbidden read at zero. | Frozen as useful metadata only; it cannot authorize PSEL, B1, validator calibration or training. |
-| G0B | `NEXT / AFTER_G0A` | A prospective-parent/corpus-growth boundary admits new parents only with exact physical descriptors, publisher/project/parent lineage and bound waveform or transfer correspondence; at least two independent projects contribute to any pack considered by PSEL. | `DisclosedSourcePowerOOD`; continue source research and leave all packs `FallbackOnly`. |
-| PSEL | `BLOCKED_BY_G0B_POWER_AND_CORRESPONDENCE` | Первый pack выбран только по pre-candidate eligibility: exact taxonomy, role power, descriptor coverage, source independence и provenance. | Ни один материал не выбран; все packs остаются `FallbackOnly`. |
+| G0B0 | `COMPLETE / REPEAT_EXACT / PROSPECTIVE_ONLY` | [Result](../development/physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md) freezes catalogue/materialization/PSEL levels and binds `15` IETeasy parents to `150` publisher-hashed waveforms without payload access. | Frozen as acquisition planning only; it grants no corpus, role, target, B1 or training credit. |
+| G0B1 | `NEXT / AFTER_G0B0` | A bounded IETeasy subset passes payload hash/media/target extraction and disclosed-role materialization; source growth also yields at least a second independent descriptor-to-signal project for any pack considered by PSEL. | `DisclosedSourcePowerOOD`; keep current deficit `49`, continue metadata-first search and leave all packs `FallbackOnly`. |
+| PSEL | `BLOCKED_BY_G0B1_POWER_AND_CORRESPONDENCE` | Первый pack выбран только по pre-candidate eligibility: exact taxonomy, role power, descriptor coverage, source independence и provenance. | Ни один материал не выбран; все packs остаются `FallbackOnly`. |
 | V0S | `OPEN / METADATA_FIRST` | Найдены независимые validator-calibration project families; mirrors, demos, derived exports и re-encodes co-locate с источником или quarantined. | `ValidatorSourcePowerOOD`. |
 | V0P | `AFTER_V0S` | До выбора features/thresholds зафиксированы parent/project counts, clean controls, mutations, risk/coverage targets, OOD strata и one-use roles. | Продолжить metadata-only source growth. |
 | T0 | `AFTER_C1` | Recipe V2, masks, uncertainty, hard projection и deterministic renderer проходят roundtrip, positive damping, ordered modes, energy, impulse scaling, remesh, finite/resource и mutation checks. | Исправить contract/owner до доступа к model values. |
@@ -226,18 +239,21 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
    explicit missingness/provenance gates and honest zero-complete census.
 3. **V44.2a — G0A — COMPLETE:** repeat-exact YCB mass/extent source и `20`
    published plate numerical prospects, без PSEL/training credit.
-4. **V44.2b — G0B/PSEL — NEXT:** prospective-parent boundary, независимый
-   descriptor-to-signal source growth и signal-blind выбор первого pack.
-5. **V44.3 — V0S/V0P:** independent validator sources и frozen calibration plan.
-6. **V44.4 — T0:** recipe V2, renderer, causal fixtures и deterministic mutations.
-7. **V44.5 — B1:** descriptor learnability gate; при reject — только G0/C1.
-8. **V44.6 — V0:** automatic validator freeze до появления candidates.
-9. **V44.7 — M0:** value-free model/tournament preflight.
-10. **V44.8 — M1/L0:** autonomous training и один `LabWinner` либо `NoCandidate`.
-11. **V44.9 — S0/S1:** protected source growth и one-use role freeze.
-12. **V44.10 — H0/V1/A0:** one-shot independent admission.
-13. **V44.11 — K0/P0:** deterministic cooker и fallback-safe demo prop.
-14. **V44.12 — X0/PR:** новые packs; architecture promotion только после
+4. **V44.2b0 — G0B0 — COMPLETE:** prospective-parent boundary и IETeasy
+   catalogue из `15` parents/`150` publisher-hashed waveform bindings.
+5. **V44.2b1 — G0B1/PSEL — NEXT:** bounded IETeasy payload/target
+   materialization, второй независимый descriptor-to-signal project и
+   signal-blind выбор первого pack.
+6. **V44.3 — V0S/V0P:** independent validator sources и frozen calibration plan.
+7. **V44.4 — T0:** recipe V2, renderer, causal fixtures и deterministic mutations.
+8. **V44.5 — B1:** descriptor learnability gate; при reject — только G0/C1.
+9. **V44.6 — V0:** automatic validator freeze до появления candidates.
+10. **V44.7 — M0:** value-free model/tournament preflight.
+11. **V44.8 — M1/L0:** autonomous training и один `LabWinner` либо `NoCandidate`.
+12. **V44.9 — S0/S1:** protected source growth и one-use role freeze.
+13. **V44.10 — H0/V1/A0:** one-shot independent admission.
+14. **V44.11 — K0/P0:** deterministic cooker и fallback-safe demo prop.
+15. **V44.12 — X0/PR:** новые packs; architecture promotion только после
     работающего consumer и product evidence.
 
 ## Ближайшие commit boundaries
@@ -248,7 +264,8 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
 | B44 | `COMPLETE`: B0R/R0R owner/profile/tests и repeat-exact corrected result |
 | C44 | `COMPLETE`: C1 descriptor schema, validation и internet source intake contract |
 | D44a | `COMPLETE`: G0A YCB descriptor source, plate prospects и C1 successor |
-| D44b | G0B prospective-parent/corpus growth и PSEL first-pack freeze |
+| D44b0 | `COMPLETE`: G0B0 prospective-parent contract и IETeasy `15/150` catalogue |
+| D44b1 | G0B1 bounded payload/target materialization, second-project growth и PSEL first-pack freeze |
 | E44 | V0S/V0P source/power result |
 | F44 | T0 recipe V2/renderer contract и deterministic fixtures |
 | G44 | B1 descriptor-signal result |
