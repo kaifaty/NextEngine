@@ -1,0 +1,145 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "candidate_training_authority": false,
+    "empirical_prior_control_authority": true,
+    "material_truth_authority": false,
+    "product_authority": false,
+    "public_contract": false,
+    "real_acoustic_parent_credit": 0,
+    "runtime_consumer_allowed": false,
+    "validator_authority": false
+  },
+  "claim": "EXTERNAL_CLATTER_EMPIRICAL_MODAL_PRIOR_CONTROL / NO_REAL_PARENT_MATERIAL_TRUTH_TRAINING_VALIDATOR_PROTECTED_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision": "ClatterExternalControlAvailable",
+  "decoder": {
+    "arrays": [
+      "cf_hz",
+      "op_db",
+      "rt60_seconds"
+    ],
+    "byte_order": "little",
+    "count_type": "int32",
+    "header_bytes": 12,
+    "mode_rows_used": 10,
+    "require_equal_counts": true,
+    "scalar_type": "ieee754_binary64",
+    "trailing_bytes_allowed": false
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 6067,
+      "path": "docs/development/physical-sound-v45-c0-clatter-external-control-protocol-2026-09-03.md",
+      "sha256": "69433a61b2e668a378e2b4575f07702bcbdd552d03f0c8ed79e927345daf403a"
+    },
+    {
+      "bytes": 5492,
+      "path": "docs/development/physical-sound-v45-t0-recipe-v3-result-2026-09-03.md",
+      "sha256": "cc424c3c2c663aed2732eae0e78cbcf98d7a943221775774cc2f77c31522df91"
+    },
+    {
+      "bytes": 12512,
+      "path": "lab/profiles/physical-sound-v45-t0-recipe-v3.v1.json",
+      "sha256": "6cf7e1fe6c141ac324b9896defcadc033047fcbd7d33bc8f6b245d99cb0c9994"
+    },
+    {
+      "bytes": 25481,
+      "path": "lab/scripts/physical_sound_v45_c0_clatter_external_control_v1.py",
+      "sha256": "8a56bd6fa84718f66833875a575421683c675f6df940841a479ef39d4a618272"
+    },
+    {
+      "bytes": 29993,
+      "path": "lab/scripts/physical_sound_v45_t0_recipe_v3_v1.py",
+      "sha256": "6c6cd0ed708f98fa30fd862fdc8b29f27c24e6a17302512bf3d5fe8a0cedb316"
+    }
+  ],
+  "expected_source": {
+    "commit": "79cac6cbe3f7c452ba28b56c7da4a0124ad04806",
+    "filename_count": 84,
+    "filename_rule": "14_materials_x_6_size_buckets",
+    "semantic_files": [
+      {
+        "bytes": 605,
+        "path": "Clatter/Clatter.Core/Globals.cs",
+        "sha256": "6221c25adf2996f1934c62490089476a941bd9356510713b71142e440ce5fc5a"
+      },
+      {
+        "bytes": 6656,
+        "path": "Clatter/Clatter.Core/Impact.cs",
+        "sha256": "46c625ed6bb567f6a2982426af42b4c461760bf2363664e15847127c63a41f40"
+      },
+      {
+        "bytes": 2466,
+        "path": "Clatter/Clatter.Core/ImpactMaterial.cs",
+        "sha256": "316a9aafe985711ed6b1cfa333171ba8764123ca7b55622cc59bd4bf786a8bf6"
+      },
+      {
+        "bytes": 6976,
+        "path": "Clatter/Clatter.Core/ImpactMaterialData.cs",
+        "sha256": "5f9211e44ebfbab32110d2dcce31a47d6089fef478e9528187956b4424aadd79"
+      },
+      {
+        "bytes": 7010,
+        "path": "Clatter/Clatter.Core/Modes.cs",
+        "sha256": "7f42eb9cb56316786580ea5d208f96cfcfa03ce49fb8eafa3dc944d514b3798e"
+      },
+      {
+        "bytes": 1808,
+        "path": "Clatter/Clatter.Core/NormalDistribution.cs",
+        "sha256": "965e6ca59662e6bb04d7b5265810da4757c0b3b39a8bcd55a4211da9449db0c7"
+      },
+      {
+        "bytes": 20205,
+        "path": "LICENSE.md",
+        "sha256": "006622d7a04fbc8f74b126e4e6ff3f5b9b73069f47637721c7a0a4e5dda04593"
+      },
+      {
+        "bytes": 4220,
+        "path": "README.md",
+        "sha256": "2257b23ab766cd307002aeca69dd0683379739fc18fc9af2d74e8650fdc40500"
+      }
+    ],
+    "tree_root_sha256": "8230a6192f189806b899a9113c08fefaf458e9e7f26322e2fc6fe5434a4c065e",
+    "url": "https://github.com/alters-mit/clatter",
+    "usage_expression": "Hippocratic-License-3.0-HL3-BDS-ECO-FFD-LAW-MEDIA-MIL-SV"
+  },
+  "projection": {
+    "frequency_unit": "millihertz",
+    "observed_fields": [
+      "modal.base_frequency_millihz",
+      "modal.frequency_ratio_ppm",
+      "modal.mode_count",
+      "modal.participation_ppm",
+      "modal.rt60_milliseconds"
+    ],
+    "participation": "normalize_10_pow_op_db_over_20_to_ppm",
+    "ratio_scale": 1000000,
+    "rounding": "nearest_ties_to_even",
+    "source_lane": "empirical_prior",
+    "t0_profile_sha256": "6cf7e1fe6c141ac324b9896defcadc033047fcbd7d33bc8f6b245d99cb0c9994"
+  },
+  "renderer": {
+    "amplitude_ppm": 500000,
+    "contact_pulse_samples": 48,
+    "frequency_relative_std_ppm": 100000,
+    "frequency_retry_floor_hz": 20,
+    "mode_count": 10,
+    "onset_level_std_millidb": 10000,
+    "output_encoding": "mono_pcm16le_wav",
+    "prng": "splitmix64_box_muller_v1",
+    "render_frames": 48000,
+    "resonance_ppm": 1000000,
+    "root_seed": 4503599627370517,
+    "rt60_relative_std_ppm": 100000,
+    "rt60_retry_floor_microseconds": 1000,
+    "sample_rate_hz": 48000
+  },
+  "resources": {
+    "expected_payload_files": 84,
+    "max_array_values": 16384,
+    "max_file_bytes": 4194304,
+    "max_output_bytes": 33554432,
+    "max_retry_per_draw": 128
+  },
+  "schema": "nextengine.experimental-physical-sound-v45-c0-profile.v1"
+}
