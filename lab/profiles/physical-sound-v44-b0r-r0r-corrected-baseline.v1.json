@@ -1,0 +1,295 @@
+{
+  "audit_policy": {
+    "bootstrap": {
+      "confidence_interval_percent": [
+        2.5,
+        97.5
+      ],
+      "iterations": 8192,
+      "seed": 4201,
+      "statistic": "median_paired_relative_improvement"
+    },
+    "cross_source_parent_policy": "exclude_from_project_statistics_report_separately",
+    "leave_one_parent_out_controls": [
+      "global",
+      "coarse_material",
+      "project",
+      "project_and_coarse_material"
+    ],
+    "leave_project_out_controls": [
+      "global",
+      "coarse_material"
+    ],
+    "parent_weighting": "equal_weight_per_physical_parent",
+    "permutation": {
+      "iterations": 4096,
+      "label_shuffle": "within_coarse_material",
+      "seed": 4200,
+      "statistic": "nearest_project_centroid_balanced_accuracy"
+    },
+    "project_identity": "c0_family_id",
+    "source_centering": "descriptive_oracle_project_mean_not_deployable",
+    "target_scaler": "b0_generator_train_mean_std"
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": [
+      "v44_c1_descriptor_source_growth"
+    ],
+    "baseline_fit_authority": true,
+    "candidate_model_training_authority": false,
+    "descriptor_or_recipe_freeze_authority": false,
+    "diagnostic_audit_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_access_authority": false
+  },
+  "baseline_policy": {
+    "global_prototype": {
+      "kind": "masked_train_parent_mean"
+    },
+    "material_modal_prototype": {
+      "fallback": "global_prototype_and_ood",
+      "kind": "masked_coarse_material_train_parent_mean"
+    },
+    "nearest_local_medoid": {
+      "distance": "masked_standardized_rmse",
+      "fallback": "global_prototype_and_ood",
+      "kind": "coarse_material_train_medoid"
+    },
+    "pointwise_mlp": {
+      "adam_beta1": 0.9,
+      "adam_beta2": 0.999,
+      "adam_epsilon": 1e-08,
+      "full_batch_steps": 500,
+      "hidden_width": 32,
+      "kind": "one_hidden_layer_tanh_full_batch_numpy_float64",
+      "learning_rate": 0.01,
+      "seed": 4100,
+      "weight_decay": 0.0001
+    },
+    "retrieval_copy": {
+      "fallback": "global_prototype_and_ood",
+      "kind": "lexicographic_first_train_parent_within_coarse_material"
+    },
+    "ridge": {
+      "alpha": 1.0,
+      "bias_regularized": false,
+      "kind": "closed_form_multioutput_coarse_material_ridge"
+    }
+  },
+  "corpus_identity": {
+    "corpus_schema": "nextengine.experimental-physical-sound-v43-c0r-corpus.v1",
+    "manifest_root_sha256": "2539d5ac14b6b52616aaca9dcba0557e799afdd237b215581adb5f1447656cdd",
+    "projection_schema": "nextengine.experimental-physical-sound-v43-c0r-role-projection.v1",
+    "report_decision": "C0R_CORRECTED_CORPUS_REPEATABLE_B0R_R0R_C1_AUTHORIZED",
+    "report_schema": "nextengine.experimental-physical-sound-v43-c0r-report.v1"
+  },
+  "decision_policy": {
+    "domain_signal": {
+      "maximum_permutation_p_value": 0.01,
+      "minimum_accuracy_lift_over_null_median": 0.2,
+      "minimum_balanced_accuracy": 0.7,
+      "minimum_eligible_parents": 30
+    },
+    "material_signal": {
+      "minimum_bootstrap_lower_relative_improvement": 0.0,
+      "minimum_improved_parent_fraction": 0.6,
+      "minimum_median_relative_improvement": 0.05
+    },
+    "normalization_recovery": {
+      "minimum_improved_parent_fraction": 0.6,
+      "minimum_median_relative_improvement": 0.05
+    },
+    "precedence": [
+      "DescriptorSignalPlausible_if_raw_material_signal_passes",
+      "DomainNormalizationRequired_if_domain_and_normalization_recovery_pass",
+      "CorpusSignalInsufficient_otherwise"
+    ]
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 7279,
+      "path": "docs/development/physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md",
+      "sha256": "532f51dbe1ac67226fa9f4cb39fc98332c49178fed17fa4a12879bc3a54380ce"
+    },
+    {
+      "bytes": 6063,
+      "path": "lab/profiles/physical-sound-v43-d2-c0r-identity-repair.v1.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    {
+      "bytes": 41270,
+      "path": "lab/scripts/physical_sound_v41_b0_grouped_baselines_v1.py",
+      "sha256": "47f5dbb8b2648480a1a911db42dcfc3201184b664006ed5af671d960e0a9c539"
+    },
+    {
+      "bytes": 43845,
+      "path": "lab/scripts/physical_sound_v42_r0_domain_information_audit_v1.py",
+      "sha256": "490d7c2047b5192abf3eeaf015d4beb5afd419dddef9e0e0a26b70d302cc2e2e"
+    },
+    {
+      "bytes": 41652,
+      "path": "lab/scripts/physical_sound_v43_d2_c0r_identity_repair_v1.py",
+      "sha256": "20264958c374d3a819d90c6076408ece19b19ebe36626414f7d25175f83e3ef9"
+    },
+    {
+      "bytes": 43546,
+      "path": "lab/scripts/physical_sound_v44_b0r_r0r_corrected_baseline_v1.py",
+      "sha256": "f82fa1ac1a26cc362d1e504a1e6efb2eb5c0de16be51accc7a99ddc156945e3c"
+    }
+  ],
+  "environment": {
+    "numpy_version": "2.5.2"
+  },
+  "evaluation_policy": {
+    "aggregation": "equal_weight_per_physical_parent",
+    "candidate_or_hyperparameter_selection_allowed": false,
+    "exact_label_support_reported_separately": true,
+    "metric": "masked_train_standardized_rmse",
+    "ood_behavior": "FallbackOutOfDomain",
+    "quality_scope": "coarse_material_supported_development_parents_only",
+    "ranking": "minimum_parent_median_rmse_then_baseline_name",
+    "steel_claim": "coarse_metallic_transfer_only_not_steel_specialization",
+    "validator_access_allowed": false
+  },
+  "expected_counts": {
+    "audit": {
+      "combined_parents": 64,
+      "cross_source_parents": 2,
+      "leave_project_out_supported_parents": 56,
+      "material_unobserved_parents": 1,
+      "project_classifier_eligible_parents": 51,
+      "project_count": 8,
+      "project_statistics_parents": 62,
+      "single_source_parents": 62,
+      "source_centered_supported_parents": 54
+    },
+    "baseline": {
+      "coarse_supported_development_parents": 24,
+      "development_parents": 30,
+      "development_records": 70,
+      "exact_supported_development_parents": 9,
+      "material_unobserved_train_parents": 1,
+      "train_parents": 34,
+      "train_records": 64
+    }
+  },
+  "input_bindings": {
+    "corpus_card": {
+      "bytes": 1575,
+      "path": "corpus-card.json",
+      "sha256": "582e57a6f13a0f794354f353fe8c166fa8190d7f591e7a5076ec9b056802a1ad"
+    },
+    "corpus_profile": {
+      "bytes": 6063,
+      "path": "profile.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    "corpus_report": {
+      "bytes": 2892,
+      "path": "report.json",
+      "sha256": "28769b43a00a3a435b058daeaecbc77d79a47a85ebed7c0231c5b8cf71c12097"
+    },
+    "development_projection": {
+      "bytes": 90451,
+      "path": "projections/generator_development.json",
+      "sha256": "d58b5f236fef911089b49b596a45ddc10ae511db60cb38ab8bb8bd1a50e76c08"
+    },
+    "lineage_repair": {
+      "bytes": 3164,
+      "path": "lineage-repair.json",
+      "sha256": "cde3359d9451f833fc4973bbbdfead4e82c7f4bcfac4618e717dcc0fc35655d4"
+    },
+    "manifest": {
+      "bytes": 297789,
+      "path": "manifest.json",
+      "sha256": "5a3b8f76d8382a0855162146909fffb22aeb9a2ff325352ce4c41e57f8052efa"
+    },
+    "train_projection": {
+      "bytes": 82647,
+      "path": "projections/generator_train.json",
+      "sha256": "93d397c18c3c8df49f7f687caf79d8e346b7691c0ab1726dd3488bcd8f2bc00e"
+    }
+  },
+  "material_mask_policy": {
+    "axis_key": "material_identity",
+    "known_label_requires_axis_true": true,
+    "material_conditioned_models_exclude_unobserved": true,
+    "material_unobserved_class": "__material_unobserved__",
+    "material_unobserved_label": "Unknown",
+    "material_unobserved_requires_axis_false": true,
+    "material_unobserved_target_use": "scaler_and_global_prototype_only",
+    "parent_members_must_agree": true
+  },
+  "material_taxonomy": {
+    "Aluminium": "metallic",
+    "Ceramic": "ceramic",
+    "Foam": "foam",
+    "Glass": "glass",
+    "Hard Plastic": "polymer",
+    "Iron": "metallic",
+    "Metal": "metallic",
+    "Other Plastic": "polymer",
+    "Paper": "paper",
+    "Plastic": "polymer",
+    "Polycarbonate": "polymer",
+    "Soft Plastic": "polymer",
+    "Steel": "metallic",
+    "Wood": "wood"
+  },
+  "power_policy": {
+    "alpha_two_sided": 0.05,
+    "minimum_independent_projects_per_priority_material_train": 2,
+    "practical_relative_improvement": 0.05,
+    "target_power": 0.8,
+    "z_alpha_two_sided": 1.959963985,
+    "z_power": 0.841621234
+  },
+  "priority_materials": [
+    "Glass",
+    "Steel",
+    "Wood"
+  ],
+  "profile_id": "physical-sound-v44-b0r-r0r-corrected-baseline-v1",
+  "representation_policy": {
+    "band_count": 24,
+    "conditioning": "coarse_material_class_one_hot_only",
+    "global_features": [
+      "log2_bandwidth_hz",
+      "log2_centroid_hz",
+      "log2_rolloff_95_hz",
+      "log_crest_factor",
+      "log_decay_t60_seconds",
+      "log_flatness",
+      "log_peak_offset_ms_plus_0_1",
+      "log_temporal_centroid_seconds",
+      "zero_crossing_rate"
+    ],
+    "modal_histogram_bins": 24,
+    "modal_max_hz": 18000.0,
+    "modal_min_hz": 80.0,
+    "parent_aggregation": "masked_arithmetic_mean_per_physical_parent",
+    "scaler": "train_parent_mean_std_with_unit_constant_floor",
+    "scaler_floor": 1e-06,
+    "spectral_band_db_clip": [
+      -160.0,
+      20.0
+    ],
+    "target_dimension": 105,
+    "transient_bins": 48,
+    "transient_db_clip": [
+      -160.0,
+      20.0
+    ]
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-b0r-r0r-profile.v1"
+}
