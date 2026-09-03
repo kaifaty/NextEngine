@@ -441,6 +441,20 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         self.checkpoint.water_flow = water_flow;
     }
 
+    /// Plan 07 revision 2: the exact flow step over fields 4 and 5 in
+    /// place; the snapshot and catalog memos are untouched. On an error the
+    /// two fields may be partially written: the caller discards the world.
+    pub fn step_water_flow_in_place(
+        &mut self,
+    ) -> Result<(), next_contracts::physics::PhysicsContractError> {
+        if self.checkpoint.water_flow.is_empty() {
+            return Ok(());
+        }
+        self.checkpoint
+            .water_flow
+            .step_in_place(&mut self.checkpoint.water_volumes)
+    }
+
     pub fn set_checkpoint_revision(&mut self, revision: u64) {
         self.checkpoint.snapshot.checkpoint_revision = revision;
         // checkpoint_revision is canonical snapshot field 4: the mutation

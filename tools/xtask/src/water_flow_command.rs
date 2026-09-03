@@ -32,6 +32,7 @@ pub(super) fn run() -> Result<(), String> {
             step_cost_cells: report.step_cost_cells,
             step_cost_edges: report.step_cost_edges,
             step_cost_max_us: report.step_cost_max_microseconds.to_string(),
+            step_cost_mean_us: report.step_cost_mean_microseconds.to_string(),
             step_cost_debug_build: report.step_cost_debug_build,
             final_state_root: report.final_state_root.to_hex(),
             final_physics_checkpoint_hash: report.final_physics_checkpoint_hash.to_hex(),

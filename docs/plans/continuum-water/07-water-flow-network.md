@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WF1` |
-| Status | `RUN / G1 G2 G3 G4 G5 G7 PASS / G6 FAIL (183 us release, 1,405 us debug) / CONTINUUM-WATER-FLOW-P1 = PASS` |
+| Status | `RUN / G1-G7 PASS after revision 2 (G6 41-46 us release) / CONTINUUM-WATER-FLOW-P1 = PASS` |
 | Parent | ADR-103 (Proposed); ADR-100 R8c `WaterVolume`; calibration from plan `nonlocal-gpu-full-step-performance/22` |
 | Purpose | authoritative, exact, cheap water mechanics: cells joined by edges that move water by head |
 
@@ -71,3 +71,41 @@ G6 reading: the step clones the network and the volume set (two
 `BTreeMap`s of `64` and `256` entries) and evaluates the fluxes in `i128`;
 `183 us` at `30 Hz` is `0.5%` of a frame. Candidates for a next revision:
 in-place stepping and `i64` fast paths.
+
+## Revision 2 — step cost (frozen 2026-09-03 before its run)
+
+Plan `continuum-water/11` item R8d. Same law, same fluxes and levels,
+same gate G6 (`<= 50 us` per step for `64` cells and `256` edges in
+release). Changes:
+
+- `isqrt_i128` uses the standard library's integer square root
+  (`i128::isqrt`, the same floor value) instead of a 64-iteration binary
+  search per edge;
+- `WaterFlowNetworkV1::step_in_place(&mut self, &mut WaterVolumeSetV1)`
+  steps without cloning the network and the volume set: the cells live
+  in a vector for the step, per-cell outflow lists are vectors, the
+  edge states and cell states are written in place, and the projected
+  levels are checked against their volume extents directly (the only
+  state-dependent clause of `WaterVolumeSetV1::validate`; the
+  definitions and key sets do not change in a step). `step(&self, ..)`
+  stays as clone plus `step_in_place` and returns the same value;
+- the runtime's physics step and the G6 harness use `step_in_place`
+  (apparatus: G6 measures the path the runtime runs).
+
+Acceptance: the contract tests (including a new equality test of `step`
+against `step_in_place` and of the two square roots on large radicands),
+`water-flow` G1-G5 and G7 PASS with unchanged roots, `play` /
+`persistence-replay` PASS.
+
+### Revision 2 reading (2026-09-03)
+
+Contract tests PASS, including the new equality of `step` and
+`step_in_place` over `240` equalising steps and of the standard square
+root against the former binary search up to `2^100`. `water-flow` PASS
+with the final root `0d3bdf1c…` identical across runs; `play` /
+`persistence-replay` PASS. G6 over three runs: maxima `43`, `46`,
+`41 us`, mean `29`, `29`, `28 us` (`step_cost_mean_us`, new apparatus
+field) — PASS against `50 us`, down from `183 us`. One implementation
+detail inside the frozen scope, applied after a first reading of
+`49-57 us`: the edge states are walked in lockstep with the edges
+instead of one map lookup per edge (the two maps share a key set).

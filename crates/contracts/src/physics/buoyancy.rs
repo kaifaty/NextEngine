@@ -23,7 +23,7 @@ use super::error::PhysicsContractError;
 use super::primitives::PhysicsBodyIdV1;
 use super::primitives::{PhysicsGeometryV1, PhysicsMotionKindV1};
 use super::snapshot::PhysicsCanonicalSnapshotV2;
-use super::water::WaterVolumeSetV1;
+use super::water::{WaterVolumeDefinitionV1, WaterVolumeSetV1};
 
 /// ADR-105 bound: one record per dynamic body, at most this many per tick
 /// (the water-volume bound).
@@ -187,16 +187,55 @@ pub struct WaterExchangeContextV1 {
     pub destination_root: ContentHash,
 }
 
+/// The four fixed identifiers of a buoyancy exchange tuple, validated once
+/// per batch (plan `continuum-water/08` revision 2) instead of once per
+/// record.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WaterExchangeIdentifiersV1 {
+    namespace: SchemaId,
+    source_owner: SchemaId,
+    destination_owner: SchemaId,
+    edge_profile: SchemaId,
+}
+
+impl WaterExchangeIdentifiersV1 {
+    pub fn water_buoyancy() -> Result<Self, PhysicsContractError> {
+        Ok(Self {
+            namespace: SchemaId::new(WATER_BUOYANCY_EXCHANGE_NAMESPACE)?,
+            source_owner: SchemaId::new(WATER_EXCHANGE_SOURCE_OWNER)?,
+            destination_owner: SchemaId::new(WATER_EXCHANGE_DESTINATION_OWNER)?,
+            edge_profile: SchemaId::new(WATER_BUOYANCY_EDGE_PROFILE_ID)?,
+        })
+    }
+}
+
 impl WaterExchangeTupleV1 {
     pub fn water_buoyancy(
         context: &WaterExchangeContextV1,
         gameplay_tick: u64,
         body_id: PhysicsBodyIdV1,
     ) -> Result<Self, PhysicsContractError> {
-        Ok(Self {
-            namespace: SchemaId::new(WATER_BUOYANCY_EXCHANGE_NAMESPACE)?,
-            source_owner: SchemaId::new(WATER_EXCHANGE_SOURCE_OWNER)?,
-            destination_owner: SchemaId::new(WATER_EXCHANGE_DESTINATION_OWNER)?,
+        Ok(Self::water_buoyancy_with(
+            &WaterExchangeIdentifiersV1::water_buoyancy()?,
+            context,
+            gameplay_tick,
+            body_id,
+        ))
+    }
+
+    /// The tuple with pre-validated identifiers; the same value as
+    /// [`Self::water_buoyancy`].
+    #[must_use]
+    pub fn water_buoyancy_with(
+        identifiers: &WaterExchangeIdentifiersV1,
+        context: &WaterExchangeContextV1,
+        gameplay_tick: u64,
+        body_id: PhysicsBodyIdV1,
+    ) -> Self {
+        Self {
+            namespace: identifiers.namespace.clone(),
+            source_owner: identifiers.source_owner.clone(),
+            destination_owner: identifiers.destination_owner.clone(),
             world_id: context.world_id,
             source_revision: context.source_revision,
             source_root: context.source_root,
@@ -204,10 +243,10 @@ impl WaterExchangeTupleV1 {
             destination_root: context.destination_root,
             gameplay_tick,
             substep: 0,
-            edge_profile: SchemaId::new(WATER_BUOYANCY_EDGE_PROFILE_ID)?,
+            edge_profile: identifiers.edge_profile.clone(),
             body_id,
             operation_slot: 0,
-        })
+        }
     }
 
     pub fn validate(&self) -> Result<(), PhysicsContractError> {
@@ -444,7 +483,21 @@ impl WaterBuoyancyBatchV1 {
         if gameplay_hz == 0 {
             return Err(PhysicsContractError::InvalidProfile);
         }
-        let mut records = Vec::new();
+        // Revision 2: the identifiers once per batch, the effective levels
+        // once per volume, and a plan-rectangle reject before the exact
+        // clip; the same volumes in the same order, so ties resolve as
+        // before and every record is byte-identical.
+        let identifiers = WaterExchangeIdentifiersV1::water_buoyancy()?;
+        let cells: Vec<(PersistentId, &WaterVolumeDefinitionV1, i64)> = volumes
+            .definitions
+            .iter()
+            .filter_map(|(volume_id, definition)| {
+                volumes
+                    .effective_level(*volume_id, gameplay_tick)
+                    .map(|level| (*volume_id, definition, level))
+            })
+            .collect();
+        let mut records = Vec::with_capacity(catalog.bodies.len().min(WATER_BUOYANCY_MAX_RECORDS));
         for (body_id, body) in &catalog.bodies {
             if body.motion_kind != PhysicsMotionKindV1::Dynamic {
                 continue;
@@ -459,10 +512,16 @@ impl WaterBuoyancyBatchV1 {
                 continue;
             };
             let mut best: Option<(PersistentId, ClippedBoundsV1)> = None;
-            for (volume_id, definition) in &volumes.definitions {
-                let Some(level) = volumes.effective_level(*volume_id, gameplay_tick) else {
+            for &(volume_id, definition, level) in &cells {
+                if bounds.maximum[0] <= definition.minimum_micrometres[0]
+                    || bounds.minimum[0] >= definition.maximum_micrometres[0]
+                    || bounds.maximum[2] <= definition.minimum_micrometres[2]
+                    || bounds.minimum[2] >= definition.maximum_micrometres[2]
+                    || bounds.minimum[1] >= level.min(definition.maximum_micrometres[1])
+                    || bounds.maximum[1] <= definition.minimum_micrometres[1]
+                {
                     continue;
-                };
+                }
                 let Some(clipped) = clip_bounds(
                     &bounds,
                     definition.minimum_micrometres,
@@ -479,7 +538,7 @@ impl WaterBuoyancyBatchV1 {
                     }
                 };
                 if better {
-                    best = Some((*volume_id, clipped));
+                    best = Some((volume_id, clipped));
                 }
             }
             let Some((volume_id, clipped)) = best else {
@@ -501,11 +560,12 @@ impl WaterBuoyancyBatchV1 {
                     body_id: *body_id,
                     impulse_micronewton_seconds: impulse,
                     application_point_micrometres: clipped.centroid_micrometres,
-                    exchange: WaterExchangeTupleV1::water_buoyancy(
+                    exchange: WaterExchangeTupleV1::water_buoyancy_with(
+                        &identifiers,
                         context,
                         gameplay_tick,
                         *body_id,
-                    )?,
+                    ),
                 },
             });
         }

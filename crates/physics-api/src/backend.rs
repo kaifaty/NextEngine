@@ -64,6 +64,23 @@ pub trait PhysicsWorldBackend: Debug {
     fn set_water_volumes(&mut self, water_volumes: WaterVolumeSetV1);
     /// Replaces the ADR-103 flow network of the checkpoint; carried only.
     fn set_water_flow(&mut self, water_flow: WaterFlowNetworkV1);
+    /// ADR-103: one exact flow step over the carried network and water
+    /// table (plan `continuum-water/07` revision 2). The default clones
+    /// through [`WaterFlowNetworkV1::step`]; a backend that owns both may
+    /// step in place. A no-op for an empty network.
+    fn step_water_flow(&mut self) -> Result<(), PhysicsBackendError> {
+        let checkpoint = self.checkpoint();
+        if checkpoint.water_flow.is_empty() {
+            return Ok(());
+        }
+        let stepped = checkpoint
+            .water_flow
+            .step(&checkpoint.water_volumes)
+            .map_err(PhysicsBackendError::WaterFlow)?;
+        self.set_water_flow(stepped.network);
+        self.set_water_volumes(stepped.volumes);
+        Ok(())
+    }
     fn step(
         &mut self,
         input: &PhysicsStepInputV2,
@@ -129,6 +146,10 @@ where
 
     fn set_water_flow(&mut self, water_flow: WaterFlowNetworkV1) {
         GroundedCapsuleWorld::set_water_flow(self, water_flow);
+    }
+
+    fn step_water_flow(&mut self) -> Result<(), PhysicsBackendError> {
+        GroundedCapsuleWorld::step_water_flow_in_place(self).map_err(PhysicsBackendError::WaterFlow)
     }
 
     fn step(
@@ -304,6 +325,12 @@ impl PhysicsWorldHost {
         self.world.set_water_flow(water_flow);
     }
 
+    /// ADR-103 flow step over the carried table and network (plan 07
+    /// revision 2, in place where the backend allows it).
+    pub fn step_water_flow(&mut self) -> Result<(), PhysicsBackendError> {
+        self.world.step_water_flow()
+    }
+
     pub fn step(
         &mut self,
         input: &PhysicsStepInputV2,
@@ -333,6 +360,8 @@ impl Debug for PhysicsWorldHost {
 pub enum PhysicsBackendError {
     World(ReferencePhysicsError),
     BackendIdentityMismatch,
+    /// The exact water flow step rejected the carried network or table.
+    WaterFlow(next_contracts::physics::PhysicsContractError),
 }
 
 impl PhysicsBackendError {
@@ -341,6 +370,7 @@ impl PhysicsBackendError {
         match self {
             Self::World(error) => error.stable_code(),
             Self::BackendIdentityMismatch => "PHYS_BACKEND_IDENTITY_MISMATCH",
+            Self::WaterFlow(_) => "PHYS_BACKEND_WATER_FLOW_INVALID",
         }
     }
 }

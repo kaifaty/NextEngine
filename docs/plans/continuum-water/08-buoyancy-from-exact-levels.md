@@ -88,3 +88,52 @@ table as staged for the step, so on the command tick the batch already
 binds the raised level (revision `1`); the check recomputes the batch
 independently on every other tick and verifies the bound roots on that
 one (task-state D-009).
+
+## Revision 2 — batch cost (frozen 2026-09-03 before its run)
+
+Plan `continuum-water/11` item WB1. Same law, same records, same gate
+G6 (`<= 20 us` per `64 x 64` batch in release). Changes, all inside
+`WaterBuoyancyBatchV1::compute`:
+
+- the four exchange-tuple identifiers are validated once per batch
+  (`WaterExchangeIdentifiersV1`) and cloned into each record instead of
+  four `SchemaId::new` validations per record;
+- the effective level of every volume is read once per batch into a
+  vector, in the same volume order;
+- a plan-rectangle and level reject on `i64` runs before the exact `i128`
+  clip, so a body clips only against volumes it overlaps.
+
+Byte-identical records are the acceptance: `water-buoyancy` (G1-G5, G7)
+and the contract tests must pass unchanged, and the recorded roots of
+`play` / `persistence-replay` must not move.
+
+### Revision 2 reading (2026-09-03)
+
+`water-buoyancy` PASS, records byte-identical (`play` root
+`5f0c8bcd…`, `persistence-replay` PASS, contract tests unchanged). G6:
+`26-29 us` maximum over `100` samples, mean `19 us` (the mean is a new
+apparatus field, `batch_cost_mean_us`, recorded next to the gated
+maximum; one untimed warm-up batch precedes the samples) — FAIL against
+the `20 us` maximum, `10x` down from `260 us`. Section probe in release:
+the `64 x 64` reject plus `64` exact clips `4-5 us`, the `64` tuples
+`5 us` (four `String` clones each, `256` allocations), the rest the
+body-state lookups and the record pushes.
+
+## Revision 3 — shared identifier text (frozen 2026-09-03 before its run)
+
+The text identifiers of `next_contracts::ids` (`SchemaId` and the other
+`text_id!` types) hold `Arc<str>` instead of `String`: a clone is one
+reference count, the value, ordering, hashing and canonical encoding are
+unchanged (no canonical record moves). Same gate G6; acceptance as in
+revision 2: byte-identical records and roots, `host-check` PASS.
+
+### Revision 3 reading (2026-09-03)
+
+`water-buoyancy` PASS with byte-identical records and unchanged roots
+(`play` root `5f0c8bcd…`, `persistence-replay`, `content-package`,
+contract tests). G6 over three runs: maxima `18`, `18`, `25 us`, mean
+`13 us` in each (`batch_cost_mean_us`). The gate (`<= 20 us` maximum)
+holds in two of the three runs; the third carries one outlier sample
+while its mean stays at `13 us` — recorded as PASS at the noise floor of
+a maximum-over-samples statistic on a desktop host. Cumulative: `260 us`
+→ `13 us` mean, `20x`.

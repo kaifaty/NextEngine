@@ -89,15 +89,10 @@ pub(super) fn finish_physical_step(
     }
     // ADR-103: the exact water flow step follows the rigid step of every
     // tick; it moves only the water table and the network, never a body.
-    if !staged.physics.water_flow().is_empty() {
-        let stepped = staged
-            .physics
-            .water_flow()
-            .step(staged.physics.water_volumes())
-            .map_err(|_| RuntimeFatalError::PhysicalOutcomeInvariant)?;
-        staged.physics.set_water_flow(stepped.network);
-        staged.physics.set_water_volumes(stepped.volumes);
-    }
+    staged
+        .physics
+        .step_water_flow()
+        .map_err(|_| RuntimeFatalError::PhysicalOutcomeInvariant)?;
     if step_result.before_snapshot_hash != step_result.after_snapshot_hash {
         staged.revision = staged
             .revision

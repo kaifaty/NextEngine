@@ -28,6 +28,7 @@ pub(super) fn run() -> Result<(), String> {
             batch_cost_bodies: report.batch_cost_bodies,
             batch_cost_volumes: report.batch_cost_volumes,
             batch_cost_max_us: report.batch_cost_max_microseconds.to_string(),
+            batch_cost_mean_us: report.batch_cost_mean_microseconds.to_string(),
             batch_cost_debug_build: report.batch_cost_debug_build,
             final_state_root: report.final_state_root.to_hex(),
             final_physics_checkpoint_hash: report.final_physics_checkpoint_hash.to_hex(),

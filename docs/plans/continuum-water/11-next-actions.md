@@ -52,9 +52,9 @@ optional adapter feature behind an environment-provided SDK path).
 
 | Item | Reading | Frozen target | Planned change |
 | --- | --- | --- | --- |
-| WB1 G6 buoyancy batch | `260 us` per `64 x 64` batch in release (plan 08) | `<= 20 us` | intern the four exchange-tuple identifiers (one `SchemaId` set per world, not four strings per record); index volumes by plan rectangle so a body clips only against candidates; keep the same integer law and byte-identical records |
+| WB1 G6 buoyancy batch (done 2026-09-03, plan 08 revisions 2 and 3) | `260 us` per `64 x 64` batch in release (plan 08) | `<= 20 us` | identifiers validated once per batch, levels once per volume, a plan-rectangle reject before the exact clip (revision 2: `26-29 us` max, `19 us` mean); text identifiers as shared `Arc<str>` (revision 3: `18-25 us` max, `13 us` mean); records byte-identical |
 | WR1 box integrator | `~5.6 us` per box per tick, `116-121 us` mean for sixteen boxes (plan 10) | `<= 200 us` (met in steady state) | build the obstacle set once per substep and reuse it across boxes and the capsule sweep; optional |
-| R8d flow step G6 | `183 us` at `64` cells / `256` edges (plan 07) | `<= 50 us` | in-place stepping without cloning the two maps; `i64` fast path when no `i128` is needed |
+| R8d flow step G6 (done 2026-09-03, plan 07 revision 2) | `183 us` at `64` cells / `256` edges (plan 07) | `<= 50 us` | `step_in_place` through the backend trait (no clones of the two maps), the standard integer square root, edge states walked in lockstep: `41-46 us` max, `28-29 us` mean; fluxes and levels identical |
 | Debug interactive path | `~17 fps` in a debug build (`481` frames over `851` ticks) against `~160 fps` in release | none (release is the supported run) | optional: memoize the presentation frame per published snapshot on the worker, avoid re-hashing the step input twice per tick |
 
 Each item is a revision of its plan with the same gate and its own

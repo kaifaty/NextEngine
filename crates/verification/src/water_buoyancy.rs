@@ -73,6 +73,9 @@ pub struct WaterBuoyancyCheckReportV1 {
     pub batch_cost_bodies: usize,
     pub batch_cost_volumes: usize,
     pub batch_cost_max_microseconds: u128,
+    /// Plan 08 revision 2 apparatus: the mean over the samples, for context
+    /// next to the gated maximum.
+    pub batch_cost_mean_microseconds: u128,
     pub batch_cost_debug_build: bool,
     pub final_state_root: StateRoot,
     pub final_physics_checkpoint_hash: ContentHash,
@@ -141,7 +144,7 @@ pub fn run_water_buoyancy_check() -> Result<WaterBuoyancyCheckReportV1, WaterBuo
                 "repeated water buoyancy generation is identical",
             ));
         }
-        let batch_cost_max_microseconds = batch_cost()?;
+        let (batch_cost_max_microseconds, batch_cost_mean_microseconds) = batch_cost()?;
         let matrix_digest = evidence_digest(&first);
         Ok(WaterBuoyancyCheckReportV1 {
             crate_body_id: REFERENCE_WATER_CRATE_BODY_ID,
@@ -165,6 +168,7 @@ pub fn run_water_buoyancy_check() -> Result<WaterBuoyancyCheckReportV1, WaterBuo
             batch_cost_bodies: COST_BODIES,
             batch_cost_volumes: COST_VOLUMES,
             batch_cost_max_microseconds,
+            batch_cost_mean_microseconds,
             batch_cost_debug_build: cfg!(debug_assertions),
             final_state_root: first.final_state_root,
             final_physics_checkpoint_hash: first.final_physics_checkpoint_hash,
@@ -518,7 +522,7 @@ fn immersion(
 
 /// G6: one batch computation at the record bounds (64 bodies over 64
 /// volumes, every body immersed).
-fn batch_cost() -> Result<u128, WaterBuoyancyCheckErrorV1> {
+fn batch_cost() -> Result<(u128, u128), WaterBuoyancyCheckErrorV1> {
     let tick = TickRateProfileV1::at_30_hz();
     let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1()
         .map_err(|error| WaterBuoyancyCheckErrorV1::new("quantization", error.to_string()))?;
@@ -625,7 +629,21 @@ fn batch_cost() -> Result<u128, WaterBuoyancyCheckErrorV1> {
         destination_revision: 0,
         destination_root: ContentHash::default(),
     };
+    // Apparatus (plan 08 revision 2, recorded): one untimed warm-up batch
+    // so the maximum over the samples measures the batch, not the first
+    // touch of the allocator and the code pages.
+    WaterBuoyancyBatchV1::compute(
+        &profile,
+        &volumes,
+        &catalog,
+        &snapshot,
+        0,
+        tick.gameplay_hz,
+        &context,
+    )
+    .map_err(|error| WaterBuoyancyCheckErrorV1::new("cost warm-up", error.to_string()))?;
     let mut maximum = 0_u128;
+    let mut total = 0_u128;
     for sample in 0..COST_SAMPLES {
         let started = Instant::now();
         let batch = WaterBuoyancyBatchV1::compute(
@@ -638,14 +656,16 @@ fn batch_cost() -> Result<u128, WaterBuoyancyCheckErrorV1> {
             &context,
         )
         .map_err(|error| WaterBuoyancyCheckErrorV1::new("cost batch", error.to_string()))?;
-        maximum = maximum.max(started.elapsed().as_micros());
+        let elapsed = started.elapsed().as_micros();
+        maximum = maximum.max(elapsed);
+        total += elapsed;
         if batch.records.len() != COST_BODIES {
             return Err(WaterBuoyancyCheckErrorV1::condition(
                 "every cost body receives a record",
             ));
         }
     }
-    Ok(maximum)
+    Ok((maximum, total / u128::from(COST_SAMPLES.max(1))))
 }
 
 fn register_tool_principal(

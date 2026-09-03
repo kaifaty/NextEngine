@@ -59,29 +59,12 @@ const EVENT_LENGTH: usize = 16 + 8 + 4 + 1 + 8 + 8;
 /// Exact integer square root (floor).
 #[must_use]
 pub fn isqrt_i128(value: i128) -> i128 {
+    // Plan 07 revision 2: the standard library's floor square root (the same
+    // value as the former binary search, without its 64 multiplications).
     if value <= 0 {
         return 0;
     }
-    let mut low: i128 = 0;
-    let mut high: i128 = 1;
-    while high.saturating_mul(high) <= value {
-        high = high.saturating_mul(2);
-        if high > 1 << 64 {
-            break;
-        }
-    }
-    while low < high {
-        let middle = low + (high - low) / 2 + 1;
-        if middle
-            .checked_mul(middle)
-            .is_some_and(|square| square <= value)
-        {
-            low = middle;
-        } else {
-            high = middle - 1;
-        }
-    }
-    low
+    value.isqrt()
 }
 
 /// Head-driven edge kinds. Every coefficient is a permille profile value.
@@ -1013,20 +996,33 @@ impl WaterFlowNetworkV1 {
     /// the start of the tick, limited by the water above the sill on its
     /// source side and by half the equalising volume; per-cell outflows are
     /// scaled so no cell goes negative; then all fluxes apply and the cell
-    /// levels are projected into the volume set.
+    /// levels are projected into the volume set. The same value as
+    /// [`Self::step_in_place`] on clones.
     pub fn step(
         &self,
         volumes: &WaterVolumeSetV1,
     ) -> Result<WaterFlowStepV1, PhysicsContractError> {
+        let mut network = self.clone();
+        let mut volumes = volumes.clone();
+        network.step_in_place(&mut volumes)?;
+        Ok(WaterFlowStepV1 { network, volumes })
+    }
+
+    /// The step of [`Self::step`] applied in place (plan
+    /// `continuum-water/07` revision 2): no clone of the network or the
+    /// volume set; on an error both may be partially written and must be
+    /// discarded by the caller.
+    pub fn step_in_place(
+        &mut self,
+        volumes: &mut WaterVolumeSetV1,
+    ) -> Result<(), PhysicsContractError> {
         if self.is_empty() {
-            return Ok(WaterFlowStepV1 {
-                network: self.clone(),
-                volumes: volumes.clone(),
-            });
+            return Ok(());
         }
         self.validate_against(volumes)?;
         // Cell geometry and the volume synchronised with authored overrides.
         struct Cell {
+            id: PersistentId,
             floor: i64,
             ceiling: i64,
             area: i64,
@@ -1035,9 +1031,9 @@ impl WaterFlowNetworkV1 {
             outflow: i64,
             inflow: i64,
         }
-        let mut cells: BTreeMap<PersistentId, Cell> = BTreeMap::new();
-        let mut next = self.clone();
-        for (cell_id, cell_state) in &mut next.cells {
+        let mut cells: Vec<Cell> = Vec::with_capacity(self.cells.len());
+        let mut ordinals: BTreeMap<PersistentId, usize> = BTreeMap::new();
+        for (cell_id, cell_state) in &mut self.cells {
             let definition = &volumes.definitions[cell_id];
             let state = &volumes.states[cell_id];
             let area = cell_area_square_millimetres(
@@ -1058,28 +1054,39 @@ impl WaterFlowNetworkV1 {
                 area,
                 cell_state.volume_cubic_millimetres,
             );
-            cells.insert(
-                *cell_id,
-                Cell {
-                    floor: definition.minimum_micrometres[1],
-                    ceiling: definition.maximum_micrometres[1],
-                    area,
-                    volume: cell_state.volume_cubic_millimetres,
-                    level,
-                    outflow: 0,
-                    inflow: 0,
-                },
-            );
+            ordinals.insert(*cell_id, cells.len());
+            cells.push(Cell {
+                id: *cell_id,
+                floor: definition.minimum_micrometres[1],
+                ceiling: definition.maximum_micrometres[1],
+                area,
+                volume: cell_state.volume_cubic_millimetres,
+                level,
+                outflow: 0,
+                inflow: 0,
+            });
         }
         let hz = i128::from(self.ticks_per_second);
         let gravity = i128::from(WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED);
-        // Signed flux per edge, positive from `cell_a` to `cell_b` (or into
-        // the cell for sources, out of it for sinks as a negative value).
-        let mut fluxes: Vec<(PersistentId, i64)> = Vec::with_capacity(self.edges.len());
-        for (edge_id, edge) in &self.edges {
-            let state = &self.edge_states[edge_id];
-            let a = &cells[&edge.cell_a];
-            let b = edge.cell_b.map(|id| &cells[&id]);
+        // Signed flux per edge in edge order, positive from `cell_a` to
+        // `cell_b` (or into the cell for sources, out of it for sinks as a
+        // negative value), with the source and sink cell ordinals.
+        struct Flow {
+            source: Option<usize>,
+            sink: Option<usize>,
+            flux: i64,
+        }
+        let mut flows: Vec<Flow> = Vec::with_capacity(self.edges.len());
+        if self.edge_states.len() != self.edges.len() {
+            return Err(PhysicsContractError::WaterFlowInvalid);
+        }
+        // Edges and edge states share one key set (`validate`), so they
+        // walk in lockstep without a lookup per edge.
+        for (edge, state) in self.edges.values().zip(self.edge_states.values()) {
+            let ordinal_a = ordinals[&edge.cell_a];
+            let ordinal_b = edge.cell_b.map(|id| ordinals[&id]);
+            let a = &cells[ordinal_a];
+            let b = ordinal_b.map(|ordinal| &cells[ordinal]);
             let mut flux: i128 = match edge.kind {
                 WaterFlowEdgeKindV1::Open {
                     sill_micrometres,
@@ -1201,51 +1208,56 @@ impl WaterFlowNetworkV1 {
                 flux = -((-flux).min(i128::from(a.volume)));
             }
             let flux = i64::try_from(flux).map_err(|_| PhysicsContractError::WaterFlowInvalid)?;
-            fluxes.push((*edge_id, flux));
+            let (source, sink) = match (ordinal_b, flux >= 0) {
+                (Some(b), true) => (Some(ordinal_a), Some(b)),
+                (Some(b), false) => (Some(b), Some(ordinal_a)),
+                // Source (positive) fills the cell; sink (negative) drains it.
+                (None, true) => (None, Some(ordinal_a)),
+                (None, false) => (Some(ordinal_a), None),
+            };
+            flows.push(Flow { source, sink, flux });
         }
         // Per-cell outflow scaling so no cell goes negative (largest
         // remainder keeps the scaled sum exact).
-        let mut outflows: BTreeMap<PersistentId, Vec<usize>> = BTreeMap::new();
-        for (index, (edge_id, flux)) in fluxes.iter().enumerate() {
-            let edge = &self.edges[edge_id];
-            let (source, _) = flow_endpoints(edge, *flux);
-            if let Some(source) = source {
-                outflows.entry(source).or_default().push(index);
+        let mut outflows: Vec<Vec<usize>> = vec![Vec::new(); cells.len()];
+        for (index, flow) in flows.iter().enumerate() {
+            if let Some(source) = flow.source {
+                outflows[source].push(index);
             }
         }
-        for (cell_id, indices) in outflows {
-            let budget = cells[&cell_id].volume;
-            let mut parts: Vec<i64> = indices.iter().map(|index| fluxes[*index].1.abs()).collect();
+        for (ordinal, indices) in outflows.iter().enumerate() {
+            if indices.is_empty() {
+                continue;
+            }
+            let budget = cells[ordinal].volume;
+            let mut parts: Vec<i64> = indices
+                .iter()
+                .map(|index| flows[*index].flux.abs())
+                .collect();
             scale_to_budget(&mut parts, budget);
             for (slot, index) in indices.iter().enumerate() {
-                let sign = fluxes[*index].1.signum();
-                fluxes[*index].1 = sign * parts[slot];
+                let sign = flows[*index].flux.signum();
+                flows[*index].flux = sign * parts[slot];
             }
         }
-        for (edge_id, flux) in &fluxes {
-            let edge = &self.edges[edge_id];
-            let (source, sink) = flow_endpoints(edge, *flux);
-            if let Some(source) = source {
-                let cell = cells.get_mut(&source).expect("validated cell");
+        for (flow, state) in flows.iter().zip(self.edge_states.values_mut()) {
+            if let Some(source) = flow.source {
+                let cell = &mut cells[source];
                 cell.outflow = cell
                     .outflow
-                    .checked_add(flux.abs())
+                    .checked_add(flow.flux.abs())
                     .ok_or(PhysicsContractError::WaterFlowInvalid)?;
             }
-            if let Some(sink) = sink {
-                let cell = cells.get_mut(&sink).expect("validated cell");
+            if let Some(sink) = flow.sink {
+                let cell = &mut cells[sink];
                 cell.inflow = cell
                     .inflow
-                    .checked_add(flux.abs())
+                    .checked_add(flow.flux.abs())
                     .ok_or(PhysicsContractError::WaterFlowInvalid)?;
             }
-            next.edge_states
-                .get_mut(edge_id)
-                .expect("validated edge")
-                .last_flux_cubic_millimetres = *flux;
+            state.last_flux_cubic_millimetres = flow.flux;
         }
-        let mut next_volumes = volumes.clone();
-        for (cell_id, cell) in &cells {
+        for (cell, cell_state) in cells.iter().zip(self.cells.values_mut()) {
             let volume = cell
                 .volume
                 .checked_add(cell.inflow)
@@ -1255,24 +1267,21 @@ impl WaterFlowNetworkV1 {
                 return Err(PhysicsContractError::WaterFlowInvalid);
             }
             let level = level_from_volume(cell.floor, cell.ceiling, cell.area, volume);
-            let cell_state = next.cells.get_mut(cell_id).expect("validated cell");
             cell_state.volume_cubic_millimetres = volume;
-            let state = next_volumes
-                .states
-                .get_mut(cell_id)
-                .expect("validated cell");
+            let state = volumes.states.get_mut(&cell.id).expect("validated cell");
+            // The state-dependent clause of `WaterVolumeSetV1::validate`:
+            // the projected level stays inside the volume's extent.
+            if level < cell.floor || level > cell.ceiling {
+                return Err(PhysicsContractError::WaterVolumeInvalid);
+            }
             *state = WaterVolumeStateV1 {
-                volume_id: *cell_id,
+                volume_id: cell.id,
                 record_revision: state.record_revision,
                 level_micrometres: level,
                 ramp_suspended: state.ramp_suspended,
             };
         }
-        next_volumes.validate()?;
-        Ok(WaterFlowStepV1 {
-            network: next,
-            volumes: next_volumes,
-        })
+        Ok(())
     }
 
     pub fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
@@ -1375,20 +1384,6 @@ impl WaterFlowNetworkV1 {
 fn volume_above(floor: i64, area: i64, volume: i64, sill: i64) -> i128 {
     let below_sill = i128::from(sill.saturating_sub(floor)).max(0) * i128::from(area) / 1000;
     (i128::from(volume) - below_sill).max(0)
-}
-
-/// `(source, sink)` cells of a signed flux along an edge.
-fn flow_endpoints(
-    edge: &WaterFlowEdgeV1,
-    flux: i64,
-) -> (Option<PersistentId>, Option<PersistentId>) {
-    match (edge.cell_b, flux >= 0) {
-        (Some(b), true) => (Some(edge.cell_a), Some(b)),
-        (Some(b), false) => (Some(b), Some(edge.cell_a)),
-        // Source (positive) fills the cell; sink (negative) drains it.
-        (None, true) => (None, Some(edge.cell_a)),
-        (None, false) => (Some(edge.cell_a), None),
-    }
 }
 
 #[cfg(test)]
@@ -1704,5 +1699,73 @@ mod tests {
         let cell = step.network.cells[&id(1)];
         assert_eq!(cell.synced_record_revision, 1);
         assert!(cell.volume_cubic_millimetres < 1_500_000_000);
+    }
+
+    #[test]
+    fn in_place_step_equals_the_cloning_step_and_the_roots_agree() {
+        // Plan 07 revision 2: the two entry points produce identical
+        // networks and volume sets over an equalising run, and the standard
+        // square root matches the former binary search on radicands up to
+        // the weir law's range.
+        let (volumes, mut network) = two_vessels();
+        let mut in_place_network = network.clone();
+        let mut in_place_volumes = volumes.clone();
+        let mut volumes = volumes;
+        for _ in 0..240 {
+            let stepped = network.step(&volumes).expect("step");
+            in_place_network
+                .step_in_place(&mut in_place_volumes)
+                .expect("in-place step");
+            assert_eq!(stepped.network, in_place_network);
+            assert_eq!(stepped.volumes, in_place_volumes);
+            network = stepped.network;
+            volumes = stepped.volumes;
+        }
+        fn reference_isqrt(value: i128) -> i128 {
+            if value <= 0 {
+                return 0;
+            }
+            let mut low: i128 = 0;
+            let mut high: i128 = 1;
+            while high.saturating_mul(high) <= value {
+                high = high.saturating_mul(2);
+                if high > 1 << 64 {
+                    break;
+                }
+            }
+            while low < high {
+                let middle = low + (high - low) / 2 + 1;
+                if middle
+                    .checked_mul(middle)
+                    .is_some_and(|square| square <= value)
+                {
+                    low = middle;
+                } else {
+                    high = middle - 1;
+                }
+            }
+            low
+        }
+        for value in [
+            0_i128,
+            1,
+            2,
+            3,
+            4,
+            99,
+            100,
+            i128::from(u32::MAX),
+            i128::from(u64::MAX),
+            i128::from(u64::MAX) + 1,
+            9_806_650 * 2_000_000_i128 * 2_000_000 * 2_000_000,
+            1 << 100,
+            (1 << 100) - 1,
+        ] {
+            assert_eq!(
+                isqrt_i128(value),
+                reference_isqrt(value),
+                "radicand {value}"
+            );
+        }
     }
 }

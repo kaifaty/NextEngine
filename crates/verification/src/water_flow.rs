@@ -71,6 +71,9 @@ pub struct WaterFlowCheckReportV1 {
     pub step_cost_cells: usize,
     pub step_cost_edges: usize,
     pub step_cost_max_microseconds: u128,
+    /// Plan 07 revision 2 apparatus: the mean over the samples next to the
+    /// gated maximum.
+    pub step_cost_mean_microseconds: u128,
     pub step_cost_debug_build: bool,
     pub final_state_root: StateRoot,
     pub final_physics_checkpoint_hash: ContentHash,
@@ -143,7 +146,8 @@ pub fn run_water_flow_check() -> Result<WaterFlowCheckReportV1, WaterFlowCheckEr
                 "repeated water flow generation is identical",
             ));
         }
-        let (step_cost_edges, step_cost_max_microseconds) = step_cost()?;
+        let (step_cost_edges, step_cost_max_microseconds, step_cost_mean_microseconds) =
+            step_cost()?;
         let matrix_digest = evidence_digest(&first);
         Ok(WaterFlowCheckReportV1 {
             vessel_a_id: REFERENCE_WATER_VESSEL_A_ID,
@@ -171,6 +175,7 @@ pub fn run_water_flow_check() -> Result<WaterFlowCheckReportV1, WaterFlowCheckEr
             step_cost_cells: COST_CELLS,
             step_cost_edges,
             step_cost_max_microseconds,
+            step_cost_mean_microseconds,
             step_cost_debug_build: cfg!(debug_assertions),
             final_state_root: first.final_state_root,
             final_physics_checkpoint_hash: first.final_physics_checkpoint_hash,
@@ -575,7 +580,7 @@ fn level_of(runtime: &RuntimeState, cell: PersistentId) -> Result<i64, WaterFlow
 }
 
 /// G6: one step of a network at the record bounds (64 cells, 256 edges).
-fn step_cost() -> Result<(usize, u128), WaterFlowCheckErrorV1> {
+fn step_cost() -> Result<(usize, u128, u128), WaterFlowCheckErrorV1> {
     let mut definitions = Vec::with_capacity(COST_CELLS);
     for index in 0..COST_CELLS {
         let x = i64::try_from(index).unwrap_or(0) * 3_000_000;
@@ -683,16 +688,19 @@ fn step_cost() -> Result<(usize, u128), WaterFlowCheckErrorV1> {
         .map_err(|error| WaterFlowCheckErrorV1::new("cost network", error.to_string()))?;
     let mut volumes = volumes;
     let mut maximum = 0_u128;
+    let mut total = 0_u128;
+    // Apparatus (plan 07 revision 2, recorded): G6 measures `step_in_place`,
+    // the path the runtime's physics step runs.
     for _ in 0..COST_STEPS {
         let started = Instant::now();
-        let stepped = network
-            .step(&volumes)
+        network
+            .step_in_place(&mut volumes)
             .map_err(|error| WaterFlowCheckErrorV1::new("cost step", error.to_string()))?;
-        maximum = maximum.max(started.elapsed().as_micros());
-        network = stepped.network;
-        volumes = stepped.volumes;
+        let elapsed = started.elapsed().as_micros();
+        maximum = maximum.max(elapsed);
+        total += elapsed;
     }
-    Ok((edge_count, maximum))
+    Ok((edge_count, maximum, total / u128::from(COST_STEPS.max(1))))
 }
 
 fn register_tool_principal(
