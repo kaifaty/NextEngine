@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / B0R_R0R_COMPLETE / CORRECTED_CORPUS_SIGNAL_INSUFFICIENT / C1_NEXT / V0S_OPEN / V0_BLOCKED_BY_POWER / FIRST_PACK_SELECTION_PENDING / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / B0R_R0R_COMPLETE / C1_COMPLETE / ZERO_DESCRIPTOR_COMPLETE / G0_NEXT / V0S_OPEN / V0_BLOCKED_BY_POWER / FIRST_PACK_SELECTION_PENDING / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V43](physical-sound-synthesis-roadmap-v43.md) как planning authority; C1A и D2/C0R остаются immutable repeat-exact evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не создаёт public schema, runtime inference или production authority |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательной ручной приёмки отдельных звуков |
@@ -30,7 +30,12 @@ parents, объединяет два alias-компонента, маскиру�
 `1.312187716` обходит остальные пять controls, cross-project material
 improvement равен `-0.098113339`, а project balanced accuracy `0.783333333`.
 Текущая плановая мощность — `105` supported parents против `56`, дефицит
-`49`. Поэтому C1 — следующий обязательный шаг, а training остаётся закрытым.
+`49`. [C1](../development/physical-sound-v44-c1-runtime-descriptor-contract-result-2026-09-03.md)
+теперь repeat-exactly фиксирует девять runtime-доступных descriptor axes и
+fail-closed internet metadata intake. В существующем корпусе material известен
+для `63/64` parents, но descriptor-complete parents всё ещё `0`; поэтому G0
+internet source growth — следующий обязательный шаг, а training остаётся
+закрытым.
 
 Главное изменение V44: первый material pack больше не назначается заранее как
 Steel. Его выбирает signal-blind `PSEL` по числу независимых проектов и
@@ -72,7 +77,7 @@ Definition of done для первого вертикального среза:
 | --- | --- | --- |
 | Lineage и disclosed corpus | `C1A_D2_C0R_COMPLETE / REPEAT_EXACT` | Новая работа использует только C0R; старые C0 projections исторические. |
 | Disclosed numerical floor | `B0R_R0R_COMPLETE / REPEAT_EXACT / SIGNAL_INSUFFICIENT` | Новый global floor — `1.312187716`; нужны runtime descriptors и ещё минимум `49` независимых supported parents, а не большая сеть. |
-| Runtime descriptors | `NOT_FROZEN` | Нельзя доказать, что модель учит предмет, а не dataset/project fingerprint. |
+| Runtime descriptors | `C1_COMPLETE / CONTRACT_FROZEN / ZERO_DESCRIPTOR_COMPLETE` | Девять axes, masks, confidence, provenance и missingness frozen; G0 должен наполнить их только hash-bound internet metadata, не dataset/project fingerprint. |
 | Validator mechanics | `SYNTHETIC_CONTROL_EXISTS` | Механика проверялась, но независимых calibration parents/projects недостаточно. |
 | Recipe/renderer | `EXPERIMENTAL_CONTROLS_EXIST` | Нужна одна V2-форма, связанная с новыми descriptors и hard invariants. |
 | Neural generator | `BLOCKED` | Сначала B1 должен доказать deployable descriptor signal, затем V0 — независимую оценку. |
@@ -115,9 +120,10 @@ flowchart LR
     K0 --> P0["P0 opt-in demo prop"]
 ```
 
-B0R/R0R завершён. C1 теперь ведёт критический путь; metadata-only V0S может
-развиваться параллельно, потому что не читает candidate outputs и не открывает
-protected payload. B1 ждёт C1, G0, T0 и PSEL. M0/M1 ждут B1 и frozen V0.
+B0R/R0R и C1 завершены. G0 теперь ведёт критический путь к PSEL и B1;
+metadata-only V0S может развиваться параллельно, потому что не читает candidate
+outputs и не открывает protected payload. B1 ждёт G0, T0 и PSEL. M0/M1 ждут
+B1 и frozen V0.
 Protected H0/V1/A0 остаются one-shot и принимают ровно одного frozen
 `LabWinner`.
 
@@ -126,8 +132,8 @@ Protected H0/V1/A0 остаются one-shot и принимают ровно о
 | ID | Состояние | Exit criterion | Если не прошёл |
 | --- | --- | --- | --- |
 | B0R/R0R | `COMPLETE / REPEAT_EXACT / CORRECTED_CORPUS_SIGNAL_INSUFFICIENT` | [Result](../development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md) freezes global median `1.312187716`, 56 supported audit parents, `105`-parent floor and zero forbidden access; object `80` is global-only. | Перейти к C1/G0; сеть не увеличивать. |
-| C1 | `NEXT` | Frozen descriptor schema содержит только доступные authoring/runtime поля: shape, dimensions, wall thickness, cavity/opening, mass, material, support, impact zone, units, confidence, provenance и missingness. | Неизвестные оси остаются masked; не выводить их из audio или имени dataset. |
-| G0 | `AFTER_C1` | Internet-only ingestion увеличивает число независимых descriptor-complete parents/projects до вычисленного R0R floor; connected components и role assignment происходят до audio/feature decode. | `DisclosedSourcePowerOOD`; искать новые источники, не ретюнить модель. |
+| C1 | `COMPLETE / REPEAT_EXACT / ZERO_DESCRIPTOR_COMPLETE` | [Result](../development/physical-sound-v44-c1-runtime-descriptor-contract-result-2026-09-03.md) freezes nine ordered runtime axes, integer units, masks, confidence, provenance and fail-closed internet metadata intake; `63/64` parents observe material, zero is descriptor-complete and all forbidden reads are zero. | G0 fills only source-published axes; unknown/conflicting values stay masked and are never inferred from audio or identity. |
+| G0 | `NEXT / AFTER_C1` | Internet-only ingestion increases independent descriptor-complete parents/projects toward the computed R0R floor; connected components and role assignment happen before audio/feature decode. | `DisclosedSourcePowerOOD`; seek new sources, do not retune a model. |
 | PSEL | `AFTER_B0R_R0R_AND_G0` | Первый pack выбран только по pre-candidate eligibility: exact taxonomy, role power, descriptor coverage, source independence и provenance. | Ни один материал не выбран; все packs остаются `FallbackOnly`. |
 | V0S | `OPEN / METADATA_FIRST` | Найдены независимые validator-calibration project families; mirrors, demos, derived exports и re-encodes co-locate с источником или quarantined. | `ValidatorSourcePowerOOD`. |
 | V0P | `AFTER_V0S` | До выбора features/thresholds зафиксированы parent/project counts, clean controls, mutations, risk/coverage targets, OOD strata и one-use roles. | Продолжить metadata-only source growth. |
@@ -203,9 +209,10 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
 
 1. **V44.0 — B0R/R0R — COMPLETE:** corrected controls, domain audit и новый
    `105`-parent power target опубликованы repeat-exact.
-2. **V44.1 — C1 — NEXT:** descriptor contract, extractor и
-   missingness/provenance gates.
-3. **V44.2 — G0/PSEL:** disclosed source growth и signal-blind выбор первого pack.
+2. **V44.1 — C1 — COMPLETE:** repeat-exact descriptor contract, intake owner,
+   explicit missingness/provenance gates and honest zero-complete census.
+3. **V44.2 — G0/PSEL — NEXT:** disclosed source growth и signal-blind выбор
+   первого pack.
 4. **V44.3 — V0S/V0P:** independent validator sources и frozen calibration plan.
 5. **V44.4 — T0:** recipe V2, renderer, causal fixtures и deterministic mutations.
 6. **V44.5 — B1:** descriptor learnability gate; при reject — только G0/C1.
@@ -224,7 +231,7 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
 | --- | --- |
 | A44 | Roadmap V44, main-roadmap и task-state transition |
 | B44 | `COMPLETE`: B0R/R0R owner/profile/tests и repeat-exact corrected result |
-| C44 | C1 descriptor schema, validation и internet source intake contract |
+| C44 | `COMPLETE`: C1 descriptor schema, validation и internet source intake contract |
 | D44 | G0 source-growth result и PSEL first-pack freeze |
 | E44 | V0S/V0P source/power result |
 | F44 | T0 recipe V2/renderer contract и deterministic fixtures |
