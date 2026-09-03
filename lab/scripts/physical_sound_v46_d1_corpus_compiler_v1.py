@@ -109,7 +109,9 @@ def canonical_json(value: Any) -> bytes:
             + "\n"
         ).encode()
     except (TypeError, ValueError) as error:
-        raise CorpusCompilerError(f"cannot serialize canonical JSON: {error}") from error
+        raise CorpusCompilerError(
+            f"cannot serialize canonical JSON: {error}"
+        ) from error
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -210,7 +212,9 @@ def validate_input_binding(value: Any, context: str) -> dict[str, Any]:
     return binding
 
 
-def validate_profile(profile: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+def validate_profile(
+    profile: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     if set(profile) != {
         "access_policy",
         "authority",
@@ -334,7 +338,9 @@ def validate_t0_contract(contract: dict[str, Any]) -> tuple[int, dict[str, list[
     cursor = 0
     for index, value in enumerate(layout):
         item = require_dict(value, f"T0 layout {index}")
-        offset = require_nonnegative_int(item.get("offset"), f"T0 layout {index} offset")
+        offset = require_nonnegative_int(
+            item.get("offset"), f"T0 layout {index} offset"
+        )
         count = require_nonnegative_int(item.get("count"), f"T0 layout {index} count")
         if offset != cursor or count == 0:
             raise CorpusCompilerError("T0 layout is not contiguous")
@@ -354,7 +360,10 @@ def validate_t0_contract(contract: dict[str, Any]) -> tuple[int, dict[str, list[
         raise CorpusCompilerError("T0 lanes changed")
     normalized = {}
     for lane, fields in lane_fields.items():
-        strings = [require_string(item, f"T0 {lane} field") for item in require_list(fields, f"T0 {lane} fields")]
+        strings = [
+            require_string(item, f"T0 {lane} field")
+            for item in require_list(fields, f"T0 {lane} fields")
+        ]
         if strings != list(dict.fromkeys(strings)):
             raise CorpusCompilerError(f"T0 {lane} fields are duplicated")
         normalized[lane] = strings
@@ -367,8 +376,13 @@ def validate_r0_ledger(ledger: dict[str, Any]) -> None:
     sources = require_list(ledger.get("sources"), "R0 sources")
     if len(sources) != 10:
         raise CorpusCompilerError("R0 source count changed")
-    source_ids = [require_string(require_dict(item, "R0 source").get("source_id"), "R0 source ID") for item in sources]
-    if source_ids != sorted(set(source_ids)) or not {"nisr-v5", "vibraverse"}.issubset(source_ids):
+    source_ids = [
+        require_string(require_dict(item, "R0 source").get("source_id"), "R0 source ID")
+        for item in sources
+    ]
+    if source_ids != sorted(set(source_ids)) or not {"nisr-v5", "vibraverse"}.issubset(
+        source_ids
+    ):
         raise CorpusCompilerError("R0 source identities changed")
 
 
@@ -411,10 +425,17 @@ def numeric_leaf_count(value: Any) -> int:
     return 0
 
 
-def compile_clatter_groups(document: dict[str, Any]) -> tuple[list[dict[str, Any]], int, int]:
-    if document.get("schema") != C0_SCHEMA or document.get("source_lane") != "empirical_prior":
+def compile_clatter_groups(
+    document: dict[str, Any],
+) -> tuple[list[dict[str, Any]], int, int]:
+    if (
+        document.get("schema") != C0_SCHEMA
+        or document.get("source_lane") != "empirical_prior"
+    ):
         raise CorpusCompilerError("C0 prior identity changed")
-    observed_fields = require_list(document.get("observed_fields"), "C0 observed fields")
+    observed_fields = require_list(
+        document.get("observed_fields"), "C0 observed fields"
+    )
     rows = require_list(document.get("rows"), "C0 rows")
     if len(rows) > MAX_CONTROL_ROWS:
         raise CorpusCompilerError("C0 control row bound exceeded")
@@ -426,16 +447,25 @@ def compile_clatter_groups(document: dict[str, Any]) -> tuple[list[dict[str, Any
         filename = require_string(row.get("filename"), f"C0 row {index} filename")
         recipe = require_dict(row.get("recipe"), f"C0 row {index} recipe")
         target = require_dict(row.get("target"), f"C0 row {index} target")
-        if recipe.get("source_lane") != "empirical_prior" or target.get("source_lane") != "empirical_prior":
+        if (
+            recipe.get("source_lane") != "empirical_prior"
+            or target.get("source_lane") != "empirical_prior"
+        ):
             raise CorpusCompilerError("C0 row lane changed")
         if target.get("observed_fields") != observed_fields:
             raise CorpusCompilerError("C0 row observed fields changed")
         heads = require_dict(recipe.get("heads"), f"C0 row {index} heads")
         modal = require_dict(heads.get("modal"), f"C0 row {index} modal head")
         modal_hash = sha256_bytes(canonical_json(modal))
-        recipe_hash = require_hash(row.get("recipe_sha256"), f"C0 row {index} recipe hash")
-        target_hash = require_hash(row.get("target_sha256"), f"C0 row {index} target hash")
-        if recipe_hash != sha256_bytes(canonical_json(recipe)) or target_hash != sha256_bytes(canonical_json(target)):
+        recipe_hash = require_hash(
+            row.get("recipe_sha256"), f"C0 row {index} recipe hash"
+        )
+        target_hash = require_hash(
+            row.get("target_sha256"), f"C0 row {index} target hash"
+        )
+        if recipe_hash != sha256_bytes(
+            canonical_json(recipe)
+        ) or target_hash != sha256_bytes(canonical_json(target)):
             raise CorpusCompilerError("C0 row inline hash mismatch")
         groups[modal_hash].append(
             {
@@ -495,11 +525,17 @@ def projection_records(
 
 
 def compile_c0r_rows(
-    manifest: dict[str, Any], projections: dict[str, dict[str, Any]], report: dict[str, Any]
+    manifest: dict[str, Any],
+    projections: dict[str, dict[str, Any]],
+    report: dict[str, Any],
 ) -> list[dict[str, Any]]:
     if manifest.get("schema") != C0R_MANIFEST_SCHEMA:
         raise CorpusCompilerError("C0R manifest schema changed")
-    if report.get("schema") != C0R_REPORT_SCHEMA or report.get("decision") != "C0R_CORRECTED_CORPUS_REPEATABLE_B0R_R0R_C1_AUTHORIZED":
+    if (
+        report.get("schema") != C0R_REPORT_SCHEMA
+        or report.get("decision")
+        != "C0R_CORRECTED_CORPUS_REPEATABLE_B0R_R0R_C1_AUTHORIZED"
+    ):
         raise CorpusCompilerError("C0R terminal decision changed")
     projected = {
         role: projection_records(
@@ -529,21 +565,33 @@ def compile_c0r_rows(
         compiled.append(
             {
                 "claim_lane": "real_acoustic",
-                "material_label": require_string(item.get("material_label"), "C0R material"),
-                "observation_mask": require_dict(item.get("axis_mask"), "C0R axis mask"),
+                "material_label": require_string(
+                    item.get("material_label"), "C0R material"
+                ),
+                "observation_mask": require_dict(
+                    item.get("axis_mask"), "C0R axis mask"
+                ),
                 "pcm": validate_content_reference(item.get("canonical_pcm"), "C0R PCM"),
                 "physical_parent_id": parent,
-                "project_id": require_string(provenance.get("project_id"), "C0R project"),
+                "project_id": require_string(
+                    provenance.get("project_id"), "C0R project"
+                ),
                 "record_id": record_id,
                 "role": role,
                 "source_artifact": "c0r",
-                "source_component_id": require_string(item.get("family_component_id"), "C0R component"),
-                "target": validate_content_reference(item.get("acoustic_target"), "C0R target"),
+                "source_component_id": require_string(
+                    item.get("family_component_id"), "C0R component"
+                ),
+                "target": validate_content_reference(
+                    item.get("acoustic_target"), "C0R target"
+                ),
                 "target_contract": "c0r_acoustic_pseudo_target",
             }
         )
     projected_ids = set().union(*(set(records) for records in projected.values()))
-    if projected_ids != seen or sum(len(records) for records in projected.values()) != len(seen):
+    if projected_ids != seen or sum(
+        len(records) for records in projected.values()
+    ) != len(seen):
         raise CorpusCompilerError("C0R role projections are not an exact partition")
     return compiled
 
@@ -553,7 +601,10 @@ def compile_iet_rows(
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     if manifest.get("schema") != IET_MANIFEST_SCHEMA:
         raise CorpusCompilerError("IET manifest schema changed")
-    if report.get("schema") != IET_REPORT_SCHEMA or report.get("decision") != "CorpusSuccessorMaterialized":
+    if (
+        report.get("schema") != IET_REPORT_SCHEMA
+        or report.get("decision") != "CorpusSuccessorMaterialized"
+    ):
         raise CorpusCompilerError("IET terminal decision changed")
     projected = projection_records(
         projection, IET_PROJECTION_SCHEMA, "generator_train", "IET projection"
@@ -569,7 +620,10 @@ def compile_iet_rows(
         seen.add(record_id)
         target = validate_content_reference(item.get("target"), "IET target")
         projected_item = projected.get(record_id)
-        if projected_item is None or projected_item.get("target_sha256") != target["sha256"]:
+        if (
+            projected_item is None
+            or projected_item.get("target_sha256") != target["sha256"]
+        ):
             raise CorpusCompilerError("IET projection target differs")
         lineage = require_dict(item.get("lineage"), "IET lineage")
         descriptor = require_dict(item.get("descriptor"), "IET descriptor")
@@ -579,17 +633,26 @@ def compile_iet_rows(
         compiled.append(
             {
                 "claim_lane": "real_acoustic",
-                "material_label": require_string(item.get("material_label"), "IET material"),
+                "material_label": require_string(
+                    item.get("material_label"), "IET material"
+                ),
                 "observation_mask": {"runtime_descriptor_observed": mask},
                 "pcm": validate_content_reference(item.get("canonical_pcm"), "IET PCM"),
-                "physical_parent_id": require_string(lineage.get("physical_parent_id"), "IET parent"),
+                "physical_parent_id": require_string(
+                    lineage.get("physical_parent_id"), "IET parent"
+                ),
                 "project_id": require_string(lineage.get("project_id"), "IET project"),
                 "record_id": record_id,
                 "role": "generator_train",
                 "source_artifact": "ieteasy_increment",
-                "source_component_id": require_string(lineage.get("source_component_id"), "IET component"),
+                "source_component_id": require_string(
+                    lineage.get("source_component_id"), "IET component"
+                ),
                 "target": target,
-                "target_contract": require_string(require_dict(item.get("target"), "IET target source").get("schema"), "IET target schema"),
+                "target_contract": require_string(
+                    require_dict(item.get("target"), "IET target source").get("schema"),
+                    "IET target schema",
+                ),
             }
         )
     if set(projected) != seen:
@@ -600,7 +663,9 @@ def compile_iet_rows(
             measured.get("supported_parent_deficit_after"), "IET parent deficit"
         ),
         "parent_floor": require_nonnegative_int(
-            require_dict(manifest.get("base_planning"), "IET base planning").get("parent_floor"),
+            require_dict(manifest.get("base_planning"), "IET base planning").get(
+                "parent_floor"
+            ),
             "IET parent floor",
         ),
         "supported_parents": require_nonnegative_int(
@@ -630,8 +695,11 @@ def validate_role_isolation(rows: list[dict[str, Any]]) -> None:
 
 
 def validate_expected(
-    expected: dict[str, Any], groups: list[dict[str, Any]], control_rows: int,
-    real_rows: list[dict[str, Any]], planning: dict[str, int]
+    expected: dict[str, Any],
+    groups: list[dict[str, Any]],
+    control_rows: int,
+    real_rows: list[dict[str, Any]],
+    planning: dict[str, int],
 ) -> dict[str, Any]:
     role_counts = Counter(item["role"] for item in real_rows)
     parents = {item["physical_parent_id"] for item in real_rows}
@@ -717,9 +785,7 @@ def run(profile_path: Path, inputs_directory: Path, output: Path) -> None:
         key=lambda item: (item["role"], item["source_artifact"], item["record_id"]),
     )
     validate_role_isolation(real_rows)
-    measured = validate_expected(
-        expected, groups, control_rows, real_rows, planning
-    )
+    measured = validate_expected(expected, groups, control_rows, real_rows, planning)
 
     index = {
         "authority": AUTHORITY,
@@ -767,9 +833,7 @@ def run(profile_path: Path, inputs_directory: Path, output: Path) -> None:
         "content_objects_remained_closed": all(
             access["counters"][name] == 0 for name in ZERO_CONTENT_COUNTERS
         ),
-        "d0_untrusted_sources_add_zero_rows": measured[
-            "external_modal_teacher_rows"
-        ]
+        "d0_untrusted_sources_add_zero_rows": measured["external_modal_teacher_rows"]
         == 0,
         "expected_counts": True,
         "input_hashes_and_schemas": True,

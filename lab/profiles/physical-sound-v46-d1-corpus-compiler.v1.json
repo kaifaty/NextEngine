@@ -35,9 +35,9 @@
       "sha256": "7236b6071f09944ad64ca6d690f66a48eb89bad8b11eeaadb5e6eb7f18276fc5"
     },
     {
-      "bytes": 34161,
+      "bytes": 34914,
       "path": "lab/scripts/physical_sound_v46_d1_corpus_compiler_v1.py",
-      "sha256": "601c1b1c8ee7a7901029d49a52cd0c9984efb48f5ef63b4d1025a0368ddde406"
+      "sha256": "5752777fcd19c161851a58ae4e34d21cbcdd0055f28b805a61134e97157cf763"
     }
   ],
   "expected": {
