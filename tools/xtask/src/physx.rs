@@ -15,8 +15,15 @@ pub const PHYSX_SOURCE_REVISION: &str = "517a0073715120e114ee055b63b26c95e00d903
 pub const PHYSX_ARCHIVE_SHA256: &str =
     "bc894626070f0658a3235231c825c3e0f8ad1fd9d5077a63cb5bdaffe8816407";
 pub const PHYSX_ARCHIVE_URL: &str = "https://github.com/NVIDIA-Omniverse/PhysX/archive/517a0073715120e114ee055b63b26c95e00d9039.tar.gz";
-pub const PHYSX_BUILD_PROFILE: &str = "nextengine-physx-5.9.0-static-cpu-release-v1";
+/// Plan `continuum-water/23` (ADR-106): the profile builds the GPU library
+/// from the pinned sources when a CUDA toolkit is present; the static CPU
+/// libraries are unchanged and stay the linked ones.
+pub const PHYSX_BUILD_PROFILE: &str = "nextengine-physx-5.9.0-static-cpu-gpu-release-v2";
 pub const PHYSX_BRIDGE_ABI: u32 = 4;
+/// The CUDA architecture of the GPU library (the reference host's RTX 3080;
+/// PTX for later architectures is embedded by CMake's native format).
+pub const PHYSX_CUDA_ARCHITECTURES: &str = "86";
+pub const PHYSX_GPU_LIBRARY_NAME: &str = "libPhysXGpu_64.so";
 
 const MANIFEST_NAME: &str = "nextengine-physx-sdk-v1.json";
 
@@ -25,6 +32,8 @@ pub enum PhysxCommand {
     Setup,
     Doctor,
     CleanCache,
+    /// Plan `continuum-water/23`: the PBD fluid probe of the GPU lane.
+    PbdProbe,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -38,6 +47,23 @@ struct PhysxSdkManifestV1 {
     build_profile: &'static str,
     bridge_abi: u32,
     profile_hash: String,
+    /// Plan 23: the GPU library beside the static libraries, or the reason
+    /// it was not built (a host without a CUDA toolkit keeps the CPU SDK).
+    gpu: PhysxGpuManifestV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "state")]
+enum PhysxGpuManifestV1 {
+    #[serde(rename = "built")]
+    Built {
+        library: String,
+        library_sha256: String,
+        cuda_toolkit: String,
+        cuda_architectures: &'static str,
+    },
+    #[serde(rename = "unavailable")]
+    Unavailable { reason: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -48,12 +74,44 @@ struct PhysxCommandReportV1 {
     target: String,
     profile_hash: String,
     sdk_dir: String,
+    gpu: serde_json::Value,
+}
+
+/// The host CUDA toolkit for the GPU library: `NEXTENGINE_CUDA_PATH`, then
+/// `/usr/local/cuda`, then the directory above `nvcc` on the path.
+fn cuda_toolkit() -> Option<PathBuf> {
+    if let Some(path) = env::var_os("NEXTENGINE_CUDA_PATH") {
+        let path = PathBuf::from(path);
+        return path.join("bin/nvcc").is_file().then_some(path);
+    }
+    let default = PathBuf::from("/usr/local/cuda");
+    if default.join("bin/nvcc").is_file() {
+        return Some(default);
+    }
+    let output = Command::new("which").arg("nvcc").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let nvcc = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+    nvcc.parent()?.parent().map(Path::to_path_buf)
+}
+
+fn cuda_toolkit_version(toolkit: &Path) -> Result<String, String> {
+    let output = Command::new(toolkit.join("bin/nvcc"))
+        .arg("--version")
+        .output()
+        .map_err(|error| format!("PHYSX_NVCC_UNAVAILABLE: {error}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    text.lines()
+        .find_map(|line| line.split("release ").nth(1))
+        .map(|rest| rest.split(',').next().unwrap_or(rest).trim().to_owned())
+        .ok_or_else(|| "PHYSX_NVCC_VERSION_UNKNOWN".to_owned())
 }
 
 pub fn parse_command(mut arguments: impl Iterator<Item = String>) -> Result<PhysxCommand, String> {
     let subcommand = arguments
         .next()
-        .ok_or_else(|| "physx requires setup, doctor or clean-cache".to_owned())?;
+        .ok_or_else(|| "physx requires setup, doctor, clean-cache or pbd-probe".to_owned())?;
     if let Some(argument) = arguments.next() {
         return Err(format!("unexpected argument: {argument}"));
     }
@@ -61,6 +119,7 @@ pub fn parse_command(mut arguments: impl Iterator<Item = String>) -> Result<Phys
         "setup" => Ok(PhysxCommand::Setup),
         "doctor" => Ok(PhysxCommand::Doctor),
         "clean-cache" => Ok(PhysxCommand::CleanCache),
+        "pbd-probe" => Ok(PhysxCommand::PbdProbe),
         _ => Err(format!("unknown physx command: {subcommand}")),
     }
 }
@@ -70,6 +129,7 @@ pub fn run(command: PhysxCommand) -> Result<(), String> {
         PhysxCommand::Setup => setup(),
         PhysxCommand::Doctor => doctor(),
         PhysxCommand::CleanCache => clean_cache(),
+        PhysxCommand::PbdProbe => pbd_probe(),
     }
 }
 
@@ -139,6 +199,24 @@ fn setup() -> Result<(), String> {
     fs::copy(sources.join("LICENSE.md"), staging.join("LICENSE.md"))
         .map_err(|error| error.to_string())?;
     copy_static_libraries(&generated, &staging.join("lib"))?;
+    let gpu = match cuda_toolkit() {
+        Some(toolkit) if !identity.target.contains("windows-msvc") => {
+            let library = find_file(&generated, PHYSX_GPU_LIBRARY_NAME)?
+                .ok_or_else(|| format!("PHYSX_GPU_LIBRARY_MISSING {PHYSX_GPU_LIBRARY_NAME}"))?;
+            fs::copy(&library, staging.join("lib").join(PHYSX_GPU_LIBRARY_NAME))
+                .map_err(|error| error.to_string())?;
+            PhysxGpuManifestV1::Built {
+                library: format!("lib/{PHYSX_GPU_LIBRARY_NAME}"),
+                library_sha256: sha256_file(&library)?,
+                cuda_toolkit: cuda_toolkit_version(&toolkit)?,
+                cuda_architectures: PHYSX_CUDA_ARCHITECTURES,
+            }
+        }
+        _ => PhysxGpuManifestV1::Unavailable {
+            reason: "no CUDA toolkit (NEXTENGINE_CUDA_PATH, /usr/local/cuda or nvcc on PATH)"
+                .to_owned(),
+        },
+    };
 
     let manifest = PhysxSdkManifestV1 {
         schema: "nextengine.physx-sdk-manifest.v1",
@@ -150,6 +228,7 @@ fn setup() -> Result<(), String> {
         build_profile: PHYSX_BUILD_PROFILE,
         bridge_abi: PHYSX_BRIDGE_ABI,
         profile_hash: profile_hash.clone(),
+        gpu,
     };
     fs::write(
         staging.join(MANIFEST_NAME),
@@ -317,11 +396,17 @@ fn generate_and_build(source: &Path, identity: &HostIdentity) -> Result<PathBuf,
             patch_physx_generator_for_vs18(&physx)?;
         }
         let preset = format!("nextengine-{compiler}win64-static-cpu");
-        write_build_preset(&physx, &preset, "win64", compiler)?;
+        write_build_preset(&physx, &preset, "win64", compiler, false)?;
         preset
     } else {
-        let preset = "nextengine-linux-gcc-static-cpu".to_owned();
-        write_build_preset(&physx, &preset, "linux", "gcc")?;
+        let gpu = cuda_toolkit().is_some();
+        let preset = if gpu {
+            patch_physx_for_cuda_13(&physx)?;
+            "nextengine-linux-gcc-static-cpu-gpu".to_owned()
+        } else {
+            "nextengine-linux-gcc-static-cpu".to_owned()
+        };
+        write_build_preset(&physx, &preset, "linux", "gcc", gpu)?;
         preset
     };
     if identity.target.contains("windows-msvc") {
@@ -342,13 +427,16 @@ fn generate_and_build(source: &Path, identity: &HostIdentity) -> Result<PathBuf,
         let _ = fs::remove_file(&script);
         result?;
     } else {
-        run_checked(
-            Command::new("bash")
-                .arg("generate_projects.sh")
-                .arg(&preset)
-                .current_dir(&physx),
-            "PHYSX_GENERATE_FAILED",
-        )?;
+        let mut generate = Command::new("bash");
+        generate
+            .arg("generate_projects.sh")
+            .arg(&preset)
+            .current_dir(&physx);
+        if let Some(toolkit) = cuda_toolkit() {
+            // The PhysX generator reads the toolkit from `PM_CUDA_PATH`.
+            generate.env("PM_CUDA_PATH", &toolkit);
+        }
+        run_checked(&mut generate, "PHYSX_GENERATE_FAILED")?;
     }
     let generated = generated_project_dir(&physx, &preset, &identity.target);
     if !identity.target.contains("windows-msvc") {
@@ -472,6 +560,17 @@ fn is_static_library(path: &Path) -> bool {
     matches!(path.extension().and_then(OsStr::to_str), Some("a" | "lib"))
 }
 
+fn find_file(root: &Path, name: &str) -> Result<Option<PathBuf>, String> {
+    let mut found = None;
+    visit_files(root, &mut |path| {
+        if found.is_none() && path.file_name().and_then(OsStr::to_str) == Some(name) {
+            found = Some(path.to_path_buf());
+        }
+        Ok(())
+    })?;
+    Ok(found)
+}
+
 fn visit_files(
     path: &Path,
     visitor: &mut impl FnMut(&Path) -> Result<(), String>,
@@ -569,6 +668,63 @@ fn msvc_generator_key(vsdevcmd: &Path) -> Result<&'static str, String> {
     }
 }
 
+/// Plan 23 (recorded apparatus): PhysX 5.9 targets CUDA toolkit 12.8; a
+/// 13.x toolkit drops the Volta architecture and changed `cuCtxCreate`.
+/// Two pinned, idempotent source patches keep the pinned revision building:
+/// the GPU architecture list follows `CMAKE_CUDA_ARCHITECTURES` (the
+/// profile's `PHYSX_CUDA_ARCHITECTURES`), and the context creation call
+/// takes the toolkit's signature under a `CUDA_VERSION` guard.
+fn patch_physx_for_cuda_13(physx: &Path) -> Result<(), String> {
+    let cmake = physx.join("source/compiler/cmakegpu/CMakeLists.txt");
+    let body = fs::read_to_string(&cmake).map_err(|error| error.to_string())?;
+    let arch_needle_reduced = r#"GENERATE_ARCH_CODE_LIST(SASS "80,86,89,90,100,120" PTX "120")"#;
+    let arch_needle_full = r#"GENERATE_ARCH_CODE_LIST(SASS "70,80,86,89,90,100,120" PTX "120")"#;
+    let arch_replacement = r#"GENERATE_ARCH_CODE_LIST(SASS "${CMAKE_CUDA_ARCHITECTURES}" PTX "${CMAKE_CUDA_ARCHITECTURES}")"#;
+    if !body.contains(arch_replacement) {
+        if !body.contains(arch_needle_reduced) || !body.contains(arch_needle_full) {
+            return Err("PHYSX_CUDA_ARCH_PATCH_POINT_MISSING".to_owned());
+        }
+        fs::write(
+            &cmake,
+            body.replace(arch_needle_reduced, arch_replacement)
+                .replace(arch_needle_full, arch_replacement),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    // PhysX resolves the runtime entry points of nvcc's host stubs itself
+    // (`CudaKernelWrangler.cpp`, driver API underneath); nvcc 13 emits two
+    // new ones, `__cudaGetKernel` and `__cudaLaunchKernel`, which the
+    // pinned 5.9 wrangler lacks. They are never called (PhysX launches
+    // through `cuLaunchKernel`), so they resolve to no-op stubs.
+    let wrangler = physx.join("source/cudamanager/src/CudaKernelWrangler.cpp");
+    let body = fs::read_to_string(&wrangler).map_err(|error| error.to_string())?;
+    let launch_needle =
+        "extern \"C\"\ncudaError_t CUDARTAPI cudaSetupArgument(const void*, size_t, size_t)";
+    let launch_replacement = "#if CUDA_VERSION >= 13000\n// Next Engine patch (plan continuum-water/23): nvcc 13 host stubs.\nextern \"C\"\ncudaError_t CUDARTAPI __cudaGetKernel(void**, const void*)\n{\n\treturn cudaSuccess;\n}\n\nextern \"C\"\ncudaError_t CUDARTAPI __cudaLaunchKernel(void*, dim3, dim3, void**, size_t, cudaStream_t)\n{\n\treturn cudaSuccess;\n}\n\nextern \"C\"\ncudaError_t CUDARTAPI __cudaLaunchKernel_ptsz(void*, dim3, dim3, void**, size_t, cudaStream_t)\n{\n\treturn cudaSuccess;\n}\n#endif\n\nextern \"C\"\ncudaError_t CUDARTAPI cudaSetupArgument(const void*, size_t, size_t)";
+    if !body.contains("__cudaLaunchKernel") {
+        if !body.contains(launch_needle) {
+            return Err("PHYSX_CUDA_WRANGLER_PATCH_POINT_MISSING".to_owned());
+        }
+        fs::write(
+            &wrangler,
+            body.replacen(launch_needle, launch_replacement, 1),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    let manager = physx.join("source/cudamanager/src/CudaContextManager.cpp");
+    let body = fs::read_to_string(&manager).map_err(|error| error.to_string())?;
+    let needle = "\t\t\tstatus = cuCtxCreate(&mCtx, (unsigned int)flags, mDevHandle);";
+    let replacement = "#if CUDA_VERSION >= 13000\n\t\t\tstatus = cuCtxCreate(&mCtx, NULL, (unsigned int)flags, mDevHandle);\n#else\n\t\t\tstatus = cuCtxCreate(&mCtx, (unsigned int)flags, mDevHandle);\n#endif";
+    if !body.contains("#if CUDA_VERSION >= 13000") {
+        if !body.contains(needle) {
+            return Err("PHYSX_CUDA_CONTEXT_PATCH_POINT_MISSING".to_owned());
+        }
+        fs::write(&manager, body.replacen(needle, replacement, 1))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 fn patch_physx_generator_for_vs18(physx: &Path) -> Result<(), String> {
     let path = physx.join("buildtools/cmake_generate_projects.py");
     let body = fs::read_to_string(&path).map_err(|error| error.to_string())?;
@@ -591,23 +747,33 @@ fn write_build_preset(
     name: &str,
     target_platform: &str,
     compiler: &str,
+    gpu: bool,
 ) -> Result<(), String> {
     let install = format!("install/{name}/PhysX");
+    let gpu_switch = if gpu { "True" } else { "False" };
+    let cuda_param = if gpu {
+        format!(
+            "    <cmakeParam name=\"CMAKE_CUDA_ARCHITECTURES\" value=\"{PHYSX_CUDA_ARCHITECTURES}\" />\n"
+        )
+    } else {
+        String::new()
+    };
     let body = format!(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
-<preset name=\"{name}\" comment=\"Next Engine pinned static CPU PhysX\">\n\
+<preset name=\"{name}\" comment=\"Next Engine pinned static CPU PhysX (GPU library optional)\">\n\
   <platform targetPlatform=\"{target_platform}\" compiler=\"{compiler}\" />\n\
   <CMakeSwitches>\n\
     <cmakeSwitch name=\"PX_BUILDSNIPPETS\" value=\"False\" />\n\
     <cmakeSwitch name=\"PX_BUILDPVDRUNTIME\" value=\"False\" />\n\
     <cmakeSwitch name=\"PX_GENERATE_STATIC_LIBRARIES\" value=\"True\" />\n\
-    <cmakeSwitch name=\"PX_GENERATE_GPU_PROJECTS\" value=\"False\" />\n\
+    <cmakeSwitch name=\"PX_GENERATE_GPU_PROJECTS\" value=\"{gpu_switch}\" />\n\
     <cmakeSwitch name=\"NV_USE_STATIC_WINCRT\" value=\"False\" />\n\
     <cmakeSwitch name=\"NV_USE_DEBUG_WINCRT\" value=\"False\" />\n\
     <cmakeSwitch name=\"PX_FLOAT_POINT_PRECISE_MATH\" value=\"True\" />\n\
   </CMakeSwitches>\n\
   <CMakeParams>\n\
     <cmakeParam name=\"CMAKE_INSTALL_PREFIX\" value=\"{install}\" />\n\
+{cuda_param}\
   </CMakeParams>\n\
 </preset>\n"
     );
@@ -652,6 +818,10 @@ fn emit_report(
     profile_hash: &str,
     install: &Path,
 ) -> Result<(), String> {
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(install.join(MANIFEST_NAME)).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("PHYSX_MANIFEST_INVALID: {error}"))?;
     let report = PhysxCommandReportV1 {
         command,
         status: "PASS",
@@ -659,12 +829,152 @@ fn emit_report(
         target: identity.target.clone(),
         profile_hash: profile_hash.to_owned(),
         sdk_dir: install.display().to_string(),
+        gpu: manifest
+            .get("gpu")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
     };
     println!(
         "{}",
         serde_json::to_string(&report).map_err(|error| error.to_string())?
     );
     Ok(())
+}
+
+/// Plan 23 (`PHYSX-WATER-PRESENT-R1`): the frozen probe inputs.
+const PBD_PROBE_PARTICLES: u32 = 16_384;
+const PBD_PROBE_FRAMES: u32 = 120;
+const PBD_PROBE_SPACING_METRES: f32 = 0.05;
+const PBD_PROBE_BOX_HALF_METRES: f32 = 0.5;
+const PBD_PROBE_TIMESTEP_SECONDS: f32 = 1.0 / 60.0;
+const PBD_PROBE_MARGIN_METRES: f32 = 0.1;
+const PBD_PROBE_RUNS: usize = 2;
+
+#[cfg(feature = "physx")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct PhysxPbdProbeRunV1 {
+    gpu_available: bool,
+    reason: String,
+    frames_completed: u32,
+    particles_out_of_bounds_max: u32,
+    step_max_us: u64,
+    step_mean_us: u64,
+    readback_max_us: u64,
+    readback_mean_us: u64,
+    final_positions_sha256: String,
+    device_name: String,
+}
+
+#[cfg(feature = "physx")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct PhysxPbdProbeDetailsV1 {
+    check_id: &'static str,
+    gpu_library: String,
+    particle_count: u32,
+    frames: u32,
+    spacing_mm: u32,
+    box_half_mm: u32,
+    runs: Vec<PhysxPbdProbeRunV1>,
+    gpu_available: bool,
+    runs_identical: bool,
+}
+
+#[cfg(feature = "physx")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct PhysxPbdProbeReportV1 {
+    command: &'static str,
+    status: &'static str,
+    details: PhysxPbdProbeDetailsV1,
+}
+
+/// The GPU library the probe loads: `NEXTENGINE_PHYSX_GPU_LIBRARY` (the
+/// fail-closed path when it names a missing file) or the SDK's copy.
+fn pbd_probe_gpu_library() -> Result<String, String> {
+    if let Some(path) = env::var_os("NEXTENGINE_PHYSX_GPU_LIBRARY") {
+        return Ok(PathBuf::from(path).display().to_string());
+    }
+    let identity = host_identity()?;
+    let profile_hash = profile_hash(&identity.target, &identity.compiler);
+    let install = resolved_install_dir(&profile_hash)?;
+    Ok(install
+        .join("lib")
+        .join(PHYSX_GPU_LIBRARY_NAME)
+        .display()
+        .to_string())
+}
+
+#[cfg(feature = "physx")]
+fn pbd_probe() -> Result<(), String> {
+    let gpu_library = pbd_probe_gpu_library()?;
+    let desc = next_physics_physx_ffi::PbdProbeDesc {
+        particle_count: PBD_PROBE_PARTICLES,
+        frames: PBD_PROBE_FRAMES,
+        spacing_metres: PBD_PROBE_SPACING_METRES,
+        box_half_metres: PBD_PROBE_BOX_HALF_METRES,
+        timestep_seconds: PBD_PROBE_TIMESTEP_SECONDS,
+        margin_metres: PBD_PROBE_MARGIN_METRES,
+        gpu_library_path: Some(gpu_library.clone()),
+    };
+    let mut runs = Vec::with_capacity(PBD_PROBE_RUNS);
+    for _ in 0..PBD_PROBE_RUNS {
+        let report = next_physics_physx_ffi::pbd_probe(&desc)
+            .map_err(|error| format!("PHYSX_PBD_PROBE_FAILED: {error}"))?;
+        let mut hasher = Sha256::new();
+        for value in &report.final_positions {
+            hasher.update(value.to_le_bytes());
+        }
+        runs.push(PhysxPbdProbeRunV1 {
+            gpu_available: report.gpu_available,
+            reason: report.reason_text().to_owned(),
+            frames_completed: report.frames_completed,
+            particles_out_of_bounds_max: report.particles_out_of_bounds_max,
+            step_max_us: report.step_max_microseconds,
+            step_mean_us: report.step_mean_microseconds,
+            readback_max_us: report.readback_max_microseconds,
+            readback_mean_us: report.readback_mean_microseconds,
+            final_positions_sha256: format!("{:x}", hasher.finalize()),
+            device_name: report.device_name,
+        });
+    }
+    let gpu_available = runs.iter().all(|run| run.gpu_available);
+    let runs_identical = runs
+        .windows(2)
+        .all(|pair| pair[0].final_positions_sha256 == pair[1].final_positions_sha256);
+    let report = PhysxPbdProbeReportV1 {
+        command: "physx pbd-probe",
+        status: "PASS",
+        details: PhysxPbdProbeDetailsV1 {
+            check_id: "PHYSX-WATER-PRESENT-R1",
+            gpu_library,
+            particle_count: PBD_PROBE_PARTICLES,
+            frames: PBD_PROBE_FRAMES,
+            spacing_mm: (PBD_PROBE_SPACING_METRES * 1000.0) as u32,
+            box_half_mm: (PBD_PROBE_BOX_HALF_METRES * 1000.0) as u32,
+            runs,
+            gpu_available,
+            runs_identical,
+        },
+    };
+    println!(
+        "{}",
+        serde_json::to_string(&report).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+#[cfg(not(feature = "physx"))]
+fn pbd_probe() -> Result<(), String> {
+    let _ = (
+        PBD_PROBE_PARTICLES,
+        PBD_PROBE_FRAMES,
+        PBD_PROBE_SPACING_METRES,
+        PBD_PROBE_BOX_HALF_METRES,
+        PBD_PROBE_TIMESTEP_SECONDS,
+        PBD_PROBE_MARGIN_METRES,
+        PBD_PROBE_RUNS,
+        pbd_probe_gpu_library,
+    );
+    Err("PHYSX_PBD_PROBE_REQUIRES_FEATURE: build xtask with --features physx".to_owned())
 }
 
 #[cfg(test)]

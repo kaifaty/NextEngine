@@ -2448,6 +2448,7 @@ dependencies = [
  "next_contracts",
  "next_desktop_sdl_ash",
  "next_motor",
+ "next_physics_physx_ffi",
  "next_presentation",
  "next_project",
  "next_reference_game",

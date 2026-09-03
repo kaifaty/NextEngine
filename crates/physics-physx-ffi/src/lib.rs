@@ -234,6 +234,144 @@ pub struct CapsuleAxisSweepOutput {
     pub user_token: u64,
 }
 
+/// Plan `continuum-water/23` (ADR-106): the PBD probe descriptor.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PbdProbeDescRaw {
+    pub particle_count: u32,
+    pub frames: u32,
+    pub spacing_bits: u32,
+    pub box_half_bits: u32,
+    pub timestep_bits: u32,
+    pub margin_bits: u32,
+    pub gpu_library_path: *const std::ffi::c_char,
+    pub final_positions: *mut f32,
+}
+
+/// Plan 23: the PBD probe report as the bridge fills it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PbdProbeReportRaw {
+    pub gpu_available: u32,
+    pub reason: u32,
+    pub frames_completed: u32,
+    pub particles_out_of_bounds_max: u32,
+    pub step_max_microseconds: u64,
+    pub step_mean_microseconds: u64,
+    pub readback_max_microseconds: u64,
+    pub readback_mean_microseconds: u64,
+    pub device_name: [std::ffi::c_char; 64],
+}
+
+/// Plan 23: the probe's inputs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PbdProbeDesc {
+    pub particle_count: u32,
+    pub frames: u32,
+    pub spacing_metres: f32,
+    pub box_half_metres: f32,
+    pub timestep_seconds: f32,
+    pub margin_metres: f32,
+    /// Absolute path of the GPU library, or `None` for the SDK's default name.
+    pub gpu_library_path: Option<String>,
+}
+
+/// Plan 23: the probe's outcome. `gpu_available == false` is a valid
+/// outcome with a `reason`; the CPU bridge stays usable.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PbdProbeReport {
+    pub gpu_available: bool,
+    pub reason: u32,
+    pub frames_completed: u32,
+    pub particles_out_of_bounds_max: u32,
+    pub step_max_microseconds: u64,
+    pub step_mean_microseconds: u64,
+    pub readback_max_microseconds: u64,
+    pub readback_mean_microseconds: u64,
+    pub device_name: String,
+    /// The final frame's positions, `4` floats per particle (position and
+    /// inverse mass).
+    pub final_positions: Vec<f32>,
+}
+
+impl PbdProbeReport {
+    /// The bridge's reason codes as text.
+    #[must_use]
+    pub fn reason_text(&self) -> &'static str {
+        match self.reason {
+            0 => "ok",
+            1 => "gpu library or cuda device unavailable",
+            2 => "cuda context invalid",
+            3 => "gpu scene creation failed",
+            4 => "particle system or material creation failed",
+            5 => "particle buffer creation failed",
+            6 => "simulation step failed",
+            _ => "unknown",
+        }
+    }
+}
+
+/// Plan 23: runs the PBD probe through the bridge.
+pub fn pbd_probe(desc: &PbdProbeDesc) -> Result<PbdProbeReport, PhysXFfiError> {
+    let version = version()?;
+    validate_version(version)?;
+    if desc.particle_count == 0 || desc.frames == 0 {
+        return Err(PhysXFfiError::InvalidArgument);
+    }
+    let path = desc
+        .gpu_library_path
+        .as_deref()
+        .map(std::ffi::CString::new)
+        .transpose()
+        .map_err(|_| PhysXFfiError::InvalidArgument)?;
+    let mut final_positions = vec![0.0_f32; desc.particle_count as usize * 4];
+    let raw_desc = PbdProbeDescRaw {
+        particle_count: desc.particle_count,
+        frames: desc.frames,
+        spacing_bits: desc.spacing_metres.to_bits(),
+        box_half_bits: desc.box_half_metres.to_bits(),
+        timestep_bits: desc.timestep_seconds.to_bits(),
+        margin_bits: desc.margin_metres.to_bits(),
+        gpu_library_path: path.as_ref().map_or(std::ptr::null(), |path| path.as_ptr()),
+        final_positions: final_positions.as_mut_ptr(),
+    };
+    let mut raw_report = PbdProbeReportRaw {
+        gpu_available: 0,
+        reason: 0,
+        frames_completed: 0,
+        particles_out_of_bounds_max: 0,
+        step_max_microseconds: 0,
+        step_mean_microseconds: 0,
+        readback_max_microseconds: 0,
+        readback_mean_microseconds: 0,
+        device_name: [0; 64],
+    };
+    // SAFETY: the descriptor points at a live CString and at
+    // `4 * particle_count` floats of writable storage that outlive the
+    // call; the report is writable local storage; the bridge retains no
+    // pointer after returning.
+    let status = unsafe { raw::pbd_probe(&raw_desc, &mut raw_report) };
+    status_result(status)?;
+    let device_name = raw_report
+        .device_name
+        .iter()
+        .take_while(|byte| **byte != 0)
+        .map(|byte| *byte as u8 as char)
+        .collect();
+    Ok(PbdProbeReport {
+        gpu_available: raw_report.gpu_available != 0,
+        reason: raw_report.reason,
+        frames_completed: raw_report.frames_completed,
+        particles_out_of_bounds_max: raw_report.particles_out_of_bounds_max,
+        step_max_microseconds: raw_report.step_max_microseconds,
+        step_mean_microseconds: raw_report.step_mean_microseconds,
+        readback_max_microseconds: raw_report.readback_max_microseconds,
+        readback_mean_microseconds: raw_report.readback_mean_microseconds,
+        device_name,
+        final_positions,
+    })
+}
+
 pub struct NativeWorld {
     handle: NonNull<c_void>,
     link_count: u32,
@@ -680,13 +818,15 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, MaterialProfileInput, PhysXVersion, RawSweepOutput, RigidBodyInput,
-        SceneProfileInput, c_void,
+        JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw, PbdProbeReportRaw,
+        PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput, c_void,
     };
 
     unsafe extern "C" {
         #[link_name = "ne_physx_version"]
         pub fn version() -> PhysXVersion;
+        #[link_name = "ne_physx_pbd_probe"]
+        pub fn pbd_probe(desc: *const PbdProbeDescRaw, report: *mut PbdProbeReportRaw) -> i32;
         #[link_name = "ne_physx_world_create"]
         pub fn world_create(output: *mut *mut c_void) -> i32;
         #[link_name = "ne_physx_world_destroy"]
@@ -791,9 +931,14 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, MaterialProfileInput, PhysXVersion, RawSweepOutput, RigidBodyInput,
-        STATUS_UNAVAILABLE, SceneProfileInput, c_void,
+        JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw, PbdProbeReportRaw,
+        PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE, SceneProfileInput,
+        c_void,
     };
+
+    pub unsafe fn pbd_probe(_desc: *const PbdProbeDescRaw, _report: *mut PbdProbeReportRaw) -> i32 {
+        STATUS_UNAVAILABLE
+    }
 
     pub unsafe fn version() -> PhysXVersion {
         PhysXVersion {
