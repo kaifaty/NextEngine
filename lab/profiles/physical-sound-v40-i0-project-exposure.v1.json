@@ -1,0 +1,249 @@
+{
+  "access_policy": {
+    "audio_or_feature_decode_allowed": false,
+    "candidate_or_model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "payload_access_allowed": false,
+    "role_assignment_allowed": false
+  },
+  "audit_policy": {
+    "candidate_project_source": "v39_f1_current_projects",
+    "fail_closed_unknown": true,
+    "metadata_hash_resets_family": false,
+    "metadata_only_origin_evidence": {
+      "q1a-internet-metadata": "q1a-metadata-only",
+      "v38-s0-internet-metadata": "v39-f1-result"
+    },
+    "minimum_independence_unit": "publisher_project_revision_family",
+    "source_frontier_binding_id": "v39-f1-source-profile"
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": "v40_d0_disclosed_roster_and_s0_clean_source_growth",
+    "model_training_authority": false,
+    "payload_access_authority": false,
+    "product_authority": false,
+    "public_contract": false,
+    "role_assignment_authority": false,
+    "runtime_consumer_allowed": false,
+    "validator_release_authority": false
+  },
+  "claim": "CURRENT_STEEL_PROJECT_FAMILY_EXPOSURE_AND_CLEAN_FRONTIER_ONLY / NO_SIGNAL_ROLE_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "binding_id": "avmsf-opened",
+      "bytes": 9895,
+      "path": "docs/development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md",
+      "sha256": "40415e31e4be5501a263e4a95349c1f8bed4af26cb9f956dd12a88f89cf03277"
+    },
+    {
+      "binding_id": "blue-bowl-objectfolder-realimpact-opened",
+      "bytes": 5681,
+      "path": "docs/development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md",
+      "sha256": "219f08169e6242cf0f4e3deb3fd5ef5d643974a79211a0ce061fb3fd215be04c"
+    },
+    {
+      "binding_id": "freesound-glass-bowl-opened",
+      "bytes": 6267,
+      "path": "docs/development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md",
+      "sha256": "ab6359adf066f7f14e38aadac23f9a4a0dbed64a4bfe13e8986d51e4c6bf4f5a"
+    },
+    {
+      "binding_id": "freesound-wine-glass-opened",
+      "bytes": 5578,
+      "path": "docs/development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md",
+      "sha256": "9c660e1e6f63d43e9c3fffa43ba543b9bc3dba90d457b68b17ab13d204ce9695"
+    },
+    {
+      "binding_id": "heller-opened",
+      "bytes": 5994,
+      "path": "docs/development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md",
+      "sha256": "5f51f86662d7707c63781a04ec4acaa287f7b020634deb76b7eed38713fed40a"
+    },
+    {
+      "binding_id": "kronland-opened",
+      "bytes": 6427,
+      "path": "docs/development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md",
+      "sha256": "c766e3831d0996d4c3761348fba38de9cbe9f9a51917148a19f11c983f85b2f0"
+    },
+    {
+      "binding_id": "objectfolder-beer-glass-opened",
+      "bytes": 4694,
+      "path": "docs/development/physical-sound-r3a-v10-beer-glass-real-fit-result-2026-08-31.md",
+      "sha256": "0bd9c1e498735216cbdf472ca502ffa5feaccb32cdc7a1085680188996884627"
+    },
+    {
+      "binding_id": "q1a-metadata-only",
+      "bytes": 4651,
+      "path": "docs/development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md",
+      "sha256": "899074a80b00d66fa03d5728820142bf518cdf79e4ec3459c5e954024b9eee23"
+    },
+    {
+      "binding_id": "soundpacks-opened",
+      "bytes": 6000,
+      "path": "docs/development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md",
+      "sha256": "e9e04da210006940755074c9a747b2d300607203a8fa52cf24b2e89a3b1a1c95"
+    },
+    {
+      "binding_id": "v39-f1-owner",
+      "bytes": 32360,
+      "path": "lab/scripts/physical_sound_v39_f1_source_frontier_v1.py",
+      "sha256": "4363cc70b92f54a0646ca2727533a8f6f76216b809b0813aa8623effb291e725"
+    },
+    {
+      "binding_id": "v39-f1-result",
+      "bytes": 5440,
+      "path": "docs/development/physical-sound-v39-f1-source-frontier-result-2026-09-03.md",
+      "sha256": "3bd82f03b9f1df691fb533b09c611f828da9fc977843157a4c2338556902dfa1"
+    },
+    {
+      "binding_id": "v39-f1-source-profile",
+      "bytes": 11831,
+      "path": "lab/profiles/physical-sound-v39-f1-source-frontier.v1.json",
+      "sha256": "a0e752a85d4bddcca5e2ae8d171d69aa90df1e2c99db6257b000e8ae95e8a82a"
+    },
+    {
+      "binding_id": "ycb-opened",
+      "bytes": 6681,
+      "path": "docs/development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md",
+      "sha256": "50a18aaa00b2cc7580368dbe8f84ebb562ad1f3c695f5797d71e04fce10297ba"
+    }
+  ],
+  "expected_result": {
+    "accounted_candidate_projects": 11,
+    "clean_exact_steel_groups": 9,
+    "clean_non_metal_groups": 7,
+    "clean_project_revisions": 9,
+    "decision": "I0_PROJECT_EXPOSURE_AUDIT_PASS_SOURCE_POWER_OOD",
+    "disclosed_candidate_project_revisions": 2,
+    "feasible": false,
+    "known_disclosed_families": 9,
+    "quarantined_exact_steel_groups": 23,
+    "quarantined_non_metal_groups": 70,
+    "reserved_unprotected_project_count": 5,
+    "role_a_exact_steel_deficit": 13,
+    "role_a_non_metal_deficit": 34,
+    "role_b_exact_steel_deficit": 13,
+    "role_b_non_metal_deficit": 31,
+    "unaccounted_candidate_projects": 0
+  },
+  "family_policies": [
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "heller-opened"
+      ],
+      "family_id": "carnegie-mellon-auditorylab--sound-events-impact-events",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 5,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "freesound-glass-bowl-opened"
+      ],
+      "family_id": "freesound-user-ascap--pack-14905",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 8,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "freesound-wine-glass-opened"
+      ],
+      "family_id": "freesound-user-wasserbjorn--pack-41981",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 3,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": "iri-csic-upc-ctu--ycb-impact-sounds--osf-bj5w8-2022-09-27",
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "ycb-opened"
+      ],
+      "family_id": "iri-csic-upc-ctu--ycb-impact-sounds",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 8,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "soundpacks-opened"
+      ],
+      "family_id": "kaffekrus--soundpacks-glass-recordings",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 7,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "blue-bowl-objectfolder-realimpact-opened"
+      ],
+      "family_id": "samuel-clarke--realimpact",
+      "historical_access_kind": "derived_signal_values_decoded",
+      "observed_unit": "transfer_rows",
+      "observed_units_lower_bound": 4,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": "stanford-objectfolder--objectfolder-real--rendered-table-sha256-0111f57a",
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "blue-bowl-objectfolder-realimpact-opened",
+        "objectfolder-beer-glass-opened"
+      ],
+      "family_id": "stanford-objectfolder--objectfolder-real",
+      "historical_access_kind": "signal_values_decoded",
+      "observed_unit": "pcm_samples",
+      "observed_units_lower_bound": 6336000,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "kronland-opened"
+      ],
+      "family_id": "the-language-of-sounds--kronland-material-impact-stimuli",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 15,
+      "protected_power_allowed": false
+    },
+    {
+      "candidate_project_revision_id": null,
+      "disposition": "permanent_disclosed",
+      "evidence_ids": [
+        "avmsf-opened"
+      ],
+      "family_id": "zisen-shao--av-msf",
+      "historical_access_kind": "signal_payload_opened",
+      "observed_unit": "recordings",
+      "observed_units_lower_bound": 20,
+      "protected_power_allowed": false
+    }
+  ],
+  "minimums": {
+    "protected_exact_steel_groups_per_role": 16,
+    "protected_non_metal_groups_per_role": 35,
+    "protected_projects_per_role": 2,
+    "reserved_unprotected_projects": 5
+  },
+  "schema": "nextengine.experimental-physical-sound-v40-i0-project-exposure-profile.v1"
+}

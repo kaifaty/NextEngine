@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V40_ACTIVE / I0_PROJECT_EXPOSURE_AUDIT_NEXT / DISCLOSED_ML_UNBLOCKED / PROTECTED_FRONTIER_UNESTABLISHED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V40_ACTIVE / I0_COMPLETE_SOURCE_POWER_OOD / D0_NEXT / S0_OPEN / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
@@ -13,15 +13,15 @@
 - **Current conclusion:** [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. All hard/resource gates pass, but QSO-v0 passes only `11/22` metrics, loses to ridge/pointwise controls and fails its field contribution claim. Candidate authority is false and H0 stays unopened.
 - **Planning authority:** [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.md)
-  starts with I0 whole-project exposure/alias audit, then proceeds to a permanent disclosed ML corpus while clean-source discovery continues independently.
+  has completed I0; D0 permanent disclosed roles are next while S0 clean-source discovery proceeds independently.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
 - **T0 result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
 - **Q1-M result:** [role-power audit](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md)
   accounts for all 109 identities twice exactly with zero signal access. Two
   projects miss the 9-project role floor, exact Steel is `23/32`, rejects are
   `70/70` protected-only and current freshness power is zero; no role opened.
-- **Source-power correction:** [V40 rebaseline](../physical-sound-v40-project-independence-rebaseline-2026-09-03.md)
-  preserves the exact V39 F1 replay but withdraws `6/23` as current protected power. ObjectFolder and the opened YCB revision were credited despite prior signal access; the provisional clean metadata upper bound is only `9 Steel / 7 non-Metal` until I0 completes.
+- **I0 result:** the [project-exposure audit](../physical-sound-v40-i0-project-exposure-result-2026-09-03.md)
+  accounts `11/11` candidates twice exactly with zero signal/network access, quarantines ObjectFolder/YCB and establishes clean `9 Steel / 7 non-Metal`; best roles miss `13/34` and `13/31`, so protected power is OOD.
 - **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
   proves one-hot material input cannot expose isolated `E`/density gates. No
   model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
@@ -33,7 +33,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** implement V40 I0 as a zero-signal project-family exposure/alias ledger, quarantine every opened or ambiguous project and recompute the clean protected frontier before D0 roster freeze.
+- **Next action:** implement V40 D0: freeze all nine disclosed families into parent-disjoint generator-train, generator-development and validator-calibration roles with protected counters remaining zero; run S0 independently against the exact clean deficits.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
@@ -67,13 +67,13 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V40 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V39_F0_F1_MECHANICS_PRESERVED / V40_I0_NEXT` | QSO-v0 remains closed. F1 is historical replay only; I0 must establish current project-clean power before D0, and a disclosed development winner never earns admission credit. |
+| V34–V40 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V39_F0_F1_MECHANICS_PRESERVED / V40_I0_COMPLETE_SOURCE_POWER_OOD / D0_NEXT` | QSO-v0 remains closed. I0 establishes clean `9/7`, quarantines opened ObjectFolder/YCB and opens only D0/S0; a disclosed development winner never earns admission credit. |
 
-## Material transition: V40 project-independence correction
+## Material transition: V40 I0 project-independence audit
 
-- **Evidence:** F1 credits ObjectFolder `17/63` and YCB `6/7`; historical results prove ObjectFolder PCM and YCB `bj5w8` recordings were already opened. The F1 ObjectFolder key binds a metadata-table hash, not a demonstrated fresh payload revision.
-- **Conclusion/decision:** `6/23` remains exact F1 replay but is withdrawn as current admission authority. Protected frontier is `UNESTABLISHED`; opened/ambiguous project families fail closed into disclosed/quarantine.
-- **Smallest next action:** build I0 over the complete historical ledger, then freeze D0 and rerun source power from clean whole projects only.
+- **Evidence:** I0 binds thirteen exact dependencies, accounts `11/11` candidate projects and repeats a four-artifact external tree exactly with every forbidden access counter zero.
+- **Conclusion/decision:** nine opened families are permanently disclosed; ObjectFolder/YCB remove `23/70` from current protected credit. Clean power is `9/7`, best roles miss `13/34` and `13/31`, and S1 is `SourcePowerOOD`.
+- **Smallest next action:** freeze D0's three disclosed roles without payload access or protected credit; run metadata-first S0 independently.
 
 ## Durable negative knowledge
 
@@ -170,6 +170,7 @@
 | D-074 | V39 F0 proves the permanent-disclosed/protected split mechanics twice exactly with all access counters zero. Disclosed projects can support bounded automatic iteration but can never return to protected roles; only one frozen winner may later open method holdout and joint shadow. | F1 or D0 evidence shows parent leakage, protected exposure, validator bias or no useful grouped development discriminator. |
 | D-075 | F1 mechanically reproduces IETeasy as one project with 15 physical samples, 150 non-independent recordings, four non-Metal groups and zero strict-Steel groups; `6/23` is an exact historical planner replay only. RSAudio/DiffImpact remain zero-power. | A source-identity defect invalidates IETeasy or fresh versioned metadata makes either deferred lead auditable. |
 | D-076 | Protected eligibility is fail-closed at whole project/revision-family scope. ObjectFolder Real, opened YCB `bj5w8` and opened REALIMPACT revisions are disclosed/quarantined until exact payload and physical-parent lineage proves an independent successor. | A hash-closed publisher record and I0 ledger prove a genuinely new revision with disjoint parents and zero signal/feature/target/selection exposure. |
+| D-077 | I0 repeat-exactly accounts `11/11` candidates with zero forbidden access, permanently discloses nine opened families and establishes clean `9 Steel / 7 non-Metal`; best protected roles miss `13/34` and `13/31`, so only D0/S0 open. | A clean metadata batch improves the exact whole-project frontier; S1 remains blocked until both roles and five reserves satisfy the frozen minima. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -177,7 +178,7 @@
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Local controls remain competitive and beat QSO-v0 on several axes | They do not close contact-only/joint transfer as a general generator | Retain as mandatory control, not a standalone successor |
 | H3: explicit field/query operator can recover contact transfer | D0R proves the complete target-aware owner and artificial ablations | V37 D0 passes only `11/22` metrics; field-only ablation refutes the declared contribution | `REJECTED`; never retry QSO-v0 or tune from spent D0 |
-| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice; disclosed real projects can calibrate without manual approval | Clean protected frontier is unestablished; no real validator/shadow result | V40 I0/D0/V0, then one-shot V1 after S1 |
+| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice; disclosed real projects can calibrate without manual approval | I0 clean power is `9/7` and `SourcePowerOOD`; no real validator/shadow result | V40 D0/V0 plus S0/S1, then one-shot V1 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V40 K0/P0 after Steel A0 Pass |
 
 ## Do not retry
@@ -217,7 +218,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.md), [V40 independence correction](../physical-sound-v40-project-independence-rebaseline-2026-09-03.md), superseded [Roadmap V39](../../plans/physical-sound-synthesis-roadmap-v39.md), [V39 F1](../physical-sound-v39-f1-source-frontier-result-2026-09-03.md), [V39 F0](../physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), superseded [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
+Current program: [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.md), [V40 I0 result](../physical-sound-v40-i0-project-exposure-result-2026-09-03.md), [V40 independence correction](../physical-sound-v40-project-independence-rebaseline-2026-09-03.md), superseded [Roadmap V39](../../plans/physical-sound-synthesis-roadmap-v39.md), [V39 F1](../physical-sound-v39-f1-source-frontier-result-2026-09-03.md), [V39 F0](../physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), superseded [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -246,4 +247,4 @@ Current program: [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.
 
 ## Handoff
 
-- **Workspace/quality/next:** V39 F0/F1 remain repeat-exact historical mechanics. V40 withdraws `6/23` as current protected power; I0 project-family exposure audit is next, disclosed ML remains unblocked, and authored fallback remains mandatory.
+- **Workspace/quality/next:** V40 I0 is repeat-exact and zero-signal; clean `9/7` is `SourcePowerOOD`. D0 disclosed-role freeze is next, S0 clean-source growth is open in parallel, and authored fallback remains mandatory.

@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / I0_PROJECT_EXPOSURE_AUDIT_NEXT / DISCLOSED_ML_UNBLOCKED / PROTECTED_FRONTIER_UNESTABLISHED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / I0_COMPLETE_SOURCE_POWER_OOD / D0_NEXT / S0_CLEAN_GROWTH_OPEN / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V39](physical-sound-synthesis-roadmap-v39.md) как planning authority; F0/F1 и все прежние terminal results остаются историческим evidence |
 | Причина | [Project-independence correction](../development/physical-sound-v40-project-independence-rebaseline-2026-09-03.md): V39's `6/23` is an exact replay, but ObjectFolder and YCB already have opened signal and cannot supply current protected credit without a new whole-project audit |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer, public schema и promoting ADR отсутствуют |
@@ -36,8 +36,10 @@ V39 правильно разделил development и admission, но пере�
 - Изменение metadata hash не создаёт новую независимую аудиоревизию.
 - Связанные коллекции одного физического объекта объединяются alias edges и не
   могут оказаться по разные стороны disclosed/protected границы.
-- Пока I0 не завершён, protected frontier имеет состояние `UNESTABLISHED`, а
-  не `6/23`.
+- [I0](../development/physical-sound-v40-i0-project-exposure-result-2026-09-03.md)
+  установил clean frontier `9 Steel / 7 non-Metal` в девяти проектах. Лучшие
+  две роли сохраняют пять reserve projects, но имеют дефициты `13/34` и
+  `13/31`; состояние — `SourcePowerOOD`, а не прежнее `6/23`.
 
 Это не блокирует обучение. ObjectFolder, открытый YCB и REALIMPACT становятся
 полезным постоянным disclosed corpus; они просто больше не изображают слепой
@@ -110,15 +112,15 @@ Hard defect возвращает `Reject`; нехватка coverage или disa
 | ID | Состояние | Проверяемый выход |
 | --- | --- | --- |
 | R0 | `COMPLETE` | V39 F0/F1 сохранены; `6/23` помечен historical replay, а не current admission frontier. |
-| I0 | `NEXT` | Один zero-signal owner перечисляет каждый project/revision family, alias edges и все historical signal/feature/target accesses; неизвестное состояние fail-closed в disclosed/quarantine. |
-| D0 | `AFTER_I0` | ObjectFolder, opened YCB/REALIMPACT и другие spent families навсегда распределены между `generator_train`, `generator_development` и `validator_calibration`; roles parent-disjoint, protected counters zero. |
+| I0 | `COMPLETE / SOURCE_POWER_OOD` | [Zero-signal audit](../development/physical-sound-v40-i0-project-exposure-result-2026-09-03.md) accounted `11/11` candidate projects, permanently disclosed nine opened families, quarantined ObjectFolder/YCB power and repeat-exactly established clean `9/7`; no role or payload opened. |
+| D0 | `NEXT` | ObjectFolder, opened YCB/REALIMPACT и другие spent families навсегда распределены между `generator_train`, `generator_development` и `validator_calibration`; roles parent-disjoint, protected counters zero. |
 | C0 | `AFTER_D0` | Один external content-addressed corpus owner выдаёт canonical `48 kHz` segments, observed-axis masks, modal/transient targets и immutable train/dev/calibration projections без данных в Git. |
 | B0 | `AFTER_C0` | На общей grouped surface воспроизводятся modal owner, nearest/local, ridge, pointwise MLP и retrieval-copy controls. |
 | V0 | `AFTER_B0` | Validator specialists, embedding choice, mutations, thresholds, aggregation, OOD и stopping rule заморожены только на validator-calibration projects. |
 | M0 | `AFTER_B0` | `StructuredRecipeNet-v0` и не более одного substantively distinct neural comparator проходят complete-entry/resource preflight без protected access. |
 | M1 | `AFTER_M0_AND_V0` | Автономный runner обучает candidates, считает controls/ablations/validator metrics и останавливается по frozen budget с `DevelopmentWinner` либо `NoCandidate`. |
 | G0 | `AFTER_M1_WIN` | Заморожены ровно один checkpoint, preprocessing graph, domain envelope, selection report и cooker preprofile; development quality не даёт admission credit. |
-| S0 | `AFTER_I0 / PARALLEL` | Bounded metadata-first batches ищут только clean project families; каждый lead завершает `ImprovedFrontier`, `Feasible` либо `NoEligibleDelta` до payload access. |
+| S0 | `OPEN / PARALLEL` | Bounded metadata-first batches ищут только clean project families против точных дефицитов `13/34` и `13/31`; каждый lead завершает `ImprovedFrontier`, `Feasible` либо `NoEligibleDelta` до payload access. |
 | S1 | `BLOCKED_BY_S0` | Новый exact frontier даёт две protected roles по `>=2` projects и `16 exact-Steel / 35 non-Metal` parent groups каждая плюс пять whole projects для остальных one-use roles; leakage/exposure zero. |
 | V1 | `BLOCKED_BY_S1_AND_V0` | Frozen validator один раз достигает grouped 95% false-pass upper bound `<=0.10`, useful-coverage lower bound `>=0.80` и проходит causal/leave-project-out suite. |
 | H0 | `BLOCKED_BY_S1_AND_G0` | Frozen generator один раз превосходит applicable baselines в aggregate, contact-only, geometry-only и joint strata без hard/OOD failure. |
@@ -147,9 +149,9 @@ Hard defect возвращает `Reject`; нехватка coverage или disa
 
 ## Упорядоченный implementation queue
 
-1. **V40.1 — I0:** построить проектно-ревизионный exposure/alias ledger и
-   пересчитать честный protected frontier.
-2. **V40.2 — D0:** заморозить permanent disclosed roster и три непересекающихся
+1. **V40.1 — I0 — COMPLETE:** проектно-ревизионный exposure/alias ledger
+   установил clean frontier `9/7` и terminal `SourcePowerOOD`.
+2. **V40.2 — D0 — NEXT:** заморозить permanent disclosed roster и три непересекающихся
    development roles.
 3. **V40.3 — C0:** нормализовать disclosed payloads в hash-closed external
    corpus с axis masks и deterministic features.
@@ -180,7 +182,8 @@ Hard defect возвращает `Reject`; нехватка coverage или disa
 
 ## Stop rules
 
-- Не использовать `6/23` как текущую protected-оценку до I0.
+- Не использовать историческое `6/23` как текущую protected-оценку; I0
+  установил clean `9/7`, но protected roles остаются `SourcePowerOOD`.
 - Не возвращать exposed project family в protected pool через новый metadata
   hash, object ID, filename или другой adapter.
 - Не путать повторения/контакты одного объекта с независимыми parent groups.
