@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ADOPTED / F0_NEXT / TWO_LANE_ML_FOUNDRY / PROTECTED_ADMISSION_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / F0_COMPLETE / F1_NEXT / TWO_LANE_ML_FOUNDRY / PROTECTED_ADMISSION_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V38](physical-sound-synthesis-roadmap-v38.md) как planning authority; его source frontier и все terminal evidence остаются точными историческими фактами |
-| Текущее evidence | [V38 S0](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), [V37 D0](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
+| Текущее evidence | [V39 F0](../development/physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), [V38 S0](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), [V37 D0](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; current production consumer, public schema и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Никаких локальных записей ударов и обязательного ручного прослушивания; реальные данные берутся из опубликованных internet sources, а решение принимает воспроизводимый automatic validator |
 
@@ -133,8 +133,8 @@ S0 продолжается параллельно с F0–G0. Protected access 
 | ID | Результат | Состояние | Проверяемый выход |
 | --- | --- | --- | --- |
 | E0 | Preserve evidence | `COMPLETE` | V37 QSO-v0 закрыт `MetricReject`; V38 frontier `6/23` и все spent identities неизменны. |
-| F0 | Foundry shell | `NEXT` | Один CLI/profile path валидирует corpus roles, hashes, access ledger, experiment budget, terminal result и atomic external publication; fixture A/B byte-identical, signal/model/network counters zero. |
-| F1 | Source-frontier automation | `AFTER_F0` | V30 baseline и IETeasy increment воспроизводят `6/23`; duplicate parent, material inflation, hash drift, in-repo output и partial publication отклоняются. |
+| F0 | Foundry shell | `COMPLETE / REPEAT_EXACT_MECHANICS_READY` | Один CLI/profile path валидирует corpus roles, hashes, access ledger, experiment budget, terminal result и atomic external publication; fixture A/B и validate byte-identical, signal/model/network counters zero. |
+| F1 | Source-frontier automation | `NEXT` | V30 baseline и IETeasy increment воспроизводят `6/23`; duplicate parent, material inflation, hash drift, in-repo output и partial publication отклоняются. |
 | D0 | Permanent disclosed corpus | `AFTER_F0` | Уже раскрытые или явно sacrificed projects назначены только `generator_train`, `generator_development` либо `validator_calibration`; claims/axes/provenance проверены, protected counters zero. |
 | B0 | Baseline pack | `AFTER_D0` | На одной grouped evaluation surface воспроизводятся modal owner, nearest/local, ridge, pointwise MLP и retrieval-copy detector; ни один threshold не выбран по candidate output. |
 | V0 | Validator calibration | `AFTER_D0_AND_B0` | Integrity, temporal, spectral/modal, frozen representation и OOD specialists заморожены только по validator-calibration projects и labelled mutations. |
@@ -188,9 +188,10 @@ budget. Новый model family требует нового profile до target 
 
 1. **V39.0 — complete:** принять two-lane rebaseline, не меняя V38 frontier и
    strict admission gates.
-2. **V39.1 — next:** реализовать target-free F0 foundry profile/runner и
-   canonical external report с synthetic positive/failure fixtures.
-3. **V39.2:** автоматизировать F1 source frontier; воспроизвести V30 + IETeasy
+2. **V39.1 — complete:** [F0](../development/physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md)
+   повторяет target-free profile/runner/report byte-exactly, закрывает role/access
+   mutations и публикует только `MechanicsReady` с нулевым forbidden access.
+3. **V39.2 — next:** автоматизировать F1 source frontier; воспроизвести V30 + IETeasy
    как checked profile и exact external A/B report.
 4. **V39.3:** заморозить permanent disclosed roster и построить D0 corpus
    projection; ни один его project больше не резервируется для protection.
@@ -226,9 +227,11 @@ budget. Новый model family требует нового profile до target 
 - До P0 нет production capability claim; до Accepted ADR нет нового public
   runtime contract.
 
-## Проверка roadmap change
+## Проверка F0
 
-Это documentation-only planning rebaseline. Достаточны `git diff --check`,
-проверка локальных links/paths/identifiers и согласованность этого документа с
-`docs/roadmap.md` и durable task-state. Cargo и ProductChecks не применимы:
-production code, schema и runtime-consumed data не меняются.
+F0 проходит `9/9` focused Python tests и официальный внешний fixture A/B плюс
+validate с одним byte-identical пятифайловым деревом. Hash-bound Rust neural
+data-plane проходит `10/10` focused tests. Общий `boundary-scan` сохраняет
+известный legacy `SOURCE_LAYOUT_ESCAPE_HATCH` в `realimpact_transfer_fixture.rs`;
+F0 не добавляет и не использует его. ProductChecks не применимы: production
+consumer, public schema и runtime-consumed data не меняются.
