@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / B0R_R0R_C1_G0A_G0B0_COMPLETE / G0B1A_PAYLOAD_PASS / G0B1B_TARGET_AUDIT_COMPLETE / NORMALIZATION_PASS / 12_24_48_96_MODE_CAPS_REJECT / TARGET_REPRESENTATION_REDESIGN_REQUIRED / CORPUS_CREDIT_ZERO / 5_STEEL_PARENTS / ZERO_DESCRIPTOR_COMPLETE / G0B1C_NEXT / PSEL_BLOCKED / V0S_OPEN / V0_BLOCKED_BY_POWER / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / B0R_R0R_C1_G0A_G0B0_COMPLETE / G0B1A_PAYLOAD_PASS / G0B1B_TARGET_AUDIT_COMPLETE / G0B1C0_SYNTHETIC_TARGET_ADMITTED / 75_DIMENSION_FIXED / IETEASY_TARGET_ACCESS_AUTHORIZED / CORPUS_CREDIT_ZERO / 5_STEEL_PARENTS / ZERO_DESCRIPTOR_COMPLETE / G0B1C1_NEXT / PSEL_BLOCKED / V0S_OPEN / V0_BLOCKED_BY_POWER / TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V43](physical-sound-synthesis-roadmap-v43.md) как planning authority; C1A и D2/C0R остаются immutable repeat-exact evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не создаёт public schema, runtime inference или production authority |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательной ручной приёмки отдельных звуков |
@@ -76,6 +76,15 @@ saturation flag. Второй независимый Steel project по-преж
 G0B1c сначала фиксирует noise-robust fixed-size modal distribution и synthetic
 mode/noise controls, только затем может снова читать IETeasy targets.
 
+[G0B1c0](../development/physical-sound-v44-g0b1c0-noise-robust-target-synthetic-result-2026-09-03.md)
+теперь repeat-exactly допускает 75-мерный fixed-size target на полностью
+synthetic surface: три clean modes восстановлены, noise-only даёт ноль
+qualified peaks и полный residual, modal-plus-noise сохраняет распределение,
+frequency shift меняет его, а `0.5×/2×` дают exact identity. Ни одно IETeasy
+target value не читалось. G0B1c1 теперь может применить ровно этот frozen owner
+к 15 выбранным payloads; corpus/support credit по-прежнему нулевой до его
+отдельного терминального результата.
+
 Главное изменение V44: первый material pack больше не назначается заранее как
 Steel. Его выбирает signal-blind `PSEL` по числу независимых проектов и
 parents, полноте runtime descriptors, provenance и достижимой мощности
@@ -118,7 +127,7 @@ Definition of done для первого вертикального среза:
 | Disclosed numerical floor | `B0R_R0R_COMPLETE / REPEAT_EXACT / SIGNAL_INSUFFICIENT` | Новый global floor — `1.312187716`; нужны runtime descriptors и ещё минимум `49` независимых supported parents, а не большая сеть. |
 | Runtime descriptors | `C1_COMPLETE / G0A_YCB_26_MASS_EXTENT / ZERO_DESCRIPTOR_COMPLETE` | Девять axes, masks, confidence, provenance и missingness frozen; mass/extents теперь известны у `26` parents, остальные неопубликованные axes остаются masked. |
 | Structured physical controls | `G0A_COMPLETE / 20_PLATE_PROSPECTS / NO_WAVEFORM_BINDING` | Пять размеров для каждого из Steel/Glass/Wood/Plastic пригодны только для будущего target-correspondence/T0 control; это не training, validator или PSEL credit. |
-| Prospective source growth | `G0B1B_COMPLETE / NORMALIZATION_PASS / FIXED_MODE_CAP_REJECT / G0B1C_TARGET_REDESIGN_NEXT` | Payload path пригоден, но cap до `96` не сохраняет reference distribution на всех 15 записях. Corpus/support credit нулевой до нового fixed-size target и materialization; один project всё ещё не допускает PSEL. |
+| Prospective source growth | `G0B1C0_COMPLETE / SYNTHETIC_TARGET_ADMITTED / G0B1C1_MATERIALIZATION_NEXT` | Fixed 75-value tonal/residual/count target passes synthetic mode/noise/scale/resource controls without IETeasy access. Corpus/support credit stays zero until unchanged application to all 15 records; one project still cannot admit PSEL. |
 | Validator mechanics | `SYNTHETIC_CONTROL_EXISTS` | Механика проверялась, но независимых calibration parents/projects недостаточно. |
 | Recipe/renderer | `EXPERIMENTAL_CONTROLS_EXIST` | Нужна одна V2-форма, связанная с новыми descriptors и hard invariants. |
 | Neural generator | `BLOCKED` | Сначала B1 должен доказать deployable descriptor signal, затем V0 — независимую оценку. |
@@ -135,8 +144,9 @@ flowchart LR
     G0A --> G0B0["G0B0 IETeasy catalogue — complete"]
     G0B0 --> G0B1A["G0B1a payload/media — complete"]
     G0B1A --> G0B1B["G0B1b target audit — complete"]
-    G0B1B --> G0B1C["G0B1c target redesign + corpus"]
-    G0B1C --> G0B1["G0B1 second source + PSEL"]
+    G0B1B --> G0B1C0["G0B1c0 synthetic target — complete"]
+    G0B1C0 --> G0B1C1["G0B1c1 frozen IETeasy target + corpus"]
+    G0B1C1 --> G0B1["G0B1 second source + PSEL"]
     B0R --> PSEL["PSEL first-pack freeze"]
     G0B1 --> PSEL
 
@@ -166,8 +176,8 @@ flowchart LR
     K0 --> P0["P0 opt-in demo prop"]
 ```
 
-B0R/R0R, C1, G0A, G0B0, G0B1a и G0B1b завершены. G0B1c и второй source ведут
-критический путь к PSEL и B1;
+B0R/R0R, C1, G0A, G0B0, G0B1a, G0B1b и synthetic-only G0B1c0 завершены.
+G0B1c1 и второй source ведут критический путь к PSEL и B1;
 metadata-only V0S может развиваться параллельно, потому что не читает candidate
 outputs и не открывает protected payload. B1 ждёт G0, T0 и PSEL. M0/M1 ждут
 B1 и frozen V0.
@@ -184,7 +194,8 @@ Protected H0/V1/A0 остаются one-shot и принимают ровно о
 | G0B0 | `COMPLETE / REPEAT_EXACT / PROSPECTIVE_ONLY` | [Result](../development/physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md) freezes catalogue/materialization/PSEL levels and binds `15` IETeasy parents to `150` publisher-hashed waveforms without payload access. | Frozen as acquisition planning only; it grants no corpus, role, target, B1 or training credit. |
 | G0B1a | `COMPLETE / REPEAT_EXACT / TARGET_AUDIT_REQUIRED` | [Result](../development/physical-sound-v44-g0b1a-ieteasy-payload-target-probe-result-2026-09-03.md) freezes one record per `15` parents before signal access; all payload/hash/media/onset/window/target probes pass twice exactly, while `15/15` hit the 12-mode cap and therefore grant zero corpus credit. | Frozen as feasibility evidence only; no favorable record/cap/normalization may be selected after access. |
 | G0B1b | `COMPLETE / REPEAT_EXACT / TARGET_REDESIGN_REQUIRED` | [Result](../development/physical-sound-v44-g0b1b-target-cap-normalization-audit-result-2026-09-03.md) freezes `12/24/48/96` against a non-saturating `512` reference before higher-cap access; normalization passes, but no cap preserves every record, so corpus credit remains zero. | Do not raise top-N again; G0B1c must freeze a noise-robust fixed-size distribution before reading its values. |
-| G0B1 | `IN_PROGRESS / G0B1C_NEXT` | A preregistered fixed-size target passes clean-mode/noise/scale/resource controls, the `15` selected rows enter one immutable disclosed role through a corpus successor, and source growth yields at least a second independent descriptor-to-signal project for any pack considered by PSEL. | `DisclosedSourcePowerOOD`; keep current deficit `49`, continue metadata-first search and leave all packs `FallbackOnly`. |
+| G0B1c0 | `COMPLETE / REPEAT_EXACT / SYNTHETIC_TARGET_ADMITTED` | [Result](../development/physical-sound-v44-g0b1c0-noise-robust-target-synthetic-result-2026-09-03.md) freezes a 75-value tonal/residual/count target; clean-mode, noise-only, mixture, frequency-shift, scale, resource and exact-repeat controls pass with zero IETeasy target access. | Only the unchanged frozen target may proceed to G0B1c1; this milestone grants no corpus/support credit. |
+| G0B1 | `IN_PROGRESS / G0B1C1_NEXT` | The frozen G0B1c0 target passes all 15 selected IETeasy rows unchanged, those parents enter one immutable disclosed role through a corpus successor, and source growth yields at least a second independent descriptor-to-signal project for any pack considered by PSEL. | `TargetDomainOOD` or `DisclosedSourcePowerOOD`; keep current deficit `49`, continue metadata-first search and leave all packs `FallbackOnly`. |
 | PSEL | `BLOCKED_BY_G0B1_POWER_AND_CORRESPONDENCE` | Первый pack выбран только по pre-candidate eligibility: exact taxonomy, role power, descriptor coverage, source independence и provenance. | Ни один материал не выбран; все packs остаются `FallbackOnly`. |
 | V0S | `OPEN / METADATA_FIRST` | Найдены независимые validator-calibration project families; mirrors, demos, derived exports и re-encodes co-locate с источником или quarantined. | `ValidatorSourcePowerOOD`. |
 | V0P | `AFTER_V0S` | До выбора features/thresholds зафиксированы parent/project counts, clean controls, mutations, risk/coverage targets, OOD strata и one-use roles. | Продолжить metadata-only source growth. |
@@ -271,19 +282,22 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
    credit остаётся нулевым из-за обязательного extractor audit.
 6. **V44.2b1b — G0B1b — COMPLETE:** normalization passes; preregistered caps
    `12/24/48/96` all reject against the non-saturating reference.
-7. **V44.2b1c — G0B1/PSEL — NEXT:** noise-robust fixed-size target contract,
-   synthetic controls, disclosed corpus successor, второй независимый
-   descriptor-to-signal project и signal-blind выбор первого pack.
-8. **V44.3 — V0S/V0P:** independent validator sources и frozen calibration plan.
-9. **V44.4 — T0:** recipe V2, renderer, causal fixtures и deterministic mutations.
-10. **V44.5 — B1:** descriptor learnability gate; при reject — только G0/C1.
-11. **V44.6 — V0:** automatic validator freeze до появления candidates.
-12. **V44.7 — M0:** value-free model/tournament preflight.
-13. **V44.8 — M1/L0:** autonomous training и один `LabWinner` либо `NoCandidate`.
-14. **V44.9 — S0/S1:** protected source growth и one-use role freeze.
-15. **V44.10 — H0/V1/A0:** one-shot independent admission.
-16. **V44.11 — K0/P0:** deterministic cooker и fallback-safe demo prop.
-17. **V44.12 — X0/PR:** новые packs; architecture promotion только после
+7. **V44.2b1c0 — G0B1c0 — COMPLETE:** 75-value noise-robust target passes
+   synthetic clean-mode/noise/mix/shift/scale/resource controls without any
+   IETeasy target access.
+8. **V44.2b1c1 — G0B1/PSEL — NEXT:** unchanged target application, disclosed
+   corpus successor, второй независимый descriptor-to-signal project и
+   signal-blind выбор первого pack.
+9. **V44.3 — V0S/V0P:** independent validator sources и frozen calibration plan.
+10. **V44.4 — T0:** recipe V2, renderer, causal fixtures и deterministic mutations.
+11. **V44.5 — B1:** descriptor learnability gate; при reject — только G0/C1.
+12. **V44.6 — V0:** automatic validator freeze до появления candidates.
+13. **V44.7 — M0:** value-free model/tournament preflight.
+14. **V44.8 — M1/L0:** autonomous training и один `LabWinner` либо `NoCandidate`.
+15. **V44.9 — S0/S1:** protected source growth и one-use role freeze.
+16. **V44.10 — H0/V1/A0:** one-shot independent admission.
+17. **V44.11 — K0/P0:** deterministic cooker и fallback-safe demo prop.
+18. **V44.12 — X0/PR:** новые packs; architecture promotion только после
     работающего consumer и product evidence.
 
 ## Ближайшие commit boundaries
@@ -297,7 +311,8 @@ Datasets, WAV, features, checkpoints, generated clips, caches и credentials
 | D44b0 | `COMPLETE`: G0B0 prospective-parent contract и IETeasy `15/150` catalogue |
 | D44b1a | `COMPLETE`: G0B1a frozen selection, `15/15` payload/media/onset/target probe and extractor-audit decision |
 | D44b1b | `COMPLETE`: preregistered target-cap/normalization audit and `TargetRepresentationRedesignRequired` |
-| D44b1c | G0B1 fixed-size target successor, disclosed corpus, second-project growth и PSEL first-pack freeze |
+| D44b1c0 | `COMPLETE`: synthetic-only fixed-size target, noise/residual separation and IETeasy target-access authorization |
+| D44b1c1 | G0B1 frozen target application, disclosed corpus, second-project growth и PSEL first-pack freeze |
 | E44 | V0S/V0P source/power result |
 | F44 | T0 recipe V2/renderer contract и deterministic fixtures |
 | G44 | B1 descriptor-signal result |

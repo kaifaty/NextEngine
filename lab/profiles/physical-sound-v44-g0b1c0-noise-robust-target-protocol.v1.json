@@ -1,0 +1,164 @@
+{
+  "access_policy": {
+    "candidate_access_allowed": false,
+    "disclosed_audio_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "algorithm": {
+    "analysis_start_sample": 480,
+    "band_count": 24,
+    "band_max_hz": 18000,
+    "band_min_hz": 80,
+    "energy_quantization": "joint_tonal_residual_largest_remainder_ppm",
+    "local_log_power_median_bins": 31,
+    "maximum_qualified_peaks": 333,
+    "minimum_peak_distance_hz": 40,
+    "minimum_peak_excess_mass_ppm": 3000,
+    "minimum_peak_prominence_db": 6,
+    "peak_capture_radius_bins": 2,
+    "prominence_window_bins": 61,
+    "sample_count": 144000,
+    "sample_rate_hz": 48000,
+    "spectral_floor": 1e-24,
+    "target_vector_dimension": 75,
+    "waveform_normalization": "divide_by_absolute_peak",
+    "welch_hop_samples": 2048,
+    "welch_window": "hann",
+    "welch_window_samples": 8192
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_materialization_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "synthetic_target_audit_authority": true,
+    "validator_calibration_authority": false
+  },
+  "claim": "PREREGISTERED_SYNTHETIC_ONLY_NOISE_ROBUST_FIXED_SIZE_TARGET_AUDIT / NO_IETEASY_CORPUS_ROLE_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision_policy": {
+    "clean_expected_dominant_bands": [
+      7,
+      12,
+      17
+    ],
+    "clean_expected_qualified_peak_count": 3,
+    "clean_maximum_residual_energy_ppm": 50000,
+    "clean_minimum_tonal_excess_energy_ppm": 950000,
+    "failure_decision": "NoiseRobustTargetSyntheticRejected",
+    "frequency_shift_expected_dominant_bands": [
+      10,
+      15,
+      20
+    ],
+    "frequency_shift_maximum_clean_tonal_cosine_ppm": 100000,
+    "mixture_expected_qualified_peak_count": 3,
+    "mixture_maximum_clean_tonal_l1_ppm": 100000,
+    "mixture_minimum_clean_tonal_cosine_ppm": 990000,
+    "mixture_minimum_tonal_excess_energy_ppm": 850000,
+    "noise_expected_qualified_peak_count": 0,
+    "noise_maximum_tonal_excess_energy_ppm": 10000,
+    "noise_minimum_residual_energy_ppm": 990000,
+    "noise_minimum_spectral_flatness_ppm": 700000,
+    "pass_decision": "NoiseRobustTargetSyntheticAdmitted",
+    "positive_scale_factors_ppm": [
+      500000,
+      2000000
+    ],
+    "scale_identity_fixtures": [
+      "clean_three_mode",
+      "modal_plus_noise"
+    ],
+    "target_maximum_canonical_json_bytes": 8192,
+    "target_vector_dimension_required": 75
+  },
+  "profile_id": "physical-sound-v44-g0b1c0-noise-robust-target-protocol-v1",
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1c0-noise-robust-target-protocol.v1",
+  "source_basis": [
+    {
+      "bounded_claim": "Noisy samples can shift or add local maxima, so smoothing or alternative peak methods should be considered.",
+      "url": "https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html"
+    },
+    {
+      "bounded_claim": "Prominence measures a peak above its surrounding baseline and a finite window intentionally yields local prominence.",
+      "url": "https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.peak_prominences.html"
+    },
+    {
+      "bounded_claim": "Impact synthesis can require a residual in addition to extracted modes, and some recordings are not well represented by modal synthesis alone.",
+      "url": "https://www.microsoft.com/en-us/research/publication/sound-synthesis-impact-sounds-video-games/"
+    }
+  ],
+  "synthetic_fixtures": [
+    {
+      "decay_rate_millihertz": 3500,
+      "fixture_id": "clean_three_mode",
+      "impulse_amplitude_ppm": 800000,
+      "mode_amplitudes_ppm": [
+        1000000,
+        550000,
+        300000
+      ],
+      "mode_frequencies_hz": [
+        430,
+        1230,
+        4170
+      ],
+      "noise_amplitude_ppm": 0,
+      "noise_decay_rate_millihertz": 8000,
+      "noise_seed": 117
+    },
+    {
+      "decay_rate_millihertz": 3500,
+      "fixture_id": "broadband_noise",
+      "impulse_amplitude_ppm": 800000,
+      "mode_amplitudes_ppm": [],
+      "mode_frequencies_hz": [],
+      "noise_amplitude_ppm": 1000000,
+      "noise_decay_rate_millihertz": 8000,
+      "noise_seed": 117
+    },
+    {
+      "decay_rate_millihertz": 3500,
+      "fixture_id": "modal_plus_noise",
+      "impulse_amplitude_ppm": 800000,
+      "mode_amplitudes_ppm": [
+        1000000,
+        550000,
+        300000
+      ],
+      "mode_frequencies_hz": [
+        430,
+        1230,
+        4170
+      ],
+      "noise_amplitude_ppm": 300000,
+      "noise_decay_rate_millihertz": 8000,
+      "noise_seed": 117
+    },
+    {
+      "decay_rate_millihertz": 3500,
+      "fixture_id": "frequency_shift",
+      "impulse_amplitude_ppm": 800000,
+      "mode_amplitudes_ppm": [
+        1000000,
+        550000,
+        300000
+      ],
+      "mode_frequencies_hz": [
+        860,
+        2460,
+        8340
+      ],
+      "noise_amplitude_ppm": 0,
+      "noise_decay_rate_millihertz": 8000,
+      "noise_seed": 117
+    }
+  ]
+}

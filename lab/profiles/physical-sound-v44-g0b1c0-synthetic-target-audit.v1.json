@@ -1,0 +1,66 @@
+{
+  "access_policy": {
+    "candidate_access_allowed": false,
+    "disclosed_audio_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_materialization_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "synthetic_target_audit_authority": true,
+    "validator_calibration_authority": false
+  },
+  "claim": "PREREGISTERED_SYNTHETIC_ONLY_NOISE_ROBUST_FIXED_SIZE_TARGET_AUDIT / NO_IETEASY_CORPUS_ROLE_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 8188,
+      "path": "docs/development/physical-sound-v44-g0b1b-target-cap-normalization-audit-result-2026-09-03.md",
+      "sha256": "1904d79dc42c1fbdc36f5da910a6e0346ff81f9c1f393b440d104a67e7aa43f0"
+    },
+    {
+      "bytes": 5293,
+      "path": "lab/profiles/physical-sound-v44-g0b1c0-noise-robust-target-protocol.v1.json",
+      "sha256": "a82fbd84a677a49ab95f1a68394a2cdefa4f885991f3cff7ff8ab34b201ddcec"
+    },
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    },
+    {
+      "bytes": 31087,
+      "path": "lab/scripts/physical_sound_v44_g0b1c0_noise_robust_target_v1.py",
+      "sha256": "378b96ba4edfc382a1840d255bde5a1425bd0f44e7d9759202e562bae4ab0266"
+    }
+  ],
+  "environment": {
+    "numpy_version": "2.5.2",
+    "scipy_version": "1.18.0"
+  },
+  "expected_controls": {
+    "fixtures": 4,
+    "scale_mutations": 4
+  },
+  "profile_id": "physical-sound-v44-g0b1c0-synthetic-target-audit-v1",
+  "protocol": {
+    "bytes": 5293,
+    "path": "lab/profiles/physical-sound-v44-g0b1c0-noise-robust-target-protocol.v1.json",
+    "sha256": "a82fbd84a677a49ab95f1a68394a2cdefa4f885991f3cff7ff8ab34b201ddcec"
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1c0-synthetic-profile.v1"
+}
