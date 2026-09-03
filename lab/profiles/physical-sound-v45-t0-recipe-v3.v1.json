@@ -1,0 +1,497 @@
+{
+  "access_policy": {
+    "external_numeric_payload_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed_at_build": false,
+    "outputs_external": true,
+    "pcm_or_feature_access_allowed": false,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "external_payload_authority": false,
+    "product_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "schema_design_authority": true,
+    "validator_authority": false
+  },
+  "claim": "VALUE_FREE_RECIPE_V3_AND_MASKED_TARGET_CONTRACT / NO_EXTERNAL_NUMERIC_PAYLOAD_TRAINING_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision": "T0_RECIPE_V3_MASKED_TARGET_CONTRACT_REPEATABLE",
+  "dependency_bindings": [
+    {
+      "bytes": 12345,
+      "path": "docs/development/physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md",
+      "sha256": "e86ffc8acfda6d7e66dd890d0d1ea07328e82255f0ee152da0e9b8691887214f"
+    },
+    {
+      "bytes": 5514,
+      "path": "docs/development/physical-sound-v45-r0-source-claim-ledger-result-2026-09-03.md",
+      "sha256": "4d2b82908f15ebc2f520df01230a3b023e703472fcb941aea1697ceac3cfea32"
+    },
+    {
+      "bytes": 29993,
+      "path": "lab/scripts/physical_sound_v45_t0_recipe_v3_v1.py",
+      "sha256": "6c6cd0ed708f98fa30fd862fdc8b29f27c24e6a17302512bf3d5fe8a0cedb316"
+    }
+  ],
+  "fixtures": [
+    {
+      "fixture_id": "missing-label-control",
+      "observed_fields": [],
+      "raw_recipe": {
+        "descriptor_mask": [],
+        "heads": {
+          "excitation": {
+            "contact_duration_samples": -4,
+            "impact_gain_ppm": -1,
+            "location_modifier_ppm": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "onset_samples": -1,
+            "support_modifier_ppm": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "uncertainty_ppm": 2000000
+          },
+          "modal": {
+            "base_frequency_millihz": 100000,
+            "frequency_ratio_ppm": [
+              1000000
+            ],
+            "mode_count": 1,
+            "participation_ppm": [
+              -1
+            ],
+            "rt60_milliseconds": [
+              -10
+            ],
+            "uncertainty_ppm": [
+              2000000
+            ]
+          },
+          "radiation": {
+            "band_energy_ppm": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "residual_envelope_ppm": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "spectral_tilt_millidb_per_octave": 0,
+            "uncertainty_ppm": 2000000
+          },
+          "support": {
+            "ood_score_ppm": -1
+          }
+        },
+        "recipe_id": "missing-label-control",
+        "source_lane": "modal_teacher"
+      }
+    },
+    {
+      "fixture_id": "projection-stress-control",
+      "observed_fields": [
+        "excitation.contact_duration_samples",
+        "excitation.impact_gain_ppm",
+        "excitation.location_modifier_ppm",
+        "excitation.onset_samples",
+        "excitation.support_modifier_ppm",
+        "excitation.uncertainty_ppm",
+        "modal.base_frequency_millihz",
+        "modal.frequency_ratio_ppm",
+        "modal.mode_count",
+        "modal.participation_ppm",
+        "modal.rt60_milliseconds",
+        "modal.uncertainty_ppm",
+        "radiation.band_energy_ppm",
+        "radiation.residual_envelope_ppm",
+        "radiation.spectral_tilt_millidb_per_octave",
+        "radiation.uncertainty_ppm",
+        "support.ood_score_ppm"
+      ],
+      "raw_recipe": {
+        "descriptor_mask": [
+          "contact_location",
+          "density",
+          "geometry_extents",
+          "impact_strength",
+          "support_class"
+        ],
+        "heads": {
+          "excitation": {
+            "contact_duration_samples": 2000,
+            "impact_gain_ppm": 3000000,
+            "location_modifier_ppm": [
+              -2000000,
+              -500000,
+              0,
+              500000,
+              2000000,
+              0,
+              0,
+              0
+            ],
+            "onset_samples": 5000,
+            "support_modifier_ppm": [
+              -2000000,
+              0,
+              500000,
+              2000000
+            ],
+            "uncertainty_ppm": 1200000
+          },
+          "modal": {
+            "base_frequency_millihz": 200000,
+            "frequency_ratio_ppm": [
+              3000000,
+              1000000,
+              2000000
+            ],
+            "mode_count": 3,
+            "participation_ppm": [
+              800000,
+              600000,
+              400000
+            ],
+            "rt60_milliseconds": [
+              300,
+              -10,
+              90000
+            ],
+            "uncertainty_ppm": [
+              300000,
+              -1,
+              1200000
+            ]
+          },
+          "radiation": {
+            "band_energy_ppm": [
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000
+            ],
+            "residual_envelope_ppm": [
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000,
+              100000
+            ],
+            "spectral_tilt_millidb_per_octave": 50000,
+            "uncertainty_ppm": -1
+          },
+          "support": {
+            "ood_score_ppm": 1200000
+          }
+        },
+        "recipe_id": "projection-stress-control",
+        "source_lane": "real_acoustic"
+      }
+    }
+  ],
+  "lane_fields": {
+    "empirical_prior": [
+      "modal.mode_count",
+      "modal.base_frequency_millihz",
+      "modal.frequency_ratio_ppm",
+      "modal.rt60_milliseconds",
+      "modal.participation_ppm",
+      "modal.uncertainty_ppm"
+    ],
+    "modal_teacher": [
+      "modal.mode_count",
+      "modal.base_frequency_millihz",
+      "modal.frequency_ratio_ppm",
+      "modal.rt60_milliseconds",
+      "modal.participation_ppm",
+      "modal.uncertainty_ppm"
+    ],
+    "protected_admission": [],
+    "real_acoustic": [
+      "modal.mode_count",
+      "modal.base_frequency_millihz",
+      "modal.frequency_ratio_ppm",
+      "modal.rt60_milliseconds",
+      "modal.participation_ppm",
+      "modal.uncertainty_ppm",
+      "excitation.onset_samples",
+      "excitation.contact_duration_samples",
+      "excitation.impact_gain_ppm",
+      "excitation.location_modifier_ppm",
+      "excitation.support_modifier_ppm",
+      "excitation.uncertainty_ppm",
+      "radiation.band_energy_ppm",
+      "radiation.spectral_tilt_millidb_per_octave",
+      "radiation.residual_envelope_ppm",
+      "radiation.uncertainty_ppm",
+      "support.ood_score_ppm"
+    ],
+    "structural_transfer": [
+      "modal.base_frequency_millihz",
+      "modal.frequency_ratio_ppm",
+      "modal.rt60_milliseconds",
+      "modal.participation_ppm",
+      "excitation.onset_samples",
+      "excitation.contact_duration_samples",
+      "excitation.impact_gain_ppm",
+      "excitation.location_modifier_ppm",
+      "excitation.support_modifier_ppm",
+      "excitation.uncertainty_ppm",
+      "support.ood_score_ppm"
+    ],
+    "validator_calibration": []
+  },
+  "layout": [
+    {
+      "count": 1,
+      "head": "modal",
+      "maximum": 32,
+      "minimum": 1,
+      "name": "modal.mode_count",
+      "offset": 0,
+      "unit": "count"
+    },
+    {
+      "count": 1,
+      "head": "modal",
+      "maximum": 20000000,
+      "minimum": 20000,
+      "name": "modal.base_frequency_millihz",
+      "offset": 1,
+      "unit": "mHz"
+    },
+    {
+      "count": 32,
+      "head": "modal",
+      "maximum": 256000000,
+      "minimum": 1000000,
+      "name": "modal.frequency_ratio_ppm",
+      "offset": 2,
+      "unit": "ppm"
+    },
+    {
+      "count": 32,
+      "head": "modal",
+      "maximum": 60000,
+      "minimum": 5,
+      "name": "modal.rt60_milliseconds",
+      "offset": 34,
+      "unit": "ms"
+    },
+    {
+      "count": 32,
+      "head": "modal",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "modal.participation_ppm",
+      "offset": 66,
+      "unit": "ppm"
+    },
+    {
+      "count": 32,
+      "head": "modal",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "modal.uncertainty_ppm",
+      "offset": 98,
+      "unit": "ppm"
+    },
+    {
+      "count": 1,
+      "head": "excitation",
+      "maximum": 4095,
+      "minimum": 0,
+      "name": "excitation.onset_samples",
+      "offset": 130,
+      "unit": "sample"
+    },
+    {
+      "count": 1,
+      "head": "excitation",
+      "maximum": 960,
+      "minimum": 1,
+      "name": "excitation.contact_duration_samples",
+      "offset": 131,
+      "unit": "sample"
+    },
+    {
+      "count": 1,
+      "head": "excitation",
+      "maximum": 2000000,
+      "minimum": 0,
+      "name": "excitation.impact_gain_ppm",
+      "offset": 132,
+      "unit": "ppm"
+    },
+    {
+      "count": 8,
+      "head": "excitation",
+      "maximum": 1000000,
+      "minimum": -1000000,
+      "name": "excitation.location_modifier_ppm",
+      "offset": 133,
+      "unit": "ppm"
+    },
+    {
+      "count": 4,
+      "head": "excitation",
+      "maximum": 1000000,
+      "minimum": -1000000,
+      "name": "excitation.support_modifier_ppm",
+      "offset": 141,
+      "unit": "ppm"
+    },
+    {
+      "count": 1,
+      "head": "excitation",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "excitation.uncertainty_ppm",
+      "offset": 145,
+      "unit": "ppm"
+    },
+    {
+      "count": 24,
+      "head": "radiation",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "radiation.band_energy_ppm",
+      "offset": 146,
+      "unit": "ppm"
+    },
+    {
+      "count": 1,
+      "head": "radiation",
+      "maximum": 24000,
+      "minimum": -24000,
+      "name": "radiation.spectral_tilt_millidb_per_octave",
+      "offset": 170,
+      "unit": "mdB/octave"
+    },
+    {
+      "count": 16,
+      "head": "radiation",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "radiation.residual_envelope_ppm",
+      "offset": 171,
+      "unit": "ppm"
+    },
+    {
+      "count": 1,
+      "head": "radiation",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "radiation.uncertainty_ppm",
+      "offset": 187,
+      "unit": "ppm"
+    },
+    {
+      "count": 1,
+      "head": "support",
+      "maximum": 1000000,
+      "minimum": 0,
+      "name": "support.ood_score_ppm",
+      "offset": 188,
+      "unit": "ppm"
+    }
+  ],
+  "projection": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "energy_budget_ppm": 1000000,
+    "integer_only": true,
+    "max_modes": 32,
+    "missing_targets_contribute_loss": false,
+    "mode_order": "ascending-frequency-ratio-then-input-ordinal",
+    "nyquist_millihz_exclusive": 24000000,
+    "padding": "zero-value-zero-mask",
+    "rounding": "integer-floor-with-largest-remainder-energy-normalization",
+    "sample_rate_hz": 48000,
+    "source_lanes_interchangeable": false,
+    "target_dimension": 189
+  },
+  "schema": "nextengine.experimental-physical-sound-v45-t0-profile.v1"
+}
