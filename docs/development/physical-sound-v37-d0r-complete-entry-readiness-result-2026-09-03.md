@@ -5,7 +5,7 @@
 | Field | Result |
 | --- | --- |
 | Terminal | `Pass` on both full-count artificial runs |
-| Readiness seal | `e3c33767…e3e5f` |
+| Readiness seal | `a2c3c6ce…b18c5` |
 | Official target/capability access | `0` |
 | Real/protected signal access | `0` |
 | Runtime or product authority | None |
@@ -14,9 +14,11 @@ D0R closes the last known pre-access implementation ambiguity. The checked
 profile now gives one executable meaning to the optimizer, row schedule,
 microbatch reduction, three classical controls, every metric ratio including
 zero denominators, hard/resource gates, terminal precedence and publication
-payloads. The same owner can later accept an official D0 provider, but D0R
-itself issued only a `SURROGATE_D0` capability and used discarded artificial
-targets.
+payloads. The same owner now accepts a typed provider/capability plus a separate
+publication identity; its readiness wrapper issued only a `SURROGATE_D0`
+capability and used discarded artificial targets. The first seal was replaced
+before official access because its entry point constructed the surrogate
+internally and therefore could not literally accept the future provider.
 
 ## Artificial discriminator
 
@@ -44,12 +46,12 @@ strata, so field, query, interaction and topology paths were all observable.
 Two independent CPU processes produced byte-identical stdout, empty stderr and
 the same four-file terminal tree:
 
-- owner SHA-256: `2ee81490…500e`;
+- owner SHA-256: `ebbdb386…c50c`;
 - profile SHA-256: `75baf8cc…65f3`;
-- terminal tree: `5f50eccb…46eb`;
+- terminal tree: `6261cd0f…a486`;
 - topology: `617c0cb2…a59e`;
-- run times: `29.41 s` and `29.17 s`;
-- peak RSS: `852,260 KiB` and `855,856 KiB`;
+- run times: `28.97 s` and `28.98 s`;
+- peak RSS: `857,336 KiB` and `855,324 KiB`;
 - published size: `719,301` bytes per run.
 
 The checked readiness seal binds the current owner/profile, frozen

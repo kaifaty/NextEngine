@@ -131,7 +131,7 @@ generator representation. G0 начинается только после `NR Pa
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
 | N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
 | N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
-| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_D0R_PASS / D0_NEXT`](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md) | D0R freezes every remaining executable choice and repeat-exactly passes the actual target-aware owner over `10,800` nonzero artificial rows with seal `e3c33767…e3e5f`. Official targets remain zero; scientific quality is unknown until one-shot D0. |
+| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_D0R_PASS / D0_NEXT`](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md) | D0R freezes every remaining executable choice and repeat-exactly passes the provider-ready target-aware owner over `10,800` nonzero artificial rows with seal `a2c3c6ce…b18c5`. Official targets remain zero; scientific quality is unknown until one-shot D0. |
 | EF | Freeze/reject evidence correction | `COMPLETE / X0_ATOMIC_RULE_PASS` | A0 makes reject/freeze states mutually exclusive; X0 proves natural `Pass`, all rejects/faults, H0 freeze validation and four failpoints twice exactly. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
@@ -199,7 +199,7 @@ engine schema. Каждая принятая запись связывает:
 9. **V37.6b — complete:** comprehensive pre-access audit фиксирует все оставшиеся
    degrees of freedom в training, controls, metrics, hard gates и publication;
    actual D0 owner проходит full-count nonzero artificial A/B и получает D0R
-   readiness seal `e3c33767…e3e5f` при нулевом official access.
+   readiness seal `a2c3c6ce…b18c5` при нулевом official access.
 10. **V37.7 — next:** только E0/T0/D0R-seal-verifying provider один раз открывает D0 A/B; H0 A/B
    разрешён исключительно после точного D0 `Pass` freeze.
 11. **V37.S:** продолжить S0 metadata-only internet discovery партиями до

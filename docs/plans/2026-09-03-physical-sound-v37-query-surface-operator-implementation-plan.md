@@ -137,8 +137,9 @@ receive an official D0 provider.
 
 Result: both complete `6,480` train + `4,320` development executions returned
 natural `Pass` with byte-identical four-file trees. All 22 metric, 11 hard and
-five resource gates passed; seal `e3c33767…e3e5f` binds the exact target-aware
-owner/profile and frozen environment without opening any official value.
+five resource gates passed; replacement seal `a2c3c6ce…b18c5` binds the exact
+provider-ready target-aware owner/profile and frozen environment without
+opening any official value.
 
 ### Commit 6 — D0/H0 one-shot evidence — `NEXT`
 

@@ -77,7 +77,7 @@
 
 ## Material transition: comprehensive D0 readiness before access
 
-- **Evidence:** [D0R](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md) closes local bandwidth, ridge solve, optimizer, ratio-zero and hard-gate semantics; two full artificial runs match exactly with seal `e3c33767…e3e5f`, all gates pass and official targets remain zero.
+- **Evidence:** [D0R](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md) closes local bandwidth, ridge solve, optimizer, ratio-zero and hard-gate semantics; provider-ready artificial A/B match exactly with replacement seal `a2c3c6ce…b18c5`, all gates pass and official targets remain zero.
 - **Conclusion/decision:** stop piecemeal repair. One exact profile plus the actual D0 owner must pass full-count nonzero artificial A/B and terminal mutations, then seal before capability creation.
 - **Smallest next action:** add only the seal-verifying official D0 provider and predetermined A/B; do not implement H0 unless D0 freezes a `Pass` candidate.
 
@@ -172,7 +172,7 @@
 | D-070 | X0 owner `69b567d5…e7d` and publisher `a840ff12…041a` repeat eight D0/H0 scientific terminals, both exception classes and four atomic failpoints exactly; only natural `Pass` has bundle/freeze, and H0 binds the D0 decision root plus freeze. E0 is authorized, never official D0/H0. | An owner/publisher identity or terminal-shape defect appears before E0, or E0 cannot repeat the full frozen candidate/control workload inside its envelope. |
 | D-071 | E0 owner `0ec78599…fbe5` repeats all 15,120 zero-target rows and nine paths at `39.73/40.36 s`, `806,372/825,816 KiB`; checked-in seal `608f9019…1d7f` binds owner, publisher, environment, D0/H0 topology and roots with zero forbidden access. Only official D0 is authorized. | Any seal binding drifts before D0, or D0 returns its one-shot terminal result; never infer scientific quality from discarded zeros. |
 | D-072 | Pre-access audit revokes E0-only authorization: F0 omitted exact coefficient/reduction/row-mixture semantics. T0 supplies 72 seed-derived coefficients, frozen environment, full metadata roots and artificial mutations; composite seal `7bae65cc…61573` solely authorizes D0, with official targets still zero. | Any T0/E0 binding drifts, or D0 returns its terminal result; never choose missing truth details after official access. |
-| D-073 | D0R closes the second pre-access defect: the actual target-aware owner passes full nonzero artificial A/B, all `22/11/5` metric/hard/resource gates and receives seal `e3c33767…e3e5f` with official counters zero. Only an E0/T0/D0R-seal-verifying provider may now issue the one-shot D0 capability. | The checked seal, owner/profile/environment identity or zero-access evidence fails validation before official materialization. |
+| D-073 | D0R closes the second pre-access defect: the provider-ready target-aware owner passes full nonzero artificial A/B, all `22/11/5` metric/hard/resource gates and receives replacement seal `a2c3c6ce…b18c5` with official counters zero. Only an E0/T0/D0R-seal-verifying provider may now issue the one-shot D0 capability. | The checked seal, owner/profile/environment identity or zero-access evidence fails validation before official materialization. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -247,4 +247,4 @@ Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-- **Workspace/quality/next:** D0R seal `e3c33767…e3e5f` closes complete-entry readiness. Implement the one-shot official D0 provider next; H0 stays unopened, official targets remain zero and source frontier `6/27` short.
+- **Workspace/quality/next:** provider-ready D0R seal `a2c3c6ce…b18c5` closes complete-entry readiness. Implement the one-shot official D0 provider next; H0 stays unopened, official targets remain zero and source frontier `6/27` short.

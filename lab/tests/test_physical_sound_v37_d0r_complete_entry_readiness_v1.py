@@ -60,7 +60,7 @@ def write_fake_pass(path: Path) -> None:
             "python": "3.12.13",
             "torch": "2.8.0+cu128",
         },
-        "forbidden_access": d0r.zero_forbidden_access(),
+        "provider_evidence": d0r.zero_forbidden_access(),
     }
     (path / "candidate-bundle.json").write_bytes(d0r.canonical_json({"bundle": 1}))
     (path / "candidate-freeze.json").write_bytes(d0r.canonical_json({"freeze": 1}))

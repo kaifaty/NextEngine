@@ -12,7 +12,7 @@ import resource
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, TypeAlias, cast
+from typing import Any, Protocol, TypeAlias, cast
 
 import numpy as np
 import physical_sound_v37_c0_query_surface_structural_cost_v1 as c0
@@ -75,6 +75,45 @@ class OwnerResult:
     receipt: publisher.PublicationReceipt
     trace: contract.ExecutionTraceV1
     evidence: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationIdentity:
+    claim: str
+    profile_sha256: str
+    evidence_schema: str
+    report_schema: str
+    report_status: str
+    next_authorized_action: str
+    maximum_output_bytes: int
+
+    def __post_init__(self) -> None:
+        if (
+            not self.claim
+            or not contract.is_sha256(self.profile_sha256)
+            or not self.evidence_schema
+            or not self.report_schema
+            or not self.report_status
+            or not self.next_authorized_action
+            or self.maximum_output_bytes <= 0
+        ):
+            raise D0ReadinessError("publication identity is invalid")
+
+
+class TargetAwareD0ProviderV1(Protocol):
+    @property
+    def kind(self) -> contract.ProviderKind: ...
+
+    @property
+    def namespace(self) -> str: ...
+
+    def materialize(
+        self, role: contract.RoleKind, capability: contract.AccessCapabilityV1
+    ) -> contract.SurfaceQueryBatchV1: ...
+
+    def built(self, role: contract.RoleKind) -> c0.BuiltRole: ...
+
+    def evidence(self) -> dict[str, object]: ...
 
 
 def repository_root() -> Path:
@@ -249,6 +288,9 @@ class FullArtificialProvider:
             raise D0ReadinessError(
                 "role structure requested before materialization"
             ) from error
+
+    def evidence(self) -> dict[str, object]:
+        return cast(dict[str, object], zero_forbidden_access())
 
 
 def target_tensor(batch: contract.SurfaceQueryBatchV1) -> torch.Tensor:
@@ -629,7 +671,7 @@ def multiplicative_p1_witness(candidate: FloatMatrix) -> dict[str, bool]:
 
 
 def hard_gates(
-    provider: FullArtificialProvider,
+    provider: TargetAwareD0ProviderV1,
     train: c0.TensorRole,
     predictions: dict[str, FloatMatrix],
     trace_access: contract.AccessLedgerV1,
@@ -639,6 +681,13 @@ def hard_gates(
     candidate = predictions[CANDIDATE]
     train_built = provider.built(contract.RoleKind.TRAIN)
     development_built = provider.built(contract.RoleKind.DEVELOPMENT)
+    provider_evidence = provider.evidence()
+    official_rows = train_batch.row_count + development_batch.row_count
+    access_authorized = (
+        trace_access.official_d0_target_rows == official_rows
+        if provider.kind is contract.ProviderKind.OFFICIAL_D0
+        else trace_access.official_d0_target_rows == 0
+    ) and trace_access.official_h0_target_rows == 0
     p1_witness = multiplicative_p1_witness(candidate)
     gates = {
         "all-predictions-finite": all(
@@ -662,10 +711,15 @@ def hard_gates(
         "method-holdout-zero-before-development-pass": trace_access.method_holdout_target_rows
         == 0,
         "multiplicative-p1-invariants-preserved": all(p1_witness.values()),
-        "official-target-access-zero": trace_access.official_d0_target_rows == 0
-        and trace_access.official_h0_target_rows == 0,
+        "provider-target-access-authorized": access_authorized,
         "real-and-protected-signal-access-zero": all(
-            value == 0 for value in zero_forbidden_access().values()
+            provider_evidence.get(name) == 0
+            for name in (
+                "network_requests",
+                "official_h0_target_rows",
+                "protected_signal_values_decoded",
+                "real_signal_values_decoded",
+            )
         ),
         "row-target-alignment-exact": (
             train_batch.targets is not None
@@ -734,21 +788,21 @@ def zero_forbidden_access() -> dict[str, int]:
 
 
 def publish_result(
-    context: LoadedContext,
     output: Path,
     trace: contract.ExecutionTraceV1,
     weights: bytes,
     evidence: dict[str, object],
+    identity: PublicationIdentity,
 ) -> publisher.PublicationReceipt:
     owner_sha = cast(str, owner_identity()["sha256"])
     weight_sha = sha256_bytes(weights)
     root = publisher.decision_root_sha256(
-        trace, CLAIM, owner_sha, PROFILE_SHA256, weight_sha
+        trace, identity.claim, owner_sha, identity.profile_sha256, weight_sha
     )
     disposition = contract.candidate_disposition(
         trace.terminal,
         owner_sha256=owner_sha,
-        profile_sha256=PROFILE_SHA256,
+        profile_sha256=identity.profile_sha256,
         terminal_sha256=root,
         candidate_weights_sha256=weight_sha,
     )
@@ -767,29 +821,38 @@ def publish_result(
             "evidence.json": canonical_json(evidence),
             "rejected-candidate.json": disposition.rejected_evidence_document,
         }
-    maximum = cast(
-        int, cast(dict[str, Any], context.profile["resources"])["maximum_output_bytes"]
-    )
     return publisher.publish_terminal(
         output,
         repository_root(),
         trace,
-        CLAIM,
+        identity.claim,
         owner_sha,
-        PROFILE_SHA256,
+        identity.profile_sha256,
         weight_sha,
         disposition,
         payloads,
-        maximum,
+        identity.maximum_output_bytes,
     )
 
 
-def execute(context: LoadedContext, output: Path, label: str) -> OwnerResult:
+def execute_with_provider(
+    context: LoadedContext,
+    output: Path,
+    provider: TargetAwareD0ProviderV1,
+    capability: contract.AccessCapabilityV1,
+    identity: PublicationIdentity,
+) -> OwnerResult:
     started = time.monotonic()
-    provider = FullArtificialProvider(context, label)
-    capability = contract.AccessCapabilityV1.surrogate(
-        provider.kind, provider.namespace
-    )
+    if (
+        provider.kind
+        not in (
+            contract.ProviderKind.SURROGATE_D0,
+            contract.ProviderKind.OFFICIAL_D0,
+        )
+        or capability.provider_kind is not provider.kind
+        or capability.namespace != provider.namespace
+    ):
+        raise D0ReadinessError("target-aware D0 provider/capability mismatch")
     lifecycle = contract.OwnerLifecycleV1(contract.PipelineKind.D0, capability)
     lifecycle.step(contract.LifecycleStage.PRE_ACCESS_CONTEXT)
     train_batch = lifecycle.materialize_role(
@@ -834,18 +897,19 @@ def execute(context: LoadedContext, output: Path, label: str) -> OwnerResult:
     resources = resource_gates(context, started, models, training)
     decision = choose_decision(hard, metric_gate_results, resources)
     trace = lifecycle.finish(decision)
+    provider_evidence = provider.evidence()
     evidence: dict[str, object] = {
         "access": publisher.access_record(trace.access),
-        "claim": CLAIM,
+        "claim": identity.claim,
         "dependencies": context.dependencies,
         "environment": context.environment,
-        "forbidden_access": zero_forbidden_access(),
+        "provider_evidence": provider_evidence,
         "hard_gates": hard,
         "metric_gates": metric_gate_results,
         "metrics": metric_records,
         "owner": owner_identity(),
         "p1_invariant_witness": p1_witness,
-        "profile_sha256": PROFILE_SHA256,
+        "profile_sha256": identity.profile_sha256,
         "resource_gates": resources,
         "role_roots": {
             "development": {
@@ -857,20 +921,49 @@ def execute(context: LoadedContext, output: Path, label: str) -> OwnerResult:
                 "target": train_target_root,
             },
         },
-        "schema": "nextengine.experimental-physical-sound-v37-d0r-evidence.v1",
+        "schema": identity.evidence_schema,
         "training": training,
     }
-    receipt = publish_result(context, output, trace, weights, evidence)
+    receipt = publish_result(output, trace, weights, evidence, identity)
     report: dict[str, object] = {
-        "claim": CLAIM,
+        "claim": identity.claim,
         "decision": decision.value,
-        "forbidden_access": zero_forbidden_access(),
-        "next_authorized_action": "build-readiness-seal-from-two-exact-runs",
+        "next_authorized_action": identity.next_authorized_action,
+        "provider_evidence": provider_evidence,
         "receipt": e0.receipt_record(receipt),
-        "schema": "nextengine.experimental-physical-sound-v37-d0r-report.v1",
-        "status": "D0R_COMPLETE_ENTRY_READINESS_EXECUTED",
+        "schema": identity.report_schema,
+        "status": identity.report_status,
     }
     return OwnerResult(report, receipt, trace, evidence)
+
+
+def readiness_publication_identity(context: LoadedContext) -> PublicationIdentity:
+    maximum = cast(
+        int, cast(dict[str, Any], context.profile["resources"])["maximum_output_bytes"]
+    )
+    return PublicationIdentity(
+        claim=CLAIM,
+        profile_sha256=PROFILE_SHA256,
+        evidence_schema="nextengine.experimental-physical-sound-v37-d0r-evidence.v1",
+        report_schema="nextengine.experimental-physical-sound-v37-d0r-report.v1",
+        report_status="D0R_COMPLETE_ENTRY_READINESS_EXECUTED",
+        next_authorized_action="build-readiness-seal-from-two-exact-runs",
+        maximum_output_bytes=maximum,
+    )
+
+
+def execute(context: LoadedContext, output: Path, label: str) -> OwnerResult:
+    provider = FullArtificialProvider(context, label)
+    capability = contract.AccessCapabilityV1.surrogate(
+        provider.kind, provider.namespace
+    )
+    return execute_with_provider(
+        context,
+        output,
+        provider,
+        capability,
+        readiness_publication_identity(context),
+    )
 
 
 def run(profile_path: Path, output: Path, label: str) -> dict[str, object]:
@@ -909,7 +1002,7 @@ def build_readiness_seal(run_a: Path, run_b: Path) -> dict[str, object]:
     evidence = load_json_bytes(tree_a["evidence.json"], "D0R evidence")
     if decision.get("trace", {}).get("terminal") != "Pass":
         raise D0ReadinessError("D0R readiness seal requires a natural Pass")
-    if any(cast(dict[str, int], evidence["forbidden_access"]).values()):
+    if any(cast(dict[str, int], evidence["provider_evidence"]).values()):
         raise D0ReadinessError("D0R readiness seal follows forbidden access")
     document: dict[str, object] = {
         "claim": CLAIM,
