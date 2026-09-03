@@ -1,0 +1,352 @@
+{
+  "access_policy": {
+    "audio_or_feature_decode_allowed": false,
+    "candidate_or_model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "payload_access_allowed": false,
+    "role_assignment_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": "v39_f1_source_frontier_replay",
+    "model_training_authority": false,
+    "payload_access_authority": false,
+    "product_authority": false,
+    "public_contract": false,
+    "role_assignment_authority": false,
+    "runtime_consumer_allowed": false,
+    "validator_release_authority": false
+  },
+  "baseline": {
+    "audit_receipt": {
+      "bytes": 31439,
+      "sha256": "c40716fee9c43ebd0132bc14a0d8c77acd01feca9dc7518282a7cca5336bdccd"
+    },
+    "decision": "Q1A_RAW_GROWTH_VERIFIED_BALANCED_ROLE_POWER_REQUIRED",
+    "partition_sha256": "3dd0325a6af90e0af2cb0b4fffd7f59e2be9263bdd4db1c634a9264601c3d2df",
+    "power": {
+      "exact_steel_groups": 32,
+      "non_metal_groups": 73,
+      "project_revisions": 10
+    },
+    "projects": [
+      {
+        "exact_steel_groups": 1,
+        "non_metal_groups": 0,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-AnthonyOstrander--pack-37664--sha256-97d815071761b612bae63757cc49b04c3c705b636bbed03dbbc68f5ac6be741c"
+      },
+      {
+        "exact_steel_groups": 1,
+        "non_metal_groups": 0,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-Benboncan--pack-4023--sha256-dd267cbb8d3768733d477f67e114393d3f0af03b15bf01701a2875c2700f2b97"
+      },
+      {
+        "exact_steel_groups": 1,
+        "non_metal_groups": 0,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-Bibow--pack-24227--sha256-48bae038e825041f988555af257269bd8d507333daef66ffc6220d2b5936f9ec"
+      },
+      {
+        "exact_steel_groups": 0,
+        "non_metal_groups": 1,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-FullMetalJedi--pack-19202--sha256-0d44a5ac88fe59329955bbc5d6f5d89f15f6b877228323661fcd2246a1907304"
+      },
+      {
+        "exact_steel_groups": 0,
+        "non_metal_groups": 1,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-Puniho--pack-14173--sha256-bc1c97bbed2086730966e5b1cde9f2206c2604196683cd1fdde4de405c82066c"
+      },
+      {
+        "exact_steel_groups": 1,
+        "non_metal_groups": 1,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-itinerantmonk108--pack-31000--sha256-c3db6d818dc897468d895d1716cbfc8f7b21bd2b4e9b3c4596ea827a6ca53b7d"
+      },
+      {
+        "exact_steel_groups": 2,
+        "non_metal_groups": 0,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-juskiddink--pack-5069--sha256-142ecd917d9ddf781433cc458bfc45eb9fad29ba14f23b1db0ceee9c12106e28"
+      },
+      {
+        "exact_steel_groups": 3,
+        "non_metal_groups": 0,
+        "origin": "q1a-internet-metadata",
+        "project_revision_id": "freesound-user-ldezem--pack-21681--sha256-9aa77a996da141821e7e4ae7514d73ab7e960554c60ef4937fb7e4aca366fe43"
+      },
+      {
+        "exact_steel_groups": 6,
+        "non_metal_groups": 7,
+        "origin": "q0-m",
+        "project_revision_id": "iri-csic-upc-ctu--ycb-impact-sounds--osf-bj5w8-2022-09-27"
+      },
+      {
+        "exact_steel_groups": 17,
+        "non_metal_groups": 63,
+        "origin": "q0-m",
+        "project_revision_id": "stanford-objectfolder--objectfolder-real--rendered-table-sha256-0111f57a"
+      }
+    ],
+    "projects_sha256": "b0644e969eb3798d4bce54c81fad71ff317b050ad528747cce35dfbb4dc06768",
+    "report_receipt": {
+      "bytes": 3407,
+      "sha256": "93d95fe7ef1e4233f3421850d488a8a48d56cd9d6394236af2fa0ca3613458f4"
+    },
+    "target_policy": "exact_unqualified_publisher_steel_v1"
+  },
+  "batch_policy": {
+    "allowed_dispositions": [
+      "ADMITTED_METADATA_INCREMENT",
+      "METADATA_UNAVAILABLE",
+      "MISSING_SOURCE_IDENTITY"
+    ],
+    "max_leads": 3,
+    "metadata_before_payload": true,
+    "repeated_recordings_count_as_one_group": true,
+    "stable_project_revision_required": true
+  },
+  "claim": "V30_PLUS_IETEASY_SOURCE_FRONTIER_REPLAY_ONLY / NO_SIGNAL_ROLE_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 4651,
+      "path": "docs/development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md",
+      "sha256": "899074a80b00d66fa03d5728820142bf518cdf79e4ec3459c5e954024b9eee23"
+    },
+    {
+      "bytes": 5309,
+      "path": "docs/development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md",
+      "sha256": "50138bbf65e79b6e666eee031d62554b5b83b5c2e5d84e8c19bf4f129b24a6f2"
+    },
+    {
+      "bytes": 4637,
+      "path": "docs/development/physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md",
+      "sha256": "87cb0ad569bc6ec6e45942ca43196990c3e935f1e86e7fe660762d216c0128f9"
+    },
+    {
+      "bytes": 5739,
+      "path": "lab/profiles/physical-sound-v29-q1a-source-growth.v1.json",
+      "sha256": "b3dcf8bbae6a37e24ef03e50fb033d0576a93cb168c87596264e40042456c2e9"
+    },
+    {
+      "bytes": 3625,
+      "path": "lab/profiles/physical-sound-v39-f0-foundry.v1.json",
+      "sha256": "a00e348e8ba7549a5c32ae90ca2e001a127762438e87c1b90159dedd6e3b99a7"
+    },
+    {
+      "bytes": 44693,
+      "path": "lab/scripts/physical_sound_v29_q1a_source_growth_v1.py",
+      "sha256": "88574b4a89fb65f537cac5ff8f31cba732446808c8e63874352b058eb9144cac"
+    },
+    {
+      "bytes": 26903,
+      "path": "lab/scripts/physical_sound_v39_f0_foundry_preflight_v1.py",
+      "sha256": "4c1f458dd32de8e5e197a574c02b1259aef384fbca762248414b51aeed41f1f2"
+    }
+  ],
+  "expected_result": {
+    "baseline_role_b_exact_steel_deficit": 6,
+    "baseline_role_b_non_metal_deficit": 27,
+    "current_exact_steel_groups": 32,
+    "current_non_metal_groups": 77,
+    "current_project_revisions": 11,
+    "current_role_b_exact_steel_deficit": 6,
+    "current_role_b_non_metal_deficit": 23,
+    "decision": "ImprovedFrontier",
+    "feasible": false,
+    "reserved_unprotected_project_count": 5
+  },
+  "increment": {
+    "license_expression": "CC-BY-4.0",
+    "origin": "v38-s0-internet-metadata",
+    "primary_sources": [
+      "https://data.mendeley.com/datasets/srfp7x6wxm/1",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC8567360/",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC9123443/"
+    ],
+    "project_revision_id": "mendeley-data--10.17632-srfp7x6wxm--v1",
+    "recording_repetitions_per_sample": 10,
+    "samples": [
+      {
+        "depth_cm": "5.985",
+        "length_cm": "9.900",
+        "mass_g": 157,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "6082-aluminium",
+        "source_label": "6082 aluminium",
+        "thickness_cm": "0.985"
+      },
+      {
+        "depth_cm": "10.050",
+        "length_cm": "9.900",
+        "mass_g": 636,
+        "power_relation": "ineligible_qualified_steel",
+        "sample_id": "aisi-304-steel",
+        "source_label": "AISI 304 steel",
+        "thickness_cm": "0.820"
+      },
+      {
+        "depth_cm": "5.000",
+        "length_cm": "10.045",
+        "mass_g": 400,
+        "power_relation": "ineligible_qualified_steel",
+        "sample_id": "aisi-316-steel",
+        "source_label": "AISI 316 steel",
+        "thickness_cm": "1.035"
+      },
+      {
+        "depth_cm": "8.250",
+        "length_cm": "10.000",
+        "mass_g": 905,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "b10-bronze",
+        "source_label": "B10 bronze",
+        "thickness_cm": "1.250"
+      },
+      {
+        "depth_cm": "8.325",
+        "length_cm": "10.000",
+        "mass_g": 996,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "b12-bronze",
+        "source_label": "B12 bronze",
+        "thickness_cm": "1.345"
+      },
+      {
+        "depth_cm": "6.460",
+        "length_cm": "9.855",
+        "mass_g": 319,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "bral",
+        "source_label": "BrAl",
+        "thickness_cm": "0.680"
+      },
+      {
+        "depth_cm": "9.230",
+        "length_cm": "10.010",
+        "mass_g": 735,
+        "power_relation": "ineligible_qualified_steel",
+        "sample_id": "c45e-steel",
+        "source_label": "C45E steel",
+        "thickness_cm": "1.015"
+      },
+      {
+        "depth_cm": "9.200",
+        "length_cm": "10.650",
+        "mass_g": 824,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "copper",
+        "source_label": "Copper",
+        "thickness_cm": "1.010"
+      },
+      {
+        "depth_cm": "7.600",
+        "length_cm": "9.825",
+        "mass_g": 507,
+        "power_relation": "ineligible_other_metal",
+        "sample_id": "cw614-brass",
+        "source_label": "CW614 brass",
+        "thickness_cm": "0.810"
+      },
+      {
+        "depth_cm": "7.990",
+        "length_cm": "9.900",
+        "mass_g": 488,
+        "power_relation": "ineligible_qualified_steel",
+        "sample_id": "fe37-steel",
+        "source_label": "Fe37 steel",
+        "thickness_cm": "0.795"
+      },
+      {
+        "depth_cm": "10.350",
+        "length_cm": "10.245",
+        "mass_g": 120,
+        "power_relation": "non_metal",
+        "sample_id": "nylon-6",
+        "source_label": "Nylon 6",
+        "thickness_cm": "1.035"
+      },
+      {
+        "depth_cm": "7.7650",
+        "length_cm": "10.195",
+        "mass_g": 75,
+        "power_relation": "non_metal",
+        "sample_id": "polizene",
+        "source_label": "Polizene",
+        "thickness_cm": "1.015"
+      },
+      {
+        "depth_cm": "10.150",
+        "length_cm": "10.315",
+        "mass_g": 154,
+        "power_relation": "non_metal",
+        "sample_id": "pom-c",
+        "source_label": "Pom-C",
+        "thickness_cm": "1.065"
+      },
+      {
+        "depth_cm": "10.235",
+        "length_cm": "10.290",
+        "mass_g": 230,
+        "power_relation": "non_metal",
+        "sample_id": "teflon",
+        "source_label": "Teflon",
+        "thickness_cm": "1.115"
+      },
+      {
+        "depth_cm": "10.225",
+        "length_cm": "9.950",
+        "mass_g": 826,
+        "power_relation": "ineligible_qualified_steel",
+        "sample_id": "x150-steel",
+        "source_label": "X150 steel",
+        "thickness_cm": "1.065"
+      }
+    ],
+    "source_revision": "10.17632/srfp7x6wxm.1"
+  },
+  "leads": [
+    {
+      "declared_exact_steel_groups": 0,
+      "declared_non_metal_groups": 0,
+      "disposition": "MISSING_SOURCE_IDENTITY",
+      "lead_id": "diffimpact-asmr",
+      "primary_urls": [
+        "https://github.com/samuel-clarke/diffimpact",
+        "https://samuelpclarke.com/files/clarkeCorl2021.pdf",
+        "https://sites.google.com/view/diffimpact"
+      ]
+    },
+    {
+      "declared_exact_steel_groups": 0,
+      "declared_non_metal_groups": 4,
+      "disposition": "ADMITTED_METADATA_INCREMENT",
+      "lead_id": "ieteasy-v1",
+      "primary_urls": [
+        "https://data.mendeley.com/datasets/srfp7x6wxm/1",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC8567360/"
+      ]
+    },
+    {
+      "declared_exact_steel_groups": 0,
+      "declared_non_metal_groups": 0,
+      "disposition": "METADATA_UNAVAILABLE",
+      "lead_id": "rsaudio-isnn",
+      "primary_urls": [
+        "https://gamma.cs.unc.edu/ISNN/",
+        "https://gamma.cs.unc.edu/ISNN/isnn-supplemental_eccv.pdf"
+      ]
+    }
+  ],
+  "minimums": {
+    "protected_exact_steel_groups_per_role": 16,
+    "protected_non_metal_groups_per_role": 35,
+    "protected_projects_per_role": 2,
+    "reserved_unprotected_projects": 5
+  },
+  "schema": "nextengine.experimental-physical-sound-v39-f1-source-frontier-profile.v1"
+}
