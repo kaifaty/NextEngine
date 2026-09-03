@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
@@ -18,13 +19,13 @@ import physical_sound_v36_owner_contract_v1 as contract
 
 SEAL_PATH = "lab/profiles/physical-sound-v36-e0-execution-seal.v1.json"
 SEAL_DOCUMENT_SHA256 = (
-    "2d65479e4eb6506b477b75804e15d987f85849744160ad84d18c3f2523b2a124"
+    "823cb21ca86d882c12392da6723773797383d054db45520248d31fbae711047c"
 )
-SEAL_PAYLOAD_SHA256 = "45091c7236a79aa3c8b078a104da597bef1ae5b42c60c3a4e25c33ef556148a8"
+SEAL_PAYLOAD_SHA256 = "b436869654d833f97774b30683bf92672c62529e92a8c5957ee600a91d3ee516"
 E0_RESULT_PATH = (
     "docs/development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md"
 )
-E0_RESULT_SHA256 = "f3b4a42059ee43e14dc96d7d4dc1dcfce94bc3a2128e48020f9835f75454b7e4"
+E0_RESULT_SHA256 = "aff868b1faad22618b432b3ed64eba9e18d4e1510405917a65740079de492b05"
 OFFICIAL_D0_NAMESPACE = "v36-fresh-role-unchanged-science-v1-d0"
 SEAL_SCHEMA = "nextengine.experimental-physical-sound-v36-execution-seal.v1"
 SEAL_STATUS = "SealedBeforeOfficialAccess"
@@ -103,10 +104,11 @@ class _StructuralRoleBuilder:
         return np.zeros((row_count, contract.TARGET_AXIS_COUNT), dtype=np.float64)
 
     def build_role(self, role: contract.RoleKind) -> contract.RoleBatch:
-        return cast(
-            contract.RoleBatch,
-            e0.SurrogateProvider._build_role(self, role),
+        build = cast(
+            Callable[[object, contract.RoleKind], contract.RoleBatch],
+            e0.SurrogateProvider._build_role,
         )
+        return build(self, role)
 
 
 def repository_root() -> Path:
@@ -227,7 +229,8 @@ def load_truth_contract() -> bytes:
     oracle = effective.get("oracle")
     if oracle != EXPECTED_ORACLE:
         raise OfficialProviderError("fresh V36 truth contract drift")
-    return cast(bytes, e0.canonical_json(oracle))
+    result: bytes = e0.canonical_json(oracle)
+    return result
 
 
 def verify_execution_seal() -> VerifiedD0PreAccess:

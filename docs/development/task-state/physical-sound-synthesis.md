@@ -44,9 +44,7 @@
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`;
   the next-object header proves the missing member is not later in the archive.
-- **Deployment rule:** accepted research output bakes ordinary clips offline.
-  Runtime inference remains unauthorized and every query has an authored clip
-  fallback.
+- **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
 - **Product boundary:** SPEC-45 remains `Proposed`; no public schema, model,
   dataset, WAV, checkpoint, validator release or runtime promotion exists.
 
@@ -82,9 +80,9 @@
 
 ## Material transition: V36 full owner rehearsal is sealed
 
-- **Evidence:** [E0](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) repeats the committed 24-file full-count/full-step D0/H0 tree and stdout exactly; both natural passes, eight scientific terminals, all hard/resource gates and zero official access close under seal `45091c72…48a8`.
+- **Evidence:** [E0](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) repeats the corrected committed 24-file full-count/full-step D0/H0 tree and stdout exactly; both natural passes, eight scientific terminals, all hard/resource gates and zero official access close under seal `b4368696…e516`.
 - **Conclusion:** the exact owner can train, reconstruct, evaluate and publish both roles reproducibly before target access; this is execution evidence only, because the transparent self-consistency fixture has no physical-quality authority.
-- **Decision:** checked-in owner `629f929e…24ee`, profile `7932ad1d…f556` and both rehearsal roots form the only admissible pre-access D0 execution seal. Any drift returns to E0.
+- **Decision:** checked-in owner `6fb8be54…bb9a2`, profile `eba244b2…1a95` and both rehearsal roots form the only admissible pre-access D0 execution seal. Any drift returns to E0.
 - **Smallest next action:** implement the official provider/verifier that recomputes every seal binding before it can issue a D0 capability, then execute the fresh one-shot role without scientific changes.
 
 ## Durable negative knowledge
@@ -171,7 +169,8 @@
 | D-063 | V35 D0 repeat-exactly faults on `len(RoleData)` after all train/development targets open; no metric, prediction or weight publishes, so quality is unobserved, roles are spent and H0 stays exact zero. | Never reopen V35 or reconstruct internal values. |
 | D-064 | V36 A0 freezes explicit immutable `RoleBatch`, no implicit length, strict owner-boundary typing, complete D0/H0 stage/callable hashes and seal-gated official capabilities; official values remain zero. | C0/X0/E0 falsifies exact-path use, or D0/H0 returns any terminal result. |
 | D-065 | V36 X0 freezes publisher `b142b2e1…ae81` and proves 38 mutations, all D0/H0 scientific terminals, all four pre-commit failpoints and access-sensitive exception conversion twice exactly. | A publisher/trace defect appears before D0, or D0/H0 returns a terminal result. |
-| D-066 | V36 E0 freezes owner `629f929e…24ee`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `45091c72…48a8` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
+| D-066 | V36 E0 freezes owner `6fb8be54…bb9a2`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `b4368696…e516` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
+| D-067 | Pre-access official-provider review revoked first seal `45091c72…48a8`: numerical work was shared, but official traces would have inherited discarded claim/freeze/zero-access metadata. Provider-kind now selects provenance only; weights and predictions remain byte-exact and full E0 was resealed before any fresh target. | A metadata choice changes a numerical hash, or an official trace/freeze/access receipt disagrees with its capability. |
 
 ## Open hypotheses
 

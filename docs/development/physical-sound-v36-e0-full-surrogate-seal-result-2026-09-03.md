@@ -4,12 +4,12 @@
 | --- | --- |
 | Date | `2026-09-03` |
 | Decision | `PASS / REPEAT_EXACT / FULL_D0_H0 / EXECUTION_SEALED / ZERO_OFFICIAL_VALUES` |
-| Owner commit | `77d9f21e7edf51f7cd42f17f72bc49e3b477bd12` |
-| Owner SHA-256 | `629f929e0ed3b34f8d8d914d5a7ea0830eeed4dfa58504de0f868b21576324ee` |
-| Profile SHA-256 | `7932ad1d290a26b6194453119df4b97e2edb1b6cae92dc235440c3b13037f556` |
-| Protocol SHA-256 | `8b7784c5f0b8d1dd9bf85db90da05eb787c8e3b4b320b3a7fd648f1c4170041c` |
-| Seal payload SHA-256 | `45091c7236a79aa3c8b078a104da597bef1ae5b42c60c3a4e25c33ef556148a8` |
-| Seal document SHA-256 | `2d65479e4eb6506b477b75804e15d987f85849744160ad84d18c3f2523b2a124` |
+| Owner commit | `bac90ce9a525206c6054aa700252197649dd90d2` |
+| Owner SHA-256 | `6fb8be540db93c38d07c0538a5a3a7b4b95ea2c895f9b79050c1405b7b6bb9a2` |
+| Profile SHA-256 | `eba244b2053d7f292a965d75d6d6b191fdebfb5340cb7b76b485de0cc2bd1a95` |
+| Protocol SHA-256 | `4f533b3031c833884e864869371fbbb957ec86a97daa55e453fe4151ac9732d8` |
+| Seal payload SHA-256 | `b436869654d833f97774b30683bf92672c62529e92a8c5957ee600a91d3ee516` |
+| Seal document SHA-256 | `823cb21ca86d882c12392da6723773797383d054db45520248d31fbae711047c` |
 | Claim | `FULL_COUNT_FULL_STEP_DISCARDED_D0_H0_EXACT_OWNER_REHEARSAL_AND_EXECUTION_SEAL_ONLY / NO_OFFICIAL_TARGET_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY` |
 
 ## Outcome
@@ -31,8 +31,8 @@ sound well.
 
 | Path | Train rows | Evaluation rows | Optimizer work | Files | Artifact root |
 | --- | ---: | ---: | --- | ---: | --- |
-| D0 | `6,480` | `4,320` development | candidate, raw MLP, V34-shaped MLP and no-geometry model, each `1,200` steps | `12` | `68b6e2754dd2da30280e9c8b468bbe825396e4ce53255ce5d30324f1df7fd5c7` |
-| H0 | `6,480` reconstructed | `4,320` method holdout | `0` steps; exact frozen D0 bytes loaded | `8` | `695bb835be8a9dd8ceabe2edf912ba583f617a29e6cb17ec23443eba2e92ee27` |
+| D0 | `6,480` | `4,320` development | candidate, raw MLP, V34-shaped MLP and no-geometry model, each `1,200` steps | `12` | `afddb66c823f3f7b86484f652e43a7520bc34aca81f3cc8245dc4595cdebd621` |
+| H0 | `6,480` reconstructed | `4,320` method holdout | `0` steps; exact frozen D0 bytes loaded | `8` | `b0e73283974f4fd840fa357ed185f12bdcea580a40767a745da5ad87bc5f005c` |
 
 The H0 train manifest equals the D0 train manifest byte-for-byte. D0 passes all
 `28` metric/ablation gates and H0 all `14`; both pass all `20` inherited and
@@ -61,21 +61,21 @@ therefore records `forbidden_access_count = 0` and status
 The seal binds the owner and profile bytes, pinned environment hash
 `87d630f1bb8234f58ad65316b3185b7608a5a3c1cf92230d934ecada8326027a`,
 both topology hashes, both artifact roots, two-run equality and rehearsal tree
-root `d4a93280fc6c8bebf638a3b0460ff7a07778cc055572c4a040b6a239cadf6971`.
+root `3269066a474f6d3423e12c6b70293a3cb3f6a7b9ca07036d323d953ee114745f`.
 Any later byte or environment drift invalidates it before official access.
 
 ## Repeatability and resources
 
 The exact tree contains `24` files and `1,020,448` bytes. Repeated stdout has
 `937` bytes and SHA-256
-`a3988a37f12642b6abcee826ece817ee998ec4f6a1cfc66504f2c7cca24ff2c8`.
+`62e3180f118c7c9ca0693584a8bbaa49bd44ada46788727bc0eb2b5583bb23b5`.
 The candidate weights are
 `cdefdf6ea4b1dea0948af62585c307f09e6332c5cdf1fbf54ec50bbff728e410`;
 development and H0 prediction hashes are respectively
 `1ac8cbfff42b2f6a240f5d2fa5ff705fa6fc2602c6a8c33f0407de369cf57ac5`
 and `2969edc318305a1247e854493a45861961aaa7770c3cdaae814c3ea4392f543b`.
 
-Runs take `293.61 / 291.48 s`; maximum RSS is `917,268 / 934,800 KiB`.
+Runs take `289.76 / 291.86 s`; maximum RSS is `918,372 / 933,116 KiB`.
 Both internal path gates and external process measurements remain inside the
 frozen `300 s / 1 GiB / 64 MiB` per-path envelope. Timing and RSS are external
 diagnostics and do not enter exact payloads.
@@ -88,6 +88,15 @@ contract was repaired, covered by a regression test and the entire smoke was
 rerun before commit. A second test makes nested symlinks fail instead of being
 silently omitted from seal comparison. No official capability or target value
 existed during either correction.
+
+A later official-provider review found that the first sealed owner still wrote
+the discarded E0 claim, zero official-access summary and discarded candidate
+status for every provider kind. Seal `45091c72…48a8` was revoked before any
+official capability or fresh target. The owner now derives only publication
+provenance from provider kind while fit, prediction, controls, metrics and gates
+remain shared. A full smoke proved all weight and prediction hashes unchanged;
+the corrected committed owner then repeated A/B and produced the current seal
+`b4368696…e516`.
 
 ## Conclusion and next boundary
 
@@ -106,8 +115,8 @@ audio remains the product fallback.
 
 - Ruff format/check and Python compile: `PASS`;
 - strict mypy on the E0 owner with skipped imported internals: `PASS`;
-- focused E0 suite: `PASS`, `8/8` tests;
-- combined V36 Python suites: `PASS`, `46/46` tests;
+- focused E0 suite: `PASS`, `9/9` tests;
+- combined V36 Python suites: `PASS`, `56/56` tests;
 - committed-owner processes A/B: `PASS / REPEAT_EXACT`, `24/24` files and stdout;
 - separate seal builder plus independent recursive diff: `PASS`;
 - focused xtask physical-sound registry suite: `PASS`, `161/161` tests;
