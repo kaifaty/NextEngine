@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / I0_COMPLETE_SOURCE_POWER_OOD / D0_NEXT / S0_CLEAN_GROWTH_OPEN / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / D0_COMPLETE / C0_NEXT / S0_CLEAN_GROWTH_OPEN_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V39](physical-sound-synthesis-roadmap-v39.md) как planning authority; F0/F1 и все прежние terminal results остаются историческим evidence |
 | Причина | [Project-independence correction](../development/physical-sound-v40-project-independence-rebaseline-2026-09-03.md): V39's `6/23` is an exact replay, but ObjectFolder and YCB already have opened signal and cannot supply current protected credit without a new whole-project audit |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer, public schema и promoting ADR отсутствуют |
@@ -113,8 +113,8 @@ Hard defect возвращает `Reject`; нехватка coverage или disa
 | --- | --- | --- |
 | R0 | `COMPLETE` | V39 F0/F1 сохранены; `6/23` помечен historical replay, а не current admission frontier. |
 | I0 | `COMPLETE / SOURCE_POWER_OOD` | [Zero-signal audit](../development/physical-sound-v40-i0-project-exposure-result-2026-09-03.md) accounted `11/11` candidate projects, permanently disclosed nine opened families, quarantined ObjectFolder/YCB power and repeat-exactly established clean `9/7`; no role or payload opened. |
-| D0 | `NEXT` | ObjectFolder, opened YCB/REALIMPACT и другие spent families навсегда распределены между `generator_train`, `generator_development` и `validator_calibration`; roles parent-disjoint, protected counters zero. |
-| C0 | `AFTER_D0` | Один external content-addressed corpus owner выдаёт canonical `48 kHz` segments, observed-axis masks, modal/transient targets и immutable train/dev/calibration projections без данных в Git. |
+| D0 | `COMPLETE` | [Permanent roster](../development/physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md) repeat-exactly assigns all nine spent families as `5 train / 2 development / 2 validator`; whole-family commitments are disjoint, clean families spent `0`, protected counters `0`. |
+| C0 | `NEXT` | Один external content-addressed corpus owner связывает D0 roster root, выдаёт canonical `48 kHz` segments, observed-axis masks, modal/transient targets и immutable train/dev/calibration projections без данных в Git. |
 | B0 | `AFTER_C0` | На общей grouped surface воспроизводятся modal owner, nearest/local, ridge, pointwise MLP и retrieval-copy controls. |
 | V0 | `AFTER_B0` | Validator specialists, embedding choice, mutations, thresholds, aggregation, OOD и stopping rule заморожены только на validator-calibration projects. |
 | M0 | `AFTER_B0` | `StructuredRecipeNet-v0` и не более одного substantively distinct neural comparator проходят complete-entry/resource preflight без protected access. |
@@ -151,9 +151,9 @@ Hard defect возвращает `Reject`; нехватка coverage или disa
 
 1. **V40.1 — I0 — COMPLETE:** проектно-ревизионный exposure/alias ledger
    установил clean frontier `9/7` и terminal `SourcePowerOOD`.
-2. **V40.2 — D0 — NEXT:** заморозить permanent disclosed roster и три непересекающихся
-   development roles.
-3. **V40.3 — C0:** нормализовать disclosed payloads в hash-closed external
+2. **V40.2 — D0 — COMPLETE:** permanent disclosed roster заморожен как
+   `5 train / 2 development / 2 validator`; protected и clean access равны нулю.
+3. **V40.3 — C0 — NEXT:** нормализовать disclosed payloads в hash-closed external
    corpus с axis masks и deterministic features.
 4. **V40.4 — B0:** объединить физический renderer и простые baselines на одной
    evaluation surface.
