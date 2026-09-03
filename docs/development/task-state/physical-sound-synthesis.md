@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V41_ACTIVE / C0_COMPLETE / B0_NEXT / V0_READY / DISCLOSED_LAB_FIRST / S0_SOURCE_POWER_OOD / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V42_ACTIVE / B0_COMPLETE / R0_NEXT / V0_READY / DESCRIPTOR_SIGNAL_REQUIRED / S0_SOURCE_POWER_OOD / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
@@ -12,16 +12,13 @@
 
 - **Current conclusion:** [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. All hard/resource gates pass, but QSO-v0 passes only `11/22` metrics, loses to ridge/pointwise controls and fails its field contribution claim. Candidate authority is false and H0 stays unopened.
-- **Planning authority:** [Roadmap V41](../../plans/physical-sound-synthesis-roadmap-v41.md) separates the repeatable disclosed lab from one-shot independent admission; C0 is complete, B0 is next and V0 is ready while S0 proceeds independently.
+- **Planning authority:** [Roadmap V42](../../plans/physical-sound-synthesis-roadmap-v42.md) keeps the disclosed/one-shot split but inserts a domain/information audit and descriptor-signal gate before neural training; R0 is next and V0 is independently ready.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
 - **T0 result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
 - **Q1-M result:** [role-power audit](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md) accounts all 109 identities twice exactly; its old source power is superseded by I0's clean `9/7` and exact `13/34`, `13/31` deficits.
 - **D0/D1 result:** the [permanent disclosed roster](../physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md) preserves all nine opened families; [D1](../physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md) repairs its Blue Bowl cross-role alias, preserves `5/2/2` and becomes C0 authority.
 - **C0 result:** the [repeat-exact disclosed corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md) contains 139 hash-verified recordings, 278 PCM/feature objects, 67 isolated parents, complete axis masks and immutable `44/70/25` record projections with zero network/protected/model access.
-- **M0 correction:** the [implementation-conformance rebaseline](../physical-sound-v25-m0-implementation-conformance-rebaseline-2026-09-02.md)
-  proves one-hot material input cannot expose isolated `E`/density gates. No
-  model value opened; [M0a](../physical-sound-v25-m0a-causal-material-neural-student-protocol-2026-09-02.md)
-  freezes masked physical coordinates without guessing X0 Glass constants.
+- **B0 result:** the [repeat-exact grouped baseline](../physical-sound-v41-b0-grouped-baseline-result-2026-09-03.md) freezes a global median floor `1.337593650`; ridge `1.443077073`, pointwise MLP `1.484006315` and every material/retrieval/local control lose. Exact Steel is absent from train, so only coarse metallic transfer is observed.
 - **V0-v1 result:** [target-ID-only retrieval](../physical-sound-v32-v0-validator-mechanics-result-2026-09-02.md)
   repeat-exactly rejects clean `intervention-density`: T0 contains two lawful
   equal-PCM/equal-modal causal alias pairs. No output or real value opened.
@@ -29,7 +26,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** implement V41 B0 on the frozen C0 projections: grouped retrieval-copy, material/modal prototype, nearest/local, ridge and small pointwise MLP baselines; V0 and S0 remain independent.
+- **Next action:** implement V42 R0 on frozen B0/C0: quantify project-domain predictability, leave-project-out material signal and source-normalized target behavior without training a candidate; V0 and S0 remain independent.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
@@ -63,13 +60,13 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V41 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V41_C0_COMPLETE / DISCLOSED_LAB_FIRST / B0_NEXT / V0_READY / S0_SOURCE_POWER_OOD` | QSO-v0 remains closed. C0 creates 139 canonical records with 67 role-disjoint parents and complete masks; B0/V0 may consume only their immutable projections, and product/admission remain behind independent one-shot gates. |
+| V34–V42 R0–PR | `V37_D0_METRIC_REJECT_CLOSED / V41_B0_COMPLETE / V42_R0_NEXT / V0_READY / DESCRIPTOR_SIGNAL_REQUIRED / S0_SOURCE_POWER_OOD` | QSO-v0 remains closed. B0 proves coarse material one-hot is weaker than the global prototype; V42 requires domain attribution, runtime descriptor enrichment and a B1 signal gate before neural training. Product/admission remain behind independent one-shot gates. |
 
-## Material transition: V41 C0 disclosed corpus
+## Material transition: V41 B0 baseline to V42 descriptor-first work
 
-- **Evidence:** C0 decodes every one of 135 identified recordings plus four REALIMPACT transfer rows, including ZIP/RAR5 and WAV/MP3/Ogg/M4A, twice to one byte-identical external tree.
-- **Conclusion/decision:** 139 canonical `48 kHz` PCM rows and waveform-derived pseudo-targets are eligible only for disclosed B0/V0; missing force/composition/support remain masked and Blue Bowl remains one train parent.
-- **Smallest next action:** freeze B0's grouped evaluation surface and simple controls before any StructuredRecipeNet training; keep validator-calibration and S0 isolated.
+- **Evidence:** B0's six deterministic methods reproduce byte-for-byte on 21 supported development parents; global prototype beats material prototype, retrieval, nearest, ridge and small MLP.
+- **Conclusion/decision:** current material-only conditioning has insufficient deployable signal. This is compatible with both missing object descriptors and capture/project domain shift; B0 alone does not distinguish them and cannot justify a larger network.
+- **Smallest next action:** freeze R0's domain/information audit, then require a runtime-available descriptor baseline to beat the global floor before M0; keep validator-calibration and protected S0 isolated.
 
 ## Durable negative knowledge
 
@@ -171,6 +168,7 @@
 | D-079 | V41 separates a repeatable disclosed lab from one-shot independent admission: multi-supervision masks exploit partial internet evidence, but `LabWinner` has no cooker, runtime or release authority. | Independent S1/V1/H0/A0 evidence passes, or C0/V0 shows the separation cannot prevent parent, target or validator leakage. |
 | D-080 | D0's family-disjoint role projection is superseded because one Blue Bowl crossed generator/validator families; D1 co-locates REALIMPACT/ObjectFolder in train and moves AV-MSF to validator without signal, clean or protected access. | New exact metadata proves another cross-component physical parent alias before C0 target access; repair requires another immutable pre-access roster revision. |
 | D-081 | C0 repeat-exactly materializes 139 disclosed rows as 278 content objects and immutable `44 train / 70 development / 25 validator` projections; acoustic values are pseudo-targets and only four rows observe geometry/contact/listener transfer. | A source/hash/decoder/parent defect invalidates the corpus before B0, or a new pre-access corpus revision explicitly supersedes C0; never infer absolute force or product quality. |
+| D-082 | B0 repeat-exactly freezes global prototype median `1.337593650`; every coarse-material, retrieval, local, ridge and pointwise-MLP control loses, while exact Steel is absent from train. V42 therefore requires R0 domain attribution and a B1 runtime-descriptor signal gate before neural training. | R0/B1 on a source-backed descriptor plane proves a grouped cross-project improvement beyond the frozen global floor, or a corpus defect invalidates B0. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -178,8 +176,8 @@
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Local controls remain competitive and beat QSO-v0 on several axes | They do not close contact-only/joint transfer as a general generator | Retain as mandatory control, not a standalone successor |
 | H3: explicit field/query operator can recover contact transfer | D0R proves the complete target-aware owner and artificial ablations | V37 D0 passes only `11/22` metrics; field-only ablation refutes the declared contribution | `REJECTED`; never retry QSO-v0 or tune from spent D0 |
-| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7`; D0 reserves two disclosed projects only for calibration | I0 clean power is `9/7` and `SourcePowerOOD`; no real validator/shadow result | V41 C0/B0/V0 plus S0/S1, then one-shot V1 |
-| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V41 K0/P0 after Steel A0 Pass |
+| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7`; D0 reserves two disclosed projects only for calibration | I0 clean power is `9/7` and `SourcePowerOOD`; no real validator/shadow result | V42 V0 plus S0/S1, then one-shot V1 |
+| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V42 K0/P0 after Steel A0 Pass |
 
 ## Do not retry
 
@@ -218,7 +216,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V41](../../plans/physical-sound-synthesis-roadmap-v41.md), [C0 disclosed corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md), [D1 alias repair](../physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md), superseded [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.md), [V40 D0 result](../physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md), [V40 I0 result](../physical-sound-v40-i0-project-exposure-result-2026-09-03.md), [V40 independence correction](../physical-sound-v40-project-independence-rebaseline-2026-09-03.md), superseded [Roadmap V39](../../plans/physical-sound-synthesis-roadmap-v39.md), [V39 F1](../physical-sound-v39-f1-source-frontier-result-2026-09-03.md), [V39 F0](../physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), superseded [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
+Current program: [Roadmap V42](../../plans/physical-sound-synthesis-roadmap-v42.md), [B0 grouped baseline](../physical-sound-v41-b0-grouped-baseline-result-2026-09-03.md), [C0 disclosed corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md), [D1 alias repair](../physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md), superseded [Roadmap V41](../../plans/physical-sound-synthesis-roadmap-v41.md), superseded [Roadmap V40](../../plans/physical-sound-synthesis-roadmap-v40.md), [V40 D0 result](../physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md), [V40 I0 result](../physical-sound-v40-i0-project-exposure-result-2026-09-03.md), [V40 independence correction](../physical-sound-v40-project-independence-rebaseline-2026-09-03.md), superseded [Roadmap V39](../../plans/physical-sound-synthesis-roadmap-v39.md), [V39 F1](../physical-sound-v39-f1-source-frontier-result-2026-09-03.md), [V39 F0](../physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), superseded [Roadmap V38](../../plans/physical-sound-synthesis-roadmap-v38.md), [V38 S0](../physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), terminal [V37 D0](../physical-sound-v37-d0-fresh-development-result-2026-09-03.md), superseded [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R result](../physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) and [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -247,4 +245,4 @@ Current program: [Roadmap V41](../../plans/physical-sound-synthesis-roadmap-v41.
 
 ## Handoff
 
-- **Workspace/quality/next:** V41 C0 repeat-exactly builds 139 disclosed rows and 278 PCM/feature objects with 67 isolated parents and zero network/protected/model access. B0 is next, V0 is ready, S0 remains `SourcePowerOOD`, and authored fallback is mandatory.
+- **Workspace/quality/next:** V41 B0 repeat-exactly freezes the global prototype as the best current floor and proves material-only conditioning insufficient. Roadmap V42 makes R0 domain/information attribution next, keeps V0 ready and S0 `SourcePowerOOD`, and blocks neural training until runtime descriptors beat that floor; authored fallback is mandatory.
