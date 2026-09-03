@@ -1,0 +1,174 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": [
+      "v41_m0_recipe_model_freeze"
+    ],
+    "baseline_fit_authority": true,
+    "candidate_model_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_access_authority": false
+  },
+  "baseline_policy": {
+    "global_prototype": {
+      "kind": "masked_train_parent_mean"
+    },
+    "material_modal_prototype": {
+      "fallback": "global_prototype_and_ood",
+      "kind": "masked_coarse_material_train_parent_mean"
+    },
+    "nearest_local_medoid": {
+      "distance": "masked_standardized_rmse",
+      "fallback": "global_prototype_and_ood",
+      "kind": "coarse_material_train_medoid"
+    },
+    "pointwise_mlp": {
+      "adam_beta1": 0.9,
+      "adam_beta2": 0.999,
+      "adam_epsilon": 1e-08,
+      "full_batch_steps": 500,
+      "hidden_width": 32,
+      "kind": "one_hidden_layer_tanh_full_batch_numpy_float64",
+      "learning_rate": 0.01,
+      "seed": 4100,
+      "weight_decay": 0.0001
+    },
+    "retrieval_copy": {
+      "fallback": "global_prototype_and_ood",
+      "kind": "lexicographic_first_train_parent_within_coarse_material"
+    },
+    "ridge": {
+      "alpha": 1.0,
+      "bias_regularized": false,
+      "kind": "closed_form_multioutput_coarse_material_ridge"
+    }
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 7237,
+      "path": "docs/development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md",
+      "sha256": "5817acb69a2352faf98fcb9b9d68b18d9bbc03dc2b6e956ff44ed92b504a8992"
+    },
+    {
+      "bytes": 7028,
+      "path": "lab/profiles/physical-sound-v41-c0-disclosed-corpus.v1.json",
+      "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+    },
+    {
+      "bytes": 41270,
+      "path": "lab/scripts/physical_sound_v41_b0_grouped_baselines_v1.py",
+      "sha256": "47f5dbb8b2648480a1a911db42dcfc3201184b664006ed5af671d960e0a9c539"
+    },
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    }
+  ],
+  "environment": {
+    "numpy_version": "2.5.2"
+  },
+  "evaluation_policy": {
+    "aggregation": "equal_weight_per_physical_parent",
+    "candidate_or_hyperparameter_selection_allowed": false,
+    "exact_label_support_reported_separately": true,
+    "metric": "masked_train_standardized_rmse",
+    "ood_behavior": "FallbackOutOfDomain",
+    "quality_scope": "coarse_material_supported_development_parents_only",
+    "ranking": "minimum_parent_median_rmse_then_baseline_name",
+    "steel_claim": "coarse_metallic_transfer_only_not_steel_specialization",
+    "validator_access_allowed": false
+  },
+  "expected_counts": {
+    "coarse_supported_development_parents": 21,
+    "development_parents": 30,
+    "development_records": 70,
+    "exact_supported_development_parents": 6,
+    "train_parents": 26,
+    "train_records": 44
+  },
+  "input_bindings": {
+    "corpus_card": {
+      "bytes": 1415,
+      "path": "corpus-card.json",
+      "sha256": "a75dd496c94b26e49de6e49c050208f7abaf865fcc67a33e5485346cbbbed3a4"
+    },
+    "corpus_profile": {
+      "bytes": 7028,
+      "path": "profile.json",
+      "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+    },
+    "corpus_report": {
+      "bytes": 2040,
+      "path": "report.json",
+      "sha256": "9a1489f63bd66298c3a19123b98ecf9226c3c0db21d226fa6f7c4d6cfc12879b"
+    },
+    "development_projection": {
+      "bytes": 90450,
+      "path": "projections/generator_development.json",
+      "sha256": "baeeb5ab36806ceb8fbe06bc581d0eb3bf1cf872939390129262eb8134c16f1e"
+    },
+    "train_projection": {
+      "bytes": 57916,
+      "path": "projections/generator_train.json",
+      "sha256": "a1a468cd41328f8dbdc9d2f879fbb90a66ee7448762e7fb703702576d41127ee"
+    }
+  },
+  "material_taxonomy": {
+    "Aluminium": "metallic",
+    "Ceramic": "ceramic",
+    "Foam": "foam",
+    "Glass": "glass",
+    "Hard Plastic": "polymer",
+    "Iron": "metallic",
+    "Metal": "metallic",
+    "Other Plastic": "polymer",
+    "Paper": "paper",
+    "Plastic": "polymer",
+    "Polycarbonate": "polymer",
+    "Soft Plastic": "polymer",
+    "Steel": "metallic",
+    "Wood": "wood"
+  },
+  "profile_id": "physical-sound-v41-b0-grouped-baselines-v1",
+  "representation_policy": {
+    "band_count": 24,
+    "conditioning": "coarse_material_class_one_hot_only",
+    "global_features": [
+      "log2_bandwidth_hz",
+      "log2_centroid_hz",
+      "log2_rolloff_95_hz",
+      "log_crest_factor",
+      "log_decay_t60_seconds",
+      "log_flatness",
+      "log_peak_offset_ms_plus_0_1",
+      "log_temporal_centroid_seconds",
+      "zero_crossing_rate"
+    ],
+    "modal_histogram_bins": 24,
+    "modal_max_hz": 18000.0,
+    "modal_min_hz": 80.0,
+    "parent_aggregation": "masked_arithmetic_mean_per_physical_parent",
+    "scaler": "train_parent_mean_std_with_unit_constant_floor",
+    "scaler_floor": 1e-06,
+    "spectral_band_db_clip": [
+      -160.0,
+      20.0
+    ],
+    "target_dimension": 105,
+    "transient_bins": 48,
+    "transient_db_clip": [
+      -160.0,
+      20.0
+    ]
+  },
+  "schema": "nextengine.experimental-physical-sound-v41-b0-profile.v1"
+}
