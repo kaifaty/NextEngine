@@ -1,0 +1,182 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": [
+      "v43_b0r_r0r_corrected_baseline",
+      "v43_c1_descriptor_source_growth"
+    ],
+    "candidate_training_authority": false,
+    "corpus_repair_authority": true,
+    "descriptor_baseline_authority": false,
+    "model_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "source_payload_decode_authority": false,
+    "validator_calibration_authority": false
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 7237,
+      "path": "docs/development/physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md",
+      "sha256": "5817acb69a2352faf98fcb9b9d68b18d9bbc03dc2b6e956ff44ed92b504a8992"
+    },
+    {
+      "bytes": 7032,
+      "path": "docs/development/physical-sound-v43-c1a-lineage-audit-result-2026-09-03.md",
+      "sha256": "958363c2fc26dd72101d257aa3dc76a34316d21a4c8e32a4a11f2815f0f85019"
+    },
+    {
+      "bytes": 5239,
+      "path": "lab/profiles/physical-sound-v43-c1a-lineage-audit.v1.json",
+      "sha256": "b9f99be5a540c83f10ab3d690e27c9c4a76687795ee651cd0beea9b3a35d71d9"
+    },
+    {
+      "bytes": 29385,
+      "path": "lab/scripts/physical_sound_v43_c1a_lineage_audit_v1.py",
+      "sha256": "a8686afde4c442927a34c111ec580fa48cdb8687affcb4d1007a82a5773057fe"
+    },
+    {
+      "bytes": 41652,
+      "path": "lab/scripts/physical_sound_v43_d2_c0r_identity_repair_v1.py",
+      "sha256": "20264958c374d3a819d90c6076408ece19b19ebe36626414f7d25175f83e3ef9"
+    }
+  ],
+  "expected_counts": {
+    "corrected_material_identity_observed": 134,
+    "corrected_physical_parents": 65,
+    "corrected_role_parents": {
+      "generator_development": 30,
+      "generator_train": 34,
+      "validator_calibration": 1
+    },
+    "corrected_role_records": {
+      "generator_development": 70,
+      "generator_train": 64,
+      "validator_calibration": 5
+    },
+    "identified_recordings": 135,
+    "material_quarantine_records": 5,
+    "moved_family_records": 20,
+    "source_content_objects": 278,
+    "source_families": 9,
+    "source_physical_parents": 67,
+    "source_role_records": {
+      "generator_development": 70,
+      "generator_train": 44,
+      "validator_calibration": 25
+    },
+    "total_records": 139,
+    "transfer_records": 4,
+    "validator_projects_after_repair": 1
+  },
+  "input_bindings": {
+    "c0": {
+      "access_ledger": {
+        "bytes": 1011,
+        "sha256": "2ef23104fea0f457965e7412e01655e22c0847a36bda0858586402ef92648e57"
+      },
+      "corpus_card": {
+        "bytes": 1415,
+        "sha256": "a75dd496c94b26e49de6e49c050208f7abaf865fcc67a33e5485346cbbbed3a4"
+      },
+      "generator_development": {
+        "bytes": 90450,
+        "sha256": "baeeb5ab36806ceb8fbe06bc581d0eb3bf1cf872939390129262eb8134c16f1e"
+      },
+      "generator_train": {
+        "bytes": 57916,
+        "sha256": "a1a468cd41328f8dbdc9d2f879fbb90a66ee7448762e7fb703702576d41127ee"
+      },
+      "manifest": {
+        "bytes": 297303,
+        "sha256": "3ccc89cb4022209b756f470adbc388aa098eaedfcfb056ba0230ad23b71034e9"
+      },
+      "profile": {
+        "bytes": 7028,
+        "sha256": "439df3285a027b3070e507c8136ff525ff29ced8e025819e1fb0429140df61a5"
+      },
+      "report": {
+        "bytes": 2040,
+        "sha256": "9a1489f63bd66298c3a19123b98ecf9226c3c0db21d226fa6f7c4d6cfc12879b"
+      },
+      "validator_calibration": {
+        "bytes": 31634,
+        "sha256": "7a11eba70172d0c24e23cfbc4a3907a8572e5783d603e7ef4c8d0d00d69551ff"
+      }
+    },
+    "c1a": {
+      "access_ledger": {
+        "bytes": 1018,
+        "sha256": "5258b6df4873c79ee3104af7bf933bfdb5a606ad0ee8bc7363203c3ee520d9cb"
+      },
+      "alias_findings": {
+        "bytes": 1378,
+        "sha256": "ca45f3544a6ff6e6ef455e7877e41225c320d5f058d418b6c1566a031eca0937"
+      },
+      "evidence_inventory": {
+        "bytes": 1842,
+        "sha256": "d58cde0a031278c18d77388f84ebd2aa532ce0706218950bba955dc8d2cbe6d5"
+      },
+      "profile": {
+        "bytes": 5239,
+        "sha256": "b9f99be5a540c83f10ab3d690e27c9c4a76687795ee651cd0beea9b3a35d71d9"
+      },
+      "repair_plan": {
+        "bytes": 1476,
+        "sha256": "0f956d9ca15a100f66c3f8c3174f3b3c4896a275da2da0a58e17857d5cfc815d"
+      },
+      "report": {
+        "bytes": 1859,
+        "sha256": "a133e028e2afe33f994bbe7367ac0edb6c2a9488f7c4ae20a05ff9f73d48ed10"
+      }
+    },
+    "d1_roster": {
+      "bytes": 14236,
+      "roster_root_sha256": "778cae737a2d94aa06af894c58ea0a11d85bd74534775bad5bd9dad715dd775e",
+      "sha256": "362bddc6e02808fea89d06b0809e8d9e05b675181dead86da408a8944f9ad7a8"
+    }
+  },
+  "profile_id": "physical-sound-v43-d2-c0r-identity-repair-v1",
+  "repair_policy": {
+    "alias_overrides": [
+      {
+        "canonical_parent_id": "realimpact-6-bowl--objectfolder-real-object-6",
+        "object_id": "6"
+      },
+      {
+        "canonical_parent_id": "objectfolder-real-object-80--av-msf-object-80",
+        "object_id": "80"
+      }
+    ],
+    "family_reassignment": {
+      "family_id": "zisen-shao--av-msf",
+      "from_role": "validator_calibration",
+      "to_role": "generator_train"
+    },
+    "material_quarantine": {
+      "axis": "material_identity",
+      "canonical_parent_id": "objectfolder-real-object-80--av-msf-object-80",
+      "replacement_label": "Unknown"
+    },
+    "no_audio_or_feature_decode": true,
+    "source_component": {
+      "component_id": "source-component.realimpact-objectfolder-av-msf.v1",
+      "family_ids": [
+        "samuel-clarke--realimpact",
+        "stanford-objectfolder--objectfolder-real",
+        "zisen-shao--av-msf"
+      ],
+      "role": "generator_train"
+    }
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v43-d2-c0r-profile.v1"
+}

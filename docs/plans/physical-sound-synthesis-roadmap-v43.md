@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / C1A_COMPLETE / D2_C0R_NEXT / V0_BLOCKED_BY_IDENTITY_AND_POWER / M0_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / C1A_D2_C0R_COMPLETE / B0R_R0R_NEXT / C1_READY / V0_BLOCKED_BY_POWER / M0_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V42](physical-sound-synthesis-roadmap-v42.md) как planning authority; прежние terminal results остаются immutable evidence, но C0 больше не доказывает межролевую изоляцию |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; roadmap не вводит public schema, runtime model или production consumer |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательной ручной приёмки каждого звука |
@@ -34,6 +34,12 @@
 изоляции ролей, делает нынешний V0 непригодным для независимой калибровки и
 требует нового baseline на исправленном корпусе.
 
+[D2/C0R](../development/physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md)
+теперь публикует этот исправленный корпус repeat-exactly: все `20` AV-MSF rows
+co-located в train, два aliases объединены, пять object-80 material labels
+замаскированы, а `278` content objects сохранены побайтно. Следующий
+критический шаг — B0R/R0R на новой проекции; C1 descriptor work также открыт.
+
 ## Конечная цель
 
 Результатом программы должен быть не один удачный звук, а автономная фабрика
@@ -63,9 +69,9 @@ offline tooling.
 
 | Предположение V42 | Новое состояние V43 | Следствие |
 | --- | --- | --- |
-| C0 содержит 67 изолированных физических parents | `INVALIDATED_FOR_ROLE_ISOLATION` | До обучения строится hash-bound lineage graph и выпускается C0R. |
+| C0 содержит 67 изолированных физических parents | `SUPERSEDED_BY_C0R` | C0R содержит 65 disjoint parents после двух alias merges и сохраняет все content objects. |
 | V0 можно начинать на 25 validator records | `BLOCKED` | После fail-closed ремонта ожидается только 5 records одного parent/project; нужны новые независимые internet sources. |
-| C1 — следующий шаг | `BLOCKED_BY_C1A_AND_C0R` | Сначала identity audit, затем новая immutable role projection. |
+| C1 — следующий шаг | `READY_AFTER_C0R` | Identity audit и новая immutable role projection завершены; descriptor contract и internet source growth открыты. |
 | B0 global floor готов для B1 | `HISTORICAL_CONTROL_ONLY` | На C0R заново замораживается B0R/R0R; старые числа не используются как новый admission floor. |
 | Planning floor равен 125 supported parents | `PROVISIONAL` | R0R пересчитывает мощность после исправления connected components и ролей. |
 
@@ -73,10 +79,10 @@ offline tooling.
 
 ```mermaid
 flowchart LR
-    C1A["C1A lineage audit — complete"] --> D2["D2 roster repair — next"]
-    D2 --> C0R["C0R corrected corpus"]
-    C0R --> B0R["B0R/R0R corrected floor"]
-    C0R --> C1["C1 descriptors and disclosed growth"]
+    C1A["C1A lineage audit — complete"] --> D2["D2 roster repair — complete"]
+    D2 --> C0R["C0R corrected corpus — complete"]
+    C0R --> B0R["B0R/R0R corrected floor — next"]
+    C0R --> C1["C1 descriptors and disclosed growth — ready"]
     B0R --> B1["B1 descriptor signal gate"]
     C1 --> T0["T0 recipe and renderer"]
     C1 --> B1
@@ -113,10 +119,10 @@ cook или runtime integration.
 | ID | Состояние | Проверяемый выход |
 | --- | --- | --- |
 | C1A | `COMPLETE / REPEAT_EXACT` | Hash-bound audit воспроизводит официальный source relationship, два object-ID aliases и label conflict без чтения acoustic features, candidate values или protected roles; A/B inventory root `e11341f3…510b`. |
-| D2 | `NEXT / AUTHORIZED_BY_C1A` | Новый immutable roster co-locates весь derived AV-MSF family с его disclosed source component; подтверждённые aliases объединяются, а конфликтующие labels получают quarantine/missing mask. Никакой in-place правки D1/C0. |
-| C0R | `BLOCKED_BY_D2` | Новый корпус и projections публикуются атомарно. Ожидаемый planning result `64 train / 70 development / 5 validator` records и `34 / 30 / 1` parents должен быть пересчитан самим owner, а не принят из roadmap как факт. |
-| B0R/R0R | `BLOCKED_BY_C0R` | Все global/material/retrieval/ridge/MLP controls и domain audit повторяются на C0R. Публикуются новый immutable global floor, supported strata и grouped-power target; старые B0/R0 остаются historical controls. |
-| C1 | `BLOCKED_BY_C0R / INTERNET_ONLY` | Versioned parent descriptors содержат только authoring/runtime-available форму, размеры, полость, толщину, массу, материал, опору, impact zone, confidence, units, provenance и missingness. Dataset/project ID и audio-derived targets запрещены как inputs. |
+| D2 | `COMPLETE / REPEAT_EXACT` | Immutable roster co-locates AV-MSF/ObjectFolder/RealImpact in one train source component, merges two aliases and quarantines object-80 material without changing D1/C0. |
+| C0R | `COMPLETE / REPEAT_EXACT` | Atomic corpus has `64/70/5` role records, `34/30/1` role parents and byte-identical `278` C0 content objects; it grants no training or validator authority. |
+| B0R/R0R | `NEXT / AUTHORIZED_BY_C0R` | All global/material/retrieval/ridge/MLP controls and domain audit repeat on C0R. Publish a new immutable global floor, supported strata and grouped-power target; old B0/R0 remain historical controls. |
+| C1 | `READY_AFTER_C0R / INTERNET_ONLY` | Versioned parent descriptors contain only authoring/runtime-available shape, size, cavity, thickness, mass, material, support, impact zone, confidence, units, provenance and missingness. Dataset/project ID and audio-derived targets are forbidden inputs. |
 | V0S | `OPEN_AFTER_C1A / METADATA_FIRST` | Поиск находит независимые validator-calibration project families. Connected-component role назначается до payload/audio decode; derived, mirrored или неясные источники отклоняются либо целиком co-locate. |
 | V0P | `BLOCKED_BY_V0S` | До настройки thresholds фиксируются parent-level risk/coverage targets, required project/parent counts, lawful and destructive mutations и OOD strata. Если мощности нет, terminal state — `ValidatorSourcePowerOOD`. |
 | T0 | `AFTER_C1_DESCRIPTOR_CONTRACT` | Заморожены recipe V2, uncertainty/masks, hard projection и deterministic renderer. Roundtrip, order, positive damping, energy, impulse scaling, remesh, finite/resource и mutation gates повторяются exactly. |
@@ -240,11 +246,11 @@ features, checkpoints, generated clips, caches и credentials остаются �
 
 1. **V43.0 — C1A — COMPLETE / REPEAT_EXACT:** сохранить hash-bound lineage
    result и terminal `C0_IDENTITY_REPAIR_REQUIRED`.
-2. **V43.1 — D2/C0R — NEXT:** выпустить новый roster/corpus, соединить aliases,
-   quarantine object `80` material и удалить AV-MSF из validator role.
-3. **V43.2 — B0R/R0R:** заново заморозить corrected global floor, domain audit
+2. **V43.1 — D2/C0R — COMPLETE / REPEAT_EXACT:** новый roster/corpus соединяет
+   aliases, quarantines object `80` material и удаляет AV-MSF из validator role.
+3. **V43.2 — B0R/R0R — NEXT:** заново заморозить corrected global floor, domain audit
    и parent-power target.
-4. **V43.3 — C1:** зафиксировать descriptor schema и растить disclosed
+4. **V43.3 — C1 — READY:** зафиксировать descriptor schema и растить disclosed
    independent-parent power только из internet sources.
 5. **V43.4 — V0S/V0P:** параллельно найти действительно независимые
    validator-calibration sources и заморозить grouped power plan.
