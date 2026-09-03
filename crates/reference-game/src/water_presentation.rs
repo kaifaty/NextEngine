@@ -217,6 +217,106 @@ pub struct WaterPresentationFrameV1 {
 /// sheds a fall; above it the sill is a foam band only.
 pub const WATER_FALL_DROP_MICROMETRES: i64 = 20_000;
 
+/// Plan 22 (SPEC-38 practice 4): the whirlpool over a sink.
+pub const WATER_VORTEX_RADIUS_MICROMETRES: i64 = 400_000;
+pub const WATER_VORTEX_DEPTH_CAP_MICROMETRES: i64 = 12_000;
+pub const WATER_VORTEX_RIPPLE_MICROMETRES: i64 = 3_000;
+/// One radial turn of the spiral per this distance.
+pub const WATER_VORTEX_RIPPLE_WAVELENGTH_MICROMETRES: i64 = 150_000;
+
+/// Plan 22: one whirlpool of a bound surface, derived from a sink or pump
+/// edge's exact flux; presentation only.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Vortex {
+    centre_micrometres: [i64; 2],
+    depth_micrometres: i64,
+}
+
+/// The vortices of a volume: every sink on it and every pump drawing from
+/// it with non-zero last flux.
+fn vortices_of(
+    volumes: &WaterVolumeSetV1,
+    network: &WaterFlowNetworkV1,
+    volume_id: PersistentId,
+) -> Vec<Vortex> {
+    let mut vortices = Vec::new();
+    let Some(definition) = volumes.definitions.get(&volume_id) else {
+        return vortices;
+    };
+    for (edge_id, edge) in &network.edges {
+        let Some(flux) = network.edge_flux(*edge_id) else {
+            continue;
+        };
+        if flux == 0 {
+            continue;
+        }
+        let centre = match edge.kind {
+            WaterFlowEdgeKindV1::Sink { .. } if edge.cell_a == volume_id => plan_centre(definition),
+            WaterFlowEdgeKindV1::Pump { .. } => {
+                let Some(cell_b_id) = edge.cell_b else {
+                    continue;
+                };
+                // The pump draws from `cell_a` when the flux is positive.
+                let drawn_from = if flux > 0 { edge.cell_a } else { cell_b_id };
+                if drawn_from != volume_id {
+                    continue;
+                }
+                let Some(other) = volumes.definitions.get(if drawn_from == edge.cell_a {
+                    &cell_b_id
+                } else {
+                    &edge.cell_a
+                }) else {
+                    continue;
+                };
+                shared_face_midpoint(definition, other)
+            }
+            _ => continue,
+        };
+        vortices.push(Vortex {
+            centre_micrometres: centre,
+            depth_micrometres: (flux.abs() / 2).min(WATER_VORTEX_DEPTH_CAP_MICROMETRES),
+        });
+    }
+    vortices
+}
+
+/// Plan 22: the height contribution of the vortices at `(x, z)`.
+fn vortex_height(x: i64, z: i64, vortices: &[Vortex], frame: i64) -> i64 {
+    let radius = WATER_VORTEX_RADIUS_MICROMETRES;
+    let mut height = 0_i64;
+    for vortex in vortices {
+        let dx = x - vortex.centre_micrometres[0];
+        let dz = z - vortex.centre_micrometres[1];
+        let r_squared = i128::from(dx) * i128::from(dx) + i128::from(dz) * i128::from(dz);
+        let r = isqrt_i128(r_squared);
+        if r >= i128::from(radius) {
+            continue;
+        }
+        let r = r as i64;
+        let f_q15 = (radius - r) * 32_767 / radius;
+        // Dip: -depth f^2.
+        height -= vortex.depth_micrometres * f_q15 * f_q15 / (32_767 * 32_767);
+        // Spiral: amplitude f sin(2 theta + k r - omega t), two arms, one
+        // revolution per second of the frame clock.
+        let phase = r * 65_536 / WATER_VORTEX_RIPPLE_WAVELENGTH_MICROMETRES
+            - frame * 65_536 / i64::from(WATER_PRESENTATION_FRAMES_PER_SECOND);
+        let s = sin_q15(phase);
+        let c = sin_q15(phase + 16_384);
+        let (sin_2theta, cos_2theta) = if r_squared == 0 {
+            (0, 32_767)
+        } else {
+            (
+                (2 * i128::from(dx) * i128::from(dz) * 32_767 / r_squared) as i64,
+                ((i128::from(dx) * i128::from(dx) - i128::from(dz) * i128::from(dz)) * 32_767
+                    / r_squared) as i64,
+            )
+        };
+        let wave = (s * cos_2theta + c * sin_2theta) / 32_767;
+        height += WATER_VORTEX_RIPPLE_MICROMETRES * f_q15 / 32_767 * wave / 32_767;
+    }
+    height
+}
+
 /// Plan 21: what an active edge presents.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WaterEdgePresentationKindV1 {
@@ -306,6 +406,8 @@ pub fn compute_water_presentation_frame(
             continue;
         };
         let amplitude = ripple_amplitude(network, binding.volume_id);
+        // Plan 22: whirlpools over the sinks of this volume.
+        let vortices = vortices_of(volumes, network, binding.volume_id);
         // Plan 17: the boxes floating in this volume (plan overlap, bottom
         // below the level) depress the ring around their plan rectangle.
         let level = volumes.effective_level(binding.volume_id, tick);
@@ -318,6 +420,7 @@ pub fn compute_water_presentation_frame(
             definition,
             amplitude,
             &wakes,
+            &vortices,
             frame_index,
         ));
     }
@@ -474,6 +577,7 @@ fn surface_grid(
     definition: &WaterVolumeDefinitionV1,
     amplitude: i64,
     wakes: &[&WaterFloatingBoxV1],
+    vortices: &[Vortex],
     frame_index: u64,
 ) -> WaterSurfaceUpdateV1 {
     let columns = WATER_SURFACE_GRID_COLUMNS as usize;
@@ -501,6 +605,9 @@ fn surface_grid(
         }
         if !wakes.is_empty() {
             height -= wake_depth(x, z, wakes);
+        }
+        if !vortices.is_empty() {
+            height += vortex_height(x, z, vortices, frame);
         }
         // Below the cap: the catalog mesh bounds are exclusive at their
         // maximum, and the ripple cap is the authored bound.
@@ -1029,5 +1136,68 @@ mod tests {
                 .any(|record| record.kind == WaterEdgePresentationKindV1::Jet)
         );
         assert!(frame.edges.len() <= next_contracts::physics::MAX_WATER_FLOW_EDGES);
+    }
+
+    #[test]
+    fn a_draining_sink_dips_its_vessel_ring_and_touches_no_other_surface() {
+        // Plan 22: vessel B's ring is lower at the sink while it drains;
+        // with the sink's flux at zero the frame is the no-vortex frame.
+        let volumes = crate::water::reference_water_volumes().expect("volumes");
+        let network = crate::water::reference_water_flow(&volumes).expect("network");
+        let mut volumes = volumes;
+        let mut network = network;
+        // Fill vessel B so the sink drains.
+        let vessel_b = volumes
+            .states
+            .get_mut(&crate::water::REFERENCE_WATER_VESSEL_B_ID)
+            .expect("vessel b");
+        vessel_b.record_revision += 1;
+        vessel_b.level_micrometres = 1_000_000;
+        network.step_in_place(&mut volumes).expect("step");
+        let sink_flux = network
+            .edge_flux(crate::water::REFERENCE_WATER_FLOW_SINK_ID)
+            .expect("sink flux");
+        assert!(sink_flux < 0, "the sink drains vessel b");
+        let bindings = reference_water_surface_bindings();
+        let draining = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 2, 11);
+        let mut still_network = network.clone();
+        still_network
+            .edge_states
+            .get_mut(&crate::water::REFERENCE_WATER_FLOW_SINK_ID)
+            .expect("sink state")
+            .last_flux_cubic_millimetres = 0;
+        let still =
+            compute_water_presentation_frame(&volumes, &still_network, &bindings, &[], 2, 11);
+        assert_eq!(draining.surfaces[0], still.surfaces[0], "basin untouched");
+        assert_eq!(
+            draining.surfaces[1], still.surfaces[1],
+            "vessel a untouched"
+        );
+        let (b_draining, b_still) = (&draining.surfaces[2], &still.surfaces[2]);
+        let definition = &volumes.definitions[&crate::water::REFERENCE_WATER_VESSEL_B_ID];
+        let centre = plan_centre(definition);
+        let nearest = b_draining
+            .positions_micrometres
+            .iter()
+            .zip(&b_still.positions_micrometres)
+            .min_by_key(|(position, _)| {
+                (position[0] - centre[0]).abs() + (position[2] - centre[1]).abs()
+            })
+            .expect("vertices");
+        assert!(nearest.0[1] < nearest.1[1], "the ring dips at the sink");
+        assert!(
+            nearest.1[1] - nearest.0[1]
+                <= WATER_VORTEX_DEPTH_CAP_MICROMETRES + WATER_VORTEX_RIPPLE_MICROMETRES
+        );
+        for position in &b_draining.positions_micrometres {
+            assert!(
+                position[1] >= -WATER_RIPPLE_CAP_MICROMETRES
+                    && position[1] < WATER_RIPPLE_CAP_MICROMETRES
+            );
+        }
+        assert_eq!(
+            draining,
+            compute_water_presentation_frame(&volumes, &network, &bindings, &[], 2, 11)
+        );
     }
 }

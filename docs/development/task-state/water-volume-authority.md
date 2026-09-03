@@ -99,10 +99,8 @@
 - **Activity stepping done (2026-09-03, plan 20, SPEC-38 3.2 practice 2):** `WaterFlowActivityV1` (derived, never saved, reset with the table or network, empty after restore) and `step_in_place_with_activity`; `GroundedCapsuleWorld` steps with it. Roots identical to the always-stepped run with and without a wake; `water-flow` restored-run and `persistence-replay` PASS. Frozen G2/G5 thresholds FAIL by reading: under the exact weir law a settled sill reaches flux `0` only below about `6 um` of head (first rest `6.8` minutes after the water arrives, `59` percent of sills at `20` minutes, step `17` to `14 us`).
 - **Decided 2026-09-03 (D-010):** the quiescence clause of the flux law is deferred; recorded as a future optimisation in plan `continuum-water/11` section 4, to be revisited only with a lattice larger than the current bounds.
 - **Edge-driven presentation done (2026-09-03, plan 21, SPEC-38 3.3 practice 3):** `WaterPresentationFrameV1::edges` carries one `WaterEdgePresentationV1` per edge with non-zero flux (jet, fall, sill, mouth); falls over open sills shed droplets through the jet's lane (`emit_stream`); nothing per cell. `water-present` digest of surfaces and droplets identical (`a8904f22…`), `water-lattice` revision 3 PASS (`56` records max, `37 us` mean stage).
-- **Next (plan `continuum-water/11` section 3):** rotational
-  presentation (practice 4: whirlpools and eddies as a presentation-only
-  layer fed by edge fluxes); gameplay gates/pumps and player buoyancy
-  are deferred by decision.
+- **Rotational presentation done (2026-09-03, plan 22, SPEC-38 3.4 practice 4, authored vortex):** `vortices_of` / `vortex_height` in the stage: a whirlpool over vessel B's sink in its ring (dip from the exact flux, two-arm spiral), inside the cap; `water-present` PASS with roots identical (`85 us` mean). The human look at vessel B (G3) is open. The shallow-water grid variant stays planned.
+- **Plan `continuum-water/11` is complete** except the deferred items of its section 4 (gameplay gates/pumps, player buoyancy, the quiescence threshold D-010, SPEC-38 terrain housekeeping). Next candidates: raise the lattice bounds when a region needs them; the shallow-water presentation grid; pose interpolation for motion vectors (plan 18 note).
 - Research note on engine and game water models:
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum

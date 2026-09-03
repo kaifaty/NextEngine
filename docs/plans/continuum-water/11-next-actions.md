@@ -67,7 +67,7 @@ evidence; no law, coefficient or record layout changes.
 | Lattice tier (done 2026-09-03, plan 19) | `WaterLatticeRegionV1` builds face-sharing cells and open sills inside the existing bounds (`64` cells, `256` edges); the overlap rule became positive-measure (SPEC-38 3.1); the bounds stay until a region needs more | `CONTINUUM-WATER-LATTICE-P1` PASS (`xtask water-lattice`) |
 | Activity stepping (done 2026-09-03, plan 20) | `WaterFlowActivityV1` (derived, never saved) and `step_in_place_with_activity`: edges whose inputs are unchanged and whose previous flux was `0` are skipped; roots identical, commands wake; the exact weir tail rests only after minutes (`59` percent at `20` minutes, step `17` to `14 us`) — a quiescence clause of the law is an open decision | `water-lattice` revision 2 (`skipped_fraction_*`, `rest_cost_*`, `first_rest_tick_after_wet`) |
 | Edge-driven presentation at scale (done 2026-09-03, plan 21) | `WaterPresentationFrameV1::edges`: one record per edge with non-zero flux (jet, fall, sill, mouth), falls through the droplet lane, no per-cell surface without a binding; the reference scene's digest unchanged | `water-lattice` revision 3 (`stage_*` fields), `water-present` digest identical |
-| Rotational presentation | whirlpools and eddies as presentation-only layers driven by edge flux | ADR-102 increment |
+| Rotational presentation (authored vortex done 2026-09-03, plan 22) | a whirlpool over a sink or a drawing pump in the bound ring: dip from the exact flux, two-arm spiral on the frame clock, inside the `20 mm` cap; the shallow-water grid variant stays planned | `water-present` (roots identical, cap held, `85 us` mean); the human look at vessel B is open |
 
 ## 4. Deferred (decided 2026-09-03, not scheduled)
 
