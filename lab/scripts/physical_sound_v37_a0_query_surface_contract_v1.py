@@ -19,17 +19,13 @@ import physical_sound_v37_query_surface_contract_v1 as contract
 OWNER_PATH = "lab/scripts/physical_sound_v37_a0_query_surface_contract_v1.py"
 CONTRACT_PATH = "lab/scripts/physical_sound_v37_query_surface_contract_v1.py"
 PROFILE_PATH = "lab/profiles/physical-sound-v37-a0-query-surface-contract.v1.json"
-ROADMAP_PATH = "docs/plans/physical-sound-synthesis-roadmap-v37.md"
 RESEARCH_PATH = (
     "docs/development/physical-sound-v37-query-surface-operator-research-2026-09-03.md"
 )
-PLAN_PATH = "docs/plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md"
 V36_RESULT_PATH = (
     "docs/development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md"
 )
-ROADMAP_SHA256 = "99165b3adeef98cdcbb98efa212eaf7ca6139beee925a98c14668761deb34c3c"
 RESEARCH_SHA256 = "9970c0c30e4b948be00cc345fee5fc774fa9a86e34abad29276431bdffeba1d2"
-PLAN_SHA256 = "5024975b436a591190466f0e168f1c4c95ae9ed993f9b21bbe721f3bd3ef9d03"
 V36_RESULT_SHA256 = "35b4dde5ad956ee3d5f4d6596b8850ea9896839e34de32bba78b9534adbdd7f2"
 CLAIM = (
     "TARGET_FREE_QUERY_SURFACE_CONTAINER_LIFECYCLE_AND_CANDIDATE_DISPOSITION_"
@@ -691,11 +687,9 @@ def run_conformance() -> tuple[dict[str, object], dict[str, object], dict[str, o
     evidence: dict[str, object] = {
         "bindings": {
             "contract": bound_file(CONTRACT_PATH),
-            "implementation_plan": bound_file(PLAN_PATH, PLAN_SHA256),
             "owner": bound_file(OWNER_PATH),
             "profile": bound_file(PROFILE_PATH),
             "research": bound_file(RESEARCH_PATH, RESEARCH_SHA256),
-            "roadmap": bound_file(ROADMAP_PATH, ROADMAP_SHA256),
             "v36_terminal_result": bound_file(V36_RESULT_PATH, V36_RESULT_SHA256),
         },
         "claim": CLAIM,
