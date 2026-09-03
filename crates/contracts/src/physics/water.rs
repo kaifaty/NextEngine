@@ -159,10 +159,13 @@ impl WaterVolumeDefinitionV1 {
         })
     }
 
+    /// Positive-measure intersection on every axis (SPEC-38 2.3, plan
+    /// `continuum-water/19`): volumes that share a face, an edge or a
+    /// corner are disjoint, so lattice cells may touch.
     fn overlaps(&self, other: &Self) -> bool {
         (0..3).all(|axis| {
-            self.minimum_micrometres[axis] <= other.maximum_micrometres[axis]
-                && other.minimum_micrometres[axis] <= self.maximum_micrometres[axis]
+            self.minimum_micrometres[axis] < other.maximum_micrometres[axis]
+                && other.minimum_micrometres[axis] < self.maximum_micrometres[axis]
         })
     }
 

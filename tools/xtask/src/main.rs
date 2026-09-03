@@ -26,6 +26,7 @@ mod physx;
 mod visual_smoke;
 mod water_buoyancy_command;
 mod water_flow_command;
+mod water_lattice_command;
 mod water_present_command;
 mod water_preview;
 mod water_stream;
@@ -187,6 +188,10 @@ fn run() -> Result<(), String> {
         "water-flow" => {
             reject_extra_arguments(arguments)?;
             water_flow_command::run()
+        }
+        "water-lattice" => {
+            reject_extra_arguments(arguments)?;
+            water_lattice_command::run()
         }
         "water-present" => {
             reject_extra_arguments(arguments)?;

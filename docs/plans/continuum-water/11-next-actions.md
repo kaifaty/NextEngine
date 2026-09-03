@@ -64,7 +64,7 @@ evidence; no law, coefficient or record layout changes.
 
 | Practice | Content | Check |
 | --- | --- | --- |
-| Lattice tier | large water areas as a grid of cells with the same exact per-tick step and the same edge kinds; cell bound raised with a frozen budget | `CONTINUUM-WATER-LATTICE-P1` |
+| Lattice tier (done 2026-09-03, plan 19) | `WaterLatticeRegionV1` builds face-sharing cells and open sills inside the existing bounds (`64` cells, `256` edges); the overlap rule became positive-measure (SPEC-38 3.1); the bounds stay until a region needs more | `CONTINUUM-WATER-LATTICE-P1` PASS (`xtask water-lattice`) |
 | Activity stepping | cells whose levels and fluxes are settled sleep; a command, a neighbour change or a body wakes them; roots unchanged versus the always-stepped run | same check, sleeping fraction in the report |
 | Edge-driven presentation at scale | one presentation record per active edge, not per cell | plan 09 revision |
 | Rotational presentation | whirlpools and eddies as presentation-only layers driven by edge flux | ADR-102 increment |

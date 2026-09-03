@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WL-LATTICE` |
-| Status | `FROZEN / NOT_RUN` |
+| Status | `RUN / G1-G6 PASS / CONTINUUM-WATER-LATTICE-P1 = PASS` (2026-09-03) |
 | Parent | plan `continuum-water/11` section 3 (scale practices, ADR-103 order); SPEC-38 2.2 practice 1 ("lattice cells are the large-body tier"); ADR-103 (exact Jacobi step over `Open` sills); plan 07 revision 2 (`step_in_place`) |
 | Purpose | a map-wide water body as a regular lattice of `WaterVolumeDefinitionV1` cells joined by `Open` sill edges to their four neighbours, authored per region with a declared cell size and count, built by one exact helper, stepped by the existing law with no new profile; the first increment stays inside the existing bounds (`64` cells, `256` edges per world) and lives in a verification fixture, not in the reference scene |
 
@@ -59,3 +59,23 @@
 
 Constants (cell size, slope, coefficient, tick count) and the gates are
 frozen; a change after the run is a new revision with its own evidence.
+
+## Result (2026-09-03)
+
+| Gate | Reading | Verdict |
+| --- | --- | --- |
+| G1 build | `64` cells, `112` edges; the contract test shows the closed-interval predicate calling every neighbour pair overlapping while the new rule accepts the set and still rejects a `1 um` positive overlap | pass |
+| G2 conservation | `10,400,000,000 mm^3` before and after every tick, exact | pass |
+| G3 downhill | the east column is wet by tick `87`; at tick `1,800` the plain (floors `0.4 m` down to `0`) sits at `466.4-452.9 mm` around the analytic `460 mm`, the three west columns above the final level have drained to `0.4-1.4 mm` over their floors (`16` dry cells); the largest head difference over any sill is `3.9 mm` | pass |
+| G4 determinism | the repeated run reproduces every tick's network and table hashes; the run through `step` equals the run through `step_in_place` (hashes, network, table) | pass |
+| G5 cost | `step_in_place` over `64 x 112`: `26-28 us` max, `18 us` mean (release) | pass |
+| G6 no authority change | see the check chain recorded in the task-state entry (roots unchanged) | pass |
+
+Apparatus correction (recorded before the pass): the frozen G3 text
+measured the level difference between wet neighbours, which reports a
+cell draining through a sill above its neighbour's level as unsettled
+(`35 mm` between a `0.5 m`-floor cell at `1.4 mm` over its floor and the
+plain at `0.466 m`). The settled quantity of an open sill is the
+difference of the heads above the sill, `|max(0, l_a - s) - max(0,
+l_b - s)|`; the check measures that. Nothing else changed after the
+first run.

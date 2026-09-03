@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Accepted (water); other material lanes in Proposed SPEC-39 |
-| Version | 3.0 |
+| Version | 3.1 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](adr/103-authoritative-water-flow-network.md), [ADR-104](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
-| Candidate revision note | Version 3.0 (2026-09-03) accepts the water clauses under ADR-104: the four `CONTINUUM-WATER-*` checks pass, ADR-100/103/104/105 are Accepted, the dry terrain and other material lanes moved to Proposed [SPEC-39](39-deformable-terrain-and-other-material-lanes.md); version 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (ADR-105: the exact impulse batch inside the step input, the reference crate floating on the basin level); version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
+| Candidate revision note | Version 3.1 (2026-09-03) implements practice 1 of the water tiers (plan `continuum-water/19`): the face-sharing rule of `WaterVolumeSetV1` (overlap is a positive-measure intersection; touching volumes are disjoint, a point on a shared face resolves to the first containing volume in id order), the authored lattice region `WaterLatticeRegionV1` building cells and `Open` sills inside the existing bounds, and `CONTINUUM-WATER-LATTICE-P1` through `xtask water-lattice`; version 3.0 (2026-09-03) accepts the water clauses under ADR-104: the four `CONTINUUM-WATER-*` checks pass, ADR-100/103/104/105 are Accepted, the dry terrain and other material lanes moved to Proposed [SPEC-39](39-deformable-terrain-and-other-material-lanes.md); version 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (ADR-105: the exact impulse batch inside the step input, the reference crate floating on the basin level); version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -289,7 +289,7 @@ shows the same split everywhere: a level or height/shallow-water field for
 the body, a bounded particle or 2D system for active water, rendering for
 the look. These practices bind every later water increment:
 
-1. **Lattice cells are the large-body tier (planned, ADR-103 0.3).** A map-wide body is a
+1. **Lattice cells are the large-body tier (implemented 2026-09-03, plan `continuum-water/19`; ADR-103 0.3).** A map-wide body is a
    `WaterFlowNetworkV1` whose cells form a regular lattice over the
    terrain and whose edges are `Open` sills to the four neighbours (the
    Timberborn column model and the virtual-pipes model, made exact).
@@ -299,9 +299,21 @@ the look. These practices bind every later water increment:
    and cell count bound; it is not global and it is not adaptive. The
    lattice increment needs its own bounds (cells and edges per region; the
    first increment admits `64` cells and `256` edges per world) and a rule
-   for face-sharing cells, because `WaterVolumeDefinitionV1` extents are
-   closed intervals and face-sharing volumes currently reject as
-   overlapping.
+   for face-sharing cells. Rule (3.1): two volumes overlap only when
+   their intersection has positive measure on every axis, so cells that
+   share a face, an edge or a corner are disjoint; a point on a shared
+   face is submerged by the first containing volume in id order. The
+   region is `WaterLatticeRegionV1` (`region_id`, origin, cell size,
+   `columns x rows`, ceiling, per-cell floors and initial levels, one
+   sill coefficient): `build` derives cell ids (`nextengine.water-lattice.cell.v1`
+   over the region id, column and row) and one `Open` sill per neighbour
+   pair (`nextengine.water-lattice.edge.v1`; sill at the higher floor,
+   width the shared side) and validates through the existing table and
+   network. `CONTINUUM-WATER-LATTICE-P1` (`xtask water-lattice`): an `8 x 8`
+   region over a terrain falling one decimetre per column conserves
+   volume exactly over `1,800` ticks, wets the east column, settles every
+   sill's heads within `5 mm`, repeats and matches the cloning step
+   byte-for-byte, and steps in place within the `50 us` flow budget.
 2. **Only active water steps (planned).** A cell whose stored volume and every
    incident edge state are unchanged from the previous tick, and whose
    neighbours are likewise unchanged, is at rest and is skipped; a

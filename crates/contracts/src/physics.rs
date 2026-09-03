@@ -13,6 +13,7 @@ mod snapshot;
 mod step;
 mod water;
 mod water_flow;
+mod water_lattice;
 
 pub use buoyancy::{
     ExternalImpulseV1, MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS, WATER_BUOYANCY_EDGE_PROFILE_ID,
@@ -139,4 +140,7 @@ pub use water_flow::{
     WaterFlowEdgeKindV1, WaterFlowEdgeStateV1, WaterFlowEdgeV1, WaterFlowNetworkV1,
     WaterFlowRejectionV1, WaterFlowStepV1, cell_area_square_millimetres, isqrt_i128,
     level_from_volume, volume_from_level,
+};
+pub use water_lattice::{
+    WATER_LATTICE_CELL_ID_DOMAIN, WATER_LATTICE_EDGE_ID_DOMAIN, WaterLatticeRegionV1,
 };

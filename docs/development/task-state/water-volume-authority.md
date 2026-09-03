@@ -95,10 +95,12 @@
 - **Water look L6 + L7 done (plan 17, 2026-09-03, revision 2):** caustic term in `water_scene` (vertical-depth attenuation after an invisible revision 1), stage wake depression and splash droplets from the committed boxes (`floating_boxes`, `WaterFloatingBoxV1`; `compute_water_presentation_frame` gained the box input); stage cost `136 us` max.
 - **Water look L8 done (plan 18, 2026-09-03):** DLSS-ready outputs in the desktop adapter: the scene renders into an offscreen HUD-less target copied to the swapchain before the UI overlay; the `gbuffer` suite (own set 0, `96`-byte push block, four `32`-bit attachments) writes albedo + group mask, normal + roughness, screen motion vectors (previous model per draw keyed by mesh/material/texture revisions and occurrence, previous jittered view-projection) and linear depth; `DesktopRunOptions::projection_jitter` / `apps/game --projection-jitter` applies the Halton(2, 3) jitter to the projection's `[8]`/`[9]` lanes; `--capture-buffer {color|scene|albedo|normal|motion|depth}` and `--capture-frames N` read the images back. The B0 contract, the frame plan hash and every root are unchanged. Motion vectors are exact per rendered frame, which means zero on the frames between two presentation ticks (about five frames per tick in release) and the full tick displacement on the straddling frame; a presentation-side pose interpolation is the follow-up if a temporal upscaler is ever integrated.
 - **Acceleration done (2026-09-03, plan 11 section 2):** WB1 buoyancy batch `260 us` → `13 us` mean / `18-25 us` max (plan 08 revisions 2-3: identifiers once per batch, level cache, plan-rectangle reject, `text_id!` identifiers as `Arc<str>` — a representation change of `next_contracts::ids`, canonical bytes unchanged); R8d flow step `183 us` → `28 us` mean / `41-46 us` max (plan 07 revision 2: `WaterFlowNetworkV1::step_in_place`, `PhysicsWorldBackend::step_water_flow`, `i128::isqrt`). Records, fluxes, levels and every root unchanged; the cost reports carry a mean next to the gated maximum.
-- **Next (plan `continuum-water/11` section 3):** the scale practices in
-  ADR-103 order — the lattice tier, activity stepping, edge-driven
-  presentation at scale, rotational presentation; gameplay gates/pumps
-  and player buoyancy are deferred by decision.
+- **Lattice tier done (2026-09-03, plan 19, SPEC-38 3.1 practice 1):** `WaterLatticeRegionV1` (`crates/contracts/src/physics/water_lattice.rs`) builds face-sharing cells and open sills; the volume overlap rule is positive-measure; `CONTINUUM-WATER-LATTICE-P1 = PASS` through `xtask water-lattice` (exact conservation, downhill settle within `3.9 mm` of head, repeated and cloning runs identical, `18 us` mean step). The reference scene is unchanged.
+- **Next (plan `continuum-water/11` section 3):** activity stepping
+  (practice 2: cells at rest skip, derived activity set, roots
+  unchanged), then edge-driven presentation at scale and rotational
+  presentation; gameplay gates/pumps and player buoyancy are deferred by
+  decision.
 - Research note on engine and game water models:
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum

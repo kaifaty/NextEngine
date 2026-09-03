@@ -24,6 +24,7 @@ mod test_support;
 mod v1_closure;
 mod water_buoyancy;
 mod water_flow;
+mod water_lattice;
 mod water_present;
 mod water_volume;
 
@@ -137,6 +138,9 @@ pub use water_buoyancy::{
     WaterBuoyancyCheckErrorV1, WaterBuoyancyCheckReportV1, run_water_buoyancy_check,
 };
 pub use water_flow::{WaterFlowCheckErrorV1, WaterFlowCheckReportV1, run_water_flow_check};
+pub use water_lattice::{
+    WaterLatticeCheckErrorV1, WaterLatticeCheckReportV1, plan_19_region, run_water_lattice_check,
+};
 pub use water_present::{
     WaterPresentCheckErrorV1, WaterPresentCheckReportV1, run_water_present_check,
 };

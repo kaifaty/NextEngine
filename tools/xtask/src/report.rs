@@ -488,6 +488,34 @@ pub struct WaterProbeDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WaterLatticeDetailsV1 {
+    pub check_id: String,
+    pub region_id: String,
+    pub cells: usize,
+    pub edges: usize,
+    pub run_ticks: u64,
+    pub total_volume_initial_mm3: String,
+    pub total_volume_final_mm3: String,
+    pub conservation_exact: bool,
+    pub east_column_wet_by_tick: Option<u64>,
+    pub settled_difference_max_um: i64,
+    pub settle_tolerance_um: i64,
+    pub levels_in_extent: bool,
+    pub dry_cells_final: u32,
+    pub final_level_east_um: i64,
+    pub repeated_run_identical: bool,
+    pub in_place_equals_cloning: bool,
+    pub step_cost_cells: usize,
+    pub step_cost_edges: usize,
+    pub step_cost_max_us: String,
+    pub step_cost_mean_us: String,
+    pub step_cost_debug_build: bool,
+    pub final_network_hash: String,
+    pub final_table_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WaterFlowDetailsV1 {
     pub check_id: String,
     pub vessel_a_id: String,
