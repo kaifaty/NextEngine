@@ -33,8 +33,8 @@ pub use audio_output::DesktopAudioOutputV1;
 use dynamic_surface::DynamicSurfaceState;
 pub use dynamic_surface::{
     DesktopFramePublicationV1, DynamicSurfaceProfileV1, DynamicSurfaceResidencyV1,
-    DynamicSurfaceUpdateV1, MAX_DYNAMIC_SURFACE_INDICES, MAX_DYNAMIC_SURFACE_VERTICES,
-    MAX_DYNAMIC_SURFACES,
+    DynamicSurfaceShadingV1, DynamicSurfaceUpdateV1, MAX_DYNAMIC_SURFACE_INDICES,
+    MAX_DYNAMIC_SURFACE_VERTICES, MAX_DYNAMIC_SURFACES,
 };
 pub use error::DesktopAdapterError;
 pub use graphics::FRAME_SLOT_COUNT as DESKTOP_FRAME_SLOT_COUNT;

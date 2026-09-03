@@ -2085,6 +2085,7 @@ fn build_preview(
                     } else {
                         DynamicSurfaceResidencyV1::HostVisible
                     },
+                    shading: next_desktop_sdl_ash::DynamicSurfaceShadingV1::Opaque,
                 },
                 keyframes,
             })

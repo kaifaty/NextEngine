@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.80 |
+| Версия | 2.81 |
 | Последняя проверка | 2026-09-03 |
-| Заменяет | INDEX-001 2.79; accepts water V1: ADR-100/103/104/105 Accepted, SPEC-38 3.0 Accepted for water, new Proposed SPEC-39 for the terrain and other material lanes |
+| Заменяет | INDEX-001 2.80; records ADR-101 0.3 (dynamic surface shading, the `water_surface` suite of plan `continuum-water/12`) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -308,7 +308,7 @@ traceability — навигационная карта, не admission authority
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
 | ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Accepted 2026-09-03; water V1 gameplay reads an exact CPU `WaterVolume` (R8c: table in the physics checkpoint, level command, `CONTINUUM-WATER-VOLUME-P1 = PASS`), the presentation stage (WP1: surfaces on exact levels, flux ripple, gate jet through the ADR-101/102 paths, `CONTINUUM-WATER-PRESENT-P1 = PASS`) never touches a root |
-| ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
+| ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root; 0.3 adds the ring shading (`Opaque`/`WaterSurface`, the water material suite of WL1) |
 | ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Accepted 2026-09-03; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
 | ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Accepted 2026-09-03; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks (all four pass) |

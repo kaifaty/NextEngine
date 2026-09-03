@@ -10,7 +10,8 @@ use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::render_content::{AabbI64V1, RenderContentCatalogV1};
 use next_desktop_sdl_ash::{
     DesktopAdapterError, DynamicSurfaceProfileV1, DynamicSurfaceResidencyV1,
-    DynamicSurfaceUpdateV1, ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1,
+    DynamicSurfaceShadingV1, DynamicSurfaceUpdateV1, ParticleSurfaceProfileV1,
+    ParticleSurfaceUpdateV1,
 };
 use next_reference_game::{
     WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY,
@@ -85,6 +86,7 @@ impl WaterPresentationFeed {
                 vertex_capacity: WATER_SURFACE_VERTEX_CAPACITY,
                 index_capacity: WATER_SURFACE_INDEX_CAPACITY,
                 residency: DynamicSurfaceResidencyV1::DeviceLocal,
+                shading: DynamicSurfaceShadingV1::WaterSurface,
             })
             .collect()
     }

@@ -24,7 +24,7 @@ Increments, each with a capture gate on the reference host
 
 | Step | Content | Gate sketch |
 | --- | --- | --- |
-| L1 surface material | Fresnel-weighted reflection of a sky/sun term, specular lobe, ring normals plus a small detail normal; still surfaces stop reading as flat quads | roots identical; capture shows angle-dependent shading |
+| L1 surface material (done 2026-09-03, plan 12) | Fresnel-weighted reflection of the sky gradient, sun glint, ring normals over the catalog base colour, `water_surface` suite on `WaterSurface` rings | roots identical; capture shows angle-dependent shading |
 | L2 shore fade and foam | depth difference between the surface and the scene depth buffer: soft edge at walls and the crate, foam band | roots identical; edge visible in capture |
 | L3 refraction and depth colour | water drawn after the opaque pass; normal-offset scene sample; absorption by depth below the level (the ADR-102 constants) | roots identical; the crate's submerged half is tinted |
 | L4 wave spectrum on the ring | two FFT cascades or summed Gerstner waves driven only by the exact flux and level (SPEC-38 practice 5); replaces the sine ripple, keeps the feed | roots identical; stage cost within the plan 09 budget |

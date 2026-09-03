@@ -39,6 +39,16 @@ pub enum DynamicSurfaceResidencyV1 {
     DeviceLocal,
 }
 
+/// Which shader suite draws a dynamic surface (plan `continuum-water/12`).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DynamicSurfaceShadingV1 {
+    /// The B0 world suite, as every catalog mesh.
+    Opaque,
+    /// The `water_surface` suite: Fresnel sky reflection, sun glint and the
+    /// ring normals over the catalog base colour.
+    WaterSurface,
+}
+
 /// Declares one bounded dynamic surface for the whole desktop run.
 ///
 /// The adapter allocates one vertex/index ring per frame slot at this
@@ -50,6 +60,7 @@ pub struct DynamicSurfaceProfileV1 {
     pub vertex_capacity: u32,
     pub index_capacity: u32,
     pub residency: DynamicSurfaceResidencyV1,
+    pub shading: DynamicSurfaceShadingV1,
 }
 
 /// One immutable vertex/index replacement for a declared dynamic surface.
@@ -616,6 +627,7 @@ mod tests {
                         vertex_capacity: 3,
                         index_capacity: 3,
                         residency: DynamicSurfaceResidencyV1::DeviceLocal,
+                        shading: DynamicSurfaceShadingV1::Opaque,
                     },
                     bounds,
                 },

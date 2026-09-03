@@ -19,6 +19,8 @@ enum ShaderSuite {
     WorldNoShadow,
     Ui,
     Sky,
+    /// Plan `continuum-water/12`: the water material of `WaterSurface` rings.
+    WaterSurface,
 }
 
 /// Fixed raster state for one checked-in shader suite. World, sky and UI use
@@ -44,6 +46,15 @@ pub(super) const UI_OVERLAY_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixed
     blend_enable: true,
     depth_test_enable: false,
     depth_write_enable: false,
+    cull_mode: vk::CullModeFlags::NONE,
+};
+
+/// Water surface: opaque, depth-tested and depth-writing like the world,
+/// but drawn from both sides.
+pub(super) const WATER_SURFACE_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: false,
+    depth_test_enable: true,
+    depth_write_enable: true,
     cull_mode: vk::CullModeFlags::NONE,
 };
 
@@ -106,6 +117,30 @@ impl PipelineState {
             } else {
                 ShaderSuite::WorldNoShadow
             },
+        )
+    }
+
+    /// Builds the water surface suite: the world layout, opaque depth-tested
+    /// and depth-writing, without culling so the surface reads from below.
+    pub(super) fn new_water_surface(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: vk::DescriptorSetLayout,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_fixed_state(
+            device,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
+            frame_layout,
+            texture_layout,
+            Some(shadow_layout),
+            WATER_SURFACE_RASTER_FIXED_STATE,
+            ShaderSuite::WaterSurface,
         )
     }
 
@@ -248,6 +283,7 @@ fn create_graphics_pipeline(
         ShaderSuite::WorldNoShadow => crate::shader_assets::b0_no_shadow_shader_modules(),
         ShaderSuite::Ui => crate::shader_assets::ui_shader_modules(),
         ShaderSuite::Sky => crate::shader_assets::sky_shader_modules(),
+        ShaderSuite::WaterSurface => crate::shader_assets::water_surface_shader_modules(),
     }
     .map_err(B0GpuContentError::ShaderAsset)?;
     let vertex_info = vk::ShaderModuleCreateInfo::default().code(&modules.vertex);
@@ -280,7 +316,9 @@ fn create_graphics_pipeline(
         let world_binding = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: match shader_suite {
-                ShaderSuite::World | ShaderSuite::WorldNoShadow => VERTEX_STRIDE,
+                ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::WaterSurface => {
+                    VERTEX_STRIDE
+                }
                 ShaderSuite::Ui => UI_VERTEX_STRIDE,
                 ShaderSuite::Sky => 0,
             },
@@ -288,9 +326,10 @@ fn create_graphics_pipeline(
         }];
         let empty_bindings: [vk::VertexInputBindingDescription; 0] = [];
         let bindings = match shader_suite {
-            ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::Ui => {
-                world_binding.as_slice()
-            }
+            ShaderSuite::World
+            | ShaderSuite::WorldNoShadow
+            | ShaderSuite::Ui
+            | ShaderSuite::WaterSurface => world_binding.as_slice(),
             ShaderSuite::Sky => empty_bindings.as_slice(),
         };
         let world_attributes = [
@@ -316,7 +355,9 @@ fn create_graphics_pipeline(
         let ui_attributes = [world_attributes[0], world_attributes[1]];
         let empty_attributes: [vk::VertexInputAttributeDescription; 0] = [];
         let attributes = match shader_suite {
-            ShaderSuite::World | ShaderSuite::WorldNoShadow => world_attributes.as_slice(),
+            ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::WaterSurface => {
+                world_attributes.as_slice()
+            }
             ShaderSuite::Ui => ui_attributes.as_slice(),
             ShaderSuite::Sky => empty_attributes.as_slice(),
         };

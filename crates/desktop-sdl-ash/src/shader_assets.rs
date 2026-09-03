@@ -20,6 +20,10 @@ const FLUID_THICKNESS_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/fluid_thickness.frag.spv");
 const FLUID_SPRAY_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_spray.vert.spv");
 const FLUID_SPRAY_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_spray.frag.spv");
+const WATER_SURFACE_VERTEX_SHADER_BYTES: &[u8] =
+    include_bytes!("../shaders/water_surface.vert.spv");
+const WATER_SURFACE_FRAGMENT_SHADER_BYTES: &[u8] =
+    include_bytes!("../shaders/water_surface.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -108,6 +112,18 @@ pub(super) fn fluid_shader_modules() -> Result<FluidShaderModules, &'static str>
         composite_fragment: decode_spirv(FLUID_COMPOSITE_FRAGMENT_SHADER_BYTES)?,
         spray_vertex: decode_spirv(FLUID_SPRAY_VERTEX_SHADER_BYTES)?,
         spray_fragment: decode_spirv(FLUID_SPRAY_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Water look L1 (plan `continuum-water/12`): the material suite of
+/// `WaterSurface` dynamic rings on the B0 interface.
+pub(super) fn water_surface_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"water_suite\": \"water_surface\"") {
+        return Err("embedded water surface shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(WATER_SURFACE_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(WATER_SURFACE_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -200,6 +216,16 @@ mod tests {
             hex(sha256(FLUID_SPRAY_FRAGMENT_SHADER_BYTES)),
             "58468bada0f2b887ac22621119433ef90ea38dee1d3c149a3b23bb0e495fcaf0"
         );
+        assert_eq!(
+            hex(sha256(WATER_SURFACE_VERTEX_SHADER_BYTES)),
+            "c0fb4c8395fcab8c7233f433eed0aaf93b3dcdb09dd16818c51179694673650f"
+        );
+        assert_eq!(
+            hex(sha256(WATER_SURFACE_FRAGMENT_SHADER_BYTES)),
+            "902a4f3664ae70034646c051a65fd3f82bc3752fd0e145f3326e13bd1bc6773f"
+        );
+        let water = water_surface_shader_modules().expect("checked-in water modules decode");
+        assert_eq!(water.fragment[0], SPIRV_MAGIC);
         let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
         assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);
         assert_eq!(fluid.composite_fragment[0], SPIRV_MAGIC);

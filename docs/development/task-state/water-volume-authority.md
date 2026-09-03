@@ -86,8 +86,8 @@
   `1.5 m` level, dry push box untouched, live/restored/repeated roots).
 - **Accepted 2026-09-03.** ADR-100/103/104/105 Accepted, SPEC-38 3.0
   Accepted for water, terrain clauses in Proposed SPEC-39.
-- **Next (plan `continuum-water/11`):** the water look first (surface
-  material, shore fade, refraction, wave spectrum, planar reflection,
+- **Water look L1 done (plan 12, 2026-09-03):** `water_surface` shader suite on `WaterSurface` rings (ADR-101 0.3).
+- **Next (plan `continuum-water/11`):** the water look continues (shore fade, refraction, wave spectrum, planar reflection,
   caustics, crate wake; DLSS-ready buffers, no vendor SDK), then the
   recorded cost revisions (WB1 G6 batch, WR1 integrator, R8d flow step),
   then the scale practices; gameplay gates/pumps and player buoyancy are

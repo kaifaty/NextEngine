@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-101 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Proposal date | 2026-09-02 |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-04](../04-rendering-and-platform.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-29](../29-platform-host-and-application-session.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Supersedes | none |
 | Superseded by | none |
@@ -37,8 +37,13 @@ presentation can be judged as human evidence.
 - A run may declare at most eight `DynamicSurfaceProfileV1` entries. Each
   names one exact mesh revision that exists in the active catalog with a
   single triangle primitive, a vertex and index capacity bounded by
-  `1,048,576` and `3,145,728`, and a residency (`HostVisible` or
-  `DeviceLocal`). Capacity never grows at runtime.
+  `1,048,576` and `3,145,728`, a residency (`HostVisible` or
+  `DeviceLocal`) and, since 0.3 (plan `continuum-water/12`), a shading
+  (`Opaque` = the B0 world suite; `WaterSurface` = the `water_surface`
+  suite: Fresnel sky reflection, sun glint and the ring normals over the
+  catalog base colour, on the same descriptor and push-constant layout,
+  drawn without culling). Capacity never grows at runtime; the shading is
+  renderer-local and never enters a root.
 - The catalog mesh remains the stable identity, material binding and
   declared bounds. A `DynamicSurfaceUpdateV1` replaces only the vertex/index
   payload for one frame slot; it must lie inside the catalog mesh bounds,

@@ -27,6 +27,7 @@ pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
 use self::resources::{DescriptorState, ShadowMap, TextureResource, upload_content};
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
+use crate::dynamic_surface::DynamicSurfaceShadingV1;
 use crate::dynamic_surface::{
     DynamicSurfaceProfileV1, DynamicSurfaceResidencyV1, DynamicSurfaceUpdateV1, validate_profiles,
 };
@@ -96,6 +97,8 @@ impl From<RenderContentContractError> for B0GpuContentError {
 /// all children before the logical device that owns this value.
 pub(super) struct B0GpuContent {
     sky_pipeline: PipelineState,
+    /// Plan `continuum-water/12`: the material suite of `WaterSurface` rings.
+    water_pipeline: PipelineState,
     pipeline: PipelineState,
     shadow_pipeline: Option<ShadowPipelineState>,
     descriptors: DescriptorState,
@@ -158,6 +161,7 @@ struct DynamicDrawBinding {
     vertex_buffer: vk::Buffer,
     index_buffer: vk::Buffer,
     index_count: u32,
+    shading: DynamicSurfaceShadingV1,
 }
 
 impl B0GpuContent {
@@ -362,6 +366,14 @@ impl B0GpuContent {
             shadow_map.is_some(),
         )?;
         let sky_pipeline = PipelineState::new_sky(device, color_format, depth_format)?;
+        let water_pipeline = PipelineState::new_water_surface(
+            device,
+            color_format,
+            depth_format,
+            descriptors.frame_layout,
+            descriptors.texture_layout,
+            descriptors.shadow_layout,
+        )?;
         let shadow_pipeline = shadow_map
             .as_ref()
             .map(|shadow| {
@@ -371,6 +383,7 @@ impl B0GpuContent {
 
         Ok(Self {
             sky_pipeline,
+            water_pipeline,
             pipeline,
             shadow_pipeline,
             descriptors,
@@ -555,16 +568,14 @@ impl B0GpuContent {
         mesh_revision: AssetRevisionRefV1,
         frame_slot_index: usize,
     ) -> Option<DynamicDrawBinding> {
-        let slot = self
-            .dynamic_surfaces
-            .get(&mesh_revision)?
-            .slots
-            .get(frame_slot_index)?;
+        let ring = self.dynamic_surfaces.get(&mesh_revision)?;
+        let slot = ring.slots.get(frame_slot_index)?;
         let uploaded = slot.uploaded?;
         Some(DynamicDrawBinding {
             vertex_buffer: slot.vertices.buffer,
             index_buffer: slot.indices.buffer,
             index_count: uploaded.index_count,
+            shading: ring.profile.shading,
         })
     }
 
@@ -758,6 +769,16 @@ impl B0GpuContent {
                     &push_constants,
                 );
                 if let Some(binding) = dynamic_binding {
+                    // Plan 12: a water ring draws through the water suite on
+                    // the same layout, so the bound sets and push constants
+                    // stay valid; the world suite is rebound afterwards.
+                    if binding.shading == DynamicSurfaceShadingV1::WaterSurface {
+                        self.geometry.device.cmd_bind_pipeline(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.water_pipeline.pipeline,
+                        );
+                    }
                     self.geometry.device.cmd_bind_vertex_buffers(
                         command_buffer,
                         0,
@@ -779,13 +800,20 @@ impl B0GpuContent {
                         0,
                     );
                     // Later static/skinned draws expect the immutable index
-                    // stream again.
+                    // stream and the world suite again.
                     self.geometry.device.cmd_bind_index_buffer(
                         command_buffer,
                         self.geometry.buffer,
                         self.index_buffer_offset,
                         vk::IndexType::UINT32,
                     );
+                    if binding.shading == DynamicSurfaceShadingV1::WaterSurface {
+                        self.geometry.device.cmd_bind_pipeline(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline.pipeline,
+                        );
+                    }
                     dynamic_surface_draws = dynamic_surface_draws
                         .checked_add(1)
                         .ok_or(B0GpuContentError::CountOverflow)?;

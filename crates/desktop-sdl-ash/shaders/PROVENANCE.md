@@ -96,3 +96,22 @@ glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o fluid_spra
 The `vulkan1.2` target emits SPIR-V 1.5 from this compiler as well, so the
 fluid modules are valid inputs to the engine's Vulkan 1.3 baseline. Source and
 module hashes are pinned in `manifest.json` next to the B0 entries.
+
+## Water surface suite (plan `continuum-water/12`, presentation-only)
+
+`water_surface` is the material suite of dynamic rings declared as
+`DynamicSurfaceShadingV1::WaterSurface` (ADR-101): the B0 vertex program
+plus a fragment stage with Schlick Fresnel (`F0 = 0.02`) between the lit
+water body and the reflected sky gradient, a Blinn-Phong sun glint
+(exponent `240`) and the sampled shadow map, on the closed
+`B0ShaderInterfaceV2` descriptor and push-constant layout. It was compiled
+with the same pinned Linux `glslang` 15.1.0 as the fluid suite (SHA-256
+`96ea85d4228d7065507cd58454628e0d3c9ec8bbd29a0cd20ee0f3cefaf6d026`):
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o water_surface.vert.spv water_surface.vert
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_surface.frag.spv water_surface.frag
+```
+
+Source and module hashes are pinned in `manifest.json`. All values are
+renderer-local and never enter gameplay, persistence or replay authority.
