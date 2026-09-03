@@ -3,7 +3,8 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / F0_F1_COMPLETE / D0_NEXT / S0_FRONTIER_6_23_ACTIVE / TWO_LANE_ML_FOUNDRY / PROTECTED_ADMISSION_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `SUPERSEDED_BY_V40 / F0_F1_HISTORICAL_EVIDENCE_PRESERVED / PROTECTED_FRONTIER_REQUIRES_PROJECT_EXPOSURE_REBASELINE` |
+| Заменён | [Roadmap V40](physical-sound-synthesis-roadmap-v40.md); [independence correction](../development/physical-sound-v40-project-independence-rebaseline-2026-09-03.md) withdraws `6/23` as current admission planning authority without changing the exact F1 replay result |
 | Заменяет | [Roadmap V38](physical-sound-synthesis-roadmap-v38.md) как planning authority; его source frontier и все terminal evidence остаются точными историческими фактами |
 | Текущее evidence | [V39 F1](../development/physical-sound-v39-f1-source-frontier-result-2026-09-03.md), [V39 F0](../development/physical-sound-v39-f0-foundry-preflight-result-2026-09-03.md), [V38 S0](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), [V37 D0](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; current production consumer, public schema и promoting ADR отсутствуют |
