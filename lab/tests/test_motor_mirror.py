@@ -12,8 +12,10 @@ from next_lab.biomechanics_preview import (
 from next_lab.isaac_env import (
     authored_ground_clearance_metres,
     authored_root_height_micrometres,
+    bounded_standing_reward_q16_tensor,
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
+    fall_height_threshold_micrometres,
     fixed_pd_tensor,
     isaac_actuator_limits_from_descriptor,
     isaac_prim_name,
@@ -280,6 +282,64 @@ class MotorMirrorTests(unittest.TestCase):
         self.assertEqual(components.shape, (1, 11))
         self.assertEqual(components[0, 9].item(), 65_536)
         self.assertLess(total.item(), 0)
+
+    def test_bounded_standing_reward_is_commensurate_and_yaw_invariant(self) -> None:
+        half_sqrt_q30 = 759_250_125
+        quaternion = torch.tensor(
+            [[0, 0, 0, 1 << 30], [0, half_sqrt_q30, 0, half_sqrt_q30]],
+            dtype=torch.int64,
+        )
+        zeros3 = torch.zeros((2, 3), dtype=torch.int64)
+        zeros23 = torch.zeros((2, 23), dtype=torch.int64)
+        components, total = bounded_standing_reward_q16_tensor(
+            quaternion_xyzw_q1_30=quaternion,
+            root_height_micrometres=torch.full((2,), 1_050_000, dtype=torch.int64),
+            target_root_height_micrometres=1_050_000,
+            joint_position_raw=zeros23,
+            linear_velocity_raw=zeros3,
+            angular_velocity_raw=zeros3,
+            effort_sum_raw=torch.zeros(2, dtype=torch.int64),
+            applied_action_raw=zeros23,
+            previous_applied_action_raw=zeros23,
+            contacting_foot_slip_sum_raw=torch.zeros(2, dtype=torch.int64),
+            contacting_foot_count=torch.full((2,), 2, dtype=torch.int64),
+            fell=torch.zeros(2, dtype=torch.bool),
+        )
+        self.assertEqual(components.shape, (2, 8))
+        self.assertTrue(torch.all((components >= 0) & (components <= 65_536)))
+        self.assertEqual(components[0, 0].item(), components[1, 0].item())
+        self.assertEqual(total.tolist(), [114_688, 114_688])
+
+        adverse_components, adverse_total = bounded_standing_reward_q16_tensor(
+            quaternion_xyzw_q1_30=quaternion[:1],
+            root_height_micrometres=torch.tensor([0], dtype=torch.int64),
+            target_root_height_micrometres=1_050_000,
+            joint_position_raw=torch.full((1, 23), 1_500_000, dtype=torch.int64),
+            linear_velocity_raw=torch.full((1, 3), 3_000_000, dtype=torch.int64),
+            angular_velocity_raw=torch.full((1, 3), 6_000_000, dtype=torch.int64),
+            effort_sum_raw=torch.tensor([23 * 4 * 150_000_000], dtype=torch.int64),
+            applied_action_raw=torch.full((1, 23), 1_000_000, dtype=torch.int64),
+            previous_applied_action_raw=torch.full((1, 23), -1_000_000, dtype=torch.int64),
+            contacting_foot_slip_sum_raw=torch.tensor([8_000_000], dtype=torch.int64),
+            contacting_foot_count=torch.tensor([2], dtype=torch.int64),
+            fell=torch.ones(1, dtype=torch.bool),
+        )
+        self.assertTrue(torch.all((adverse_components >= 0) & (adverse_components <= 65_536)))
+        self.assertEqual(adverse_total.item(), -83_232)
+
+    def test_bounded_standing_keeps_standing_fall_threshold(self) -> None:
+        self.assertEqual(
+            fall_height_threshold_micrometres(
+                "nextengine.motor.env.humanoid-standing.v2"
+            ),
+            250_000,
+        )
+        self.assertEqual(
+            fall_height_threshold_micrometres(
+                "nextengine.motor.env.humanoid-flat-command.v1"
+            ),
+            450_000,
+        )
 
     def test_curriculum_support_uses_exact_zero_command_mode(self) -> None:
         quaternion = torch.tensor([[0, 0, 0, 1 << 30]] * 2, dtype=torch.int64)

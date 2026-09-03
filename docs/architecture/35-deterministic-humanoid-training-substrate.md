@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-21 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-35 2.3; binds the current R5 performance consumer to ADR-093 deterministic worker placement and workload identity v3 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-09-04 |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md) |
+| Заменяет | SPEC-35 2.4; adds the distinct bounded standing V2 optimizer identity while preserving all frozen V1 bytes and evidence boundaries |
 | Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
@@ -172,6 +172,14 @@ engine-owned SHA-256-counter command stages from episode ordinal `0`, `32` or
 `96`. ADR-065 owns the narrower ranges, acceleration, reward shaping and
 command-conditioned support component. V1 remains byte-for-byte unchanged.
 
+`nextengine.motor.env.humanoid-standing.v2` also reuses the frozen Stage 0 V1
+body, world-frame observation, action, controller, zero command, reset, scene,
+standing termination and 3,600-tick timeout. ADR-100 changes only its distinct
+reward and translator closure: eight commensurate components are individually
+bounded to `[0, 65,536]` Q16 and the weighted per-step total is bounded to
+`[-148,768, 114,688]` Q16. Standing V1 remains byte-for-byte historical input
+and is not an optimizer profile for new R8b runs.
+
 ## Checkpoint and replay
 
 `WorldCheckpointV5` atomically contains runtime/RPG state plus the final
@@ -223,10 +231,10 @@ cannot submit raw PhysX descriptors or mutate a live body directly.
 canonical schema/catalog and writes derived USD outside repository authority.
 Translator version and USD hash are recorded. Each environment manifest binds
 the exact translator semantics it admits: standing/flat-command V1 keep their
-historical translator-profile-v2 hash, while curriculum V2 binds
-`nextengine.isaac-usda-translator.v3`. Python/Torch code uses Rust golden
-vectors for joint ordering, seed derivation, fixed-point action/safety,
-termination facts and reward component IDs.
+historical translator-profile-v2 hash, while bounded standing V2 and
+curriculum V2 bind `nextengine.isaac-usda-translator.v3`. Python/Torch code
+uses Rust golden vectors for joint ordering, seed derivation, fixed-point
+action/safety, termination facts and reward component IDs.
 
 Stage 0 reward is an ordered vector, not one implicit scalar:
 
@@ -238,6 +246,13 @@ Stage 0 reward is an ordered vector, not one implicit scalar:
 6. action-rate penalty;
 7. foot-slip penalty;
 8. fall terminal component.
+
+That list is the immutable standing V1 historical vector. ADR-100 defines the
+current standing V2 optimizer vector as yaw-invariant upright, normalized
+height and pose tracking, normalized root-motion, applied-effort,
+post-clamp-action-rate and contacting-foot-slip costs, plus the unchanged
+standing fall fact. Every component and the final weighted sum use exact
+bounded Q16 arithmetic on both CPU and Isaac.
 
 Coefficient order/value/units are hash-bound in the environment manifest.
 Rewards and done facts are training observations, never gameplay authority.

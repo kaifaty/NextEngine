@@ -251,7 +251,7 @@ impl MotorVectorRunner {
         &mut self,
         inputs: Vec<VectorStepInput>,
     ) -> Result<Vec<VectorStepOutput>, TrainingEnvironmentError> {
-        if self.profile != MotorEnvironmentProfile::StandingV1 {
+        if !self.profile.is_standing() {
             return Err(TrainingEnvironmentError::ExternalCommandForbidden);
         }
         if inputs.len() != self.slots.len() {
@@ -367,6 +367,13 @@ impl MotorVectorRunner {
                     let total = bounded.iter().copied().fold(0_i64, i64::saturating_add);
                     (components, total)
                 }
+                MotorEnvironmentProfile::BoundedStandingV2 => bounded_standing_reward_components(
+                    &frame,
+                    &previous_action,
+                    &slot.foot_tokens,
+                    slot.maximum_effort_per_frame,
+                    terminal.terminated,
+                )?,
                 MotorEnvironmentProfile::HumanoidFlatCommandV1
                 | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
                     locomotion_reward_components(
@@ -382,7 +389,8 @@ impl MotorVectorRunner {
             };
             slot.previous_action_microradians = match self.profile {
                 MotorEnvironmentProfile::StandingV1 => self.staged_actions[slot_index].clone(),
-                MotorEnvironmentProfile::HumanoidFlatCommandV1
+                MotorEnvironmentProfile::BoundedStandingV2
+                | MotorEnvironmentProfile::HumanoidFlatCommandV1
                 | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
                     frame.applied_action_microradians.clone()
                 }
@@ -398,7 +406,8 @@ impl MotorVectorRunner {
                     .iter()
                     .map(|(_, value)| (*value).clamp(0, 65_536))
                     .collect(),
-                MotorEnvironmentProfile::HumanoidFlatCommandV1
+                MotorEnvironmentProfile::BoundedStandingV2
+                | MotorEnvironmentProfile::HumanoidFlatCommandV1
                 | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => reward_components_raw
                     .iter()
                     .map(|(_, value)| *value)

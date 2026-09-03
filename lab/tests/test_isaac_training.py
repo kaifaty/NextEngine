@@ -44,6 +44,10 @@ STANDING_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/isaac-rsl-rl-rtx3080-standing.v1.json"
 )
+BOUNDED_STANDING_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/isaac-rsl-rl-rtx3080-standing.v2.json"
+)
 
 
 class IsaacTrainingTests(unittest.TestCase):
@@ -93,6 +97,21 @@ class IsaacTrainingTests(unittest.TestCase):
             profile.evaluation["seeds"],
             [1001, 1002, 1003, 1004, 1005],
         )
+
+    def test_bounded_standing_v2_changes_only_environment_identity(self) -> None:
+        legacy = IsaacTrainingProfile.load(STANDING_PROFILE)
+        bounded = IsaacTrainingProfile.load(BOUNDED_STANDING_PROFILE)
+        self.assertEqual(
+            bounded.environment_profile_id,
+            "nextengine.motor.env.humanoid-standing.v2",
+        )
+        self.assertNotEqual(bounded.profile_hash, legacy.profile_hash)
+        self.assertEqual(bounded.num_envs, legacy.num_envs)
+        self.assertEqual(bounded.steps_per_env, legacy.steps_per_env)
+        self.assertEqual(bounded.iterations, legacy.iterations)
+        self.assertEqual(bounded.policy, legacy.policy)
+        self.assertEqual(bounded.algorithm, legacy.algorithm)
+        self.assertEqual(bounded.evaluation, legacy.evaluation)
 
     def test_config_hash_binds_artifacts_and_overrides(self) -> None:
         profile = IsaacTrainingProfile.load(PROFILE)

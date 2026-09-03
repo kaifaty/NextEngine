@@ -9,6 +9,7 @@ from typing import Any, Iterable
 import torch
 
 from next_lab.motor_mirror import (
+    BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
     FLAT_LOCOMOTION_PROFILE_ID,
     Q1_30_ONE,
@@ -19,6 +20,17 @@ from next_lab.motor_mirror import (
     flat_locomotion_command_schedule,
     select_environment_profile,
     validate_descriptor,
+)
+
+BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16 = (
+    65_536,
+    32_768,
+    16_384,
+    -6_554,
+    -1_311,
+    -3_277,
+    -6_554,
+    -131_072,
 )
 
 try:
@@ -71,6 +83,14 @@ def is_locomotion_profile(profile_id: str) -> bool:
         FLAT_LOCOMOTION_PROFILE_ID,
         CURRICULUM_LOCOMOTION_PROFILE_ID,
     }
+
+
+def is_standing_profile(profile_id: str) -> bool:
+    return profile_id in {STANDING_PROFILE_ID, BOUNDED_STANDING_PROFILE_ID}
+
+
+def fall_height_threshold_micrometres(profile_id: str) -> int:
+    return 450_000 if is_locomotion_profile(profile_id) else 250_000
 
 
 def require_finite_tensor(
@@ -476,6 +496,77 @@ def locomotion_reward_q16_tensor(
     return components, total
 
 
+def bounded_standing_reward_q16_tensor(
+    *,
+    quaternion_xyzw_q1_30: torch.Tensor,
+    root_height_micrometres: torch.Tensor,
+    target_root_height_micrometres: int,
+    joint_position_raw: torch.Tensor,
+    linear_velocity_raw: torch.Tensor,
+    angular_velocity_raw: torch.Tensor,
+    effort_sum_raw: torch.Tensor,
+    applied_action_raw: torch.Tensor,
+    previous_applied_action_raw: torch.Tensor,
+    contacting_foot_slip_sum_raw: torch.Tensor,
+    contacting_foot_count: torch.Tensor,
+    fell: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Evaluate the engine-owned bounded standing V2 reward in exact Q16."""
+    x = quaternion_xyzw_q1_30[:, 0]
+    z = quaternion_xyzw_q1_30[:, 2]
+    tilt_reduction = round_div_ties_even_tensor(2 * (x * x + z * z), Q1_30_ONE)
+    upright_q30 = torch.clamp(Q1_30_ONE - tilt_reduction, 0, Q1_30_ONE)
+    upright = ratio_q16_tensor(upright_q30, Q1_30_ONE)
+    height = 65_536 - ratio_q16_tensor(
+        torch.abs(root_height_micrometres - target_root_height_micrometres),
+        600_000,
+    )
+    pose = 65_536 - ratio_q16_tensor(
+        torch.sum(torch.abs(joint_position_raw), dim=-1),
+        23 * 1_500_000,
+    )
+    linear_motion = ratio_q16_tensor(
+        torch.sum(torch.abs(linear_velocity_raw), dim=-1),
+        3 * 3_000_000,
+    )
+    angular_motion = ratio_q16_tensor(
+        torch.sum(torch.abs(angular_velocity_raw), dim=-1),
+        3 * 6_000_000,
+    )
+    root_motion = torch.maximum(linear_motion, angular_motion)
+    effort = ratio_q16_tensor(effort_sum_raw, 23 * 4 * 150_000_000)
+    action_rate = ratio_q16_tensor(
+        torch.sum(torch.abs(applied_action_raw - previous_applied_action_raw), dim=-1),
+        23 * 2_000_000,
+    )
+    slip_denominator = contacting_foot_count * 4_000_000
+    slip = torch.zeros_like(contacting_foot_slip_sum_raw)
+    nonzero = slip_denominator > 0
+    if torch.any(nonzero):
+        bounded = torch.minimum(contacting_foot_slip_sum_raw[nonzero], slip_denominator[nonzero])
+        numerator = bounded * 65_536
+        quotient = torch.div(numerator, slip_denominator[nonzero], rounding_mode="floor")
+        remainder = torch.remainder(numerator, slip_denominator[nonzero])
+        increment = (remainder * 2 > slip_denominator[nonzero]) | (
+            (remainder * 2 == slip_denominator[nonzero]) & (quotient % 2 == 1)
+        )
+        slip[nonzero] = quotient + increment.to(torch.int64)
+    fall = fell.to(torch.int64) * 65_536
+    components = torch.stack(
+        (upright, height, pose, root_motion, effort, action_rate, slip, fall),
+        dim=-1,
+    )
+    coefficients = torch.tensor(
+        BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16,
+        dtype=torch.int64,
+        device=components.device,
+    )
+    total = torch.sum(
+        round_div_ties_even_tensor(components * coefficients, 65_536), dim=-1
+    )
+    return components, total
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
@@ -694,7 +785,7 @@ if ISAAC_LAB_AVAILABLE:
             return quaternion, quaternion_raw, linear_raw, angular_raw, contacts
 
         def _current_command(self) -> torch.Tensor:
-            if self.profile["profile_id"] == STANDING_PROFILE_ID:
+            if is_standing_profile(self.profile["profile_id"]):
                 return torch.zeros((self.num_envs, 3), dtype=torch.int64, device=self.device)
             ticks = torch.clamp(self.episode_length_buf, 0, 1_200).to(torch.int64)
             envs = torch.arange(self.num_envs, device=self.device)
@@ -731,7 +822,9 @@ if ISAAC_LAB_AVAILABLE:
             vertical_velocity = torch.round(
                 self.robot.data.root_lin_vel_w[:, 2] * 1_000_000
             ).to(torch.int64)
-            fallen = root_height <= 450_000
+            fallen = root_height <= fall_height_threshold_micrometres(
+                self.profile["profile_id"]
+            )
             foot_velocity = engine_vector_from_isaac_tensor(
                 self.robot.data.body_lin_vel_w[:, self._foot_body_ids, :]
             )
@@ -739,6 +832,30 @@ if ISAAC_LAB_AVAILABLE:
                 (torch.abs(foot_velocity[..., 0]) + torch.abs(foot_velocity[..., 2])) * 1_000_000
             ).to(torch.int64)
             slip_sum = torch.sum(slip_per_foot * contacts.to(torch.int64), dim=-1)
+            if self.profile["profile_id"] == BOUNDED_STANDING_PROFILE_ID:
+                joint_position_raw = torch.round(
+                    self.robot.data.joint_pos[:, self._canonical_joint_ids] * 1_000_000
+                ).to(torch.int64)
+                components, total = bounded_standing_reward_q16_tensor(
+                    quaternion_xyzw_q1_30=quaternion_raw,
+                    root_height_micrometres=root_height,
+                    target_root_height_micrometres=self.authored_root_height_micrometres,
+                    joint_position_raw=joint_position_raw,
+                    linear_velocity_raw=linear_raw,
+                    angular_velocity_raw=angular_raw,
+                    effort_sum_raw=self._effort_sum,
+                    applied_action_raw=self._action,
+                    previous_applied_action_raw=self._previous_action,
+                    contacting_foot_slip_sum_raw=slip_sum,
+                    contacting_foot_count=torch.sum(contacts.to(torch.int64), dim=-1),
+                    fell=fallen,
+                )
+                self.reward_components_q16.copy_(components)
+                reward = total.to(torch.float32) / 65_536.0
+                self._accumulate_episode_metrics(
+                    reward, components.to(torch.float32) / 65_536.0
+                )
+                return reward
             components, total = locomotion_reward_q16_tensor(
                 quaternion_xyzw_q1_30=quaternion_raw,
                 root_height_micrometres=root_height,
@@ -806,7 +923,10 @@ if ISAAC_LAB_AVAILABLE:
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
             root = self.robot.data.root_pos_w
             require_finite_tensor("done_root_pos_w", root)
-            threshold = 0.45 if is_locomotion_profile(self.profile["profile_id"]) else 0.25
+            threshold = (
+                fall_height_threshold_micrometres(self.profile["profile_id"])
+                / 1_000_000.0
+            )
             terminated = root[:, 2] <= threshold
             if is_locomotion_profile(self.profile["profile_id"]):
                 displacement = root[:, :2] - self.scene.env_origins[:, :2]

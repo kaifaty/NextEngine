@@ -15,6 +15,7 @@ SEED_DOMAIN = b"nextengine.motor-episode-seed.v1\0"
 COMMAND_COUNTER_DOMAIN = b"nextengine.motor-command-counter.v1\0"
 COMMAND_SCHEDULE_DOMAIN = b"nextengine.motor-command-schedule.v1\0"
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
+BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
@@ -39,6 +40,16 @@ STANDING_REWARD_COMPONENT_IDS = (
     "reward.action-rate-penalty",
     "reward.foot-slip-penalty",
     "reward.fall-terminal",
+)
+BOUNDED_STANDING_REWARD_COMPONENT_IDS = (
+    "reward.upright-yaw-invariant",
+    "reward.root-height-tracking",
+    "reward.standing-pose-tracking-normalized",
+    "reward.root-motion-cost",
+    "reward.normalized-applied-effort-cost",
+    "reward.applied-action-rate-cost",
+    "reward.contacting-foot-tangential-slip-cost",
+    "reward.fall-component",
 )
 LOCOMOTION_REWARD_COMPONENT_IDS = (
     "reward.planar-command-tracking",
@@ -373,6 +384,7 @@ def validate_golden(
         raise ValueError("golden reward profiles are missing")
     expected_rewards = {
         STANDING_PROFILE_ID: STANDING_REWARD_COMPONENT_IDS,
+        BOUNDED_STANDING_PROFILE_ID: BOUNDED_STANDING_REWARD_COMPONENT_IDS,
         FLAT_LOCOMOTION_PROFILE_ID: LOCOMOTION_REWARD_COMPONENT_IDS,
         CURRICULUM_LOCOMOTION_PROFILE_ID: CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS,
     }
@@ -724,6 +736,7 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         profile.get("profile_id") for profile in profiles
     } != {
         STANDING_PROFILE_ID,
+        BOUNDED_STANDING_PROFILE_ID,
         FLAT_LOCOMOTION_PROFILE_ID,
         CURRICULUM_LOCOMOTION_PROFILE_ID,
     }:
@@ -748,6 +761,8 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         expected = (
             STANDING_REWARD_COMPONENT_IDS
             if profile["profile_id"] == STANDING_PROFILE_ID
+            else BOUNDED_STANDING_REWARD_COMPONENT_IDS
+            if profile["profile_id"] == BOUNDED_STANDING_PROFILE_ID
             else CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS
             if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
             else LOCOMOTION_REWARD_COMPONENT_IDS
@@ -762,7 +777,8 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
             )
         translator_identity = (
             CURRENT_TRANSLATOR_VERSION
-            if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
+            if profile["profile_id"]
+            in {BOUNDED_STANDING_PROFILE_ID, CURRICULUM_LOCOMOTION_PROFILE_ID}
             else LEGACY_TRANSLATOR_PROFILE_ID
         )
         translator_hash = hashlib.sha256(
@@ -772,7 +788,10 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         ).hexdigest()
         if profile["translator_version_hash"] != translator_hash:
             raise ValueError("environment translator identity does not close")
-        if profile["profile_id"] == STANDING_PROFILE_ID:
+        if profile["profile_id"] in {
+            STANDING_PROFILE_ID,
+            BOUNDED_STANDING_PROFILE_ID,
+        }:
             if (
                 profile.get("velocity_frame") != "world"
                 or profile.get("maximum_episode_steps") != 3_600

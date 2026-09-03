@@ -23,6 +23,8 @@ pub const MAX_CPU_VECTOR_SLOTS: u32 = 256;
 pub const DEFAULT_MAX_EPISODE_MOTOR_STEPS: u64 = 60 * 60;
 pub const FLAT_LOCOMOTION_MAX_EPISODE_MOTOR_STEPS: u64 = 1_200;
 pub const STANDING_ENVIRONMENT_PROFILE_ID: &str = "nextengine.motor.env.humanoid-standing.v1";
+pub const BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID: &str =
+    "nextengine.motor.env.humanoid-standing.v2";
 pub const FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
     "nextengine.motor.env.humanoid-flat-command.v1";
 pub const CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
@@ -68,6 +70,21 @@ pub const STANDING_REWARD_COMPONENT_IDS: [&str; 8] = [
     "reward.fall-terminal",
 ];
 
+pub const BOUNDED_STANDING_REWARD_COMPONENT_IDS: [&str; 8] = [
+    "reward.upright-yaw-invariant",
+    "reward.root-height-tracking",
+    "reward.standing-pose-tracking-normalized",
+    "reward.root-motion-cost",
+    "reward.normalized-applied-effort-cost",
+    "reward.applied-action-rate-cost",
+    "reward.contacting-foot-tangential-slip-cost",
+    "reward.fall-component",
+];
+
+pub const BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16: [i64; 8] = [
+    65_536, 32_768, 16_384, -6_554, -1_311, -3_277, -6_554, -131_072,
+];
+
 pub const LOCOMOTION_REWARD_COMPONENT_IDS: [&str; 10] = [
     "reward.planar-command-tracking",
     "reward.yaw-rate-tracking",
@@ -106,6 +123,7 @@ pub const CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16: [i64; 11] = [
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotorEnvironmentProfile {
     StandingV1,
+    BoundedStandingV2,
     HumanoidFlatCommandV1,
     HumanoidFlatCommandCurriculumV2,
 }
@@ -114,6 +132,7 @@ impl MotorEnvironmentProfile {
     pub fn parse_exact(profile_id: &str) -> Result<Self, TrainingEnvironmentError> {
         match profile_id {
             STANDING_ENVIRONMENT_PROFILE_ID => Ok(Self::StandingV1),
+            BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID => Ok(Self::BoundedStandingV2),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID => Ok(Self::HumanoidFlatCommandV1),
             CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID => {
                 Ok(Self::HumanoidFlatCommandCurriculumV2)
@@ -126,6 +145,7 @@ impl MotorEnvironmentProfile {
     pub const fn profile_id(self) -> &'static str {
         match self {
             Self::StandingV1 => STANDING_ENVIRONMENT_PROFILE_ID,
+            Self::BoundedStandingV2 => BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID,
             Self::HumanoidFlatCommandV1 => FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
             Self::HumanoidFlatCommandCurriculumV2 => CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
         }
@@ -139,9 +159,14 @@ impl MotorEnvironmentProfile {
         )
     }
 
+    #[must_use]
+    const fn is_standing(self) -> bool {
+        matches!(self, Self::StandingV1 | Self::BoundedStandingV2)
+    }
+
     const fn maximum_episode_steps(self) -> u64 {
         match self {
-            Self::StandingV1 => DEFAULT_MAX_EPISODE_MOTOR_STEPS,
+            Self::StandingV1 | Self::BoundedStandingV2 => DEFAULT_MAX_EPISODE_MOTOR_STEPS,
             Self::HumanoidFlatCommandV1 | Self::HumanoidFlatCommandCurriculumV2 => {
                 FLAT_LOCOMOTION_MAX_EPISODE_MOTOR_STEPS
             }
@@ -398,7 +423,7 @@ fn derive_episode_seed_set_for_profile(
     vector_slot: u32,
 ) -> Result<MotorEpisodeSeedSetV1, TrainingEnvironmentError> {
     match profile {
-        MotorEnvironmentProfile::StandingV1 => {
+        MotorEnvironmentProfile::StandingV1 | MotorEnvironmentProfile::BoundedStandingV2 => {
             derive_episode_seed_set(run_root, episode_ordinal, vector_slot)
         }
         MotorEnvironmentProfile::HumanoidFlatCommandV1
@@ -462,7 +487,7 @@ fn command_schedule_for_profile(
     seed_set: &MotorEpisodeSeedSetV1,
 ) -> Result<Vec<[i64; 3]>, TrainingEnvironmentError> {
     match profile {
-        MotorEnvironmentProfile::StandingV1 => {
+        MotorEnvironmentProfile::StandingV1 | MotorEnvironmentProfile::BoundedStandingV2 => {
             Ok(vec![[0; 3]; DEFAULT_MAX_EPISODE_MOTOR_STEPS as usize + 1])
         }
         MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
@@ -611,6 +636,16 @@ fn environment_manifest(
                 maximum_raw: i64::MAX,
             })
             .collect(),
+        MotorEnvironmentProfile::BoundedStandingV2 => BOUNDED_STANDING_REWARD_COMPONENT_IDS
+            .into_iter()
+            .zip(BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16)
+            .map(|(component_id, coefficient_q16)| MotorRewardComponentV1 {
+                component_id: schema_id(component_id),
+                coefficient_q16,
+                minimum_raw: 0,
+                maximum_raw: 65_536,
+            })
+            .collect(),
         MotorEnvironmentProfile::HumanoidFlatCommandV1 => LOCOMOTION_REWARD_COMPONENT_IDS
             .into_iter()
             .zip(LOCOMOTION_REWARD_COEFFICIENTS_Q16)
@@ -635,10 +670,12 @@ fn environment_manifest(
         }
     };
     let command_schedule_profile_hash = match profile {
-        MotorEnvironmentProfile::StandingV1 => profile_constant_hash(
-            "nextengine.motor.command.external-standing.v1",
-            compiled.body_schema_hash,
-        ),
+        MotorEnvironmentProfile::StandingV1 | MotorEnvironmentProfile::BoundedStandingV2 => {
+            profile_constant_hash(
+                "nextengine.motor.command.external-standing.v1",
+                compiled.body_schema_hash,
+            )
+        }
         MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
             flat_locomotion_command_profile_v1().profile_hash()?
         }
@@ -657,6 +694,9 @@ fn environment_manifest(
         physics_catalog_hash: profile_constant_hash(
             match profile {
                 MotorEnvironmentProfile::StandingV1 => {
+                    "nextengine.physics.catalog.humanoid-standing-50m.v1"
+                }
+                MotorEnvironmentProfile::BoundedStandingV2 => {
                     "nextengine.physics.catalog.humanoid-standing-50m.v1"
                 }
                 MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
@@ -692,7 +732,8 @@ fn environment_manifest(
                 | MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
                     LEGACY_ISAAC_TRANSLATOR_PROFILE_ID
                 }
-                MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+                MotorEnvironmentProfile::BoundedStandingV2
+                | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
                     ISAAC_TRANSLATOR_VERSION
                 }
             },
@@ -703,6 +744,9 @@ fn environment_manifest(
         termination_profile_hash: profile_constant_hash(
             match profile {
                 MotorEnvironmentProfile::StandingV1 => "nextengine.motor.termination.standing.v1",
+                MotorEnvironmentProfile::BoundedStandingV2 => {
+                    "nextengine.motor.termination.standing.v1"
+                }
                 MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
                     "nextengine.motor.termination.flat-command.v1"
                 }
@@ -761,12 +805,31 @@ fn reward_profile_hash(
     preimage.extend_from_slice(body_schema_hash.as_bytes());
     let (components, normalizations) = match profile {
         MotorEnvironmentProfile::StandingV1 => return content_hash_from_bytes(sha256(&preimage)),
+        MotorEnvironmentProfile::BoundedStandingV2 => {
+            let shaping_id = "bounded-commensurate-standing-v2";
+            preimage.extend_from_slice(&(shaping_id.len() as u32).to_le_bytes());
+            preimage.extend_from_slice(shaping_id.as_bytes());
+            (
+                BOUNDED_STANDING_REWARD_COMPONENT_IDS
+                    .into_iter()
+                    .zip(BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16)
+                    .collect::<Vec<_>>(),
+                vec![
+                    600_000_i64,
+                    34_500_000,
+                    9_000_000,
+                    18_000_000,
+                    2_000_000,
+                    4_000_000,
+                ],
+            )
+        }
         MotorEnvironmentProfile::HumanoidFlatCommandV1 => (
             LOCOMOTION_REWARD_COMPONENT_IDS
                 .into_iter()
                 .zip(LOCOMOTION_REWARD_COEFFICIENTS_Q16)
                 .collect::<Vec<_>>(),
-            [
+            vec![
                 6_500_000_i64,
                 3_000_000,
                 600_000,
@@ -785,7 +848,7 @@ fn reward_profile_hash(
                     .into_iter()
                     .zip(CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16)
                     .collect::<Vec<_>>(),
-                [
+                vec![
                     2_500_000_i64,
                     1_500_000,
                     400_000,
@@ -819,7 +882,9 @@ fn subject_id(run_root: ContentHash, vector_slot: u32) -> PersistentId {
 }
 
 mod reward;
-use reward::{locomotion_reward_components, standing_reward_components};
+use reward::{
+    bounded_standing_reward_components, locomotion_reward_components, standing_reward_components,
+};
 
 #[derive(Clone, Debug)]
 struct TerminalFacts {
@@ -851,7 +916,7 @@ fn terminal_facts_from_snapshot(
 ) -> TerminalFacts {
     let root = snapshot.links.first();
     let terminated_reason = match profile {
-        MotorEnvironmentProfile::StandingV1 => root
+        MotorEnvironmentProfile::StandingV1 | MotorEnvironmentProfile::BoundedStandingV2 => root
             .is_none_or(|root| root.position_micrometres[1] <= 250_000)
             .then(|| schema_id("terminal.fall")),
         MotorEnvironmentProfile::HumanoidFlatCommandV1

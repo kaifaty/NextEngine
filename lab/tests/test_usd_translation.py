@@ -108,6 +108,7 @@ def descriptor() -> dict:
         "actuators": [{"actuator_id": value} for value in actuator_ids],
         "environment_profiles": [
             _profile("nextengine.motor.env.humanoid-standing.v1", "world", 3_600, 8),
+            _profile("nextengine.motor.env.humanoid-standing.v2", "world", 3_600, 8),
             _profile(
                 "nextengine.motor.env.humanoid-flat-command.v1", "root-local", 1_200, 10
             ),
@@ -134,6 +135,16 @@ def _profile(
         "reward.foot-slip-penalty",
         "reward.fall-terminal",
     ]
+    bounded_standing = [
+        "reward.upright-yaw-invariant",
+        "reward.root-height-tracking",
+        "reward.standing-pose-tracking-normalized",
+        "reward.root-motion-cost",
+        "reward.normalized-applied-effort-cost",
+        "reward.applied-action-rate-cost",
+        "reward.contacting-foot-tangential-slip-cost",
+        "reward.fall-component",
+    ]
     locomotion = [
         "reward.planar-command-tracking",
         "reward.yaw-rate-tracking",
@@ -159,7 +170,9 @@ def _profile(
         "reward_components": [
             {"component_id": value}
             for value in (
-                standing
+                bounded_standing
+                if profile_id == "nextengine.motor.env.humanoid-standing.v2"
+                else standing
                 if reward_count == 8
                 else curriculum
                 if reward_count == 11
@@ -182,6 +195,7 @@ def _profile(
     translator_identity = (
         CURRENT_TRANSLATOR_VERSION
         if reward_count == 11
+        or profile_id == "nextengine.motor.env.humanoid-standing.v2"
         else LEGACY_TRANSLATOR_PROFILE_ID
     )
     profile["translator_version_hash"] = hashlib.sha256(

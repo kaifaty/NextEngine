@@ -5,14 +5,14 @@ use next_contracts::physics::PhysicsGeometryV1;
 use serde_json::{Value, json};
 
 use crate::{
-    CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CompiledBodySchemaV1,
-    FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController, ISAAC_TRANSLATOR_VERSION,
-    JointControlStateV1, STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError,
-    canonical_environment_manifest_v2, curriculum_locomotion_command_schedule,
-    curriculum_locomotion_profile_hash_v2, curriculum_locomotion_stages_v2,
-    derive_locomotion_episode_seed_set, flat_locomotion_command_profile_v1,
-    flat_locomotion_command_schedule, reference_humanoid_body_schema_v1,
-    rotate_world_to_root_local_q1_30,
+    BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID, CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
+    CompiledBodySchemaV1, FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController,
+    ISAAC_TRANSLATOR_VERSION, JointControlStateV1, STANDING_ENVIRONMENT_PROFILE_ID,
+    TrainingEnvironmentError, canonical_environment_manifest_v2,
+    curriculum_locomotion_command_schedule, curriculum_locomotion_profile_hash_v2,
+    curriculum_locomotion_stages_v2, derive_locomotion_episode_seed_set,
+    flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
+    reference_humanoid_body_schema_v1, rotate_world_to_root_local_q1_30,
 };
 
 pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnvironmentError> {
@@ -24,6 +24,8 @@ pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnviro
         .apply_flat_locomotion_profile()
         .map_err(|_| TrainingEnvironmentError::Compile)?;
     let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
+    let bounded_standing_manifest =
+        canonical_environment_manifest_v2(BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID)?;
     let locomotion_manifest =
         canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
     let curriculum_manifest =
@@ -115,6 +117,9 @@ pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnviro
             profile_json(&standing_manifest, &compiled, "world", 50, json!({
                 "kind": "zero",
             })),
+            profile_json(&bounded_standing_manifest, &compiled, "world", 50, json!({
+                "kind": "zero",
+            })),
             profile_json(
                 &locomotion_manifest,
                 &locomotion_compiled,
@@ -168,6 +173,8 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
     let curriculum_schedule = curriculum_locomotion_command_schedule(command_seed, 17)?;
     let descriptor = stage0_isaac_mirror_descriptor_json_v2()?;
     let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
+    let bounded_standing_manifest =
+        canonical_environment_manifest_v2(BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID)?;
     let locomotion_manifest =
         canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
     let curriculum_manifest =
@@ -201,11 +208,13 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
         "ordered_actuator_ids": compiled.actuator_definitions.iter().map(|value| value.actuator_id.as_str()).collect::<Vec<_>>(),
         "profile_manifest_hashes": {
             STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.manifest_hash()?.to_hex(),
+            BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID: bounded_standing_manifest.manifest_hash()?.to_hex(),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.manifest_hash()?.to_hex(),
             CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: curriculum_manifest.manifest_hash()?.to_hex(),
         },
         "reward_component_ids": {
             STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
+            BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID: bounded_standing_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
             CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: curriculum_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
         },

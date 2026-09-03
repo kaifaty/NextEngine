@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.69 |
-| Последняя проверка | 2026-08-29 |
-| Заменяет | INDEX-001 2.68; indexes the bounded Proposed SPEC-47/ADR-099 streaming-TTS vertical |
+| Версия | 2.70 |
+| Последняя проверка | 2026-09-04 |
+| Заменяет | INDEX-001 2.69; indexes the Accepted bounded standing V2 optimizer profile without changing learned-policy authority |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -184,8 +184,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073 plus bounded R4d social/work/economy and tier-cadence vertical under ADR-074 |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-44 does not yet add a world-solver lane |
-| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; standing V1/V2, flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070/100; SPEC-44 does not yet add a world-solver lane |
+| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing V1 plus bounded standing V2, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
 | SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
@@ -306,6 +306,7 @@ traceability — навигационная карта, не admission authority
 | ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
+| ADR-100 | [Bounded standing reward profile](adr/100-bounded-standing-reward-profile.md) | Accepted distinct standing V2 optimizer identity with eight bounded Q16 components; standing V1 bytes remain immutable and learned quality remains unproven |
 
 ## Proposed tracks
 

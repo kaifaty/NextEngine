@@ -103,6 +103,9 @@ fn curriculum_schedule_progresses_without_changing_v1() {
 fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
     let standing = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)
         .expect("standing manifest");
+    let bounded_standing =
+        canonical_environment_manifest_v2(BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID)
+            .expect("bounded standing manifest");
     let legacy = canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)
         .expect("legacy manifest");
     let curriculum =
@@ -125,6 +128,21 @@ fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
         curriculum.command_schedule_profile_hash
     );
     assert_ne!(legacy.reward_profile_hash, curriculum.reward_profile_hash);
+    assert_ne!(
+        standing.reward_profile_hash,
+        bounded_standing.reward_profile_hash
+    );
+    assert_eq!(bounded_standing.reward_components.len(), 8);
+    assert!(
+        bounded_standing
+            .reward_components
+            .iter()
+            .all(|component| { component.minimum_raw == 0 && component.maximum_raw == 65_536 })
+    );
+    assert_eq!(
+        bounded_standing.translator_version_hash,
+        profile_constant_hash(ISAAC_TRANSLATOR_VERSION, bounded_standing.body_schema_hash)
+    );
     assert_eq!(
         standing.translator_version_hash,
         legacy.translator_version_hash
@@ -143,6 +161,39 @@ fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
         "reward.command-conditioned-support"
     );
     assert_eq!(curriculum.reward_components[10].coefficient_q16, -655_360);
+}
+
+#[test]
+fn bounded_standing_records_commensurate_q16_components() {
+    let mut runner = MotorVectorRunner::create_profile(
+        BOUNDED_STANDING_ENVIRONMENT_PROFILE_ID,
+        1,
+        ContentHash::from_bytes([31; 32]),
+    )
+    .expect("bounded standing runner");
+    runner.reset_slots(&[0]).expect("reset");
+    let output = runner
+        .step_actions_lockstep(vec![locomotion_input(0, 1, 0)])
+        .expect("step");
+    assert_eq!(output[0].reward_components_raw.len(), 8);
+    assert!(
+        output[0]
+            .reward_components_raw
+            .iter()
+            .all(|(_, value)| (0..=65_536).contains(value))
+    );
+    assert!((-148_768..=114_688).contains(&output[0].reward_total_q16));
+    assert_eq!(
+        output[0].reward_components_raw,
+        output[0]
+            .step_record
+            .reward_components_q16
+            .iter()
+            .copied()
+            .zip(BOUNDED_STANDING_REWARD_COMPONENT_IDS.map(schema_id))
+            .map(|(value, id)| (id, value))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]

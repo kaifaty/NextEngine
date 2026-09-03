@@ -26,6 +26,7 @@ CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
 )
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
+BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 
 
 class MotorLabProtocolError(RuntimeError):

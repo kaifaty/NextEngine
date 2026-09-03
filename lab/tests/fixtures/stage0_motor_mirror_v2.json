@@ -147,7 +147,7 @@
     ],
     "sha256": "4c61481bc5234ca4e2359ad246e4a3a8e216291cad3fb216434597dd795bb2bd"
   },
-  "descriptor_sha256": "50c55442af412e0ac72ae7aa4ad327b6ac515d40a8b5d62bdb9c7817dad2fc11",
+  "descriptor_sha256": "89299e79572adbc7c4a622f3f13b98f65e7cad2755c6d60e44c9acf617618c90",
   "ordered_actuator_ids": [
     "actuator.left-ankle-pitch",
     "actuator.left-ankle-roll",
@@ -186,7 +186,8 @@
   "profile_manifest_hashes": {
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2": "ba3b015812ceff2c6e8acd421adf826a475a46b710645258afd071fe3d34a937",
     "nextengine.motor.env.humanoid-flat-command.v1": "dd5e392d482c43f94fadb1eb1e7b484c9bd73410d092fd3586b35ff0feb074d8",
-    "nextengine.motor.env.humanoid-standing.v1": "dc64488393a57a07e993fdf062f663c8024fc1475267dbf6e8c35f5458f45396"
+    "nextengine.motor.env.humanoid-standing.v1": "dc64488393a57a07e993fdf062f663c8024fc1475267dbf6e8c35f5458f45396",
+    "nextengine.motor.env.humanoid-standing.v2": "b39b4ae2674b0aa8c79990a039015c6c41c57c6f8af23b6c0283ed05a3555f04"
   },
   "purpose_seeds": [
     {
@@ -245,6 +246,16 @@
       "reward.action-rate-penalty",
       "reward.foot-slip-penalty",
       "reward.fall-terminal"
+    ],
+    "nextengine.motor.env.humanoid-standing.v2": [
+      "reward.upright-yaw-invariant",
+      "reward.root-height-tracking",
+      "reward.standing-pose-tracking-normalized",
+      "reward.root-motion-cost",
+      "reward.normalized-applied-effort-cost",
+      "reward.applied-action-rate-cost",
+      "reward.contacting-foot-tangential-slip-cost",
+      "reward.fall-component"
     ]
   },
   "root_local_transform": {

@@ -152,10 +152,57 @@ def main() -> None:
             "maximum_root_height_overshoot_m": 0.0,
             "maximum_root_linear_speed_mps": 0.0,
         }
+        reward_minimum_q16, reward_maximum_q16 = reward_bounds_q16(environment.profile)
+        reward_probe = {
+            "minimum_total": float("inf"),
+            "maximum_total": float("-inf"),
+            "component_minimum_q16": [2**63 - 1]
+            * len(environment.profile["reward_components"]),
+            "component_maximum_q16": [-(2**63)]
+            * len(environment.profile["reward_components"]),
+        }
         for _ in range(args.survival_steps):
-            _, _, dones, _ = wrapped.step(zero_actions)
+            _, rewards, dones, _ = wrapped.step(zero_actions)
             if torch.any(dones > 0):
                 raise RuntimeError("zero-action state terminated immediately after reset")
+            if not torch.isfinite(rewards).all():
+                raise RuntimeError("reward probe produced a non-finite total")
+            components = environment.reward_components_q16
+            for index, component in enumerate(environment.profile["reward_components"]):
+                observed_minimum = int(torch.min(components[:, index]).item())
+                observed_maximum = int(torch.max(components[:, index]).item())
+                if (
+                    observed_minimum < component["minimum_raw"]
+                    or observed_maximum > component["maximum_raw"]
+                ):
+                    raise RuntimeError(
+                        f"reward component {component['component_id']} escaped its manifest bounds: "
+                        f"{observed_minimum}..{observed_maximum}"
+                    )
+                reward_probe["component_minimum_q16"][index] = min(
+                    reward_probe["component_minimum_q16"][index], observed_minimum
+                )
+                reward_probe["component_maximum_q16"][index] = max(
+                    reward_probe["component_maximum_q16"][index], observed_maximum
+                )
+            observed_reward_minimum = float(torch.min(rewards).item())
+            observed_reward_maximum = float(torch.max(rewards).item())
+            if (
+                observed_reward_minimum
+                < reward_minimum_q16 / 65_536.0 - 1.0e-5
+                or observed_reward_maximum
+                > reward_maximum_q16 / 65_536.0 + 1.0e-5
+            ):
+                raise RuntimeError(
+                    "reward total escaped its manifest-derived bounds: "
+                    f"{observed_reward_minimum}..{observed_reward_maximum}"
+                )
+            reward_probe["minimum_total"] = min(
+                reward_probe["minimum_total"], observed_reward_minimum
+            )
+            reward_probe["maximum_total"] = max(
+                reward_probe["maximum_total"], observed_reward_maximum
+            )
             motion["maximum_joint_speed_rps"] = max(
                 motion["maximum_joint_speed_rps"],
                 float(torch.max(torch.abs(environment.robot.data.joint_vel)).item()),
@@ -205,6 +252,11 @@ def main() -> None:
                     "automatic_reset_errors": automatic_reset_errors,
                     "post_reset_zero_action_steps": args.survival_steps,
                     "post_reset_motion": motion,
+                    "reward_probe": {
+                        **reward_probe,
+                        "manifest_minimum_total_q16": reward_minimum_q16,
+                        "manifest_maximum_total_q16": reward_maximum_q16,
+                    },
                     "episode_ordinals": environment._episode_ordinals.cpu().tolist(),
                 },
                 indent=2,
@@ -252,6 +304,33 @@ def require_below_tolerance(label: str, errors: dict[str, float]) -> None:
     failed = {name: value for name, value in errors.items() if value > tolerance}
     if failed:
         raise RuntimeError(f"{label} state mismatch: {failed}")
+
+
+def reward_bounds_q16(profile: dict[str, Any]) -> tuple[int, int]:
+    minimum = 0
+    maximum = 0
+    for component in profile["reward_components"]:
+        coefficient = component["coefficient_q16"]
+        endpoint_a = round_div_ties_even(
+            component["minimum_raw"] * coefficient, 65_536
+        )
+        endpoint_b = round_div_ties_even(
+            component["maximum_raw"] * coefficient, 65_536
+        )
+        minimum += min(endpoint_a, endpoint_b)
+        maximum += max(endpoint_a, endpoint_b)
+    return minimum, maximum
+
+
+def round_div_ties_even(numerator: int, denominator: int) -> int:
+    sign = -1 if numerator < 0 else 1
+    absolute = abs(numerator)
+    quotient, remainder = divmod(absolute, denominator)
+    if remainder * 2 > denominator or (
+        remainder * 2 == denominator and quotient % 2 == 1
+    ):
+        quotient += 1
+    return sign * quotient
 
 
 def require_motion_envelope(args: argparse.Namespace, motion: dict[str, float]) -> None:

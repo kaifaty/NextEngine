@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / FIRST_RUN_COMPLETE / V1_REWARD_SCALE_BLOCKED / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V2_REWARD_IMPLEMENTED / CPU_PREFLIGHT_PASS / GPU_PREFLIGHT_PENDING / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
@@ -11,23 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R8b is the selected post-v1 WIP. Start with learned
-  standing, but retire its dimensionally broken V1 reward before another run;
-  forward start/stop, damage and broader skills remain deferred.
-- **Why:** R8a is complete and the foundation-first order remains correct, but
-  the first exact run proves the accepted frozen V1 standing reward is not a
-  usable optimizer objective. More PPO compute cannot repair raw-unit scale.
-- **Next action:** Do not rerun standing V1. Define one engine-owned standing
-  V2 reward profile with bounded, commensurate units, close future generic-run
-  metrics in their manifests, then preflight a new generation before asking
-  for another compute budget.
-- **Current blocker:** The frozen standing V1 reward sums raw
-  micronewton-metre effort and microradian action deltas beside unit-scale
-  posture terms, so PPO learns to reduce actuation and fall sooner. The first
-  run also exposed that the generic manifest closes checkpoints but not
-  `metrics.jsonl`; the source fix applies only to future runs. In addition,
-  `MODEL-MIRROR-P1` remains `NOT_RUN` because the CPU recorder/correspondence
-  reader NPZ layouts differ and no V1 GPU recorder exists.
+- **Current conclusion:** R8b remains the selected post-v1 WIP. Standing V1 is
+  retired from optimizer use; ADR-100 and
+  `nextengine.motor.env.humanoid-standing.v2` now isolate the environment-scale
+  fix without changing PPO, body, seed or budget.
+- **Why:** The V1 run did not test body learnability because raw effort/action
+  units dominated its return. V2 bounds every component to `[0, 65536]` Q16
+  and the total to `[-148768, 114688]`; its production CPU PhysX 32-tick
+  zero-action probe passes those bounds.
+- **Next action:** Create and activate one new external V2 generation, pass the
+  Isaac reset/reward-scale probe and trainer preflight, then start the
+  explicitly authorized seed-42 `4,096,000`-transition run.
+- **Current blocker:** GPU preflight and the new generation closure are not yet
+  complete. `MODEL-MIRROR-P1` also remains `NOT_RUN` because the CPU
+  recorder/correspondence reader NPZ layouts differ and no paired V2 GPU
+  recorder exists; this blocks authority, not the bounded optimizer experiment.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -54,6 +52,8 @@
 | R8b Isaac reset smoke | `PASS`, four slots, seed `1001`, exact automatic reset errors all zero; 10 zero-action ticks remain finite with max joint speed `8.995819 rad/s`, root speed `0.477639 m/s`, angular speed `0.541279 rad/s`, height overshoot `0.037621 m` | Pipeline/reset execution is ready only under the explicit legacy-V1 smoke envelope; this is not policy quality or correspondence evidence |
 | R8b optimizer run | `r8b-standing-seed42-v1` completed all `4,096,000` transitions on clean commit `3095a9e0…`; manifest `2debfb23…`, 21 checkpoint hashes verified, final `model_999.pt` `993da891…`; metrics file `6091cb6a…` has 1,000 finite records but its hash is absent from the immutable manifest | Pipeline execution passed, but the run is not fully hash-closed, grants no quality claim and is rejected by current checkpoint selection |
 | R8b standing outcome | Early-20 mean episode length `101.51`, final-20 `62.39`, best `111.16` at iteration 9 versus required `3,600`; final TensorBoard projection reports effort `-241,795,296`, action-rate `-1,513,819`, upright `0.480` and pose `-21.325` | Classify the first content failure as `Environment`: raw-unit penalties dominate and improvement in scalar return is anti-correlated with standing |
+| Standing V2 reward identity | ADR-100; environment `nextengine.motor.env.humanoid-standing.v2`; manifest `b39b4ae2…5f04`; eight components each `[0,65536]` Q16; total `[-148768,114688]` | Reuse the frozen V1 body/control/termination while changing only the optimizer objective and current translator closure |
+| Standing V2 CPU no-training probe | Production PhysX motor-lab, seed root `42…42`, one slot, 32 zero-action ticks; no terminal; all component/total bounds pass; observed total `32697..104730` Q16 | Reward scale is executable and commensurate on the canonical CPU path; this is not policy quality or CPU/Isaac correspondence |
 | R8b evaluation/correspondence | `NOT_RUN` | A five-seed evaluation cannot rescue a checkpoint whose training survival is about one second; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
@@ -152,6 +152,24 @@
 - **Reconsider when:** A new profile passes CPU reward golden vectors, Isaac
   reset/reward parity and a small no-training reward-scale probe.
 
+### D-006 — Change only the reward identity for the first V2 discriminator
+
+- **Observation:** PPO target regression inherits reward scale, while the V1
+  body, action, reset and simulator paths all execute. Changing several of
+  those at once would make a second run uninterpretable.
+- **Evidence:** V1 metrics, exact Rust/Torch reward goldens, ADR-100 and the V2
+  production CPU no-training probe.
+- **Decision:** Keep seed `42`, network, optimizer, `128 × 32 × 1,000` schedule
+  and five held-out seeds unchanged. Change only environment/training profile
+  identities and their reward/translator closure.
+- **Rejected alternatives:** More V1 compute, simultaneous PPO tuning,
+  BodySchema/reset edits, motion imitation or a larger budget.
+- **Consequences:** The next run is a direct discriminator for H1. It may begin
+  only after exact generation, GPU reset/reward and trainer preflight pass.
+- **Uncertainty:** Whether bounded reward alone yields complete standing.
+- **Reconsider when:** V2 metrics either demonstrate a credible survival trend
+  or fail under the unchanged budget.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -184,13 +202,11 @@ Read these sources in precedence order before acting:
 
 1. Keep `r8b-standing-seed42-v1` immutable and excluded from checkpoint
    selection. Its missing metrics binding cannot be repaired in place.
-2. Add one engine-owned standing V2 environment identity whose reward
-   components and coefficients are bounded and hash-closed on CPU and Isaac;
-   validate scale/order with golden vectors and a no-training probe.
-3. Admit that exact environment/profile under a new external generation and
-   request explicit approval for the smallest discriminating optimizer run.
-   Only a promising result proceeds to the five frozen evaluation seeds and
-   later `MODEL-MIRROR-P1` work.
+2. Keep the Accepted standing V2 reward identity and CPU preflight exact.
+3. Admit it under a new external generation, run the GPU reset/reward and
+   trainer preflights, then execute the already authorized unchanged-budget
+   discriminator. Only a promising result proceeds to five frozen evaluation
+   seeds and later `MODEL-MIRROR-P1` work.
 
 ## Do not retry
 

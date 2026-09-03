@@ -1,0 +1,42 @@
+{
+  "algorithm": {
+    "clip_param": 0.2,
+    "desired_kl": 0.008,
+    "entropy_coef": 0.0,
+    "gamma": 0.99,
+    "lam": 0.95,
+    "learning_rate": 0.0001,
+    "max_grad_norm": 1.0,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "schedule": "adaptive",
+    "use_clipped_value_loss": true,
+    "value_loss_coef": 1.0
+  },
+  "device": "cuda:0",
+  "environment_profile_id": "nextengine.motor.env.humanoid-standing.v2",
+  "evaluation": {
+    "episode_ordinal_start": 0,
+    "episodes": 1,
+    "max_steps": 3600,
+    "num_envs": 1,
+    "seeds": [1001, 1002, 1003, 1004, 1005]
+  },
+  "iterations": 1000,
+  "min_free_gpu_memory_mib": 6144,
+  "num_envs": 128,
+  "policy": {
+    "activation": "elu",
+    "actor_hidden_dims": [256, 128, 64],
+    "actor_obs_normalization": true,
+    "critic_hidden_dims": [256, 128, 64],
+    "critic_obs_normalization": true,
+    "init_noise_std": 1.0
+  },
+  "profile_id": "nextengine.isaac-rsl-rl.rtx3080-standing.v2",
+  "save_interval": 50,
+  "schema_version": 1,
+  "seed": 42,
+  "status": "Proposed",
+  "steps_per_env": 32
+}

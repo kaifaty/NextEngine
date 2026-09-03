@@ -282,3 +282,121 @@ pub(super) fn standing_reward_components(
     .map(|(value, id)| (id, value))
     .collect()
 }
+
+pub(super) fn bounded_standing_reward_components(
+    frame: &MotorFrameResult,
+    previous_applied_action: &[i64],
+    foot_tokens: &[u64],
+    maximum_effort_per_frame: u128,
+    fell: bool,
+) -> Result<(Vec<(SchemaId, i64)>, i64), TrainingEnvironmentError> {
+    let root = frame
+        .snapshot
+        .links
+        .first()
+        .ok_or(TrainingEnvironmentError::RewardFacts)?;
+    if previous_applied_action.len() != frame.applied_action_microradians.len()
+        || frame.applied_action_microradians.len() != crate::REFERENCE_HUMANOID_DOF
+    {
+        return Err(TrainingEnvironmentError::RewardFacts);
+    }
+
+    let upright = upright_reward_q16(root.rotation_q1_30)?;
+    let height_error = root.position_micrometres[1]
+        .saturating_sub(REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES)
+        .unsigned_abs() as u128;
+    let height_tracking = one_minus_normalized_q16(height_error, 600_000);
+    let pose_error = abs_sum(
+        frame
+            .snapshot
+            .joints
+            .iter()
+            .map(|joint| joint.position_microradians),
+    );
+    let pose_tracking = one_minus_normalized_q16(pose_error, 23 * 1_500_000);
+    let linear_motion = ratio_q16(
+        abs_sum(root.linear_velocity_micrometres_per_second),
+        3 * 3_000_000,
+    )?;
+    let angular_motion = ratio_q16(
+        abs_sum(root.angular_velocity_microradians_per_second),
+        3 * 6_000_000,
+    )?;
+    let root_motion_cost = linear_motion.max(angular_motion);
+    let effort_sum = frame
+        .substep_efforts
+        .iter()
+        .flatten()
+        .map(|effort| u128::from(effort.effort_micronewton_metres.unsigned_abs()))
+        .sum::<u128>();
+    let effort_cost = ratio_q16(effort_sum, maximum_effort_per_frame)?;
+    let action_rate_sum = frame
+        .applied_action_microradians
+        .iter()
+        .zip(previous_applied_action)
+        .map(|(current, previous)| current.saturating_sub(*previous).unsigned_abs() as u128)
+        .sum::<u128>();
+    let action_rate_cost = ratio_q16(action_rate_sum, 23 * 2_000_000)?;
+    let contacting_foot_tokens =
+        foot_tokens
+            .iter()
+            .copied()
+            .filter(|token| {
+                frame.snapshot.contacts.iter().any(|contact| {
+                    contact.actor_a_token == *token || contact.actor_b_token == *token
+                })
+            })
+            .collect::<BTreeSet<_>>();
+    let slip_sum = frame
+        .snapshot
+        .links
+        .iter()
+        .filter(|link| contacting_foot_tokens.contains(&link.user_token))
+        .map(|link| {
+            abs_sum([
+                link.linear_velocity_micrometres_per_second[0],
+                link.linear_velocity_micrometres_per_second[2],
+            ])
+        })
+        .sum::<u128>();
+    let slip_denominator = (contacting_foot_tokens.len() as u128)
+        .checked_mul(4_000_000)
+        .ok_or(TrainingEnvironmentError::ArithmeticOverflow)?;
+    let slip_cost = if slip_denominator == 0 {
+        0
+    } else {
+        ratio_q16(slip_sum, slip_denominator)?
+    };
+    let values = [
+        upright,
+        height_tracking,
+        pose_tracking,
+        root_motion_cost,
+        effort_cost,
+        action_rate_cost,
+        slip_cost,
+        i64::from(fell) * 65_536,
+    ];
+    let reward_total_q16 = values
+        .iter()
+        .zip(BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16)
+        .try_fold(0_i64, |total, (component, coefficient)| {
+            let weighted = round_shift_ties_even_i128(
+                i128::from(*component)
+                    .checked_mul(i128::from(coefficient))
+                    .ok_or(TrainingEnvironmentError::ArithmeticOverflow)?,
+                16,
+            )?;
+            total
+                .checked_add(weighted)
+                .ok_or(TrainingEnvironmentError::ArithmeticOverflow)
+        })?;
+    Ok((
+        BOUNDED_STANDING_REWARD_COMPONENT_IDS
+            .into_iter()
+            .zip(values)
+            .map(|(component_id, value)| (schema_id(component_id), value))
+            .collect(),
+        reward_total_q16,
+    ))
+}

@@ -16,6 +16,7 @@ from next_lab.correspondence import evaluate_files
 from next_lab.isaac_profile import IsaacProfile, doctor_report
 from next_lab.motion_corpus import audit_motion_corpus_physx_poses, build_motion_corpus
 from next_lab.motor_lab_client import (
+    BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
     FLAT_LOCOMOTION_PROFILE_ID,
     STANDING_PROFILE_ID,
@@ -189,6 +190,7 @@ def parser() -> argparse.ArgumentParser:
     recorder_parser.add_argument(
         "--profile",
         choices=[
+            BOUNDED_STANDING_PROFILE_ID,
             CURRICULUM_LOCOMOTION_PROFILE_ID,
             FLAT_LOCOMOTION_PROFILE_ID,
             STANDING_PROFILE_ID,
