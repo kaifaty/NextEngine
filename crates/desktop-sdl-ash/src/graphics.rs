@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
+use crate::gpu_content::water::WaterPassState;
 use crate::gpu_content::{
     B0_SUN_DIRECTION_INTENSITY, B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState,
 };
@@ -44,6 +45,9 @@ pub(super) struct GraphicsContext {
     /// supported by the device and surface.
     particle_surface_profile: Option<ParticleSurfaceProfileV1>,
     fluid: Option<FluidPassState>,
+    /// Plan 13: the water pass of `WaterSurface` rings; `None` falls back to
+    /// the WL1 material inside the world pass.
+    water: Option<WaterPassState>,
     particle_surface_available: bool,
 }
 
@@ -88,6 +92,8 @@ struct SwapchainState {
     opaque_composite: bool,
     /// Whether the images carry transfer-source usage (capture, scene copy).
     transfer_source: bool,
+    /// Whether the depth attachments can be sampled (the water pass).
+    depth_sampled: bool,
 }
 
 impl Drop for SwapchainState {
@@ -293,6 +299,7 @@ impl GraphicsContext {
             &mut old_swapchain_retired,
             options.frame_capture.is_some(),
             options.particle_surface.is_some(),
+            water_surface_requested(&options.dynamic_surfaces),
         )?;
         debug_assert!(!old_swapchain_retired);
         initialization.swapchain = swapchain;
@@ -386,6 +393,14 @@ impl GraphicsContext {
             initialization.swapchain.as_ref(),
             frame_slots.len(),
         )?;
+        let water = create_water_pass(
+            &instance,
+            physical_device,
+            &device,
+            b0_content.as_ref(),
+            initialization.swapchain.as_ref(),
+            frame_slots.len(),
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -424,6 +439,7 @@ impl GraphicsContext {
             }),
             particle_surface_profile: options.particle_surface,
             fluid,
+            water,
             particle_surface_available,
         })
     }
@@ -663,12 +679,15 @@ impl GraphicsContext {
             .store_op(vk::AttachmentStoreOp::STORE)
             .clear_value(color_clear)];
         let particle_pass_this_frame = self.fluid.is_some() && particle_uploads.particle_count > 0;
+        // Plan 13: the water pass draws the water rings after the opaque
+        // scene when the pass exists and the plan has a camera.
+        let water_pass_this_frame = self.water.is_some() && frame_plan.camera.is_some();
         let depth_attachment = vk::RenderingAttachmentInfo::default()
             .image_view(swapchain.depth_attachments[image_usize].view())
             .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             // The particle surface pass depth-tests against the opaque scene.
-            .store_op(if particle_pass_this_frame {
+            .store_op(if particle_pass_this_frame || water_pass_this_frame {
                 vk::AttachmentStoreOp::STORE
             } else {
                 vk::AttachmentStoreOp::DONT_CARE
@@ -690,12 +709,91 @@ impl GraphicsContext {
                 .cmd_begin_rendering(frame_slot.command_buffer, &rendering_info);
         }
         b0_content.record_sky(frame_slot.command_buffer, swapchain.extent)?;
-        let dynamic_surface_draws = b0_content.record(
+        let mut dynamic_surface_draws = b0_content.record(
             frame_slot.command_buffer,
             frame_plan,
             swapchain.extent,
             frame_slot_index,
+            water_pass_this_frame,
         )?;
+        if water_pass_this_frame
+            && let (Some(water), Some(camera)) = (self.water.as_mut(), frame_plan.camera.as_ref())
+        {
+            let depth = &swapchain.depth_attachments[image_usize];
+            let (viewport, scissor) = water.prepare(frame_slot_index, camera, depth.view())?;
+            // SAFETY: the opaque world rendering instance ends before the
+            // pass copies the swapchain colour and samples the scene depth.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            water.record_begin(
+                frame_slot.command_buffer,
+                swapchain.images[image_usize],
+                depth.image(),
+            );
+            let water_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.image_views[image_usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let water_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(depth.view())
+                .image_layout(vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE);
+            let water_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&water_colors)
+                .depth_attachment(&water_depth);
+            // SAFETY: the swapchain image is back in attachment layout and the
+            // depth image is read-only for this instance.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &water_info);
+            }
+            dynamic_surface_draws = dynamic_surface_draws
+                .checked_add(b0_content.record_water_surfaces(
+                    frame_slot.command_buffer,
+                    frame_plan,
+                    frame_slot_index,
+                    water,
+                    viewport,
+                    scissor,
+                )?)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            // SAFETY: the water rendering instance is ended exactly once and
+            // the depth image returns to attachment layout for later passes.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            water.record_end(frame_slot.command_buffer, depth.image());
+            let resume_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.image_views[image_usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let resume_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(depth.view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(if particle_pass_this_frame {
+                    vk::AttachmentStoreOp::STORE
+                } else {
+                    vk::AttachmentStoreOp::DONT_CARE
+                });
+            let resume_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&resume_colors)
+                .depth_attachment(&resume_depth);
+            // SAFETY: both attachments are in their declared layouts; the
+            // later passes expect an active rendering instance.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &resume_info);
+            }
+        }
         let mut particle_surface_recorded = false;
         if let Some(profiler) = self.frame_profiler.as_ref() {
             profiler.write_particle_surface(frame_slot.command_buffer, frame_slot_index, false)?;
@@ -967,6 +1065,7 @@ impl GraphicsContext {
             &mut old_swapchain_retired,
             self.capture.is_some(),
             self.particle_surface_profile.is_some(),
+            water_surface_requested(&self.dynamic_surface_profiles),
         )
         .inspect_err(|_| {
             if old_swapchain_retired {
@@ -975,6 +1074,7 @@ impl GraphicsContext {
         })?;
         // Screen-sized pass targets follow the swapchain extent and format.
         drop(self.fluid.take());
+        drop(self.water.take());
         let (fluid, particle_surface_available) = create_fluid_pass(
             &self.instance,
             self.physical_device,
@@ -984,6 +1084,14 @@ impl GraphicsContext {
             self.frame_slots.len(),
         )?;
         self.fluid = fluid;
+        self.water = create_water_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.b0_content.as_ref(),
+            replacement.as_ref(),
+            self.frame_slots.len(),
+        )?;
         self.particle_surface_available =
             self.particle_surface_available || particle_surface_available;
         let replacement_formats = replacement
@@ -1109,6 +1217,14 @@ impl GraphicsContext {
                     .ok_or(DesktopAdapterError::CounterOverflow)?;
             }
         }
+        if let Some(water) = self.water.as_ref() {
+            bytes = bytes
+                .checked_add(water.allocation_bytes())
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(1)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         if let Some(fluid) = self.fluid.as_ref() {
             let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
             bytes = bytes
@@ -1139,6 +1255,7 @@ impl Drop for GraphicsContext {
             drop(self.frame_profiler.take());
             self.ui_overlay.teardown();
             drop(self.fluid.take());
+            drop(self.water.take());
             drop(self.b0_content.take());
             for frame_slot in &self.frame_slots {
                 self.device.destroy_fence(frame_slot.fence, None);
@@ -1198,6 +1315,55 @@ fn create_fluid_pass(
     }
 }
 
+fn water_surface_requested(profiles: &[DynamicSurfaceProfileV1]) -> bool {
+    profiles
+        .iter()
+        .any(|profile| profile.shading == DynamicSurfaceShadingV1::WaterSurface)
+}
+
+/// Plan 13: builds the water pass when a `WaterSurface` ring is declared
+/// and the swapchain supports it; otherwise the WL1 material draws inside
+/// the world pass and the fallback is printed once.
+fn create_water_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    b0_content: Option<&B0GpuContent>,
+    swapchain: Option<&SwapchainState>,
+    frame_slot_count: usize,
+) -> Result<Option<WaterPassState>, DesktopAdapterError> {
+    let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
+        return Ok(None);
+    };
+    if !content.has_water_surface_rings() {
+        return Ok(None);
+    }
+    let Some((frame_layout, texture_layout, shadow_layout)) = content.water_pass_layouts() else {
+        eprintln!("next_game: WATER_PASS_FALLBACK: no shadow map for the water pass");
+        return Ok(None);
+    };
+    match WaterPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        swapchain.format,
+        swapchain.depth_format,
+        swapchain.extent,
+        frame_slot_count,
+        frame_layout,
+        texture_layout,
+        shadow_layout,
+        swapchain.transfer_source,
+        swapchain.depth_sampled,
+    )? {
+        Ok(water) => Ok(Some(water)),
+        Err(reason) => {
+            eprintln!("next_game: WATER_PASS_FALLBACK: {reason}");
+            Ok(None)
+        }
+    }
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "the private adapter creation boundary keeps all ownership inputs explicit"
@@ -1215,6 +1381,7 @@ fn create_swapchain(
     old_swapchain_retired: &mut bool,
     capture_requested: bool,
     particle_surface_requested: bool,
+    water_surface_requested: bool,
 ) -> Result<Option<SwapchainState>, DesktopAdapterError> {
     debug_assert!(!*old_swapchain_retired);
     // SAFETY: physical device and surface share a live instance.
@@ -1231,7 +1398,9 @@ fn create_swapchain(
     // The particle surface pass copies the opaque scene colour for
     // refraction; without transfer-source images it reports itself
     // unavailable instead of failing the run (ADR-102 fallback).
-    if (capture_requested || particle_surface_requested) && transfer_source_supported {
+    if (capture_requested || particle_surface_requested || water_surface_requested)
+        && transfer_source_supported
+    {
         image_usage |= vk::ImageUsageFlags::TRANSFER_SRC;
     }
     // SAFETY: same ownership as the capability query.
@@ -1289,6 +1458,7 @@ fn create_swapchain(
         images_in_flight: Vec::new(),
         opaque_composite: composite_alpha == vk::CompositeAlphaFlagsKHR::OPAQUE,
         transfer_source: image_usage.contains(vk::ImageUsageFlags::TRANSFER_SRC),
+        depth_sampled: false,
     };
     // SAFETY: handle is the live swapchain just created.
     state.images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;
@@ -1321,6 +1491,7 @@ fn create_swapchain(
             extent,
         )?);
     }
+    state.depth_sampled = state.depth_attachments.iter().all(DepthAttachment::sampled);
     state.render_finished.reserve(state.images.len());
     for _ in &state.images {
         // SAFETY: each binary semaphore is device-owned and has no retained

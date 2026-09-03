@@ -8,6 +8,7 @@
   "sky_suite": "sky_gradient",
   "fluid_suite": "fluid_surface",
   "water_suite": "water_surface",
+  "water_scene_suite": "water_scene",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
   "source_language": {
     "name": "GLSL",
@@ -347,6 +348,13 @@
       "source_sha256": "63273fbd6f8b1aeeb58b3bee25bd9666872c79641295daa0d0df07b446f9e66d",
       "module": "water_surface.frag.spv",
       "module_sha256": "902a4f3664ae70034646c051a65fd3f82bc3752fd0e145f3326e13bd1bc6773f"
+    },
+    {
+      "stage": "fragment",
+      "source": "water_scene.frag",
+      "source_sha256": "6c8d1967c9da8a21b54e3d8e0efc74d50cc2f84e3a89bfd9204a950b76ebabee",
+      "module": "water_scene.frag.spv",
+      "module_sha256": "3578549441bb675b0f4bfd0633eec06a92320333080d2b62fd03410671c240e7"
     }
   ]
 }

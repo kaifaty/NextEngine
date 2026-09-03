@@ -87,14 +87,12 @@
 - **Accepted 2026-09-03.** ADR-100/103/104/105 Accepted, SPEC-38 3.0
   Accepted for water, terrain clauses in Proposed SPEC-39.
 - **Water look L1 done (plan 12, 2026-09-03):** `water_surface` shader suite on `WaterSurface` rings (ADR-101 0.3).
-- **Next (plan `continuum-water/11`):** the water look continues (shore fade, refraction, wave spectrum, planar reflection,
-  caustics, crate wake; DLSS-ready buffers, no vendor SDK), then the
-  recorded cost revisions (WB1 G6 batch, WR1 integrator, R8d flow step),
-  then the scale practices; gameplay gates/pumps and player buoyancy are
-  deferred by decision.
-
-## Required context
-
+- **Water look L2 + L3 done (plan 13, 2026-09-03):** the water pass after the opaque scene (`gpu_content/water.rs`, `water_scene` suite): scene colour copy, sampled scene depth, refraction, absorption, vertical-depth shoreline and foam; fallback prints `WATER_PASS_FALLBACK`.
+- **Next (plan `continuum-water/11`):** the water look continues with
+  L4 (wave spectrum on the ring), L5 (planar reflection), L6 (caustics),
+  L7 (crate wake and splash) and L8 (DLSS-ready buffers), then the
+  recorded cost revisions and the scale practices; gameplay gates/pumps
+  and player buoyancy are deferred by decision.
 - Research note on engine and game water models:
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum

@@ -115,3 +115,19 @@ glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_surf
 
 Source and module hashes are pinned in `manifest.json`. All values are
 renderer-local and never enter gameplay, persistence or replay authority.
+
+## Water pass suite (plan `continuum-water/13`, presentation-only)
+
+`water_scene` is the fragment stage of the water pass: the `water_surface`
+vertex program with a fragment that samples the opaque scene colour copy
+and the read-only scene depth (set 3 with a `128`-byte water uniform:
+inverse view-projection, viewport, absorption `[1.2, 0.5, 0.25]` per metre
+and refraction strength `0.08`, shore band `[0.12 m, 0.04 m, 0.85]`) for
+refraction, depth absorption, a soft shoreline and foam on top of the WL1
+material. Compiled with the same pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
+```
+
+Source and module hash are pinned in `manifest.json`.

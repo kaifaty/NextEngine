@@ -316,6 +316,9 @@ pub(crate) struct DepthAttachment {
     device: ash::Device,
     view: vk::ImageView,
     image: ImageAllocation,
+    /// Whether the image also carries sampled usage (the water pass reads
+    /// the scene depth); false when the format cannot be sampled.
+    sampled: bool,
 }
 
 pub(super) const SHADOW_MAP_EXTENT: u32 = 2_048;
@@ -470,6 +473,16 @@ impl DepthAttachment {
         format: vk::Format,
         extent: vk::Extent2D,
     ) -> Result<Self, B0GpuContentError> {
+        // SAFETY: read-only capability query on a device of this instance.
+        let properties =
+            unsafe { instance.get_physical_device_format_properties(physical_device, format) };
+        let sampled = properties
+            .optimal_tiling_features
+            .contains(vk::FormatFeatureFlags::SAMPLED_IMAGE);
+        let mut usage = vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
+        if sampled {
+            usage |= vk::ImageUsageFlags::SAMPLED;
+        }
         let image = ImageAllocation::new(
             instance,
             physical_device,
@@ -480,7 +493,7 @@ impl DepthAttachment {
                 depth: 1,
             },
             format,
-            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            usage,
         )?;
         let subresource = vk::ImageSubresourceRange::default()
             .aspect_mask(vk::ImageAspectFlags::DEPTH)
@@ -500,7 +513,12 @@ impl DepthAttachment {
             device: device.clone(),
             view,
             image,
+            sampled,
         })
+    }
+
+    pub(crate) const fn sampled(&self) -> bool {
+        self.sampled
     }
 
     pub(crate) fn image(&self) -> vk::Image {

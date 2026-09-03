@@ -24,6 +24,7 @@ const WATER_SURFACE_VERTEX_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/water_surface.vert.spv");
 const WATER_SURFACE_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/water_surface.frag.spv");
+const WATER_SCENE_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_scene.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -127,6 +128,18 @@ pub(super) fn water_surface_shader_modules() -> Result<B0ShaderModules, &'static
     })
 }
 
+/// Water look L2 + L3 (plan `continuum-water/13`): the water pass suite
+/// (the B0 vertex program with the scene-sampling water fragment).
+pub(super) fn water_scene_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"water_scene_suite\": \"water_scene\"") {
+        return Err("embedded water scene shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(WATER_SURFACE_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(WATER_SCENE_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
 fn decode_spirv(bytes: &[u8]) -> Result<Vec<u32>, &'static str> {
     if bytes.len() < 20 || !bytes.len().is_multiple_of(4) {
         return Err("embedded SPIR-V module has an invalid byte length");
@@ -226,6 +239,13 @@ mod tests {
         );
         let water = water_surface_shader_modules().expect("checked-in water modules decode");
         assert_eq!(water.fragment[0], SPIRV_MAGIC);
+        assert_eq!(
+            hex(sha256(WATER_SCENE_FRAGMENT_SHADER_BYTES)),
+            "3578549441bb675b0f4bfd0633eec06a92320333080d2b62fd03410671c240e7"
+        );
+        let water_scene =
+            water_scene_shader_modules().expect("checked-in water scene modules decode");
+        assert_eq!(water_scene.fragment[0], SPIRV_MAGIC);
         let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
         assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);
         assert_eq!(fluid.composite_fragment[0], SPIRV_MAGIC);

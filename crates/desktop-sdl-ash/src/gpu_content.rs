@@ -1,5 +1,6 @@
 pub(crate) mod fluid;
 mod pipeline;
+pub(crate) mod water;
 pub(crate) use pipeline::B0_SUN_DIRECTION_INTENSITY;
 mod resources;
 mod shadow;
@@ -590,6 +591,7 @@ impl B0GpuContent {
         plan: &B0FramePlanV1,
         extent: vk::Extent2D,
         frame_slot_index: usize,
+        skip_water_surfaces: bool,
     ) -> Result<u64, B0GpuContentError> {
         if extent.width == 0 || extent.height == 0 {
             return Err(B0GpuContentError::InvalidFramePlan(
@@ -686,6 +688,13 @@ impl B0GpuContent {
         let mut dynamic_surface_draws = 0_u64;
         for draw in &plan.draws {
             let dynamic_binding = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index);
+            // Plan 13: with the water pass active, water rings draw there.
+            if skip_water_surfaces
+                && dynamic_binding
+                    .is_some_and(|binding| binding.shading == DynamicSurfaceShadingV1::WaterSurface)
+            {
+                continue;
+            }
             if dynamic_binding.is_some() && draw.skinning_vertex_stream_index.is_some() {
                 return Err(B0GpuContentError::InvalidFramePlan(
                     "dynamic surface draw cannot also be skinned",
@@ -915,6 +924,153 @@ impl B0GpuContent {
     }
 
     /// Records a presentation-only fullscreen sky before opaque world draws.
+    /// The B0 descriptor layouts (frame, texture, shadow) the water pass
+    /// pipeline shares; `None` without a shadow map, which the pass needs.
+    pub(super) fn water_pass_layouts(
+        &self,
+    ) -> Option<(
+        vk::DescriptorSetLayout,
+        vk::DescriptorSetLayout,
+        vk::DescriptorSetLayout,
+    )> {
+        self.descriptors.shadow_set?;
+        Some((
+            self.descriptors.frame_layout,
+            self.descriptors.texture_layout,
+            self.descriptors.shadow_layout,
+        ))
+    }
+
+    /// Whether any declared ring uses the water surface shading.
+    pub(super) fn has_water_surface_rings(&self) -> bool {
+        self.dynamic_surfaces
+            .values()
+            .any(|ring| ring.profile.shading == DynamicSurfaceShadingV1::WaterSurface)
+    }
+
+    /// Plan 13: draws the uploaded `WaterSurface` rings of the plan through
+    /// the water pass pipeline. A water rendering instance with the colour
+    /// attachment loaded and the depth attachment read-only must be active.
+    /// Returns the number of water draws.
+    pub(super) fn record_water_surfaces(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+        water: &water::WaterPassState,
+        viewport: vk::Viewport,
+        scissor: vk::Rect2D,
+    ) -> Result<u64, B0GpuContentError> {
+        let frame_set = *self.descriptors.frame_sets.get(frame_slot_index).ok_or(
+            B0GpuContentError::InvalidFramePlan("frame slot index is outside the descriptor ring"),
+        )?;
+        let shadow_set = self
+            .descriptors
+            .shadow_set
+            .ok_or(B0GpuContentError::ResourceMissing(
+                "shadow descriptor set for the water pass",
+            ))?;
+        let water_set = water.set(frame_slot_index)?;
+        let viewports = [viewport];
+        let scissors = [scissor];
+        // SAFETY: all bound objects belong to the same live device, the
+        // command buffer is recording inside the water rendering instance,
+        // and the layouts of sets 0-2 equal the B0 layouts.
+        unsafe {
+            self.geometry.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.pipeline(),
+            );
+            self.geometry
+                .device
+                .cmd_set_viewport(command_buffer, 0, &viewports);
+            self.geometry
+                .device
+                .cmd_set_scissor(command_buffer, 0, &scissors);
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.layout(),
+                0,
+                &[frame_set],
+                &[],
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.layout(),
+                2,
+                &[shadow_set, water_set],
+                &[],
+            );
+        }
+        let mut draws = 0_u64;
+        for draw in &plan.draws {
+            let Some(binding) = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index)
+            else {
+                continue;
+            };
+            if binding.shading != DynamicSurfaceShadingV1::WaterSurface {
+                continue;
+            }
+            let texture_set = self
+                .descriptors
+                .texture_sets
+                .get(&draw.texture_revision)
+                .copied()
+                .ok_or(B0GpuContentError::ResourceMissing(
+                    "exact base-color texture descriptor",
+                ))?;
+            let push_constants =
+                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            // SAFETY: the texture set matches set layout 1, the push bytes
+            // cover the declared 80-byte range, and the ring buffers hold
+            // this slot's uploaded update.
+            unsafe {
+                self.geometry.device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    water.layout(),
+                    1,
+                    &[texture_set],
+                    &[],
+                );
+                self.geometry.device.cmd_push_constants(
+                    command_buffer,
+                    water.layout(),
+                    vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+                    0,
+                    &push_constants,
+                );
+                self.geometry.device.cmd_bind_vertex_buffers(
+                    command_buffer,
+                    0,
+                    &[binding.vertex_buffer],
+                    &[0],
+                );
+                self.geometry.device.cmd_bind_index_buffer(
+                    command_buffer,
+                    binding.index_buffer,
+                    0,
+                    vk::IndexType::UINT32,
+                );
+                self.geometry.device.cmd_draw_indexed(
+                    command_buffer,
+                    binding.index_count,
+                    1,
+                    0,
+                    0,
+                    0,
+                );
+            }
+            draws = draws
+                .checked_add(1)
+                .ok_or(B0GpuContentError::CountOverflow)?;
+        }
+        Ok(draws)
+    }
+
     pub(super) fn record_sky(
         &self,
         command_buffer: vk::CommandBuffer,
