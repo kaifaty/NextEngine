@@ -640,6 +640,7 @@ def validate_closed_checkpoint(
             INCOMPATIBLE_TRAINING_GENERATION,
             "checkpoint belongs to another or legacy generation",
         )
+    validate_closed_metrics(checkpoint.parent, manifest)
     actual_hash = sha256_file(checkpoint)
     records = manifest.get("checkpoints")
     if not isinstance(records, list) or not any(
@@ -649,6 +650,22 @@ def validate_closed_checkpoint(
     ):
         raise ValueError("checkpoint hash is not closed by its run manifest")
     return manifest
+
+
+def validate_closed_metrics(run_dir: Path, manifest: dict[str, Any]) -> Path:
+    """Require the completed run's append-only metrics to match its binding."""
+    binding = manifest.get("metrics")
+    if not isinstance(binding, dict):
+        raise ValueError("completed run metrics are not hash-closed")
+    name = binding.get("file")
+    if not isinstance(name, str) or Path(name).name != name:
+        raise ValueError("completed run metrics path is invalid")
+    metrics = run_dir.resolve() / name
+    actual = metrics_record(metrics)
+    for field in ("bytes", "record_count", "sha256"):
+        if binding.get(field) != actual[field]:
+            raise ValueError(f"completed run metrics {field} mismatch")
+    return metrics
 
 
 def latest_closed_checkpoint(
@@ -747,6 +764,21 @@ def checkpoint_records(run_dir: Path) -> list[dict[str, Any]]:
         for path in sorted(run_dir.glob("model_*.pt"))
         if path.is_file()
     ]
+
+
+def metrics_record(metrics_path: Path) -> dict[str, Any]:
+    """Close one append-only JSONL metrics artifact for a finished run."""
+    path = metrics_path.resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"training metrics do not exist: {path}")
+    with path.open("rb") as source:
+        record_count = sum(1 for line in source if line.strip())
+    return {
+        "file": path.name,
+        "bytes": path.stat().st_size,
+        "record_count": record_count,
+        "sha256": sha256_file(path),
+    }
 
 
 def parse_gpu_memory_csv(value: str) -> dict[str, int | str]:

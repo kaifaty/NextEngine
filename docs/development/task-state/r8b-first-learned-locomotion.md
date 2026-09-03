@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / EXPLORATORY_RUN_READY / NO_RUN_STARTED / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / FIRST_RUN_COMPLETE / V1_REWARD_SCALE_BLOCKED / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
@@ -12,23 +12,25 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** R8b is the selected post-v1 WIP. Start with learned
-  standing, then only forward start/stop; damage expansion and broader motor
-  skills are deferred.
-- **Why:** R8a is complete, while the accepted frozen V1 standing and
-  curriculum environments already provide the shortest path to a visible
-  learned result. The prior broad flat-command PPO attempt fell in every
-  held-out episode, so breadth must be earned after foundation stability.
-- **Next action:** After explicit confirmation to spend the frozen
-  `4,096,000`-transition budget, run exactly
-  `r8b-standing-seed42-v1`; do not tune before reading that run's closed
-  metrics.
-- **Current blocker:** None for one explicitly `NO_AUTHORITY` exploratory
-  standing run. `MODEL-MIRROR-P1` is still `NOT_RUN` because the current CPU
-  trajectory recorder and correspondence reader use incompatible NPZ layouts
-  and no V1 GPU recorder exists; this blocks correspondence, admission and
-  runtime claims, not the private exploratory optimizer question.
-- **Do not retry:** Never resume the broad V1 PPO checkpoints or any
-  R123–R141/TRAIN-5 artifact; they have incompatible or rejected authority.
+  standing, but retire its dimensionally broken V1 reward before another run;
+  forward start/stop, damage and broader skills remain deferred.
+- **Why:** R8a is complete and the foundation-first order remains correct, but
+  the first exact run proves the accepted frozen V1 standing reward is not a
+  usable optimizer objective. More PPO compute cannot repair raw-unit scale.
+- **Next action:** Do not rerun standing V1. Define one engine-owned standing
+  V2 reward profile with bounded, commensurate units, close future generic-run
+  metrics in their manifests, then preflight a new generation before asking
+  for another compute budget.
+- **Current blocker:** The frozen standing V1 reward sums raw
+  micronewton-metre effort and microradian action deltas beside unit-scale
+  posture terms, so PPO learns to reduce actuation and fall sooner. The first
+  run also exposed that the generic manifest closes checkpoints but not
+  `metrics.jsonl`; the source fix applies only to future runs. In addition,
+  `MODEL-MIRROR-P1` remains `NOT_RUN` because the CPU recorder/correspondence
+  reader NPZ layouts differ and no V1 GPU recorder exists.
+- **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
+  checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
+  invalid for this question or have incompatible/rejected authority.
 - **Kimodo finding:** NVIDIA Kimodo is a plausible future offline source of
   synthetic reference candidates, not a controller. It is excluded from the
   current R8b lineage and may be reconsidered only as a new post-foundation
@@ -41,7 +43,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Roadmap R8](../../roadmap.md) | `R8B SELECTED / PREFLIGHT_NEXT` | Authorizes one separate visibility-first lineage; does not authorize R142 or runtime promotion |
+| [Roadmap R8](../../roadmap.md) | `R8B SELECTED / FIRST_RUN_COMPLETE / V1_REWARD_SCALE_BLOCKED` | Keeps the visibility-first lineage active but prohibits another V1 run or runtime promotion |
 | [ADR-064](../../architecture/adr/064-canonical-flat-command-locomotion-environment.md) | `Accepted`; frozen standing and flat-command V1 environments | Reuse exact engine-owned BodySchema, observation, action, safety and CPU PhysX boundaries |
 | [ADR-065](../../architecture/adr/065-curriculum-flat-command-locomotion-profile.md) | Prior broad V1 PPO held-out survival about 135–137 ticks; `768/768` falls; bounded V2 first stage exists | Do not repeat broad commands; standing precedes only `0..0.75 m/s` forward start/stop |
 | [Stopped TRAIN-4 state](humanoid-motor-training.md) | `R141_INVALID / STOP_NO_RETRY` | R8b consumes no motion corpus, reference tracker, R123–R141 cache/witness or rejected checkpoint |
@@ -50,7 +52,9 @@
 | R8b external generation | `nextengine.training.generation.r8b-standing.v1`; manifest `094dd6ae…eb42f`; descriptor `50c55442…fc11`; USD `5524a778…e54d` | The old TRAIN-4 store and checkpoints are not reachable from the admitted closure |
 | Canonical CPU V1 zero-action control | One production motor-lab slot falls at tick `220`; first tick reaches root velocity `1.205196 m/s` and joint speed `19.880161 rad/s` | The immutable `1.050 m` V1 reset has a real contact transient; do not misreport it as tangent-ground |
 | R8b Isaac reset smoke | `PASS`, four slots, seed `1001`, exact automatic reset errors all zero; 10 zero-action ticks remain finite with max joint speed `8.995819 rad/s`, root speed `0.477639 m/s`, angular speed `0.541279 rad/s`, height overshoot `0.037621 m` | Pipeline/reset execution is ready only under the explicit legacy-V1 smoke envelope; this is not policy quality or correspondence evidence |
-| R8b optimizer/evaluation artifacts | `NOT_RUN` | No learned quality, visual, Stage 0, correspondence or runtime claim exists yet |
+| R8b optimizer run | `r8b-standing-seed42-v1` completed all `4,096,000` transitions on clean commit `3095a9e0…`; manifest `2debfb23…`, 21 checkpoint hashes verified, final `model_999.pt` `993da891…`; metrics file `6091cb6a…` has 1,000 finite records but its hash is absent from the immutable manifest | Pipeline execution passed, but the run is not fully hash-closed, grants no quality claim and is rejected by current checkpoint selection |
+| R8b standing outcome | Early-20 mean episode length `101.51`, final-20 `62.39`, best `111.16` at iteration 9 versus required `3,600`; final TensorBoard projection reports effort `-241,795,296`, action-rate `-1,513,819`, upright `0.480` and pose `-21.325` | Classify the first content failure as `Environment`: raw-unit penalties dominate and improvement in scalar return is anti-correlated with standing |
+| R8b evaluation/correspondence | `NOT_RUN` | A five-seed evaluation cannot rescue a checkpoint whose training survival is about one second; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
 
@@ -64,10 +68,10 @@
   motion-reference lineage.
 - **Rejected alternatives:** R142, rejected TRAIN-5 resume, substituting an
   R120 witness, or treating prior checkpoints as initialization.
-- **Consequences:** Preflight must prove zero dependency on the stopped corpus
-  and checkpoint roots before any optimizer execution.
-- **Uncertainty:** Learned standing quality on the current exact host remains
-  unmeasured.
+- **Consequences:** Every successor preflight must continue to prove zero
+  dependency on the stopped corpus and checkpoint roots.
+- **Uncertainty:** Body learnability remains unmeasured because the first
+  optimizer objective had incompatible reward units.
 - **Reconsider when:** Only a separate roadmap decision may reopen the
   motion-reference problem; it cannot be folded into R8b.
 
@@ -100,8 +104,8 @@
   safety/replay oracle.
 - **Consequences:** Optional capture is produced only after its source replay
   root is known; absence of capture does not change the numeric verdict.
-- **Uncertainty:** Current Isaac installation and mirror readiness are not yet
-  checked.
+- **Uncertainty:** Isaac execution is available, but CPU/Isaac trajectory
+  correspondence for this body/profile family is not yet checked.
 - **Reconsider when:** A future Accepted profile changes the canonical plane.
 
 ### D-004 — Defer Kimodo to a separate post-foundation lineage
@@ -117,19 +121,42 @@
 - **Rejected alternatives:** Adding Kimodo references to standing/forward R8b,
   direct G1/SOMA ingestion, runtime text-to-motion, or using Kimodo to resume or
   relabel R123–R141.
-- **Consequences:** The R8b preflight and exact run identities remain
-  unchanged. A future pilot needs new license snapshots, raw-output hashes,
-  deterministic SOMA-to-BodySchema retarget and optimizer-free CPU admission.
+- **Consequences:** Kimodo remains excluded from both the retired standing V1
+  run and its future bounded-unit successor. A future pilot needs new license
+  snapshots, raw-output hashes, deterministic SOMA-to-BodySchema retarget and
+  optimizer-free CPU admission.
 - **Uncertainty:** Physical admission yield and PPO sample-efficiency benefit
   are unmeasured; model/text-encoder/output licensing still needs exact review.
 - **Reconsider when:** Both standing and bounded forward/start-stop gates pass,
   or an explicit roadmap decision changes their order.
 
+### D-005 — Retire standing V1 from optimizer use
+
+- **Observation:** The complete seed-42 run reduced its final-20 mean return
+  magnitude by about six times while mean episode length fell from `101.51` to
+  `62.39` ticks; its best mean length was only `111.16/3,600`.
+- **Evidence:** External run
+  `runs/r8b-standing-seed42-v1`, manifest `2debfb23…`, metrics
+  `6091cb6a…`, event projection `f3ff7054…`, plus `_standing_rewards` in
+  `lab/next_lab/isaac_env.py` where effort/action remain raw microunits.
+- **Decision:** Treat V1 standing PPO as a closed negative experiment. Do not
+  evaluate, resume, initialize from or rerun any of its checkpoints.
+- **Rejected alternatives:** More iterations, a new PPO seed, learning-rate
+  tuning or selecting the least-bad intermediate checkpoint; none changes the
+  dominant reward units.
+- **Consequences:** The next optimizer input needs a new environment identity
+  with bounded unit semantics and a newly admitted generation. The completed
+  V1 run remains immutable external diagnostic evidence only.
+- **Uncertainty:** Whether the unchanged V1 body learns full-episode standing
+  after a correct bounded reward remains unmeasured.
+- **Reconsider when:** A new profile passes CPU reward golden vectors, Isaac
+  reset/reward parity and a small no-training reward-scale probe.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: the frozen V1 body can learn complete-episode standing with the smallest MLP profile | Procedural standing and canonical standing environment exist | No conforming learned standing run has passed | One bounded multi-seed standing run after preflight |
+| H1: the frozen V1 body can learn complete-episode standing with the smallest MLP profile | Procedural standing and the body/actuation path execute | The only full run optimized incompatible raw reward scales and therefore did not test body learnability | A new bounded-unit standing profile and smallest pre-training reward-scale probe |
 | H2: immutable standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No R8b walking comparison exists | Compare declared standing-parent initialization with the smallest clean control under one fixed budget |
 | H3: Isaac can shorten iteration without changing candidate admissibility | Descriptor/mirror infrastructure exists | Current correspondence readiness is `NOT_RUN` | Exact mirror preflight followed by CPU final evaluation |
 
@@ -155,17 +182,15 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Run the read-only trainer preflight for exact run ID
-   `r8b-standing-seed42-v1` after the source commit is clean; require
-   `status=ready`, `repository.dirty=false`, the admitted hashes above and
-   `4,096,000` transitions.
-2. Start that one optimizer run only after explicit confirmation to spend the
-   frozen budget. Its claim ceiling is gradient/standing feasibility in this
-   exact Isaac mirror, not CPU correspondence, admission or runtime support.
-3. Diagnose its closed metrics before any retry or hyperparameter change. If
-   it produces a candidate worth evaluating, run all five predeclared full
-   standing episodes and then build the missing paired V1 trajectory recorder
-   before any `MODEL-MIRROR-P1` or CPU-admission claim.
+1. Keep `r8b-standing-seed42-v1` immutable and excluded from checkpoint
+   selection. Its missing metrics binding cannot be repaired in place.
+2. Add one engine-owned standing V2 environment identity whose reward
+   components and coefficients are bounded and hash-closed on CPU and Isaac;
+   validate scale/order with golden vectors and a no-training probe.
+3. Admit that exact environment/profile under a new external generation and
+   request explicit approval for the smallest discriminating optimizer run.
+   Only a promising result proceeds to the five frozen evaluation seeds and
+   later `MODEL-MIRROR-P1` work.
 
 ## Do not retry
 
@@ -176,6 +201,9 @@ Read these sources in precedence order before acting:
   independent.
 - Trainer-side command/reward overrides — they create a second environment
   authority and invalidate the exact manifest.
+- Standing V1 optimizer/evaluation/resume — the complete seed-42 run shows its
+  raw effort/action units dominate the objective, and its metrics are not
+  manifest-bound.
 - Kimodo or another generated-motion source inside current R8b — it would
   bypass the declared command-only lineage and cannot rehabilitate TRAIN-4.
 - GPU-only quality or video-only acceptance — CPU PhysX trajectories and
@@ -183,19 +211,19 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** The tracked standing profile and safe generation
-  activation/preflight path exist. External descriptor, USD, generation and
-  reset-smoke log live below
-  `/home/kaifaty/NextEngine-training/r8b-standing`; no optimizer run or
-  checkpoint exists.
-- **Checks:** Focused Python training/mirror/correspondence/USD tests and the
-  exact Isaac reset smoke pass. Final clean-commit trainer preflight and
-  risk-scoped workspace checks remain before handoff.
-- **Remaining risk:** Learned standing feasibility and time-to-result are
-  unknown. Full CPU/Isaac correspondence is unimplemented for the current V1
-  recorder layouts and remains mandatory before an authority claim. Kimodo
-  retarget yield, physical admissibility, learning benefit and exact license
-  closure remain unmeasured and deferred.
+- **Workspace state:** The first external optimizer run completed, but standing
+  V1 is retired from further optimizer use. A source change now closes metrics
+  for future generic runs and makes checkpoint selection reject incomplete
+  metrics closure; it does not alter the immutable completed manifest.
+- **Checks:** Run process exit, sample count, finite metrics and all 21 declared
+  checkpoint hashes pass. The generic diagnostic tool rejects this manifest
+  family and confirms the missing metrics binding; held-out evaluation and
+  correspondence are intentionally not run.
+- **Remaining risk:** Learned standing feasibility remains unknown because the
+  first objective was dimensionally broken. A standing V2 identity and full
+  CPU/Isaac correspondence are still required before any authority claim.
+  Kimodo retarget yield, physical admissibility, learning benefit and exact
+  license closure remain unmeasured and deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.

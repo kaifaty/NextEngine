@@ -322,12 +322,15 @@ integration check:
 ```
 
 Every admitted invocation writes an external `run-manifest.json`, append-only
-`metrics.jsonl`, TensorBoard events, and SHA-256-closed checkpoints. The
+`metrics.jsonl`, TensorBoard events, and SHA-256-closed checkpoints. On terminal
+completion or failure, the manifest also closes the metrics byte size, record
+count and SHA-256 when that file exists. The
 manifest binds the generation, profile, descriptor, generated USD, seed/run
 root, package versions, Git revision, GPU memory preflight, and optional parent
 checkpoint.
 Training aborts before saving a non-finite policy or loss. Resume is accepted
-only from a completed manifest with the exact same resolved training config:
+only from a completed manifest with hash-matching metrics/checkpoint artifacts
+and the exact same resolved training config:
 
 ```text
 /home/kaifaty/NextEngine-training/train-nextengine-poc.sh \

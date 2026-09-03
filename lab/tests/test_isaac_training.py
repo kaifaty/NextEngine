@@ -22,6 +22,7 @@ from next_lab.isaac_training import (
     initialize_training_generation,
     latest_closed_checkpoint,
     load_active_training_generation,
+    metrics_record,
     parse_gpu_memory_csv,
     require_external_path,
     require_run_id,
@@ -29,6 +30,7 @@ from next_lab.isaac_training import (
     training_config_hash,
     validate_checkpoint_artifacts,
     validate_closed_checkpoint,
+    validate_closed_metrics,
     validate_resume_checkpoint,
 )
 
@@ -125,12 +127,15 @@ class IsaacTrainingTests(unittest.TestCase):
             run = Path(temporary)
             checkpoint = run / "model_7.pt"
             checkpoint.write_bytes(b"checkpoint")
+            metrics = run / "metrics.jsonl"
+            metrics.write_text('{"iteration": 0}\n', encoding="utf-8")
             config_hash = canonical_json_hash({"config": "one"})
             manifest = {
                 "schema": RUN_MANIFEST_SCHEMA,
                 "status": "completed",
                 "training_generation_id": "nextengine.training.generation.test.v1",
                 "training_config_hash": config_hash,
+                "metrics": metrics_record(metrics),
                 "checkpoints": [
                     {
                         "file": checkpoint.name,
@@ -149,6 +154,10 @@ class IsaacTrainingTests(unittest.TestCase):
                 "completed",
             )
             self.assertEqual(validate_closed_checkpoint(checkpoint)["status"], "completed")
+            metrics.write_text('{"iteration": 1}\n', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "metrics sha256"):
+                validate_closed_metrics(run, manifest)
+            metrics.write_text('{"iteration": 0}\n', encoding="utf-8")
             checkpoint.write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "hash"):
                 validate_resume_checkpoint(
@@ -197,12 +206,15 @@ class IsaacTrainingTests(unittest.TestCase):
                 run.mkdir()
                 checkpoint = run / f"model_{iteration}.pt"
                 checkpoint.write_bytes(payload)
+                metrics = run / "metrics.jsonl"
+                metrics.write_text('{"iteration": 0}\n', encoding="utf-8")
                 atomic_write_json(
                     run / "run-manifest.json",
                     {
                         "schema": RUN_MANIFEST_SCHEMA,
                         "status": status,
                         "training_config": {"profile_hash": profile.profile_hash},
+                        "metrics": metrics_record(metrics),
                         "checkpoints": [
                             {
                                 "file": checkpoint.name,
@@ -228,11 +240,14 @@ class IsaacTrainingTests(unittest.TestCase):
                 checkpoint = run / f"model_{iteration}.pt"
                 checkpoint.write_bytes(str(iteration).encode("ascii"))
                 checkpoints.append(checkpoint)
+            metrics = run / "metrics.jsonl"
+            metrics.write_text('{"iteration": 0}\n', encoding="utf-8")
             atomic_write_json(
                 run / "run-manifest.json",
                 {
                     "schema": RUN_MANIFEST_SCHEMA,
                     "status": "completed",
+                    "metrics": metrics_record(metrics),
                     "checkpoints": [
                         {
                             "file": checkpoint.name,
@@ -314,6 +329,20 @@ class IsaacTrainingTests(unittest.TestCase):
                 "memory_free_mib": 8192,
             },
         )
+
+    def test_metrics_record_closes_jsonl_bytes_hash_and_count(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            metrics = Path(temporary) / "metrics.jsonl"
+            metrics.write_text('{"iteration": 0}\n\n{"iteration": 1}\n', encoding="utf-8")
+            self.assertEqual(
+                metrics_record(metrics),
+                {
+                    "file": "metrics.jsonl",
+                    "bytes": metrics.stat().st_size,
+                    "record_count": 2,
+                    "sha256": sha256_file(metrics),
+                },
+            )
 
     def test_generation_index_is_hash_closed_and_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

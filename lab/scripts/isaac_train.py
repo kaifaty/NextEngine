@@ -23,6 +23,7 @@ from next_lab.isaac_training import (
     atomic_write_json,
     checkpoint_records,
     load_active_training_generation,
+    metrics_record,
     parse_gpu_memory_csv,
     require_external_path,
     require_generation_output_path,
@@ -166,6 +167,7 @@ def main() -> None:
     log_root.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=False, exist_ok=False)
     manifest_path = run_dir / "run-manifest.json"
+    metrics_path = run_dir / "metrics.jsonl"
     manifest: dict[str, Any] = {
         "schema": RUN_MANIFEST_SCHEMA,
         "status": "running",
@@ -175,6 +177,7 @@ def main() -> None:
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "repository": repository_state(),
         "profile_path": str(args.profile.resolve()),
+        "training_profile_sha256": sha256_file(args.profile.resolve()),
         "training_config": config.as_dict(),
         "training_config_hash": config_hash,
         "artifacts": {
@@ -220,7 +223,7 @@ def main() -> None:
             copy.deepcopy(agent_cfg.to_dict()),
             log_dir=str(run_dir),
             device=config.device,
-            metrics_path=run_dir / "metrics.jsonl",
+            metrics_path=metrics_path,
         )
         if resume is not None:
             runner.load(str(resume), load_optimizer=True, map_location=config.device)
@@ -238,6 +241,7 @@ def main() -> None:
                 "completed_at_utc": datetime.now(timezone.utc).isoformat(),
                 "samples": config.num_envs * config.steps_per_env * config.iterations,
                 "gpu_postflight": query_gpu(config.device),
+                "metrics": metrics_record(metrics_path),
                 "checkpoints": checkpoint_records(run_dir),
             }
         )
@@ -267,6 +271,8 @@ def main() -> None:
                 "checkpoints": checkpoint_records(run_dir),
             }
         )
+        if metrics_path.is_file():
+            manifest["metrics"] = metrics_record(metrics_path)
         atomic_write_json(manifest_path, manifest)
         traceback.print_exc()
         raise
