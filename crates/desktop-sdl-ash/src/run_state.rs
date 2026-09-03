@@ -95,6 +95,28 @@ pub struct DesktopRunOptions {
     /// Developer-scripted input pushed into SDL's event queue by run time
     /// (sorted by time on use); empty for ordinary runs.
     pub scripted_input: Vec<DesktopScriptedInputV1>,
+    /// Plan `continuum-water/18`: sub-pixel Halton(2, 3) projection jitter
+    /// per rendered frame (for a temporal upscaler); off by default because
+    /// no temporal resolve exists yet.
+    pub projection_jitter: bool,
+}
+
+/// Plan `continuum-water/18`: which image a developer capture reads.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum DesktopCaptureSourceV1 {
+    /// The presented swapchain image (HUD included).
+    #[default]
+    Color,
+    /// The HUD-less scene colour target.
+    Scene,
+    /// Albedo (rgb) and the group mask (`group / 255` in alpha).
+    AlbedoMask,
+    /// World normal `0.5 n + 0.5` (rgb) and roughness (alpha).
+    NormalRoughness,
+    /// Screen motion in pixels (`R16G16_SFLOAT`, raw bytes).
+    Motion,
+    /// View-space depth in metres (`R32_SFLOAT`, raw bytes).
+    LinearDepth,
 }
 
 /// A developer-scripted key for [`DesktopScriptedActionV1`] (the movement
@@ -138,6 +160,9 @@ pub struct DesktopFrameCaptureRequestV1 {
     /// Consecutive rendered frames to capture starting at that index;
     /// clamped to `1..=MAX_FRAME_CAPTURE_BURST`.
     pub frame_count: u32,
+    /// Plan 18: the image to read; G-buffer sources fall back to the
+    /// swapchain colour when the G-buffer pass is unavailable.
+    pub source: DesktopCaptureSourceV1,
 }
 
 /// Upper bound on consecutive captured frames per run (host memory bound).
@@ -198,6 +223,7 @@ impl Default for DesktopRunOptions {
             frame_capture: None,
             particle_surface: None,
             scripted_input: Vec::new(),
+            projection_jitter: false,
         }
     }
 }

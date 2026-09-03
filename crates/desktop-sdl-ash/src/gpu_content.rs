@@ -1,4 +1,5 @@
 pub(crate) mod fluid;
+pub(crate) mod gbuffer;
 mod pipeline;
 pub(crate) mod water;
 pub(crate) use pipeline::B0_SUN_DIRECTION_INTENSITY;
@@ -22,9 +23,10 @@ use next_contracts::render_content::{
 use next_render::B0FramePlanV1;
 
 use self::pipeline::{
-    PipelineState, draw_push_constant_bytes, frame_raster_state, identity_matrix_bytes,
-    mirrored_frame_raster_state,
+    PipelineState, draw_push_constant_bytes, frame_raster_state_jittered, identity_matrix_bytes,
+    mirrored_frame_raster_state, model_matrix,
 };
+pub(crate) use self::pipeline::{ProjectionJitterV1, projection_jitter};
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
 use self::resources::{DescriptorState, ShadowMap, TextureResource, upload_content};
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
@@ -615,6 +617,7 @@ impl B0GpuContent {
         extent: vk::Extent2D,
         frame_slot_index: usize,
         skip_water_surfaces: bool,
+        jitter: Option<ProjectionJitterV1>,
     ) -> Result<u64, B0GpuContentError> {
         if extent.width == 0 || extent.height == 0 {
             return Err(B0GpuContentError::InvalidFramePlan(
@@ -653,7 +656,7 @@ impl B0GpuContent {
             .ok_or(B0GpuContentError::InvalidFramePlan(
                 "frame slot index is outside the descriptor ring",
             ))?;
-        let raster_state = frame_raster_state(plan.camera.as_ref(), extent)?;
+        let raster_state = frame_raster_state_jittered(plan.camera.as_ref(), extent, jitter)?;
         frame_uniform.write(0, &raster_state.view_projection_bytes)?;
         let viewports = [raster_state.viewport];
         let scissors = [raster_state.scissor];
@@ -718,7 +721,87 @@ impl B0GpuContent {
             } else {
                 WaterRingModeV1::InWorldPass
             },
+            None,
         )
+    }
+
+    /// Plan 18: the B0 texture set layout, reused as set 1 of the G-buffer
+    /// suite.
+    pub(super) fn texture_layout(&self) -> vk::DescriptorSetLayout {
+        self.descriptors.texture_layout
+    }
+
+    /// Plan 18: records the plan's draws into the G-buffer pass with the
+    /// frame's jittered camera; a G-buffer rendering instance must be
+    /// active. Water rings draw here with the G-buffer suite like every
+    /// other draw.
+    pub(super) fn record_gbuffer(
+        &mut self,
+        command_buffer: vk::CommandBuffer,
+        plan: &B0FramePlanV1,
+        extent: vk::Extent2D,
+        frame_slot_index: usize,
+        gbuffer: &mut gbuffer::GBufferPassState,
+        jitter: Option<ProjectionJitterV1>,
+    ) -> Result<(), B0GpuContentError> {
+        let raster_state = frame_raster_state_jittered(plan.camera.as_ref(), extent, jitter)?;
+        let jitter_pixels = jitter.map_or([0.0; 2], |jitter| jitter.pixels);
+        let set = gbuffer.prepare(
+            frame_slot_index,
+            raster_state.view_projection,
+            jitter_pixels,
+        )?;
+        let viewports = [raster_state.viewport];
+        let scissors = [raster_state.scissor];
+        let vertex_buffers = [self.geometry.buffer];
+        let vertex_offsets = [0];
+        let layout = gbuffer.layout();
+        // SAFETY: the G-buffer pipeline owns its layout; the set and
+        // buffers are live on this device inside the G-buffer rendering
+        // instance.
+        unsafe {
+            self.geometry.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                gbuffer.pipeline(),
+            );
+            self.geometry
+                .device
+                .cmd_set_viewport(command_buffer, 0, &viewports);
+            self.geometry
+                .device
+                .cmd_set_scissor(command_buffer, 0, &scissors);
+            self.geometry.device.cmd_bind_vertex_buffers(
+                command_buffer,
+                0,
+                &vertex_buffers,
+                &vertex_offsets,
+            );
+            self.geometry.device.cmd_bind_index_buffer(
+                command_buffer,
+                self.geometry.buffer,
+                self.index_buffer_offset,
+                vk::IndexType::UINT32,
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                layout,
+                0,
+                &[set],
+                &[],
+            );
+        }
+        self.record_plan_draws(
+            command_buffer,
+            plan,
+            frame_slot_index,
+            layout,
+            WaterRingModeV1::InWorldPass,
+            Some(gbuffer),
+        )?;
+        gbuffer.end_frame_draws();
+        Ok(())
     }
 
     /// Records the plan's draws for the currently bound pipeline and frame
@@ -730,9 +813,10 @@ impl B0GpuContent {
         frame_slot_index: usize,
         layout: vk::PipelineLayout,
         water_rings: WaterRingModeV1,
+        mut gbuffer: Option<&mut gbuffer::GBufferPassState>,
     ) -> Result<u64, B0GpuContentError> {
         let mut dynamic_surface_draws = 0_u64;
-        for draw in &plan.draws {
+        for (draw_index, draw) in plan.draws.iter().enumerate() {
             let dynamic_binding = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index);
             // Plan 13/15: with the water pass active, water rings draw there
             // and never in the world or reflection passes.
@@ -802,8 +886,43 @@ impl B0GpuContent {
                 B0GpuContentError::ResourceMissing("exact indexed draw command"),
             )?;
             let texture_sets = [texture_set];
-            let push_constants =
-                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            let draw_bytes = draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            // Plan 18: the G-buffer pass pushes the draw bytes plus `meta`
+            // and stores the draw's previous model; draws beyond its bound
+            // are skipped there.
+            let push_constants: Vec<u8> = match gbuffer.as_deref_mut() {
+                Some(gbuffer) => {
+                    let group = if dynamic_binding.is_some_and(|binding| {
+                        binding.shading == DynamicSurfaceShadingV1::WaterSurface
+                    }) {
+                        gbuffer::GBufferGroupV1::WaterSurface
+                    } else if dynamic_binding.is_some() {
+                        gbuffer::GBufferGroupV1::DynamicSurface
+                    } else if draw.skinning_vertex_stream_index.is_some() {
+                        gbuffer::GBufferGroupV1::Character
+                    } else {
+                        gbuffer::GBufferGroupV1::Environment
+                    };
+                    let Some(bytes) = gbuffer.push_bytes(
+                        frame_slot_index,
+                        u32::try_from(draw_index).map_err(|_| B0GpuContentError::CountOverflow)?,
+                        (
+                            draw.mesh_revision,
+                            draw.material_revision,
+                            draw.texture_revision,
+                        ),
+                        model_matrix(draw.transform),
+                        draw_bytes,
+                        group,
+                    )?
+                    else {
+                        continue;
+                    };
+                    bytes.to_vec()
+                }
+                None => draw_bytes.to_vec(),
+            };
+            let water_suite_switch = gbuffer.is_none();
 
             // SAFETY: descriptor set one was allocated from the pipeline's
             // texture layout, push bytes exactly cover its declared 80-byte
@@ -828,7 +947,9 @@ impl B0GpuContent {
                     // Plan 12: a water ring draws through the water suite on
                     // the same layout, so the bound sets and push constants
                     // stay valid; the world suite is rebound afterwards.
-                    if binding.shading == DynamicSurfaceShadingV1::WaterSurface {
+                    if water_suite_switch
+                        && binding.shading == DynamicSurfaceShadingV1::WaterSurface
+                    {
                         self.geometry.device.cmd_bind_pipeline(
                             command_buffer,
                             vk::PipelineBindPoint::GRAPHICS,
@@ -863,7 +984,9 @@ impl B0GpuContent {
                         self.index_buffer_offset,
                         vk::IndexType::UINT32,
                     );
-                    if binding.shading == DynamicSurfaceShadingV1::WaterSurface {
+                    if water_suite_switch
+                        && binding.shading == DynamicSurfaceShadingV1::WaterSurface
+                    {
                         self.geometry.device.cmd_bind_pipeline(
                             command_buffer,
                             vk::PipelineBindPoint::GRAPHICS,
@@ -1140,6 +1263,10 @@ impl B0GpuContent {
 
     /// Plan 15: records the plan's draws with the mirrored camera into the
     /// reflection pass; a reflection rendering instance must be active.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the pass inputs of the private adapter boundary stay explicit"
+    )]
     pub(super) fn record_reflection(
         &mut self,
         command_buffer: vk::CommandBuffer,
@@ -1148,11 +1275,13 @@ impl B0GpuContent {
         frame_slot_index: usize,
         water: &mut water::WaterPassState,
         plane_height_metres: f32,
+        jitter: Option<ProjectionJitterV1>,
     ) -> Result<(), B0GpuContentError> {
         let Some(camera) = plan.camera.as_ref() else {
             return Ok(());
         };
-        let raster_state = mirrored_frame_raster_state(camera, extent, plane_height_metres)?;
+        let raster_state =
+            mirrored_frame_raster_state(camera, extent, plane_height_metres, jitter)?;
         let frame_set = water.prepare_reflection(frame_slot_index, &raster_state)?;
         let shadow_set = self
             .descriptors
@@ -1215,6 +1344,7 @@ impl B0GpuContent {
             frame_slot_index,
             layout,
             WaterRingModeV1::Skip,
+            None,
         )?;
         Ok(())
     }

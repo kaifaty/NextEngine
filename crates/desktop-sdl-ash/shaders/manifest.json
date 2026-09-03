@@ -10,6 +10,7 @@
   "water_suite": "water_surface",
   "water_scene_suite": "water_scene",
   "reflection_suite": "b0_reflect",
+  "gbuffer_suite": "gbuffer",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
   "source_language": {
     "name": "GLSL",
@@ -363,6 +364,20 @@
       "source_sha256": "996e5bb96e84c75e005169df36b03b3ee99f00b69f83b529af0168c5971660cf",
       "module": "b0_reflect.frag.spv",
       "module_sha256": "0b7af14852205de0721472e3f47aec157a5ca52be4cd37d26916482c77467a4a"
+    },
+    {
+      "stage": "vertex",
+      "source": "gbuffer.vert",
+      "source_sha256": "b4e8819d6685df127a17e53be635b8e5dd7e126ea23225faffc91ec3727f40ab",
+      "module": "gbuffer.vert.spv",
+      "module_sha256": "3838e9a335b52ec87c677d86fa314526bc4bcb7ec9f148275a2997160ef4d29a"
+    },
+    {
+      "stage": "fragment",
+      "source": "gbuffer.frag",
+      "source_sha256": "39d3ff91bc38b9aee3162e3727204f8d51acbf415ed9cf391427a7c5d44f5f15",
+      "module": "gbuffer.frag.spv",
+      "module_sha256": "0a87ee7851be9ff02f115b2d64864660c457e1cd38447ae7e5a7ee54d5c0db15"
     }
   ]
 }

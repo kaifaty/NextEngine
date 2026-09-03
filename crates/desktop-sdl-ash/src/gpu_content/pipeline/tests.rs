@@ -269,3 +269,75 @@ fn assert_approx(actual: f32, expected: f32) {
         "expected {expected}, got {actual}"
     );
 }
+
+#[test]
+fn halton_jitter_is_distinct_bounded_and_periodic() {
+    // Plan 18 G2: Halton(2, 3), one-based; sample 1 is (1/2, 1/3).
+    assert_approx(halton(1, 2), 0.5);
+    assert_approx(halton(1, 3), 1.0 / 3.0);
+    assert_approx(halton(2, 2), 0.25);
+    assert_approx(halton(3, 3), 1.0 / 9.0);
+    let extent = vk::Extent2D {
+        width: 960,
+        height: 540,
+    };
+    let mut samples = Vec::new();
+    for frame in 0..u64::from(PROJECTION_JITTER_PERIOD) {
+        let jitter = projection_jitter(frame, extent);
+        assert!(jitter.pixels[0] > -0.5 && jitter.pixels[0] < 0.5);
+        assert!(jitter.pixels[1] > -0.5 && jitter.pixels[1] < 0.5);
+        assert_approx(jitter.ndc[0], 2.0 * jitter.pixels[0] / 960.0);
+        assert_approx(jitter.ndc[1], 2.0 * jitter.pixels[1] / 540.0);
+        assert!(
+            !samples.contains(&jitter.pixels),
+            "jitter samples repeat inside one period"
+        );
+        samples.push(jitter.pixels);
+    }
+    assert_eq!(
+        projection_jitter(0, extent),
+        projection_jitter(u64::from(PROJECTION_JITTER_PERIOD), extent)
+    );
+    assert_approx(projection_jitter(0, extent).pixels[0], 0.0);
+    assert_approx(projection_jitter(0, extent).pixels[1], 1.0 / 3.0 - 0.5);
+}
+
+#[test]
+fn projection_jitter_shifts_ndc_by_a_constant_offset_at_every_depth() {
+    // Plan 18 G2: the jittered projection moves every projected point by
+    // the NDC jitter, independent of its depth, and changes nothing else.
+    let camera = camera_frame(CameraViewportV1::full(0), [0, 0, 3_000_000], [0, 0, 0]);
+    let extent = vk::Extent2D {
+        width: 800,
+        height: 600,
+    };
+    let plain = frame_raster_state_jittered(Some(&camera), extent, None).expect("plain state");
+    let jitter = ProjectionJitterV1 {
+        pixels: [0.25, -0.125],
+        ndc: [2.0 * 0.25 / 800.0, 2.0 * -0.125 / 600.0],
+    };
+    let jittered =
+        frame_raster_state_jittered(Some(&camera), extent, Some(jitter)).expect("jittered state");
+    assert_eq!(
+        plain.view_projection,
+        matrix_from_bytes(plain.view_projection_bytes)
+    );
+    for point in [
+        [0.3, 0.2, 0.0, 1.0],
+        [0.0, 0.0, -7.0, 1.0],
+        [-1.0, 0.5, 2.0, 1.0],
+    ] {
+        let a = transform_homogeneous(plain.view_projection, point);
+        let b = transform_homogeneous(jittered.view_projection, point);
+        assert_approx(b[0] / b[3] - a[0] / a[3], jitter.ndc[0]);
+        assert_approx(b[1] / b[3] - a[1] / a[3], jitter.ndc[1]);
+        assert_approx(b[2] / b[3], a[2] / a[3]);
+        assert_approx(b[3], a[3]);
+    }
+    // Only the shadow-independent view-projection differs: the rest of the
+    // frame block (shadow matrix, camera, lighting) is byte-identical.
+    assert_eq!(
+        &plain.view_projection_bytes[64..],
+        &jittered.view_projection_bytes[64..]
+    );
+}

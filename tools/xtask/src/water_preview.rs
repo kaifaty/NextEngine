@@ -589,6 +589,7 @@ pub(super) fn run(request: &WaterPreviewRequest) -> Result<(), String> {
             next_desktop_sdl_ash::DesktopFrameCaptureRequestV1 {
                 rendered_frame_index: capture.rendered_frame_index,
                 frame_count: capture.frame_count,
+                source: next_desktop_sdl_ash::DesktopCaptureSourceV1::Color,
             }
         }),
         particle_surface: preview.particle_profile,

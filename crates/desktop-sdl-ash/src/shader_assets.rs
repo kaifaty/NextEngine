@@ -26,6 +26,8 @@ const WATER_SURFACE_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/water_surface.frag.spv");
 const WATER_SCENE_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_scene.frag.spv");
 const REFLECTION_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/b0_reflect.frag.spv");
+const GBUFFER_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.vert.spv");
+const GBUFFER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -153,6 +155,18 @@ pub(super) fn reflection_shader_modules() -> Result<B0ShaderModules, &'static st
     })
 }
 
+/// Water look L8 (plan `continuum-water/18`): the G-buffer suite (thin
+/// G-buffer, motion vectors and linear depth from the plan's draws).
+pub(super) fn gbuffer_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"gbuffer_suite\": \"gbuffer\"") {
+        return Err("embedded G-buffer shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(GBUFFER_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(GBUFFER_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
 fn decode_spirv(bytes: &[u8]) -> Result<Vec<u32>, &'static str> {
     if bytes.len() < 20 || !bytes.len().is_multiple_of(4) {
         return Err("embedded SPIR-V module has an invalid byte length");
@@ -259,6 +273,17 @@ mod tests {
         let water_scene =
             water_scene_shader_modules().expect("checked-in water scene modules decode");
         assert_eq!(water_scene.fragment[0], SPIRV_MAGIC);
+        assert_eq!(
+            hex(sha256(GBUFFER_VERTEX_SHADER_BYTES)),
+            "3838e9a335b52ec87c677d86fa314526bc4bcb7ec9f148275a2997160ef4d29a"
+        );
+        assert_eq!(
+            hex(sha256(GBUFFER_FRAGMENT_SHADER_BYTES)),
+            "0a87ee7851be9ff02f115b2d64864660c457e1cd38447ae7e5a7ee54d5c0db15"
+        );
+        let gbuffer = gbuffer_shader_modules().expect("checked-in G-buffer modules decode");
+        assert_eq!(gbuffer.vertex[0], SPIRV_MAGIC);
+        assert_eq!(gbuffer.fragment[0], SPIRV_MAGIC);
         let fluid = fluid_shader_modules().expect("checked-in fluid modules decode");
         assert_eq!(fluid.splat_vertex[0], SPIRV_MAGIC);
         assert_eq!(fluid.composite_fragment[0], SPIRV_MAGIC);

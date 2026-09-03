@@ -159,3 +159,21 @@ the lattice product instead of raising it to the fourth power. Recompiled with t
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
 ```
+
+## G-buffer suite (water look L8, plan `continuum-water/18`)
+
+`gbuffer.vert` and `gbuffer.frag` form the separate `gbuffer` suite: the
+frame plan drawn again after the scene passes into four `32`-bit targets
+(albedo + group mask, encoded normal + roughness, screen motion vectors,
+linear depth). The suite has its own set 0 (a `160`-byte uniform with the
+jittered view-projection, the previous frame's view-projection, the
+viewport and the current/previous jitter; a storage buffer of previous
+model matrices) and a `96`-byte push block (the B0 draw bytes plus
+`meta`); it reuses the B0 texture set as set 1 and does not touch the
+closed `B0ShaderInterfaceV2` contract (`interface_contract_sha256` is
+unchanged). Compiled with the same pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o gbuffer.vert.spv gbuffer.vert
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o gbuffer.frag.spv gbuffer.frag
+```

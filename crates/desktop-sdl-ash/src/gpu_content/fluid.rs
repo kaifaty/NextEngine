@@ -16,7 +16,7 @@ use next_contracts::ids::ContentHash;
 use next_render::B0CameraFrameV1;
 
 use super::B0GpuContentError;
-use super::pipeline::{camera_matrices, camera_raster_region};
+use super::pipeline::{ProjectionJitterV1, camera_matrices_jittered, camera_raster_region};
 use super::resources::{BufferAllocation, ImageAllocation};
 use crate::particle_surface::{
     PARTICLE_SURFACE_STRIDE, ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1,
@@ -594,6 +594,7 @@ impl FluidPassState {
         swapchain_view: vk::ImageView,
         scene_depth_view: vk::ImageView,
         sun_direction_intensity: [f32; 4],
+        jitter: Option<ProjectionJitterV1>,
     ) -> Result<bool, B0GpuContentError> {
         let Some(camera) = camera else {
             return Ok(false);
@@ -615,7 +616,7 @@ impl FluidPassState {
                     "frame slot index is outside the fluid sets",
                 ))?;
         let (viewport, _) = camera_raster_region(camera.viewport, self.extent)?;
-        let matrices = camera_matrices(camera, viewport)?;
+        let matrices = camera_matrices_jittered(camera, viewport, jitter)?;
         let view_sun = transform_direction(
             &matrices.view,
             [

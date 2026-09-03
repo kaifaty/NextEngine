@@ -44,7 +44,7 @@ captures; a change is a new revision with its own capture.
 | Gate | Reading | Verdict |
 | --- | --- | --- |
 | G1 checks | `water-volume`, `water-flow`, `water-present`, `water-buoyancy`, `physics-collision`, `play`, `persistence-replay`, `content-package` and `host-check` all `PASS` on the tree with the rim (roots moved as authored content: 43 roots, 129 records, 17 meshes, 14 rendered objects; every pinned count refreshed) | pass |
-| G2 walk | not walked in this run; the rim body reaches the collision world through the same descriptor path as the push box (static body, five `Box` shapes on the world layer), `physics-collision` unchanged | open (human) |
+| G2 walk | walked by the human on 2026-09-03 after the commit: the avatar enters the basin through the south opening, the "in water" HUD message appears; the rim body reaches the collision world through the same descriptor path as the push box | pass (human) |
 | G3 look | release capture `--start-at-water` frame 120: four dark walls around the water, the south opening in front of the avatar, the crate and its reflection inside the rim | pass |
 
 The capture stays outside Git.

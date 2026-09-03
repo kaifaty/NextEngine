@@ -11,6 +11,12 @@ pub(super) struct GameOptions {
     /// index to copy back and the PNG path to write it to.
     pub(super) capture_frame: Option<u64>,
     pub(super) capture_png: Option<PathBuf>,
+    /// Plan `continuum-water/18`: `--capture-buffer` source name.
+    pub(super) capture_buffer: Option<String>,
+    /// Plan 18: `--capture-frames`, consecutive frames to capture.
+    pub(super) capture_frames: Option<u32>,
+    /// Plan `continuum-water/18`: sub-pixel projection jitter.
+    pub(super) projection_jitter: bool,
     /// Plan `continuum-water/11` diagnostic: walk to the basin and turn the
     /// camera to it through scripted input at start.
     pub(super) start_at_water: bool,
@@ -53,6 +59,36 @@ impl GameOptions {
                     })?;
                     if options.capture_frame.replace(index).is_some() {
                         return Err(AppFailure::argument("--capture-frame specified twice"));
+                    }
+                }
+                "--capture-buffer" => {
+                    let value = required_value(&mut arguments, "--capture-buffer")?;
+                    if !matches!(
+                        value.as_str(),
+                        "color" | "scene" | "albedo" | "normal" | "motion" | "depth"
+                    ) {
+                        return Err(AppFailure::argument(
+                            "--capture-buffer must be one of color, scene, albedo, normal, motion, depth",
+                        ));
+                    }
+                    if options.capture_buffer.replace(value).is_some() {
+                        return Err(AppFailure::argument("--capture-buffer specified twice"));
+                    }
+                }
+                "--capture-frames" => {
+                    let value = required_value(&mut arguments, "--capture-frames")?;
+                    let count = value.parse::<u32>().map_err(|_| {
+                        AppFailure::argument("--capture-frames requires a positive integer")
+                    })?;
+                    if count == 0 || options.capture_frames.replace(count).is_some() {
+                        return Err(AppFailure::argument(
+                            "--capture-frames must be one positive integer",
+                        ));
+                    }
+                }
+                "--projection-jitter" => {
+                    if std::mem::replace(&mut options.projection_jitter, true) {
+                        return Err(AppFailure::argument("--projection-jitter specified twice"));
                     }
                 }
                 "--capture-png" => {
@@ -99,6 +135,18 @@ impl GameOptions {
         if options.start_at_water && !options.interactive {
             return Err(AppFailure::argument(
                 "--start-at-water requires --interactive",
+            ));
+        }
+        if options.projection_jitter && !options.interactive {
+            return Err(AppFailure::argument(
+                "--projection-jitter requires --interactive",
+            ));
+        }
+        if (options.capture_buffer.is_some() || options.capture_frames.is_some())
+            && options.capture_frame.is_none()
+        {
+            return Err(AppFailure::argument(
+                "--capture-buffer and --capture-frames require --capture-frame",
             ));
         }
         match (options.capture_frame, options.capture_png.as_ref()) {

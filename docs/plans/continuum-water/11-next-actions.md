@@ -41,7 +41,7 @@ through SDL's own event queue) for diagnostics that need real input:
 | L5 planar reflection (done 2026-09-03, plan 15) | one mirrored scene pass about the largest water surface's level into a screen-sized target, sampled by the water pass at the pixel's own position over the analytic sky; front-face culling and a plane clip | one catalog/frame plan per run; `5.3` frames per tick |
 | L6 caustics (done 2026-09-03, plan 17) | animated caustic light on the scene point under the surface, computed in the water pass and fading with the path length | roots identical |
 | L7 crate wake and splash (done 2026-09-03, plan 17) | ring depression around every floating box; splash droplets from the committed vertical speed through the ADR-102 particle lane | roots identical; capture |
-| L8 DLSS-ready outputs | motion vectors, thin G-buffer (albedo, normal + roughness, linear depth), jitter, HUD after the scene composite, per-group mask; no SDK | render tests; no vendor dependency in the workspace |
+| L8 DLSS-ready outputs (done 2026-09-03, plan 18) | HUD-less scene target copied to the swapchain before the UI overlay; a separate `gbuffer` suite (albedo + group mask, normal + roughness, screen motion vectors from a per-draw model history, linear depth); optional Halton(2, 3) projection jitter (`--projection-jitter`); `--capture-buffer` and `--capture-frames` for evidence; no SDK | frame plan hash, `interface_contract_sha256` and roots unchanged; CPU tests; decoded captures |
 
 DLSS itself: revisit when NVIDIA documents DLSS 5 for native Linux
 Vulkan, or when ray-traced water reflection/refraction is chosen (then

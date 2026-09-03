@@ -41,9 +41,9 @@ pub use graphics::FRAME_SLOT_COUNT as DESKTOP_FRAME_SLOT_COUNT;
 pub use prepared_run::{DesktopRunMeasurement, PreparedDesktopRun, prepare_interactive};
 use run_state::{AdapterFinalizer, InteractivePacingClock, apply_software_pacing};
 pub use run_state::{
-    DesktopApplicationFinalization, DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1,
-    DesktopFrameTimingSample, DesktopRunOptions, DesktopRunReport, DesktopScriptedActionV1,
-    DesktopScriptedInputV1, DesktopScriptedKeyV1, MAX_FRAME_CAPTURE_BURST,
+    DesktopApplicationFinalization, DesktopCaptureSourceV1, DesktopCapturedFrameV1,
+    DesktopFrameCaptureRequestV1, DesktopFrameTimingSample, DesktopRunOptions, DesktopRunReport,
+    DesktopScriptedActionV1, DesktopScriptedInputV1, DesktopScriptedKeyV1, MAX_FRAME_CAPTURE_BURST,
     MAX_FRAME_PROFILING_SAMPLES,
 };
 #[cfg(test)]

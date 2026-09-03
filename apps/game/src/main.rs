@@ -32,6 +32,9 @@ use cli::{AppFailure, GameOptions};
 struct CaptureOptions {
     rendered_frame_index: u64,
     png: std::path::PathBuf,
+    /// Plan `continuum-water/18`: the `--capture-buffer` name (`color` by default).
+    source: String,
+    frame_count: u32,
 }
 
 fn main() {
@@ -101,10 +104,16 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         spawn_override: None,
     };
     if options.interactive {
+        let source = options
+            .capture_buffer
+            .clone()
+            .unwrap_or_else(|| "color".to_owned());
         let capture = options.capture_frame.zip(options.capture_png.clone()).map(
             |(rendered_frame_index, png)| CaptureOptions {
                 rendered_frame_index,
                 png,
+                source: source.clone(),
+                frame_count: options.capture_frames.unwrap_or(1),
             },
         );
         let mut launch = launch;
@@ -112,7 +121,12 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             // Plan 11: a fresh session in front of the basin, looking at it.
             launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_water());
         }
-        return run_interactive_session(launch, options.maximum_frames, capture);
+        return run_interactive_session(
+            launch,
+            options.maximum_frames,
+            capture,
+            options.projection_jitter,
+        );
     }
 
     let mut application =
@@ -157,10 +171,13 @@ fn run_interactive_session(
     launch: LaunchRequestV1,
     maximum_frames: Option<u64>,
     capture: Option<CaptureOptions>,
+    projection_jitter: bool,
 ) -> Result<RunReportV1, AppFailure> {
     let capture = capture.map(|capture| capture::CaptureRequest {
         rendered_frame_index: capture.rendered_frame_index,
         png: capture.png,
+        source: capture::parse_capture_source(&capture.source).unwrap_or_default(),
+        frame_count: capture.frame_count,
     });
     let state_root = launch.state_root.clone();
     let (worker, ready) =
@@ -219,6 +236,7 @@ fn run_interactive_session(
                 .as_ref()
                 .map(capture::CaptureRequest::adapter_request),
             scripted_input: Vec::new(),
+            projection_jitter,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed, audio| {
@@ -342,7 +360,7 @@ fn run_interactive_session(
     }
 
     eprintln!(
-        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}",
+        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
         adapter.rendered_frames,
         adapter.normalized_events,
         adapter.control_events,
@@ -356,6 +374,7 @@ fn run_interactive_session(
         adapter.audio_device_faults,
         adapter.audio_device_reopens,
         adapter.audio_output_active,
+        adapter.device_allocation_bytes,
     );
     Ok(worker_report)
 }
@@ -407,6 +426,7 @@ fn run_interactive_session(
     _launch: LaunchRequestV1,
     _maximum_frames: Option<u64>,
     _capture: Option<CaptureOptions>,
+    _projection_jitter: bool,
 ) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",

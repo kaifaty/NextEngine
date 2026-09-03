@@ -11,7 +11,8 @@ use ash::vk;
 use next_render::B0CameraFrameV1;
 
 use super::pipeline::{
-    CameraMatricesV1, FrameRasterState, PipelineState, camera_matrices, camera_raster_region,
+    CameraMatricesV1, FrameRasterState, PipelineState, ProjectionJitterV1,
+    camera_matrices_jittered, camera_raster_region,
 };
 use super::resources::{BufferAllocation, ImageAllocation};
 use super::{B0GpuContentError, DRAW_PUSH_CONSTANT_SIZE, FRAME_UNIFORM_SIZE, VERTEX_STRIDE};
@@ -498,6 +499,7 @@ impl WaterPassState {
         camera: &B0CameraFrameV1,
         scene_depth_view: vk::ImageView,
         rendered_frame_index: u64,
+        jitter: Option<ProjectionJitterV1>,
     ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
         let slot =
             self.slots
@@ -506,7 +508,7 @@ impl WaterPassState {
                     "frame slot index is outside the water pass ring",
                 ))?;
         let (viewport, scissor) = camera_raster_region(camera.viewport, self.extent)?;
-        let matrices: CameraMatricesV1 = camera_matrices(camera, viewport)?;
+        let matrices: CameraMatricesV1 = camera_matrices_jittered(camera, viewport, jitter)?;
         let view_projection = multiply(&matrices.projection, &matrices.view);
         let inverse = invert(&view_projection).ok_or(B0GpuContentError::InvalidFramePlan(
             "camera view-projection is not invertible",

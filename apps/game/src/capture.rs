@@ -12,41 +12,93 @@ use crate::cli::AppFailure;
 pub(crate) struct CaptureRequest {
     pub(crate) rendered_frame_index: u64,
     pub(crate) png: PathBuf,
+    /// Plan `continuum-water/18`: which image to read.
+    pub(crate) source: next_desktop_sdl_ash::DesktopCaptureSourceV1,
+    /// Plan 18: consecutive frames from `rendered_frame_index` (the adapter
+    /// clamps the burst); frames after the first are written with a
+    /// `-<index>` suffix before the extension.
+    pub(crate) frame_count: u32,
+}
+
+/// Parses `--capture-buffer` values.
+pub(crate) fn parse_capture_source(
+    value: &str,
+) -> Option<next_desktop_sdl_ash::DesktopCaptureSourceV1> {
+    use next_desktop_sdl_ash::DesktopCaptureSourceV1 as Source;
+    Some(match value {
+        "color" => Source::Color,
+        "scene" => Source::Scene,
+        "albedo" => Source::AlbedoMask,
+        "normal" => Source::NormalRoughness,
+        "motion" => Source::Motion,
+        "depth" => Source::LinearDepth,
+        _ => return None,
+    })
 }
 
 impl CaptureRequest {
     pub(crate) fn adapter_request(&self) -> next_desktop_sdl_ash::DesktopFrameCaptureRequestV1 {
         next_desktop_sdl_ash::DesktopFrameCaptureRequestV1 {
             rendered_frame_index: self.rendered_frame_index,
-            frame_count: 1,
+            frame_count: self.frame_count,
+            source: self.source,
         }
     }
 
-    /// Writes the captured frame opaque (the particle pass leaves alpha `0`
-    /// on fluid pixels as its coverage channel).
+    /// Writes the captured frame; colour captures are written opaque (the
+    /// particle pass leaves alpha `0` on fluid pixels as its coverage
+    /// channel), G-buffer captures keep their raw bytes (the albedo alpha is
+    /// the group mask, `motion` and `depth` are raw floats).
     pub(crate) fn write(
         &self,
         frames: &[next_desktop_sdl_ash::DesktopCapturedFrameV1],
     ) -> Result<(), AppFailure> {
+        let count = u64::from(self.frame_count.max(1));
+        for offset in 0..count {
+            let index = self.rendered_frame_index + offset;
+            let path = if offset == 0 {
+                self.png.clone()
+            } else {
+                let stem = self
+                    .png
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                self.png.with_file_name(format!("{stem}-{index}.png"))
+            };
+            self.write_frame(frames, index, &path)?;
+        }
+        Ok(())
+    }
+
+    fn write_frame(
+        &self,
+        frames: &[next_desktop_sdl_ash::DesktopCapturedFrameV1],
+        rendered_frame_index: u64,
+        path: &Path,
+    ) -> Result<(), AppFailure> {
         let frame = frames
             .iter()
-            .find(|frame| frame.rendered_frame_index == self.rendered_frame_index)
+            .find(|frame| frame.rendered_frame_index == rendered_frame_index)
             .ok_or_else(|| {
                 AppFailure::cli(
                     "GAME_CAPTURE_FRAME_MISSING",
-                    format!(
-                        "the adapter did not capture rendered frame {}",
-                        self.rendered_frame_index
-                    ),
+                    format!("the adapter did not capture rendered frame {rendered_frame_index}"),
                 )
             })?;
         let mut opaque = frame.rgba8.clone();
-        for pixel in opaque.chunks_exact_mut(4) {
-            pixel[3] = u8::MAX;
+        if matches!(
+            self.source,
+            next_desktop_sdl_ash::DesktopCaptureSourceV1::Color
+                | next_desktop_sdl_ash::DesktopCaptureSourceV1::Scene
+        ) {
+            for pixel in opaque.chunks_exact_mut(4) {
+                pixel[3] = u8::MAX;
+            }
         }
         let png = encode_png_rgba8(frame.extent, &opaque)
             .map_err(|message| AppFailure::cli("GAME_CAPTURE_ENCODE_FAILED", message))?;
-        write_file(&self.png, &png)
+        write_file(path, &png)
     }
 }
 

@@ -3,12 +3,16 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
+use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState};
 use crate::gpu_content::water::WaterPassState;
 use crate::gpu_content::{
     B0_SUN_DIRECTION_INTENSITY, B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState,
+    projection_jitter,
 };
 use crate::particle_surface::{ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1};
-use crate::run_state::{DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1};
+use crate::run_state::{
+    DesktopCaptureSourceV1, DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1,
+};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 mod capabilities;
 mod overlay;
@@ -48,6 +52,11 @@ pub(super) struct GraphicsContext {
     /// Plan 13: the water pass of `WaterSurface` rings; `None` falls back to
     /// the WL1 material inside the world pass.
     water: Option<WaterPassState>,
+    /// Plan 18: the DLSS-ready outputs (HUD-less scene colour target and
+    /// the G-buffer pass); `None` renders straight into the swapchain.
+    gbuffer: Option<GBufferPassState>,
+    /// Plan 18: sub-pixel projection jitter per rendered frame.
+    projection_jitter: bool,
     particle_surface_available: bool,
 }
 
@@ -92,6 +101,8 @@ struct SwapchainState {
     opaque_composite: bool,
     /// Whether the images carry transfer-source usage (capture, scene copy).
     transfer_source: bool,
+    /// Plan 18: whether the images accept a transfer write (the scene copy).
+    transfer_destination: bool,
     /// Whether the depth attachments can be sampled (the water pass).
     depth_sampled: bool,
 }
@@ -401,6 +412,14 @@ impl GraphicsContext {
             initialization.swapchain.as_ref(),
             frame_slots.len(),
         )?;
+        let gbuffer = create_gbuffer_pass(
+            &instance,
+            physical_device,
+            &device,
+            b0_content.as_ref(),
+            initialization.swapchain.as_ref(),
+            frame_slots.len(),
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -440,6 +459,8 @@ impl GraphicsContext {
             particle_surface_profile: options.particle_surface,
             fluid,
             water,
+            gbuffer,
+            projection_jitter: options.projection_jitter,
             particle_surface_available,
         })
     }
@@ -672,26 +693,45 @@ impl GraphicsContext {
                 stencil: 0,
             },
         };
-        let color_attachments = [vk::RenderingAttachmentInfo::default()
-            .image_view(swapchain.image_views[image_usize])
-            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .clear_value(color_clear)];
         let particle_pass_this_frame = self.fluid.is_some() && particle_uploads.particle_count > 0;
         // Plan 13: the water pass draws the water rings after the opaque
         // scene when the pass exists and the plan has a camera.
         let water_pass_this_frame = self.water.is_some() && frame_plan.camera.is_some();
+        // Plan 18: the scene passes render into the HUD-less scene target and
+        // the G-buffer pass follows them when the pass exists and the plan
+        // has a camera; the UI overlay then draws on the swapchain.
+        let gbuffer_this_frame = self.gbuffer.is_some() && frame_plan.camera.is_some();
+        let jitter = self
+            .projection_jitter
+            .then(|| projection_jitter(rendered_frame_index, swapchain.extent));
+        let (scene_image, scene_view) = match self.gbuffer.as_ref() {
+            Some(gbuffer) if gbuffer_this_frame => {
+                gbuffer.record_scene_begin(frame_slot.command_buffer);
+                (gbuffer.scene_color_image(), gbuffer.scene_color_view())
+            }
+            _ => (
+                swapchain.images[image_usize],
+                swapchain.image_views[image_usize],
+            ),
+        };
+        let color_attachments = [vk::RenderingAttachmentInfo::default()
+            .image_view(scene_view)
+            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .clear_value(color_clear)];
         let depth_attachment = vk::RenderingAttachmentInfo::default()
             .image_view(swapchain.depth_attachments[image_usize].view())
             .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             // The particle surface pass depth-tests against the opaque scene.
-            .store_op(if particle_pass_this_frame || water_pass_this_frame {
-                vk::AttachmentStoreOp::STORE
-            } else {
-                vk::AttachmentStoreOp::DONT_CARE
-            })
+            .store_op(
+                if particle_pass_this_frame || water_pass_this_frame || gbuffer_this_frame {
+                    vk::AttachmentStoreOp::STORE
+                } else {
+                    vk::AttachmentStoreOp::DONT_CARE
+                },
+            )
             .clear_value(depth_clear);
         let render_area = vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
@@ -744,6 +784,7 @@ impl GraphicsContext {
                 frame_slot_index,
                 water,
                 plane_height,
+                jitter,
             )?;
             // SAFETY: the reflection rendering instance is ended exactly once.
             unsafe {
@@ -764,25 +805,27 @@ impl GraphicsContext {
             swapchain.extent,
             frame_slot_index,
             water_pass_this_frame,
+            jitter,
         )?;
         if water_pass_this_frame
             && let (Some(water), Some(camera)) = (self.water.as_mut(), frame_plan.camera.as_ref())
         {
             let depth = &swapchain.depth_attachments[image_usize];
-            let (viewport, scissor) =
-                water.prepare(frame_slot_index, camera, depth.view(), rendered_frame_index)?;
+            let (viewport, scissor) = water.prepare(
+                frame_slot_index,
+                camera,
+                depth.view(),
+                rendered_frame_index,
+                jitter,
+            )?;
             // SAFETY: the opaque world rendering instance ends before the
             // pass copies the swapchain colour and samples the scene depth.
             unsafe {
                 self.device.cmd_end_rendering(frame_slot.command_buffer);
             }
-            water.record_begin(
-                frame_slot.command_buffer,
-                swapchain.images[image_usize],
-                depth.image(),
-            );
+            water.record_begin(frame_slot.command_buffer, scene_image, depth.image());
             let water_colors = [vk::RenderingAttachmentInfo::default()
-                .image_view(swapchain.image_views[image_usize])
+                .image_view(scene_view)
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(vk::AttachmentLoadOp::LOAD)
                 .store_op(vk::AttachmentStoreOp::STORE)];
@@ -819,7 +862,7 @@ impl GraphicsContext {
             }
             water.record_end(frame_slot.command_buffer, depth.image());
             let resume_colors = [vk::RenderingAttachmentInfo::default()
-                .image_view(swapchain.image_views[image_usize])
+                .image_view(scene_view)
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(vk::AttachmentLoadOp::LOAD)
                 .store_op(vk::AttachmentStoreOp::STORE)];
@@ -827,7 +870,7 @@ impl GraphicsContext {
                 .image_view(depth.view())
                 .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
                 .load_op(vk::AttachmentLoadOp::LOAD)
-                .store_op(if particle_pass_this_frame {
+                .store_op(if particle_pass_this_frame || gbuffer_this_frame {
                     vk::AttachmentStoreOp::STORE
                 } else {
                     vk::AttachmentStoreOp::DONT_CARE
@@ -858,13 +901,14 @@ impl GraphicsContext {
                 frame_slot.command_buffer,
                 frame_slot_index,
                 frame_plan.camera.as_ref(),
-                swapchain.images[image_usize],
-                swapchain.image_views[image_usize],
+                scene_image,
+                scene_view,
                 swapchain.depth_attachments[image_usize].view(),
                 B0_SUN_DIRECTION_INTENSITY,
+                jitter,
             )?;
             let overlay_colors = [vk::RenderingAttachmentInfo::default()
-                .image_view(swapchain.image_views[image_usize])
+                .image_view(scene_view)
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(vk::AttachmentLoadOp::LOAD)
                 .store_op(vk::AttachmentStoreOp::STORE)];
@@ -872,7 +916,11 @@ impl GraphicsContext {
                 .image_view(swapchain.depth_attachments[image_usize].view())
                 .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
                 .load_op(vk::AttachmentLoadOp::LOAD)
-                .store_op(vk::AttachmentStoreOp::DONT_CARE);
+                .store_op(if gbuffer_this_frame {
+                    vk::AttachmentStoreOp::STORE
+                } else {
+                    vk::AttachmentStoreOp::DONT_CARE
+                });
             let overlay_info = vk::RenderingInfo::default()
                 .render_area(render_area)
                 .layer_count(1)
@@ -888,6 +936,87 @@ impl GraphicsContext {
         if let Some(profiler) = self.frame_profiler.as_ref() {
             profiler.write_particle_surface(frame_slot.command_buffer, frame_slot_index, true)?;
         }
+        if gbuffer_this_frame && let Some(gbuffer) = self.gbuffer.as_mut() {
+            // SAFETY: the scene rendering instance ends before the G-buffer
+            // pass; the scene target keeps its contents.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            gbuffer.record_gbuffer_begin(frame_slot.command_buffer);
+            let gbuffer_clear = vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 0.0],
+                },
+            };
+            let gbuffer_colors = [
+                gbuffer.albedo_mask_view(),
+                gbuffer.normal_roughness_view(),
+                gbuffer.motion_view(),
+                gbuffer.linear_depth_view(),
+            ]
+            .map(|view| {
+                vk::RenderingAttachmentInfo::default()
+                    .image_view(view)
+                    .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .store_op(vk::AttachmentStoreOp::STORE)
+                    .clear_value(gbuffer_clear)
+            });
+            let gbuffer_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.depth_attachments[image_usize].view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE);
+            let gbuffer_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&gbuffer_colors)
+                .depth_attachment(&gbuffer_depth);
+            // SAFETY: the four targets are in attachment layout and the
+            // depth attachment holds the scene depth.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &gbuffer_info);
+            }
+            b0_content.record_gbuffer(
+                frame_slot.command_buffer,
+                frame_plan,
+                swapchain.extent,
+                frame_slot_index,
+                gbuffer,
+                jitter,
+            )?;
+            // SAFETY: the G-buffer rendering instance is ended exactly once.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            gbuffer.record_gbuffer_end(frame_slot.command_buffer);
+            gbuffer.record_scene_to_swapchain(
+                frame_slot.command_buffer,
+                swapchain.images[image_usize],
+            );
+            let hud_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.image_views[image_usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::STORE)];
+            let hud_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.depth_attachments[image_usize].view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::LOAD)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE);
+            let hud_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&hud_colors)
+                .depth_attachment(&hud_depth);
+            // SAFETY: the swapchain image holds the copied scene in
+            // attachment layout; the UI overlay draws on top of it.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &hud_info);
+            }
+        }
         self.ui_overlay
             .record(frame_slot.command_buffer, swapchain.extent);
         // SAFETY: a dynamic rendering instance is active on this command
@@ -900,6 +1029,32 @@ impl GraphicsContext {
                 && capture.pending.len() < capture.request.burst_length() as usize
         });
         let mut presentable_layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+        // Plan 18: a capture reads the swapchain (HUD included) or one of
+        // the G-buffer pass images, which are already in transfer-source
+        // layout after the pass.
+        let capture_source = self
+            .capture
+            .as_ref()
+            .map_or(DesktopCaptureSourceV1::Color, |capture| {
+                capture.request.source
+            });
+        let gbuffer_capture = match (capture_source, self.gbuffer.as_ref()) {
+            (DesktopCaptureSourceV1::Color, _) | (_, None) => None,
+            (source, Some(gbuffer)) if gbuffer_this_frame => {
+                let image = match source {
+                    DesktopCaptureSourceV1::Color => unreachable!("handled above"),
+                    DesktopCaptureSourceV1::Scene => GBufferCaptureImageV1::Scene,
+                    DesktopCaptureSourceV1::AlbedoMask => GBufferCaptureImageV1::AlbedoMask,
+                    DesktopCaptureSourceV1::NormalRoughness => {
+                        GBufferCaptureImageV1::NormalRoughness
+                    }
+                    DesktopCaptureSourceV1::Motion => GBufferCaptureImageV1::Motion,
+                    DesktopCaptureSourceV1::LinearDepth => GBufferCaptureImageV1::LinearDepth,
+                };
+                Some(gbuffer.capture_image(image))
+            }
+            _ => None,
+        };
         if capture_this_frame {
             let byte_count = u64::from(swapchain.extent.width)
                 .checked_mul(u64::from(swapchain.extent.height))
@@ -913,6 +1068,8 @@ impl GraphicsContext {
                 vk::BufferUsageFlags::TRANSFER_DST,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             )?;
+            let (capture_image, capture_format) =
+                gbuffer_capture.unwrap_or((swapchain.images[image_usize], swapchain.format));
             let to_transfer = [vk::ImageMemoryBarrier2::default()
                 .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
                 .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
@@ -945,23 +1102,27 @@ impl GraphicsContext {
             // this run, rendering has ended, the destination buffer covers the
             // tightly packed image, and it outlives the submission.
             unsafe {
-                self.device
-                    .cmd_pipeline_barrier2(frame_slot.command_buffer, &to_transfer_dependency);
+                if gbuffer_capture.is_none() {
+                    self.device
+                        .cmd_pipeline_barrier2(frame_slot.command_buffer, &to_transfer_dependency);
+                }
                 self.device.cmd_copy_image_to_buffer(
                     frame_slot.command_buffer,
-                    swapchain.images[image_usize],
+                    capture_image,
                     vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     buffer.buffer,
                     &region,
                 );
             }
-            presentable_layout = vk::ImageLayout::TRANSFER_SRC_OPTIMAL;
+            if gbuffer_capture.is_none() {
+                presentable_layout = vk::ImageLayout::TRANSFER_SRC_OPTIMAL;
+            }
             if let Some(capture) = self.capture.as_mut() {
                 capture.pending.push((
                     PendingFrameCapture {
                         rendered_frame_index,
                         extent: [swapchain.extent.width, swapchain.extent.height],
-                        format: swapchain.format,
+                        format: capture_format,
                     },
                     buffer,
                 ));
@@ -1125,6 +1286,7 @@ impl GraphicsContext {
         // Screen-sized pass targets follow the swapchain extent and format.
         drop(self.fluid.take());
         drop(self.water.take());
+        drop(self.gbuffer.take());
         let (fluid, particle_surface_available) = create_fluid_pass(
             &self.instance,
             self.physical_device,
@@ -1135,6 +1297,14 @@ impl GraphicsContext {
         )?;
         self.fluid = fluid;
         self.water = create_water_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.b0_content.as_ref(),
+            replacement.as_ref(),
+            self.frame_slots.len(),
+        )?;
+        self.gbuffer = create_gbuffer_pass(
             &self.instance,
             self.physical_device,
             &self.device,
@@ -1275,6 +1445,14 @@ impl GraphicsContext {
                 .checked_add(1)
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
         }
+        if let Some(gbuffer) = self.gbuffer.as_ref() {
+            bytes = bytes
+                .checked_add(gbuffer.allocation_bytes())
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(1)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         if let Some(fluid) = self.fluid.as_ref() {
             let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
             bytes = bytes
@@ -1306,6 +1484,7 @@ impl Drop for GraphicsContext {
             self.ui_overlay.teardown();
             drop(self.fluid.take());
             drop(self.water.take());
+            drop(self.gbuffer.take());
             drop(self.b0_content.take());
             for frame_slot in &self.frame_slots {
                 self.device.destroy_fence(frame_slot.fence, None);
@@ -1414,6 +1593,45 @@ fn create_water_pass(
     }
 }
 
+/// Plan 18: the DLSS-ready outputs pass over the current swapchain; the
+/// declared fallback prints `GBUFFER_PASS_FALLBACK` and renders straight
+/// into the swapchain.
+fn create_gbuffer_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    b0_content: Option<&B0GpuContent>,
+    swapchain: Option<&SwapchainState>,
+    frame_slot_count: usize,
+) -> Result<Option<GBufferPassState>, DesktopAdapterError> {
+    let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
+        return Ok(None);
+    };
+    if !swapchain.transfer_destination {
+        eprintln!(
+            "next_game: GBUFFER_PASS_FALLBACK: swapchain images carry no transfer-destination usage"
+        );
+        return Ok(None);
+    }
+    match GBufferPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        swapchain.format,
+        swapchain.depth_format,
+        swapchain.extent,
+        frame_slot_count,
+        content.texture_layout(),
+        swapchain.transfer_source,
+    )? {
+        Ok(gbuffer) => Ok(Some(gbuffer)),
+        Err(reason) => {
+            eprintln!("next_game: GBUFFER_PASS_FALLBACK: {reason}");
+            Ok(None)
+        }
+    }
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "the private adapter creation boundary keeps all ownership inputs explicit"
@@ -1452,6 +1670,15 @@ fn create_swapchain(
         && transfer_source_supported
     {
         image_usage |= vk::ImageUsageFlags::TRANSFER_SRC;
+    }
+    // Plan 18: the HUD-less scene target is copied into the swapchain image
+    // before the UI overlay; without transfer-destination images the frame
+    // renders straight into the swapchain (declared fallback).
+    if capabilities
+        .supported_usage_flags
+        .contains(vk::ImageUsageFlags::TRANSFER_DST)
+    {
+        image_usage |= vk::ImageUsageFlags::TRANSFER_DST;
     }
     // SAFETY: same ownership as the capability query.
     let formats =
@@ -1508,6 +1735,7 @@ fn create_swapchain(
         images_in_flight: Vec::new(),
         opaque_composite: composite_alpha == vk::CompositeAlphaFlagsKHR::OPAQUE,
         transfer_source: image_usage.contains(vk::ImageUsageFlags::TRANSFER_SRC),
+        transfer_destination: image_usage.contains(vk::ImageUsageFlags::TRANSFER_DST),
         depth_sampled: false,
     };
     // SAFETY: handle is the live swapchain just created.
