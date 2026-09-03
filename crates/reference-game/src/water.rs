@@ -5,6 +5,7 @@
 //! (ADR-101) may animate its surface later but never writes here.
 
 use next_contracts::ids::PersistentId;
+use next_contracts::physics::PhysicsBodyIdV1;
 use next_contracts::physics::{
     PhysicsCanonicalSnapshotV2, PhysicsGeometryV1, PhysicsShapeIdV1, WaterFlowEdgeKindV1,
     WaterFlowEdgeV1, WaterFlowNetworkV1, WaterSubmersionV1, WaterVolumeDefinitionV1,
@@ -22,6 +23,16 @@ pub const REFERENCE_WATER_BASIN_MAXIMUM_MICROMETRES: [i64; 3] = [8_500_000, 2_00
 pub const REFERENCE_WATER_BASIN_INITIAL_LEVEL_MICROMETRES: i64 = 500_000;
 /// A point at least this deep below the surface counts as swimming.
 pub const REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES: i64 = 1_200_000;
+/// ADR-105 / plan `continuum-water/08`: the floating crate of the basin,
+/// a `0.5 m` cube of `50 kg` resting on the basin floor at activation.
+pub const REFERENCE_WATER_CRATE_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
+    subject_id: PersistentId::from_bytes([0x87; 16]),
+    body_slot: 0,
+};
+pub const REFERENCE_WATER_CRATE_HALF_EXTENTS_MICROMETRES: [i64; 3] = [250_000, 250_000, 250_000];
+pub const REFERENCE_WATER_CRATE_INITIAL_TRANSLATION_MICROMETRES: [i64; 3] =
+    [6_500_000, 250_000, 2_000_000];
+pub const REFERENCE_WATER_CRATE_MASS_MICROKILOGRAMS: u64 = 50_000_000;
 pub const REFERENCE_WATER_BASIN_PROFILE_REVISION: u32 = 1;
 
 /// ADR-103 first flow consumer (plan `continuum-water/07`): vessel A on a

@@ -33,6 +33,8 @@ pub const REFERENCE_WATER_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x7d
 /// ADR-103 vessel surface quads (presentation only), sharing the water material.
 pub const REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7e; 16]);
 pub const REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7f; 16]);
+/// ADR-105: the floating crate cube (`0.5 m`) of the basin.
+pub const REFERENCE_WATER_CRATE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x8d; 16]);
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

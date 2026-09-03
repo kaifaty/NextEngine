@@ -242,6 +242,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                     dynamic_boxes.push(GroundedCapsuleDynamicBox {
                         body_id: *body_id,
                         shape_id: shape.shape_id,
+                        mass_microkilograms: body.mass_microkilograms,
                         local_centre_micrometres: shape.local_pose.translation_micrometres,
                         half_extents_micrometres,
                         contact_reporting: shape.contact_reporting,

@@ -523,6 +523,36 @@ pub struct WaterFlowDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WaterBuoyancyDetailsV1 {
+    pub check_id: String,
+    pub crate_body: String,
+    pub dry_body: String,
+    pub run_ticks: u64,
+    pub level_initial_um: i64,
+    pub level_raised_um: i64,
+    pub immersion_settled_um: i64,
+    pub immersion_raised_um: i64,
+    pub crate_bottom_raised_um: i64,
+    pub crate_max_velocity_um_per_s: i64,
+    pub ticks_with_crate_record: u64,
+    pub max_displaced_volume_mm3: i64,
+    pub dry_body_records: u64,
+    pub dry_body_trajectory_identical: bool,
+    pub step_inputs_round_trip: bool,
+    pub checkpoint_round_trip: bool,
+    pub restored_run_identical: bool,
+    pub repeated_run_identical: bool,
+    pub batch_cost_bodies: usize,
+    pub batch_cost_volumes: usize,
+    pub batch_cost_max_us: String,
+    pub batch_cost_debug_build: bool,
+    pub final_state_root: String,
+    pub final_physics_checkpoint_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WaterPresentDetailsV1 {
     pub check_id: String,
     pub run_ticks: u64,

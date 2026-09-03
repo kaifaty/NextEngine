@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-09-03 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.6; 2.7 records the WR1 increment (plan `continuum-water/10`): `mass_microkilograms` as field 9 of `PhysicsBodyDescriptorV1` and exact vertical free-body dynamics for up to `16` dynamic boxes in the bounded capsule profile. 2.6 recorded the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
+| Заменяет | SPEC-26 2.7; 2.8 records the Proposed ADR-105 buoyancy batch: `PhysicsWorldCheckpointV1` schema version 4 with the batch profile as field 6, `PhysicsStepInputV2` schema version 3 with `external_impulses` (field 10) applied once at the first substep, and the exact buoyancy/drag law. 2.7 recorded the WR1 increment (plan `continuum-water/10`): `mass_microkilograms` as field 9 of `PhysicsBodyDescriptorV1` and exact vertical free-body dynamics for up to `16` dynamic boxes in the bounded capsule profile. 2.6 recorded the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
 | Дополнительные зависимости V2.5 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Дополнительные зависимости V2.6 | [ADR-103](adr/103-authoritative-water-flow-network.md) |
+| Дополнительные зависимости V2.8 | [ADR-105](adr/105-exact-level-buoyancy-reaction-batch.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -1012,8 +1013,8 @@ under declared tolerances but cannot change this result.
 
 ### Authoritative water volumes (Proposed ADR-100)
 
-`PhysicsWorldCheckpointV1` schema version `3` (introduced at schema `2` in
-R8c, bumped by ADR-103) carries `WaterVolumeSetV1` as field 4 next to the catalog and the canonical snapshot: at most `64`
+`PhysicsWorldCheckpointV1` schema version `4` (introduced at schema `2` in
+R8c, bumped by ADR-103 and ADR-105) carries `WaterVolumeSetV1` as field 4 next to the catalog and the canonical snapshot: at most `64`
 disjoint sealed regions, each an exact integer micrometre extent, an
 initial level, a swimming depth, an optional authored linear level ramp
 and a profile revision, plus one mutable record per volume (record
@@ -1033,12 +1034,12 @@ committed table: the containing volume, `level - y` as depth, and the
 `Dry`/`Wading`/`Swimming` class from the authored swimming depth. It is
 evaluated only against a committed checkpoint, never against presentation
 water, and has no backend, tolerance or float input. The physics checkpoint
-hash domain is `nextengine.physics-world-checkpoint.v3`; earlier checkpoint
+hash domain is `nextengine.physics-world-checkpoint.v4`; earlier checkpoint
 bytes are current-only alpha artifacts and reject before mutation.
 
 ### Authoritative water flow network (Proposed ADR-103)
 
-`PhysicsWorldCheckpointV1` schema version `3` carries `WaterFlowNetworkV1`
+`PhysicsWorldCheckpointV1` carries `WaterFlowNetworkV1`
 as field 5: at most `256` edges over the water-volume cells (open sill,
 pipe, gate, pump, source, sink; every coefficient a permille profile
 value), one mutable state per edge (record revision, gate opening, pump
@@ -1077,6 +1078,47 @@ checkpoint retained. Water motion alone does not advance the world
 revision (the rigid snapshot hash is unchanged); it changes the physics
 checkpoint hash and therefore every state root.
 
+
+### Exact-level buoyancy batch (Proposed ADR-105)
+
+`PhysicsWorldCheckpointV1` schema version `4` carries the optional
+`WaterBuoyancyProfileV1` as field 6 (`rho_water` in kilograms per cubic
+metre, the buoyant gravity magnitude in micrometres per second squared,
+`k_damp` in permille per second, the `CanonicalAabb` bounds rule); a world
+without the profile computes no batch. Before the rigid step of every
+gameplay tick the physics owner computes `WaterBuoyancyBatchV1` from the
+water table as staged for that step (the previous tick's flow result plus
+any level command committed earlier in the same tick) and the committed
+canonical body poses of the previous tick: for every active `Dynamic`
+body whose axis-aligned bounds (the union of its box shapes) intersect a
+water volume horizontally and lie below its effective level, the displaced
+volume is the exact integer volume of the bounds clipped by the cell and by
+the level plane (cubic millimetres, the largest cell on a straddle), the
+buoyancy impulse is `rho g V / hz` upward at the clipped centroid and the
+drag impulse is `-k rho V v / (1000 hz)` per axis with `v` the committed
+linear velocity; all in micronewton-seconds and `i128` intermediate
+arithmetic, truncating toward zero. Records sort by body id, one per body,
+at most `64`; bodies outside every volume receive none.
+
+The batch rides `PhysicsStepInputV2` schema version `3` as
+`external_impulses` (field 10; hash domain
+`nextengine.physics-step-input.v3`): each `ExternalImpulseV1` binds the
+body id, the impulse, the application point and the ADR-081
+`WaterExchangeTupleV1` (namespace `nextengine.exchange.water-buoyancy`,
+owners water and physics, world id, the committed water table hash and
+highest water record revision as the source root/revision, the committed
+world revision and snapshot hash as the destination root/revision, tick,
+substep `0`, edge profile `nextengine.water-buoyancy.v1`, operation slot
+`0`). Validation rejects an unsorted or duplicate body, more than `64`
+records, a component beyond `10^15` micronewton-seconds or a tuple that
+binds other roots than the input's; the world rejects an impulse on a
+body it does not integrate. Both backends apply every impulse exactly once
+at the first substep: the dynamic box's vertical velocity changes by
+`J_y / m` (micrometres per second, truncated) before that substep's
+gravity; horizontal components have no effect in the push-only profile.
+The batch is replayed and hashed with the step input, reads no
+presentation state and never feeds back into the water of the tick it
+was computed from.
 ## Persistence, replay and schema evolution
 
 Persistence stores the canonical snapshot/root, exact descriptor/catalog/

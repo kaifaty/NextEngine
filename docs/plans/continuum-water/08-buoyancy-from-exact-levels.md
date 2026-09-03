@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WB1` |
-| Status | `FROZEN / NOT_RUN (prerequisite WR1, plan 10, delivered 2026-09-03)` |
+| Status | `RUN / G1-G5, G7 PASS / G6 FAIL (reading recorded)` (2026-09-03) |
 | Parent | ADR-105 (Proposed); ADR-104 product check `CONTINUUM-WATER-BUOYANCY-P1`; ADR-076/081 one-pass step and exchange tuple |
 | Purpose | the first rigid coupling of water: buoyancy and drag from exact levels through an exact impulse batch in the physics step input |
 
@@ -58,3 +58,33 @@ cube is a displaced `0.05 m^3`, an immersion of `0.20 m`; the `k_damp`
 drag makes the settling overdamped enough to reach `+- 0.05 m` within
 `600` ticks by the frozen constants. Do not tune `k_damp`, the bounds
 rule or the settling time after seeing the results.
+
+## Result (WB1, 2026-09-03)
+
+`cargo run -p xtask -- water-buoyancy` PASS (`CONTINUUM-WATER-BUOYANCY-P1`),
+`1,200` ticks, level command at tick `600`, save at tick `900`:
+
+| Gate | Result |
+| --- | --- |
+| G1 equilibrium | immersion at tick `600`: `0.196368 m` (analytic `m g_solver / (rho g_profile A) = 0.1996 m` with the solver gravity `9.792` against the profile's `9.81`) — PASS within `0.20 +- 0.05 m` |
+| G2 follows the level | immersion at tick `1200` against the `1.5 m` level: `0.196366 m`; the crate's bottom face at `1.303634 m`, above the old `0.5 m` level — PASS |
+| G3 determinism | the restored runtime (tick `900`) reproduces every later physics hash, step input and event and the final root `c34a240d...ecef68` (physics `11e699d5...05b9be`); the repeated generation is identical; the debug and release builds reach the same roots; `play`/`persistence-replay` under `RequirePhysX` in the task-state — PASS |
+| G4 no coupling outside water | the R5b push box (`0x79`, outside every volume) receives `0` records over `1,200` ticks and its state equals the run without the batch profile every tick — PASS |
+| G5 no presentation read | reviewed: `buoyancy.rs`, `physics_step.rs` and the world's impulse application import no presentation type — PASS |
+| G6 cost | `64` bodies over `64` volumes, release build, `100` samples: `260 us` maximum per batch (`4,391 us` in debug) — FAIL against `20 us` |
+| G7 closure | every step input round-trips byte-exactly (`1,200` inputs); the contract test rejects a duplicate body (`NonCanonicalOrder`), an overflowed impulse (`WaterBuoyancyInvalid`) and a stale tuple (`ProfileMismatch`); the world rejects an unknown body (`StepInputMismatch`) — PASS |
+
+Readings (recorded, not tuned): the crate starts fully submerged
+(`0.125 m^3` displaced, `1,226 N` against `490 N`) and leaves the water for
+`11` of the `1,200` ticks at the top of its first bounce (`2.61 m/s`
+peak), then settles; the `k_damp = 2000` permille drag gives the
+underdamped settle the plan froze. G6: every batch builds `64` exchange
+tuples with four `SchemaId` strings each and evaluates `64 x 64` clips;
+a next revision may intern the tuple identifiers and index volumes by
+plan rectangle.
+
+Apparatus (recorded): the physics owner computes the batch from the water
+table as staged for the step, so on the command tick the batch already
+binds the raised level (revision `1`); the check recomputes the batch
+independently on every other tick and verifies the bound roots on that
+one (task-state D-009).

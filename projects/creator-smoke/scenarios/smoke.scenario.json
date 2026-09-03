@@ -37,7 +37,7 @@
     {
       "probe": "final-save-generation-hash",
       "assertion_id": "final-save",
-      "expected": "4005384da0a4e679bfc4d9f7edc37bb6298eb719ef78edc359022e4fdc5db883"
+      "expected": "b1a74cd06c397e8f0c2bf8e87608ced4a3d7d3c0113e81f0a6d34c4677fd1cb5"
     },
     {
       "probe": "command-identity-index-root",
@@ -67,7 +67,7 @@
     {
       "probe": "authoritative-state-root",
       "assertion_id": "runtime-state-root",
-      "expected": "f2ad4d96bcbedff058860a487a039e7f9f734415b7d52834b70ad1cb607da406"
+      "expected": "f441ee7e041ed4e8d7a93c63769ee614d5de56f3be7a3cea8ec7fc7e2671ae1f"
     },
     {
       "probe": "ticks",

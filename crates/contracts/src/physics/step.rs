@@ -6,6 +6,7 @@ use crate::canonical::{
 };
 use crate::ids::{CommandId, ContentHash, PersistentId, PhysicsContactId, PhysicsWorldId};
 
+use super::buoyancy::{ExternalImpulseV1, validate_external_impulses};
 use super::codec::*;
 use super::contact::ClosedPhysicsContactBatchV1;
 use super::error::PhysicsContractError;
@@ -168,6 +169,10 @@ pub struct PhysicsStepInputV2 {
     pub first_physics_tick: u64,
     pub physics_substeps: u32,
     pub accepted_intents: Vec<AcceptedLocomotionIntentV2>,
+    /// ADR-105: external impulses (the water buoyancy batch) applied once
+    /// at the first substep; sorted by body id, at most
+    /// `WATER_BUOYANCY_MAX_RECORDS`.
+    pub external_impulses: Vec<ExternalImpulseV1>,
 }
 
 impl PhysicsStepInputV2 {
@@ -187,6 +192,13 @@ impl PhysicsStepInputV2 {
                 return Err(PhysicsContractError::InvalidProfile);
             }
         }
+        validate_external_impulses(
+            &self.external_impulses,
+            self.world_id,
+            self.gameplay_tick,
+            self.expected_world_revision,
+            self.expected_snapshot_hash,
+        )?;
         Ok(())
     }
 
@@ -194,7 +206,7 @@ impl PhysicsStepInputV2 {
         encode_canonical_segment(
             PHYSICS_OWNER_ID,
             "nextengine.physics-step-input",
-            "v2",
+            "v3",
             [
                 field_u16(1, self.schema_version),
                 field_id(2, self.world_id.as_bytes()),
@@ -214,6 +226,16 @@ impl PhysicsStepInputV2 {
                             .collect::<Result<Vec<_>, _>>()?,
                     )?,
                 ),
+                CanonicalField::new(
+                    10,
+                    CANONICAL_TYPE_SEQUENCE,
+                    encode_sequence(
+                        self.external_impulses
+                            .iter()
+                            .map(ExternalImpulseV1::canonical_record)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )?,
+                ),
             ],
         )
     }
@@ -227,7 +249,7 @@ impl PhysicsStepInputV2 {
             limits,
             PHYSICS_OWNER_ID,
             "nextengine.physics-step-input",
-            "v2",
+            "v3",
             &[
                 (1, CANONICAL_TYPE_U16),
                 (2, CANONICAL_TYPE_ID128),
@@ -238,6 +260,7 @@ impl PhysicsStepInputV2 {
                 (7, CANONICAL_TYPE_U64),
                 (8, CANONICAL_TYPE_U32),
                 (9, CANONICAL_TYPE_SEQUENCE),
+                (10, CANONICAL_TYPE_SEQUENCE),
             ],
         )?;
         let value = Self {
@@ -253,6 +276,10 @@ impl PhysicsStepInputV2 {
                 .into_iter()
                 .map(|record| AcceptedLocomotionIntentV2::from_record(&record, limits))
                 .collect::<Result<Vec<_>, _>>()?,
+            external_impulses: decode_sequence(field(&segment, 10)?, limits)?
+                .into_iter()
+                .map(|record| ExternalImpulseV1::from_record(&record, limits))
+                .collect::<Result<Vec<_>, _>>()?,
         };
         value.validate()?;
         require_round_trip(bytes, value.canonical_bytes()?)?;
@@ -261,7 +288,7 @@ impl PhysicsStepInputV2 {
 
     pub fn input_hash(&self) -> Result<ContentHash, CanonicalError> {
         physics_contract_hash(
-            b"nextengine.physics-step-input.v2\0",
+            b"nextengine.physics-step-input.v3\0",
             &self.canonical_bytes()?,
         )
     }

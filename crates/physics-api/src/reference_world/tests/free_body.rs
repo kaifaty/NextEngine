@@ -3,7 +3,8 @@
 
 use std::time::Instant;
 
-use next_contracts::physics::{PhysicsMotionKindV1, PhysicsParticipationV1};
+use next_contracts::ids::PersistentId;
+use next_contracts::physics::{PhysicsBodyIdV1, PhysicsMotionKindV1, PhysicsParticipationV1};
 
 use super::fixture::{capsule_state, reconstruct, step, step_input, world};
 use super::r5b::{box_body, material_id, rebuild};
@@ -269,5 +270,69 @@ fn sixteen_resting_boxes_tick_cost() {
         "WR1 G7 (per gameplay tick, debug build: {}): {}",
         cfg!(debug_assertions),
         readings.join("; ")
+    );
+}
+
+// ADR-105: an external impulse changes a box's vertical velocity by J / m
+// once at the first substep; an impulse on an unknown body rejects.
+#[test]
+fn external_impulse_launches_a_box_and_unknown_bodies_reject() {
+    use next_contracts::physics::{
+        ExternalImpulseV1, WaterExchangeContextV1, WaterExchangeTupleV1,
+    };
+
+    let mut world = world_with_boxes([0, 900_000, 0], &[(0xa0, [2_000_000, 300_000, 0])])
+        .expect("free-body world activates");
+    let body_id = world
+        .snapshot()
+        .sorted_body_states
+        .keys()
+        .copied()
+        .find(|id| id.subject_id.as_bytes()[0] == 0xa0)
+        .expect("box body id");
+    let mut input = step_input(&world, 0, None);
+    let context = WaterExchangeContextV1 {
+        world_id: input.world_id,
+        source_revision: 0,
+        source_root: input.expected_snapshot_hash,
+        destination_revision: input.expected_world_revision,
+        destination_root: input.expected_snapshot_hash,
+    };
+    // 20 kg box, 40 N s upward: 2 m/s.
+    input.external_impulses = vec![ExternalImpulseV1 {
+        body_id,
+        impulse_micronewton_seconds: [0, 40_000_000, 0],
+        application_point_micrometres: [2_000_000, 300_000, 0],
+        exchange: WaterExchangeTupleV1::water_buoyancy(&context, 0, body_id).expect("tuple"),
+    }];
+    let result = world.step(&input).expect("impulse step");
+    assert!(result.after_snapshot_hash != result.before_snapshot_hash);
+    let state = box_state(&world, 0xa0);
+    // Two substeps at 60 Hz: v = 2 m/s - 2 * 0.1632, y rises by
+    // floor((2 - 0.1632)/60) + floor((2 - 0.3264)/60) = 30_613 + 27_893 um.
+    assert_eq!(state.linear_velocity_micrometres_per_second[1], 1_673_600);
+    assert_eq!(state.pose.translation_micrometres[1], 300_000 + 58_506);
+
+    let mut unknown = step_input(&world, 1, None);
+    let unknown_body = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0xee; 16]),
+        body_slot: 0,
+    };
+    let context = WaterExchangeContextV1 {
+        world_id: unknown.world_id,
+        source_revision: 0,
+        source_root: unknown.expected_snapshot_hash,
+        destination_revision: unknown.expected_world_revision,
+        destination_root: unknown.expected_snapshot_hash,
+    };
+    unknown.external_impulses = vec![ExternalImpulseV1 {
+        body_id: unknown_body,
+        impulse_micronewton_seconds: [0, 1_000, 0],
+        application_point_micrometres: [0; 3],
+        exchange: WaterExchangeTupleV1::water_buoyancy(&context, 1, unknown_body).expect("tuple"),
+    }];
+    assert_eq!(
+        world.step(&unknown).err(),
+        Some(ReferencePhysicsError::StepInputMismatch)
     );
 }

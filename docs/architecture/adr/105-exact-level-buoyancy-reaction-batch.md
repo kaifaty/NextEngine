@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-105 |
 | Status | Proposed |
-| Version | 0.1 |
+| Version | 0.2 |
 | Proposal date | 2026-09-03 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](103-authoritative-water-flow-network.md), [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
@@ -25,9 +25,11 @@ the physics step input carries only accepted locomotion intents.
 
 ### One exact impulse batch per tick, inside the physics owner
 
-1. **Source.** At the start of every gameplay tick the physics owner
-   computes, from the committed water table and network levels and the
-   committed canonical body poses of the previous tick, a
+1. **Source.** Before the rigid step of every gameplay tick the physics
+   owner computes, from the committed water table and network levels as
+   staged for that step (the previous tick's flow result plus any level
+   command committed earlier in the same tick) and the committed canonical
+   body poses of the previous tick, a
    `WaterBuoyancyBatchV1`: for every dynamic body whose canonical
    axis-aligned bounds intersect a water volume horizontally and lie
    below its effective level, the displaced volume is the exact integer
@@ -55,9 +57,9 @@ the physics step input carries only accepted locomotion intents.
    body, capacity) rejects the whole uncommitted step (invariant fault).
 4. **Exchange tuple.** Each record binds the ADR-081 tuple: namespace,
    source owner (water), destination owner (physics), world id, expected
-   source revision/root (the water flow record revision and the physics
-   checkpoint hash), expected destination revision/root (world revision
-   and snapshot hash), tick, substep `0`, edge profile
+   source revision/root (the highest committed water record revision and
+   the committed water table hash), expected destination revision/root
+   (world revision and snapshot hash), tick, substep `0`, edge profile
    `nextengine.water-buoyancy.v1`, body id, operation slot `0`.
 5. **Bounds.** At most `64` records per tick (the water-volume bound);
    a body larger than a cell is clipped to the cell; no coupling to
@@ -77,14 +79,20 @@ player capsule is a later consumer.
 
 ## Consequences
 
-- `PhysicsStepInputV2` moves to schema `3` with the batch field (the
-  repository keeps type names across schema bumps, as
-  `PhysicsWorldCheckpointV1` does; pinned roots refresh).
-- Prerequisite (found 2026-09-03, plan 08): the canonical world has no
-  free rigid dynamics for boxes (no mass, no gravity); a floating body
-  needs an exact vertical free-body increment for dynamic boxes before
-  this batch can move anything. That increment is its own plan.
-- The reference scene gains one floating crate in the basin.
+- `PhysicsStepInputV2` moves to schema `3` with the batch field
+  `external_impulses` (the repository keeps type names across schema
+  bumps, as `PhysicsWorldCheckpointV1` does; pinned roots refresh), and
+  `PhysicsWorldCheckpointV1` moves to schema `4` with the optional batch
+  profile `WaterBuoyancyProfileV1` as field 6, so a restored world computes
+  the same batch (WB1, plan `continuum-water/08`).
+- Prerequisite (found 2026-09-03, plan 08): the canonical world had no
+  free rigid dynamics for boxes (no mass, no gravity); WR1 (plan
+  `continuum-water/10`, SPEC-26 2.7) delivered the exact vertical
+  free-body increment for dynamic boxes with `mass_microkilograms` as the
+  impulse divisor; the world applies `J_y / m` once at the first substep
+  and ignores horizontal components in the push-only profile.
+- The reference scene gains one floating crate in the basin (body
+  `0x87`, `0.5 m`, `50 kg`, mesh `0x8d`).
 - SPEC-26 gains the batch record and the step-input field; SPEC-38's
   coupling section names this ADR as the water V1 coupling path.
 

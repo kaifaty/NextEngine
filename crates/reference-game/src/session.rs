@@ -676,6 +676,11 @@ fn grounded_capsule_checkpoint(
         (r5b_course.sensor_body_id, course_sensor),
     ]);
     bodies.extend(rock_boxes);
+    // ADR-105: the floating crate of the basin (plan `continuum-water/08`).
+    bodies.insert(
+        crate::water::REFERENCE_WATER_CRATE_BODY_ID,
+        water_crate_descriptor(&material_id),
+    );
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -693,12 +698,47 @@ fn grounded_capsule_checkpoint(
     let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, tick_rate, numeric, quantization)?;
     let water_volumes = crate::water::reference_water_volumes()?;
     let water_flow = crate::water::reference_water_flow(&water_volumes)?;
-    Ok(PhysicsWorldCheckpointV1::with_water(
+    Ok(PhysicsWorldCheckpointV1::with_water_and_buoyancy(
         catalog,
         snapshot,
         water_volumes,
         water_flow,
+        Some(next_contracts::physics::WaterBuoyancyProfileV1::reference_v1()?),
     )?)
+}
+
+/// ADR-105: one `0.5 m`, `50 kg` dynamic cube resting on the basin floor.
+fn water_crate_descriptor(material_id: &SchemaId) -> PhysicsBodyDescriptorV1 {
+    let body_id = crate::water::REFERENCE_WATER_CRATE_BODY_ID;
+    let shape_id = PhysicsShapeIdV1 {
+        body_id,
+        shape_slot: 0,
+    };
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Dynamic,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres:
+                crate::water::REFERENCE_WATER_CRATE_INITIAL_TRANSLATION_MICROMETRES,
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms: crate::water::REFERENCE_WATER_CRATE_MASS_MICROKILOGRAMS,
+        shapes: BTreeMap::from([(
+            shape_id,
+            box_shape_descriptor(
+                shape_id,
+                material_id,
+                [0; 3],
+                crate::water::REFERENCE_WATER_CRATE_HALF_EXTENTS_MICROMETRES,
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        )]),
+    }
 }
 
 fn static_box_descriptor(

@@ -399,3 +399,186 @@ fn body_descriptor_mass_follows_the_motion_kind_and_round_trips() {
     assert_eq!(decoded, catalog);
     assert_eq!(decoded.bodies[&body_id].mass_microkilograms, 20_000_000);
 }
+
+#[test]
+fn buoyancy_batch_is_exact_and_rides_the_step_input() {
+    use super::buoyancy::{
+        MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS, WaterBuoyancyBatchV1, WaterBuoyancyProfileV1,
+        WaterExchangeContextV1, velocity_delta_micrometres_per_second,
+    };
+    use super::water::{WaterVolumeDefinitionV1, WaterVolumeSetV1};
+
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material_id = SchemaId::new("nextengine.physics.material.test-zero").expect("material id");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: material_id.clone(),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let body = |byte: u8, translation: [i64; 3], half: i64| {
+        let body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([byte; 16]),
+            body_slot: 0,
+        };
+        let shape_id = PhysicsShapeIdV1 {
+            body_id,
+            shape_slot: 0,
+        };
+        (
+            body_id,
+            PhysicsBodyDescriptorV1 {
+                body_id,
+                descriptor_revision: 1,
+                motion_kind: PhysicsMotionKindV1::Dynamic,
+                initial_pose: PhysicsPoseV1 {
+                    translation_micrometres: translation,
+                    ..PhysicsPoseV1::default()
+                },
+                initial_linear_velocity_micrometres_per_second: [0; 3],
+                initial_angular_velocity_q16: [0; 3],
+                active: true,
+                mass_microkilograms: 50_000_000,
+                shapes: BTreeMap::from([(
+                    shape_id,
+                    PhysicsShapeDescriptorV1 {
+                        shape_id,
+                        descriptor_revision: 1,
+                        local_pose: PhysicsPoseV1::default(),
+                        geometry: PhysicsGeometryV1::Box {
+                            half_extents_micrometres: [half; 3],
+                        },
+                        material_id: material_id.clone(),
+                        collision_layer: 1,
+                        collision_mask: u64::MAX,
+                        participation: PhysicsParticipationV1::Solid,
+                        contact_reporting: PhysicsContactReportingV1::Disabled,
+                    },
+                )]),
+            },
+        )
+    };
+    // The crate: a 0.5 m cube resting on the basin floor (level 0.5 m).
+    let (crate_id, crate_body) = body(0x41, [6_500_000, 250_000, 2_000_000], 250_000);
+    // A body outside every volume.
+    let (dry_id, dry_body) = body(0x42, [20_000_000, 250_000, 0], 250_000);
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([3; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(crate_id, crate_body), (dry_id, dry_body)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog");
+    let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, &tick, &numeric, &quantization)
+        .expect("snapshot");
+    let basin_id = PersistentId::from_bytes([0x7a; 16]);
+    let volumes = WaterVolumeSetV1::from_definitions([WaterVolumeDefinitionV1 {
+        volume_id: basin_id,
+        minimum_micrometres: [4_500_000, 0, 1_000_000],
+        maximum_micrometres: [8_500_000, 2_000_000, 3_000_000],
+        initial_level_micrometres: 500_000,
+        swimming_depth_micrometres: 1_200_000,
+        level_ramp: None,
+        profile_revision: 1,
+    }])
+    .expect("water set");
+    let profile = WaterBuoyancyProfileV1::reference_v1().expect("profile");
+    let context = WaterExchangeContextV1 {
+        world_id: snapshot.world_id,
+        source_revision: 0,
+        source_root: volumes.set_hash().expect("water hash"),
+        destination_revision: snapshot.world_revision,
+        destination_root: snapshot.snapshot_hash().expect("snapshot hash"),
+    };
+    let batch =
+        WaterBuoyancyBatchV1::compute(&profile, &volumes, &catalog, &snapshot, 7, 30, &context)
+            .expect("batch");
+    assert_eq!(batch.records.len(), 1);
+    let record = batch.record(crate_id).expect("crate record");
+    assert!(batch.record(dry_id).is_none());
+    // The whole cube is under the 0.5 m level: 0.125 m^3.
+    assert_eq!(record.displaced_volume_cubic_millimetres, 125_000_000);
+    assert_eq!(record.volume_id, basin_id);
+    // rho g V dt = 1000 * 9.81 * 0.125 / 30 N s = 40.875 N s = 40_875_000 uN s.
+    assert_eq!(
+        record.impulse.impulse_micronewton_seconds,
+        [0, 40_875_000, 0]
+    );
+    assert_eq!(
+        record.impulse.application_point_micrometres,
+        [6_500_000, 250_000, 2_000_000]
+    );
+    // 40.875 N s on 50 kg: 0.8175 m/s.
+    assert_eq!(
+        velocity_delta_micrometres_per_second(40_875_000, 50_000_000).expect("delta"),
+        817_500
+    );
+    // Drag: a 1 m/s downward velocity on the fully immersed cube gives
+    // -k rho V v dt = -(2 * 1000 * 0.125 * -1) / 30 = +8.333 N s.
+    let mut moving = snapshot.clone();
+    moving
+        .sorted_body_states
+        .get_mut(&crate_id)
+        .expect("crate state")
+        .linear_velocity_micrometres_per_second = [0, -1_000_000, 0];
+    let moving_batch =
+        WaterBuoyancyBatchV1::compute(&profile, &volumes, &catalog, &moving, 7, 30, &context)
+            .expect("batch");
+    assert_eq!(
+        moving_batch.records[0].impulse.impulse_micronewton_seconds,
+        [0, 40_875_000 + 8_333_333, 0]
+    );
+
+    // The batch rides the step input, round-trips and is hashed.
+    let input = PhysicsStepInputV2 {
+        schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
+        world_id: snapshot.world_id,
+        expected_world_revision: snapshot.world_revision,
+        expected_snapshot_hash: context.destination_root,
+        expected_catalog_hash: catalog.catalog_hash().expect("catalog hash"),
+        gameplay_tick: 7,
+        first_physics_tick: 1,
+        physics_substeps: tick.physics_substeps_per_gameplay_tick,
+        accepted_intents: Vec::new(),
+        external_impulses: batch.external_impulses(),
+    };
+    input.validate().expect("input with a batch validates");
+    let bytes = input.canonical_bytes().expect("input encode");
+    assert_eq!(
+        PhysicsStepInputV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("input decode"),
+        input
+    );
+    // G7 rejections: duplicate body, overflowed impulse, wrong tick binding.
+    let mut duplicate = input.clone();
+    duplicate
+        .external_impulses
+        .push(input.external_impulses[0].clone());
+    assert_eq!(
+        duplicate.validate(),
+        Err(PhysicsContractError::NonCanonicalOrder)
+    );
+    let mut overflow = input.clone();
+    overflow.external_impulses[0].impulse_micronewton_seconds[1] =
+        MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS + 1;
+    assert_eq!(
+        overflow.validate(),
+        Err(PhysicsContractError::WaterBuoyancyInvalid)
+    );
+    let mut stale = input.clone();
+    stale.external_impulses[0].exchange.destination_revision += 1;
+    assert_eq!(stale.validate(), Err(PhysicsContractError::ProfileMismatch));
+}

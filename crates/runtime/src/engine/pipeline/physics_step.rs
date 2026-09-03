@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use next_contracts::command::DomainEvent;
 use next_contracts::ledger::{CommandFinalResultV1, CommandLedgerError, IdentityInsertResult};
 use next_contracts::physics::{
-    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicalEventV1, PhysicsStepInputV2,
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicalEventV1, PhysicsStepInputV2, WaterBuoyancyBatchV1,
+    WaterExchangeContextV1,
 };
 
 use super::ledger::{command_receipt, transaction_result_root};
@@ -24,11 +25,50 @@ pub(super) fn finish_physical_step(
         .map(|pending| pending.intent.clone())
         .collect::<Vec<_>>();
     intents.sort_by_key(|intent| (intent.body_id, intent.causal_command_id));
+    let expected_snapshot_hash = staged.physics.snapshot_hash()?;
+    // ADR-105: the buoyancy batch of this tick from the committed water
+    // table and the committed body poses; empty without a batch profile.
+    let context_tick = context.tick;
+    let external_impulses = {
+        let checkpoint = staged.physics.checkpoint();
+        match &checkpoint.water_buoyancy {
+            Some(profile) => {
+                let context = WaterExchangeContextV1 {
+                    world_id: before_snapshot.world_id,
+                    source_revision: checkpoint
+                        .water_volumes
+                        .states
+                        .values()
+                        .map(|state| state.record_revision)
+                        .max()
+                        .unwrap_or(0),
+                    source_root: checkpoint
+                        .water_volumes
+                        .set_hash()
+                        .map_err(|_| RuntimeFatalError::PhysicalOutcomeInvariant)?,
+                    destination_revision: before_snapshot.world_revision,
+                    destination_root: expected_snapshot_hash,
+                };
+                WaterBuoyancyBatchV1::compute(
+                    profile,
+                    &checkpoint.water_volumes,
+                    &checkpoint.catalog,
+                    &checkpoint.snapshot,
+                    context_tick,
+                    staged.physics.tick_rate_profile().gameplay_hz,
+                    &context,
+                )
+                .map_err(|_| RuntimeFatalError::PhysicalOutcomeInvariant)?
+                .external_impulses()
+            }
+            None => Vec::new(),
+        }
+    };
     let step_input = PhysicsStepInputV2 {
         schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
         world_id: before_snapshot.world_id,
         expected_world_revision: before_snapshot.world_revision,
-        expected_snapshot_hash: staged.physics.snapshot_hash()?,
+        expected_snapshot_hash,
         expected_catalog_hash: staged.physics.catalog_hash()?,
         gameplay_tick: context.tick,
         first_physics_tick: before_snapshot
@@ -40,6 +80,7 @@ pub(super) fn finish_physical_step(
             .tick_rate_profile()
             .physics_substeps_per_gameplay_tick,
         accepted_intents: intents,
+        external_impulses,
     };
 
     let step_result = staged.physics.step(&step_input)?;

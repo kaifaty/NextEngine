@@ -337,8 +337,8 @@ mod tests {
         let report =
             super::run_render_frame_planning_performance_check().expect("performance gate");
         assert_eq!(report.cycles, 10_000);
-        assert_eq!(report.visible_object_count, 12);
-        assert_eq!(report.indexed_draw_count, 12);
+        assert_eq!(report.visible_object_count, 13);
+        assert_eq!(report.indexed_draw_count, 13);
         assert_eq!(report.fallback_material_draw_count, 0);
         assert_ne!(
             report.frame_plan_hash,

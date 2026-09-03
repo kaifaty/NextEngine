@@ -303,6 +303,7 @@ fn backend_failure_leaves_the_previous_checkpoint_untouched() {
             .tick_rate_profile()
             .physics_substeps_per_gameplay_tick,
         accepted_intents: Vec::new(),
+        external_impulses: Vec::new(),
     };
     assert_eq!(
         failing.step(&input),

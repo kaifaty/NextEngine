@@ -291,6 +291,7 @@ pub(super) fn step_input(
             .expect("test physics tick remains bounded"),
         physics_substeps: world.tick_rate_profile().physics_substeps_per_gameplay_tick,
         accepted_intents,
+        external_impulses: Vec::new(),
     }
 }
 

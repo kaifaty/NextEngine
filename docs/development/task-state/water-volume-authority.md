@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
-| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_BOXES_DONE (WR1) / BUOYANCY_BATCH_NEXT` |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_BOXES_DONE (WR1) / CONTINUUM-WATER-BUOYANCY-P1=PASS (WB1) / PROMOTION_DECISION_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-03 |
 
@@ -73,10 +73,23 @@
   static shapes of the reference scene. WR1 G7 re-measured with the
   physics step alone: `116-121 us` mean, `124-174 us` steady maximum for
   sixteen boxes (plan 10 result).
-- **Next:** the ADR-105 buoyancy batch (plan `continuum-water/08`): the
-  crate scene, `WaterBuoyancyBatchV1` in the step input, `xtask
-  water-buoyancy`; the research CUDA tool stays a separate process behind
-  the neutral stream.
+- **Buoyancy batch (WB1, plan `continuum-water/08`, ADR-105).**
+  `WaterBuoyancyProfileV1` is field 6 of the physics checkpoint (schema
+  4); before every rigid step the runtime computes `WaterBuoyancyBatchV1`
+  (exact clipped-bounds volume, `rho g V / hz` buoyancy, `-k rho V v /
+  (1000 hz)` drag, ADR-081 tuple) and puts it into
+  `PhysicsStepInputV2.external_impulses` (schema 3); the canonical world
+  applies `J_y / m` once at the first substep. Reference crate: body
+  `0x87`, `0.5 m`, `50 kg`, mesh `0x8d`, at `[6.5, 0.25, 2.0] m` in the
+  basin. `cargo run -p xtask -- water-buoyancy` runs
+  `CONTINUUM-WATER-BUOYANCY-P1` (settled immersion `0.196 m`, follows a
+  `1.5 m` level, dry push box untouched, live/restored/repeated roots).
+- **Next:** the four `CONTINUUM-WATER-*` checks pass on the reference
+  host; the promotion decision (ADR-100/103/104/105 Accepted, SPEC-38
+  Accepted for water) is the next step, then the remaining SPEC-38 2.2
+  practices (lattice tier, activity stepping, rotational presentation)
+  and wake/splash presentation for the crate (ADR-102 increment); the
+  research CUDA tool stays a separate process behind the neutral stream.
 
 ## Required context
 
@@ -210,6 +223,28 @@
 - **Reconsider when:** a consumer needs horizontal free motion, box-box
   chain pushes, restitution or friction, or reported box-support contacts.
 
+### D-009 — The batch profile rides the checkpoint and the batch reads the staged table of its tick
+
+- **Observation:** a restored world must compute the same batch as the
+  live one, so the profile cannot be a code constant or a runtime option;
+  and the runtime commits level commands in the command phase before the
+  physical step of the same tick, so the table the step sees already
+  carries them.
+- **Decision:** `WaterBuoyancyProfileV1` is optional field 6 of
+  `PhysicsWorldCheckpointV1` (schema 4; `None` means no batch); the batch
+  binds the table as staged for the step (previous flow result plus the
+  tick's committed level commands) and the previous tick's committed
+  poses, with the water table hash and highest record revision as the
+  source root/revision. The verification recomputes the batch
+  independently every tick except the command tick, where it verifies the
+  bound roots instead.
+- **Rejected:** profile in the catalog (a catalog change for a water
+  consumer); profile as a runtime bootstrap option (not saved with the
+  world); computing the batch after the flow step of the same tick (the
+  water side would read the rigid outcome it feeds).
+- **Reconsider when:** several batch profiles per world or per-volume
+  densities are needed.
+
 ### D-003 — Verification issues the level command as a `Tool` principal
 
 - **Observation:** no gameplay mechanic sets a water level yet; the player
@@ -260,11 +295,11 @@
    to the vessels with the capture flags). Decided 2026-09-03 (D-007):
    the presentation stage first, then the free-body increment.
 1. Free-body boxes: done in WR1 (plan `continuum-water/10`, SPEC-26
-   2.7; G7 within the bound in steady state after the apparatus fix). Next: plan
-   `continuum-water/08` (ADR-105 buoyancy batch) on the crate scene with
-   `impulse / mass` velocity changes applied at the first substep. After
-   that the remaining SPEC-38 2.2 practices in ADR-103 order (lattice
-   tier, activity stepping, rotational presentation).
+   2.7). Buoyancy batch: done in WB1 (plan `continuum-water/08`,
+   ADR-105 0.2, SPEC-26 2.8, SPEC-03 2.12, SPEC-38 2.4). Next: the
+   promotion decision for the water ladder (ADR-104), then the remaining
+   SPEC-38 2.2 practices in ADR-103 order (lattice tier, activity
+   stepping, rotational presentation) and a crate wake/splash increment.
 2. Optional gameplay effect: motor speed scaling from the classification
    (needs its own bounded evidence; not part of C's authority split).
 3. Keep ADR-100/103/104 Proposed until the four `CONTINUUM-WATER-*` checks pass, then accept them with the

@@ -1,4 +1,5 @@
 mod articulated;
+mod buoyancy;
 mod catalog;
 mod codec;
 mod contact;
@@ -13,6 +14,14 @@ mod step;
 mod water;
 mod water_flow;
 
+pub use buoyancy::{
+    ExternalImpulseV1, MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS, WATER_BUOYANCY_EDGE_PROFILE_ID,
+    WATER_BUOYANCY_EXCHANGE_NAMESPACE, WATER_BUOYANCY_MAX_RECORDS, WATER_BUOYANCY_PROFILE_ID,
+    WATER_EXCHANGE_DESTINATION_OWNER, WATER_EXCHANGE_SOURCE_OWNER, WaterBuoyancyBatchV1,
+    WaterBuoyancyBoundsRuleV1, WaterBuoyancyProfileV1, WaterBuoyancyRecordV1,
+    WaterExchangeContextV1, WaterExchangeTupleV1, validate_external_impulses,
+    velocity_delta_micrometres_per_second,
+};
 pub use catalog::{
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,
     PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldDescriptorV1,
@@ -88,10 +97,10 @@ pub const PHYSICS_SNAPSHOT_OWNER_ID: &str = "nextengine.physics";
 pub const PHYSICS_SNAPSHOT_SCHEMA_ID: &str = "nextengine.physics-canonical-snapshot";
 pub const PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v2";
 pub const LEGACY_PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v1";
-pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 3;
+pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 4;
 pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID: &str = "nextengine.physics-world-checkpoint";
-pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v3";
-pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 2;
+pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v4";
+pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 3;
 pub const CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUERY_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUERY_BATCH_SCHEMA_VERSION: u16 = 1;

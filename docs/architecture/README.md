@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.78 |
+| Версия | 2.79 |
 | Последняя проверка | 2026-09-03 |
-| Заменяет | INDEX-001 2.77; records SPEC-26 2.7 (WR1: body mass and exact vertical free-body dynamics for dynamic boxes) |
+| Заменяет | INDEX-001 2.78; records SPEC-26 2.8, SPEC-03 2.12, SPEC-38 2.4 and ADR-105 0.2 with the WB1 buoyancy batch (`CONTINUUM-WATER-BUOYANCY-P1`) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -153,7 +153,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-00 | [Product contract](00-product-contract.md) | Accepted |
 | SPEC-01 | [System architecture](01-system-architecture.md) | Accepted |
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
-| SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted; 2.11 records the physics checkpoint schema 3 with the ADR-100 water table (field 4) and the ADR-103 flow network (field 5) |
+| SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted; 2.12 records the physics checkpoint schema 4 with the ADR-100 water table (field 4), the ADR-103 flow network (field 5) and the ADR-105 buoyancy profile (field 6) |
 | SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted; 2.15 names the Proposed ADR-101 developer frame capture and dynamic surface ring |
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes PHYS-P6 and ADR-098 adds the current optional directional capability clamp before fixed-PD rate limiting |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
@@ -176,7 +176,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted; includes optional exact BodySchema-bound anatomy profile, ordinary V7 RPG starter content, current creator package and stable-ID projection |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
-| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded PhysX training substrate; 2.7 gives `PhysicsBodyDescriptorV1` a mass (field 9) and up to `16` dynamic boxes exact vertical free-body dynamics (WR1); 2.6 carries the Proposed ADR-100 water table (field 4) and the Proposed ADR-103 flow network (field 5) in `PhysicsWorldCheckpointV1` schema 3 with their exact queries |
+| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded PhysX training substrate; 2.8 carries the ADR-105 buoyancy batch (checkpoint schema 4 field 6, step input schema 3 `external_impulses`); 2.7 gives `PhysicsBodyDescriptorV1` a mass (field 9) and up to `16` dynamic boxes exact vertical free-body dynamics (WR1); 2.6 carries the Proposed ADR-100 water table (field 4) and the Proposed ADR-103 flow network (field 5) in `PhysicsWorldCheckpointV1` schema 3 with their exact queries |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline plus ADR-098 intact-topology capability envelope; learned injury routes remain Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |
@@ -188,7 +188,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
-| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1 presentation stage in the game root); 2.2 closes the water authority ladder on the exact table and flow network (ADR-104), binds the water tiers and practices, keeps the particle lanes as research reports; `CONTINUUM-WATER-VOLUME-P1` and `CONTINUUM-WATER-FLOW-P1` pass |
+| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (WB1); 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1 presentation stage in the game root); 2.2 closes the water authority ladder on the exact table and flow network (ADR-104), binds the water tiers and practices, keeps the particle lanes as research reports; `CONTINUUM-WATER-VOLUME-P1` and `CONTINUUM-WATER-FLOW-P1` pass |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed successor stage-8 `WorldDynamicsStep`, runtime-owned DAG, exact identity, epoch persistence and fail-stop transaction; current schedule remains unchanged |
@@ -311,7 +311,7 @@ traceability — навигационная карта, не admission authority
 | ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Proposed; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
 | ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Proposed; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks (three pass; buoyancy remains) |
-| ADR-105 | [Exact-level buoyancy reaction batch](adr/105-exact-level-buoyancy-reaction-batch.md) | Proposed; the first one-pass coupling consumer: an exact impulse batch from committed water levels and body bounds rides `PhysicsStepInputV3`, PhysX stays the sole rigid writer, check `CONTINUUM-WATER-BUOYANCY-P1`, plan `continuum-water/08` |
+| ADR-105 | [Exact-level buoyancy reaction batch](adr/105-exact-level-buoyancy-reaction-batch.md) | Proposed; the first one-pass coupling consumer: an exact impulse batch from committed water levels and body bounds rides `PhysicsStepInputV2` schema 3 (WB1 implemented: the reference crate floats), PhysX stays the sole rigid writer, check `CONTINUUM-WATER-BUOYANCY-P1`, plan `continuum-water/08` |
 
 ## Proposed tracks
 

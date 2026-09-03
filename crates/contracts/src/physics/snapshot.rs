@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::canonical::{
     CANONICAL_TYPE_BOOL, CANONICAL_TYPE_BYTES, CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128,
-    CANONICAL_TYPE_MAP, CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
-    CANONICAL_TYPE_U64, CanonicalDecodeLimits, CanonicalError, CanonicalField,
+    CANONICAL_TYPE_MAP, CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U16,
+    CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment,
 };
 use crate::ids::{ContentHash, PhysicsContactId, PhysicsWorldId};
@@ -457,6 +457,9 @@ pub struct PhysicsWorldCheckpointV1 {
     /// ADR-103 authoritative flow network over the water table; empty for
     /// worlds whose water does not move.
     pub water_flow: WaterFlowNetworkV1,
+    /// ADR-105 buoyancy batch profile; `None` for worlds whose water
+    /// couples to no body (no batch is computed).
+    pub water_buoyancy: Option<super::buoyancy::WaterBuoyancyProfileV1>,
 }
 
 impl PhysicsWorldCheckpointV1 {
@@ -486,12 +489,23 @@ impl PhysicsWorldCheckpointV1 {
         water_volumes: WaterVolumeSetV1,
         water_flow: WaterFlowNetworkV1,
     ) -> Result<Self, PhysicsContractError> {
+        Self::with_water_and_buoyancy(catalog, snapshot, water_volumes, water_flow, None)
+    }
+
+    pub fn with_water_and_buoyancy(
+        catalog: PhysicsWorldCatalogV1,
+        snapshot: PhysicsCanonicalSnapshotV2,
+        water_volumes: WaterVolumeSetV1,
+        water_flow: WaterFlowNetworkV1,
+        water_buoyancy: Option<super::buoyancy::WaterBuoyancyProfileV1>,
+    ) -> Result<Self, PhysicsContractError> {
         let value = Self {
             schema_version: PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION,
             catalog,
             snapshot,
             water_volumes,
             water_flow,
+            water_buoyancy,
         };
         value.validate()?;
         Ok(value)
@@ -514,10 +528,17 @@ impl PhysicsWorldCheckpointV1 {
         self.water_volumes.validate()?;
         self.water_flow.validate()?;
         self.water_flow.validate_against(&self.water_volumes)?;
+        if let Some(profile) = &self.water_buoyancy {
+            profile.validate()?;
+        }
         Ok(())
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        let buoyancy = match &self.water_buoyancy {
+            Some(profile) => nested(CANONICAL_TYPE_STRUCT, &profile.canonical_record()?)?,
+            None => Vec::new(),
+        };
         encode_canonical_segment(
             PHYSICS_SNAPSHOT_OWNER_ID,
             PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -536,6 +557,7 @@ impl PhysicsWorldCheckpointV1 {
                     CANONICAL_TYPE_STRUCT,
                     self.water_flow.canonical_record()?,
                 ),
+                CanonicalField::new(6, CANONICAL_TYPE_OPTIONAL, buoyancy),
             ],
         )
     }
@@ -556,8 +578,23 @@ impl PhysicsWorldCheckpointV1 {
                 (3, CANONICAL_TYPE_BYTES),
                 (4, CANONICAL_TYPE_STRUCT),
                 (5, CANONICAL_TYPE_STRUCT),
+                (6, CANONICAL_TYPE_OPTIONAL),
             ],
         )?;
+        let buoyancy_bytes = field(&segment, 6)?;
+        let water_buoyancy = if buoyancy_bytes.is_empty() {
+            None
+        } else {
+            let mut cursor = crate::canonical::CanonicalCursor::new(buoyancy_bytes);
+            let (tag, payload) = read_nested(&mut cursor, limits)?;
+            cursor.finish()?;
+            if tag != CANONICAL_TYPE_STRUCT {
+                return Err(PhysicsContractError::FieldType);
+            }
+            Some(super::buoyancy::WaterBuoyancyProfileV1::from_record(
+                payload, limits,
+            )?)
+        };
         let value = Self {
             schema_version: read_u16(&segment, 1)?,
             catalog: PhysicsWorldCatalogV1::from_canonical_bytes(field(&segment, 2)?, limits)?,
@@ -567,6 +604,7 @@ impl PhysicsWorldCheckpointV1 {
             )?,
             water_volumes: WaterVolumeSetV1::from_record(field(&segment, 4)?, limits)?,
             water_flow: WaterFlowNetworkV1::from_record(field(&segment, 5)?, limits)?,
+            water_buoyancy,
         };
         value.validate()?;
         require_round_trip(bytes, value.canonical_bytes()?)?;
@@ -575,7 +613,7 @@ impl PhysicsWorldCheckpointV1 {
 
     pub fn checkpoint_hash(&self) -> Result<ContentHash, CanonicalError> {
         physics_contract_hash(
-            b"nextengine.physics-world-checkpoint.v3\0",
+            b"nextengine.physics-world-checkpoint.v4\0",
             &self.canonical_bytes()?,
         )
     }

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 2.3 |
+| Version | 2.4 |
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](adr/103-authoritative-water-flow-network.md), [ADR-104](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
-| Candidate revision note | Version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
+| Candidate revision note | Version 2.4 records `CONTINUUM-WATER-BUOYANCY-P1` through `xtask water-buoyancy` (ADR-105: the exact impulse batch inside the step input, the reference crate floating on the basin level); version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -29,10 +29,12 @@ adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
 vehicle simulation and production sleep conversion are outside the first
 water consumer.
 
-`CONTINUUM-WATER-VOLUME-P1` (R8c), `CONTINUUM-WATER-FLOW-P1` (R8d) and
-`CONTINUUM-WATER-PRESENT-P1` (WP1) pass through `xtask water-volume`,
-`xtask water-flow` and `xtask water-present`; the remaining product check
-is `CONTINUUM-WATER-BUOYANCY-P1` (ADR-104, ADR-105). The research checks below are
+`CONTINUUM-WATER-VOLUME-P1` (R8c), `CONTINUUM-WATER-FLOW-P1` (R8d),
+`CONTINUUM-WATER-PRESENT-P1` (WP1) and `CONTINUUM-WATER-BUOYANCY-P1` (WB1)
+pass through `xtask water-volume`, `xtask water-flow`, `xtask water-present`
+and `xtask water-buoyancy`; the water V1 ladder of ADR-104 is complete on
+the reference host and its promotion (ADR-100/103/104/105 Accepted) is the
+next decision. The research checks below are
 reports, not promotion gates. The authoritative water table lives in the physics world
 checkpoint under Proposed ADR-100 and SPEC-26 2.6; the particle lanes below
 still change no production world, save/replay format or public contract.
@@ -419,16 +421,20 @@ No public contract is added for the serial lab or the developer water
 bridge. The runtime basin consumer now owns `WaterVolumeDefinitionV1`,
 `WaterVolumeStateV1`, `WaterVolumeSetV1` with its `submersion_at` query,
 `WaterVolumeCommandV1` and `WaterVolumeChangedV1` inside
-`PhysicsWorldCheckpointV1` schema version 3 (SPEC-26 2.6), next to the
+`PhysicsWorldCheckpointV1` schema version 4 (SPEC-26 2.8), next to the
 ADR-103 `WaterFlowNetworkV1`, `WaterFlowCommandV1` and
-`WaterFlowChangedV1` of the flow network.
+`WaterFlowChangedV1` of the flow network and the ADR-105
+`WaterBuoyancyProfileV1`, `WaterBuoyancyBatchV1`, `ExternalImpulseV1` and
+`WaterExchangeTupleV1` of the buoyancy batch (`PhysicsStepInputV2` schema
+version 3).
 The public water contracts are these types with their record, query,
 rejection and helper types (`WaterLevelRampV1`, `WaterSubmersionV1`,
 `WaterFlowEdgeV1`, `WaterFlowEdgeKindV1`, `WaterFlowEdgeStateV1`,
 `WaterFlowCellStateV1`, `WaterFlowStepV1`, both rejection enums and the
 exact helpers). `ContinuumWaterProfileV1` for the presentation solver,
-`ContinuumBodyReactionBatchV1` and `ContinuumPresentationSnapshotV1` follow
-only the later presentation and buoyancy consumers;
+`ContinuumPresentationSnapshotV1` follows only a later presentation
+consumer; the buoyancy consumer's reaction record is `WaterBuoyancyBatchV1`
+(ADR-105), so no separate `ContinuumBodyReactionBatchV1` exists;
 `ContinuumWaterCanonicalStateV1` is a research tool type and never a
 contract (ADR-104). Exact schemas require the later Accepted
 promotion ADR and synchronized SPEC-02/03/21/25/26/30, routing, traceability

@@ -46,7 +46,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         .presentation_snapshot
         .scene_records()
         .collect::<Vec<_>>();
-    assert_eq!(initial_scene.len(), 14);
+    assert_eq!(initial_scene.len(), 15);
     assert!(
         initial_scene
             .iter()
@@ -262,7 +262,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         final_relay.material_revision.asset_id,
         AssetId::from_bytes([0xd6; 16])
     );
-    assert_eq!(outcome.presentation_bindings.len(), 13);
+    assert_eq!(outcome.presentation_bindings.len(), 14);
     assert!(outcome.presentation_bindings.iter().all(|binding| {
         binding.persistent_id != PersistentId::from_bytes([0x70; 16])
             || (binding.presentation_role

@@ -62,6 +62,8 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID)?;
     let (vessel_b_surface_mesh, vessel_b_surface_bounds) =
         mesh(crate::source::REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID)?;
+    let (water_crate_mesh, water_crate_bounds) =
+        mesh(crate::source::REFERENCE_WATER_CRATE_MESH_ASSET_ID)?;
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
@@ -359,6 +361,22 @@ pub(crate) fn fixture_presentation_bindings(
             local_bounds: r5b_push_box_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(fixture.r5b_course.dynamic_body_id),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // ADR-105: the floating crate follows its dynamic body pose.
+            persistent_id: crate::water::REFERENCE_WATER_CRATE_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
+            incarnation: 0,
+            presentation_layer: 15,
+            mesh_revision: water_crate_mesh,
+            material_revision: relay_active_material,
+            instance_ordinal: 17,
+            local_bounds: water_crate_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_CRATE_BODY_ID),
             fallback_transform:
                 next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,

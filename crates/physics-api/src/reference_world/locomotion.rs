@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use next_contracts::physics::{
-    CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES, CAPSULE_MAX_STEP_HEIGHT_MICROMETRES, PhysicsBodyIdV1,
-    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsShapeIdV1,
+    CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES, CAPSULE_MAX_STEP_HEIGHT_MICROMETRES,
+    ExternalImpulseV1, PhysicsBodyIdV1, PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2,
+    PhysicsContactReportingV1, PhysicsShapeIdV1, velocity_delta_micrometres_per_second,
 };
 
 use super::error::ReferencePhysicsError;
@@ -38,11 +39,16 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         staged: &mut PhysicsCanonicalSnapshotV2,
         body_before: &PhysicsBodyStateV2,
         direction: [i16; 2],
+        impulses: &[ExternalImpulseV1],
     ) -> Result<CapsuleSubstep, ReferencePhysicsError> {
         let dynamic_before = self.prepare_dynamic_states(staged)?;
         // WR1: every dynamic box falls and finds support before the capsule
         // integrates against the boxes' new poses.
-        self.integrate_dynamic_boxes(staged, Some(body_before.pose.translation_micrometres))?;
+        self.integrate_dynamic_boxes(
+            staged,
+            Some(body_before.pose.translation_micrometres),
+            impulses,
+        )?;
         let mut body_after = body_before.clone();
         let mut forced_hits = BTreeSet::new();
         body_after.linear_velocity_micrometres_per_second[1] = body_after
@@ -447,6 +453,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
         staged: &mut PhysicsCanonicalSnapshotV2,
         capsule_centre: Option<[i64; 3]>,
+        impulses: &[ExternalImpulseV1],
     ) -> Result<(), ReferencePhysicsError> {
         let physics_hz = i64::from(self.tick_rate_profile.physics_hz());
         for binding in self.dynamic_boxes.iter() {
@@ -455,8 +462,23 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .get(&binding.body_id)
                 .cloned()
                 .ok_or(ReferencePhysicsError::BodyMissing)?;
+            // ADR-105: an external impulse changes the vertical velocity by
+            // `J_y / m` once, before gravity. Horizontal components have no
+            // effect in the push-only profile.
+            let impulse_delta = match impulses
+                .iter()
+                .find(|impulse| impulse.body_id == binding.body_id)
+            {
+                Some(impulse) => velocity_delta_micrometres_per_second(
+                    impulse.impulse_micronewton_seconds[1],
+                    binding.mass_microkilograms,
+                )
+                .map_err(|_| ReferencePhysicsError::NumericOverflow)?,
+                None => 0,
+            };
             let mut vertical_velocity = state.linear_velocity_micrometres_per_second[1]
-                .checked_add(self.gravity_velocity_delta)
+                .checked_add(impulse_delta)
+                .and_then(|velocity| velocity.checked_add(self.gravity_velocity_delta))
                 .ok_or(ReferencePhysicsError::NumericOverflow)?;
             let delta = vertical_velocity
                 .checked_div(physics_hz)
