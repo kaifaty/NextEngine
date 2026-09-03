@@ -1,0 +1,150 @@
+{
+  "access_policy": {
+    "content_object_access_allowed": false,
+    "external_metadata_only": true,
+    "network_allowed": false,
+    "outputs_external": true
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": "v46_b0_control_tournament",
+    "corpus_index_authority": true,
+    "model_training_authority": false,
+    "new_parent_or_project_credit": 0,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_qualification_authority": false
+  },
+  "claim": "PATH_NEUTRAL_CLAIM_MASKED_CORPUS_INDEX / B0_CONTROL_INPUT_ONLY / NO_NEW_PARENT_PROJECT_MODEL_VALIDATOR_PROTECTED_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 7237,
+      "path": "docs/development/physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md",
+      "sha256": "72de52b787224ae7c54c80be035085c8352a5976f9728f28929d2566a92cdd33"
+    },
+    {
+      "bytes": 5459,
+      "path": "docs/development/physical-sound-v46-d1-corpus-compiler-protocol-2026-09-03.md",
+      "sha256": "3175974cf391d88598e58d393b22f75018f7278b9038e9d875d16045b10b1fb5"
+    },
+    {
+      "bytes": 6131,
+      "path": "lab/profiles/physical-sound-v46-d0-source-preflight.v1.json",
+      "sha256": "7236b6071f09944ad64ca6d690f66a48eb89bad8b11eeaadb5e6eb7f18276fc5"
+    },
+    {
+      "bytes": 34161,
+      "path": "lab/scripts/physical_sound_v46_d1_corpus_compiler_v1.py",
+      "sha256": "601c1b1c8ee7a7901029d49a52cd0c9984efb48f5ef63b4d1025a0368ddde406"
+    }
+  ],
+  "expected": {
+    "clatter_control_groups": 36,
+    "clatter_control_rows": 84,
+    "content_references": 308,
+    "external_modal_teacher_rows": 0,
+    "planning_parent_deficit": 34,
+    "planning_parent_floor": 105,
+    "planning_supported_parents": 71,
+    "real_physical_parents": 80,
+    "real_projects": 10,
+    "real_records": 154,
+    "role_counts": {
+      "generator_development": 70,
+      "generator_train": 79,
+      "validator_calibration": 5
+    },
+    "structural_transfer_rows": 0,
+    "validator_projects": 1
+  },
+  "external_inputs": [
+    {
+      "bytes": 748297,
+      "filename": "c0-clatter-prior.json",
+      "schema": "nextengine.experimental-physical-sound-v45-c0-prior.v1",
+      "sha256": "067cc573445dd851fcdd9ca10371c0ad35807c498bb7228498e5bdda50122d7a",
+      "source_id": "v45-c0-clatter-prior"
+    },
+    {
+      "bytes": 90451,
+      "filename": "c0r-generator-development.json",
+      "schema": "nextengine.experimental-physical-sound-v43-c0r-role-projection.v1",
+      "sha256": "d58b5f236fef911089b49b596a45ddc10ae511db60cb38ab8bb8bd1a50e76c08",
+      "source_id": "v43-c0r-generator-development"
+    },
+    {
+      "bytes": 82647,
+      "filename": "c0r-generator-train.json",
+      "schema": "nextengine.experimental-physical-sound-v43-c0r-role-projection.v1",
+      "sha256": "93d397c18c3c8df49f7f687caf79d8e346b7691c0ab1726dd3488bcd8f2bc00e",
+      "source_id": "v43-c0r-generator-train"
+    },
+    {
+      "bytes": 297789,
+      "filename": "c0r-manifest.json",
+      "schema": "nextengine.experimental-physical-sound-v43-c0r-corpus.v1",
+      "sha256": "5a3b8f76d8382a0855162146909fffb22aeb9a2ff325352ce4c41e57f8052efa",
+      "source_id": "v43-c0r-manifest"
+    },
+    {
+      "bytes": 2892,
+      "filename": "c0r-report.json",
+      "schema": "nextengine.experimental-physical-sound-v43-c0r-report.v1",
+      "sha256": "28769b43a00a3a435b058daeaecbc77d79a47a85ebed7c0231c5b8cf71c12097",
+      "source_id": "v43-c0r-report"
+    },
+    {
+      "bytes": 7046,
+      "filename": "c0r-validator-calibration.json",
+      "schema": "nextengine.experimental-physical-sound-v43-c0r-role-projection.v1",
+      "sha256": "51ecfc0ecf41daf54efa95f370de9ed03689bef059368e0e13dbd434930909d2",
+      "source_id": "v43-c0r-validator-calibration"
+    },
+    {
+      "bytes": 3929,
+      "filename": "d0-sources.json",
+      "schema": "nextengine.experimental-physical-sound-v46-d0-source-preflight.v1",
+      "sha256": "a2659461b874c0059570be8c075e854c9f47004f3b91ffa0ef2f14dbf1c8153b",
+      "source_id": "v46-d0-source-decisions"
+    },
+    {
+      "bytes": 4241,
+      "filename": "iet-generator-train.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1c1-generator-train-projection.v1",
+      "sha256": "040135a7125e80a6b8b0ed7f8778deb42a25ed1fb5f1ec6508c01a8e7439e8b8",
+      "source_id": "v44-ieteasy-generator-train"
+    },
+    {
+      "bytes": 35616,
+      "filename": "iet-manifest.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1c1-corpus-increment.v1",
+      "sha256": "00e0b595ad7adcb56f45d1e0d0c8c4a83c9bfb29fc1ba4a29d95284cbd48fccd",
+      "source_id": "v44-ieteasy-manifest"
+    },
+    {
+      "bytes": 1831,
+      "filename": "iet-report.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1c1-report.v1",
+      "sha256": "621f6fd8b23ad4ca51d39a3323f49dcfb5b238660df0dda62d754734d47f79de",
+      "source_id": "v44-ieteasy-report"
+    },
+    {
+      "bytes": 17629,
+      "filename": "r0-ledger.json",
+      "schema": "nextengine.experimental-physical-sound-v45-r0-source-claim-ledger.v1",
+      "sha256": "a0178539b3830c1deb115d785e195ccb50a9f65141c8823af0a840302be6c1e8",
+      "source_id": "v45-r0-source-claim-ledger"
+    },
+    {
+      "bytes": 5927,
+      "filename": "t0-contract.json",
+      "schema": "nextengine.experimental-physical-sound-v45-t0-recipe-v3.v1",
+      "sha256": "ffd9410cf11152f63064f2a61f5a9df099f132ccad9816b5380b124859419f38",
+      "source_id": "v45-t0-recipe-v3"
+    }
+  ],
+  "schema": "nextengine.experimental-physical-sound-v46-d1-profile.v1",
+  "study_id": "physical-sound-v46-d1-corpus-compiler"
+}
