@@ -3,7 +3,8 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / MULTI_FIDELITY_REBASELINE / R0_T0_C0_COMPLETE / CLATTER_84_LABELS_36_UNIQUE_PRIORS / S0_SYNTHETIC_PREFLIGHTS_NEXT / 10_SOURCES / ZERO_NEW_POWER_CREDIT / 71_REAL_ACOUSTIC_PARENTS / DEFICIT_34 / PSEL_BLOCKED / REAL_TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `SUPERSEDED_BY_V46 / R0_T0_C0_COMPLETE / IMMUTABLE_EVIDENCE` |
+| Продолжение | [Roadmap V46](physical-sound-synthesis-roadmap-v46.md) |
 | Заменяет | [Roadmap V44](physical-sound-synthesis-roadmap-v44.md) как planning authority; все V44 exact results и source-power gates остаются immutable evidence |
 | Исследование | [V45 multi-fidelity evidence rebaseline](../development/physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; V45 не создаёт public schema, runtime inference или production authority |
