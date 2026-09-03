@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_REPEAT_EXACT_PASS / F0_NEXT / ZERO_NEW_TARGET_VALUES` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_REPEAT_EXACT_PASS / C0_NEXT / ZERO_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [A0 query-surface contract result](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -45,7 +45,7 @@ Exit:
 - every test is target-free and creates no official capability;
 - V36 reject artifacts cannot validate as a QSO H0 candidate.
 
-### Commit 2 — F0 fresh operator truth and roles
+### Commit 2 — F0 fresh operator truth and roles — `COMPLETE`
 
 Deliver:
 
@@ -147,7 +147,8 @@ touches that boundary.
 
 ## Immediate action
 
-Implement Commit 2 only. Allocate fresh disjoint identity and freeze the
-operator truth/roles, controls, ablations, metrics and ceilings without
-evaluating target values. Do not execute the full-shape model, open D0/H0 or
-construct an official capability until F0 passes twice exactly.
+Implement Commit 3 only. Construct every full-shape target-free field/query
+container, prove query/topology/remesh and ablation reachability, and execute
+the frozen candidate/control tensor and cache path with artificial zeros under
+the exact cost envelope. Do not evaluate truth, train on scientific targets,
+open D0/H0 or construct an official capability until C0 passes twice exactly.
