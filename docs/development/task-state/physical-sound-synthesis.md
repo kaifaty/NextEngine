@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V36_ACTIVE / R0_A0_F0_C0_X0_COMPLETE / E0_NEXT / V35_QUALITY_UNOBSERVED / FRESH_V36_TARGETS_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V36_ACTIVE / R0_A0_F0_C0_X0_E0_COMPLETE / D0_NEXT / EXECUTION_SEALED_PRE_ACCESS / V35_QUALITY_UNOBSERVED / FRESH_V36_TARGETS_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / REAL_ADMISSION_BLOCKED / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [V35 D0](../physical-sound-v35-d0-development-tournament-result-2026-09-03.md)
-  repeat-exactly faults after opening all train/development targets but before publishing any metric, prediction or weight; V35 quality is unobserved, its roles are spent and H0 stays unopened.
+- **Current conclusion:** [V36 E0](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md)
+  runs the committed D0/H0 owner twice exactly over full discarded roles, closes all files/terminals/resources and emits a pre-access seal. Fresh V36 targets remain unopened and V35 quality remains unobserved.
 - **Planning authority:** [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md)
-  preserves every V35 scientific knob on fresh roles; A0/F0/C0/X0 now pass twice exactly, while full D0/H0 rehearsal remains before any official capability.
+  preserves every V35 scientific knob on fresh roles; A0/F0/C0/X0/E0 pass, and the official provider must verify the exact seal before constructing the one-shot D0 capability.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
   pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
@@ -39,8 +39,8 @@
 - **V0a result:** the [modal-equivalence validator mechanics](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md)
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
-- **V36 A0–X0:** the [typed contract](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md), [fresh-role freeze](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [structural census](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md) and [terminal conformance](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) pass twice exactly with zero official values.
-- **Next action:** implement the exact D0/H0 numeric owner, then execute full-count/full-step surrogate E0 twice and issue a byte-bound seal only on exact pass. S0 remains independent.
+- **V36 A0–E0:** the [typed contract](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md), [fresh-role freeze](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [structural census](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [terminal conformance](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass with zero official values.
+- **Next action:** implement and test the exact seal verifier plus official D0 provider boundary before issuing any capability; then run fresh D0 once in two exact processes. S0 remains independent.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`;
   the next-object header proves the missing member is not later in the archive.
@@ -78,14 +78,14 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V36 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_R0_A0_F0_C0_X0_COMPLETE_E0_NEXT` | X0 rejects 38 mutations and proves all terminal/failpoint/exception paths atomically. It grants full surrogate E0 only; numeric quality and every official value remain unopened. |
+| V34–V36 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_R0_A0_F0_C0_X0_E0_COMPLETE_D0_NEXT` | E0 repeats the full D0/H0 owner and all terminals exactly inside the envelope, then seals both roots. It grants only seal-verified fresh D0; numeric quality and every official value remain unopened. |
 
-## Material transition: V36 terminal conformance passes
+## Material transition: V36 full owner rehearsal is sealed
 
-- **Evidence:** [X0](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md) repeats six files/stdout exactly; `38/38` mutations, eight scientific terminals, four failpoints and both exception decisions close with zero official access.
-- **Conclusion:** malformed state, trace or publication cannot silently become a retryable/partial experiment artifact; E0 and later owners have one shared atomic publisher.
-- **Decision:** X0 authorizes only full-count/full-step D0/H0 surrogate rehearsal. No official capability exists until exact owner bytes and two rehearsal roots enter one valid execution seal.
-- **Smallest next action:** implement the unchanged numeric owner once, exercise every fit/control/metric/gate through the A0 lifecycle, then run E0 twice exactly.
+- **Evidence:** [E0](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) repeats the committed 24-file full-count/full-step D0/H0 tree and stdout exactly; both natural passes, eight scientific terminals, all hard/resource gates and zero official access close under seal `45091c72…48a8`.
+- **Conclusion:** the exact owner can train, reconstruct, evaluate and publish both roles reproducibly before target access; this is execution evidence only, because the transparent self-consistency fixture has no physical-quality authority.
+- **Decision:** checked-in owner `629f929e…24ee`, profile `7932ad1d…f556` and both rehearsal roots form the only admissible pre-access D0 execution seal. Any drift returns to E0.
+- **Smallest next action:** implement the official provider/verifier that recomputes every seal binding before it can issue a D0 capability, then execute the fresh one-shot role without scientific changes.
 
 ## Durable negative knowledge
 
@@ -170,7 +170,8 @@
 | D-062 | V34 H0 repeat-exactly rejects only geometry-only contact at `1.756639x` nearest; all other metric/hard/resource gates pass. V34 is closed. | A new roadmap supplies a materially distinct geometry-conditioned hypothesis and fresh roles; never reopen H0. |
 | D-063 | V35 D0 repeat-exactly faults on `len(RoleData)` after all train/development targets open; no metric, prediction or weight publishes, so quality is unobserved, roles are spent and H0 stays exact zero. | Never reopen V35 or reconstruct internal values. |
 | D-064 | V36 A0 freezes explicit immutable `RoleBatch`, no implicit length, strict owner-boundary typing, complete D0/H0 stage/callable hashes and seal-gated official capabilities; official values remain zero. | C0/X0/E0 falsifies exact-path use, or D0/H0 returns any terminal result. |
-| D-065 | V36 X0 freezes publisher `b142b2e1…ae81` and proves 38 mutations, all D0/H0 scientific terminals, all four pre-commit failpoints and access-sensitive exception conversion twice exactly. | E0 finds an exact-path defect before official access, or D0/H0 returns a terminal result. |
+| D-065 | V36 X0 freezes publisher `b142b2e1…ae81` and proves 38 mutations, all D0/H0 scientific terminals, all four pre-commit failpoints and access-sensitive exception conversion twice exactly. | A publisher/trace defect appears before D0, or D0/H0 returns a terminal result. |
+| D-066 | V36 E0 freezes owner `629f929e…24ee`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `45091c72…48a8` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
 
 ## Open hypotheses
 
@@ -218,7 +219,7 @@
 
 Read in precedence order:
 
-Current generation: [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md), [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) and [V35 D0 terminal result](../physical-sound-v35-d0-development-tournament-result-2026-09-03.md).
+Current generation: [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md), [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) and [V35 D0 terminal result](../physical-sound-v35-d0-development-tournament-result-2026-09-03.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -246,5 +247,4 @@ Current generation: [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-
-- **Workspace/quality/next:** Q1a/E2, terminal V32–V35 and V36 R0/A0/F0/C0/X0 are in Git; generated artifacts remain external and roles stay sealed. X0 closes execution-boundary conformance only: implement full surrogate E0 and its seal next with zero official access; no V36 quality, validator release or runtime integration exists.
+- **Workspace/quality/next:** Q1a/E2, terminal V32–V35 and V36 R0/A0/F0/C0/X0/E0 are in Git; generated artifacts remain external and fresh roles stay sealed. E0 closes full execution/reproducibility only: implement the seal-verifying official D0 boundary next; no V36 quality, validator release or runtime integration exists.
