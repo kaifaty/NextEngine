@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / R0_N0_COMPLETE / V36_D0_REPEAT_EXACT_METRIC_REJECT / V36_CLOSED / H0_UNOPENED / NR_NEXT / ML_FIRST / INTERNET_DATA_ONLY / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_NEXT / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V36](physical-sound-synthesis-roadmap-v36.md) как программный план; замороженные V36 D0/H0 runner, protocol, profile и seal переносятся без изменений |
-| Текущее evidence | [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md), [V36 E0 execution seal](../development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) и [V36 D0 frozen protocol](../development/physical-sound-v36-d0-fresh-development-protocol-2026-09-03.md) |
+| Текущее evidence | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md), [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) и [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь не записывает удары и не подтверждает каждый звук; реальные данные ищутся в интернете, решение принимает автоматический pipeline |
 
@@ -99,7 +99,7 @@ hybrid на contact transfer; H0 не открывался. Следующая �
 ```mermaid
 flowchart TD
     R0["R0 ML-first rebaseline: complete"] --> N0["N0 V36 D0 MetricReject: complete"]
-    N0 --> NR["NR surface/operator research: next"]
+    N0 --> NR["NR QSO-v0 A0 contract: next"]
     N1["N1 V36 method holdout: not run"]
     EF["EF freeze/reject evidence correction"] --> NR
 
@@ -126,7 +126,7 @@ generator representation. G0 начинается только после `NR Pa
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
 | N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
 | N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
-| NR | Successor representation research | `NEXT` | Новый surface/operator hypothesis объясняет V36 contact/geometry/joint counterexample и проходит новые unopened synthetic roles; V36 не тюнится и не переоткрывается. |
+| NR | Successor representation research | [`QSO_V0_SELECTED / A0_NEXT`](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) | Query-conditioned graph/surface operator получает целое P1-owned modal field и отдельный query; A0 должен сначала закрыть typed CSR contract и условный Pass-only freeze. |
 | EF | Freeze/reject evidence correction | `REQUIRED_INSIDE_NR_PREFLIGHT` | Complete-path fixtures доказывают, что reject публикует только rejected-candidate evidence, а H0 freeze существует исключительно после `Pass`. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
@@ -174,8 +174,9 @@ engine schema. Каждая принятая запись связывает:
    repeat-exactly вернули `MetricReject`, H0 остался unopened.
 3. **V37.2 — complete:** терминальный D0 report закрывает V36 и фиксирует
    post-access non-authoritative freeze-metadata defect без repair/retry.
-4. **V37.3 — next:** исследовать topology/surface operator для contact field и
-   заморозить value-free complete-path protocol с однозначным reject/freeze.
+4. **V37.3 — research complete / A0 next:** выбран QSO-v0 — малый
+   query-conditioned graph/surface operator. Реализовать typed target-free
+   contract и однозначный `Pass` freeze против rejected-candidate evidence.
 5. **V37.S:** продолжить S0 metadata-only internet discovery партиями до
    `S1 Feasible` либо честного `NoEligibleDelta`.
 6. **V37.4:** собрать validator calibration corpus и выпустить V0 только после

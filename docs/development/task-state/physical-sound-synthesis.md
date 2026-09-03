@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V37_ACTIVE / R0_N0_COMPLETE / V36_D0_REPEAT_EXACT_METRIC_REJECT / V36_CLOSED / H0_UNOPENED / NR_NEXT / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V37_ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_NEXT / V36_CLOSED / H0_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -14,7 +14,7 @@
 - **Current conclusion:** [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. Hard/resources pass, but contact is `2.394927x` nearest and 18/28 metric/ablation gates fail; V36 closes, candidate authority is false and H0 stays unopened.
 - **Planning authority:** [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md)
-  next researches a topology/surface operator while the independent internet data, validator, admission, cooker and demo lanes retain their gates.
+  selects QSO-v0, a small query-conditioned graph/surface operator over a P1-owned canonical probe field; A0 typed contract is next while independent data/validator gates remain unchanged.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
   pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
@@ -40,7 +40,7 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** research and preregister a materially different topology/surface contact operator plus reject/freeze evidence correction before allocating any new scientific role. S0 remains independent.
+- **Next action:** implement target-free QSO A0 typed field/query CSR contract and Pass-only candidate freeze versus rejected-candidate evidence, then repeat its mutation matrix exactly. S0 remains independent.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`;
   the next-object header proves the missing member is not later in the archive.
@@ -77,12 +77,12 @@
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
 | V34–V36 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_D0_REPEAT_EXACT_METRIC_REJECT_CLOSED` | V36 hard/resources pass, but contact loses every frozen control comparison; 18/28 metric/ablation gates fail, H0 remains zero and no candidate has authority. |
 
-## Material transition: V36 closes on contact-transfer evidence
+## Material transition: QSO-v0 replaces scalar hybrid interaction
 
 - **Evidence:** [D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md) repeats stdout, stderr and all 12 files exactly; 20 hard and two resource gates pass, but contact is `2.394927x` nearest and only 10/28 metric/ablation gates pass.
-- **Conclusion:** the compact hybrid learns decay/global gain but cannot represent or combine contact, geometry and joint transfer. This is scientific evidence, not an execution failure.
-- **Decision:** V36 and H0 close. The reject tree's `OfficialD0CandidateFrozenAfterPass` file is non-authoritative because the report says `candidate_frozen=false`; successor preflight must make reject/freeze evidence unambiguous.
-- **Smallest next action:** research a topology/surface operator with explicit query interaction, then freeze a fresh complete-path protocol before new values.
+- **Conclusion:** DeepONet/GNO evidence and the V36 ablations support an explicit field-branch/query-trunk interaction; full GINO/Geo-FNO is unnecessary before a small graph-kernel operator is tested.
+- **Decision:** [QSO-v0](../physical-sound-v37-query-surface-operator-research-2026-09-03.md) consumes a P1-owned canonical probe graph plus a separate surface query, predicts only bounded contact correction and has no scalar expert blend.
+- **Smallest next action:** implement A0 immutable typed CSR/query containers, canonical hashes and terminal disposition rules with zero targets or official capabilities.
 
 ## Durable negative knowledge
 
@@ -171,7 +171,7 @@
 | D-066 | V36 E0 freezes owner `6fb8be54…bb9a2`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `b4368696…e516` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
 | D-067 | Pre-access official-provider review revoked first seal `45091c72…48a8`: numerical work was shared, but official traces would have inherited discarded claim/freeze/zero-access metadata. Provider-kind now selects provenance only; weights and predictions remain byte-exact and full E0 was resealed before any fresh target. | A metadata choice changes a numerical hash, or an official trace/freeze/access receipt disagrees with its capability. |
 | D-068 | V37 is an ML-first program rebaseline, not a new target generation: it carries the sealed V36 D0/H0 bytes unchanged, then requires internet-only data, an independent automatic validator, one-shot admission, offline deterministic cooking and authored fallback. | V36 terminal evidence, source-power evidence or a concrete product consumer justifies changing the ordered gates through another explicit roadmap revision. |
-| D-069 | V36 D0 repeat-exactly rejects the compact hybrid on contact transfer after hard/resources pass; H0 stays zero and V36 closes. Reject-tree freeze metadata is non-authoritative and must be made conditional before a successor role. | A new topology/surface operator explains the measured interaction failure and passes a fresh preregistered known-truth tournament with unambiguous reject/freeze evidence. |
+| D-069 | V36 D0 rejects scalar hybrid contact transfer; QSO-v0 is the smallest successor: a typed P1-owned probe graph, explicit field-branch/query-trunk interaction and no local/neural scalar blend. A0 must make candidate freeze Pass-only before new roles. | Fresh QSO D0/H0 rejects, or A0–E0 proves the representation/cost/determinism contract infeasible before target access. |
 
 ## Open hypotheses
 
@@ -179,7 +179,7 @@
 | --- | --- | --- | --- |
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Nearest wins V34 geometry-only and local regression is credible on smooth manifolds | Nearest is weak on contact-only/joint and aggregate | V36 non-neural local control across all three strata |
-| H3: compact features are insufficient and a surface/operator model is needed | NeuralSound/DiffSound expose shape/field structure; DeepONet separates field and query | P1 already supplies exact modes and V35 quality is unobserved | Escalate only if V36 compact methods fail scientifically after owner conformance |
+| H3: explicit field/query operator can recover contact transfer | V36 compact hybrid fails contact while both experts carry signal; DeepONet/GNO separate field, query and graph integral | QSO cost, remesh identity and held transfer are unproved | A0–E0 value-free conformance, then one fresh QSO D0/H0 tournament |
 | H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice without label or human-review authority | E3 rejects whole-project partition; no real validator/shadow result | S1/V1 real qualification after V36 H0 |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V36 K0/D1 after Steel J0 Pass |
 
@@ -219,7 +219,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md), [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) and [V35 D0 terminal result](../physical-sound-v35-d0-development-tournament-result-2026-09-03.md).
+Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md), [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md), terminal [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) and [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -247,4 +247,4 @@ Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-- **Workspace/quality/next:** Roadmap V37 and V36 D0 terminal evidence are in Git; detailed values remain external. V36 is repeat-exactly closed on contact-transfer MetricReject, H0 is unopened and no candidate has authority. Research the surface/operator successor and conditional reject/freeze evidence before a new role; source frontier remains `6/27` short.
+- **Workspace/quality/next:** Roadmap V37, terminal V36 D0 and QSO-v0 research/plan are in Git; detailed values remain external. Implement target-free A0 typed field/query contract and conditional candidate disposition next; no new role/target exists and source frontier remains `6/27` short.
