@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.75 |
+| Версия | 2.76 |
 | Последняя проверка | 2026-09-02 |
-| Заменяет | INDEX-001 2.74; refreshes the SPEC-03/21/26/38 and ADR-076 rows after the water specification review |
+| Заменяет | INDEX-001 2.75; indexes Proposed ADR-105 (exact-level buoyancy reaction batch) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -311,6 +311,7 @@ traceability — навигационная карта, не admission authority
 | ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Proposed; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
 | ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Proposed; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks |
+| ADR-105 | [Exact-level buoyancy reaction batch](adr/105-exact-level-buoyancy-reaction-batch.md) | Proposed; the first one-pass coupling consumer: an exact impulse batch from committed water levels and body bounds rides `PhysicsStepInputV3`, PhysX stays the sole rigid writer, check `CONTINUUM-WATER-BUOYANCY-P1`, plan `continuum-water/08` |
 
 ## Proposed tracks
 

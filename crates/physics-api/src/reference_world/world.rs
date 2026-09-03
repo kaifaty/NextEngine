@@ -105,6 +105,14 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             &numeric_profile,
             &quantization_profile,
         )?;
+        // ADR-103 / SPEC-26 2.6: the flow network integrates once per
+        // gameplay tick, so its authored tick rate must equal the world's;
+        // a mismatch rejects before activation or restore.
+        if !checkpoint.water_flow.is_empty()
+            && checkpoint.water_flow.ticks_per_second != tick_rate_profile.gameplay_hz
+        {
+            return Err(PhysicsContractError::WaterFlowInvalid.into());
+        }
 
         let bindings = &checkpoint.catalog.avatar_bindings;
         if bindings.len() > 1 {

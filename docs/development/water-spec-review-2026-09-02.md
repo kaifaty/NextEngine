@@ -34,18 +34,16 @@ largest-remainder scaling and the submersion classification.
 
 ## Open (code follows, not documents)
 
-- **Tick rate cross-check.** `WaterFlowNetworkV1.ticks_per_second` is
-  authored and hashed; SPEC-26 now requires it to equal the world
-  `TickRateProfileV1` rate and the owner to reject a mismatch, but the
-  runtime does not check it yet. Next code increment: validate at
-  bootstrap and restore (or derive the divisor from the profile and drop
-  the field with a schema bump).
+- **Tick rate cross-check.** Done 2026-09-03: `GroundedCapsuleWorld`
+  rejects a non-empty network whose `ticks_per_second` differs from the
+  world `TickRateProfileV1::gameplay_hz` with `PHYS_WATER_FLOW_INVALID`
+  at activation and restore (unit test
+  `water_flow_network_tick_rate_must_match_the_world_profile`).
 - **Face-sharing cells.** `WaterVolumeDefinitionV1::overlaps` uses closed
   intervals, so a contiguous lattice cannot be authored; the lattice
   increment must choose half-open extents or an explicit gap rule.
-- **Buoyancy consumer.** Needs its ADR narrowing ADR-058 and plan
-  `continuum-water/08` before code (drag law, exact submerged box
-  geometry, same-tick application, batch record).
+- **Buoyancy consumer.** ADR-105 and plan `continuum-water/08` written
+  2026-09-03 (frozen, not run); code follows.
 - **Step cost.** `183 us` at the record bounds in release; a frozen bound
   waits for a consumer; in-place stepping and `i64` fast paths are the
   candidates.

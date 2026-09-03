@@ -113,8 +113,8 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
 - Wave, ripple and flow presentation on cell surfaces is a later
   presentation increment under ADR-101/ADR-102.
 - Coupling to rigid bodies (buoyancy, drag) is the
-  `CONTINUUM-WATER-BUOYANCY-P1` consumer of ADR-104, which needs its own
-  short ADR narrowing ADR-058 and a frozen plan before code.
+  `CONTINUUM-WATER-BUOYANCY-P1` consumer of ADR-104, decided by ADR-105
+  with plan `continuum-water/08`.
 
 ### Later increments under this ADR (SPEC-38 2.1 practices)
 

@@ -183,11 +183,14 @@
 ## Next action
 
 0. Water mechanics (ADR-103): done in R8d (`CONTINUUM-WATER-FLOW-P1 =
-   PASS`). Next increments follow the SPEC-38 2.1 practices in ADR-103
-   0.3 order: the lattice tier, activity-based stepping, edge-driven
-   presentation (jet at the gate mouth), buoyancy from exact levels,
-   rotational presentation, the wave layer; surface meshes for the two
-   vessels ride the first presentation increment.
+   PASS`); the network tick rate is cross-checked against the world
+   profile at activation and restore (2026-09-03). Next: implement plan
+   `continuum-water/08` (ADR-105 buoyancy batch, `PhysicsStepInputV3`,
+   the floating crate, `xtask water-buoyancy`), then the SPEC-38 2.2
+   practices in ADR-103 order (lattice tier, activity stepping,
+   edge-driven presentation, rotational presentation, wave layer);
+   surface meshes for the two vessels ride the first presentation
+   increment.
 1. Presentation solver in the game root: declare the basin mesh as an
    ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
    (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and

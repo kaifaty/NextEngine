@@ -404,7 +404,17 @@ fn run_generation(
     )?;
 
     // Deterministic rejections leave the table untouched and emit nothing.
-    let before_rejections = runtime.physics_checkpoint().water_volumes.clone();
+    // The flow vessels (ADR-103) move every tick; only the basin, the
+    // target of every command here, must stay untouched by rejections.
+    let basin_state = |runtime: &RuntimeState| {
+        runtime
+            .physics_checkpoint()
+            .water_volumes
+            .states
+            .get(&REFERENCE_WATER_BASIN_ID)
+            .cloned()
+    };
+    let before_rejections = basin_state(&runtime);
     for (command, code, label) in [
         (
             WaterVolumeCommandV1::SetLevel {
@@ -444,7 +454,7 @@ fn run_generation(
         rejected_commands += 1;
     }
     require(
-        runtime.physics_checkpoint().water_volumes == before_rejections,
+        basin_state(&runtime) == before_rejections,
         "rejections leave the water table unchanged",
     )?;
 

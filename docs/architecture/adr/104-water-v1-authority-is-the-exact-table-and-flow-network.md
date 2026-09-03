@@ -60,9 +60,8 @@ down a ladder the product no longer needs.
    exact cell level and the body's exact submerged geometry and delivered
    through the one-pass reaction batch defined by ADR-076/081 (one
    composite `PhysicalStep`, one exchange tuple, PhysX the sole rigid
-   writer), whose first implementation is this buoyancy consumer; it
-   needs a short ADR narrowing ADR-058 and a frozen plan
-   (`continuum-water/08`) before code. The batch source is the network or
+   writer), whose first implementation is this buoyancy consumer under
+   ADR-105 and plan `continuum-water/08`. The batch source is the network or
    a plain `WaterVolume` level, never a particle set. The plan fixes the
    drag law, the exact submerged geometry of the reference box, the
    substep at which the batch applies (the same tick as the flow step;

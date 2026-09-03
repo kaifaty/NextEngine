@@ -165,7 +165,8 @@ and performs no post-integration clamp, retry or positional repair.
 The one-pass composite step below is the coupling path of every later
 water consumer. For water V1 (ADR-104) the reaction source is the exact
 network: buoyancy and drag from the exact cell level and the body's exact
-submerged geometry (`CONTINUUM-WATER-BUOYANCY-P1`). The particle reaction
+submerged bounds (`CONTINUUM-WATER-BUOYANCY-P1`, ADR-105: one exact impulse
+batch inside the physics step input, applied once at the first substep). The particle reaction
 reduction (steps 2-5 as written for samples) is the research form of the
 same pass. Each physical substep has one staged coupling pass:
 
