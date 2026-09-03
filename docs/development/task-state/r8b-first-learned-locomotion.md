@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `SELECTED / ACTIVE_R&D / PREFLIGHT_NEXT / NO_RUN_STARTED` |
-| Updated | 2026-08-28 |
+| Updated | 2026-09-03 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
 | Definition of done | Five fixed held-out CPU PhysX episodes pass the complete 3,600-tick standing gate, then five pass the bounded forward/start/stop gate, with exact manifests, zero declared safety events and replay-bound visual evidence when capture is available |
@@ -25,6 +25,10 @@
   blocked until the preflight closes its exact manifest and storage lineage.
 - **Do not retry:** Never resume the broad V1 PPO checkpoints or any
   R123–R141/TRAIN-5 artifact; they have incompatible or rejected authority.
+- **Kimodo finding:** NVIDIA Kimodo is a plausible future offline source of
+  synthetic reference candidates, not a controller. It is excluded from the
+  current R8b lineage and may be reconsidered only as a new post-foundation
+  experiment with separate provenance, retarget and physical-admission gates.
 - **Reconsider when:** Broaden beyond standing and forward start/stop only
   after both declared checkpoints pass. Reopen motion-reference work only by a
   separate roadmap decision satisfying its own byte-reversible lineage gate.
@@ -37,6 +41,7 @@
 | [ADR-064](../../architecture/adr/064-canonical-flat-command-locomotion-environment.md) | `Accepted`; frozen standing and flat-command V1 environments | Reuse exact engine-owned BodySchema, observation, action, safety and CPU PhysX boundaries |
 | [ADR-065](../../architecture/adr/065-curriculum-flat-command-locomotion-profile.md) | Prior broad V1 PPO held-out survival about 135–137 ticks; `768/768` falls; bounded V2 first stage exists | Do not repeat broad commands; standing precedes only `0..0.75 m/s` forward start/stop |
 | [Stopped TRAIN-4 state](humanoid-motor-training.md) | `R141_INVALID / STOP_NO_RETRY` | R8b consumes no motion corpus, reference tracker, R123–R141 cache/witness or rejected checkpoint |
+| [Kimodo research](../kimodo-motion-training-research-2026-09-03.md) | Kimodo is an offline 30 Hz kinematic generator; SOMA output still needs an exact 23-DoF retarget and CPU PhysX admission | Keep it out of R8b; preserve one separate post-foundation `KIMODO-MOTION-P0` candidate |
 | R8b run/evaluation artifacts | `NOT_RUN` | No learned quality, visual, Stage 0 or runtime claim exists yet |
 
 ## Decisions that still constrain the work
@@ -91,6 +96,27 @@
   checked.
 - **Reconsider when:** A future Accepted profile changes the canonical plane.
 
+### D-004 — Defer Kimodo to a separate post-foundation lineage
+
+- **Observation:** Kimodo generates short kinematic SOMA/G1 trajectories; it
+  does not solve Next Engine's 23-DoF feedback controller, physical contacts or
+  CPU PhysX admission. Current R8b deliberately consumes no reference corpus.
+- **Evidence:** The dated Kimodo research report, current R8b scope, SPEC-34/35
+  and the stopped TRAIN-4 state.
+- **Decision:** Do not install, ingest or train from Kimodo in the active R8b
+  package. Preserve `KIMODO-MOTION-P0` as a future out-of-process candidate
+  generator after both foundation gates and a separate roadmap decision.
+- **Rejected alternatives:** Adding Kimodo references to standing/forward R8b,
+  direct G1/SOMA ingestion, runtime text-to-motion, or using Kimodo to resume or
+  relabel R123–R141.
+- **Consequences:** The R8b preflight and exact run identities remain
+  unchanged. A future pilot needs new license snapshots, raw-output hashes,
+  deterministic SOMA-to-BodySchema retarget and optimizer-free CPU admission.
+- **Uncertainty:** Physical admission yield and PPO sample-efficiency benefit
+  are unmeasured; model/text-encoder/output licensing still needs exact review.
+- **Reconsider when:** Both standing and bounded forward/start-stop gates pass,
+  or an explicit roadmap decision changes their order.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -139,6 +165,8 @@ Read these sources in precedence order before acting:
   independent.
 - Trainer-side command/reward overrides — they create a second environment
   authority and invalidate the exact manifest.
+- Kimodo or another generated-motion source inside current R8b — it would
+  bypass the declared command-only lineage and cannot rehabilitate TRAIN-4.
 - GPU-only quality or video-only acceptance — CPU PhysX trajectories and
   declared safety facts remain the oracle.
 
@@ -149,7 +177,9 @@ Read these sources in precedence order before acting:
 - **Checks:** Documentation cheap path is required for this selection change;
   executable motor checks begin only with the preflight/run package.
 - **Remaining risk:** Learned standing feasibility, time-to-result, Isaac
-  readiness and walking transfer benefit are unknown.
+  readiness and walking transfer benefit are unknown. Kimodo retarget yield,
+  physical admissibility, learning benefit and exact license closure are also
+  unmeasured and deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.
