@@ -98,6 +98,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         composition_root: CompositionRootV1::Game,
         presentation_target: target,
         platform_capability_set,
+        spawn_override: None,
     };
     if options.interactive {
         let capture = options.capture_frame.zip(options.capture_png.clone()).map(
@@ -106,6 +107,11 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
                 png,
             },
         );
+        let mut launch = launch;
+        if options.start_at_water {
+            // Plan 11: a fresh session in front of the basin, looking at it.
+            launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_water());
+        }
         return run_interactive_session(launch, options.maximum_frames, capture);
     }
 
@@ -212,6 +218,7 @@ fn run_interactive_session(
             frame_capture: capture
                 .as_ref()
                 .map(capture::CaptureRequest::adapter_request),
+            scripted_input: Vec::new(),
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed, audio| {

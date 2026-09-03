@@ -2,7 +2,65 @@ use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Keycode, Mod, Scancode};
 use sdl3::mouse::MouseState;
 
+use crate::run_state::{DesktopScriptedActionV1, DesktopScriptedKeyV1};
 use crate::{DesktopAdapterError, sdl_error};
+
+/// Pushes one scripted action into SDL's event queue for `window_id`.
+pub(super) fn push_scripted_action(
+    event_subsystem: &sdl3::EventSubsystem,
+    window_id: u32,
+    timestamp: u64,
+    action: DesktopScriptedActionV1,
+) -> Result<(), DesktopAdapterError> {
+    let key = |key: DesktopScriptedKeyV1| match key {
+        DesktopScriptedKeyV1::W => (Keycode::W, Scancode::W),
+        DesktopScriptedKeyV1::A => (Keycode::A, Scancode::A),
+        DesktopScriptedKeyV1::S => (Keycode::S, Scancode::S),
+        DesktopScriptedKeyV1::D => (Keycode::D, Scancode::D),
+    };
+    let event = match action {
+        DesktopScriptedActionV1::KeyDown(scripted) => {
+            let (keycode, scancode) = key(scripted);
+            Event::KeyDown {
+                timestamp,
+                window_id,
+                keycode: Some(keycode),
+                scancode: Some(scancode),
+                keymod: Mod::NOMOD,
+                repeat: false,
+                which: 1,
+                raw: 0,
+            }
+        }
+        DesktopScriptedActionV1::KeyUp(scripted) => {
+            let (keycode, scancode) = key(scripted);
+            Event::KeyUp {
+                timestamp,
+                window_id,
+                keycode: Some(keycode),
+                scancode: Some(scancode),
+                keymod: Mod::NOMOD,
+                repeat: false,
+                which: 1,
+                raw: 0,
+            }
+        }
+        DesktopScriptedActionV1::MouseMotion {
+            x_relative,
+            y_relative,
+        } => Event::MouseMotion {
+            timestamp,
+            window_id,
+            which: 1,
+            mousestate: MouseState::from_sdl_state(0),
+            x: 0.0,
+            y: 0.0,
+            xrel: x_relative as f32,
+            yrel: y_relative as f32,
+        },
+    };
+    event_subsystem.push_event(event).map_err(sdl_error)
+}
 
 pub(super) fn inject_startup_lifecycle_probe(
     event_subsystem: &sdl3::EventSubsystem,

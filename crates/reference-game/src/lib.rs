@@ -46,8 +46,9 @@ pub use scenario::{
     run_reference_game_with_backend,
 };
 pub use session::{
-    ReferenceCapsuleCourseV1, ReferenceGameSession, build_reference_game_session,
-    build_reference_game_session_with_profile,
+    REFERENCE_SPAWN_TRANSLATION_MICROMETRES, ReferenceCapsuleCourseV1, ReferenceGameSession,
+    ReferenceSpawnOverrideV1, build_reference_game_session,
+    build_reference_game_session_with_options, build_reference_game_session_with_profile,
 };
 pub use source::{
     REFERENCE_GAME_PROJECT_ID, project_source_v7, project_source_v7_with_id,
@@ -66,6 +67,7 @@ pub use ui_dialogue::dialogue_semantic_ui_records_for_ids;
 pub use water::{
     REFERENCE_WATER_BASIN_ID, REFERENCE_WATER_BASIN_INITIAL_LEVEL_MICROMETRES,
     REFERENCE_WATER_BASIN_MAXIMUM_MICROMETRES, REFERENCE_WATER_BASIN_MINIMUM_MICROMETRES,
+    REFERENCE_WATER_BASIN_RIM_BODY_ID, REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES,
     REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES, REFERENCE_WATER_CRATE_BODY_ID,
     REFERENCE_WATER_CRATE_HALF_EXTENTS_MICROMETRES,
     REFERENCE_WATER_CRATE_INITIAL_TRANSLATION_MICROMETRES,

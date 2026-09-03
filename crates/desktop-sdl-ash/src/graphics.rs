@@ -702,6 +702,55 @@ impl GraphicsContext {
             .layer_count(1)
             .color_attachments(&color_attachments)
             .depth_attachment(&depth_attachment);
+        // Plan 15: the mirrored reflection pass renders the plan into the
+        // water pass's targets before the world pass.
+        if water_pass_this_frame
+            && let Some(water) = self.water.as_mut()
+            && let Some(plane_height) =
+                b0_content.water_plane_height_metres(frame_plan, frame_slot_index)
+        {
+            water.record_reflection_begin(frame_slot.command_buffer);
+            let reflection_colors = [vk::RenderingAttachmentInfo::default()
+                .image_view(water.reflection_color_view())
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .clear_value(vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 0.0],
+                    },
+                })];
+            let reflection_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(water.reflection_depth_view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .clear_value(depth_clear);
+            let reflection_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&reflection_colors)
+                .depth_attachment(&reflection_depth);
+            // SAFETY: the reflection targets are in attachment layouts and
+            // no rendering instance is active.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &reflection_info);
+            }
+            b0_content.record_reflection(
+                frame_slot.command_buffer,
+                frame_plan,
+                swapchain.extent,
+                frame_slot_index,
+                water,
+                plane_height,
+            )?;
+            // SAFETY: the reflection rendering instance is ended exactly once.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            water.record_reflection_end(frame_slot.command_buffer);
+        }
         // SAFETY: dynamic rendering was checked and enabled; the attachment
         // images are in their declared attachment layouts for this index.
         unsafe {
@@ -720,7 +769,8 @@ impl GraphicsContext {
             && let (Some(water), Some(camera)) = (self.water.as_mut(), frame_plan.camera.as_ref())
         {
             let depth = &swapchain.depth_attachments[image_usize];
-            let (viewport, scissor) = water.prepare(frame_slot_index, camera, depth.view())?;
+            let (viewport, scissor) =
+                water.prepare(frame_slot_index, camera, depth.view(), rendered_frame_index)?;
             // SAFETY: the opaque world rendering instance ends before the
             // pass copies the swapchain colour and samples the scene depth.
             unsafe {

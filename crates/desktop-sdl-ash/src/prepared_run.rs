@@ -235,6 +235,12 @@ struct InteractiveRunCore<F: FnMut() -> DesktopApplicationFinalization> {
     audio: RefCell<audio_output::DesktopAudioOutputV1>,
     events: sdl3::EventPump,
     window: Window,
+    /// Scripted input (sorted by time), the next pending index and the
+    /// clock it runs against (plan `continuum-water/11` diagnostics).
+    scripted_input: Vec<crate::run_state::DesktopScriptedInputV1>,
+    scripted_next: usize,
+    scripted_started: Option<Instant>,
+    event_subsystem: sdl3::EventSubsystem,
     _video: sdl3::VideoSubsystem,
     _sdl: sdl3::Sdl,
 }
@@ -361,11 +367,18 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             )?;
         }
 
+        let event_subsystem = sdl.event().map_err(sdl_error)?;
+        let mut scripted_input = options.scripted_input.clone();
+        scripted_input.sort_by_key(|step| step.at_milliseconds);
         Ok(Self {
             current_snapshot,
             dynamic_surfaces,
             render_content_catalog,
             options,
+            scripted_input,
+            scripted_next: 0,
+            scripted_started: None,
+            event_subsystem,
             normalizer: Some(normalizer),
             event_stats: Some(event_stats),
             pacing_clock: RefCell::new(InteractivePacingClock::default()),
@@ -414,6 +427,10 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let events = &mut self.events;
             let window = &mut self.window;
             let audio = &self.audio;
+            let scripted_input = &self.scripted_input;
+            let scripted_next = &mut self.scripted_next;
+            let scripted_started = &mut self.scripted_started;
+            let event_subsystem = &self.event_subsystem;
             let mut event_sink = |events: &[PlatformEventV1]| {
                 let elapsed = pacing_clock.borrow_mut().elapsed_for_pump(Instant::now());
                 apply_frame_source_result(
@@ -456,6 +473,26 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 let mut observations = Vec::new();
                 let mut swapchain_dirty = false;
                 let mut fullscreen_toggle_count = 0_u64;
+                if !scripted_input.is_empty() {
+                    let started = *scripted_started.get_or_insert(frame_started);
+                    let run_milliseconds =
+                        u64::try_from(frame_started.duration_since(started).as_millis())
+                            .unwrap_or(u64::MAX);
+                    while let Some(step) = scripted_input.get(*scripted_next)
+                        && step.at_milliseconds <= run_milliseconds
+                    {
+                        // SAFETY: SDL is initialised for the lifetime of this
+                        // run; the call reads the monotonic tick clock.
+                        let timestamp = unsafe { sdl3::sys::timer::SDL_GetTicksNS() };
+                        native_events::push_scripted_action(
+                            event_subsystem,
+                            window.id(),
+                            timestamp,
+                            step.action,
+                        )?;
+                        *scripted_next += 1;
+                    }
+                }
                 let mut native_events: Vec<_> = events.poll_iter().collect();
                 native_events.sort_by_key(native_events::sort_key);
                 for event in native_events {

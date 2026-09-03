@@ -60,7 +60,7 @@ pub(crate) fn run_content_package_check_with_scratch(
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
     let creator = verify_creator_project(scratch)?;
     let source = next_reference_game::project_source_v7()?;
-    if source.root_asset_ids.len() != 42 {
+    if source.root_asset_ids.len() != 43 {
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
     }
     verify_world_routine_source_faults()?;
@@ -106,7 +106,7 @@ pub(crate) fn run_content_package_check_with_scratch(
         let humanoid_mesh = catalog
             .mesh(skinning_profile.mesh_revision())
             .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
-        if activated.content_manifest.body.asset_entries.len() != 128
+        if activated.content_manifest.body.asset_entries.len() != 129
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
@@ -122,7 +122,7 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .first()
                 .and_then(|interaction| interaction.availability_condition_or_none)
                 .is_none()
-            || catalog.meshes().len() != 16
+            || catalog.meshes().len() != 17
             || catalog.materials().len() != 12
             || catalog.textures().len() != 7
             || catalog.base_skinning_profiles().len() != 1
@@ -145,7 +145,7 @@ pub(crate) fn run_content_package_check_with_scratch(
                 })
                 .count()
                 != 2
-            || catalog.cooked_meshes().len() != 16
+            || catalog.cooked_meshes().len() != 17
             || catalog
                 .meshes()
                 .iter()
@@ -154,8 +154,8 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .cooked_meshes()
                 .iter()
                 .any(|mesh| mesh.meshlets().is_empty())
-            || prepared.check.rendered_object_count != 13
-            || prepared.check.indexed_draw_count != 13
+            || prepared.check.rendered_object_count != 14
+            || prepared.check.indexed_draw_count != 14
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
             || skinning_records.len() != 2
@@ -965,7 +965,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 128);
+        assert_eq!(report.records, 129);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.creator_records, 18);
         assert_eq!(report.creator_chunks, 3);

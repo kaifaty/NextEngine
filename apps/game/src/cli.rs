@@ -11,6 +11,9 @@ pub(super) struct GameOptions {
     /// index to copy back and the PNG path to write it to.
     pub(super) capture_frame: Option<u64>,
     pub(super) capture_png: Option<PathBuf>,
+    /// Plan `continuum-water/11` diagnostic: walk to the basin and turn the
+    /// camera to it through scripted input at start.
+    pub(super) start_at_water: bool,
     pub(super) project: Option<PathBuf>,
     pub(super) expected_lock: Option<ContentHash>,
     pub(super) state_root: Option<PathBuf>,
@@ -36,6 +39,11 @@ impl GameOptions {
                         return Err(AppFailure::argument(
                             "--maximum-frames must be one positive integer",
                         ));
+                    }
+                }
+                "--start-at-water" => {
+                    if std::mem::replace(&mut options.start_at_water, true) {
+                        return Err(AppFailure::argument("--start-at-water specified twice"));
                     }
                 }
                 "--capture-frame" => {
@@ -86,6 +94,11 @@ impl GameOptions {
         if options.maximum_frames.is_some() && !options.interactive {
             return Err(AppFailure::argument(
                 "--maximum-frames requires --interactive",
+            ));
+        }
+        if options.start_at_water && !options.interactive {
+            return Err(AppFailure::argument(
+                "--start-at-water requires --interactive",
             ));
         }
         match (options.capture_frame, options.capture_png.as_ref()) {

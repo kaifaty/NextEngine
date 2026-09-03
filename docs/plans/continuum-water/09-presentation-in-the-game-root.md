@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Research ID | `WP1` |
-| Status | `RUN / G1-G5 PASS / G6 HUMAN` (2026-09-03) |
+| Status | `RUN / G1-G5 PASS / G6 HUMAN` (2026-09-03); the ripple function revised by plan 14 (WL4: ambient spectrum plus the flux ripple, same cap) |
 | Parent | ADR-100 check `CONTINUUM-WATER-PRESENT-P1`; ADR-101 dynamic surface ring; ADR-102 particle surface pass; SPEC-38 2.2 practices 3, 5 and 6 |
 | Purpose | the first presentation stage inside the game root: surfaces that follow the exact levels of the table and the network, a wave layer and a jet spawned from the exact gate flux, with gameplay roots untouched |
 

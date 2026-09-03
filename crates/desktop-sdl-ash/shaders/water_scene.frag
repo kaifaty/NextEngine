@@ -24,11 +24,12 @@ layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
 layout(set = 2, binding = 0) uniform sampler2DShadow shadow_map;
 layout(set = 3, binding = 0) uniform sampler2D scene_color;
 layout(set = 3, binding = 1) uniform sampler2D scene_depth;
+layout(set = 3, binding = 3) uniform sampler2D reflection;
 layout(set = 3, binding = 2, std140) uniform WaterUniforms {
     mat4 inverse_view_projection;
     vec4 viewport;      // width, height, 1/width, 1/height
     vec4 absorption;    // per-metre rgb, refraction strength
-    vec4 shore;         // foam width (m), fade width (m), foam grey, unused
+    vec4 shore;         // foam width (m), fade width (m), foam grey, run seconds
 } water;
 
 layout(push_constant, std430) uniform DrawPushConstants {
@@ -41,6 +42,8 @@ const float SUN_SPECULAR_EXPONENT = 240.0;
 const float BODY_DIFFUSE_WEIGHT = 0.6;
 const vec3 SKY_HORIZON = vec3(0.48, 0.60, 0.68);
 const vec3 SKY_ZENITH = vec3(0.10, 0.20, 0.34);
+const float DETAIL_NORMAL_OFFSET = 0.03;
+const float REFLECTION_DISTORTION = 0.02;
 
 vec3 scene_world_position(vec2 uv, float depth) {
     vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
@@ -57,6 +60,20 @@ void main() {
         : face_normal;
     if (!gl_FrontFacing) {
         normal = -normal;
+    }
+    // WL4 detail normal: two world-space sine gradients moving with the run
+    // clock, a small tilt on top of the ring normal.
+    {
+        float t = water.shore.w;
+        vec2 p = in_world_position.xz;
+        vec2 d1 = normalize(vec2(0.83, 0.56));
+        vec2 d2 = normalize(vec2(-0.42, 0.91));
+        float k1 = 6.2831853 / 0.18;
+        float k2 = 6.2831853 / 0.11;
+        float g1 = cos(k1 * dot(d1, p) - k1 * 0.35 * t);
+        float g2 = cos(k2 * dot(d2, p) - k2 * 0.5 * t);
+        vec2 tilt = (d1 * g1 + d2 * g2) * DETAIL_NORMAL_OFFSET;
+        normal = normalize(normal + vec3(tilt.x, 0.0, tilt.y));
     }
 
     vec3 view = normalize(frame.camera_world_position.xyz - in_world_position);
@@ -131,6 +148,15 @@ void main() {
     vec3 reflected = reflect(-view, normal);
     float elevation = clamp(reflected.y, 0.0, 1.0);
     vec3 reflected_sky = mix(SKY_HORIZON, SKY_ZENITH, smoothstep(0.0, 0.8, elevation));
+    // WL5: the mirrored scene at this pixel, distorted by the ring normal,
+    // over the analytic sky where nothing reflects (alpha 0).
+    vec2 reflection_uv = clamp(
+        uv + normal.xz * REFLECTION_DISTORTION,
+        water.viewport.zw,
+        1.0 - water.viewport.zw
+    );
+    vec4 mirrored = texture(reflection, reflection_uv);
+    reflected_sky = mix(reflected_sky, mirrored.rgb, mirrored.a);
     vec3 half_vector = normalize(light_direction + view);
     float specular = pow(max(dot(normal, half_vector), 0.0), SUN_SPECULAR_EXPONENT)
         * frame.sun_direction_intensity.w * shadow_visibility;

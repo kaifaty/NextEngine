@@ -23,6 +23,7 @@ use next_render::B0FramePlanV1;
 
 use self::pipeline::{
     PipelineState, draw_push_constant_bytes, frame_raster_state, identity_matrix_bytes,
+    mirrored_frame_raster_state,
 };
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
 use self::resources::{DescriptorState, ShadowMap, TextureResource, upload_content};
@@ -123,6 +124,9 @@ pub(super) struct B0GpuContent {
 /// dynamic surface. Capacity is fixed at creation.
 struct DynamicSurfaceRing {
     profile: DynamicSurfaceProfileV1,
+    /// The catalog mesh's horizontal extent (`x` times `z`, square
+    /// micrometres): plan 15 mirrors about the largest water surface.
+    plan_area_square_micrometres: i128,
     slots: Vec<DynamicSurfaceSlot>,
 }
 
@@ -155,6 +159,16 @@ struct UploadedDynamicSurface {
 pub(super) struct DynamicSurfaceUploadStats {
     pub(super) uploads: u64,
     pub(super) bytes: u64,
+}
+
+/// How the plan's `WaterSurface` rings are treated by a draw recording.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WaterRingModeV1 {
+    /// No water pass: the rings draw through the WL1 suite in the world pass.
+    InWorldPass,
+    /// The water pass draws them later (plan 13) and the reflection pass
+    /// never draws them (plan 15).
+    Skip,
 }
 
 #[derive(Clone, Copy)]
@@ -293,6 +307,15 @@ impl B0GpuContent {
                     profile.mesh_revision,
                     DynamicSurfaceRing {
                         profile: *profile,
+                        plan_area_square_micrometres: catalog
+                            .meshes()
+                            .iter()
+                            .find(|mesh| mesh.asset_revision().ok() == Some(profile.mesh_revision))
+                            .map_or(0, |mesh| {
+                                let bounds = mesh.bounds();
+                                i128::from(bounds.max()[0] - bounds.min()[0])
+                                    * i128::from(bounds.max()[2] - bounds.min()[2])
+                            }),
                         slots,
                     },
                 )
@@ -685,11 +708,35 @@ impl B0GpuContent {
             }
         }
 
+        self.record_plan_draws(
+            command_buffer,
+            plan,
+            frame_slot_index,
+            self.pipeline.layout,
+            if skip_water_surfaces {
+                WaterRingModeV1::Skip
+            } else {
+                WaterRingModeV1::InWorldPass
+            },
+        )
+    }
+
+    /// Records the plan's draws for the currently bound pipeline and frame
+    /// set (the world pass or the mirrored reflection pass of plan 15).
+    fn record_plan_draws(
+        &mut self,
+        command_buffer: vk::CommandBuffer,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+        layout: vk::PipelineLayout,
+        water_rings: WaterRingModeV1,
+    ) -> Result<u64, B0GpuContentError> {
         let mut dynamic_surface_draws = 0_u64;
         for draw in &plan.draws {
             let dynamic_binding = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index);
-            // Plan 13: with the water pass active, water rings draw there.
-            if skip_water_surfaces
+            // Plan 13/15: with the water pass active, water rings draw there
+            // and never in the world or reflection passes.
+            if water_rings == WaterRingModeV1::Skip
                 && dynamic_binding
                     .is_some_and(|binding| binding.shading == DynamicSurfaceShadingV1::WaterSurface)
             {
@@ -765,14 +812,14 @@ impl B0GpuContent {
                 self.geometry.device.cmd_bind_descriptor_sets(
                     command_buffer,
                     vk::PipelineBindPoint::GRAPHICS,
-                    self.pipeline.layout,
+                    layout,
                     1,
                     &texture_sets,
                     &[],
                 );
                 self.geometry.device.cmd_push_constants(
                     command_buffer,
-                    self.pipeline.layout,
+                    layout,
                     vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
                     0,
                     &push_constants,
@@ -1069,6 +1116,107 @@ impl B0GpuContent {
                 .ok_or(B0GpuContentError::CountOverflow)?;
         }
         Ok(draws)
+    }
+
+    /// The mirror plane of plan 15: the translation `y` (metres) of the
+    /// `WaterSurface` ring draw (with an uploaded update) whose catalog mesh
+    /// has the largest horizontal extent (the basin of the reference scene).
+    pub(super) fn water_plane_height_metres(
+        &self,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+    ) -> Option<f32> {
+        plan.draws
+            .iter()
+            .filter_map(|draw| {
+                let ring = self.dynamic_surfaces.get(&draw.mesh_revision)?;
+                let binding = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index)?;
+                (binding.shading == DynamicSurfaceShadingV1::WaterSurface)
+                    .then_some((ring.plan_area_square_micrometres, draw))
+            })
+            .max_by_key(|(area, _)| *area)
+            .map(|(_, draw)| draw.transform.translation_micrometres[1] as f32 / 1_000_000.0)
+    }
+
+    /// Plan 15: records the plan's draws with the mirrored camera into the
+    /// reflection pass; a reflection rendering instance must be active.
+    pub(super) fn record_reflection(
+        &mut self,
+        command_buffer: vk::CommandBuffer,
+        plan: &B0FramePlanV1,
+        extent: vk::Extent2D,
+        frame_slot_index: usize,
+        water: &mut water::WaterPassState,
+        plane_height_metres: f32,
+    ) -> Result<(), B0GpuContentError> {
+        let Some(camera) = plan.camera.as_ref() else {
+            return Ok(());
+        };
+        let raster_state = mirrored_frame_raster_state(camera, extent, plane_height_metres)?;
+        let frame_set = water.prepare_reflection(frame_slot_index, &raster_state)?;
+        let shadow_set = self
+            .descriptors
+            .shadow_set
+            .ok_or(B0GpuContentError::ResourceMissing(
+                "shadow descriptor set for the reflection pass",
+            ))?;
+        let viewports = [raster_state.viewport];
+        let scissors = [raster_state.scissor];
+        let vertex_buffers = [self.geometry.buffer];
+        let vertex_offsets = [0];
+        let layout = water.reflection_layout();
+        // SAFETY: the reflection pipeline shares the B0 layouts; the sets
+        // and buffers are live on this device inside the reflection
+        // rendering instance.
+        unsafe {
+            self.geometry.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.reflection_pipeline(),
+            );
+            self.geometry
+                .device
+                .cmd_set_viewport(command_buffer, 0, &viewports);
+            self.geometry
+                .device
+                .cmd_set_scissor(command_buffer, 0, &scissors);
+            self.geometry.device.cmd_bind_vertex_buffers(
+                command_buffer,
+                0,
+                &vertex_buffers,
+                &vertex_offsets,
+            );
+            self.geometry.device.cmd_bind_index_buffer(
+                command_buffer,
+                self.geometry.buffer,
+                self.index_buffer_offset,
+                vk::IndexType::UINT32,
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                layout,
+                0,
+                &[frame_set],
+                &[],
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                layout,
+                2,
+                &[shadow_set],
+                &[],
+            );
+        }
+        self.record_plan_draws(
+            command_buffer,
+            plan,
+            frame_slot_index,
+            layout,
+            WaterRingModeV1::Skip,
+        )?;
+        Ok(())
     }
 
     pub(super) fn record_sky(

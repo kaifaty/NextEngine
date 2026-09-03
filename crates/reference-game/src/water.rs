@@ -33,6 +33,20 @@ pub const REFERENCE_WATER_CRATE_HALF_EXTENTS_MICROMETRES: [i64; 3] = [250_000, 2
 pub const REFERENCE_WATER_CRATE_INITIAL_TRANSLATION_MICROMETRES: [i64; 3] =
     [6_500_000, 250_000, 2_000_000];
 pub const REFERENCE_WATER_CRATE_MASS_MICROKILOGRAMS: u64 = 50_000_000;
+/// Plan `continuum-water/16`: the authored rim around the basin, one
+/// static body with five box shapes (centre, half extents), `0.6 m` high,
+/// with an opening on the south side at `x 6.0..7.0 m`.
+pub const REFERENCE_WATER_BASIN_RIM_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
+    subject_id: PersistentId::from_bytes([0x89; 16]),
+    body_slot: 0,
+};
+pub const REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES: [([i64; 3], [i64; 3]); 5] = [
+    ([4425000, 300000, 2000000], [75000, 300000, 1150000]),
+    ([8575000, 300000, 2000000], [75000, 300000, 1150000]),
+    ([6500000, 300000, 3075000], [2150000, 300000, 75000]),
+    ([5175000, 300000, 925000], [825000, 300000, 75000]),
+    ([7825000, 300000, 925000], [825000, 300000, 75000]),
+];
 pub const REFERENCE_WATER_BASIN_PROFILE_REVISION: u32 = 1;
 
 /// ADR-103 first flow consumer (plan `continuum-water/07`): vessel A on a

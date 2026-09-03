@@ -64,6 +64,8 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID)?;
     let (water_crate_mesh, water_crate_bounds) =
         mesh(crate::source::REFERENCE_WATER_CRATE_MESH_ASSET_ID)?;
+    let (water_rim_mesh, water_rim_bounds) =
+        mesh(crate::source::REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID)?;
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
@@ -361,6 +363,22 @@ pub(crate) fn fixture_presentation_bindings(
             local_bounds: r5b_push_box_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(fixture.r5b_course.dynamic_body_id),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // Plan 16: the authored rim of the basin.
+            persistent_id: crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: water_rim_mesh,
+            material_revision: floor_material,
+            instance_ordinal: 18,
+            local_bounds: water_rim_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID),
             fallback_transform:
                 next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,

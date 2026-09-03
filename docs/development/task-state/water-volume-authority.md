@@ -87,10 +87,13 @@
 - **Accepted 2026-09-03.** ADR-100/103/104/105 Accepted, SPEC-38 3.0
   Accepted for water, terrain clauses in Proposed SPEC-39.
 - **Water look L1 done (plan 12, 2026-09-03):** `water_surface` shader suite on `WaterSurface` rings (ADR-101 0.3).
+- **Start at the water (2026-09-03):** `apps/game --interactive --start-at-water` starts a fresh session with `ReferenceSpawnOverrideV1::at_water()` (`LaunchRequestV1::spawn_override`: capsule at `[5.3, 0.9, 0.2] m` at the basin's south edge, camera yaw `0` looking across the water, pitch `-12`; a different bootstrap root for that session only, resumed sessions ignore it); combine with `--maximum-frames 122 --capture-frame 120 --capture-png` for a capture. The adapter keeps `DesktopRunOptions::scripted_input` (SDL event queue) for diagnostics that need real input.
 - **Water look L2 + L3 done (plan 13, 2026-09-03):** the water pass after the opaque scene (`gpu_content/water.rs`, `water_scene` suite): scene colour copy, sampled scene depth, refraction, absorption, vertical-depth shoreline and foam; fallback prints `WATER_PASS_FALLBACK`.
-- **Next (plan `continuum-water/11`):** the water look continues with
-  L4 (wave spectrum on the ring), L5 (planar reflection), L6 (caustics),
-  L7 (crate wake and splash) and L8 (DLSS-ready buffers), then the
+- **Water look L4 done (plan 14, 2026-09-03):** ambient wave spectrum in the stage (`AMBIENT_WAVES`), animated detail normal in the water pass.
+- **Water look L5 done (plan 15, 2026-09-03):** mirrored reflection pass (`b0_reflect` suite, set 3 binding 3 of the water pass).
+- **Basin rim done (plan 16, 2026-09-03):** static body `0x89` with five box shapes (`REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES`, `0.6 m` high, `0.15 m` thick, a `1 m` opening on the south side) and the compound mesh `0x8e` bound as an `Environment` presentation record; the scene roots moved (43 roots, 129 records, 17 meshes, 14 rendered objects) and every pinned count was refreshed.
+- **Next (plan `continuum-water/11`):** the water look continues with L6 (caustics)
+  and L7 (crate wake and splash) under the frozen plan `continuum-water/17`, then L8 (DLSS-ready buffers), then the
   recorded cost revisions and the scale practices; gameplay gates/pumps
   and player buoyancy are deferred by decision.
 - Research note on engine and game water models:

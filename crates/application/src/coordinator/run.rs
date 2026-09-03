@@ -168,13 +168,14 @@ impl ApplicationCoordinator {
         if self.live_run.is_some() || self.prepared_run.is_some() {
             return Err(ApplicationError::LiveRunAlreadyActive);
         }
-        let driver = ReferenceGameDriverV2::new_with_presentation_epoch(
+        let driver = ReferenceGameDriverV2::new_with_presentation_epoch_and_spawn(
             self.activated_package(),
             include_interaction,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
                 self.activated_project.project_lock.project_lock_sha256,
             ),
+            self.launch.spawn_override,
         )?;
         let state = driver.state()?;
         let prepared = prepare_live_state(

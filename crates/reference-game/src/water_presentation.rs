@@ -28,6 +28,67 @@ pub const WATER_SURFACE_INDEX_CAPACITY: u32 =
 pub const WATER_RIPPLE_CAP_MICROMETRES: i64 = 20_000;
 /// Incoming or outgoing flux per tick that reaches the amplitude cap.
 const WATER_RIPPLE_FULL_FLUX_CUBIC_MILLIMETRES: i64 = 1_000_000;
+
+/// One world-space directional wave of the ambient spectrum (plan
+/// `continuum-water/14`, WL4): the phase advances by
+/// `phase_per_frame_turns_q16` per presentation frame (deep-water
+/// dispersion at `g = 9.81`).
+#[derive(Clone, Copy, Debug)]
+struct AmbientWaveV1 {
+    wavelength_micrometres: i64,
+    direction_q15: [i64; 2],
+    phase_per_frame_turns_q16: i64,
+    amplitude_micrometres: i64,
+}
+
+/// The frozen ambient spectrum of WL4 (always present, `4 mm` in total at
+/// most).
+const AMBIENT_WAVES: [AmbientWaveV1; 4] = [
+    // lambda 1.6 m, period 1.01 s
+    AmbientWaveV1 {
+        wavelength_micrometres: 1600000,
+        direction_q15: [30791, 11207],
+        phase_per_frame_turns_q16: 1079,
+        amplitude_micrometres: 2000,
+    },
+    // lambda 0.9 m, period 0.76 s
+    AmbientWaveV1 {
+        wavelength_micrometres: 900000,
+        direction_q15: [-11207, 30791],
+        phase_per_frame_turns_q16: 1439,
+        amplitude_micrometres: 1200,
+    },
+    // lambda 0.5 m, period 0.57 s
+    AmbientWaveV1 {
+        wavelength_micrometres: 500000,
+        direction_q15: [-30791, -11207],
+        phase_per_frame_turns_q16: 1930,
+        amplitude_micrometres: 500,
+    },
+    // lambda 0.3 m, period 0.44 s
+    AmbientWaveV1 {
+        wavelength_micrometres: 300000,
+        direction_q15: [18794, -26841],
+        phase_per_frame_turns_q16: 2492,
+        amplitude_micrometres: 300,
+    },
+];
+
+/// Height of the ambient spectrum at a world point and frame.
+fn ambient_height(x_micrometres: i64, z_micrometres: i64, frame_index: u64) -> i64 {
+    let frame = i64::try_from(frame_index % 65_536).unwrap_or(0);
+    let mut height = 0_i64;
+    for wave in &AMBIENT_WAVES {
+        // Positions are bounded by the water position limit (`i64`
+        // micrometres well below 2^40), so the products fit `i64`.
+        let along = (wave.direction_q15[0] * x_micrometres + wave.direction_q15[1] * z_micrometres)
+            / 32_767;
+        let turns = along * 65_536 / wave.wavelength_micrometres;
+        let angle = turns + frame * wave.phase_per_frame_turns_q16;
+        height += wave.amplitude_micrometres * sin_q15(angle) / 32_767;
+    }
+    height
+}
 /// Jet: one droplet per this volume of flux per tick, bounded per frame.
 pub const WATER_JET_DROPLET_VOLUME_CUBIC_MILLIMETRES: i64 = 500_000;
 pub const WATER_JET_MAX_SPAWN_PER_FRAME: u32 = 256;
@@ -164,33 +225,47 @@ fn surface_grid(
     let [x1, _, z1] = definition.maximum_micrometres;
     let mut positions = Vec::with_capacity(columns * rows);
     let mut normals = Vec::with_capacity(columns * rows);
-    let phase = i64::try_from(frame_index % 65_536).unwrap_or(0) * 1_200;
+    let frame = i64::try_from(frame_index % 65_536).unwrap_or(0);
+    let world_x = |column: usize| x0 + (x1 - x0) * column as i64 / (columns as i64 - 1);
+    let world_z = |row: usize| z0 + (z1 - z0) * row as i64 / (rows as i64 - 1);
     let height_at = |column: usize, row: usize| -> i64 {
-        if amplitude == 0 {
-            return 0;
+        let (x, z) = (world_x(column), world_z(row));
+        // WL4: the ambient spectrum in world space plus the WP1 flux ripple
+        // over the two shortest ambient waves at double frequency.
+        let mut height = ambient_height(x, z, frame_index);
+        if amplitude != 0 {
+            let mut ripple = 0_i64;
+            for wave in &AMBIENT_WAVES[2..] {
+                let along = (wave.direction_q15[0] * x + wave.direction_q15[1] * z) / 32_767;
+                let turns = along * 131_072 / wave.wavelength_micrometres;
+                ripple += sin_q15(turns + frame * wave.phase_per_frame_turns_q16 * 2);
+            }
+            height += amplitude * ripple / (2 * 32_767);
         }
-        // Two crossing waves in 1/65536 turns per grid cell.
-        let a = phase + column as i64 * 6_000 + row as i64 * 2_500;
-        let b = -phase * 2 / 3 + column as i64 * 2_200 - row as i64 * 5_100;
-        let wave = (sin_q15(a) * 6 + sin_q15(b) * 4) / 10;
-        (amplitude * wave / 32_767)
-            .clamp(-WATER_RIPPLE_CAP_MICROMETRES, WATER_RIPPLE_CAP_MICROMETRES)
+        // Below the cap: the catalog mesh bounds are exclusive at their
+        // maximum, and the ripple cap is the authored bound.
+        height.clamp(
+            -WATER_RIPPLE_CAP_MICROMETRES,
+            WATER_RIPPLE_CAP_MICROMETRES - 1,
+        )
     };
+    let mut heights = Vec::with_capacity(columns * rows);
     for row in 0..rows {
         for column in 0..columns {
-            let x = x0 + (x1 - x0) * column as i64 / (columns as i64 - 1);
-            let z = z0 + (z1 - z0) * row as i64 / (rows as i64 - 1);
-            positions.push([x, height_at(column, row), z]);
+            let height = height_at(column, row);
+            heights.push(height);
+            positions.push([world_x(column), height, world_z(row)]);
         }
     }
     let cell_x = ((x1 - x0) / (columns as i64 - 1)).max(1);
     let cell_z = ((z1 - z0) / (rows as i64 - 1)).max(1);
+    let height_of = |column: usize, row: usize| heights[row * columns + column];
     for row in 0..rows {
         for column in 0..columns {
-            let left = height_at(column.saturating_sub(1), row);
-            let right = height_at((column + 1).min(columns - 1), row);
-            let back = height_at(column, row.saturating_sub(1));
-            let front = height_at(column, (row + 1).min(rows - 1));
+            let left = height_of(column.saturating_sub(1), row);
+            let right = height_of((column + 1).min(columns - 1), row);
+            let back = height_of(column, row.saturating_sub(1));
+            let front = height_of(column, (row + 1).min(rows - 1));
             // Normal ~ (-dh/dx, 1, -dh/dz), scaled to snorm16 with the up
             // component dominant; slopes are at most 20 mm per cell.
             let slope_x = (left - right) * 32_767 / (2 * cell_x);

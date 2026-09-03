@@ -9,6 +9,7 @@
   "fluid_suite": "fluid_surface",
   "water_suite": "water_surface",
   "water_scene_suite": "water_scene",
+  "reflection_suite": "b0_reflect",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
   "source_language": {
     "name": "GLSL",
@@ -352,9 +353,16 @@
     {
       "stage": "fragment",
       "source": "water_scene.frag",
-      "source_sha256": "6c8d1967c9da8a21b54e3d8e0efc74d50cc2f84e3a89bfd9204a950b76ebabee",
+      "source_sha256": "9c1d6c5c1d40971fd9a46b794758052a056b981c53621471343d36384e0fffa9",
       "module": "water_scene.frag.spv",
-      "module_sha256": "3578549441bb675b0f4bfd0633eec06a92320333080d2b62fd03410671c240e7"
+      "module_sha256": "4c44dbdbbba980e94ae6c3fd498032b054af406f97467cc3bee79e722dd637ff"
+    },
+    {
+      "stage": "fragment",
+      "source": "b0_reflect.frag",
+      "source_sha256": "996e5bb96e84c75e005169df36b03b3ee99f00b69f83b529af0168c5971660cf",
+      "module": "b0_reflect.frag.spv",
+      "module_sha256": "0b7af14852205de0721472e3f47aec157a5ca52be4cd37d26916482c77467a4a"
     }
   ]
 }

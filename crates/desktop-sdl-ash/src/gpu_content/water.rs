@@ -10,9 +10,11 @@ use ash::vk;
 
 use next_render::B0CameraFrameV1;
 
-use super::pipeline::{CameraMatricesV1, camera_matrices, camera_raster_region};
+use super::pipeline::{
+    CameraMatricesV1, FrameRasterState, PipelineState, camera_matrices, camera_raster_region,
+};
 use super::resources::{BufferAllocation, ImageAllocation};
-use super::{B0GpuContentError, DRAW_PUSH_CONSTANT_SIZE, VERTEX_STRIDE};
+use super::{B0GpuContentError, DRAW_PUSH_CONSTANT_SIZE, FRAME_UNIFORM_SIZE, VERTEX_STRIDE};
 
 /// Bytes of the water uniform block: inverse view-projection, viewport,
 /// absorption and shore constants.
@@ -33,6 +35,9 @@ struct Target {
 struct WaterSlot {
     uniform: BufferAllocation,
     set: vk::DescriptorSet,
+    /// Plan 15: the mirrored camera's frame block and its B0 frame set.
+    reflection_uniform: BufferAllocation,
+    reflection_set: vk::DescriptorSet,
 }
 
 /// Owner of every device object of the pass. Fields drop in dependency
@@ -42,11 +47,15 @@ pub(crate) struct WaterPassState {
     extent: vk::Extent2D,
     pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
+    /// Plan 15: the mirrored reflection pass pipeline (B0 layouts).
+    reflection: PipelineState,
     descriptor_pool: vk::DescriptorPool,
     set_layout: vk::DescriptorSetLayout,
     linear_sampler: vk::Sampler,
     nearest_sampler: vk::Sampler,
     scene_copy: Target,
+    reflection_color: Target,
+    reflection_depth: Target,
     slots: Vec<WaterSlot>,
 }
 
@@ -102,23 +111,80 @@ impl WaterPassState {
             let view = unsafe { device.create_image_view(&view_info, None) }?;
             Target { image, view }
         };
+        let reflection_color = {
+            let image = ImageAllocation::new(
+                instance,
+                physical_device,
+                device,
+                vk::Extent3D {
+                    width: extent.width,
+                    height: extent.height,
+                    depth: 1,
+                },
+                color_format,
+                vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            )?;
+            let view_info = vk::ImageViewCreateInfo::default()
+                .image(image.image())
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(color_format)
+                .subresource_range(color_subresource());
+            // SAFETY: the image is live and uses this exact colour format.
+            let view = unsafe { device.create_image_view(&view_info, None) }?;
+            Target { image, view }
+        };
+        let reflection_depth = {
+            let image = ImageAllocation::new(
+                instance,
+                physical_device,
+                device,
+                vk::Extent3D {
+                    width: extent.width,
+                    height: extent.height,
+                    depth: 1,
+                },
+                depth_format,
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            )?;
+            let view_info = vk::ImageViewCreateInfo::default()
+                .image(image.image())
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(depth_format)
+                .subresource_range(depth_subresource());
+            // SAFETY: the image is live and uses this exact depth format.
+            let view = unsafe { device.create_image_view(&view_info, None) }?;
+            Target { image, view }
+        };
         let mut guard = Teardown {
             device: device.clone(),
             layouts: Vec::new(),
             samplers: Vec::new(),
             pool: vk::DescriptorPool::null(),
             pipeline: None,
-            views: vec![scene_copy.view],
+            views: vec![
+                scene_copy.view,
+                reflection_color.view,
+                reflection_depth.view,
+            ],
             armed: true,
         };
         let host = vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
         let mut uniforms = Vec::with_capacity(frame_slot_count);
+        let mut reflection_uniforms = Vec::with_capacity(frame_slot_count);
         for _ in 0..frame_slot_count {
             uniforms.push(BufferAllocation::new(
                 instance,
                 physical_device,
                 device,
                 WATER_UNIFORM_SIZE,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                host,
+            )?);
+            reflection_uniforms.push(BufferAllocation::new(
+                instance,
+                physical_device,
+                device,
+                FRAME_UNIFORM_SIZE,
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
                 host,
             )?);
@@ -138,6 +204,11 @@ impl WaterPassState {
             vk::DescriptorSetLayoutBinding::default()
                 .binding(2)
                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(3)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::FRAGMENT),
         ];
@@ -170,35 +241,50 @@ impl WaterPassState {
         let pool_sizes = [
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: slot_count.saturating_mul(2),
+                descriptor_count: slot_count.saturating_mul(3),
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: slot_count,
+                descriptor_count: slot_count.saturating_mul(2),
             },
         ];
         let pool_info = vk::DescriptorPoolCreateInfo::default()
-            .max_sets(slot_count)
+            .max_sets(slot_count.saturating_mul(2))
             .pool_sizes(&pool_sizes);
-        // SAFETY: pool sizes exactly cover one set per frame slot.
+        // SAFETY: pool sizes exactly cover two sets per frame slot.
         let descriptor_pool = unsafe { device.create_descriptor_pool(&pool_info, None) }?;
         guard.pool = descriptor_pool;
-        let layouts = vec![set_layout; frame_slot_count];
+        let mut layouts = vec![set_layout; frame_slot_count];
+        layouts.extend(vec![frame_layout; frame_slot_count]);
         let allocation_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(descriptor_pool)
             .set_layouts(&layouts);
         // SAFETY: pool and layouts are live on this device.
         let sets = unsafe { device.allocate_descriptor_sets(&allocation_info) }?;
+        let (water_sets, reflection_sets) = sets.split_at(frame_slot_count);
         let mut slots = Vec::with_capacity(frame_slot_count);
-        for (uniform, set) in uniforms.into_iter().zip(sets) {
+        for (((uniform, set), reflection_uniform), reflection_set) in uniforms
+            .into_iter()
+            .zip(water_sets.iter().copied())
+            .zip(reflection_uniforms)
+            .zip(reflection_sets.iter().copied())
+        {
             let image_info = [vk::DescriptorImageInfo::default()
                 .sampler(linear_sampler)
                 .image_view(scene_copy.view)
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+            let reflection_info = [vk::DescriptorImageInfo::default()
+                .sampler(linear_sampler)
+                .image_view(reflection_color.view)
                 .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
             let buffer_info = [vk::DescriptorBufferInfo::default()
                 .buffer(uniform.buffer)
                 .offset(0)
                 .range(WATER_UNIFORM_SIZE)];
+            let reflection_buffer_info = [vk::DescriptorBufferInfo::default()
+                .buffer(reflection_uniform.buffer)
+                .offset(0)
+                .range(FRAME_UNIFORM_SIZE)];
             let writes = [
                 vk::WriteDescriptorSet::default()
                     .dst_set(set)
@@ -210,11 +296,34 @@ impl WaterPassState {
                     .dst_binding(2)
                     .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                     .buffer_info(&buffer_info),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(set)
+                    .dst_binding(3)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(&reflection_info),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(reflection_set)
+                    .dst_binding(0)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                    .buffer_info(&reflection_buffer_info),
             ];
-            // SAFETY: set, view and buffer are live; descriptors are copied now.
+            // SAFETY: sets, views and buffers are live; descriptors are copied now.
             unsafe { device.update_descriptor_sets(&writes, &[]) };
-            slots.push(WaterSlot { uniform, set });
+            slots.push(WaterSlot {
+                uniform,
+                set,
+                reflection_uniform,
+                reflection_set,
+            });
         }
+        let reflection = PipelineState::new_reflection(
+            device,
+            color_format,
+            depth_format,
+            frame_layout,
+            texture_layout,
+            shadow_layout,
+        )?;
 
         let modules = crate::shader_assets::water_scene_shader_modules()
             .map_err(B0GpuContentError::ShaderAsset)?;
@@ -247,13 +356,121 @@ impl WaterPassState {
             extent,
             pipeline,
             layout,
+            reflection,
             descriptor_pool,
             set_layout,
             linear_sampler,
             nearest_sampler,
             scene_copy,
+            reflection_color,
+            reflection_depth,
             slots,
         }))
+    }
+
+    pub(crate) const fn reflection_pipeline(&self) -> vk::Pipeline {
+        self.reflection.pipeline
+    }
+
+    pub(crate) const fn reflection_layout(&self) -> vk::PipelineLayout {
+        self.reflection.layout
+    }
+
+    pub(crate) const fn reflection_color_view(&self) -> vk::ImageView {
+        self.reflection_color.view
+    }
+
+    pub(crate) const fn reflection_depth_view(&self) -> vk::ImageView {
+        self.reflection_depth.view
+    }
+
+    /// Writes the mirrored frame block of the slot and returns its B0 frame
+    /// set for the reflection pass.
+    pub(super) fn prepare_reflection(
+        &mut self,
+        frame_slot_index: usize,
+        raster_state: &FrameRasterState,
+    ) -> Result<vk::DescriptorSet, B0GpuContentError> {
+        let slot =
+            self.slots
+                .get_mut(frame_slot_index)
+                .ok_or(B0GpuContentError::InvalidFramePlan(
+                    "frame slot index is outside the water pass ring",
+                ))?;
+        slot.reflection_uniform
+            .write(0, &raster_state.view_projection_bytes)?;
+        Ok(slot.reflection_set)
+    }
+
+    /// Moves the reflection targets to attachment layouts before the
+    /// reflection rendering instance (outside any rendering instance).
+    pub(crate) fn record_reflection_begin(&self, command_buffer: vk::CommandBuffer) {
+        let barriers = [
+            image_barrier(
+                self.reflection_color.image.image(),
+                color_subresource(),
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                (
+                    vk::PipelineStageFlags2::FRAGMENT_SHADER,
+                    vk::AccessFlags2::SHADER_SAMPLED_READ,
+                ),
+                (
+                    vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                    vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                ),
+            ),
+            image_barrier(
+                self.reflection_depth.image.image(),
+                depth_subresource(),
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+                (
+                    vk::PipelineStageFlags2::LATE_FRAGMENT_TESTS,
+                    vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                ),
+                (
+                    vk::PipelineStageFlags2::EARLY_FRAGMENT_TESTS
+                        | vk::PipelineStageFlags2::LATE_FRAGMENT_TESTS,
+                    vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_READ
+                        | vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                ),
+            ),
+        ];
+        // SAFETY: both images belong to this pass and no rendering instance
+        // is active on the command buffer.
+        unsafe {
+            self.device.cmd_pipeline_barrier2(
+                command_buffer,
+                &vk::DependencyInfo::default().image_memory_barriers(&barriers),
+            );
+        }
+    }
+
+    /// Makes the reflection colour readable by the water pass after the
+    /// reflection rendering instance ended.
+    pub(crate) fn record_reflection_end(&self, command_buffer: vk::CommandBuffer) {
+        let barriers = [image_barrier(
+            self.reflection_color.image.image(),
+            color_subresource(),
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            (
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            ),
+            (
+                vk::PipelineStageFlags2::FRAGMENT_SHADER,
+                vk::AccessFlags2::SHADER_SAMPLED_READ,
+            ),
+        )];
+        // SAFETY: the reflection rendering instance has ended.
+        unsafe {
+            self.device.cmd_pipeline_barrier2(
+                command_buffer,
+                &vk::DependencyInfo::default().image_memory_barriers(&barriers),
+            );
+        }
     }
 
     pub(crate) const fn pipeline(&self) -> vk::Pipeline {
@@ -280,6 +497,7 @@ impl WaterPassState {
         frame_slot_index: usize,
         camera: &B0CameraFrameV1,
         scene_depth_view: vk::ImageView,
+        rendered_frame_index: u64,
     ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
         let slot =
             self.slots
@@ -313,13 +531,15 @@ impl WaterPassState {
                 WATER_REFRACTION_STRENGTH,
             ],
         );
+        // WL4: the run clock of the detail normal, rendered frames over 60.
+        let run_seconds = (rendered_frame_index % (60 * 3600)) as f32 / 60.0;
         write_f32(
             &mut bytes[96..112],
             &[
                 WATER_FOAM_WIDTH_METRES,
                 WATER_FADE_WIDTH_METRES,
                 WATER_FOAM_GREY,
-                0.0,
+                run_seconds,
             ],
         );
         slot.uniform.write(0, &bytes)?;
@@ -492,10 +712,14 @@ impl WaterPassState {
 
     pub(crate) fn allocation_bytes(&self) -> vk::DeviceSize {
         self.scene_copy.image.allocation_size()
+            + self.reflection_color.image.allocation_size()
+            + self.reflection_depth.image.allocation_size()
             + self
                 .slots
                 .iter()
-                .map(|slot| slot.uniform.allocation_size())
+                .map(|slot| {
+                    slot.uniform.allocation_size() + slot.reflection_uniform.allocation_size()
+                })
                 .sum::<vk::DeviceSize>()
     }
 }
@@ -514,6 +738,10 @@ impl Drop for WaterPassState {
             self.device.destroy_sampler(self.linear_sampler, None);
             self.device.destroy_sampler(self.nearest_sampler, None);
             self.device.destroy_image_view(self.scene_copy.view, None);
+            self.device
+                .destroy_image_view(self.reflection_color.view, None);
+            self.device
+                .destroy_image_view(self.reflection_depth.view, None);
         }
     }
 }

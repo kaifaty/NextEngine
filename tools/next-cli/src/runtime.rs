@@ -108,6 +108,7 @@ fn run_store_in_state_root(
         composition_root: CompositionRootV1::Headless,
         presentation_target: PresentationTargetKindV1::None,
         platform_capability_set: None,
+        spawn_override: None,
     })
     .map_err(RuntimeExecutionError::Application)?;
     let (run, expected_ticks) = match kind {

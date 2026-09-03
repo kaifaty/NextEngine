@@ -25,6 +25,7 @@ const WATER_SURFACE_VERTEX_SHADER_BYTES: &[u8] =
 const WATER_SURFACE_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/water_surface.frag.spv");
 const WATER_SCENE_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_scene.frag.spv");
+const REFLECTION_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/b0_reflect.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -140,6 +141,18 @@ pub(super) fn water_scene_shader_modules() -> Result<B0ShaderModules, &'static s
     })
 }
 
+/// Water look L5 (plan `continuum-water/15`): the mirrored reflection pass
+/// suite (the B0 vertex program with the plane-clipped B0 fragment).
+pub(super) fn reflection_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"reflection_suite\": \"b0_reflect\"") {
+        return Err("embedded reflection shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(B0_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(REFLECTION_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
 fn decode_spirv(bytes: &[u8]) -> Result<Vec<u32>, &'static str> {
     if bytes.len() < 20 || !bytes.len().is_multiple_of(4) {
         return Err("embedded SPIR-V module has an invalid byte length");
@@ -241,7 +254,7 @@ mod tests {
         assert_eq!(water.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(WATER_SCENE_FRAGMENT_SHADER_BYTES)),
-            "3578549441bb675b0f4bfd0633eec06a92320333080d2b62fd03410671c240e7"
+            "4c44dbdbbba980e94ae6c3fd498032b054af406f97467cc3bee79e722dd637ff"
         );
         let water_scene =
             water_scene_shader_modules().expect("checked-in water scene modules decode");

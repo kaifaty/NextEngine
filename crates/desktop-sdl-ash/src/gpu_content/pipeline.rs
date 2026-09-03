@@ -21,6 +21,9 @@ enum ShaderSuite {
     Sky,
     /// Plan `continuum-water/12`: the water material of `WaterSurface` rings.
     WaterSurface,
+    /// Plan `continuum-water/15`: the mirrored reflection pass (B0 with a
+    /// plane clip, front-face culling).
+    Reflection,
 }
 
 /// Fixed raster state for one checked-in shader suite. World, sky and UI use
@@ -47,6 +50,15 @@ pub(super) const UI_OVERLAY_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixed
     depth_test_enable: false,
     depth_write_enable: false,
     cull_mode: vk::CullModeFlags::NONE,
+};
+
+/// Reflection pass: the world state with front-face culling, because the
+/// mirror flips the winding of every triangle.
+pub(super) const REFLECTION_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: false,
+    depth_test_enable: true,
+    depth_write_enable: true,
+    cull_mode: vk::CullModeFlags::FRONT,
 };
 
 /// Water surface: opaque, depth-tested and depth-writing like the world,
@@ -117,6 +129,29 @@ impl PipelineState {
             } else {
                 ShaderSuite::WorldNoShadow
             },
+        )
+    }
+
+    /// Builds the mirrored reflection suite (plan 15) on the world layout.
+    pub(super) fn new_reflection(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: vk::DescriptorSetLayout,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_fixed_state(
+            device,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
+            frame_layout,
+            texture_layout,
+            Some(shadow_layout),
+            REFLECTION_RASTER_FIXED_STATE,
+            ShaderSuite::Reflection,
         )
     }
 
@@ -284,6 +319,7 @@ fn create_graphics_pipeline(
         ShaderSuite::Ui => crate::shader_assets::ui_shader_modules(),
         ShaderSuite::Sky => crate::shader_assets::sky_shader_modules(),
         ShaderSuite::WaterSurface => crate::shader_assets::water_surface_shader_modules(),
+        ShaderSuite::Reflection => crate::shader_assets::reflection_shader_modules(),
     }
     .map_err(B0GpuContentError::ShaderAsset)?;
     let vertex_info = vk::ShaderModuleCreateInfo::default().code(&modules.vertex);
@@ -316,9 +352,10 @@ fn create_graphics_pipeline(
         let world_binding = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: match shader_suite {
-                ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::WaterSurface => {
-                    VERTEX_STRIDE
-                }
+                ShaderSuite::World
+                | ShaderSuite::WorldNoShadow
+                | ShaderSuite::WaterSurface
+                | ShaderSuite::Reflection => VERTEX_STRIDE,
                 ShaderSuite::Ui => UI_VERTEX_STRIDE,
                 ShaderSuite::Sky => 0,
             },
@@ -329,7 +366,8 @@ fn create_graphics_pipeline(
             ShaderSuite::World
             | ShaderSuite::WorldNoShadow
             | ShaderSuite::Ui
-            | ShaderSuite::WaterSurface => world_binding.as_slice(),
+            | ShaderSuite::WaterSurface
+            | ShaderSuite::Reflection => world_binding.as_slice(),
             ShaderSuite::Sky => empty_bindings.as_slice(),
         };
         let world_attributes = [
@@ -355,9 +393,10 @@ fn create_graphics_pipeline(
         let ui_attributes = [world_attributes[0], world_attributes[1]];
         let empty_attributes: [vk::VertexInputAttributeDescription; 0] = [];
         let attributes = match shader_suite {
-            ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::WaterSurface => {
-                world_attributes.as_slice()
-            }
+            ShaderSuite::World
+            | ShaderSuite::WorldNoShadow
+            | ShaderSuite::WaterSurface
+            | ShaderSuite::Reflection => world_attributes.as_slice(),
             ShaderSuite::Ui => ui_attributes.as_slice(),
             ShaderSuite::Sky => empty_attributes.as_slice(),
         };
@@ -476,6 +515,65 @@ pub(super) fn frame_raster_state(
         }
         None => fallback_raster_state(target_extent),
     }
+}
+
+/// Plan 15: the raster state of the camera mirrored about the horizontal
+/// plane `y = plane_height_metres`: `P * V * R`, the mirrored eye for the
+/// view-dependent terms with the plane height in the spare `w` lane (read
+/// only by the `b0_reflect` suite), and the true camera's shadow matrix.
+pub(super) fn mirrored_frame_raster_state(
+    camera: &B0CameraFrameV1,
+    target_extent: vk::Extent2D,
+    plane_height_metres: f32,
+) -> Result<FrameRasterState, B0GpuContentError> {
+    if target_extent.width == 0 || target_extent.height == 0 {
+        return Err(invalid_frame_plan("render extent must be non-zero"));
+    }
+    validate_camera_frame(camera)?;
+    let (viewport, scissor) = camera_raster_region(camera.viewport, target_extent)?;
+    let (view, projection, _, _, _, _) = camera_view_and_projection(camera, viewport)?;
+    let h = f64::from(plane_height_metres);
+    // Column-major reflection about y = h: T(0, h, 0) S(1, -1, 1) T(0, -h, 0).
+    let reflect = [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        2.0 * h,
+        0.0,
+        1.0,
+    ];
+    let matrix = f64_matrix_to_f32(multiply_column_major_4x4(
+        projection,
+        multiply_column_major_4x4(view, reflect),
+    ))?;
+    let camera_position =
+        micrometres_to_metres_f32(camera.current_result_sample.pose.translation_micrometres)?;
+    let shadow_matrix = shadow_view_projection_matrix(camera_position)?;
+    let mirrored_position = [
+        camera_position[0],
+        2.0 * plane_height_metres - camera_position[1],
+        camera_position[2],
+    ];
+    Ok(FrameRasterState {
+        view_projection_bytes: frame_uniform_bytes_with_camera_lane(
+            matrix,
+            shadow_matrix,
+            mirrored_position,
+            plane_height_metres,
+        ),
+        viewport,
+        scissor,
+    })
 }
 
 fn fallback_raster_state(
@@ -836,6 +934,15 @@ fn frame_uniform_bytes(
     shadow_matrix: [f32; 16],
     camera_position: [f32; 3],
 ) -> [u8; FRAME_UNIFORM_SIZE as usize] {
+    frame_uniform_bytes_with_camera_lane(matrix, shadow_matrix, camera_position, 1.0)
+}
+
+fn frame_uniform_bytes_with_camera_lane(
+    matrix: [f32; 16],
+    shadow_matrix: [f32; 16],
+    camera_position: [f32; 3],
+    camera_lane: f32,
+) -> [u8; FRAME_UNIFORM_SIZE as usize] {
     let mut bytes = [0_u8; FRAME_UNIFORM_SIZE as usize];
     write_f32_values(&mut bytes[..64], matrix);
     write_f32_values(&mut bytes[64..128], shadow_matrix);
@@ -845,7 +952,7 @@ fn frame_uniform_bytes(
             camera_position[0],
             camera_position[1],
             camera_position[2],
-            1.0,
+            camera_lane,
         ],
     );
     write_f32_values(&mut bytes[144..160], B0_SUN_DIRECTION_INTENSITY);

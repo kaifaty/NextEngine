@@ -20,17 +20,27 @@ built with vendor-neutral Vulkan techniques on the existing ADR-101 ring
 and ADR-102 particle pass, while emitting the buffers DLSS would need.
 
 Increments, each with a capture gate on the reference host
-(`apps/game --capture-frame`) and unchanged gameplay roots:
+(`apps/game --capture-frame`) and unchanged gameplay roots. Since
+2026-09-03 `apps/game --interactive --start-at-water` starts a fresh
+session at the basin's south edge (`ReferenceSpawnOverrideV1::at_water()`
+through `LaunchRequestV1::spawn_override`: the capsule at `[5.3, 0.9,
+0.2] m`, the camera behind it looking along `+z` across the water, pitch
+`-12`),
+and every capture below starts from that view. The basin carries an
+authored rim since plan 16 (2026-09-03): a static body with five box
+walls and a compound mesh, one opening on the south side. The adapter also keeps a
+scripted-input facility (`DesktopRunOptions::scripted_input`, pushed
+through SDL's own event queue) for diagnostics that need real input:
 
 | Step | Content | Gate sketch |
 | --- | --- | --- |
 | L1 surface material (done 2026-09-03, plan 12) | Fresnel-weighted reflection of the sky gradient, sun glint, ring normals over the catalog base colour, `water_surface` suite on `WaterSurface` rings | roots identical; capture shows angle-dependent shading |
 | L2 shore fade and foam (done 2026-09-03, plan 13) | vertical water depth at the scene point from the sampled scene depth: soft edge and foam band at walls and the crate | roots identical; edge visible in capture |
 | L3 refraction and depth colour (done 2026-09-03, plan 13) | the water pass after the opaque scene: scene colour copy, normal-offset refraction, absorption by the ray path length (the ADR-102 constants) | roots identical; the crate's submerged half is tinted |
-| L4 wave spectrum on the ring | two FFT cascades or summed Gerstner waves driven only by the exact flux and level (SPEC-38 practice 5); replaces the sine ripple, keeps the feed | roots identical; stage cost within the plan 09 budget |
-| L5 planar reflection | mirrored scene pass per water plane (basin, vessels), bounded | one catalog/frame plan per run; cost row |
-| L6 caustics | projected animated caustics on the basin floor and the crate, scaled by the level | roots identical |
-| L7 crate wake and splash | ADR-102 particles from the exact immersion change; local ring depression under the crate | roots identical; capture |
+| L4 wave spectrum on the ring (done 2026-09-03, plan 14) | four world-space directional waves with deep-water periods plus the flux ripple, `20 mm` cap, animated detail normal in the water pass | roots identical; stage cost `104 us` |
+| L5 planar reflection (done 2026-09-03, plan 15) | one mirrored scene pass about the largest water surface's level into a screen-sized target, sampled by the water pass at the pixel's own position over the analytic sky; front-face culling and a plane clip | one catalog/frame plan per run; `5.3` frames per tick |
+| L6 caustics (plan 17) | animated caustic light on the scene point under the surface, computed in the water pass and fading with the path length | roots identical |
+| L7 crate wake and splash (plan 17) | ring depression around every floating box; splash droplets from the committed vertical speed through the ADR-102 particle lane | roots identical; capture |
 | L8 DLSS-ready outputs | motion vectors, thin G-buffer (albedo, normal + roughness, linear depth), jitter, HUD after the scene composite, per-group mask; no SDK | render tests; no vendor dependency in the workspace |
 
 DLSS itself: revisit when NVIDIA documents DLSS 5 for native Linux

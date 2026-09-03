@@ -92,6 +92,41 @@ pub struct DesktopRunOptions {
     /// when set; a surface without that usage fails closed before the first
     /// frame.
     pub frame_capture: Option<DesktopFrameCaptureRequestV1>,
+    /// Developer-scripted input pushed into SDL's event queue by run time
+    /// (sorted by time on use); empty for ordinary runs.
+    pub scripted_input: Vec<DesktopScriptedInputV1>,
+}
+
+/// A developer-scripted key for [`DesktopScriptedActionV1`] (the movement
+/// keys of the reference game).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DesktopScriptedKeyV1 {
+    W,
+    A,
+    S,
+    D,
+}
+
+/// One scripted input action, injected through SDL's own event queue like
+/// the startup lifecycle probe, so it flows through the ordinary
+/// normalization path with the same identities as real input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DesktopScriptedActionV1 {
+    KeyDown(DesktopScriptedKeyV1),
+    KeyUp(DesktopScriptedKeyV1),
+    /// Relative mouse motion in pixels (camera orbit).
+    MouseMotion {
+        x_relative: i32,
+        y_relative: i32,
+    },
+}
+
+/// A scripted action at a run time in milliseconds since the first
+/// pumped frame (developer diagnostic; never part of a root).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopScriptedInputV1 {
+    pub at_milliseconds: u64,
+    pub action: DesktopScriptedActionV1,
 }
 
 /// Which rendered frames to copy back to host memory.
@@ -162,6 +197,7 @@ impl Default for DesktopRunOptions {
             dynamic_surfaces: Vec::new(),
             frame_capture: None,
             particle_surface: None,
+            scripted_input: Vec::new(),
         }
     }
 }

@@ -233,14 +233,34 @@ impl ReferenceGameDriverV2 {
 
     pub fn new_with_presentation_epoch(
         package: next_project::ActivatedProjectPackage,
+        include_interaction: bool,
+        snapshot_epoch: ContentHash,
+    ) -> Result<Self, ReferenceGameError> {
+        Self::new_with_presentation_epoch_and_spawn(
+            package,
+            include_interaction,
+            snapshot_epoch,
+            None,
+        )
+    }
+
+    /// As [`Self::new_with_presentation_epoch`] with a launch-time spawn
+    /// override (capsule translation and initial camera orbit).
+    pub fn new_with_presentation_epoch_and_spawn(
+        package: next_project::ActivatedProjectPackage,
         _include_interaction: bool,
         snapshot_epoch: ContentHash,
+        spawn: Option<crate::session::ReferenceSpawnOverrideV1>,
     ) -> Result<Self, ReferenceGameError> {
         let next_project::ActivatedProjectPackage {
             project: activated_project,
             content_generation,
         } = package;
-        let fixture = build_reference_game_session(activated_project)?;
+        let fixture = crate::session::build_reference_game_session_with_options(
+            activated_project,
+            false,
+            spawn,
+        )?;
         let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
         let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
             fixture.bootstrap.clone(),
@@ -338,8 +358,9 @@ impl ReferenceGameDriverV2 {
             next_logical_frame_sequence: 0,
             events: 0,
             rpg_events: 0,
-            camera_yaw_millidegrees: 0,
-            camera_pitch_millidegrees: -15_000,
+            camera_yaw_millidegrees: spawn.map_or(0, |spawn| spawn.camera_yaw_millidegrees),
+            camera_pitch_millidegrees: spawn
+                .map_or(-15_000, |spawn| spawn.camera_pitch_millidegrees),
             camera_cut: true,
             ui_screen: ReferenceUiScreenV1::None,
             dialogue: ReferenceDialogueUiV1::Closed,

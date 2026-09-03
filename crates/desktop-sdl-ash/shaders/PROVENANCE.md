@@ -131,3 +131,17 @@ glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scen
 ```
 
 Source and module hash are pinned in `manifest.json`.
+
+## Reflection suite (plan `continuum-water/15`, presentation-only)
+
+`b0_reflect` is the fragment stage of the mirrored reflection pass: the
+`b0_textured` fragment with a discard below the mirror plane, whose height
+rides the `w` lane of the frame block's camera position for this pass
+only; the `b0_textured` vertex program is reused. `water_scene` gained set
+3 binding 3 (the reflection target). Both compiled with the same pinned
+Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o b0_reflect.frag.spv b0_reflect.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
+```
