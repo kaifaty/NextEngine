@@ -2,19 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V37_ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_F0_C0_X0_REPEAT_EXACT_PASS / E0_NEXT / V36_CLOSED / H0_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V37_ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_REPEAT_EXACT_PASS / EXECUTION_SEALED / D0_NEXT / V36_CLOSED / H0_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
 | Definition of done | One external bounded-neural Steel generator, independently qualified validator and deterministic cooker process one untouched Steel shadow exactly once and supply one fallback-safe demo prop; the pipeline can then start fresh Glass domains without per-sound human approval |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
-
 ## Resume in 60 seconds
 
 - **Current conclusion:** [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. Hard/resources pass, but contact is `2.394927x` nearest and 18/28 metric/ablation gates fail; V36 closes, candidate authority is false and H0 stays unopened.
 - **Planning authority:** [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md)
-  selects QSO-v0; A0/F0 freeze its boundary, C0 proves full-shape structure/cost, and [X0](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md) repeat-exactly binds D0/H0 fit/load, controls, gates, disposition and atomic publication. E0 full rehearsal/seal is next; no F0/official target opened and independent data/validator gates are unchanged.
+  selects QSO-v0; A0–X0 freeze and prove its boundary, and [E0](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md) twice runs all `15,120` discarded rows and nine paths inside `300 s / 1 GiB`, then seals owner/publisher/environment/topology roots. One-shot D0 is next; no F0/official target opened and independent data/validator gates are unchanged.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
   pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
@@ -75,14 +74,14 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V37 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_D0_METRIC_REJECT_CLOSED / V37_A0_F0_C0_X0_REPEAT_EXACT_PASS` | V37 freezes QSO-v0, proves full-shape cost and binds all D0/H0 terminal shapes atomically. E0 full rehearsal/seal is next; official H0 remains unopened. |
+| V34–V37 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_D0_METRIC_REJECT_CLOSED / V37_A0_F0_C0_X0_E0_REPEAT_EXACT_PASS / SEALED` | V37 full D0→H0 zero-target rehearsal is exact and within resources. Seal-verifying one-shot D0 is next; official H0 remains unopened. |
 
-## Material transition: complete QSO owner authorizes full rehearsal
+## Material transition: full QSO rehearsal authorizes one-shot D0
 
-- **Evidence:** [C0](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md) proves full-shape QSO cost; [X0](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md) repeats eight complete D0/H0 terminals, both exception classes, four failpoints and H0 freeze validation with zero official access.
-- **Conclusion:** one owner can enforce field/query lifecycle, access receipts, fit/load, controls, gates and non-cyclic atomic terminal identities before any protected values open.
-- **Decision:** only natural `Pass` publishes bundle/freeze; every reject/fault is non-authoritative and cannot seed H0. E0 alone may issue the execution seal after full discarded rehearsal.
-- **Smallest next action:** execute full frozen F0 candidate/eight-control D0→H0 twice through the X0 owner under `300 s / 1 GiB / 64 MiB` and bind exact roots in E0.
+- **Evidence:** [E0](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md) repeats the full `6,480/4,320/4,320` D0→H0 workload, six 96-step neural paths and three non-neural paths at `39.73/40.36 s`, `806,372/825,816 KiB`; seal `608f9019…1d7f` binds both roots with zero official/F0-truth access.
+- **Conclusion:** the exact QSO owner is executable, byte-repeatable and below the frozen envelope; the remaining uncertainty is scientific contact/geometry transfer, not mechanics or cost.
+- **Decision:** only a seal-verifying provider may issue one D0 capability. H0 remains unavailable until a repeat-exact natural D0 `Pass`; any other D0 terminal closes QSO-v0 without repair/retry.
+- **Smallest next action:** implement the seal verifier and predetermined official D0 A/B only; do not construct H0 capability.
 
 ## Durable negative knowledge
 
@@ -173,13 +172,14 @@
 | D-068 | V37 is an ML-first program rebaseline, not a new target generation: it carries the sealed V36 D0/H0 bytes unchanged, then requires internet-only data, an independent automatic validator, one-shot admission, offline deterministic cooking and authored fallback. | V36 terminal evidence, source-power evidence or a concrete product consumer justifies changing the ordered gates through another explicit roadmap revision. |
 | D-069 | V36 rejects scalar hybrid transfer; QSO-v0 is the smallest successor. A0/F0 freeze its typed/scientific question; C0 repeat-exactly proves full-shape structure and cost after replacing the rejected all-fields autograd layout (`1,278,464 KiB`) with exact 1,024-row gradient accumulation over 512-row microbatches. Do not retry the rejected layout. X0 is authorized. | Fresh QSO D0/H0 rejects, or X0–E0 proves the complete-owner/determinism contract infeasible before official access. |
 | D-070 | X0 owner `69b567d5…e7d` and publisher `a840ff12…041a` repeat eight D0/H0 scientific terminals, both exception classes and four atomic failpoints exactly; only natural `Pass` has bundle/freeze, and H0 binds the D0 decision root plus freeze. E0 is authorized, never official D0/H0. | An owner/publisher identity or terminal-shape defect appears before E0, or E0 cannot repeat the full frozen candidate/control workload inside its envelope. |
+| D-071 | E0 owner `0ec78599…fbe5` repeats all 15,120 zero-target rows and nine paths at `39.73/40.36 s`, `806,372/825,816 KiB`; checked-in seal `608f9019…1d7f` binds owner, publisher, environment, D0/H0 topology and roots with zero forbidden access. Only official D0 is authorized. | Any seal binding drifts before D0, or D0 returns its one-shot terminal result; never infer scientific quality from discarded zeros. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Nearest wins V34 geometry-only and local regression is credible on smooth manifolds | Nearest is weak on contact-only/joint and aggregate | V36 non-neural local control across all three strata |
-| H3: explicit field/query operator can recover contact transfer | V36 hybrid fails contact; A0/F0 freeze QSO, C0 proves full-shape reachability/cost and X0 proves complete terminal behavior | Full frozen rehearsal and held transfer are unproved | E0 full rehearsal/seal, then one fresh QSO D0/H0 tournament |
+| H3: explicit field/query operator can recover contact transfer | A0–E0 freeze QSO and prove full shape, owner, exact rehearsal and cost | Scientific development/held transfer remain unobserved | Seal-verifying one-shot QSO D0; H0 only after D0 Pass |
 | H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice without label or human-review authority | E3 rejects whole-project partition; no real validator/shadow result | S1/V0 real qualification after source-power closure |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V37 K0/P0 after Steel J0 Pass |
 
@@ -219,7 +219,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md), [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md), terminal [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) and [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md).
+Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md), [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md), terminal [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) and [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -247,4 +247,4 @@ Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-- **Workspace/quality/next:** Roadmap V37 A0/F0/C0/X0 are in Git; X0 repeats the complete owner, eight D0/H0 terminal shapes and atomic failpoints at `0.16/0.19 s`, `35,576/35,800 KiB`, with no F0/official target access. Implement E0 full discarded rehearsal and seal next; source frontier remains `6/27` short.
+- **Workspace/quality/next:** Roadmap V37 A0–E0 and seal are in Git; E0 full D0→H0 A/B repeats at `39.73/40.36 s`, `806,372/825,816 KiB`, with zero F0/official access. Implement seal-verifying one-shot D0 only; source frontier remains `6/27` short.

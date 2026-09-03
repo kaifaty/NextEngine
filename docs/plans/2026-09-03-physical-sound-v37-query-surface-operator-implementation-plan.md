@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_REPEAT_EXACT_PASS / E0_NEXT / ZERO_F0_OR_OFFICIAL_TARGET_VALUES_EVALUATED` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_REPEAT_EXACT_PASS / SEALED / D0_NEXT / ZERO_F0_OR_OFFICIAL_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -88,7 +88,7 @@ Deliver:
 Exit: two processes repeat every terminal exactly; no reject/fault tree contains
 a freeze document or candidate bundle.
 
-### Commit 5 — E0 full surrogate rehearsal and execution seal
+### Commit 5 — E0 full surrogate rehearsal and execution seal — `COMPLETE`
 
 Deliver:
 
@@ -147,9 +147,9 @@ touches that boundary.
 
 ## Immediate action
 
-Implement Commit 5 only. Run the full frozen F0 row counts, candidate and eight
-controls through the exact X0 owner boundary twice, compare every external byte,
-measure wall/RSS and check in one execution seal binding the owner, publisher,
-profile, dependencies, topology and rehearsal roots. Do not open D0/H0 or create
-an official capability unless the complete E0 rehearsal passes under
-`300 s / 1 GiB / 64 MiB` with zero forbidden access.
+Implement the D0 half of Commit 6 only. Add a seal-verifying official provider
+which checks every owner/profile/publisher/environment/topology/rehearsal
+identity before issuing one D0 capability, then execute the predetermined D0 A/B
+once. Do not add an H0 capability or open method-holdout values unless D0 returns
+repeat-exact natural `Pass`; any reject, owner fault, resource failure or A/B
+divergence closes QSO-v0 without retry.
