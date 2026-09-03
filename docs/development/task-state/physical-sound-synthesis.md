@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V37_ACTIVE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED / D0_NEXT / V36_CLOSED / H0_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
+| Status | `ROADMAP_V37_ACTIVE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_PASS / D0R_COMPLETE_ENTRY_READINESS_NEXT / D0_PRE_ACCESS_BLOCKED / H0_UNOPENED / SOURCE_FRONTIER_6_STEEL_27_NON_METAL / FALLBACK_REQUIRED` |
 | Updated | `2026-09-03` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External multi-object hybrid canonical-impact research, deterministic clip cooker and independent automatic validation |
@@ -13,7 +13,7 @@
 - **Current conclusion:** [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md)
   repeats exactly across both official processes. Hard/resources pass, but contact is `2.394927x` nearest and 18/28 metric/ablation gates fail; V36 closes, candidate authority is false and H0 stays unopened.
 - **Planning authority:** [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md)
-  selects QSO-v0; A0–E0 prove its boundary/full execution, while [V37 T0](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md) closes coefficient, normalization, environment and row/mixture semantics with composite seal `7bae65cc…61573`. One-shot D0 is next; no official target opened and data/validator gates are unchanged.
+  selects QSO-v0; A0–E0 prove structure/execution and [V37 T0](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md) closes exact truth. A second [complete-entry audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md) finds controls/metrics/optimizer/hard semantics incomplete, so D0R readiness—not official D0—is next. Official targets remain zero.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md)
   and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md)
   pass twice exactly: nine remesh pairs, seven interventions, energy bounds and
@@ -39,10 +39,9 @@
   pass twice exactly: `9/9` clean, `7/7` mutations and both alias controls.
 - **M1 result:** the [known-truth tournament](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md) repeats all six artifacts exactly; every hard gate and 13/14 development metric gates pass, but contact is `1.112179x` nearest, so the compact residual family closes and holdout remains unopened.
 - **V36 A0–D0:** typed contract, fresh roles, structural census, terminal conformance and [full rehearsal/seal](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md) pass; official D0 then repeat-exactly rejects contact transfer without opening H0.
-- **Next action:** implement only the D0 half of the official owner: verify E0 seal `608f9019…1d7f` and T0 composite seal `7bae65cc…61573`, issue one D0 capability and execute predetermined A/B. Never construct H0 unless D0 naturally passes. S0 remains independent.
+- **Next action:** implement D0R complete-entry profile and actual target-aware D0 owner; run it twice only with full-count nonzero artificial targets, terminal/failpoint mutations and a readiness seal. Do not implement/issue official capability. S0 remains independent.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
-- **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`;
-  the next-object header proves the missing member is not later in the archive.
+- **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
 - **Product boundary:** SPEC-45 remains `Proposed`; no public schema, model, dataset, WAV, checkpoint, validator release or runtime promotion exists.
 
@@ -74,13 +73,13 @@
 | V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
 | V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
 | V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V37 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_OWNER_FAULT_CLOSED / V36_D0_METRIC_REJECT_CLOSED / V37_A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED` | E0 full zero-target rehearsal and T0 exact truth protocol are repeat-exact; composite-seal-verifying one-shot D0 is next and H0 remains unopened. |
+| V34–V37 R0–PR | `V34_H0_REJECT_CLOSED / V35_D0_FAULT_CLOSED / V36_D0_METRIC_REJECT_CLOSED / V37_A0_F0_C0_X0_E0_T0_PASS / D0R_NEXT / D0_BLOCKED` | T0 closes truth, but D0R must close the full training/control/evaluation owner before official capability; H0 remains unopened. |
 
-## Material transition: exact truth semantics restored before D0
+## Material transition: comprehensive D0 readiness before access
 
-- **Evidence:** F0 specified seeds/family names but not coefficient PRF, exact reductions or canonical `row_id -> mixture` alignment. [T0](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md) freezes 72 coefficients and all 15,120 metadata rows, then passes artificial A/B with zero official targets.
-- **Conclusion/decision:** A0–E0 remain valid, but E0 alone no longer authorizes access. Only composite seal `7bae65cc…61573` may precede one D0; never guess truth details during target access.
-- **Smallest next action:** implement composite-seal verification and predetermined D0 A/B only. H0 requires natural repeat-exact D0 `Pass`.
+- **Evidence:** after T0 closed target semantics, the [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md) found unspecified local-control bandwidth, ridge design/solver, optimizer defaults, ratio-zero rules and hard-gate witnesses. Official targets are still zero.
+- **Conclusion/decision:** stop piecemeal repair. One exact profile plus the actual D0 owner must pass full-count nonzero artificial A/B and terminal mutations, then seal before capability creation.
+- **Smallest next action:** implement and seal D0R only; no official provider or H0 code.
 
 ## Durable negative knowledge
 
@@ -173,13 +172,14 @@
 | D-070 | X0 owner `69b567d5…e7d` and publisher `a840ff12…041a` repeat eight D0/H0 scientific terminals, both exception classes and four atomic failpoints exactly; only natural `Pass` has bundle/freeze, and H0 binds the D0 decision root plus freeze. E0 is authorized, never official D0/H0. | An owner/publisher identity or terminal-shape defect appears before E0, or E0 cannot repeat the full frozen candidate/control workload inside its envelope. |
 | D-071 | E0 owner `0ec78599…fbe5` repeats all 15,120 zero-target rows and nine paths at `39.73/40.36 s`, `806,372/825,816 KiB`; checked-in seal `608f9019…1d7f` binds owner, publisher, environment, D0/H0 topology and roots with zero forbidden access. Only official D0 is authorized. | Any seal binding drifts before D0, or D0 returns its one-shot terminal result; never infer scientific quality from discarded zeros. |
 | D-072 | Pre-access audit revokes E0-only authorization: F0 omitted exact coefficient/reduction/row-mixture semantics. T0 supplies 72 seed-derived coefficients, frozen environment, full metadata roots and artificial mutations; composite seal `7bae65cc…61573` solely authorizes D0, with official targets still zero. | Any T0/E0 binding drifts, or D0 returns its terminal result; never choose missing truth details after official access. |
+| D-073 | A second pre-access audit finds training/control/metric/hard semantics under-specified after truth closure. D0 is blocked until the actual target-aware owner passes full nonzero artificial A/B and receives a D0R readiness seal; T0 alone cannot issue capability. | D0R binds every checklist item and terminal path with official counters zero, or evidence proves one listed degree cannot affect the decision. |
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
 | H2: continuous local interpolation is sufficient | Nearest wins V34 geometry-only and local regression is credible on smooth manifolds | Nearest is weak on contact-only/joint and aggregate | V36 non-neural local control across all three strata |
-| H3: explicit field/query operator can recover contact transfer | A0–E0 prove execution; T0 closes exact truth semantics and composite seal | Scientific development/held transfer remain unobserved | Composite-seal-verifying one-shot QSO D0; H0 only after D0 Pass |
+| H3: explicit field/query operator can recover contact transfer | A0–E0 prove execution; T0 closes exact truth | Complete target-aware owner is not yet sealed; scientific transfer unobserved | D0R full-entry readiness, then one-shot D0; H0 only after D0 Pass |
 | H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7` twice without label or human-review authority | E3 rejects whole-project partition; no real validator/shadow result | S1/V0 real qualification after source-power closure |
 | H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V37 K0/P0 after Steel J0 Pass |
 
@@ -219,7 +219,7 @@
 
 Read in precedence order:
 
-Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md), [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md), terminal [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) and [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md).
+Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.md), [D0R audit](../physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [V37 T0 result](../physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [V37 E0 result](../physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [V37 X0 result](../physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [V37 C0 result](../physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [V37 F0 result](../physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [V37 A0 result](../physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 research](../physical-sound-v37-query-surface-operator-research-2026-09-03.md), [QSO implementation plan](../../plans/2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md), terminal [V36 D0](../physical-sound-v36-d0-fresh-development-result-2026-09-03.md), frozen experiment packet [Roadmap V36](../../plans/physical-sound-synthesis-roadmap-v36.md), [E0 result](../physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md), [X0 result](../physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md), [C0 result](../physical-sound-v36-c0-fresh-structural-census-result-2026-09-03.md), [F0 result](../physical-sound-v36-f0-fresh-role-unchanged-science-result-2026-09-03.md), [A0 result](../physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md) and [V36 research](../physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md).
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
 2. SPEC-08/24/26/30, ADR-027/046/058/071 and
    [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
@@ -247,4 +247,4 @@ Current program: [Roadmap V37](../../plans/physical-sound-synthesis-roadmap-v37.
 5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
 
 ## Handoff
-- **Workspace/quality/next:** V37 T0 closes the pre-access truth defect and composite-seals E0 at `7bae65cc…61573`; official targets remain zero. Implement only composite-seal-verifying D0 A/B; source frontier remains `6/27` short.
+- **Workspace/quality/next:** D0R audit blocks official access after finding remaining full-entry ambiguity. Implement/seal the actual owner on artificial full-count data only; official targets remain zero and source frontier `6/27` short.

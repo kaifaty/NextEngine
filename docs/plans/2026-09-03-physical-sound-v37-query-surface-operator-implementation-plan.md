@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED / D0_NEXT / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / D0R_COMPLETE_ENTRY_READINESS_NEXT / D0_BLOCKED_BEFORE_D0R_SEAL / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [D0R complete-entry readiness research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -122,6 +122,19 @@ Exit: A/B trees and stdout are exact, stderr is empty and every official target
 counter remains zero. Neither F0 nor E0 is rewritten; official capability
 creation now requires the composite seal.
 
+### Commit 5b — D0R complete-entry readiness — `NEXT`
+
+The [bounded audit](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md)
+found a second pre-access exactness defect: control, optimizer, metric and hard
+gate names still leave executable choices unspecified. D0R must freeze those
+details and run the actual future D0 owner twice over every structural row with
+nonzero artificial targets. The readiness seal binds that exact owner/profile,
+environment, E0/T0 seals, full terminal paths and byte-identical output.
+
+Exit: the complete measurement procedure is repeat-exact and every official
+target/capability counter remains zero. Only the D0R-sealed owner may later
+receive an official D0 provider.
+
 ### Commit 6 — D0/H0 one-shot evidence
 
 Deliver:
@@ -167,10 +180,9 @@ touches that boundary.
 
 ## Immediate action
 
-Implement the D0 half of Commit 6 only. Add an official provider which checks
-every owner/profile/publisher/environment/topology/rehearsal identity in E0
-seal `608f9019…1d7f` and every formula/coefficient/row-metadata identity in T0
-  seal `7bae65cc…61573` before issuing one D0 capability. Then execute the
-predetermined D0 A/B once. Do not add an H0 capability or open method-holdout
-values unless D0 returns repeat-exact natural `Pass`; any reject, owner fault,
-resource failure or A/B divergence closes QSO-v0 without retry.
+Implement Commit 5b only. Freeze the complete D0 measurement profile, build
+the actual target-aware D0 owner and run its full-count nonzero artificial A/B
+plus terminal/failpoint mutations. Publish a readiness seal binding E0
+`608f9019…1d7f`, T0 `7bae65cc…61573`, the exact environment and owner. Do not
+implement an official provider or evaluate any official target until this
+readiness seal passes.

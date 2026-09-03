@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / R0_N0_NR_RESEARCH_COMPLETE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED / D0_NEXT / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / D0R_COMPLETE_ENTRY_READINESS_NEXT / D0_PRE_ACCESS_BLOCKED / V36_CLOSED / H0_UNOPENED / ML_FIRST / AUTOMATIC_VALIDATION / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V36](physical-sound-synthesis-roadmap-v36.md) как программный план; замороженные V36 D0/H0 runner, protocol, profile и seal переносятся без изменений |
-| Текущее evidence | [T0 exact truth protocol/composite seal](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 repeat-exact full-count rehearsal/seal](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 repeat-exact complete-owner/terminal proof](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 repeat-exact full-shape structure/cost proof](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md), [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) и [V36 D0 repeat-exact MetricReject](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) |
+| Текущее evidence | [D0R complete-entry readiness research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth protocol/composite seal](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 repeat-exact full-count rehearsal/seal](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 repeat-exact complete-owner/terminal proof](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 repeat-exact full-shape structure/cost proof](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh science/role freeze](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 target-free contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md), [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) и [implementation plan](2026-09-03-physical-sound-v37-query-surface-operator-implementation-plan.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Пользователь не записывает удары и не подтверждает каждый звук; реальные данные ищутся в интернете, решение принимает автоматический pipeline |
 
@@ -103,7 +103,8 @@ flowchart TD
     N0 --> NRA["NR QSO-v0 A0 contract: complete"]
     NRA --> NRF["NR F0-E0 complete"]
     NRF --> NRT["NR T0 exact truth/composite seal: complete"]
-    NRT --> NRD["NR one-shot QSO D0/H0"]
+    NRT --> NRP["NR D0R complete-entry readiness"]
+    NRP --> NRD["NR one-shot QSO D0/H0"]
     N1["N1 V36 method holdout: not run"]
     EF["EF freeze/reject evidence correction"] --> NRF
 
@@ -130,7 +131,7 @@ generator representation. G0 начинается только после `NR Pa
 | R0 | ML-first rebaseline | `COMPLETE` | V36 сохранён как byte-frozen ближайший gate; разделены generator, validator, data, admission, cooker и product promotion. |
 | N0 | V36 fresh development | [`COMPLETE / REPEAT_EXACT_METRIC_REJECT`](../development/physical-sound-v36-d0-fresh-development-result-2026-09-03.md) | A/B совпали по stdout, stderr и всем 12 файлам; 20 hard и 2 resource gates прошли, но contact transfer провалил 18/28 metric/ablation gates. |
 | N1 | V36 method holdout | `NOT_RUN / PERMANENTLY_CLOSED_BY_N0_REJECT` | H0 access остался нулевым; V36 candidate не имеет freeze authority. |
-| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED / D0_NEXT`](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md) | E0 twice executes all 15,120 discarded zero-target rows and seals the complete owner. Pre-access audit then found unspecified coefficient/normalization/mixture-alignment semantics; T0 closes them with 72 deterministic coefficients, all-row metadata roots, artificial mutation proof and composite seal `7bae65cc…61573` in the same frozen environment, still with zero official target access. Only one-shot D0 is next. |
+| NR | Successor representation research | [`QSO_V0_SELECTED / A0_F0_C0_X0_E0_T0_PASS / D0R_READINESS_NEXT / D0_BLOCKED`](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md) | T0 closes exact targets, but the complete-entry audit found ordinary control/optimizer/metric/hard-gate choices still under-specified. D0R must execute and seal the actual D0 owner on full nonzero artificial data before any official capability. Official targets remain zero. |
 | EF | Freeze/reject evidence correction | `COMPLETE / X0_ATOMIC_RULE_PASS` | A0 makes reject/freeze states mutually exclusive; X0 proves natural `Pass`, all rejects/faults, H0 freeze validation and four failpoints twice exactly. |
 | S0 | Internet source growth | `OPEN / FRONTIER_6_STEEL_27_NON_METAL` | Каждая партия проверяет не более трёх named primary-source leads metadata-first и публикует `ImprovedFrontier`, `Feasible` или `NoEligibleDelta` без signal decode. |
 | S1 | Protected role freeze | `BLOCKED_BY_S0_FEASIBLE` | Неизменный source-power gate закрыт: обе protected roles имеют не менее двух проектов, 16 exact-Steel groups и 35 non-Metal reject parents; ещё пять проектов остаются для остальных one-use roles. |
@@ -195,21 +196,25 @@ engine schema. Каждая принятая запись связывает:
    PRF коэффициентов, normalizations/reductions и `row_id -> mixture` binding.
    T0 без official target access фиксирует 72 коэффициента, все 15,120 metadata
    rows, mutation proof и composite seal `7bae65cc…61573` поверх E0.
-9. **V37.7 — next:** только seal-verifying provider один раз открывает D0 A/B; H0 A/B
+9. **V37.6b — next:** comprehensive pre-access audit фиксирует все оставшиеся
+   degrees of freedom в training, controls, metrics, hard gates и publication;
+   actual D0 owner проходит full-count nonzero artificial A/B и получает D0R
+   readiness seal при нулевом official access.
+10. **V37.7:** только D0R-seal-verifying provider один раз открывает D0 A/B; H0 A/B
    разрешён исключительно после точного D0 `Pass` freeze.
-10. **V37.S:** продолжить S0 metadata-only internet discovery партиями до
+11. **V37.S:** продолжить S0 metadata-only internet discovery партиями до
    `S1 Feasible` либо честного `NoEligibleDelta`.
-11. **V37.8:** собрать validator calibration corpus и выпустить V0 только после
+12. **V37.8:** собрать validator calibration corpus и выпустить V0 только после
    grouped risk/coverage, mutation и leave-project-out gates.
-12. **V37.9:** после NR+S1 обучить G0 на disclosed-real roles и один раз открыть
+13. **V37.9:** после NR+S1 обучить G0 на disclosed-real roles и один раз открыть
    G1 generator holdout.
-13. **V37.10:** заморозить generator, validator, domain и cooker preprofile; один
+14. **V37.10:** заморозить generator, validator, domain и cooker preprofile; один
    раз выполнить J0 admission shadow.
-14. **V37.11:** после J0 Pass реализовать K0 и P0 через существующий audio path с
+15. **V37.11:** после J0 Pass реализовать K0 и P0 через существующий audio path с
    полным authored fallback.
-15. **V37.12:** повторять S1–J0 как независимые releases для Glass archetypes и
+16. **V37.12:** повторять S1–J0 как независимые releases для Glass archetypes и
    Wood; не переносить thresholds или admission credit по material label.
-16. **V37.13:** только после работающего consumer подготовить promoting ADR,
+17. **V37.13:** только после работающего consumer подготовить promoting ADR,
    минимальный public contract и Linux ProductChecks.
 
 Внутренний WIP limit критического пути — один необратимый experiment gate за
