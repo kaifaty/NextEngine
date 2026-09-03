@@ -1,0 +1,22 @@
+{
+  "claim": "EXACT_VALUE_FREE_V37_TRUTH_GENERATION_PROTOCOL_AND_COMPOSITE_PRE_ACCESS_SEAL_ONLY / NO_OFFICIAL_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "composite_seal": {
+    "artificial_conformance_root_sha256": "a14b82f124a350d38f86df8f8984a07dbd1ff18109d4b53b7e14a6fb1c9ac911",
+    "coefficient_root_sha256": "07932a8069157b0b62eb49fe166f94f857d5b7d717a1fea86636d18091070ace",
+    "dependency_root_sha256": "8fb2255aab0209e956a40b04860400366a6991f2d55f94abf1af4a4ec2d0bc1c",
+    "environment_sha256": "5cc3a3d2cce0063cd181c5b56ba6a693211f14a8e237164b6ec9c712e286d08f",
+    "forbidden_access_count": 0,
+    "official_metadata_root_sha256": "48508bf0226e4d3894d577bc0f77affb7f71d4bc6b0c4864cd5b6a4c52bdf9b0",
+    "owner_sha256": "c2a68d3c1f95bd378ce8df5553baef5c7be74a26088f0350b70c3ee3e68925ed",
+    "prior_e0_execution_seal_sha256": "608f901938c4031e63353a9231e005bb1040ac21c50ed3c7746e01525e211d7f",
+    "profile_sha256": "8eeda45716f95ec0b74abcc2ce90c1896657eb460fd3fd7a28fd8cf53257e5b6",
+    "target_axis_order": [
+      "decay",
+      "global_gain",
+      "contact"
+    ]
+  },
+  "schema": "nextengine.experimental-physical-sound-v37-t0-official-input-seal.v1",
+  "seal_sha256": "7bae65cc0290c3ec54eedef5d9ef2dd3d8e4ab1881945db71c8c80dcd1361573",
+  "status": "SealedBeforeOfficialTargetAccess"
+}

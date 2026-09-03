@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_REPEAT_EXACT_PASS / SEALED / D0_NEXT / ZERO_F0_OR_OFFICIAL_TARGET_VALUES_EVALUATED` |
+| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_REPEAT_EXACT_PASS / COMPOSITE_SEALED / D0_NEXT / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -102,6 +102,26 @@ Deliver:
 Exit: full exact-path A/B Pass under `300 s / 1 GiB / 64 MiB`, or no official
 capability may exist.
 
+### Commit 5a — T0 exact truth protocol closure — `COMPLETE`
+
+Pre-access review found that F0 froze seeds and qualitative truth families but
+not the exact coefficient PRF, numerical normalizations, reduction order or
+canonical row-to-mixture binding. T0 closes that omission without evaluating
+an official target:
+
+- domain-separated SHA-256 derives 72 immutable binary64 coefficients from the
+  already frozen seeds;
+- every local, diffusion, global, decay and gain operation is executable and
+  ordered;
+- all `15,120` canonical rows receive target-free mixture metadata roots;
+- a four-row artificial fixture proves permutation exactness, bounds and
+  mode/topology/mixture mutation sensitivity;
+- composite seal `7bae65cc…61573` binds T0 to E0 seal `608f9019…1d7f` and its exact environment.
+
+Exit: A/B trees and stdout are exact, stderr is empty and every official target
+counter remains zero. Neither F0 nor E0 is rewritten; official capability
+creation now requires the composite seal.
+
 ### Commit 6 — D0/H0 one-shot evidence
 
 Deliver:
@@ -135,8 +155,8 @@ unchanged unless F0 documents a new fresh scientific question before values.
 - A0–E0: Ruff/compile, strict typing, focused unit/property/state-machine tests,
   process A/B exact comparison, focused xtask physical-sound registry tests and
   SPEC-45 boundary scan.
-- D0/H0: the same plus exact official access receipts and sealed dependency
-  identities.
+- D0/H0: the same plus exact official access receipts, the E0 execution seal,
+  the T0 composite truth/input seal and all sealed dependency identities.
 - No Cargo ProductCheck applies until cooker/demo code exists.
 - K0 later runs affected `content-package`; P0 runs affected `play` checks.
 
@@ -147,9 +167,10 @@ touches that boundary.
 
 ## Immediate action
 
-Implement the D0 half of Commit 6 only. Add a seal-verifying official provider
-which checks every owner/profile/publisher/environment/topology/rehearsal
-identity before issuing one D0 capability, then execute the predetermined D0 A/B
-once. Do not add an H0 capability or open method-holdout values unless D0 returns
-repeat-exact natural `Pass`; any reject, owner fault, resource failure or A/B
-divergence closes QSO-v0 without retry.
+Implement the D0 half of Commit 6 only. Add an official provider which checks
+every owner/profile/publisher/environment/topology/rehearsal identity in E0
+seal `608f9019…1d7f` and every formula/coefficient/row-metadata identity in T0
+  seal `7bae65cc…61573` before issuing one D0 capability. Then execute the
+predetermined D0 A/B once. Do not add an H0 capability or open method-holdout
+values unless D0 returns repeat-exact natural `Pass`; any reject, owner fault,
+resource failure or A/B divergence closes QSO-v0 without retry.

@@ -1,0 +1,247 @@
+{
+  "authority": {
+    "artificial_fixture_evaluation_allowed": true,
+    "composite_pre_access_seal_allowed": true,
+    "external_research_only": true,
+    "model_execution_allowed": false,
+    "network_allowed": false,
+    "official_capability_allowed": false,
+    "official_target_evaluation_allowed": false,
+    "prior_numeric_value_access_allowed": false,
+    "protected_or_real_signal_access_allowed": false,
+    "runtime_authority": false
+  },
+  "claim": "EXACT_VALUE_FREE_V37_TRUTH_GENERATION_PROTOCOL_AND_COMPOSITE_PRE_ACCESS_SEAL_ONLY / NO_OFFICIAL_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependencies": [
+    {
+      "path": "lab/profiles/physical-sound-v37-c0-query-surface-structural-cost.v1.json",
+      "sha256": "acf424694564f09cfab0aac36c47c00c9b72cb1d98711f7f57216d4012934def"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-e0-execution-seal.v1.json",
+      "sha256": "3057d9643d2101ff12b381b811306904f70656b885314e1f730213edc92484cf"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-e0-full-surrogate-seal.v1.json",
+      "sha256": "f95ccc622430a6dd27661d34526c5970a722dbd40a717230d24200c62dd62f2a"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-f0-fresh-query-surface-operator.v1.json",
+      "sha256": "409d84b0dff6b28c0df8976afda198fab5c854b1a1e64788096babe4b486d809"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_c0_query_surface_structural_cost_v1.py",
+      "sha256": "6563d869a02ea3a8e2b1e4483825dfef718d255c59b1c4a4e9309e58b06f6fb8"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_e0_full_surrogate_seal_v1.py",
+      "sha256": "0ec78599fad0619f87c410d8c5646bf54eeab5b1ed9049c630ece8cf2e93fbe5"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    }
+  ],
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.3.5",
+    "python": "3.12.13",
+    "torch": "2.8.0+cu128",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "profile_id": "physical-sound-v37-t0-exact-truth-protocol-v1",
+  "protocol": {
+    "coefficient_groups": {
+      "decay.bias": {
+        "count": 1,
+        "high": "0.15",
+        "low": "-0.15",
+        "seed": 370024
+      },
+      "decay.linear": {
+        "count": 11,
+        "high": "0.28",
+        "low": "-0.28",
+        "seed": 370024
+      },
+      "diffusion.modulation": {
+        "count": 2,
+        "high": "0.20",
+        "low": "-0.20",
+        "seed": 370022
+      },
+      "diffusion.neighbor_mix": {
+        "count": 2,
+        "high": "1.15",
+        "low": "0.75",
+        "seed": 370022
+      },
+      "diffusion.output_scale": {
+        "count": 1,
+        "high": "1.05",
+        "low": "0.75",
+        "seed": 370022
+      },
+      "diffusion.self_mix": {
+        "count": 2,
+        "high": "0.85",
+        "low": "0.55",
+        "seed": 370022
+      },
+      "global.bias": {
+        "count": 4,
+        "high": "0.20",
+        "low": "-0.20",
+        "seed": 370023
+      },
+      "global.query_linear": {
+        "count": 24,
+        "high": "0.55",
+        "low": "-0.55",
+        "seed": 370023
+      },
+      "global.rank_scale": {
+        "count": 4,
+        "high": "0.32",
+        "low": "0.15",
+        "seed": 370023
+      },
+      "global_gain.bias": {
+        "count": 1,
+        "high": "0.15",
+        "low": "-0.15",
+        "seed": 370025
+      },
+      "global_gain.linear": {
+        "count": 13,
+        "high": "0.24",
+        "low": "-0.24",
+        "seed": 370025
+      },
+      "local.modulation": {
+        "count": 3,
+        "high": "0.20",
+        "low": "-0.20",
+        "seed": 370021
+      },
+      "local.output_scale": {
+        "count": 1,
+        "high": "1.05",
+        "low": "0.75",
+        "seed": 370021
+      },
+      "local.sigma_parallel": {
+        "count": 1,
+        "high": "0.32",
+        "low": "0.20",
+        "seed": 370021
+      },
+      "local.sigma_perpendicular": {
+        "count": 1,
+        "high": "0.58",
+        "low": "0.38",
+        "seed": 370021
+      },
+      "local.theta_radians": {
+        "count": 1,
+        "high": "3.141592653589793",
+        "low": "0",
+        "seed": 370021
+      }
+    },
+    "coefficient_prf": {
+      "algorithm": "sha256",
+      "byte_layout": "domain_utf8 || 0x00 || seed_u64_le || purpose_utf8 || 0x00 || index_u32_le",
+      "domain": "nextengine.physical-sound.v37.t0.coefficient.v1",
+      "float_mapping": "u53 = uint64_be(digest[0:8]) >> 11; unit = u53 / 2^53; value = low + (high - low) * unit",
+      "purpose": "coefficient-group-key-verbatim",
+      "rounding": "IEEE-754-binary64-round-to-nearest-ties-to-even-after-each-language-operation"
+    },
+    "contact": {
+      "bound": "0.25",
+      "composition": "bound*tanh(weight_local*local + weight_diffusion*diffusion + weight_global*global)",
+      "diffusion": {
+        "drive": "mode*(1+modulation[0]*node_x+modulation[1]*node_y)",
+        "formula": "h1=tanh(self_mix[0]*drive+neighbor_mix[0]*(D^-1/2*A*D^-1/2)@drive); h2=tanh(self_mix[1]*h1+neighbor_mix[1]*(D^-1/2*A*D^-1/2)@h1); diffusion=output_scale*sum(query_kernel*h2)/mode_rms",
+        "formula_id": "qso-v37-two-hop-canonical-graph-diffusion-v1"
+      },
+      "global": {
+        "field_basis_order": [
+          "1",
+          "node_x",
+          "node_y",
+          "node_x*node_y"
+        ],
+        "formula": "field_moment[r]=sum(area_normalized*mode*field_basis[r])/mode_rms; query_score[r]=tanh(bias[r]+dot(query_linear[r],query_vector)); global=sum(rank_scale[r]*field_moment[r]*query_score[r])",
+        "formula_id": "qso-v37-global-low-rank-field-query-interaction-v1",
+        "query_vector_order": [
+          "query_x",
+          "query_y",
+          "p1_contact_value",
+          "geometry.log_multiplier_0",
+          "material.loss",
+          "mode.ordinal_signed"
+        ],
+        "rank": 4
+      },
+      "local": {
+        "formula": "rotated_delta=(R(theta)@(probe_position-query_position)/field_span)[x,y]; raw_kernel=area_normalized*exp(-0.5*((parallel/sigma_parallel)^2+(perpendicular/sigma_perpendicular)^2)); query_kernel=raw_kernel/sum(raw_kernel); local=output_scale*sum(query_kernel*mode*(1+modulation[0]*node_x+modulation[1]*node_y+modulation[2]*node_x*node_y))/mode_rms",
+        "formula_id": "qso-v37-local-anisotropic-integral-v1"
+      },
+      "mixture_binding": "exact row_id-to-mixture_id-to-component_weights metadata resolved from the frozen F0 case enumeration; weights are truth metadata and are not model inputs",
+      "mixture_weight_order": [
+        "local",
+        "diffusion",
+        "global"
+      ]
+    },
+    "field_normalization": {
+      "area_normalized": "probe_area_weight / sum(probe_area_weight) in canonical probe order",
+      "field_span": "max(max(position_axis)-min(position_axis) for all three axes), lower-clamped to 1e-12",
+      "mode_rms": "sqrt(sum(area_normalized*mode^2)+1e-6)",
+      "node_xy": "first two coordinates of (probe_position-area_centroid)/field_span",
+      "query_xy": "first two coordinates of (query_position-area_centroid)/field_span"
+    },
+    "global_heads": {
+      "decay": "0.25*tanh(decay.bias[0]+dot(decay.linear,context[0:11]))",
+      "global_gain": "0.20*tanh(global_gain.bias[0]+dot(global_gain.linear,context[0:13]))"
+    },
+    "input_contract": {
+      "canonical_probe_count_per_field": 9,
+      "context_feature_names": [
+        "family.beam",
+        "family.plate",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2",
+        "material.log_density",
+        "material.log_youngs",
+        "material.loss",
+        "material.poisson",
+        "mode.log_frequency",
+        "mode.ordinal_signed",
+        "support.beam_cantilever",
+        "support.beam_simple",
+        "support.plate_simple"
+      ],
+      "dtype": "float64-cpu",
+      "graph": "canonical undirected CSR without self edges",
+      "metadata_order": "same canonical row_id order as SurfaceQueryBatchV1"
+    },
+    "numeric_reduction": {
+      "array_order": "canonical field, canonical probe, canonical row, then ascending rank/feature index",
+      "implementation": "python-3.12.13-numpy-2.3.5-torch-2.8.0+cu128-float64-cpu-single-process",
+      "non_finite_policy": "reject-before-return",
+      "target_axis_order": [
+        "decay",
+        "global_gain",
+        "contact"
+      ]
+    }
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-t0-exact-truth-protocol-profile.v1"
+}
