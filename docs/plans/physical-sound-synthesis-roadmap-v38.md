@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ADOPTED / S0_IMPROVED_FRONTIER_6_STEEL_23_NON_METAL / V37_QSO_V0_CLOSED / H0_PERMANENTLY_CLOSED / DATA_AND_VALIDATOR_FIRST / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Статус | `SUPERSEDED_BY_V39 / S0_IMPROVED_FRONTIER_6_STEEL_23_NON_METAL / V37_QSO_V0_CLOSED / H0_PERMANENTLY_CLOSED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) как planning authority; V37 identities, targets, seals и terminal result остаются immutable отрицательным evidence |
 | Текущее evidence | [V38 S0 source increment](../development/physical-sound-v38-s0-gap-directed-source-result-2026-09-03.md), [V37 D0 terminal result](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [V30 source frontier](../development/physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [V29 source-power audit](../development/physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [V32 validator mechanics](../development/physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V31 causal contract](../development/physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) и [modal owner](../development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer и promoting ADR отсутствуют |
