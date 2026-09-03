@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / MULTI_FIDELITY_REBASELINE / R0_SOURCE_CLAIM_LEDGER_NEXT / 71_REAL_ACOUSTIC_PARENTS / DEFICIT_34 / CLATTER_CONTROL_ONLY / NISR_SYNTHETIC_ONLY / STRUCTURAL_TRANSFER_OPEN / V0S_OPEN / PSEL_BLOCKED / REAL_TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / MULTI_FIDELITY_REBASELINE / R0_SOURCE_CLAIM_LEDGER_COMPLETE / T0_RECIPE_V3_NEXT / 10_SOURCES / ZERO_NEW_POWER_CREDIT / 71_REAL_ACOUSTIC_PARENTS / DEFICIT_34 / PSEL_BLOCKED / REAL_TRAINING_BLOCKED / OFFLINE_ONLY / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V44](physical-sound-synthesis-roadmap-v44.md) как planning authority; все V44 exact results и source-power gates остаются immutable evidence |
 | Исследование | [V45 multi-fidelity evidence rebaseline](../development/physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md) |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; V45 не создаёт public schema, runtime inference или production authority |
@@ -69,7 +69,7 @@ radiation/residual head. Независимый validator и protected admission
 | Lane | Source class | Generator supervision | Evaluation authority | Parent-power credit |
 | --- | --- | --- | --- | --- |
 | `E / empirical_prior` | Clatter-like published statistics | Modal prior/control only | Synthetic/disclosed comparator | `0` |
-| `S / modal_teacher` | Analytic/FEM/NISR synthetic data | Frequencies, mode shapes, participation | Synthetic counterfactuals only | `0` |
+| `S / modal_teacher` | Analytic/FEM/NISR/VibraVerse synthetic data | Frequencies, mode shapes, participation | Synthetic counterfactuals only | `0` |
 | `X / structural_transfer` | Force + accelerometer measurements | Excitation, transfer, damping, contact/support | Structural controls only | `0` real-acoustic parents |
 | `A / real_acoustic` | Disclosed microphone recordings | Masked modal/radiation/residual targets | Repeatable disclosed evaluation | One per exact physical parent |
 | `V / validator_calibration` | Independent real audio and frozen corruptions | Forbidden | Validator risk/calibration only | Claim-specific, never generator |
@@ -102,7 +102,7 @@ bounds, finite output and energy limits. The renderer owns deterministic
 flowchart LR
     R0["R0 source-claim ledger"] --> T0["T0 recipe V3 + masked targets"]
     T0 --> C0["C0 Clatter control preflight"]
-    T0 --> S0["S0 bounded NISR synthetic probe"]
+    T0 --> S0["S0 bounded synthetic-source probes"]
     T0 --> X0["X0 structural-transfer probes"]
     T0 --> AS0["AS0 acoustic-source role audit"]
     C0 --> B0["B0 multi-fidelity controls"]
@@ -127,19 +127,21 @@ flowchart LR
     K0 --> P0["P0 opt-in demo prop"]
 ```
 
-R0–MS can make scientific progress before G0 reaches the real parent floor,
-but MS has no authority beyond synthetic-teacher usefulness. MR remains blocked
-until PSEL/B1 and V0 are frozen. Protected roles remain unopened until exactly
-one LabWinner exists.
+[R0](../development/physical-sound-v45-r0-source-claim-ledger-result-2026-09-03.md)
+is complete and repeat-exact: ten sources are partitioned with zero payload
+access and zero new parent/project credit. T0 is next. T0–MS can make scientific
+progress before G0 reaches the real parent floor, but MS has no authority beyond
+synthetic-teacher usefulness. MR remains blocked until PSEL/B1 and V0 are
+frozen. Protected roles remain unopened until exactly one LabWinner exists.
 
 ## Milestones and exit criteria
 
 | ID | State | Exit criterion | Reject/fallback |
 | --- | --- | --- | --- |
-| R0 | `NEXT / VALUE_FREE` | A deterministic source-claim ledger covers Clatter, NISR, Delft plate, cello bridges, CMU impacts, the three-object set and excluded leads; exact revisions, alias components, claim masks, forbidden uses, payload state and cost are repeat-exact with zero media/model access. | `SourceClaimAmbiguous`; keep the row metadata-only or excluded. |
+| R0 | `COMPLETE / REPEAT_EXACT / NO_PAYLOAD_AUTHORITY` | [Result](../development/physical-sound-v45-r0-source-claim-ledger-result-2026-09-03.md) partitions ten exact sources into empirical-prior, synthetic-modal, structural-transfer, real-acoustic and validator-prospect lanes; all eight forbidden counters, physical-parent credit, project credit and protected prospects are zero. | Immutable planning evidence only; it authorizes T0 schema work, not payload, corpus, training, validation or runtime. |
 | T0 | `AFTER_R0` | Recipe V3, observation masks, neutral target records and deterministic projection pass roundtrip, missing-label, ordered-mode, positive-decay, energy, Nyquist, finite/resource and corruption tests. | Fix the schema/owner before opening external numeric priors. |
 | C0 | `AFTER_T0 / CLATTER_EXTERNAL_CONTROL` | A value-free protocol pins Clatter commit `79cac6c…04806`, inventory and decoder semantics; two external runs reproduce the same neutral prior/control roots and seeded renders. No external code/data enters runtime or Git. | `ExternalPriorUnavailableOrIncompatible`; keep literature-only control. |
-| S0 | `AFTER_T0 / BOUNDED_ONLY` | Exact NISR revision, ObjectFolder alias component, generation provenance and a preregistered small sample pass integrity, modal-target and counterfactual checks without bulk download. | `SyntheticTeacherUntrusted`; no NISR-derived labels or sounds are used. |
+| S0 | `AFTER_T0 / BOUNDED_ONLY` | Exact NISR and VibraVerse revisions, upstream geometry/generation alias components, generation provenance and separate preregistered small samples pass integrity, modal-target and counterfactual checks without bulk download. | `SyntheticTeacherUntrusted` per source; rejected labels/sounds are not used and the other source receives no substitute credit. |
 | X0a | `AFTER_T0` | One Delft plate profile binds dimensions/material/support, 25 locations, three repeats and force/acceleration channels; frozen controls test location, transfer and damping consistency. | `StructuralTransferOOD`; no acoustic or material generalization claim. |
 | X0b | `AFTER_X0A` | Cello metadata-only axis/cost audit proves that bridge rows add a separable transfer discriminator beyond assembly confounds. | Defer without downloading payload. |
 | AS0 | `AFTER_R0 / METADATA_FIRST` | CMU and three-object candidates receive exact archive/note/physical-parent/alias mappings and immutable disclosed-vs-validator eligibility. | `AcousticSourcePowerOOD`; payload remains closed. |
@@ -172,12 +174,12 @@ definitions, but not fitted weights, calibration rows or selection outputs.
 
 ## Ordered implementation queue
 
-1. **V45.0 — R0:** implement the value-free source-claim ledger and repeat-exact
-   census.
+1. **V45.0 — R0 — COMPLETE:** the value-free source-claim ledger covers ten
+   sources repeat-exactly with zero payload access and zero power credit.
 2. **V45.1 — T0:** freeze recipe V3, target masks and deterministic projection.
 3. **V45.2 — C0:** freeze and run the external Clatter prior/control probe.
-4. **V45.3 — S0:** run a bounded NISR metadata/generation/sample preflight; no
-   bulk acquisition.
+4. **V45.3 — S0:** run separate bounded NISR and VibraVerse
+   metadata/generation/sample preflights; no bulk acquisition.
 5. **V45.4 — X0:** materialize the Delft structural control, then decide the
    cello bridge probe from metadata-only cost/axis evidence.
 6. **V45.5 — AS0:** audit CMU and the three-object set for disclosed acoustic or
@@ -198,10 +200,10 @@ definitions, but not fitted weights, calibration rows or selection outputs.
 | Commit | Content |
 | --- | --- |
 | A45 | V45 research, roadmap, main-roadmap and task-state transition |
-| B45 | R0 source-claim ledger owner/profile/tests and repeat-exact result |
+| B45 | `COMPLETE`: R0 source-claim ledger owner/profile/tests and repeat-exact result |
 | C45 | T0 recipe V3/masked-target contract and deterministic fixtures |
 | D45 | C0 Clatter external-control seal, decoder and result |
-| E45 | S0 bounded NISR provenance/sample result |
+| E45 | S0 bounded NISR and VibraVerse provenance/sample results |
 | F45 | X0a Delft structural-transfer result; X0b cello decision if authorized |
 | G45 | AS0 acoustic/validator source-role result |
 | H45 | B0 control tournament and MS synthetic-teacher result as separate immutable checkpoints |
@@ -211,8 +213,9 @@ definitions, but not fitted weights, calibration rows or selection outputs.
 
 - Do not pool lane counts or report a synthetic/structural row as a real
   microphone physical parent.
-- Do not let NISR add project independence from its ObjectFolder geometry
-  lineage; no full-dataset acquisition is authorized by a bounded sample probe.
+- Do not let NISR or VibraVerse add real project independence from synthetic or
+  upstream geometry lineage; no full-dataset acquisition is authorized by a
+  bounded sample probe.
 - Do not copy Clatter code/data into the engine or make it a runtime dependency;
   provenance/usage terms must pass before even external derived artifacts are
   retained.

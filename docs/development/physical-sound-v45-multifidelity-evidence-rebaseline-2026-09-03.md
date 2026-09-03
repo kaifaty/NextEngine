@@ -50,7 +50,7 @@ synthetic variants never count as independent physical parents.
 | [Giordano/McAdams plates](https://www.mcgill.ca/mpcl/files/mpcl/blg_smc_2006_jasa.pdf) | Twenty exact plate configurations across steel, soda-lime glass, walnut and PMMA; dimensions, thickness, support and striker are published. | Existing metadata-only physics control. | Search did not locate a public, exact stimulus-to-plate binding; zero waveform/corpus credit. |
 | [Sounding Object](https://www.soundobject.org/) | Historical modal/contact synthesis examples and reports. | Literature/formula control. | Published examples are modeled demonstrations, not a measured multi-parent physical corpus. |
 | Waste material recordings, DOI [`10.1016/j.array.2026.100913`](https://www.sciencedirect.com/science/article/pii/S2590005626002365) | Paper reports 6,000 recordings and 12,641 events over six materials. | `EXCLUDED_UNAVAILABLE`. | The publisher record says the data are confidential; there is no public payload to bind. |
-| VibraVerse | Paper-level lead for causal synthetic geometry/material/mode/audio data. | `DEFERRED_METADATA_LEAD`. | No current public hash-closed dataset artifact was found in this bounded search. |
+| [VibraVerse](https://huggingface.co/datasets/technetium66/VibraVerse) | Public synthetic dataset over roughly 46,000 Objaverse-derived and generated shapes with geometry, material parameters, computed modes and synthesized impact sounds. | Second bounded synthetic modal-teacher candidate after exact lineage, generation and sample preflight. | It is synthetic and partly uses inferred/generated assets; it adds zero real microphone, validator, protected or physical-parent power. |
 
 ## Clatter audit details
 
@@ -87,7 +87,7 @@ missing and contribute no loss. The minimum lanes are:
 
 | Lane | Observed relation | Typical evidence | Allowed use |
 | --- | --- | --- | --- |
-| `modal_teacher` | geometry/material → frequencies and mode shapes | NISR, analytic/FEM fixtures | Pretraining and counterfactual modal controls only |
+| `modal_teacher` | geometry/material → frequencies and mode shapes | NISR, VibraVerse, analytic/FEM fixtures | Pretraining and counterfactual modal controls only |
 | `empirical_prior` | material/size → modal statistics | Clatter | Frozen baseline and optional prior regularization only |
 | `structural_transfer` | force/contact/support → vibration response | Delft plate, prospective cello bridge rows | Transfer, damping and contact-location losses only |
 | `real_acoustic` | physical parent/event → microphone waveform/target | IETeasy and disclosed real recordings | Radiation/residual calibration and disclosed evaluation |
