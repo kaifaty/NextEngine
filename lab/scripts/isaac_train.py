@@ -26,6 +26,7 @@ from next_lab.isaac_training import (
     parse_gpu_memory_csv,
     require_external_path,
     require_generation_output_path,
+    require_run_id,
     sha256_file,
     training_config_hash,
     validate_resume_checkpoint,
@@ -49,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int)
     parser.add_argument("--training-device")
     parser.add_argument("--resume", type=Path)
+    parser.add_argument("--run-id")
+    parser.add_argument("--preflight-only", action="store_true")
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -83,7 +86,6 @@ def main() -> None:
         generation,
         label="training log root",
     )
-    log_root.mkdir(parents=True, exist_ok=True)
     config_hash = training_config_hash(
         config,
         descriptor_hash,
@@ -115,12 +117,53 @@ def main() -> None:
             "run_id": parent_manifest.get("run_id"),
         }
 
-    run_id = (
-        datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
-        + "-"
-        + config.run_root_hex[:12]
+    run_id = require_run_id(
+        args.run_id
+        or (
+            datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+            + "-"
+            + config.run_root_hex[:12]
+        )
     )
     run_dir = log_root / run_id
+    if run_dir.exists():
+        raise FileExistsError(f"training run already exists: {run_dir}")
+    if args.preflight_only:
+        print(
+            json.dumps(
+                {
+                    "status": "ready",
+                    "mode": "preflight-only",
+                    "run_id": run_id,
+                    "run_dir": str(run_dir),
+                    "samples": (
+                        config.num_envs * config.steps_per_env * config.iterations
+                    ),
+                    "training_generation_id": generation.manifest.generation_id,
+                    "training_generation_manifest_hash": (
+                        generation.manifest.manifest_hash
+                    ),
+                    "training_config": config.as_dict(),
+                    "training_config_hash": config_hash,
+                    "artifacts": {
+                        "descriptor": {
+                            "path": str(descriptor),
+                            "sha256": descriptor_hash,
+                        },
+                        "usd": {"path": str(usd), "sha256": usd_hash},
+                    },
+                    "gpu_preflight": gpu,
+                    "repository": repository_state(),
+                    "parent": parent,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return
+
+    log_root.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=False, exist_ok=False)
     manifest_path = run_dir / "run-manifest.json"
     manifest: dict[str, Any] = {

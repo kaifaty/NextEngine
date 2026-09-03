@@ -242,6 +242,34 @@ The initial manifest admits no training inputs; `TRAIN-1..4` must complete
 before a new profile/artifact closure can activate it. Dataset, run and model
 bytes remain outside Git.
 
+For a separately approved command-only lineage, activate one exact profile,
+descriptor and derived USD only after its no-training preflight. The command
+validates the current descriptor, reproduces the USD bytes, hash-closes the
+input tuple and moves the prepared generation to `active` without creating a
+run directory or starting Isaac:
+
+```text
+PYTHONPATH=lab python lab/scripts/activate_training_generation.py \
+  --generation-index <external active-generation.json> \
+  --profile lab/profiles/<training-profile>.json \
+  --descriptor <external descriptor.json> \
+  --usd <external humanoid.usda>
+```
+
+Before spending optimizer compute, resolve a stable run ID and verify the exact
+budget, output path, repository state, GPU memory and admitted hashes without
+creating the output directory or starting Isaac:
+
+```text
+<isaac-python> lab/scripts/isaac_train.py --preflight-only \
+  --run-id <stable-run-id> \
+  --generation-index <external active-generation.json> \
+  --profile lab/profiles/<training-profile>.json \
+  --descriptor <external descriptor.json> \
+  --usd <external humanoid.usda> \
+  --log-root <external generation>/runs
+```
+
 ## Retired Stage 0 PPO evidence
 
 The tracked

@@ -14,6 +14,7 @@ from next_lab.isaac_training import (
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
     TrainingGenerationError,
+    activate_training_generation,
     atomic_write_json,
     canonical_json_hash,
     closed_checkpoint_history,
@@ -23,6 +24,7 @@ from next_lab.isaac_training import (
     load_active_training_generation,
     parse_gpu_memory_csv,
     require_external_path,
+    require_run_id,
     sha256_file,
     training_config_hash,
     validate_checkpoint_artifacts,
@@ -35,6 +37,10 @@ PROFILE = Path(__file__).parents[1] / "profiles/isaac-rsl-rl-rtx3080-poc.v1.json
 CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/isaac-rsl-rl-rtx3080-locomotion-curriculum.v2.json"
+)
+STANDING_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/isaac-rsl-rl-rtx3080-standing.v1.json"
 )
 
 
@@ -66,6 +72,25 @@ class IsaacTrainingTests(unittest.TestCase):
         self.assertEqual(profile.evaluation["seeds"], [1001, 1002, 1003, 1004, 1005])
         self.assertEqual(profile.evaluation["episode_ordinal_start"], 96)
         self.assertGreater(profile.algorithm["entropy_coef"], 0)
+
+    def test_standing_profile_is_bounded_to_the_first_r8b_gate(self) -> None:
+        profile = IsaacTrainingProfile.load(STANDING_PROFILE)
+        config = ResolvedTrainingConfig.from_profile(profile)
+        self.assertEqual(
+            profile.environment_profile_id,
+            "nextengine.motor.env.humanoid-standing.v1",
+        )
+        self.assertEqual(
+            config.num_envs * config.steps_per_env * config.iterations,
+            4_096_000,
+        )
+        self.assertEqual(profile.evaluation["max_steps"], 3_600)
+        self.assertEqual(profile.evaluation["episodes"], 1)
+        self.assertEqual(profile.evaluation["num_envs"], 1)
+        self.assertEqual(
+            profile.evaluation["seeds"],
+            [1001, 1002, 1003, 1004, 1005],
+        )
 
     def test_config_hash_binds_artifacts_and_overrides(self) -> None:
         profile = IsaacTrainingProfile.load(PROFILE)
@@ -260,6 +285,13 @@ class IsaacTrainingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "num_envs"):
             ResolvedTrainingConfig.from_profile(profile, num_envs=0)
 
+    def test_run_id_is_one_safe_bounded_path_segment(self) -> None:
+        self.assertEqual(require_run_id("r8b-standing-seed42-v1"), "r8b-standing-seed42-v1")
+        for invalid in ("", ".", "../escape", "nested/run", " space", "x" * 129):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "run ID"):
+                    require_run_id(invalid)
+
     def test_evaluation_quota_is_equal_per_slot(self) -> None:
         self.assertEqual(equal_episode_quota(256, 64), 4)
         with self.assertRaisesRegex(ValueError, "multiple of num_envs"):
@@ -380,6 +412,52 @@ class IsaacTrainingTests(unittest.TestCase):
             loaded = load_active_training_generation(Path(result["active_index"]))
             self.assertEqual(loaded.manifest.status, "prepared")
             self.assertEqual(loaded.manifest.admitted_inputs, ())
+
+    def test_generation_activation_admits_exact_input_and_is_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            store = Path(temporary) / "training-store"
+            retired = store / "retired"
+            retired.mkdir(parents=True)
+            baseline = Path(temporary) / "requirements.md"
+            baseline.write_text("requirements\n", encoding="utf-8")
+            initialized = initialize_training_generation(
+                training_store=store,
+                repository_root=Path(__file__).parents[2],
+                generation_directory="standing-v1",
+                generation_id="nextengine.training.generation.standing.v1",
+                candidate_id="HumanoidStage0StandingCandidateV1",
+                requirements_baseline=baseline,
+                retired_generation_id="nextengine.training.generation.none.v1",
+                retired_roots=[retired],
+            )
+            profile = IsaacTrainingProfile.load(STANDING_PROFILE)
+            index = Path(initialized["active_index"])
+            descriptor_hash = "12" * 32
+            usd_hash = "34" * 32
+            first = activate_training_generation(
+                index_path=index,
+                profile=profile,
+                descriptor_sha256=descriptor_hash,
+                usd_sha256=usd_hash,
+            )
+            self.assertEqual(first.manifest.status, "active")
+            first.manifest.require_input(profile, descriptor_hash, usd_hash)
+            second = activate_training_generation(
+                index_path=index,
+                profile=profile,
+                descriptor_sha256=descriptor_hash,
+                usd_sha256=usd_hash,
+            )
+            self.assertEqual(second.manifest.manifest_hash, first.manifest.manifest_hash)
+            with self.assertRaisesRegex(
+                TrainingGenerationError, INCOMPATIBLE_TRAINING_GENERATION
+            ):
+                activate_training_generation(
+                    index_path=index,
+                    profile=profile,
+                    descriptor_sha256=descriptor_hash,
+                    usd_sha256="56" * 32,
+                )
 
 
 if __name__ == "__main__":

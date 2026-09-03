@@ -21,6 +21,7 @@ from next_lab.isaac_env import (
     locomotion_reward_q16_tensor,
     precompute_command_schedules,
     precompute_flat_command_schedules,
+    require_compatible_authored_ground_clearance,
     rotate_world_to_root_local_q1_30_tensor,
     round_div_ties_even_tensor,
 )
@@ -166,6 +167,40 @@ class MotorMirrorTests(unittest.TestCase):
         self.assertEqual(authored_ground_clearance_metres(descriptor), 0.0)
         descriptor["bodies"][0]["local_bind_translation_micrometres"][1] -= 10_000
         self.assertEqual(authored_ground_clearance_metres(descriptor), -0.01)
+        with self.assertRaisesRegex(ValueError, "penetrates the flat ground"):
+            require_compatible_authored_ground_clearance(descriptor)
+
+    def test_exact_frozen_stage0_v1_ground_penetration_remains_compatible(self) -> None:
+        descriptor = {
+            "body_schema_hash": (
+                "13f01daf349cddd84f6c3a068cf9da9ff1307a727949ffa9232ec2e02cbc9bd5"
+            ),
+            "bodies": [
+                {
+                    "body_id": "body.root",
+                    "parent_body_id": None,
+                    "local_bind_translation_micrometres": [0, 1_050_000, 0],
+                    "colliders": [
+                        {
+                            "local_translation_micrometres": [0, 0, 0],
+                            "geometry": {
+                                "kind": "sphere",
+                                "radius_micrometres": 1_095_000,
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+        self.assertEqual(
+            require_compatible_authored_ground_clearance(descriptor),
+            -0.045,
+        )
+        descriptor["bodies"][0]["colliders"][0]["geometry"][
+            "radius_micrometres"
+        ] += 1
+        with self.assertRaisesRegex(ValueError, "-0.045001 m"):
+            require_compatible_authored_ground_clearance(descriptor)
 
     def test_rust_golden_matches_python_seed_and_pd(self) -> None:
         validate_golden(load_json(FIXTURE))

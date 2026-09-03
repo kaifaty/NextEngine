@@ -19,6 +19,7 @@ TRAINING_GENERATION_SCHEMA_VERSION = 1
 INCOMPATIBLE_TRAINING_GENERATION = "INCOMPATIBLE_TRAINING_GENERATION"
 TRAINING_GENERATION_NOT_ACTIVE = "TRAINING_GENERATION_NOT_ACTIVE"
 CHECKPOINT_FILE_PATTERN = re.compile(r"model_(\d+)\.pt")
+RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 MAX_RETIRED_INVENTORY_FILES = 4096
 
 
@@ -354,6 +355,14 @@ def require_generation_output_path(
     return resolved
 
 
+def require_run_id(value: str) -> str:
+    if RUN_ID_PATTERN.fullmatch(value) is None:
+        raise ValueError(
+            "run ID must be a plain 1..128 character ASCII segment"
+        )
+    return value
+
+
 def initialize_training_generation(
     *,
     training_store: Path,
@@ -457,6 +466,84 @@ def initialize_training_generation(
         "inventory": inventory_path,
         "inventory_file_count": str(inventory_file_count),
     }
+
+
+def activate_training_generation(
+    *,
+    index_path: Path,
+    profile: IsaacTrainingProfile,
+    descriptor_sha256: str,
+    usd_sha256: str,
+) -> LoadedTrainingGeneration:
+    """Admit one exact profile/artifact closure and activate its generation.
+
+    The manifest is replaced before its index, so an interrupted update fails
+    closed instead of selecting an unindexed input closure.
+    """
+    resolved_index = index_path.resolve()
+    generation = load_active_training_generation(resolved_index)
+    selected = AdmittedTrainingInput(
+        profile_id=profile.profile_id,
+        profile_hash=profile.profile_hash,
+        environment_profile_id=profile.environment_profile_id,
+        descriptor_sha256=_hash(descriptor_sha256, "descriptor_sha256"),
+        usd_sha256=_hash(usd_sha256, "usd_sha256"),
+    )
+    if generation.manifest.status == "active":
+        if selected in generation.manifest.admitted_inputs:
+            return generation
+        raise TrainingGenerationError(
+            INCOMPATIBLE_TRAINING_GENERATION,
+            f"{generation.manifest.generation_id} is already active with another closure",
+        )
+
+    manifest_value = json.loads(
+        generation.manifest_path.read_text(encoding="utf-8")
+    )
+    inputs = [
+        {
+            "profile_id": item.profile_id,
+            "profile_hash": item.profile_hash,
+            "environment_profile_id": item.environment_profile_id,
+            "descriptor_sha256": item.descriptor_sha256,
+            "usd_sha256": item.usd_sha256,
+        }
+        for item in generation.manifest.admitted_inputs
+    ]
+    candidate = {
+        "profile_id": selected.profile_id,
+        "profile_hash": selected.profile_hash,
+        "environment_profile_id": selected.environment_profile_id,
+        "descriptor_sha256": selected.descriptor_sha256,
+        "usd_sha256": selected.usd_sha256,
+    }
+    if candidate not in inputs:
+        inputs.append(candidate)
+    inputs.sort(
+        key=lambda item: (
+            item["profile_id"],
+            item["profile_hash"],
+            item["descriptor_sha256"],
+            item["usd_sha256"],
+        )
+    )
+    manifest_value["status"] = "active"
+    manifest_value["admitted_inputs"] = inputs
+    manifest_value.pop("manifest_hash", None)
+    manifest_value["manifest_hash"] = canonical_json_hash(manifest_value)
+    atomic_write_json(generation.manifest_path, manifest_value)
+
+    index_value = json.loads(resolved_index.read_text(encoding="utf-8"))
+    index_value["generation_manifest_sha256"] = sha256_file(
+        generation.manifest_path
+    )
+    index_value.pop("index_hash", None)
+    index_value["index_hash"] = canonical_json_hash(index_value)
+    atomic_write_json(resolved_index, index_value)
+
+    activated = load_active_training_generation(resolved_index)
+    activated.manifest.require_input(profile, descriptor_sha256, usd_sha256)
+    return activated
 
 
 def canonical_json_hash(value: Any) -> str:

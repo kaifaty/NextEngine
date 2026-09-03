@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-28 |
-| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP, beginning with a separate no-training preflight for visible standing and forward start/stop. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142 or authority over R8b. |
+| Текущая точка | R1–R7 завершены на current Linux product boundary. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) closed B-12 on exact commit `e48f2eac…`; [R7d final hardening](development/task-state/r7d-final-product-hardening.md) and [R7e distribution closure](development/task-state/r7e-linux-distribution-closure.md) close on exact code commit `919663ff…`. The final native target report is `PASS / release_ready=true` with all eight checks passing, and two independently built PackageManifest V6 trees are byte/mode-identical at manifest `47beaf91…`. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP. Its exact standing generation and optimizer-free reset smoke are ready, while the first `4,096,000`-transition run remains `NOT_RUN / NO_AUTHORITY` pending explicit compute confirmation. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142 or authority over R8b. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. Final R7c V2 evidence closes the R2 hard-performance gap and B-12. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -1959,7 +1959,7 @@ are not part of R8a. The current Linux `host-check`, `play`,
 `INJURY-EMBODIMENT-P1` remains `NOT_RUN`.
 
 **Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /
-FIRST_LEARNED_LOCOMOTION / PREFLIGHT_NEXT`. Product priority moves to the
+FIRST_LEARNED_LOCOMOTION / EXPLORATORY_RUN_READY / NO_RUN_STARTED`. Product priority moves to the
 smallest player-visible learned-Motor result on the frozen Stage 0 V1
 humanoid. R8b is a new separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
@@ -2167,13 +2167,15 @@ further work must enter an explicitly selected R8 program and cannot
 retroactively add release ceremony to R7.
 
 The selected post-v1 queue now contains exactly one active package:
-**R8b first learned locomotion (`ACTIVE_R&D / PREFLIGHT_NEXT`)**. Its durable
+**R8b first learned locomotion (`ACTIVE_R&D / EXPLORATORY_RUN_READY / NO_RUN_STARTED`)**. Its durable
 resume surface is
 [r8b-first-learned-locomotion.md](development/task-state/r8b-first-learned-locomotion.md).
-The next action is the no-training identity/resource/correspondence preflight;
-no optimizer run is authorized until that preflight passes. R8a fracture and
-embodiment expansion is deferred, and the stopped R141 reference-tracking
-lineage remains immutable and outside this queue.
+The exact standing profile/generation and optimizer-free Isaac reset smoke are
+ready. The next action is the single frozen `4,096,000`-transition seed-42 run
+after explicit compute confirmation; its ceiling is `NO_AUTHORITY` exploratory
+evidence because `MODEL-MIRROR-P1` remains `NOT_RUN`. R8a fracture and embodiment
+expansion is deferred, and the stopped R141 reference-tracking lineage remains
+immutable and outside this queue.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 

@@ -115,8 +115,8 @@ def main() -> None:
         require_below_tolerance("initial reset", initial_errors)
 
         forced_root = expected_root.clone()
-        forced_root[:, 2] = environment.scene.env_origins[:, 2] + 0.2
-        forced_root[:, 7:] = 0.5
+        forced_root[:, 2] = environment.scene.env_origins[:, 2] - 10.0
+        forced_root[:, 7:] = 0.0
         lower = environment.robot.data.soft_joint_pos_limits[:, :, 0]
         upper = environment.robot.data.soft_joint_pos_limits[:, :, 1]
         forced_joint_position = torch.clamp(

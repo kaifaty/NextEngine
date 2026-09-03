@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / PREFLIGHT_NEXT / NO_RUN_STARTED` |
-| Updated | 2026-09-03 |
+| Status | `SELECTED / ACTIVE_R&D / EXPLORATORY_RUN_READY / NO_RUN_STARTED / NO_AUTHORITY` |
+| Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
 | Definition of done | Five fixed held-out CPU PhysX episodes pass the complete 3,600-tick standing gate, then five pass the bounded forward/start/stop gate, with exact manifests, zero declared safety events and replay-bound visual evidence when capture is available |
@@ -18,11 +18,15 @@
   curriculum environments already provide the shortest path to a visible
   learned result. The prior broad flat-command PPO attempt fell in every
   held-out episode, so breadth must be earned after foundation stability.
-- **Next action:** Use `nextengine-training-runner` to perform a no-training
-  preflight of exact V1 identities, external store, active host resources and
-  CPU/Isaac capability; publish the exact permitted invocation or stop.
-- **Current blocker:** None for read-only preflight. Any training run remains
-  blocked until the preflight closes its exact manifest and storage lineage.
+- **Next action:** After explicit confirmation to spend the frozen
+  `4,096,000`-transition budget, run exactly
+  `r8b-standing-seed42-v1`; do not tune before reading that run's closed
+  metrics.
+- **Current blocker:** None for one explicitly `NO_AUTHORITY` exploratory
+  standing run. `MODEL-MIRROR-P1` is still `NOT_RUN` because the current CPU
+  trajectory recorder and correspondence reader use incompatible NPZ layouts
+  and no V1 GPU recorder exists; this blocks correspondence, admission and
+  runtime claims, not the private exploratory optimizer question.
 - **Do not retry:** Never resume the broad V1 PPO checkpoints or any
   R123–R141/TRAIN-5 artifact; they have incompatible or rejected authority.
 - **Kimodo finding:** NVIDIA Kimodo is a plausible future offline source of
@@ -42,7 +46,11 @@
 | [ADR-065](../../architecture/adr/065-curriculum-flat-command-locomotion-profile.md) | Prior broad V1 PPO held-out survival about 135–137 ticks; `768/768` falls; bounded V2 first stage exists | Do not repeat broad commands; standing precedes only `0..0.75 m/s` forward start/stop |
 | [Stopped TRAIN-4 state](humanoid-motor-training.md) | `R141_INVALID / STOP_NO_RETRY` | R8b consumes no motion corpus, reference tracker, R123–R141 cache/witness or rejected checkpoint |
 | [Kimodo research](../kimodo-motion-training-research-2026-09-03.md) | Kimodo is an offline 30 Hz kinematic generator; SOMA output still needs an exact 23-DoF retarget and CPU PhysX admission | Keep it out of R8b; preserve one separate post-foundation `KIMODO-MOTION-P0` candidate |
-| R8b run/evaluation artifacts | `NOT_RUN` | No learned quality, visual, Stage 0 or runtime claim exists yet |
+| R8b standing profile | `nextengine.isaac-rsl-rl.rtx3080-standing.v1`; `128 x 32 x 1,000 = 4,096,000` transitions; seed `42`; five held-out seeds `1001..1005` | Exact first-run budget and evaluation matrix are frozen before model output |
+| R8b external generation | `nextengine.training.generation.r8b-standing.v1`; manifest `094dd6ae…eb42f`; descriptor `50c55442…fc11`; USD `5524a778…e54d` | The old TRAIN-4 store and checkpoints are not reachable from the admitted closure |
+| Canonical CPU V1 zero-action control | One production motor-lab slot falls at tick `220`; first tick reaches root velocity `1.205196 m/s` and joint speed `19.880161 rad/s` | The immutable `1.050 m` V1 reset has a real contact transient; do not misreport it as tangent-ground |
+| R8b Isaac reset smoke | `PASS`, four slots, seed `1001`, exact automatic reset errors all zero; 10 zero-action ticks remain finite with max joint speed `8.995819 rad/s`, root speed `0.477639 m/s`, angular speed `0.541279 rad/s`, height overshoot `0.037621 m` | Pipeline/reset execution is ready only under the explicit legacy-V1 smoke envelope; this is not policy quality or correspondence evidence |
+| R8b optimizer/evaluation artifacts | `NOT_RUN` | No learned quality, visual, Stage 0, correspondence or runtime claim exists yet |
 
 ## Decisions that still constrain the work
 
@@ -147,14 +155,17 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Run a read-only/no-training preflight of the frozen V1 standing and first
-   curriculum identities, external training store and active host resources;
-   freeze the five command-only walking evaluation schedules before observing
-   any model output.
-2. Record the exact new run/generation manifest and verify that no R123–R141 or
-   rejected TRAIN-5 root is reachable.
-3. Start nothing if identity, storage, CPU PhysX or required mirror facts are
-   ambiguous; preserve the procedural route and report the first blocker.
+1. Run the read-only trainer preflight for exact run ID
+   `r8b-standing-seed42-v1` after the source commit is clean; require
+   `status=ready`, `repository.dirty=false`, the admitted hashes above and
+   `4,096,000` transitions.
+2. Start that one optimizer run only after explicit confirmation to spend the
+   frozen budget. Its claim ceiling is gradient/standing feasibility in this
+   exact Isaac mirror, not CPU correspondence, admission or runtime support.
+3. Diagnose its closed metrics before any retry or hyperparameter change. If
+   it produces a candidate worth evaluating, run all five predeclared full
+   standing episodes and then build the missing paired V1 trajectory recorder
+   before any `MODEL-MIRROR-P1` or CPU-admission claim.
 
 ## Do not retry
 
@@ -172,14 +183,19 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Roadmap selection only; no R8b run, checkpoint, dataset
-  or generated artifact exists yet.
-- **Checks:** Documentation cheap path is required for this selection change;
-  executable motor checks begin only with the preflight/run package.
-- **Remaining risk:** Learned standing feasibility, time-to-result, Isaac
-  readiness and walking transfer benefit are unknown. Kimodo retarget yield,
-  physical admissibility, learning benefit and exact license closure are also
-  unmeasured and deferred.
+- **Workspace state:** The tracked standing profile and safe generation
+  activation/preflight path exist. External descriptor, USD, generation and
+  reset-smoke log live below
+  `/home/kaifaty/NextEngine-training/r8b-standing`; no optimizer run or
+  checkpoint exists.
+- **Checks:** Focused Python training/mirror/correspondence/USD tests and the
+  exact Isaac reset smoke pass. Final clean-commit trainer preflight and
+  risk-scoped workspace checks remain before handoff.
+- **Remaining risk:** Learned standing feasibility and time-to-result are
+  unknown. Full CPU/Isaac correspondence is unimplemented for the current V1
+  recorder layouts and remains mandatory before an authority claim. Kimodo
+  retarget yield, physical admissibility, learning benefit and exact license
+  closure remain unmeasured and deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.
