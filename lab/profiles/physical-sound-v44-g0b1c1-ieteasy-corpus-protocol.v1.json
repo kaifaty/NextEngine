@@ -1,0 +1,88 @@
+{
+  "access_policy": {
+    "candidate_access_allowed": false,
+    "disclosed_audio_access_allowed": true,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_increment_materialization_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "base_planning": {
+    "parent_floor": 105,
+    "supported_parent_deficit_before": 49,
+    "supported_parents_before": 56
+  },
+  "claim": "FROZEN_G0B1C0_TARGET_APPLICATION_TO_15_SIGNAL_BLIND_IETEASY_RECORDS_AND_ONE_DISCLOSED_TRAIN_INCREMENT / NO_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision_policy": {
+    "failure_decision": "TargetDomainOOD",
+    "maximum_target_canonical_json_bytes": 8192,
+    "minimum_unique_target_hashes": 15,
+    "minimum_varying_target_dimensions": 24,
+    "pass_decision": "CorpusSuccessorMaterialized",
+    "require_canonical_pcm_identity": true,
+    "require_count_partition_closure": true,
+    "require_energy_partition_ppm": 1000000,
+    "require_target_schema": "nextengine.experimental-physical-sound-v44-noise-robust-fixed-target.v1",
+    "require_target_vector_dimension": 75
+  },
+  "input_bindings": {
+    "g0b1a_media_probe": {
+      "bytes": 25750,
+      "external_relative_path": "run-a/media-probe.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-media-probe.v1",
+      "sha256": "0cbfab2ac2638fae3f9242ba061caffdbbac69d7f070630b1746d3b4e9fc7dda"
+    },
+    "g0b1a_report": {
+      "bytes": 1648,
+      "external_relative_path": "run-a/report.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-report.v1",
+      "sha256": "7b8ab02c50e495202717151873ed590ad1e21a021e0877c3758d829e87a0ccd1"
+    },
+    "g0b1a_selection": {
+      "bytes": 28826,
+      "external_relative_path": "run-a/selection.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-selected-records.v1",
+      "sha256": "635c7fb68d8e54c6074fe29e82449eef67f1e12b62b0fcec5c36e994965da484"
+    },
+    "g0b1c0_report": {
+      "bytes": 1393,
+      "external_relative_path": "run-a/report.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1c0-report.v1",
+      "sha256": "971efac43a4a5ace7b0f201900bb12132fef62b93a466a9b9f831f7076cde9a4"
+    }
+  },
+  "profile_id": "physical-sound-v44-g0b1c1-ieteasy-corpus-protocol-v1",
+  "role_policy": {
+    "expected_material_parent_counts": {
+      "Aluminium": 1,
+      "Metal": 5,
+      "Plastic": 4,
+      "Steel": 5
+    },
+    "expected_physical_parents": 15,
+    "expected_project_id": "mendeley-data--10.17632-srfp7x6wxm",
+    "expected_revision_id": "mendeley-data--10.17632-srfp7x6wxm--v1",
+    "expected_source_component_id": "source-component.ieteasy-mendeley-srfp7x6wxm-v1",
+    "project_must_not_cross_roles": true,
+    "required_role_intent": "generator_train"
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1c1-ieteasy-corpus-protocol.v1",
+  "target_binding": {
+    "bytes": 5293,
+    "path": "lab/profiles/physical-sound-v44-g0b1c0-noise-robust-target-protocol.v1.json",
+    "schema": "nextengine.experimental-physical-sound-v44-g0b1c0-noise-robust-target-protocol.v1",
+    "sha256": "a82fbd84a677a49ab95f1a68394a2cdefa4f885991f3cff7ff8ab34b201ddcec"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "access_policy": {
+    "candidate_access_allowed": false,
+    "disclosed_audio_access_allowed": true,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_increment_materialization_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "FROZEN_G0B1C0_TARGET_APPLICATION_TO_15_SIGNAL_BLIND_IETEASY_RECORDS_AND_ONE_DISCLOSED_TRAIN_INCREMENT / NO_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 9156,
+      "path": "docs/development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md",
+      "sha256": "8fe5608a4d4a573c7f7698b41fce6a7b8c347cee96b88fd5e05a4017138b6fec"
+    },
+    {
+      "bytes": 9301,
+      "path": "docs/development/physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md",
+      "sha256": "408b031fbdfd2ae65d49e124ad4a7dcb74b3a2a4c92ba6e0c00520533529cc1b"
+    },
+    {
+      "bytes": 7935,
+      "path": "docs/development/physical-sound-v44-g0b1a-ieteasy-payload-target-probe-result-2026-09-03.md",
+      "sha256": "67133cfb704dc37c8e5b62856a5da0db6a1ab91ba3715f2f24dc4fdaac9bb38d"
+    },
+    {
+      "bytes": 9014,
+      "path": "docs/development/physical-sound-v44-g0b1c0-noise-robust-target-synthetic-result-2026-09-03.md",
+      "sha256": "dddf329352118a8d7953c0631562351c1ee88636573819aaa929a196fe08cf55"
+    },
+    {
+      "bytes": 3611,
+      "path": "lab/profiles/physical-sound-v44-g0b1c1-ieteasy-corpus-protocol.v1.json",
+      "sha256": "bdbb1c272571e62acd5ccc3851ad736115057834e10ae25b76c8e37c0c150a7f"
+    },
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    },
+    {
+      "bytes": 31087,
+      "path": "lab/scripts/physical_sound_v44_g0b1c0_noise_robust_target_v1.py",
+      "sha256": "378b96ba4edfc382a1840d255bde5a1425bd0f44e7d9759202e562bae4ab0266"
+    },
+    {
+      "bytes": 33358,
+      "path": "lab/scripts/physical_sound_v44_g0b1c1_ieteasy_corpus_v1.py",
+      "sha256": "0e12af3ec6fc358617f3b268f4517541288883ad58610db07777ed76543e42c9"
+    }
+  ],
+  "environment": {
+    "ffmpeg": {
+      "bytes": 453104,
+      "path": "/usr/bin/ffmpeg",
+      "sha256": "bdf6aabffdba7411edff8d36c389d695257fcdf823d196020176e117612862f6"
+    },
+    "numpy_version": "2.5.2",
+    "scipy_version": "1.18.0"
+  },
+  "expected_input": {
+    "physical_parents": 15,
+    "selected_payload_bytes": 1657896,
+    "waveforms": 15
+  },
+  "profile_id": "physical-sound-v44-g0b1c1-ieteasy-corpus-v1",
+  "protocol": {
+    "bytes": 3611,
+    "path": "lab/profiles/physical-sound-v44-g0b1c1-ieteasy-corpus-protocol.v1.json",
+    "sha256": "bdbb1c272571e62acd5ccc3851ad736115057834e10ae25b76c8e37c0c150a7f"
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1c1-profile.v1"
+}
