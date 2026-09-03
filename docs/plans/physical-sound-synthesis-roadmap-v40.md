@@ -3,8 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата rebaseline | `2026-09-03` |
-| Статус | `ACTIVE / D0_COMPLETE / C0_NEXT / S0_CLEAN_GROWTH_OPEN_SOURCE_POWER_OOD / OFFLINE_ONLY / AUTHORED_FALLBACK` |
+| Статус | `SUPERSEDED_BY_V41 / I0_D0_EXACT_EVIDENCE_PRESERVED / C0_NOT_STARTED` |
 | Заменяет | [Roadmap V39](physical-sound-synthesis-roadmap-v39.md) как planning authority; F0/F1 и все прежние terminal results остаются историческим evidence |
+| Заменён | [Roadmap V41](physical-sound-synthesis-roadmap-v41.md), который отделяет быстрый disclosed lab loop от медленного independent admission loop |
 | Причина | [Project-independence correction](../development/physical-sound-v40-project-independence-rebaseline-2026-09-03.md): V39's `6/23` is an exact replay, but ObjectFolder and YCB already have opened signal and cannot supply current protected credit without a new whole-project audit |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; production consumer, public schema и promoting ADR отсутствуют |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных ударов, микрофона и обязательного ручного одобрения каждого звука |
