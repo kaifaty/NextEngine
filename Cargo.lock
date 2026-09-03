@@ -932,6 +932,8 @@ dependencies = [
 name = "next_game"
 version = "1.0.0"
 dependencies = [
+ "crc32fast",
+ "flate2",
  "next_application",
  "next_assets",
  "next_contracts",

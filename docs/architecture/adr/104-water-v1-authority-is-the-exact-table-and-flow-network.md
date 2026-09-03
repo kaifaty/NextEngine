@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-104 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Proposal date | 2026-09-02 |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md), [ADR-102](102-presentation-particle-surface-pass.md), [ADR-103](103-authoritative-water-flow-network.md) |
 | Supersedes | ADR-076 water clauses and the water promotion ladder of its "Product impact and promotion" section (including the Windows/Linux root requirement retired by ADR-090): "CPU `f64` DFSPH is the sole canonical candidate for water V1", the canonical particle water boundary, exact active-sample persistence and checkpoint epochs for water, and the particle reaction batch as the coupling path; the SPEC-38 1.x promotion ladder that placed `CONTINUUM-WATER-REF-P1`, `CONTINUUM-COUPLING-P1`, `CONTINUUM-PERSISTENCE-P1` and `CONTINUUM-MIRROR-P1` before water promotion |
 | Superseded by | none |
@@ -86,7 +86,7 @@ down a ladder the product no longer needs.
 |---|---|
 | `CONTINUUM-WATER-VOLUME-P1` | exact table, submersion, level command (PASS, R8c) |
 | `CONTINUUM-WATER-FLOW-P1` | exact network, conservation, gate response, roots (PASS, R8d) |
-| `CONTINUUM-WATER-PRESENT-P1` | presentation surface in the game root with identical roots with and without the solver (planned) |
+| `CONTINUUM-WATER-PRESENT-P1` | presentation stage in the game root with identical roots with and without it (PASS, WP1, plan `continuum-water/09`) |
 | `CONTINUUM-WATER-BUOYANCY-P1` | exact-level buoyancy/drag batch on one reference body through the one-pass coupling path; identical roots on `game` and `headless`; the batch never reads presentation (planned, first coupling consumer) |
 | `RENDER-DYNSURF-P1`, `RENDER-PARTICLE-SURFACE-P1` | presentation paths (ADR-101/102) |
 | conditional `performance` | the presentation solver's own budget row; the network step is reported per edge count (`183 us` at `64` cells / `256` edges today, no frozen bound yet) |

@@ -8,7 +8,7 @@ publish = false
 
 [features]
 default = []
-desktop-sdl-ash = ["dep:next_desktop_sdl_ash"]
+desktop-sdl-ash = ["dep:next_desktop_sdl_ash", "dep:flate2", "dep:crc32fast"]
 physical-sound-lab = ["next_application/physical-sound-lab"]
 physical-sound-selected-glass = [
     "physical-sound-lab",
@@ -19,11 +19,13 @@ physical-sound-selected-glass = [
 next_application.workspace = true
 next_contracts.workspace = true
 next_desktop_sdl_ash = { workspace = true, optional = true }
+crc32fast = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+next_reference_game.workspace = true
 
 [dev-dependencies]
 next_assets.workspace = true
 next_project.workspace = true
-next_reference_game.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

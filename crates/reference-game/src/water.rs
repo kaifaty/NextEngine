@@ -192,6 +192,25 @@ pub fn player_submersion(
     Ok(water.submersion_at(foot, tick))
 }
 
+/// Presentation object ids of the vessel surface quads (plan 09).
+pub const REFERENCE_WATER_VESSEL_A_SURFACE_OBJECT_ID: PersistentId =
+    PersistentId::from_bytes([0x84; 16]);
+pub const REFERENCE_WATER_VESSEL_B_SURFACE_OBJECT_ID: PersistentId =
+    PersistentId::from_bytes([0x85; 16]);
+
+/// World translation of an authored surface quad (authored at local
+/// `y = 0`): the exact effective level of one volume at `tick`.
+pub fn volume_surface_translation(
+    water: &WaterVolumeSetV1,
+    volume_id: PersistentId,
+    tick: u64,
+) -> Result<[i64; 3], ReferenceGameError> {
+    let level = water
+        .effective_level(volume_id, tick)
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
+    Ok([0, level, 0])
+}
+
 /// World translation of the authored basin surface quad (authored at local
 /// `y = 0`): the exact effective level of the reference basin at `tick`.
 pub fn water_surface_translation(

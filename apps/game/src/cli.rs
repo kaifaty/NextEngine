@@ -7,6 +7,10 @@ use next_contracts::ids::ContentHash;
 pub(super) struct GameOptions {
     pub(super) interactive: bool,
     pub(super) maximum_frames: Option<u64>,
+    /// Plan `continuum-water/09` diagnostic capture: the rendered frame
+    /// index to copy back and the PNG path to write it to.
+    pub(super) capture_frame: Option<u64>,
+    pub(super) capture_png: Option<PathBuf>,
     pub(super) project: Option<PathBuf>,
     pub(super) expected_lock: Option<ContentHash>,
     pub(super) state_root: Option<PathBuf>,
@@ -32,6 +36,21 @@ impl GameOptions {
                         return Err(AppFailure::argument(
                             "--maximum-frames must be one positive integer",
                         ));
+                    }
+                }
+                "--capture-frame" => {
+                    let value = required_value(&mut arguments, "--capture-frame")?;
+                    let index = value.parse::<u64>().map_err(|_| {
+                        AppFailure::argument("--capture-frame requires a non-negative integer")
+                    })?;
+                    if options.capture_frame.replace(index).is_some() {
+                        return Err(AppFailure::argument("--capture-frame specified twice"));
+                    }
+                }
+                "--capture-png" => {
+                    let value = required_value(&mut arguments, "--capture-png")?;
+                    if options.capture_png.replace(value.into()).is_some() {
+                        return Err(AppFailure::argument("--capture-png specified twice"));
                     }
                 }
                 "--project" => {
@@ -68,6 +87,20 @@ impl GameOptions {
             return Err(AppFailure::argument(
                 "--maximum-frames requires --interactive",
             ));
+        }
+        match (options.capture_frame, options.capture_png.as_ref()) {
+            (None, None) => {}
+            (Some(_), Some(_)) if options.interactive => {}
+            (Some(_), Some(_)) => {
+                return Err(AppFailure::argument(
+                    "--capture-frame and --capture-png require --interactive",
+                ));
+            }
+            _ => {
+                return Err(AppFailure::argument(
+                    "--capture-frame and --capture-png must be given together",
+                ));
+            }
         }
         Ok(options)
     }

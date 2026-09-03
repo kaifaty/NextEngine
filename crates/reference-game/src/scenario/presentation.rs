@@ -58,6 +58,10 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_QUEST_MARKER_MESH_ASSET_ID)?;
     let (water_surface_mesh, water_surface_bounds) =
         mesh(crate::source::REFERENCE_WATER_SURFACE_MESH_ASSET_ID)?;
+    let (vessel_a_surface_mesh, vessel_a_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID)?;
+    let (vessel_b_surface_mesh, vessel_b_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID)?;
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
@@ -401,6 +405,44 @@ pub(crate) fn fixture_presentation_bindings(
         },
         visible: true,
     });
+    // ADR-103 vessels: the same still-surface rule per flow cell; the
+    // presentation stage of plan 09 may animate these quads through rings.
+    for (object_id, volume_id, mesh_revision, bounds, ordinal) in [
+        (
+            crate::water::REFERENCE_WATER_VESSEL_A_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_VESSEL_A_ID,
+            vessel_a_surface_mesh,
+            vessel_a_surface_bounds,
+            15,
+        ),
+        (
+            crate::water::REFERENCE_WATER_VESSEL_B_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_VESSEL_B_ID,
+            vessel_b_surface_mesh,
+            vessel_b_surface_bounds,
+            16,
+        ),
+    ] {
+        bindings.push(PresentationBindingV1 {
+            persistent_id: object_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 14,
+            mesh_revision,
+            material_revision: water_material,
+            instance_ordinal: ordinal,
+            local_bounds: bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: None,
+            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+                translation_micrometres: crate::water::volume_surface_translation(
+                    water, volume_id, tick,
+                )?,
+                orientation_q30: IDENTITY_Q30,
+            },
+            visible: true,
+        });
+    }
     if let Some(focus_body_id) = focus_body_id {
         bindings.push(PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x75; 16]),

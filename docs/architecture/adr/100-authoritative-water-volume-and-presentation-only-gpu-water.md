@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-100 |
 | Status | Proposed |
-| Version | 0.2 |
+| Version | 0.3 |
 | Proposal date | 2026-09-02 |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md) |
 | Supersedes | ADR-076 clauses "GPU DFSPH is optional correspondence-only work", the crate-coupled first consumer and "debug points/spheres are sufficient presentation", for water V1 only |
 | Superseded by | none |
@@ -128,9 +128,15 @@ reaction batch exists and PhysX remains the sole rigid writer.
   mesh without touching its identity or bounds.
 - `xtask water-volume` runs `CONTINUUM-WATER-VOLUME-P1` including the
   production locomotion walk into the basin, the classification before and
-  after a level command and the surface binding translation. The
-  solver-driven surface in the game root (`CONTINUUM-WATER-PRESENT-P1`)
-  is the next increment.
+  after a level command and the surface binding translation.
+- WP1 (plan `continuum-water/09`): the presentation stage
+  `compute_water_presentation_frame` in the reference game crate is a
+  pure function of the committed checkpoint and a frame index (surfaces
+  following the exact levels with a flux-driven ripple capped at `20 mm`,
+  a stateless ballistic jet from the exact gate flux); the interactive
+  worker publishes it beside the snapshot and `apps/game` feeds the
+  ADR-101 ring (three quads) and the ADR-102 particle pass.
+  `xtask water-present` runs `CONTINUUM-WATER-PRESENT-P1` (PASS).
 
 ## Consequences
 
@@ -154,7 +160,7 @@ reaction batch exists and PhysX remains the sole rigid writer.
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
 | `CONTINUUM-WATER-VOLUME-P1` | `xtask water-volume`: activate the reference basin, probe authored points, raise the level through the production command path, reject stale/out-of-extent/unknown commands, round-trip the physics checkpoint, restore and continue. | Exact probe table, one event per commit, unchanged table on rejection, byte-exact checkpoint, restored and live runs reach the same root, repeated generation identical; `play`/`persistence-replay` keep `game`/`headless` parity. | Reject the region before activation; keep the dry variant. |
-| `CONTINUUM-WATER-PRESENT-P1` | Drive the basin surface from the presentation solver for a bounded window with capture. | One catalog/snapshot/frame plan per run, declared ring capacity respected, gameplay roots unchanged with and without presentation, capture is diagnostic only. | Still surface at the authoritative level. |
+| `CONTINUUM-WATER-PRESENT-P1` | `xtask water-present`: compute the presentation stage from the committed checkpoint for `600` ticks on one runtime and compare with a runtime that never sees it; drive the game root with the stage for a bounded capture. | Gameplay roots identical every tick with and without the stage, every update within the declared capacities and bounds, the stage pure and within `1 ms` per frame, one catalog/frame plan per run, capture diagnostic only (PASS, WP1; the human look gate is a walk to the vessels with `--capture-frame`/`--capture-png`). | Still surface at the authoritative level. |
 
 ## Considered alternatives
 

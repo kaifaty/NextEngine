@@ -18,9 +18,21 @@ use next_application::{
 use next_contracts::preferences::PlayerPreferenceProfileV1;
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
 
+#[cfg(feature = "desktop-sdl-ash")]
+mod capture;
 mod cli;
+#[cfg(feature = "desktop-sdl-ash")]
+mod water_presentation;
 
 use cli::{AppFailure, GameOptions};
+
+/// `--capture-frame` / `--capture-png`: one rendered frame to write as a
+/// diagnostic PNG (plan `continuum-water/09`, human look gate).
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CaptureOptions {
+    rendered_frame_index: u64,
+    png: std::path::PathBuf,
+}
 
 fn main() {
     match run(std::env::args().skip(1)) {
@@ -88,7 +100,13 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         platform_capability_set,
     };
     if options.interactive {
-        return run_interactive_session(launch, options.maximum_frames);
+        let capture = options.capture_frame.zip(options.capture_png.clone()).map(
+            |(rendered_frame_index, png)| CaptureOptions {
+                rendered_frame_index,
+                png,
+            },
+        );
+        return run_interactive_session(launch, options.maximum_frames, capture);
     }
 
     let mut application =
@@ -132,7 +150,12 @@ fn begin_or_resume_reference_game_live(
 fn run_interactive_session(
     launch: LaunchRequestV1,
     maximum_frames: Option<u64>,
+    capture: Option<CaptureOptions>,
 ) -> Result<RunReportV1, AppFailure> {
+    let capture = capture.map(|capture| capture::CaptureRequest {
+        rendered_frame_index: capture.rendered_frame_index,
+        png: capture.png,
+    });
     let state_root = launch.state_root.clone();
     let (worker, ready) =
         InteractiveSimulationWorkerV1::spawn(launch).map_err(AppFailure::interactive_worker)?;
@@ -167,105 +190,118 @@ fn run_interactive_session(
             }
         };
 
-    let adapter =
-        next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
-            Arc::clone(&ready.initial_snapshot),
-            &ready.render_content_catalog,
-            &next_desktop_sdl_ash::DesktopRunOptions {
-                maximum_frames,
-                host_instance_id: ready.host_instance_id,
-                resume_suspended_application: ready.resume_suspended_application,
-                ui_text_catalogs: ready.text_catalogs.clone(),
-                ui_locale: ui_locale.clone(),
-                ui_text_scale_milli,
-                ui_subtitles_enabled,
-                ..next_desktop_sdl_ash::DesktopRunOptions::default()
-            },
-            |events, elapsed, audio| {
-                let mut worker = worker.borrow_mut();
-                if let Some(failure) = worker.try_take_failure() {
-                    eprintln!(
-                        "next_game: simulation worker failed before desktop finalization: {}: {}",
-                        failure.code, failure.message
-                    );
-                    return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
-                        failure.code,
-                        failure.message,
-                    ));
-                }
-                let scheduler_events = platform_events_before_close_boundary(
-                    events,
-                    &mut platform_close_event.borrow_mut(),
+    // Plan 09 (ADR-101/102): the three authored water quads are declared as
+    // dynamic surfaces and the gate jet as the one particle surface. Both
+    // are presentation-only feeds of the committed checkpoint.
+    let mut water_feed =
+        water_presentation::WaterPresentationFeed::new(&ready.render_content_catalog)
+            .map_err(|message| AppFailure::cli("GAME_WATER_PRESENTATION_INVALID", message))?;
+    let adapter = next_desktop_sdl_ash::run_interactive_with_shared_frame_publication_and_finalize(
+        Arc::clone(&ready.initial_snapshot),
+        &ready.render_content_catalog,
+        &next_desktop_sdl_ash::DesktopRunOptions {
+            maximum_frames,
+            host_instance_id: ready.host_instance_id,
+            resume_suspended_application: ready.resume_suspended_application,
+            ui_text_catalogs: ready.text_catalogs.clone(),
+            ui_locale: ui_locale.clone(),
+            ui_text_scale_milli,
+            ui_subtitles_enabled,
+            dynamic_surfaces: water_feed.dynamic_surface_profiles(),
+            particle_surface: Some(water_feed.particle_surface_profile()),
+            frame_capture: capture
+                .as_ref()
+                .map(capture::CaptureRequest::adapter_request),
+            ..next_desktop_sdl_ash::DesktopRunOptions::default()
+        },
+        |events, elapsed, audio| {
+            let mut worker = worker.borrow_mut();
+            if let Some(failure) = worker.try_take_failure() {
+                eprintln!(
+                    "next_game: simulation worker failed before desktop finalization: {}: {}",
+                    failure.code, failure.message
                 );
-                worker
-                    .submit_advance(elapsed, scheduler_events)
-                    .map_err(|failure| {
-                        next_desktop_sdl_ash::DesktopAdapterError::client(
-                            failure.code,
-                            failure.message,
-                        )
-                    })?;
-                if let Some(failure) = worker.try_take_failure() {
-                    eprintln!(
-                        "next_game: simulation worker failed before desktop finalization: {}: {}",
-                        failure.code, failure.message
-                    );
-                    return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
-                        failure.code,
-                        failure.message,
-                    ));
-                }
-
-                // Baseline audio (A4): queue exactly the canonical PCM windows the
-                // worker published since the previous pump; output failure degrades
-                // to silence inside the adapter and never fails the frame.
-                if let Ok(Some(frame)) = worker.read_latest_audio()
-                    && frame.audio_sequence != last_audio_sequence
-                {
-                    last_audio_sequence = frame.audio_sequence;
-                    audio.queue_pcm(&frame.pcm);
-                }
-
-                let latest = worker.read_latest_snapshot().map_err(|failure| {
+                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                    failure.code,
+                    failure.message,
+                ));
+            }
+            let scheduler_events = platform_events_before_close_boundary(
+                events,
+                &mut platform_close_event.borrow_mut(),
+            );
+            worker
+                .submit_advance(elapsed, scheduler_events)
+                .map_err(|failure| {
                     next_desktop_sdl_ash::DesktopAdapterError::client(failure.code, failure.message)
                 })?;
-                let latest = latest.snapshot;
-                let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
-                if generation == last_rendered_generation {
-                    Ok(None)
-                } else {
-                    last_rendered_generation = generation;
-                    Ok(Some(latest))
-                }
-            },
-            || {
-                let finalization = worker
-                    .borrow_mut()
-                    .shutdown_attempt(platform_close_event.borrow().clone(), 0);
-                if let InteractiveWorkerFinalizationV1::Closed { result, .. } = finalization {
-                    *worker_result.borrow_mut() =
-                        Some((*result).map_err(AppFailure::interactive_worker));
-                    return next_desktop_sdl_ash::DesktopApplicationFinalization::Complete;
-                }
+            if let Some(failure) = worker.try_take_failure() {
+                eprintln!(
+                    "next_game: simulation worker failed before desktop finalization: {}: {}",
+                    failure.code, failure.message
+                );
+                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                    failure.code,
+                    failure.message,
+                ));
+            }
 
-                finalization_retries = finalization_retries.saturating_add(1);
-                if finalization_retries.is_power_of_two() {
-                    let message = match &finalization {
-                        InteractiveWorkerFinalizationV1::Retry(failure) => {
-                            format!("{}: {}", failure.code, failure.message)
-                        }
-                        InteractiveWorkerFinalizationV1::Closed { .. } => {
-                            "simulation worker did not confirm durable Closed".to_owned()
-                        }
-                    };
-                    eprintln!(
-                        "next_game: keeping desktop adapter alive for exact close retry {}: {}",
-                        finalization_retries, message
-                    );
-                }
-                next_desktop_sdl_ash::DesktopApplicationFinalization::Retry
-            },
-        );
+            // Baseline audio (A4): queue exactly the canonical PCM windows the
+            // worker published since the previous pump; output failure degrades
+            // to silence inside the adapter and never fails the frame.
+            if let Ok(Some(frame)) = worker.read_latest_audio()
+                && frame.audio_sequence != last_audio_sequence
+            {
+                last_audio_sequence = frame.audio_sequence;
+                audio.queue_pcm(&frame.pcm);
+            }
+
+            let read = worker.read_latest_snapshot().map_err(|failure| {
+                next_desktop_sdl_ash::DesktopAdapterError::client(failure.code, failure.message)
+            })?;
+            let latest = read.snapshot;
+            let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
+            if generation == last_rendered_generation {
+                Ok(next_desktop_sdl_ash::DesktopFramePublicationV1::snapshot_only(None))
+            } else {
+                last_rendered_generation = generation;
+                let (dynamic_surface_updates, particle_surface_update) =
+                    water_feed.publication(read.water.as_deref())?;
+                Ok(next_desktop_sdl_ash::DesktopFramePublicationV1 {
+                    snapshot: Some(latest),
+                    dynamic_surface_updates,
+                    particle_surface_update,
+                })
+            }
+        },
+        || {
+            let finalization = worker
+                .borrow_mut()
+                .shutdown_attempt(platform_close_event.borrow().clone(), 0);
+            if let InteractiveWorkerFinalizationV1::Closed { result, .. } = finalization {
+                *worker_result.borrow_mut() =
+                    Some((*result).map_err(AppFailure::interactive_worker));
+                return next_desktop_sdl_ash::DesktopApplicationFinalization::Complete;
+            }
+
+            finalization_retries = finalization_retries.saturating_add(1);
+            if finalization_retries.is_power_of_two() {
+                let message = match &finalization {
+                    InteractiveWorkerFinalizationV1::Retry(failure) => {
+                        format!("{}: {}", failure.code, failure.message)
+                    }
+                    InteractiveWorkerFinalizationV1::Closed { .. } => {
+                        "simulation worker did not confirm durable Closed".to_owned()
+                    }
+                };
+                eprintln!(
+                    "next_game: keeping desktop adapter alive for exact close retry {}: {}",
+                    finalization_retries, message
+                );
+            }
+            next_desktop_sdl_ash::DesktopApplicationFinalization::Retry
+        },
+    );
 
     let mut worker_report = worker_result.into_inner().ok_or_else(|| {
         AppFailure::cli(
@@ -276,6 +312,27 @@ fn run_interactive_session(
     let adapter =
         adapter.map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;
     worker_report.interactive_host_object_count = adapter.rendered_objects;
+    // Plan 09 G5 evidence: one catalog and one frame plan per run, the ring
+    // and the particle pass fed once per published snapshot.
+    eprintln!(
+        "next_game: water presentation: dynamic_surface_publications={}, dynamic_surface_uploads={}, dynamic_surface_draws={}, particle_surface_available={}, particle_surface_publications={}, particle_surface_frames={}, frame_plan_cache_misses={}, frame_plan_explicit_invalidations={}",
+        adapter.dynamic_surface_publications,
+        adapter.dynamic_surface_uploads,
+        adapter.dynamic_surface_draws,
+        adapter.particle_surface_available,
+        adapter.particle_surface_publications,
+        adapter.particle_surface_frames,
+        adapter.frame_plan_cache_misses,
+        adapter.frame_plan_explicit_invalidations,
+    );
+    if let Some(capture) = &capture {
+        capture.write(&adapter.captured_frames)?;
+        eprintln!(
+            "next_game: captured rendered frame {} to {}",
+            capture.rendered_frame_index,
+            capture.png.display()
+        );
+    }
 
     eprintln!(
         "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}",
@@ -342,6 +399,7 @@ fn platform_events_before_close_boundary(
 fn run_interactive_session(
     _launch: LaunchRequestV1,
     _maximum_frames: Option<u64>,
+    _capture: Option<CaptureOptions>,
 ) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",

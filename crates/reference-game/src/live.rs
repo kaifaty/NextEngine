@@ -202,6 +202,24 @@ impl ValidatedReferenceGameAdvance {
 }
 
 impl ReferenceGameDriverV2 {
+    /// Presentation-only water frame (plan 09) for the committed physics
+    /// checkpoint at the next tick; a pure function of that checkpoint and
+    /// the presentation frame index, never read by gameplay.
+    #[must_use]
+    pub fn water_presentation_frame(
+        &self,
+        frame_index: u64,
+    ) -> crate::water_presentation::WaterPresentationFrameV1 {
+        let checkpoint = self.runtime.physics_checkpoint();
+        crate::water_presentation::compute_water_presentation_frame(
+            &checkpoint.water_volumes,
+            &checkpoint.water_flow,
+            &crate::water_presentation::reference_water_surface_bindings(),
+            self.runtime.next_tick(),
+            frame_index,
+        )
+    }
+
     pub fn new(
         package: next_project::ActivatedProjectPackage,
         include_interaction: bool,

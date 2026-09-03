@@ -578,6 +578,7 @@ pub(super) fn handle_suspended_pause_menu_frame(
                                     InteractivePublishedSnapshotV1 {
                                         snapshot,
                                         callback_sequence: Some(callback_sequence),
+                                        water: None,
                                     },
                                 ) {
                                     record_interactive_worker_failure(
@@ -687,6 +688,7 @@ pub(super) fn handle_suspended_pause_menu_frame(
                             mailbox.publish_latest(InteractivePublishedSnapshotV1 {
                                 snapshot: Arc::new(clone),
                                 callback_sequence: Some(callback_sequence),
+                                water: None,
                             });
                         }
                         Err(_) => record_interactive_worker_failure(

@@ -182,6 +182,9 @@ pub struct InteractiveMainSubmitV1 {
 #[derive(Clone, Debug)]
 pub struct InteractiveMainSnapshotReadV1 {
     pub snapshot: Arc<PresentationSnapshotV3>,
+    /// Plan 09 water presentation frame published with the snapshot; absent
+    /// on menu republications, in which case the consumer keeps its last.
+    pub water: Option<Arc<next_reference_game::WaterPresentationFrameV1>>,
     pub lock_wait: Duration,
     pub processed_callbacks: u64,
     pub publication_callback_sequence: Option<u64>,
@@ -200,6 +203,7 @@ pub enum InteractiveWorkerFinalizationV1 {
 struct InteractivePublishedSnapshotV1 {
     snapshot: Arc<PresentationSnapshotV3>,
     callback_sequence: Option<u64>,
+    water: Option<Arc<next_reference_game::WaterPresentationFrameV1>>,
 }
 
 /// One atomic handoff between the simulation worker and desktop consumer.

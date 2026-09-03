@@ -523,6 +523,33 @@ pub struct WaterFlowDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WaterPresentDetailsV1 {
+    pub check_id: String,
+    pub run_ticks: u64,
+    pub frames: u64,
+    pub surfaces_per_frame: usize,
+    pub vertex_capacity: u32,
+    pub index_capacity: u32,
+    pub particle_capacity: u32,
+    pub roots_identical: bool,
+    pub capacity_violations: u64,
+    pub bounds_violations: u64,
+    pub purity_identical: bool,
+    pub max_jet_particles: u32,
+    pub frames_with_jet: u64,
+    pub max_ripple_um: i64,
+    pub stage_cost_max_us: String,
+    pub stage_cost_mean_us: String,
+    pub stage_cost_debug_build: bool,
+    pub repeated_run_identical: bool,
+    pub final_state_root: String,
+    pub final_physics_checkpoint_hash: String,
+    pub frames_digest: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WaterVolumeDetailsV1 {
     pub check_id: String,
     pub basin_id: String,

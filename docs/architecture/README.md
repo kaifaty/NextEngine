@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.76 |
-| Последняя проверка | 2026-09-02 |
-| Заменяет | INDEX-001 2.75; indexes Proposed ADR-105 (exact-level buoyancy reaction batch) |
+| Версия | 2.77 |
+| Последняя проверка | 2026-09-03 |
+| Заменяет | INDEX-001 2.76; records SPEC-38 2.3, ADR-100 0.3 and ADR-104 0.3 with `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -188,7 +188,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted product semantics and current ADR-098 intact-topology condition/capability subset; fracture/topology/UI/LOD remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
-| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 2.2 closes the water authority ladder on the exact table and flow network (ADR-104), binds the water tiers and practices, keeps the particle lanes as research reports; `CONTINUUM-WATER-VOLUME-P1` and `CONTINUUM-WATER-FLOW-P1` pass |
+| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 track; 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1 presentation stage in the game root); 2.2 closes the water authority ladder on the exact table and flow network (ADR-104), binds the water tiers and practices, keeps the particle lanes as research reports; `CONTINUUM-WATER-VOLUME-P1` and `CONTINUUM-WATER-FLOW-P1` pass |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed successor stage-8 `WorldDynamicsStep`, runtime-owned DAG, exact identity, epoch persistence and fail-stop transaction; current schedule remains unchanged |
@@ -306,11 +306,11 @@ traceability — навигационная карта, не admission authority
 | ADR-097 | [Linux v1 distribution closure](adr/097-linux-v1-distribution-closure.md) | Accepted PackageManifest V6, release 1.0.0, selected offline dependency/license inventory, packaged user docs, builder-path remapping and reproducible protected-data scan |
 | ADR-098 | [Bounded intact-topology functional-anatomy condition vertical](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) | Accepted R8a BodySchema-bound unilateral profile, RPG condition/treatment owner, derived directional capability envelope and fixed-PD clamp; fracture/topology/UI/LOD remain Proposed |
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
-| ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume` (R8c: table in the physics checkpoint, level command, `CONTINUUM-WATER-VOLUME-P1 = PASS`), the Nonlocal GPU candidate animates only the presentation surface |
+| ADR-100 | [Authoritative water volume and presentation-only GPU water dynamics](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) | Proposed; water V1 gameplay reads an exact CPU `WaterVolume` (R8c: table in the physics checkpoint, level command, `CONTINUUM-WATER-VOLUME-P1 = PASS`), the presentation stage (WP1: surfaces on exact levels, flux ripple, gate jet through the ADR-101/102 paths, `CONTINUUM-WATER-PRESENT-P1 = PASS`) never touches a root |
 | ADR-101 | [Presentation-only dynamic surface ring and bounded frame capture](adr/101-presentation-only-dynamic-surface-ring.md) | Proposed; declared per-frame-slot vertex/index rings for exact catalog meshes and a one-frame developer capture, both outside every root |
 | ADR-102 | [Presentation-only particle surface pass](adr/102-presentation-particle-surface-pass.md) | Proposed; one bounded particle set rendered as a screen-space fluid (depth splat, narrow-range smoothing, thickness, Fresnel/refraction composite) after the world pass, outside every root |
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Proposed; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
-| ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Proposed; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks |
+| ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Proposed; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks (three pass; buoyancy remains) |
 | ADR-105 | [Exact-level buoyancy reaction batch](adr/105-exact-level-buoyancy-reaction-batch.md) | Proposed; the first one-pass coupling consumer: an exact impulse batch from committed water levels and body bounds rides `PhysicsStepInputV3`, PhysX stays the sole rigid writer, check `CONTINUUM-WATER-BUOYANCY-P1`, plan `continuum-water/08` |
 
 ## Proposed tracks

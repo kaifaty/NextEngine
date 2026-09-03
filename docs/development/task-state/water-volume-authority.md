@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Task | Implement ADR-100 option C: exact CPU `WaterVolume` for gameplay, presentation-only water for the renderer |
-| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / PLAYER_CLASS_AND_STILL_SURFACE_DONE / VESSEL_SURFACES_AND_SOLVER_SURFACE_NEXT` |
+| Status | `ACTIVE / CONTINUUM-WATER-VOLUME-P1=PASS / CONTINUUM-WATER-FLOW-P1=PASS (R8d) / CONTINUUM-WATER-PRESENT-P1=PASS (WP1) / FREE_BODY_DYNAMICS_THEN_BUOYANCY_NEXT` |
 | Branch | `codex/water-research` |
-| Last updated | 2026-09-02 |
+| Last updated | 2026-09-03 |
 
 ## Resume in 60 seconds
 
@@ -45,10 +45,24 @@
   Reference scene: vessels `0x7e`/`0x7f`, gate `0x80`, source `0x81`,
   sink `0x82`. `cargo run -p xtask -- water-flow` runs
   `CONTINUUM-WATER-FLOW-P1`.
-- **Next:** surface meshes for the two vessels (presentation only), then
-  the ADR-101 ring inside the game root fed by the presentation solver
-  stream (`CONTINUUM-WATER-PRESENT-P1`, `RENDER-DYNSURF-P1`); the
-  research CUDA tool stays a separate process behind the neutral stream.
+- **Presentation stage (WP1, plan `continuum-water/09`).**
+  `next_reference_game::compute_water_presentation_frame` is a pure
+  function of the committed checkpoint (levels and edge fluxes) and a
+  frame index: `32 x 16` grids per quad with a flux-driven ripple (cap
+  `20 mm`) and a stateless ballistic jet at every gate/pipe mouth (one
+  droplet per `0.5 L`, at most `4,096`). Vessel quads `0x7e`/`0x7f`
+  (objects `0x84`/`0x85`) join the basin quad as environment records. The
+  interactive worker publishes the frame beside the snapshot;
+  `apps/game` declares the three quads as ADR-101 dynamic surfaces and
+  the jet as the ADR-102 particle surface (`water_presentation.rs`) and
+  takes `--capture-frame N --capture-png PATH` for one diagnostic PNG.
+  `cargo run -p xtask -- water-present` runs
+  `CONTINUUM-WATER-PRESENT-P1` (roots identical with and without the
+  stage, capacities, purity, `98 us` release cost).
+- **Next:** exact vertical free-body dynamics for dynamic boxes (mass,
+  gravity, floor contact) under SPEC-26, then the ADR-105 buoyancy batch
+  (plan `continuum-water/08`); the research CUDA tool stays a separate
+  process behind the neutral stream.
 
 ## Required context
 
@@ -140,6 +154,26 @@
   with lattice cells and open edges) or a rigid-body coupling consumer
   lands.
 
+### D-007 — The presentation stage is a pure function inside the reference game crate
+
+- **Observation:** ADR-101/102 rings need per-frame payloads; SPEC-38 2.2
+  practice 5 asks for edge-driven presentation and practice 6 for one
+  writer per substance; the interactive worker already publishes one
+  snapshot per generation to the desktop adapter.
+- **Decision:** `compute_water_presentation_frame(volumes, network,
+  bindings, tick, frame_index)` lives in `next_reference_game` and reads
+  only `effective_level` and `edge_flux`; the worker attaches the frame to
+  its published snapshot; `apps/game` converts it into ADR-101/102 updates
+  with a monotonic sequence and republishes the last frame under menu
+  republication. The jet is stateless (re-integrated from the flux each
+  frame) so purity holds without a particle pool.
+- **Rejected:** a stateful emitter in the adapter feed (would break G3 and
+  the one-writer rule); feeding the ring from the research CUDA stream in
+  the game root (a second process for a presentation effect); a solver
+  inside the runtime tick (presentation state next to gameplay roots).
+- **Reconsider when:** a wave layer needs history (SPEC-38 practice 7
+  would then own a bounded presentation-only state with its own writer).
+
 ### D-003 — Verification issues the level command as a `Tool` principal
 
 - **Observation:** no gameplay mechanic sets a water level yet; the player
@@ -184,23 +218,18 @@
 
 0. Water mechanics (ADR-103): done in R8d (`CONTINUUM-WATER-FLOW-P1 =
    PASS`); the network tick rate is cross-checked against the world
-   profile at activation and restore (2026-09-03). Plan
-   `continuum-water/08` (ADR-105 buoyancy batch) is blocked by a
-   prerequisite: the canonical world has no free rigid dynamics for
-   boxes (no mass, no gravity, push-only). Decision pending: (a) an exact
-   vertical free-body increment for dynamic boxes (mass in the
-   descriptor, gravity, floor contact) under SPEC-26, then the batch; or
-   (b) do `CONTINUUM-WATER-PRESENT-P1` first and return to buoyancy with
-   (a). Then the SPEC-38 2.2
-   practices in ADR-103 order (lattice tier, activity stepping,
-   edge-driven presentation, rotational presentation, wave layer);
-   surface meshes for the two vessels ride the first presentation
-   increment.
-1. Presentation solver in the game root: declare the basin mesh as an
-   ADR-101 dynamic surface in `apps/game`, feed it from the neutral stream
-   (`nonlocal-feasibility --game-surface-stream`) or a still fallback, and
-   define `CONTINUUM-WATER-PRESENT-P1` around a bounded capture with
-   identical gameplay roots with and without the solver.
+   profile at activation and restore (2026-09-03). Presentation stage:
+   done in WP1 (`CONTINUUM-WATER-PRESENT-P1 = PASS`, plan
+   `continuum-water/09`; the human look gate G6 stays open until a walk
+   to the vessels with the capture flags). Decided 2026-09-03 (D-007):
+   the presentation stage first, then the free-body increment.
+1. Exact vertical free-body dynamics for dynamic boxes (mass in the
+   descriptor, gravity, floor contact, integer integration in
+   `GroundedCapsuleWorld` shared by both backends) under a frozen plan
+   and a SPEC-26 increment; then plan `continuum-water/08` (ADR-105
+   buoyancy batch). After that the remaining SPEC-38 2.2 practices in
+   ADR-103 order (lattice tier, activity stepping, rotational
+   presentation).
 2. Optional gameplay effect: motor speed scaling from the classification
    (needs its own bounded evidence; not part of C's authority split).
 3. Keep ADR-100/103/104 Proposed until the four `CONTINUUM-WATER-*` checks pass, then accept them with the

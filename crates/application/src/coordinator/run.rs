@@ -321,6 +321,17 @@ impl ApplicationCoordinator {
         })
     }
 
+    /// Plan 09 water presentation frame of the current live run, if any.
+    #[must_use]
+    pub fn latest_water_presentation_frame(
+        &self,
+        frame_index: u64,
+    ) -> Option<Arc<next_reference_game::WaterPresentationFrameV1>> {
+        self.live_run
+            .as_ref()
+            .map(|driver| Arc::new(driver.water_presentation_frame(frame_index)))
+    }
+
     /// Interactive pause menu (S5): while the declared pause suspend was
     /// active, the host consumed admitted menu-key events outside the game
     /// input stream. Queues them into the live input session for cursor-only

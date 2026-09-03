@@ -30,6 +30,9 @@ pub const REFERENCE_RELAY_APPROACH_MATERIAL_ASSET_ID: AssetId = AssetId::from_by
 pub const REFERENCE_INDICATOR_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd7; 16]);
 pub const REFERENCE_WATER_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7c; 16]);
 pub const REFERENCE_WATER_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x7d; 16]);
+/// ADR-103 vessel surface quads (presentation only), sharing the water material.
+pub const REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7e; 16]);
+pub const REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7f; 16]);
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

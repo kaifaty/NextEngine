@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 2.2 |
-| Last verified | 2026-09-02 |
+| Version | 2.3 |
+| Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](adr/103-authoritative-water-flow-network.md), [ADR-104](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
-| Candidate revision note | Version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
+| Candidate revision note | Version 2.3 records `CONTINUUM-WATER-PRESENT-P1 = PASS` (WP1, plan `continuum-water/09`): the presentation stage as a pure function of the committed checkpoint feeding the ADR-101 ring and the ADR-102 particle pass in the game root; version 1.9 records the first R8d increment of [ADR-103](adr/103-authoritative-water-flow-network.md): `WaterFlowNetworkV1` inside the physics world checkpoint (schema version 3), the flow command kind and `CONTINUUM-WATER-FLOW-P1 = PASS`; version 1.8 recorded the first R8c increment of [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md): `WaterVolumeSetV1` inside the physics world checkpoint, the water level command and `CONTINUUM-WATER-VOLUME-P1 = PASS`; the authority split, density-only boundary support, presentation surface path, W0H CPU reference lane and ADR-081 guardrails are unchanged from 1.7 |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -29,10 +29,10 @@ adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
 vehicle simulation and production sleep conversion are outside the first
 water consumer.
 
-`CONTINUUM-WATER-VOLUME-P1` (R8c) and `CONTINUUM-WATER-FLOW-P1` (R8d)
-pass through `xtask water-volume` and `xtask water-flow`; the remaining
-product checks are `CONTINUUM-WATER-PRESENT-P1` and
-`CONTINUUM-WATER-BUOYANCY-P1` (ADR-104). The research checks below are
+`CONTINUUM-WATER-VOLUME-P1` (R8c), `CONTINUUM-WATER-FLOW-P1` (R8d) and
+`CONTINUUM-WATER-PRESENT-P1` (WP1) pass through `xtask water-volume`,
+`xtask water-flow` and `xtask water-present`; the remaining product check
+is `CONTINUUM-WATER-BUOYANCY-P1` (ADR-104, ADR-105). The research checks below are
 reports, not promotion gates. The authoritative water table lives in the physics world
 checkpoint under Proposed ADR-100 and SPEC-26 2.6; the particle lanes below
 still change no production world, save/replay format or public contract.
@@ -391,7 +391,7 @@ Product checks (ADR-104): water is promoted when the four
 |---|---|
 | `CONTINUUM-WATER-VOLUME-P1` | Activate one sealed basin `WaterVolume`, query submersion at authored points, save/load and replay; exact roots on `game` and `headless`, queries never read presentation, level changes only through commands. |
 | `CONTINUUM-WATER-FLOW-P1` | Step the two reference vessels through a gated pipe with a source and a sink; exact volume conservation every tick, drain within twice the analytic time, gate response within one tick, identical live and restored roots, stable rejections, no presentation read. |
-| `CONTINUUM-WATER-PRESENT-P1` | Drive the basin surface from the presentation solver for a bounded window with capture; one catalog/snapshot/frame plan per run, declared ring capacity respected, gameplay roots identical with and without presentation, capture diagnostic only. |
+| `CONTINUUM-WATER-PRESENT-P1` | Compute the presentation stage (surfaces following the exact levels with a flux-driven ripple, a jet from the exact gate flux) from the committed checkpoint for a bounded run and feed the ADR-101 ring and ADR-102 particle pass in the game root; gameplay roots identical every tick with and without the stage, every update within the declared capacities and bounds, the stage a pure function of checkpoint and frame index within `1 ms`, one catalog/frame plan per run, capture diagnostic only (PASS, WP1). |
 | `CONTINUUM-WATER-BUOYANCY-P1` | One reference body over the exact cell level: buoyancy and drag delivered as one reaction batch through the one-pass composite step; identical roots on `game` and `headless`; the batch reads no presentation state; a body outside every cell receives no reaction. |
 
 Research reports (frozen plans and evidence; calibration sources, not
