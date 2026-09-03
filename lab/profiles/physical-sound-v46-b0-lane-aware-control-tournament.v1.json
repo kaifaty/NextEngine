@@ -49,9 +49,9 @@
       "sha256": "8fe5608a4d4a573c7f7698b41fce6a7b8c347cee96b88fd5e05a4017138b6fec"
     },
     {
-      "bytes": 6935,
+      "bytes": 7210,
       "path": "docs/development/physical-sound-v46-b0-lane-aware-control-tournament-protocol-2026-09-03.md",
-      "sha256": "e5951223ea61f645aa427fa38058561e0213dd65498a2b94add4a9becc69fac8"
+      "sha256": "82cf67104e2a74ef182faebf7aba77ec3785970f1669129bd40623c63a1a1684"
     },
     {
       "bytes": 6711,
@@ -89,9 +89,9 @@
       "sha256": "f82fa1ac1a26cc362d1e504a1e6efb2eb5c0de16be51accc7a99ddc156945e3c"
     },
     {
-      "bytes": 38033,
+      "bytes": 38252,
       "path": "lab/scripts/physical_sound_v46_b0_lane_aware_control_tournament_v1.py",
-      "sha256": "4966cc3d9dd617aae27f8fbe94c4be210a1f0d5a19d7b14c303cb49a2610876b"
+      "sha256": "4cd394a983e3a1395624a568116c6fde74fc10c0bdb8475d01757bb4d2fba0d2"
     }
   ],
   "environment": {

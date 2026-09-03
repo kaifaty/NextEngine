@@ -53,7 +53,8 @@ The C0R adapter preserves the frozen V44 representation:
 - 24 log spectral bands, 48 transient-envelope bins, 24 modal-histogram bins
   and nine global features (`105` dimensions total);
 - target values are aggregated arithmetically per physical parent before fit
-  or evaluation;
+  or evaluation; the two disclosed cross-source train anchors may span source
+  projects but remain one train parent and receive no project vote;
 - the scaler uses generator-train parents only;
 - unknown material contributes to the unconditional scaler/global prototype
   but not to conditioned retrieval or ridge;
@@ -113,7 +114,9 @@ credit. Output is atomic, flat and external; failure publishes nothing.
    frozen state.
 3. C0R train/development rows are disjoint by record and physical parent and
    agree with their D1 roles, contracts and target references.
-4. Each parent belongs to one source project and one material-mask state.
+4. Each parent belongs to one role and one material-mask state; a development
+   parent belongs to exactly one source project, while a cross-source train
+   parent remains one parent and is excluded from project voting.
 5. Exactly `64/70` C0R train/development records become `34/30` parents; 24
    development parents have train-supported coarse material.
 6. Exactly 134 unique C0R target objects and 682,733 bytes are read; no other

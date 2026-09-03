@@ -520,7 +520,7 @@ def c0r_rows_by_role(
         "generator_train": [],
         "generator_development": [],
     }
-    parent_projects: dict[str, str] = {}
+    parent_projects: dict[str, set[str]] = defaultdict(set)
     seen_records = set()
     parent_roles: dict[str, str] = {}
     for raw in rows:
@@ -540,8 +540,7 @@ def c0r_rows_by_role(
         seen_records.add(record_id)
         if parent_roles.setdefault(parent_id, role) != role:
             raise ControlTournamentError("C0R parent crosses roles")
-        if parent_projects.setdefault(parent_id, project_id) != project_id:
-            raise ControlTournamentError("C0R parent crosses projects")
+        parent_projects[parent_id].add(project_id)
         selected[role].append(
             {
                 "acoustic_target": require_dict(row.get("target"), "C0R target"),
@@ -569,7 +568,14 @@ def c0r_rows_by_role(
         or len(development) != expected["c0r_development_records"]
     ):
         raise ControlTournamentError("C0R role counts changed")
-    return train, development, parent_projects
+    development_projects = {}
+    for row in development:
+        parent_id = row["physical_parent_id"]
+        projects = parent_projects[parent_id]
+        if len(projects) != 1:
+            raise ControlTournamentError("C0R development parent crosses projects")
+        development_projects[parent_id] = next(iter(projects))
+    return train, development, development_projects
 
 
 def prepare_external_root(path: Path, context: str) -> Path:
@@ -875,9 +881,9 @@ def build_documents(
     if (
         len(train) != expected["c0r_train_parents"]
         or len(development) != expected["c0r_development_parents"]
-        or len({parent_projects[parent["parent_id"]] for parent in train})
+        or len({row["family_id"] for row in train_rows})
         != expected["c0r_train_projects"]
-        or len({parent_projects[parent["parent_id"]] for parent in development})
+        or len({row["family_id"] for row in development_rows})
         != expected["c0r_development_projects"]
     ):
         raise ControlTournamentError("C0R grouped counts changed")
