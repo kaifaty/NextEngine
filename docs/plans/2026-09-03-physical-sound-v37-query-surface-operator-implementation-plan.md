@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-09-03` |
-| Status | `ACTIVE / R0_COMPLETE / A0_F0_C0_X0_E0_T0_D0R_REPEAT_EXACT_PASS / D0_ONE_SHOT_NEXT / ZERO_OFFICIAL_TARGET_VALUES_EVALUATED` |
+| Status | `COMPLETE / D0_REPEAT_EXACT_METRIC_REJECT / H0_PERMANENTLY_CLOSED / NO_CANDIDATE_AUTHORITY` |
 | Research decision | [QSO-v0 successor research](../development/physical-sound-v37-query-surface-operator-research-2026-09-03.md) |
 | Parent roadmap | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md) |
-| Current evidence | [D0R complete-entry result/seal](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [D0R research](../development/physical-sound-v37-d0r-complete-entry-readiness-research-2026-09-03.md), [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
+| Current evidence | terminal [D0 repeat-exact `MetricReject`](../development/physical-sound-v37-d0-fresh-development-result-2026-09-03.md), [D0R complete-entry result/seal](../development/physical-sound-v37-d0r-complete-entry-readiness-result-2026-09-03.md), [T0 exact truth/composite-seal result](../development/physical-sound-v37-t0-exact-truth-protocol-result-2026-09-03.md), [E0 full-count rehearsal/seal result](../development/physical-sound-v37-e0-full-surrogate-seal-result-2026-09-03.md), [X0 complete-owner/terminal result](../development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md), [C0 full-shape structural/cost result](../development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md), [F0 fresh QSO science/role result](../development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md), corrected [A0 query-surface contract](../development/physical-sound-v37-a0-query-surface-contract-result-2026-09-03.md) |
 
 ## Outcome
 
@@ -141,7 +141,7 @@ five resource gates passed; replacement seal `a2c3c6ce…b18c5` binds the exact
 provider-ready target-aware owner/profile and frozen environment without
 opening any official value.
 
-### Commit 6 — D0/H0 one-shot evidence — `NEXT`
+### Commit 6 — D0/H0 one-shot evidence — `COMPLETE / D0 METRIC REJECT`
 
 Deliver:
 
@@ -153,6 +153,11 @@ Deliver:
 
 Exit: admit QSO only on repeat-exact D0 and H0 Pass. Any scientific reject,
 resource reject, owner fault or divergence closes the family without retry.
+
+Result: both predetermined D0 processes produced byte-identical three-file
+trees and returned `MetricReject`. All `11/11` hard and `5/5` resource gates
+passed, but only `11/22` metric gates passed. No candidate bundle/freeze was
+published, H0 remained at zero access and is permanently closed for QSO-v0.
 
 ## Fixed scientific comparison
 
@@ -184,11 +189,10 @@ The known `SOURCE_LAYOUT_ESCAPE_HATCH` in
 is reported but is outside this plan's source layout unless an edited file
 touches that boundary.
 
-## Immediate action
+## Final disposition
 
-Implement Commit 5b only. Freeze the complete D0 measurement profile, build
-the actual target-aware D0 owner and run its full-count nonzero artificial A/B
-plus terminal/failpoint mutations. Publish a readiness seal binding E0
-`608f9019…1d7f`, T0 `7bae65cc…61573`, the exact environment and owner. Do not
-implement an official provider or evaluate any official target until this
-readiness seal passes.
+The implementation plan is closed. Do not rerun, repair or tune QSO-v0, and do
+not use its opened D0 values to select a nearby architecture. The next planning
+authority is [Roadmap V38](physical-sound-synthesis-roadmap-v38.md), which moves
+source power and independent validation onto the critical path and reserves
+one-shot access for genuinely protected holdout/admission roles.
