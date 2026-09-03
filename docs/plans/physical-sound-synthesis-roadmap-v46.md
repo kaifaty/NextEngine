@@ -3,7 +3,7 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | `2026-09-03` |
-| Статус | `ACTIVE / EXECUTION_ROADMAP / FOUNDATION_D0_COMPLETE / NO_TRUSTED_EXTERNAL_SYNTHETIC_TEACHER / D1_CORPUS_COMPILER_NEXT / RESEARCH_ONLY / OFFLINE_ML / AUTHORED_FALLBACK` |
+| Статус | `ACTIVE / EXECUTION_ROADMAP / FOUNDATION_D1_COMPLETE / CLAIM_MASKED_CORPUS_INDEX / B0_BASELINE_NEXT / RESEARCH_ONLY / OFFLINE_ML / AUTHORED_FALLBACK` |
 | Заменяет | [Roadmap V45](physical-sound-synthesis-roadmap-v45.md) как planning authority; все V45 и более ранние exact results остаются immutable evidence |
 | Архитектура | [SPEC-45](../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md), `Proposed`; V46 не создаёт public schema, runtime inference или production authority |
 | Ограничение владельца продукта | Только опубликованные internet sources; никаких локальных записей, ударов по предметам и обязательного ручного прослушивания каждого результата |
@@ -44,6 +44,7 @@
 | Analytic/modal renderer | `COMPLETE / CONTROL_ONLY` | Частоты, затухание, энергия, Nyquist и resource bounds можно проверять без нейросети. |
 | Clatter comparator | `COMPLETE / REPEAT_EXACT` | Внешне воспроизводятся 84 labels/controls, соответствующие 36 уникальным modal priors; это baseline, не real truth. |
 | NISR/VibraVerse preflight | `COMPLETE / REPEAT_EXACT / UNTRUSTED` | Оба exact sources остановлены до payload: у NISR недоступен заявленный generation document, у VibraVerse отсутствует complete generation lineage. |
+| External corpus compiler | `COMPLETE / REPEAT_EXACT` | 154 real rows, 80 raw parents, 10 projects и 36 Clatter groups сведены в claim-masked index; роли изолированы, все 308 content objects остались закрыты. |
 | Disclosed real corpus | `71/105` supported parents | Есть настоящие записи для исследований, но не хватает `34` parents и второго независимого descriptor-to-signal проекта для выбора pack. |
 | Automatic validator release | `NOT_READY` | Есть компоненты и corruption tests, но ещё нет независимой calibration power и frozen release. |
 | Trained candidate / cooked pack / demo | `NOT_RUN` | Ни одна модель пока не имеет admission или product authority. |
@@ -106,7 +107,7 @@ radiation/residual head. Отсутствующий target остаётся mask
 | --- | --- | --- | --- |
 | F0 | Foundation | V45 R0/T0/C0 остаются exact и являются единственной исходной representation/control основой. | При дефекте исправляется конкретный owner; старые quality roles не переоткрываются. |
 | D0 | `COMPLETE / REPEAT_EXACT / NO_TRUSTED_SYNTHETIC_TEACHER` | [Result](../development/physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md) отдельно отвергает NISR и VibraVerse по generation lineage при восьми metadata requests и нулевом payload/sample access. | Оба источника остаются закрыты до exact successor lineage; D1/B0 используют zero external synthetic rows, analytic и Clatter controls. |
-| D1 | Corpus compiler V1 | Один offline owner валидирует manifests, hashes, aliases, claim masks, splits, bounds и external cache; два запуска дают одинаковый corpus index. | Corrupt, ambiguous или incomplete row отвергается до target decode. |
+| D1 | `COMPLETE / REPEAT_EXACT / CLAIM_MASKED_INDEX` | [Result](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md) сводит 154 real rows и 36 Clatter groups в byte-identical index, доказывает role/project/parent isolation и не открывает 308 content objects. | Corrupt, ambiguous или incomplete row отвергается до target decode; индекс разрешает только B0. |
 | B0 | Multi-fidelity baselines | Analytic, global median, retrieval/ridge и 36-group Clatter сравниваются только на наблюдаемых lanes с project/parent grouping. | `NoUsefulTeacher`; analytic/Clatter остаются control/fallback. |
 | M0 | Synthetic/structural model | Одна заранее зафиксированная multi-head model улучшает лучший simple control на unseen synthetic geometry/material/contact mutations без lane regression. | `SyntheticTeacherRejected`; следующий шаг — новые данные/representation, не перебор seeds и widths. |
 | E0 | Real-source power | Второй независимый descriptor-to-signal project и суммарно `>=105` supported real parents проходят source, alias, descriptor и event/audio binding. | `RealSourcePowerOOD`; real fitting и material selection остаются закрыты. |
@@ -123,9 +124,10 @@ radiation/residual head. Отсутствующий target остаётся mask
 1. **V46.1 — D0 — COMPLETE:** [repeat-exact result](../development/physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md)
    возвращает `NoTrustedSyntheticTeacher`; оба samples и все payload values не
    открыты.
-2. **V46.2 — D1 — NEXT:** собрать единый external corpus compiler поверх уже
-   зафиксированных ledger и Recipe V3, не копируя datasets в Git.
-3. **V46.3 — B0:** выпустить lane-aware baseline table и выбрать control,
+2. **V46.2 — D1 — COMPLETE:** [repeat-exact result](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md)
+   публикует claim-masked index, сохраняет разные target contracts и не
+   открывает ни один из 308 referenced content objects.
+3. **V46.3 — B0 — NEXT:** выпустить lane-aware baseline table и выбрать control,
    который действительно нужно превзойти.
 4. **V46.4 — M0:** обучить ровно одну bounded multi-head model; MLflow может
    хранить external experiment lineage, но не является admission authority.
@@ -180,20 +182,20 @@ checkpoint, threshold, material pack и не является release gate.
 
 ## Ближайший проверяемый результат
 
-D0 завершён: оба внешних synthetic teachers получили
-`SyntheticTeacherUntrusted`, а dataset payload access остался нулевым. Первый
-следующий checkpoint — D1 corpus compiler:
+D1 завершён: [repeat-exact corpus index](../development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md)
+явно сохраняет `external_modal_teacher_rows = 0`, изолирует train/development/
+validator по physical parent, project и component, а также оставляет все 308
+referenced content objects закрытыми. Первый следующий checkpoint — B0:
 
-- принимает только revision/hash-bound external manifests;
-- валидирует aliases, claim masks, split roles, bounds и external paths до
-  target decode;
-- публикует repeat-exact corpus index;
-- явно сохраняет `external_modal_teacher_rows = 0` после D0;
-- объединяет только разрешённые R0/T0/C0 control projections и не повышает
-  real/validator/protected power.
+- читает только D1 index и заранее разрешённые observed targets;
+- сравнивает analytic owner, historical global median, retrieval/ridge и 36
+  value-distinct Clatter controls;
+- агрегирует по project/physical parent, а не по WAV;
+- не сопоставляет несовместимые target contracts и missing Recipe V3 lanes;
+- возвращает один frozen control floor либо `NoUsefulTeacher` без права
+  начинать ML training.
 
-После D1 B0 сравнивает analytic и 36-group Clatter controls. Контур E
-продолжает real-source и validator growth независимо.
+Контур E продолжает real-source и validator growth независимо.
 
 ## Commit and verification boundaries
 
