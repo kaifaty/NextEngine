@@ -208,6 +208,42 @@ pub struct WaterPresentationFrameV1 {
     pub frame_index: u64,
     pub surfaces: Vec<WaterSurfaceUpdateV1>,
     pub jet: WaterJetParticlesV1,
+    /// Plan 21 (SPEC-38 practice 3): one record per edge that moved water
+    /// in the published tick, in edge id order; nothing per cell.
+    pub edges: Vec<WaterEdgePresentationV1>,
+}
+
+/// Plan 21: an open sill whose sink level lies this far below the sill
+/// sheds a fall; above it the sill is a foam band only.
+pub const WATER_FALL_DROP_MICROMETRES: i64 = 20_000;
+
+/// Plan 21: what an active edge presents.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WaterEdgePresentationKindV1 {
+    /// Pipe or gate: the droplet stream from the mouth.
+    Jet,
+    /// Open sill with a drop: droplets from the crest.
+    Fall,
+    /// Open sill with both levels above it: a foam band (record only).
+    Sill,
+    /// Source, sink or pump: a mouth (record only).
+    Mouth,
+}
+
+/// Plan 21: the presentation record of one active edge.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WaterEdgePresentationV1 {
+    pub edge_id: PersistentId,
+    pub kind: WaterEdgePresentationKindV1,
+    /// Crest or mouth point in world micrometres.
+    pub crest_micrometres: [i64; 3],
+    /// Plan direction of the flow, q15 unit vector `[x, z]`; `[0, 0]` for
+    /// one-cell edges.
+    pub direction_q15: [i32; 2],
+    pub source_level_micrometres: i64,
+    pub sink_level_micrometres: i64,
+    /// Signed flux of the published tick, positive from `cell_a`.
+    pub flux_cubic_millimetres: i64,
 }
 
 /// Which volumes carry an authored surface quad.
@@ -285,13 +321,14 @@ pub fn compute_water_presentation_frame(
             frame_index,
         ));
     }
-    let mut jet = jet_particles(volumes, network, tick, frame_index);
+    let (edges, mut jet) = edge_records(volumes, network, tick, frame_index);
     splash_particles(volumes, boxes, tick, frame_index, &mut jet);
     WaterPresentationFrameV1 {
         tick,
         frame_index,
         surfaces,
         jet,
+        edges,
     }
 }
 
@@ -519,109 +556,289 @@ fn surface_grid(
     }
 }
 
-/// Stateless ballistic jet: droplet `k` of an edge has age
-/// `(frame_index + k * stride) mod lifetime` frames, so the stream is
-/// continuous and the frame is a pure function of the checkpoint.
-fn jet_particles(
+/// A stateless ballistic stream: droplet `k` has age `(frame_index * 65536
+/// + k * stride) mod (lifetime * 65536)` frames, so the stream is a pure
+/// function of the frame index. `start` is the mouth or crest, `direction`
+/// the q15 plan direction, `speed` in micrometres per second; droplets
+/// below the destination level or floor are not emitted. The lateral
+/// spread is the jet's: across the direction, `+z` for a flow along `+x`
+/// and along `-x` alike.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the stream inputs of the private stage stay explicit"
+)]
+fn emit_stream(
+    jet: &mut WaterJetParticlesV1,
+    start: [i64; 3],
+    direction_q15: [i32; 2],
+    speed: i128,
+    destination_level: i64,
+    destination_floor: i64,
+    flux: i64,
+    frame_index: u64,
+) {
+    let gravity = i128::from(WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED);
+    let fps = i128::from(WATER_PRESENTATION_FRAMES_PER_SECOND);
+    let spawn_per_frame = (i128::from(flux.abs())
+        / i128::from(WATER_JET_DROPLET_VOLUME_CUBIC_MILLIMETRES))
+    .clamp(0, i128::from(WATER_JET_MAX_SPAWN_PER_FRAME));
+    if spawn_per_frame == 0 {
+        return;
+    }
+    let lifetime = i128::from(WATER_JET_LIFETIME_FRAMES);
+    let total = (spawn_per_frame * lifetime).min(
+        i128::from(WATER_JET_MAX_PARTICLES)
+            - i128::try_from(jet.positions_micrometres.len()).unwrap_or(0),
+    );
+    if total <= 0 {
+        return;
+    }
+    let stride = (lifetime * 65_536 / total.max(1)).max(1);
+    let (dx, dz) = (i128::from(direction_q15[0]), i128::from(direction_q15[1]));
+    // Lateral unit across the direction (the jet's rule: `+z` for `+-x`).
+    let (lx, lz) = (-dz, dx.abs());
+    for k in 0..total {
+        let age_frames = (i128::from(frame_index) * 65_536 + k * stride) % (lifetime * 65_536);
+        let t_num = age_frames; // frames * 65536; t seconds = t_num / (65536 * fps)
+        let along = dx * speed * t_num / (65_536 * fps * 32_767);
+        let along_z = dz * speed * t_num / (65_536 * fps * 32_767);
+        let drop = gravity * t_num * t_num / (2 * 65_536 * 65_536 * fps * fps);
+        let y = i128::from(start[1]) - drop;
+        if y < i128::from(destination_level) || y < i128::from(destination_floor) {
+            continue;
+        }
+        let lateral = (k * 7_919) % 41 - 20; // spread across the mouth width
+        let x = i128::from(start[0]) + along + lateral * 2_000 * lx / 32_767;
+        let z = i128::from(start[2]) + along_z + lateral * 2_000 * lz / 32_767;
+        let vy = -(gravity * t_num / (65_536 * fps));
+        jet.positions_micrometres.push([
+            i64::try_from(x).unwrap_or(i64::MAX),
+            i64::try_from(y).unwrap_or(i64::MAX),
+            i64::try_from(z).unwrap_or(i64::MAX),
+        ]);
+        jet.velocities_micrometres_per_second.push([
+            i32::try_from(dx * speed / 32_767).unwrap_or(i32::MAX),
+            i32::try_from(vy.clamp(-2_000_000_000, 2_000_000_000)).unwrap_or(0),
+            i32::try_from(dz * speed / 32_767).unwrap_or(i32::MAX),
+        ]);
+    }
+}
+
+/// Plan direction from `from` to `to` as a q15 unit vector (integer).
+fn plan_direction_q15(from: [i64; 2], to: [i64; 2]) -> [i32; 2] {
+    let dx = i128::from(to[0] - from[0]);
+    let dz = i128::from(to[1] - from[1]);
+    let length = isqrt_i128(dx * dx + dz * dz);
+    if length == 0 {
+        return [0, 0];
+    }
+    [
+        i32::try_from(dx * 32_767 / length).unwrap_or(0),
+        i32::try_from(dz * 32_767 / length).unwrap_or(0),
+    ]
+}
+
+fn plan_centre(definition: &WaterVolumeDefinitionV1) -> [i64; 2] {
+    [
+        (definition.minimum_micrometres[0] + definition.maximum_micrometres[0]) / 2,
+        (definition.minimum_micrometres[2] + definition.maximum_micrometres[2]) / 2,
+    ]
+}
+
+/// The midpoint of the shared face of two touching plan rectangles.
+fn shared_face_midpoint(a: &WaterVolumeDefinitionV1, b: &WaterVolumeDefinitionV1) -> [i64; 2] {
+    let x0 = a.minimum_micrometres[0].max(b.minimum_micrometres[0]);
+    let x1 = a.maximum_micrometres[0].min(b.maximum_micrometres[0]);
+    let z0 = a.minimum_micrometres[2].max(b.minimum_micrometres[2]);
+    let z1 = a.maximum_micrometres[2].min(b.maximum_micrometres[2]);
+    [(x0 + x1) / 2, (z0 + z1) / 2]
+}
+
+/// Plan 21 (SPEC-38 practice 3): one record per active edge in edge id
+/// order, and the droplet streams of jets and falls (the jet rule of plan
+/// 09 unchanged for pipes and gates).
+fn edge_records(
     volumes: &WaterVolumeSetV1,
     network: &WaterFlowNetworkV1,
     tick: u64,
     frame_index: u64,
-) -> WaterJetParticlesV1 {
+) -> (Vec<WaterEdgePresentationV1>, WaterJetParticlesV1) {
     let mut jet = WaterJetParticlesV1::default();
+    let mut records = Vec::new();
     let gravity = i128::from(WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED);
-    let fps = i128::from(WATER_PRESENTATION_FRAMES_PER_SECOND);
     for (edge_id, edge) in &network.edges {
-        let invert = match edge.kind {
+        let Some(flux) = network.edge_flux(*edge_id) else {
+            continue;
+        };
+        if flux == 0 || records.len() >= next_contracts::physics::MAX_WATER_FLOW_EDGES {
+            continue;
+        }
+        let Some(cell_a) = volumes.definitions.get(&edge.cell_a) else {
+            continue;
+        };
+        let level_a = volumes
+            .effective_level(edge.cell_a, tick)
+            .unwrap_or(cell_a.minimum_micrometres[1]);
+        match edge.kind {
             WaterFlowEdgeKindV1::Pipe {
                 invert_micrometres, ..
             }
             | WaterFlowEdgeKindV1::Gate {
                 invert_micrometres, ..
-            } => invert_micrometres,
-            _ => continue,
-        };
-        let Some(flux) = network.edge_flux(*edge_id) else {
-            continue;
-        };
-        let (source_id, destination_id) = match (edge.cell_b, flux.signum()) {
-            (Some(b), 1) => (edge.cell_a, b),
-            (Some(b), -1) => (b, edge.cell_a),
-            _ => continue,
-        };
-        let (Some(source), Some(destination)) = (
-            volumes.definitions.get(&source_id),
-            volumes.definitions.get(&destination_id),
-        ) else {
-            continue;
-        };
-        let Some(source_level) = volumes.effective_level(source_id, tick) else {
-            continue;
-        };
-        let destination_level = volumes
-            .effective_level(destination_id, tick)
-            .unwrap_or(invert);
-        let head = i128::from(source_level.saturating_sub(invert)).max(0);
-        if head == 0 {
-            continue;
-        }
-        // Mouth: the destination face nearest the source, at the invert,
-        // in the middle of the overlapping z range (or the source centre).
-        let source_centre_x = (source.minimum_micrometres[0] + source.maximum_micrometres[0]) / 2;
-        let destination_centre_x =
-            (destination.minimum_micrometres[0] + destination.maximum_micrometres[0]) / 2;
-        let (mouth_x, direction_x) = if source_centre_x <= destination_centre_x {
-            (destination.minimum_micrometres[0], 1_i128)
-        } else {
-            (destination.maximum_micrometres[0], -1_i128)
-        };
-        let mouth_z = (source.minimum_micrometres[2].max(destination.minimum_micrometres[2])
-            + source.maximum_micrometres[2].min(destination.maximum_micrometres[2]))
-            / 2;
-        let speed = isqrt_i128(2 * gravity * head); // um/s
-        let spawn_per_frame = (i128::from(flux.abs())
-            / i128::from(WATER_JET_DROPLET_VOLUME_CUBIC_MILLIMETRES))
-        .clamp(0, i128::from(WATER_JET_MAX_SPAWN_PER_FRAME));
-        if spawn_per_frame == 0 {
-            continue;
-        }
-        let lifetime = i128::from(WATER_JET_LIFETIME_FRAMES);
-        let total = (spawn_per_frame * lifetime).min(
-            i128::from(WATER_JET_MAX_PARTICLES)
-                - i128::try_from(jet.positions_micrometres.len()).unwrap_or(0),
-        );
-        if total <= 0 {
-            break;
-        }
-        let stride = (lifetime * 65_536 / total.max(1)).max(1);
-        for k in 0..total {
-            let age_frames = (i128::from(frame_index) * 65_536 + k * stride) % (lifetime * 65_536);
-            let t_num = age_frames; // frames * 65536
-            // t seconds = t_num / (65536 * fps)
-            let x = i128::from(mouth_x) + direction_x * speed * t_num / (65_536 * fps);
-            let drop = gravity * t_num * t_num / (2 * 65_536 * 65_536 * fps * fps);
-            let y = i128::from(invert) - drop;
-            if y < i128::from(destination_level)
-                || y < i128::from(destination.minimum_micrometres[1])
-            {
-                continue;
+            } => {
+                let invert = invert_micrometres;
+                let (source_id, destination_id) = match (edge.cell_b, flux.signum()) {
+                    (Some(b), 1) => (edge.cell_a, b),
+                    (Some(b), -1) => (b, edge.cell_a),
+                    _ => continue,
+                };
+                let (Some(source), Some(destination)) = (
+                    volumes.definitions.get(&source_id),
+                    volumes.definitions.get(&destination_id),
+                ) else {
+                    continue;
+                };
+                let Some(source_level) = volumes.effective_level(source_id, tick) else {
+                    continue;
+                };
+                let destination_level = volumes
+                    .effective_level(destination_id, tick)
+                    .unwrap_or(invert);
+                let head = i128::from(source_level.saturating_sub(invert)).max(0);
+                // Mouth: the destination face nearest the source, at the invert,
+                // in the middle of the overlapping z range (or the source centre).
+                let source_centre_x =
+                    (source.minimum_micrometres[0] + source.maximum_micrometres[0]) / 2;
+                let destination_centre_x =
+                    (destination.minimum_micrometres[0] + destination.maximum_micrometres[0]) / 2;
+                let (mouth_x, direction_x) = if source_centre_x <= destination_centre_x {
+                    (destination.minimum_micrometres[0], 32_767)
+                } else {
+                    (destination.maximum_micrometres[0], -32_767)
+                };
+                let mouth_z = (source.minimum_micrometres[2]
+                    .max(destination.minimum_micrometres[2])
+                    + source.maximum_micrometres[2].min(destination.maximum_micrometres[2]))
+                    / 2;
+                let crest = [mouth_x, invert, mouth_z];
+                records.push(WaterEdgePresentationV1 {
+                    edge_id: *edge_id,
+                    kind: WaterEdgePresentationKindV1::Jet,
+                    crest_micrometres: crest,
+                    direction_q15: [direction_x, 0],
+                    source_level_micrometres: source_level,
+                    sink_level_micrometres: destination_level,
+                    flux_cubic_millimetres: flux,
+                });
+                if head == 0 {
+                    continue;
+                }
+                let speed = isqrt_i128(2 * gravity * head); // um/s
+                emit_stream(
+                    &mut jet,
+                    crest,
+                    [direction_x, 0],
+                    speed,
+                    destination_level,
+                    destination.minimum_micrometres[1],
+                    flux,
+                    frame_index,
+                );
             }
-            let lateral = (k * 7_919) % 41 - 20; // spread across the mouth width
-            let z = i128::from(mouth_z) + lateral * 2_000;
-            let vy = -(gravity * t_num / (65_536 * fps));
-            jet.positions_micrometres.push([
-                i64::try_from(x).unwrap_or(i64::MAX),
-                i64::try_from(y).unwrap_or(i64::MAX),
-                i64::try_from(z).unwrap_or(i64::MAX),
-            ]);
-            jet.velocities_micrometres_per_second.push([
-                i32::try_from(direction_x * speed).unwrap_or(i32::MAX),
-                i32::try_from(vy.clamp(-2_000_000_000, 2_000_000_000)).unwrap_or(0),
-                0,
-            ]);
+            WaterFlowEdgeKindV1::Open {
+                sill_micrometres, ..
+            } => {
+                let Some(cell_b_id) = edge.cell_b else {
+                    continue;
+                };
+                let Some(cell_b) = volumes.definitions.get(&cell_b_id) else {
+                    continue;
+                };
+                let level_b = volumes
+                    .effective_level(cell_b_id, tick)
+                    .unwrap_or(cell_b.minimum_micrometres[1]);
+                let (source, sink, source_level, sink_level) = if flux > 0 {
+                    (cell_a, cell_b, level_a, level_b)
+                } else {
+                    (cell_b, cell_a, level_b, level_a)
+                };
+                let face = shared_face_midpoint(source, sink);
+                let crest = [face[0], sill_micrometres, face[1]];
+                let direction = plan_direction_q15(plan_centre(source), plan_centre(sink));
+                let fall = sink_level < sill_micrometres - WATER_FALL_DROP_MICROMETRES;
+                records.push(WaterEdgePresentationV1 {
+                    edge_id: *edge_id,
+                    kind: if fall {
+                        WaterEdgePresentationKindV1::Fall
+                    } else {
+                        WaterEdgePresentationKindV1::Sill
+                    },
+                    crest_micrometres: crest,
+                    direction_q15: direction,
+                    source_level_micrometres: source_level,
+                    sink_level_micrometres: sink_level,
+                    flux_cubic_millimetres: flux,
+                });
+                if !fall {
+                    continue;
+                }
+                let head = i128::from(source_level.saturating_sub(sill_micrometres)).max(0);
+                if head == 0 {
+                    continue;
+                }
+                let speed = isqrt_i128(2 * gravity * head);
+                emit_stream(
+                    &mut jet,
+                    crest,
+                    direction,
+                    speed,
+                    sink_level,
+                    sink.minimum_micrometres[1],
+                    flux,
+                    frame_index,
+                );
+            }
+            WaterFlowEdgeKindV1::Pump { .. }
+            | WaterFlowEdgeKindV1::Source { .. }
+            | WaterFlowEdgeKindV1::Sink { .. } => {
+                let (crest, direction, sink_level) = match edge.cell_b {
+                    Some(cell_b_id) => {
+                        let Some(cell_b) = volumes.definitions.get(&cell_b_id) else {
+                            continue;
+                        };
+                        let level_b = volumes
+                            .effective_level(cell_b_id, tick)
+                            .unwrap_or(cell_b.minimum_micrometres[1]);
+                        let face = shared_face_midpoint(cell_a, cell_b);
+                        let (from, to) = if flux > 0 {
+                            (cell_a, cell_b)
+                        } else {
+                            (cell_b, cell_a)
+                        };
+                        (
+                            [face[0], level_a.max(level_b), face[1]],
+                            plan_direction_q15(plan_centre(from), plan_centre(to)),
+                            level_b,
+                        )
+                    }
+                    None => {
+                        let centre = plan_centre(cell_a);
+                        ([centre[0], level_a, centre[1]], [0, 0], level_a)
+                    }
+                };
+                records.push(WaterEdgePresentationV1 {
+                    edge_id: *edge_id,
+                    kind: WaterEdgePresentationKindV1::Mouth,
+                    crest_micrometres: crest,
+                    direction_q15: direction,
+                    source_level_micrometres: level_a,
+                    sink_level_micrometres: sink_level,
+                    flux_cubic_millimetres: flux,
+                });
+            }
         }
     }
-    jet
+    (records, jet)
 }
 
 #[cfg(test)]
@@ -747,5 +964,70 @@ mod tests {
         assert!(!first.jet.positions_micrometres.is_empty());
         let later = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 8);
         assert_ne!(first.jet, later.jet);
+    }
+
+    #[test]
+    fn active_edges_yield_one_record_each_and_sills_with_a_drop_shed_falls() {
+        // Plan 21: a 2 x 1 lattice with a 0.5 m drop pours over its sill (a
+        // Fall with droplets), then settles (a Sill without droplets); the
+        // reference gate presents a Jet.
+        let region = next_contracts::physics::WaterLatticeRegionV1 {
+            region_id: PersistentId::from_bytes([0x4e; 16]),
+            origin_micrometres: [0; 3],
+            cell_size_micrometres: [1_000_000, 1_000_000],
+            columns: 2,
+            rows: 1,
+            ceiling_micrometres: 3_000_000,
+            floor_micrometres: vec![500_000, 0],
+            initial_level_micrometres: vec![1_500_000, 0],
+            sill_coefficient_permille: 600,
+            profile_revision: 1,
+        };
+        let (mut volumes, mut network) = region.build(30).expect("build");
+        network.step_in_place(&mut volumes).expect("first step");
+        let frame = compute_water_presentation_frame(&volumes, &network, &[], &[], 1, 3);
+        assert!(frame.surfaces.is_empty(), "no binding, no surface");
+        assert_eq!(frame.edges.len(), 1);
+        let record = frame.edges[0];
+        assert_eq!(record.kind, WaterEdgePresentationKindV1::Fall);
+        assert_eq!(record.crest_micrometres, [1_000_000, 500_000, 500_000]);
+        assert_eq!(record.direction_q15, [32_767, 0]);
+        assert!(record.flux_cubic_millimetres > 0);
+        assert!(
+            !frame.jet.positions_micrometres.is_empty(),
+            "the fall sheds droplets"
+        );
+        assert!(frame.jet.positions_micrometres.len() <= WATER_JET_MAX_PARTICLES as usize);
+        assert_eq!(
+            frame,
+            compute_water_presentation_frame(&volumes, &network, &[], &[], 1, 3)
+        );
+        for _ in 0..3_000 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        let settled = compute_water_presentation_frame(&volumes, &network, &[], &[], 3_001, 9);
+        let active = network
+            .edge_states
+            .values()
+            .filter(|state| state.last_flux_cubic_millimetres != 0)
+            .count();
+        assert_eq!(settled.edges.len(), active);
+        for record in &settled.edges {
+            assert_eq!(record.kind, WaterEdgePresentationKindV1::Sill);
+        }
+        assert!(settled.jet.positions_micrometres.is_empty());
+
+        let volumes = crate::water::reference_water_volumes().expect("volumes");
+        let network = crate::water::reference_water_flow(&volumes).expect("network");
+        let stepped = network.step(&volumes).expect("step");
+        let frame =
+            compute_water_presentation_frame(&stepped.volumes, &stepped.network, &[], &[], 1, 7);
+        assert!(
+            frame
+                .edges
+                .iter()
+                .any(|record| record.kind == WaterEdgePresentationKindV1::Jet)
+        );
+        assert!(frame.edges.len() <= next_contracts::physics::MAX_WATER_FLOW_EDGES);
     }
 }

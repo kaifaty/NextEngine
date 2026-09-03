@@ -524,6 +524,16 @@ pub struct WaterLatticeDetailsV1 {
     pub rest_probe_ticks: u64,
     pub skipped_fraction_at_rest_probe_permille: u64,
     pub first_rest_tick_after_wet: Option<u64>,
+    pub stage_records_match_active_edges: bool,
+    pub stage_records_max: usize,
+    pub stage_fall_records_tick_30: usize,
+    pub stage_droplets_tick_30: usize,
+    pub stage_fall_records_final: usize,
+    pub stage_droplets_final: usize,
+    pub stage_pure: bool,
+    pub stage_bounds_ok: bool,
+    pub stage_cost_max_us: String,
+    pub stage_cost_mean_us: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

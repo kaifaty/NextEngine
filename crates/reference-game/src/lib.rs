@@ -81,8 +81,10 @@ pub use water::{
     water_surface_translation,
 };
 pub use water_presentation::{
-    WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WATER_PRESENTATION_FRAMES_PER_SECOND,
-    WATER_RIPPLE_CAP_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY, WATER_SURFACE_VERTEX_CAPACITY,
-    WaterJetParticlesV1, WaterPresentationFrameV1, WaterSurfaceBindingV1, WaterSurfaceUpdateV1,
-    compute_water_presentation_frame, floating_boxes, reference_water_surface_bindings,
+    WATER_FALL_DROP_MICROMETRES, WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES,
+    WATER_PRESENTATION_FRAMES_PER_SECOND, WATER_RIPPLE_CAP_MICROMETRES,
+    WATER_SURFACE_INDEX_CAPACITY, WATER_SURFACE_VERTEX_CAPACITY, WaterEdgePresentationKindV1,
+    WaterEdgePresentationV1, WaterJetParticlesV1, WaterPresentationFrameV1, WaterSurfaceBindingV1,
+    WaterSurfaceUpdateV1, compute_water_presentation_frame, floating_boxes,
+    reference_water_surface_bindings,
 };

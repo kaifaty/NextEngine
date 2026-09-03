@@ -98,10 +98,11 @@
 - **Lattice tier done (2026-09-03, plan 19, SPEC-38 3.1 practice 1):** `WaterLatticeRegionV1` (`crates/contracts/src/physics/water_lattice.rs`) builds face-sharing cells and open sills; the volume overlap rule is positive-measure; `CONTINUUM-WATER-LATTICE-P1 = PASS` through `xtask water-lattice` (exact conservation, downhill settle within `3.9 mm` of head, repeated and cloning runs identical, `18 us` mean step). The reference scene is unchanged.
 - **Activity stepping done (2026-09-03, plan 20, SPEC-38 3.2 practice 2):** `WaterFlowActivityV1` (derived, never saved, reset with the table or network, empty after restore) and `step_in_place_with_activity`; `GroundedCapsuleWorld` steps with it. Roots identical to the always-stepped run with and without a wake; `water-flow` restored-run and `persistence-replay` PASS. Frozen G2/G5 thresholds FAIL by reading: under the exact weir law a settled sill reaches flux `0` only below about `6 um` of head (first rest `6.8` minutes after the water arrives, `59` percent of sills at `20` minutes, step `17` to `14 us`).
 - **Decided 2026-09-03 (D-010):** the quiescence clause of the flux law is deferred; recorded as a future optimisation in plan `continuum-water/11` section 4, to be revisited only with a lattice larger than the current bounds.
-- **Next (plan `continuum-water/11` section 3):** edge-driven
-  presentation at scale (practice 3: one presentation record per active
-  edge) and rotational presentation (practice 4); gameplay gates/pumps
-  and player buoyancy are deferred by decision.
+- **Edge-driven presentation done (2026-09-03, plan 21, SPEC-38 3.3 practice 3):** `WaterPresentationFrameV1::edges` carries one `WaterEdgePresentationV1` per edge with non-zero flux (jet, fall, sill, mouth); falls over open sills shed droplets through the jet's lane (`emit_stream`); nothing per cell. `water-present` digest of surfaces and droplets identical (`a8904f22…`), `water-lattice` revision 3 PASS (`56` records max, `37 us` mean stage).
+- **Next (plan `continuum-water/11` section 3):** rotational
+  presentation (practice 4: whirlpools and eddies as a presentation-only
+  layer fed by edge fluxes); gameplay gates/pumps and player buoyancy
+  are deferred by decision.
 - Research note on engine and game water models:
   `docs/development/water-engines-research-2026-09-02.md`.
 - `AGENTS.md`; routing rows "Physics world ..." and "Future continuum

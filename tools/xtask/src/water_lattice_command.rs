@@ -41,6 +41,16 @@ pub(super) fn run() -> Result<(), String> {
             rest_probe_ticks: report.rest_probe_ticks,
             skipped_fraction_at_rest_probe_permille: report.skipped_fraction_at_rest_probe_permille,
             first_rest_tick_after_wet: report.first_rest_tick_after_wet,
+            stage_records_match_active_edges: report.stage_records_match_active_edges,
+            stage_records_max: report.stage_records_max,
+            stage_fall_records_tick_30: report.stage_fall_records_tick_30,
+            stage_droplets_tick_30: report.stage_droplets_tick_30,
+            stage_fall_records_final: report.stage_fall_records_final,
+            stage_droplets_final: report.stage_droplets_final,
+            stage_pure: report.stage_pure,
+            stage_bounds_ok: report.stage_bounds_ok,
+            stage_cost_max_us: report.stage_cost_max_microseconds.to_string(),
+            stage_cost_mean_us: report.stage_cost_mean_microseconds.to_string(),
         },
     )
 }

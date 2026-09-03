@@ -10,8 +10,11 @@ use std::time::Instant;
 
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{
-    WaterFlowActivityV1, WaterFlowEdgeKindV1, WaterFlowNetworkV1, WaterLatticeRegionV1,
-    WaterVolumeSetV1,
+    MAX_WATER_FLOW_EDGES, WaterFlowActivityV1, WaterFlowEdgeKindV1, WaterFlowNetworkV1,
+    WaterLatticeRegionV1, WaterVolumeSetV1,
+};
+use next_reference_game::{
+    WATER_JET_MAX_PARTICLES, WaterEdgePresentationKindV1, compute_water_presentation_frame,
 };
 
 /// Plan 19 constants (frozen).
@@ -38,6 +41,12 @@ const WAKE_LEVEL_MICROMETRES: i64 = 1_000_000;
 /// frozen `3,600` ticks of G5 showed no resting sill; the exact weir tail
 /// reaches flux `0` only after minutes, recorded in plan 20).
 const REST_RUN_TICKS: u64 = 36_000;
+/// Plan 21: the stage is probed on these ticks of the always-active run.
+const STAGE_PROBE_TICKS: [u64; 4] = [30, 87, 300, 1_800];
+/// Plan 21 G3: droplets may leave the lattice's bounds by this margin.
+const STAGE_BOUNDS_MARGIN_MICROMETRES: i64 = 2_000_000;
+/// Plan 21 G4.
+const STAGE_COST_LIMIT_MICROSECONDS: u128 = 1_000;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WaterLatticeCheckReportV1 {
@@ -77,6 +86,131 @@ pub struct WaterLatticeCheckReportV1 {
     pub skipped_fraction_at_rest_probe_permille: u64,
     /// The first tick after the east column is wet on which a sill rests.
     pub first_rest_tick_after_wet: Option<u64>,
+    /// Plan 21 (edge-driven presentation).
+    pub stage_records_match_active_edges: bool,
+    pub stage_records_max: usize,
+    pub stage_fall_records_tick_30: usize,
+    pub stage_droplets_tick_30: usize,
+    pub stage_fall_records_final: usize,
+    pub stage_droplets_final: usize,
+    pub stage_pure: bool,
+    pub stage_bounds_ok: bool,
+    pub stage_cost_max_microseconds: u128,
+    pub stage_cost_mean_microseconds: u128,
+}
+
+struct StageProbe {
+    records_match_active_edges: bool,
+    records_max: usize,
+    fall_records_tick_30: usize,
+    droplets_tick_30: usize,
+    fall_records_final: usize,
+    droplets_final: usize,
+    pure: bool,
+    bounds_ok: bool,
+    cost_max_microseconds: u128,
+    cost_mean_microseconds: u128,
+}
+
+/// Plan 21: the presentation stage over the lattice (no bindings) at the
+/// probe ticks of an always-active run, two frame indices per tick.
+fn stage_probe(region: &WaterLatticeRegionV1) -> Result<StageProbe, WaterLatticeCheckErrorV1> {
+    let (mut volumes, mut network) = region
+        .build(TICKS_PER_SECOND)
+        .map_err(|error| WaterLatticeCheckErrorV1::new("stage build", error.to_string()))?;
+    let bounds_minimum = [
+        region.origin_micrometres[0] - STAGE_BOUNDS_MARGIN_MICROMETRES,
+        -STAGE_BOUNDS_MARGIN_MICROMETRES,
+        region.origin_micrometres[2] - STAGE_BOUNDS_MARGIN_MICROMETRES,
+    ];
+    let bounds_maximum = [
+        region.origin_micrometres[0]
+            + i64::from(region.columns) * region.cell_size_micrometres[0]
+            + STAGE_BOUNDS_MARGIN_MICROMETRES,
+        region.ceiling_micrometres + STAGE_BOUNDS_MARGIN_MICROMETRES,
+        region.origin_micrometres[2]
+            + i64::from(region.rows) * region.cell_size_micrometres[1]
+            + STAGE_BOUNDS_MARGIN_MICROMETRES,
+    ];
+    let mut probe = StageProbe {
+        records_match_active_edges: true,
+        records_max: 0,
+        fall_records_tick_30: 0,
+        droplets_tick_30: 0,
+        fall_records_final: 0,
+        droplets_final: 0,
+        pure: true,
+        bounds_ok: true,
+        cost_max_microseconds: 0,
+        cost_mean_microseconds: 0,
+    };
+    let mut cost_total = 0_u128;
+    let mut frames = 0_u128;
+    for tick in 1..=RUN_TICKS {
+        network
+            .step_in_place(&mut volumes)
+            .map_err(|error| WaterLatticeCheckErrorV1::new("stage step", error.to_string()))?;
+        if !STAGE_PROBE_TICKS.contains(&tick) {
+            continue;
+        }
+        let active_edges = network
+            .edge_states
+            .values()
+            .filter(|state| state.last_flux_cubic_millimetres != 0)
+            .count();
+        for frame_index in [tick * 2, tick * 2 + 1] {
+            let started = Instant::now();
+            let frame =
+                compute_water_presentation_frame(&volumes, &network, &[], &[], tick, frame_index);
+            let elapsed = started.elapsed().as_micros();
+            probe.cost_max_microseconds = probe.cost_max_microseconds.max(elapsed);
+            cost_total += elapsed;
+            frames += 1;
+            let again =
+                compute_water_presentation_frame(&volumes, &network, &[], &[], tick, frame_index);
+            if again != frame {
+                probe.pure = false;
+            }
+            if !frame.surfaces.is_empty() {
+                probe.records_match_active_edges = false;
+            }
+            if frame.edges.len() != active_edges
+                || frame.edges.iter().any(|record| {
+                    network.edge_flux(record.edge_id) != Some(record.flux_cubic_millimetres)
+                        || record.flux_cubic_millimetres == 0
+                })
+            {
+                probe.records_match_active_edges = false;
+            }
+            probe.records_max = probe.records_max.max(frame.edges.len());
+            if frame.edges.len() > MAX_WATER_FLOW_EDGES
+                || frame.jet.positions_micrometres.len() > WATER_JET_MAX_PARTICLES as usize
+                || frame.jet.positions_micrometres.iter().any(|position| {
+                    (0..3).any(|axis| {
+                        position[axis] < bounds_minimum[axis]
+                            || position[axis] > bounds_maximum[axis]
+                    })
+                })
+            {
+                probe.bounds_ok = false;
+            }
+            let falls = frame
+                .edges
+                .iter()
+                .filter(|record| record.kind == WaterEdgePresentationKindV1::Fall)
+                .count();
+            if tick == 30 && frame_index == tick * 2 {
+                probe.fall_records_tick_30 = falls;
+                probe.droplets_tick_30 = frame.jet.positions_micrometres.len();
+            }
+            if tick == RUN_TICKS && frame_index == tick * 2 {
+                probe.fall_records_final = falls;
+                probe.droplets_final = frame.jet.positions_micrometres.len();
+            }
+        }
+    }
+    probe.cost_mean_microseconds = cost_total / frames.max(1);
+    Ok(probe)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -417,6 +551,7 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
 
     let (step_cost_max_microseconds, step_cost_mean_microseconds) = step_cost(&region)?;
     let rest = rest_probe(&region)?;
+    let stage = stage_probe(&region)?;
     let (final_network_hash, final_table_hash) = hashes(&first.network, &first.volumes)?;
 
     let report = WaterLatticeCheckReportV1 {
@@ -454,6 +589,16 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
         rest_probe_ticks: REST_RUN_TICKS,
         skipped_fraction_at_rest_probe_permille: rest.skipped_fraction_permille,
         first_rest_tick_after_wet: rest.first_rest_tick_after_wet,
+        stage_records_match_active_edges: stage.records_match_active_edges,
+        stage_records_max: stage.records_max,
+        stage_fall_records_tick_30: stage.fall_records_tick_30,
+        stage_droplets_tick_30: stage.droplets_tick_30,
+        stage_fall_records_final: stage.fall_records_final,
+        stage_droplets_final: stage.droplets_final,
+        stage_pure: stage.pure,
+        stage_bounds_ok: stage.bounds_ok,
+        stage_cost_max_microseconds: stage.cost_max_microseconds,
+        stage_cost_mean_microseconds: stage.cost_mean_microseconds,
     };
     if !conservation_exact {
         return Err(WaterLatticeCheckErrorV1::condition("G2 exact conservation"));
@@ -490,6 +635,41 @@ pub fn run_water_lattice_check() -> Result<WaterLatticeCheckReportV1, WaterLatti
     if report.active_edges_after_wake == 0 {
         return Err(WaterLatticeCheckErrorV1::condition(
             "plan 20 G3 wake activates edges",
+        ));
+    }
+    // Plan 21 gates.
+    if !stage.records_match_active_edges {
+        return Err(WaterLatticeCheckErrorV1::condition(
+            "plan 21 G2 one record per active edge",
+        ));
+    }
+    if !stage.pure || !stage.bounds_ok {
+        return Err(WaterLatticeCheckErrorV1::condition(
+            "plan 21 G3 stage bounds and purity",
+        ));
+    }
+    if stage.cost_max_microseconds > STAGE_COST_LIMIT_MICROSECONDS && !cfg!(debug_assertions) {
+        return Err(WaterLatticeCheckErrorV1::new(
+            "plan 21 G4 stage cost",
+            format!(
+                "{} us > {} us",
+                stage.cost_max_microseconds, STAGE_COST_LIMIT_MICROSECONDS
+            ),
+        ));
+    }
+    // Apparatus (recorded in plan 21): the terrace sills of the drained
+    // west columns keep a trickle over their step, so `Fall` records remain
+    // at the end; the settled clause is "no droplets", not "no fall".
+    if stage.fall_records_tick_30 == 0 || stage.droplets_tick_30 == 0 || stage.droplets_final != 0 {
+        return Err(WaterLatticeCheckErrorV1::new(
+            "plan 21 G5 falls",
+            format!(
+                "tick 30 falls {} droplets {}, final falls {} droplets {}",
+                stage.fall_records_tick_30,
+                stage.droplets_tick_30,
+                stage.fall_records_final,
+                stage.droplets_final
+            ),
         ));
     }
     Ok(report)
