@@ -1,0 +1,21 @@
+{
+  "claim": "FULL_COUNT_DISCARDED_ZERO_TARGET_QSO_OWNER_REHEARSAL_AND_EXECUTION_SEAL_ONLY / NO_OFFICIAL_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "execution_seal": {
+    "contract_schema": "nextengine.experimental-physical-sound-v37-query-surface-contract.v1",
+    "d0_rehearsal_root_sha256": "b167ee9c0f71c4223adf2301aaa1ac8bb379c6a8a952d32bee702eb097303aa5",
+    "d0_topology_sha256": "617c0cb2bb0f3865feb5e6729fa5f173d441d7020b00ff2b1499b3ff8708a59e",
+    "environment_sha256": "5cc3a3d2cce0063cd181c5b56ba6a693211f14a8e237164b6ec9c712e286d08f",
+    "forbidden_access_count": 0,
+    "h0_rehearsal_root_sha256": "a846ed7d93508236e6b8122b498ea6210c4e05fe07a944af8ec727512827ae04",
+    "h0_topology_sha256": "c46ee82e5b7120306cc58f6fbff48a9b73dd1992c776ac2c7911102c962aca4c",
+    "owner_sha256": "0ec78599fad0619f87c410d8c5646bf54eeab5b1ed9049c630ece8cf2e93fbe5",
+    "profile_sha256": "f95ccc622430a6dd27661d34526c5970a722dbd40a717230d24200c62dd62f2a",
+    "publisher_sha256": "a840ff1241a56d0508ca85b13e7172d0efbdac138d3469cfc26ab2f06d33041a",
+    "rehearsal_run_count": 2,
+    "repeat_exact": true
+  },
+  "rehearsal_tree_sha256": "e91aae7b7c0613aab4135c27739469a6ad38dfc6552074c422a97422f828d36b",
+  "schema": "nextengine.experimental-physical-sound-v37-execution-seal.v1",
+  "seal_sha256": "608f901938c4031e63353a9231e005bb1040ac21c50ed3c7746e01525e211d7f",
+  "status": "SealedBeforeOfficialAccess"
+}
