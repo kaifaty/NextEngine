@@ -3,7 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Rebaseline date | `2026-09-03` |
-| Status | `ACTIVE / R0_A0_F0_C0_X0_E0_COMPLETE / D0_NEXT / EXECUTION_SEALED_PRE_ACCESS / FRESH_V36_TARGETS_UNOPENED / V35_QUALITY_UNOBSERVED / VALIDATOR_FIRST / REAL_RELEASE_BLOCKED / OFFLINE_ML_ONLY / AUTHORED_FALLBACK` |
+| Status | `FROZEN_EXECUTION_PACKAGE / SUPERSEDED_AS_PROGRAM_PLAN_BY_V37 / R0_A0_F0_C0_X0_E0_COMPLETE / D0_UNOPENED / EXECUTION_SEALED_PRE_ACCESS` |
+| Superseded by | [Roadmap V37](physical-sound-synthesis-roadmap-v37.md); V36 D0/H0 runner, protocol, profile, seal and one-shot rules remain unchanged |
 | Replaces | [Roadmap V35](physical-sound-synthesis-roadmap-v35.md), closed after a repeat-exact post-access owner fault; every V35 train/development role is spent and H0 stays unopened |
 | Research basis | [V36 sealed-owner rebaseline](../development/physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md) |
 | Trigger evidence | [V35 D0 terminal result](../development/physical-sound-v35-d0-development-tournament-result-2026-09-03.md) |
