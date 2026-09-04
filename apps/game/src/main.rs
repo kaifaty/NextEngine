@@ -21,6 +21,8 @@ use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
 #[cfg(feature = "desktop-sdl-ash")]
 mod capture;
 mod cli;
+#[cfg(feature = "physx-water")]
+mod physx_water;
 #[cfg(feature = "desktop-sdl-ash")]
 mod water_presentation;
 
@@ -121,11 +123,17 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             // Plan 11: a fresh session in front of the basin, looking at it.
             launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_water());
         }
+        if options.physx_water {
+            // Plan 24: the PhysX water demo pours into the basin, seen from
+            // the water start.
+            launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_water());
+        }
         return run_interactive_session(
             launch,
             options.maximum_frames,
             capture,
             options.projection_jitter,
+            options.physx_water,
         );
     }
 
@@ -172,6 +180,7 @@ fn run_interactive_session(
     maximum_frames: Option<u64>,
     capture: Option<CaptureOptions>,
     projection_jitter: bool,
+    physx_water: bool,
 ) -> Result<RunReportV1, AppFailure> {
     let capture = capture.map(|capture| capture::CaptureRequest {
         rendered_frame_index: capture.rendered_frame_index,
@@ -219,6 +228,37 @@ fn run_interactive_session(
     let mut water_feed =
         water_presentation::WaterPresentationFeed::new(&ready.render_content_catalog)
             .map_err(|message| AppFailure::cli("GAME_WATER_PRESENTATION_INVALID", message))?;
+    // Plan 24 (ADR-106): the PhysX water demo, optional and fail-closed to
+    // the stage's droplets.
+    #[cfg(feature = "physx-water")]
+    let mut physx_demo = if physx_water {
+        match physx_water::PhysxWaterDemo::new(water_feed.particle_bounds()) {
+            Ok(demo) => {
+                eprintln!("next_game: PHYSX_WATER: demo active over the basin");
+                Some(demo)
+            }
+            Err(reason) => {
+                eprintln!("next_game: PHYSX_WATER_FALLBACK: {reason}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+    #[cfg(not(feature = "physx-water"))]
+    if physx_water {
+        return Err(AppFailure::cli(
+            "GAME_PHYSX_WATER_UNAVAILABLE",
+            "--physx-water needs a build with --features physx-water",
+        ));
+    }
+    #[cfg(feature = "physx-water")]
+    let particle_profile = physx_demo.as_ref().map_or_else(
+        || water_feed.particle_surface_profile(),
+        physx_water::PhysxWaterDemo::particle_surface_profile,
+    );
+    #[cfg(not(feature = "physx-water"))]
+    let particle_profile = water_feed.particle_surface_profile();
     let adapter = next_desktop_sdl_ash::run_interactive_with_shared_frame_publication_and_finalize(
         Arc::clone(&ready.initial_snapshot),
         &ready.render_content_catalog,
@@ -231,7 +271,7 @@ fn run_interactive_session(
             ui_text_scale_milli,
             ui_subtitles_enabled,
             dynamic_surfaces: water_feed.dynamic_surface_profiles(),
-            particle_surface: Some(water_feed.particle_surface_profile()),
+            particle_surface: Some(particle_profile),
             frame_capture: capture
                 .as_ref()
                 .map(capture::CaptureRequest::adapter_request),
@@ -286,8 +326,23 @@ fn run_interactive_session(
             })?;
             let latest = read.snapshot;
             let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
+            // Plan 24: the PhysX fluid publishes every frame, replacing the
+            // stage's droplets while the demo runs.
+            #[cfg(feature = "physx-water")]
+            let demo_particles = match physx_demo.as_mut() {
+                Some(demo) => demo.advance(elapsed, water_feed.next_sequence())?,
+                None => None,
+            };
+            #[cfg(not(feature = "physx-water"))]
+            let demo_particles: Option<
+                Arc<next_desktop_sdl_ash::ParticleSurfaceUpdateV1>,
+            > = None;
             if generation == last_rendered_generation {
-                Ok(next_desktop_sdl_ash::DesktopFramePublicationV1::snapshot_only(None))
+                Ok(next_desktop_sdl_ash::DesktopFramePublicationV1 {
+                    snapshot: None,
+                    dynamic_surface_updates: Vec::new(),
+                    particle_surface_update: demo_particles,
+                })
             } else {
                 last_rendered_generation = generation;
                 let (dynamic_surface_updates, particle_surface_update) =
@@ -295,7 +350,7 @@ fn run_interactive_session(
                 Ok(next_desktop_sdl_ash::DesktopFramePublicationV1 {
                     snapshot: Some(latest),
                     dynamic_surface_updates,
-                    particle_surface_update,
+                    particle_surface_update: demo_particles.or(particle_surface_update),
                 })
             }
         },
@@ -427,6 +482,7 @@ fn run_interactive_session(
     _maximum_frames: Option<u64>,
     _capture: Option<CaptureOptions>,
     _projection_jitter: bool,
+    _physx_water: bool,
 ) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",

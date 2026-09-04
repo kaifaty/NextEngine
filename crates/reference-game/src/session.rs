@@ -191,6 +191,17 @@ impl ReferenceSpawnOverrideV1 {
             camera_pitch_millidegrees: -12_000,
         }
     }
+
+    /// Plan 24: the avatar south of vessel B (`x 15..17.8 m`, `z 1..2.5 m`),
+    /// looking along `+z` into the vessel where the PhysX water demo pours.
+    #[must_use]
+    pub const fn at_vessels() -> Self {
+        Self {
+            translation_micrometres: [16_400_000, 900_000, -1_500_000],
+            camera_yaw_millidegrees: 0,
+            camera_pitch_millidegrees: -10_000,
+        }
+    }
 }
 
 pub fn build_reference_game_session(

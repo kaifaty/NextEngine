@@ -938,6 +938,7 @@ dependencies = [
  "next_assets",
  "next_contracts",
  "next_desktop_sdl_ash",
+ "next_physics_physx_ffi",
  "next_project",
  "next_reference_game",
  "serde",

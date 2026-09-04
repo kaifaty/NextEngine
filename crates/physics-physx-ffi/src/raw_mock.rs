@@ -1,11 +1,12 @@
 use super::{
     ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
     ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-    EXPECTED_PHYSX_VERSION, JointState, LinkState, MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
-    MATERIAL_COEFFICIENT_ENCODING_Q16, MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN,
+    EXPECTED_PHYSX_VERSION, FluidDescRaw, JointState, LinkState,
+    MATERIAL_COEFFICIENT_ENCODING_F32_BITS, MATERIAL_COEFFICIENT_ENCODING_Q16,
+    MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN,
     MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER, MaterialProfileInput, PbdProbeDescRaw,
     PbdProbeReportRaw, PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_CAPACITY_EXCEEDED,
-    STATUS_INVALID_ARGUMENT, STATUS_OK, SceneProfileInput, c_void,
+    STATUS_INTERNAL_FAILURE, STATUS_INVALID_ARGUMENT, STATUS_OK, SceneProfileInput, c_void,
 };
 
 struct MockBox {
@@ -45,6 +46,39 @@ pub unsafe fn pbd_probe(desc: *const PbdProbeDescRaw, report: *mut PbdProbeRepor
     }
     STATUS_OK
 }
+
+/// Plan 24: the mock has no GPU; the fluid reports itself unavailable.
+pub unsafe fn fluid_create(
+    desc: *const FluidDescRaw,
+    output: *mut *mut c_void,
+    reason: *mut u32,
+) -> i32 {
+    if desc.is_null() || output.is_null() || reason.is_null() {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: the caller passes live outputs; the mock writes them once.
+    unsafe {
+        *output = std::ptr::null_mut();
+        *reason = 1;
+    }
+    STATUS_INTERNAL_FAILURE
+}
+
+pub unsafe fn fluid_step(_fluid: *mut c_void) -> i32 {
+    STATUS_INVALID_ARGUMENT
+}
+
+pub unsafe fn fluid_read(
+    _fluid: *mut c_void,
+    _positions: *mut f32,
+    _velocities: *mut f32,
+    _capacity: u32,
+    _count: *mut u32,
+) -> i32 {
+    STATUS_INVALID_ARGUMENT
+}
+
+pub unsafe fn fluid_destroy(_fluid: *mut c_void) {}
 
 pub unsafe fn version() -> PhysXVersion {
     EXPECTED_PHYSX_VERSION

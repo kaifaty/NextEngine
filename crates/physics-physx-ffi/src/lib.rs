@@ -372,6 +372,172 @@ pub fn pbd_probe(desc: &PbdProbeDesc) -> Result<PbdProbeReport, PhysXFfiError> {
     })
 }
 
+/// Plan 24: the persistent fluid descriptor as the bridge reads it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct FluidDescRaw {
+    pub spacing_bits: u32,
+    pub box_min_bits: [u32; 3],
+    pub box_max_bits: [u32; 3],
+    pub seed_min_bits: [u32; 3],
+    pub seed_max_bits: [u32; 3],
+    pub timestep_bits: u32,
+    pub max_particles: u32,
+    pub gpu_library_path: *const std::ffi::c_char,
+}
+
+/// Plan 24: a GPU fluid in a box (floor at `box_min.y`, four walls, open
+/// top) seeded on the spacing grid inside the seed block.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FluidDesc {
+    pub spacing_metres: f32,
+    pub box_min_metres: [f32; 3],
+    pub box_max_metres: [f32; 3],
+    pub seed_min_metres: [f32; 3],
+    pub seed_max_metres: [f32; 3],
+    pub timestep_seconds: f32,
+    pub max_particles: u32,
+    pub gpu_library_path: Option<String>,
+}
+
+/// Plan 24: one readback of the fluid, metres and metres per second.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FluidSample {
+    pub positions: Vec<[f32; 3]>,
+    pub velocities: Vec<[f32; 3]>,
+}
+
+/// Plan 24: a persistent GPU fluid of the bridge. `create` fails with
+/// [`PhysXFfiError::Unavailable`] and a reason when the GPU lane cannot
+/// start; the CPU bridge stays usable.
+pub struct NativeFluid {
+    handle: NonNull<c_void>,
+    max_particles: u32,
+    _single_threaded: PhantomData<Rc<()>>,
+}
+
+impl NativeFluid {
+    pub fn create(desc: &FluidDesc) -> Result<Self, PhysXFfiError> {
+        let version = version()?;
+        validate_version(version)?;
+        if desc.max_particles == 0 {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        let path = desc
+            .gpu_library_path
+            .as_deref()
+            .map(std::ffi::CString::new)
+            .transpose()
+            .map_err(|_| PhysXFfiError::InvalidArgument)?;
+        let raw = FluidDescRaw {
+            spacing_bits: desc.spacing_metres.to_bits(),
+            box_min_bits: desc.box_min_metres.map(f32::to_bits),
+            box_max_bits: desc.box_max_metres.map(f32::to_bits),
+            seed_min_bits: desc.seed_min_metres.map(f32::to_bits),
+            seed_max_bits: desc.seed_max_metres.map(f32::to_bits),
+            timestep_bits: desc.timestep_seconds.to_bits(),
+            max_particles: desc.max_particles,
+            gpu_library_path: path.as_ref().map_or(std::ptr::null(), |path| path.as_ptr()),
+        };
+        let mut handle = std::ptr::null_mut();
+        let mut reason = 0_u32;
+        // SAFETY: the descriptor points at a live CString; `handle` and
+        // `reason` are writable locals the bridge fills before returning
+        // and never retains.
+        let status = unsafe { raw::fluid_create(&raw, &mut handle, &mut reason) };
+        match status_result(status) {
+            Ok(()) => {}
+            Err(PhysXFfiError::InternalFailure) if reason != 0 => {
+                return Err(PhysXFfiError::Unavailable);
+            }
+            Err(error) => return Err(error),
+        }
+        let handle = NonNull::new(handle).ok_or(PhysXFfiError::InternalFailure)?;
+        Ok(Self {
+            handle,
+            max_particles: desc.max_particles,
+            _single_threaded: PhantomData,
+        })
+    }
+
+    pub fn step(&mut self) -> Result<(), PhysXFfiError> {
+        // SAFETY: the handle is a live fluid owned by this value.
+        status_result(unsafe { raw::fluid_step(self.handle.as_ptr()) })
+    }
+
+    pub fn read(&mut self) -> Result<FluidSample, PhysXFfiError> {
+        let capacity = self.max_particles as usize;
+        let mut positions = vec![0.0_f32; capacity * 3];
+        let mut velocities = vec![0.0_f32; capacity * 3];
+        let mut count = 0_u32;
+        // SAFETY: both buffers hold `3 * max_particles` floats, the declared
+        // capacity; the bridge writes at most `count <= max_particles`.
+        let status = unsafe {
+            raw::fluid_read(
+                self.handle.as_ptr(),
+                positions.as_mut_ptr(),
+                velocities.as_mut_ptr(),
+                self.max_particles,
+                &mut count,
+            )
+        };
+        status_result(status)?;
+        let count = count as usize;
+        Ok(FluidSample {
+            positions: positions[..count * 3]
+                .chunks_exact(3)
+                .map(|chunk| [chunk[0], chunk[1], chunk[2]])
+                .collect(),
+            velocities: velocities[..count * 3]
+                .chunks_exact(3)
+                .map(|chunk| [chunk[0], chunk[1], chunk[2]])
+                .collect(),
+        })
+    }
+}
+
+impl Drop for NativeFluid {
+    fn drop(&mut self) {
+        // SAFETY: the handle is a live fluid owned by this value and is
+        // destroyed exactly once.
+        unsafe { raw::fluid_destroy(self.handle.as_ptr()) };
+    }
+}
+
+/// Plan 24: where the GPU library lives on this host —
+/// `NEXTENGINE_PHYSX_GPU_LIBRARY`, else `NEXTENGINE_PHYSX_SDK_DIR/lib`, else
+/// the SDK cache locator of `xtask physx setup`. `None` when nothing
+/// resolves; the caller then reports the lane unavailable.
+#[must_use]
+pub fn gpu_library_path() -> Option<std::path::PathBuf> {
+    use std::path::PathBuf;
+    const NAME: &str = "libPhysXGpu_64.so";
+    if let Some(path) = std::env::var_os("NEXTENGINE_PHYSX_GPU_LIBRARY") {
+        return Some(PathBuf::from(path));
+    }
+    if let Some(sdk) = std::env::var_os("NEXTENGINE_PHYSX_SDK_DIR") {
+        return Some(PathBuf::from(sdk).join("lib").join(NAME));
+    }
+    let cache = if let Some(path) = std::env::var_os("NEXTENGINE_PHYSX_CACHE_DIR") {
+        PathBuf::from(path).join("physx")
+    } else if let Some(path) = std::env::var_os("XDG_CACHE_HOME") {
+        PathBuf::from(path).join("nextengine").join("physx")
+    } else {
+        PathBuf::from(std::env::var_os("HOME")?)
+            .join(".cache")
+            .join("nextengine")
+            .join("physx")
+    };
+    let target = format!(
+        "{}-unknown-{}-gnu",
+        std::env::consts::ARCH,
+        std::env::consts::OS
+    );
+    let locator =
+        std::fs::read_to_string(cache.join("active").join(format!("{target}.txt"))).ok()?;
+    Some(PathBuf::from(locator.trim()).join("lib").join(NAME))
+}
+
 pub struct NativeWorld {
     handle: NonNull<c_void>,
     link_count: u32,
@@ -818,8 +984,8 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw, PbdProbeReportRaw,
-        PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput, c_void,
+        FluidDescRaw, JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw,
+        PbdProbeReportRaw, PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput, c_void,
     };
 
     unsafe extern "C" {
@@ -827,6 +993,24 @@ mod raw {
         pub fn version() -> PhysXVersion;
         #[link_name = "ne_physx_pbd_probe"]
         pub fn pbd_probe(desc: *const PbdProbeDescRaw, report: *mut PbdProbeReportRaw) -> i32;
+        #[link_name = "ne_physx_fluid_create"]
+        pub fn fluid_create(
+            desc: *const FluidDescRaw,
+            output: *mut *mut c_void,
+            reason: *mut u32,
+        ) -> i32;
+        #[link_name = "ne_physx_fluid_step"]
+        pub fn fluid_step(fluid: *mut c_void) -> i32;
+        #[link_name = "ne_physx_fluid_read"]
+        pub fn fluid_read(
+            fluid: *mut c_void,
+            positions: *mut f32,
+            velocities: *mut f32,
+            capacity: u32,
+            count: *mut u32,
+        ) -> i32;
+        #[link_name = "ne_physx_fluid_destroy"]
+        pub fn fluid_destroy(fluid: *mut c_void);
         #[link_name = "ne_physx_world_create"]
         pub fn world_create(output: *mut *mut c_void) -> i32;
         #[link_name = "ne_physx_world_destroy"]
@@ -931,14 +1115,38 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw, PbdProbeReportRaw,
-        PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE, SceneProfileInput,
-        c_void,
+        FluidDescRaw, JointState, LinkState, MaterialProfileInput, PbdProbeDescRaw,
+        PbdProbeReportRaw, PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE,
+        SceneProfileInput, c_void,
     };
 
     pub unsafe fn pbd_probe(_desc: *const PbdProbeDescRaw, _report: *mut PbdProbeReportRaw) -> i32 {
         STATUS_UNAVAILABLE
     }
+
+    pub unsafe fn fluid_create(
+        _desc: *const FluidDescRaw,
+        _output: *mut *mut c_void,
+        _reason: *mut u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_step(_fluid: *mut c_void) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_read(
+        _fluid: *mut c_void,
+        _positions: *mut f32,
+        _velocities: *mut f32,
+        _capacity: u32,
+        _count: *mut u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_destroy(_fluid: *mut c_void) {}
 
     pub unsafe fn version() -> PhysXVersion {
         PhysXVersion {

@@ -111,6 +111,18 @@ impl WaterPresentationFeed {
         }
     }
 
+    /// Plan 24: the next publication sequence (shared with the particle
+    /// updates of the PhysX lane so every update stays strictly increasing).
+    pub(crate) fn next_sequence(&mut self) -> u64 {
+        self.sequence = self.sequence.saturating_add(1);
+        self.sequence
+    }
+
+    #[cfg(feature = "physx-water")]
+    pub(crate) const fn particle_bounds(&self) -> AabbI64V1 {
+        self.particle_bounds
+    }
+
     /// Converts the worker's water frame into adapter updates. A missing
     /// frame (menu republication) republishes the last one under a new
     /// sequence so the ring stays declared and current.
@@ -123,8 +135,7 @@ impl WaterPresentationFeed {
             (None, Some(last)) => Arc::clone(last),
             (None, None) => return Ok((Vec::new(), None)),
         };
-        self.sequence = self.sequence.saturating_add(1);
-        let sequence = self.sequence;
+        let sequence = self.next_sequence();
         let mut updates = Vec::with_capacity(frame.surfaces.len());
         for surface in &frame.surfaces {
             let Some((_, revision)) = self

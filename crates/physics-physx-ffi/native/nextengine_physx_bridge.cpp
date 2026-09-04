@@ -115,6 +115,21 @@ struct NePhysXPbdProbeReport {
     char device_name[64];
 };
 
+// Plan 24: a persistent GPU fluid. The box is closed by a floor at
+// `box_min.y` and four walls at the `x`/`z` faces, open at the top; the
+// seed block fills `[seed_min, seed_max]` on the spacing grid up to
+// `max_particles`.
+struct NePhysXFluidDesc {
+    std::uint32_t spacing_bits;
+    std::uint32_t box_min_bits[3];
+    std::uint32_t box_max_bits[3];
+    std::uint32_t seed_min_bits[3];
+    std::uint32_t seed_max_bits[3];
+    std::uint32_t timestep_bits;
+    std::uint32_t max_particles;
+    const char* gpu_library_path;
+};
+
 struct NePhysXSweepOutput {
     std::uint32_t hit;
     std::uint32_t distance_bits;
@@ -1335,10 +1350,11 @@ std::int32_t ne_physx_world_sweep_capsule_axis(
     return kOk;
 }
 
-// Plan `continuum-water/23` (ADR-106): the PBD probe. Reasons: 1 the GPU
-// library or the CUDA device is unavailable, 2 the CUDA context is invalid,
-// 3 the GPU scene failed, 4 the particle system or material failed, 5 the
-// particle buffer failed, 6 a simulation step failed.
+// Plan `continuum-water/23` (ADR-106): the GPU fluid behind the probe and
+// the plan 24 lane. Reasons: 1 the GPU library or the CUDA device is
+// unavailable, 2 the CUDA context is invalid, 3 the GPU scene failed, 4 the
+// particle system or material failed, 5 the particle buffer failed, 6 a
+// simulation step or readback failed.
 namespace {
 
 struct GpuLibraryHook final : ::PxGpuLoadHook {
@@ -1350,6 +1366,231 @@ std::uint64_t microseconds_since(std::chrono::steady_clock::time_point started) 
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
                                           std::chrono::steady_clock::now() - started)
                                           .count());
+}
+
+struct GpuFluid {
+    World holder;
+    physx::PxCudaContextManager* cuda = nullptr;
+    physx::PxDefaultCpuDispatcher* dispatcher = nullptr;
+    physx::PxScene* scene = nullptr;
+    physx::PxMaterial* material = nullptr;
+    physx::PxRigidStatic* planes[5] = {};
+    physx::PxPBDParticleSystem* particles = nullptr;
+    physx::PxPBDMaterial* fluid_material = nullptr;
+    physx::PxParticleBuffer* buffer = nullptr;
+    physx::PxVec4* host_positions = nullptr;
+    physx::PxVec4* host_velocities = nullptr;
+    std::uint32_t count = 0;
+    float timestep = 0.0F;
+    char device_name[64] = {};
+};
+
+void destroy_gpu_fluid(GpuFluid* fluid) {
+    if (fluid == nullptr) {
+        return;
+    }
+    if (fluid->buffer != nullptr) {
+        if (fluid->particles != nullptr) {
+            fluid->particles->removeParticleBuffer(fluid->buffer);
+        }
+        fluid->buffer->release();
+    }
+    if (fluid->particles != nullptr) {
+        if (fluid->scene != nullptr) {
+            fluid->scene->removeActor(*fluid->particles);
+        }
+        fluid->particles->release();
+    }
+    if (fluid->fluid_material != nullptr) {
+        fluid->fluid_material->release();
+    }
+    for (physx::PxRigidStatic* plane : fluid->planes) {
+        if (plane != nullptr) {
+            plane->release();
+        }
+    }
+    if (fluid->material != nullptr) {
+        fluid->material->release();
+    }
+    if (fluid->scene != nullptr) {
+        fluid->scene->release();
+    }
+    if (fluid->dispatcher != nullptr) {
+        fluid->dispatcher->release();
+    }
+    if (fluid->cuda != nullptr) {
+        fluid->cuda->release();
+    }
+    delete[] fluid->host_positions;
+    delete[] fluid->host_velocities;
+    const bool has_sdk = fluid->holder.physics != nullptr;
+    delete fluid;
+    if (has_sdk) {
+        release_sdk();
+    }
+}
+
+/// Creates the GPU scene, the box and the fluid seeded from `seed`
+/// (`count` particles, positions with inverse mass). Returns null with the
+/// reason set when the GPU lane is unavailable or a step of the creation
+/// fails; the CPU SDK stays usable.
+GpuFluid* create_gpu_fluid(
+    const char* gpu_library_path,
+    float spacing,
+    const float box_min[3],
+    const float box_max[3],
+    float timestep,
+    const physx::PxVec4* seed,
+    std::uint32_t count,
+    std::uint32_t* reason) {
+    *reason = 0;
+    auto* fluid = new (std::nothrow) GpuFluid{};
+    if (fluid == nullptr) {
+        *reason = 5;
+        return nullptr;
+    }
+    if (!acquire_sdk(fluid->holder)) {
+        delete fluid;
+        *reason = 3;
+        return nullptr;
+    }
+    static GpuLibraryHook hook;
+    if (gpu_library_path != nullptr) {
+        hook.path = gpu_library_path;
+        PxSetPhysXGpuLoadHook(&hook);
+    }
+    physx::PxCudaContextManagerDesc cuda_desc;
+    fluid->cuda =
+        PxCreateCudaContextManager(*fluid->holder.foundation, cuda_desc, PxGetProfilerCallback());
+    if (fluid->cuda == nullptr) {
+        *reason = 1;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    if (!fluid->cuda->contextIsValid()) {
+        *reason = 2;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    const char* device = fluid->cuda->getDeviceName();
+    if (device != nullptr) {
+        std::strncpy(fluid->device_name, device, sizeof(fluid->device_name) - 1);
+    }
+    fluid->dispatcher = physx::PxDefaultCpuDispatcherCreate(1);
+    physx::PxSceneDesc scene_desc(fluid->holder.physics->getTolerancesScale());
+    scene_desc.gravity = physx::PxVec3(0.0F, -9.81F, 0.0F);
+    scene_desc.cpuDispatcher = fluid->dispatcher;
+    scene_desc.filterShader = physx::PxDefaultSimulationFilterShader;
+    scene_desc.cudaContextManager = fluid->cuda;
+    scene_desc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
+    scene_desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
+    scene_desc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
+    scene_desc.solverType = physx::PxSolverType::eTGS;
+    fluid->scene =
+        fluid->dispatcher == nullptr ? nullptr : fluid->holder.physics->createScene(scene_desc);
+    fluid->material = fluid->holder.physics->createMaterial(0.5F, 0.5F, 0.1F);
+    if (fluid->scene == nullptr || fluid->material == nullptr) {
+        *reason = 3;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    // A floor at the box bottom and four walls at its x/z faces, open at
+    // the top. PxPlane(n, d) is the set n . p + d = 0.
+    const physx::PxPlane plane_shapes[5] = {
+        physx::PxPlane(physx::PxVec3(0.0F, 1.0F, 0.0F), -box_min[1]),
+        physx::PxPlane(physx::PxVec3(1.0F, 0.0F, 0.0F), -box_min[0]),
+        physx::PxPlane(physx::PxVec3(-1.0F, 0.0F, 0.0F), box_max[0]),
+        physx::PxPlane(physx::PxVec3(0.0F, 0.0F, 1.0F), -box_min[2]),
+        physx::PxPlane(physx::PxVec3(0.0F, 0.0F, -1.0F), box_max[2]),
+    };
+    for (int index = 0; index < 5; ++index) {
+        fluid->planes[index] =
+            physx::PxCreatePlane(*fluid->holder.physics, plane_shapes[index], *fluid->material);
+        if (fluid->planes[index] != nullptr) {
+            fluid->scene->addActor(*fluid->planes[index]);
+        }
+    }
+    // The fluid: the SDK snippet's offsets from the particle spacing.
+    const float rest_offset = 0.5F * spacing / 0.6F;
+    const float fluid_rest_offset = rest_offset * 0.6F;
+    const float contact_offset = rest_offset + 0.01F;
+    fluid->particles = fluid->holder.physics->createPBDParticleSystem(*fluid->cuda, 96);
+    fluid->fluid_material = fluid->holder.physics->createPBDMaterial(
+        0.05F, 0.05F, 0.0F, 0.001F, 0.005F, 0.005F, 0.5F, 0.0F, 0.0F);
+    if (fluid->particles == nullptr || fluid->fluid_material == nullptr) {
+        *reason = 4;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    fluid->particles->setRestOffset(rest_offset);
+    fluid->particles->setContactOffset(contact_offset);
+    fluid->particles->setParticleContactOffset(contact_offset);
+    fluid->particles->setSolidRestOffset(rest_offset);
+    fluid->particles->setFluidRestOffset(fluid_rest_offset);
+    fluid->scene->addActor(*fluid->particles);
+    const physx::PxU32 phase = fluid->particles->createPhase(
+        fluid->fluid_material,
+        physx::PxParticlePhaseFlags(
+            physx::PxParticlePhaseFlag::eParticlePhaseFluid
+            | physx::PxParticlePhaseFlag::eParticlePhaseSelfCollide));
+    fluid->host_positions = new (std::nothrow) physx::PxVec4[count];
+    fluid->host_velocities = new (std::nothrow) physx::PxVec4[count];
+    auto* phases = new (std::nothrow) physx::PxU32[count];
+    if (fluid->host_positions == nullptr || fluid->host_velocities == nullptr
+        || phases == nullptr) {
+        delete[] phases;
+        *reason = 5;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    for (std::uint32_t index = 0; index < count; ++index) {
+        fluid->host_positions[index] = seed[index];
+        fluid->host_velocities[index] = physx::PxVec4(0.0F);
+        phases[index] = phase;
+    }
+    physx::ExtGpu::PxParticleBufferDesc buffer_desc;
+    buffer_desc.positions = fluid->host_positions;
+    buffer_desc.velocities = fluid->host_velocities;
+    buffer_desc.phases = phases;
+    buffer_desc.numActiveParticles = count;
+    buffer_desc.maxParticles = count;
+    fluid->buffer = physx::ExtGpu::PxCreateAndPopulateParticleBuffer(buffer_desc, fluid->cuda);
+    delete[] phases;
+    if (fluid->buffer == nullptr) {
+        *reason = 5;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    fluid->particles->addParticleBuffer(fluid->buffer);
+    fluid->count = count;
+    fluid->timestep = timestep;
+    return fluid;
+}
+
+bool gpu_fluid_step(GpuFluid& fluid) {
+    fluid.scene->simulate(fluid.timestep);
+    if (!fluid.scene->fetchResults(true)) {
+        return false;
+    }
+    fluid.scene->fetchResultsParticleSystem();
+    return true;
+}
+
+bool gpu_fluid_readback(GpuFluid& fluid, bool velocities) {
+    fluid.cuda->acquireContext();
+    physx::PxCudaContext* context = fluid.cuda->getCudaContext();
+    physx::PxCUresult copied = context->memcpyDtoH(
+        fluid.host_positions,
+        reinterpret_cast<CUdeviceptr>(fluid.buffer->getPositionInvMasses()),
+        static_cast<std::size_t>(fluid.count) * sizeof(physx::PxVec4));
+    if (copied == 0 && velocities) {
+        copied = context->memcpyDtoH(
+            fluid.host_velocities,
+            reinterpret_cast<CUdeviceptr>(fluid.buffer->getVelocities()),
+            static_cast<std::size_t>(fluid.count) * sizeof(physx::PxVec4));
+    }
+    fluid.cuda->releaseContext();
+    return copied == 0;
 }
 
 }  // namespace
@@ -1370,203 +1611,64 @@ std::int32_t ne_physx_pbd_probe(
         || !finite_non_negative(margin)) {
         return kInvalidArgument;
     }
-    World holder{};
-    if (!acquire_sdk(holder)) {
-        return kInternalFailure;
-    }
-    static GpuLibraryHook hook;
-    if (desc->gpu_library_path != nullptr) {
-        hook.path = desc->gpu_library_path;
-        PxSetPhysXGpuLoadHook(&hook);
-    }
-    physx::PxCudaContextManagerDesc cuda_desc;
-    physx::PxCudaContextManager* cuda =
-        PxCreateCudaContextManager(*holder.foundation, cuda_desc, PxGetProfilerCallback());
-    if (cuda == nullptr) {
-        report->reason = 1;
-        release_sdk();
-        return kOk;
-    }
-    if (!cuda->contextIsValid()) {
-        report->reason = 2;
-        cuda->release();
-        release_sdk();
-        return kOk;
-    }
-    const char* device = cuda->getDeviceName();
-    if (device != nullptr) {
-        std::strncpy(report->device_name, device, sizeof(report->device_name) - 1);
-    }
-
-    physx::PxDefaultCpuDispatcher* dispatcher = physx::PxDefaultCpuDispatcherCreate(1);
-    physx::PxSceneDesc scene_desc(holder.physics->getTolerancesScale());
-    scene_desc.gravity = physx::PxVec3(0.0F, -9.81F, 0.0F);
-    scene_desc.cpuDispatcher = dispatcher;
-    scene_desc.filterShader = physx::PxDefaultSimulationFilterShader;
-    scene_desc.cudaContextManager = cuda;
-    scene_desc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
-    scene_desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
-    scene_desc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
-    scene_desc.solverType = physx::PxSolverType::eTGS;
-    physx::PxScene* scene =
-        dispatcher == nullptr ? nullptr : holder.physics->createScene(scene_desc);
-    physx::PxMaterial* material = holder.physics->createMaterial(0.5F, 0.5F, 0.1F);
-    if (scene == nullptr || material == nullptr) {
-        report->reason = 3;
-        if (material != nullptr) {
-            material->release();
-        }
-        if (scene != nullptr) {
-            scene->release();
-        }
-        if (dispatcher != nullptr) {
-            dispatcher->release();
-        }
-        cuda->release();
-        release_sdk();
-        return kOk;
-    }
-    // A floor and four walls: the box footprint `2 box_half` square, open
-    // at the top.
-    physx::PxRigidStatic* planes[5] = {};
-    const physx::PxPlane plane_shapes[5] = {
-        physx::PxPlane(physx::PxVec3(0.0F, 1.0F, 0.0F), box_half),
-        physx::PxPlane(physx::PxVec3(1.0F, 0.0F, 0.0F), box_half),
-        physx::PxPlane(physx::PxVec3(-1.0F, 0.0F, 0.0F), box_half),
-        physx::PxPlane(physx::PxVec3(0.0F, 0.0F, 1.0F), box_half),
-        physx::PxPlane(physx::PxVec3(0.0F, 0.0F, -1.0F), box_half),
-    };
-    for (int index = 0; index < 5; ++index) {
-        planes[index] = physx::PxCreatePlane(*holder.physics, plane_shapes[index], *material);
-        if (planes[index] != nullptr) {
-            scene->addActor(*planes[index]);
-        }
-    }
-
-    // The fluid: the SDK snippet's offsets from the particle spacing.
-    const float rest_offset = 0.5F * spacing / 0.6F;
-    const float solid_rest_offset = rest_offset;
-    const float fluid_rest_offset = rest_offset * 0.6F;
-    const float contact_offset = rest_offset + 0.01F;
-    const float fluid_density = 1000.0F;
-    const float particle_mass = fluid_density * 1.333F * 3.14159F * fluid_rest_offset
-        * fluid_rest_offset * fluid_rest_offset;
-    physx::PxPBDParticleSystem* particles = holder.physics->createPBDParticleSystem(*cuda, 96);
-    physx::PxPBDMaterial* fluid_material = holder.physics->createPBDMaterial(
-        0.05F, 0.05F, 0.0F, 0.001F, 0.005F, 0.005F, 0.5F, 0.0F, 0.0F);
-    auto teardown = [&](std::uint32_t reason) {
-        report->reason = reason;
-        if (particles != nullptr) {
-            scene->removeActor(*particles);
-            particles->release();
-        }
-        if (fluid_material != nullptr) {
-            fluid_material->release();
-        }
-        for (physx::PxRigidStatic* plane : planes) {
-            if (plane != nullptr) {
-                plane->release();
-            }
-        }
-        material->release();
-        scene->release();
-        dispatcher->release();
-        cuda->release();
-        release_sdk();
-    };
-    if (particles == nullptr || fluid_material == nullptr) {
-        teardown(4);
-        return kOk;
-    }
-    particles->setRestOffset(rest_offset);
-    particles->setContactOffset(contact_offset);
-    particles->setParticleContactOffset(contact_offset);
-    particles->setSolidRestOffset(solid_rest_offset);
-    particles->setFluidRestOffset(fluid_rest_offset);
-    scene->addActor(*particles);
-    const physx::PxU32 phase = particles->createPhase(
-        fluid_material,
-        physx::PxParticlePhaseFlags(
-            physx::PxParticlePhaseFlag::eParticlePhaseFluid
-            | physx::PxParticlePhaseFlag::eParticlePhaseSelfCollide));
-
     // Host seed: a column of particles on the spacing grid over the floor.
     const std::uint32_t count = desc->particle_count;
     const std::uint32_t per_axis =
         static_cast<std::uint32_t>((2.0F * box_half - spacing) / spacing);
-    auto* positions = new (std::nothrow) physx::PxVec4[count];
-    auto* velocities = new (std::nothrow) physx::PxVec4[count];
-    auto* phases = new (std::nothrow) physx::PxU32[count];
-    if (positions == nullptr || velocities == nullptr || phases == nullptr || per_axis == 0) {
-        delete[] positions;
-        delete[] velocities;
-        delete[] phases;
-        teardown(5);
-        return kOk;
+    if (per_axis == 0) {
+        return kInvalidArgument;
+    }
+    const float rest_offset = 0.5F * spacing / 0.6F;
+    const float fluid_rest_offset = rest_offset * 0.6F;
+    const float particle_mass = 1000.0F * 1.333F * 3.14159F * fluid_rest_offset
+        * fluid_rest_offset * fluid_rest_offset;
+    auto* seed = new (std::nothrow) physx::PxVec4[count];
+    if (seed == nullptr) {
+        return kOutOfMemory;
     }
     for (std::uint32_t index = 0; index < count; ++index) {
         const std::uint32_t column = index % per_axis;
         const std::uint32_t row = (index / per_axis) % per_axis;
         const std::uint32_t layer = index / (per_axis * per_axis);
-        const float x = -box_half + spacing * (0.5F + static_cast<float>(column));
-        const float z = -box_half + spacing * (0.5F + static_cast<float>(row));
-        const float y = -box_half + spacing * (0.5F + static_cast<float>(layer));
-        positions[index] = physx::PxVec4(x, y, z, 1.0F / particle_mass);
-        velocities[index] = physx::PxVec4(0.0F);
-        phases[index] = phase;
+        seed[index] = physx::PxVec4(
+            -box_half + spacing * (0.5F + static_cast<float>(column)),
+            -box_half + spacing * (0.5F + static_cast<float>(layer)),
+            -box_half + spacing * (0.5F + static_cast<float>(row)),
+            1.0F / particle_mass);
     }
-    physx::ExtGpu::PxParticleBufferDesc buffer_desc;
-    buffer_desc.positions = positions;
-    buffer_desc.velocities = velocities;
-    buffer_desc.phases = phases;
-    buffer_desc.numActiveParticles = count;
-    buffer_desc.maxParticles = count;
-    physx::PxParticleBuffer* buffer =
-        physx::ExtGpu::PxCreateAndPopulateParticleBuffer(buffer_desc, cuda);
-    delete[] velocities;
-    delete[] phases;
-    if (buffer == nullptr) {
-        delete[] positions;
-        teardown(5);
+    const float box_min[3] = {-box_half, -box_half, -box_half};
+    const float box_max[3] = {box_half, box_half, box_half};
+    std::uint32_t reason = 0;
+    GpuFluid* fluid = create_gpu_fluid(
+        desc->gpu_library_path, spacing, box_min, box_max, timestep, seed, count, &reason);
+    delete[] seed;
+    if (fluid == nullptr) {
+        report->reason = reason;
         return kOk;
     }
-    particles->addParticleBuffer(buffer);
-
+    std::strncpy(report->device_name, fluid->device_name, sizeof(report->device_name) - 1);
     std::uint64_t step_total = 0;
     std::uint64_t readback_total = 0;
     const float low = -box_half - margin;
     const float high = box_half + margin;
     for (std::uint32_t frame = 0; frame < desc->frames; ++frame) {
         const auto step_started = std::chrono::steady_clock::now();
-        scene->simulate(timestep);
-        if (!scene->fetchResults(true)) {
-            particles->removeParticleBuffer(buffer);
-            buffer->release();
-            delete[] positions;
-            teardown(6);
+        if (!gpu_fluid_step(*fluid)) {
+            report->reason = 6;
+            destroy_gpu_fluid(fluid);
             return kOk;
         }
-        scene->fetchResultsParticleSystem();
         const std::uint64_t step_elapsed = microseconds_since(step_started);
         const auto readback_started = std::chrono::steady_clock::now();
-        cuda->acquireContext();
-        physx::PxCudaContext* context = cuda->getCudaContext();
-        const physx::PxCUresult copied = context->memcpyDtoH(
-            positions,
-            reinterpret_cast<CUdeviceptr>(buffer->getPositionInvMasses()),
-            static_cast<std::size_t>(count) * sizeof(physx::PxVec4));
-        cuda->releaseContext();
-        const std::uint64_t readback_elapsed = microseconds_since(readback_started);
-        if (copied != 0) {
-            particles->removeParticleBuffer(buffer);
-            buffer->release();
-            delete[] positions;
-            teardown(6);
+        if (!gpu_fluid_readback(*fluid, false)) {
+            report->reason = 6;
+            destroy_gpu_fluid(fluid);
             return kOk;
         }
+        const std::uint64_t readback_elapsed = microseconds_since(readback_started);
         std::uint32_t outside = 0;
         for (std::uint32_t index = 0; index < count; ++index) {
-            const physx::PxVec4& position = positions[index];
+            const physx::PxVec4& position = fluid->host_positions[index];
             if (!physx::PxIsFinite(position.x) || !physx::PxIsFinite(position.y)
                 || !physx::PxIsFinite(position.z) || position.x < low || position.x > high
                 || position.z < low || position.z > high || position.y < low) {
@@ -1587,19 +1689,120 @@ std::int32_t ne_physx_pbd_probe(
         report->frames_completed = frame + 1;
     }
     for (std::uint32_t index = 0; index < count; ++index) {
-        desc->final_positions[index * 4] = positions[index].x;
-        desc->final_positions[index * 4 + 1] = positions[index].y;
-        desc->final_positions[index * 4 + 2] = positions[index].z;
-        desc->final_positions[index * 4 + 3] = positions[index].w;
+        desc->final_positions[index * 4] = fluid->host_positions[index].x;
+        desc->final_positions[index * 4 + 1] = fluid->host_positions[index].y;
+        desc->final_positions[index * 4 + 2] = fluid->host_positions[index].z;
+        desc->final_positions[index * 4 + 3] = fluid->host_positions[index].w;
     }
     report->step_mean_microseconds = step_total / desc->frames;
     report->readback_mean_microseconds = readback_total / desc->frames;
     report->gpu_available = 1;
-    particles->removeParticleBuffer(buffer);
-    buffer->release();
-    delete[] positions;
-    teardown(0);
+    destroy_gpu_fluid(fluid);
     return kOk;
+}
+
+// Plan 24: the persistent fluid of the presentation lane.
+std::int32_t ne_physx_fluid_create(
+    const NePhysXFluidDesc* desc,
+    void** output,
+    std::uint32_t* reason) noexcept {
+    if (desc == nullptr || output == nullptr || reason == nullptr || desc->max_particles == 0) {
+        return kInvalidArgument;
+    }
+    *output = nullptr;
+    *reason = 0;
+    const float spacing = from_bits(desc->spacing_bits);
+    const float timestep = from_bits(desc->timestep_bits);
+    float box_min[3];
+    float box_max[3];
+    float seed_min[3];
+    float seed_max[3];
+    for (int axis = 0; axis < 3; ++axis) {
+        box_min[axis] = from_bits(desc->box_min_bits[axis]);
+        box_max[axis] = from_bits(desc->box_max_bits[axis]);
+        seed_min[axis] = from_bits(desc->seed_min_bits[axis]);
+        seed_max[axis] = from_bits(desc->seed_max_bits[axis]);
+        if (!physx::PxIsFinite(box_min[axis]) || !physx::PxIsFinite(box_max[axis])
+            || !physx::PxIsFinite(seed_min[axis]) || !physx::PxIsFinite(seed_max[axis])
+            || box_min[axis] >= box_max[axis]) {
+            return kInvalidArgument;
+        }
+    }
+    if (!finite_positive(spacing) || !finite_positive(timestep)) {
+        return kInvalidArgument;
+    }
+    const float rest_offset = 0.5F * spacing / 0.6F;
+    const float fluid_rest_offset = rest_offset * 0.6F;
+    const float particle_mass = 1000.0F * 1.333F * 3.14159F * fluid_rest_offset
+        * fluid_rest_offset * fluid_rest_offset;
+    auto* seed = new (std::nothrow) physx::PxVec4[desc->max_particles];
+    if (seed == nullptr) {
+        return kOutOfMemory;
+    }
+    std::uint32_t count = 0;
+    for (float y = seed_min[1] + 0.5F * spacing; y < seed_max[1] && count < desc->max_particles;
+         y += spacing) {
+        for (float z = seed_min[2] + 0.5F * spacing; z < seed_max[2] && count < desc->max_particles;
+             z += spacing) {
+            for (float x = seed_min[0] + 0.5F * spacing;
+                 x < seed_max[0] && count < desc->max_particles;
+                 x += spacing) {
+                seed[count++] = physx::PxVec4(x, y, z, 1.0F / particle_mass);
+            }
+        }
+    }
+    if (count == 0) {
+        delete[] seed;
+        return kInvalidArgument;
+    }
+    GpuFluid* fluid = create_gpu_fluid(
+        desc->gpu_library_path, spacing, box_min, box_max, timestep, seed, count, reason);
+    delete[] seed;
+    if (fluid == nullptr) {
+        return kInternalFailure;
+    }
+    *output = fluid;
+    return kOk;
+}
+
+std::int32_t ne_physx_fluid_step(void* opaque_fluid) noexcept {
+    auto* fluid = static_cast<GpuFluid*>(opaque_fluid);
+    if (fluid == nullptr) {
+        return kInvalidArgument;
+    }
+    return gpu_fluid_step(*fluid) ? kOk : kInternalFailure;
+}
+
+std::int32_t ne_physx_fluid_read(
+    void* opaque_fluid,
+    float* positions,
+    float* velocities,
+    std::uint32_t capacity,
+    std::uint32_t* count) noexcept {
+    auto* fluid = static_cast<GpuFluid*>(opaque_fluid);
+    if (fluid == nullptr || positions == nullptr || velocities == nullptr || count == nullptr) {
+        return kInvalidArgument;
+    }
+    if (capacity < fluid->count) {
+        return kCapacityExceeded;
+    }
+    if (!gpu_fluid_readback(*fluid, true)) {
+        return kInternalFailure;
+    }
+    for (std::uint32_t index = 0; index < fluid->count; ++index) {
+        positions[index * 3] = fluid->host_positions[index].x;
+        positions[index * 3 + 1] = fluid->host_positions[index].y;
+        positions[index * 3 + 2] = fluid->host_positions[index].z;
+        velocities[index * 3] = fluid->host_velocities[index].x;
+        velocities[index * 3 + 1] = fluid->host_velocities[index].y;
+        velocities[index * 3 + 2] = fluid->host_velocities[index].z;
+    }
+    *count = fluid->count;
+    return kOk;
+}
+
+void ne_physx_fluid_destroy(void* opaque_fluid) noexcept {
+    destroy_gpu_fluid(static_cast<GpuFluid*>(opaque_fluid));
 }
 
 }  // extern "C"

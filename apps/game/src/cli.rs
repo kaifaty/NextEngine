@@ -17,6 +17,8 @@ pub(super) struct GameOptions {
     pub(super) capture_frames: Option<u32>,
     /// Plan `continuum-water/18`: sub-pixel projection jitter.
     pub(super) projection_jitter: bool,
+    /// Plan 24 (ADR-106): the PhysX water presentation demo at the vessels.
+    pub(super) physx_water: bool,
     /// Plan `continuum-water/11` diagnostic: walk to the basin and turn the
     /// camera to it through scripted input at start.
     pub(super) start_at_water: bool,
@@ -86,6 +88,11 @@ impl GameOptions {
                         ));
                     }
                 }
+                "--physx-water" => {
+                    if std::mem::replace(&mut options.physx_water, true) {
+                        return Err(AppFailure::argument("--physx-water specified twice"));
+                    }
+                }
                 "--projection-jitter" => {
                     if std::mem::replace(&mut options.projection_jitter, true) {
                         return Err(AppFailure::argument("--projection-jitter specified twice"));
@@ -136,6 +143,9 @@ impl GameOptions {
             return Err(AppFailure::argument(
                 "--start-at-water requires --interactive",
             ));
+        }
+        if options.physx_water && !options.interactive {
+            return Err(AppFailure::argument("--physx-water requires --interactive"));
         }
         if options.projection_jitter && !options.interactive {
             return Err(AppFailure::argument(
