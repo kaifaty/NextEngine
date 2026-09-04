@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=256)
+    parser.add_argument("--num-envs", type=int, default=128)
     parser.add_argument("--motor-steps", type=int, default=600)
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
@@ -43,8 +44,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if not 1 <= args.episodes <= 256 or args.motor_steps <= 0:
-        raise ValueError("episodes must be in [1,256] and motor-steps must be positive")
+    if (
+        not 1 <= args.num_envs <= args.episodes <= 256
+        or args.episodes % args.num_envs != 0
+        or args.motor_steps <= 0
+    ):
+        raise ValueError(
+            "num-envs must divide episodes in [1,256] and motor-steps must be positive"
+        )
     generation = load_active_training_generation(
         require_external_path(
             args.generation_index,
@@ -75,7 +82,7 @@ def main() -> None:
     )
     config = ResolvedTrainingConfig.from_profile(
         profile,
-        num_envs=args.episodes,
+        num_envs=args.num_envs,
         steps_per_env=1,
         iterations=1,
         seed=args.seed,
@@ -95,8 +102,9 @@ def main() -> None:
             NextEngineHumanoidDirectEnvCfg,
             engine_vector_from_isaac_tensor,
         )
+
         env_cfg = NextEngineHumanoidDirectEnvCfg()
-        env_cfg.scene.num_envs = args.episodes
+        env_cfg.scene.num_envs = args.num_envs
         env_cfg.seed = args.seed
         env_cfg.run_root_hex = config.run_root_hex
         env_cfg.environment_profile_id = profile.environment_profile_id
@@ -108,7 +116,6 @@ def main() -> None:
         if args.motor_steps > environment.max_episode_length:
             raise ValueError("motor-steps exceeds the environment episode bound")
         wrapped = RslRlVecEnvWrapper(environment, clip_actions=1.0)
-        observations, _ = wrapped.reset()
 
         shape = (args.episodes, args.motor_steps)
         joints = np.empty((*shape, 23), dtype=np.float32)
@@ -137,40 +144,51 @@ def main() -> None:
             )
 
         with torch.inference_mode():
-            for tick in range(args.motor_steps):
-                actions = torch.from_numpy(
-                    action_tape[:, tick].astype(np.float32) / float(1 << 30)
-                ).to(config.device)
-                observations, reward, dones, _ = wrapped.step(actions)
-                if not torch.equal(
-                    environment._action,
-                    torch.from_numpy(action_tape[:, tick]).to(config.device),
-                ):
-                    raise RuntimeError("GPU did not consume the canonical action tape exactly")
-                if torch.any(dones):
-                    ended = dones.nonzero(as_tuple=False).squeeze(-1).cpu().tolist()
-                    raise RuntimeError(
-                        f"GPU slots ended before {args.motor_steps} ticks: {ended[:8]}"
+            for batch_start in range(0, args.episodes, args.num_envs):
+                batch = slice(batch_start, batch_start + args.num_envs)
+                observations, _ = wrapped.reset()
+                for tick in range(args.motor_steps):
+                    expected_action = torch.from_numpy(action_tape[batch, tick]).to(
+                        config.device
                     )
-                joints[:, tick] = (
-                    environment.robot.data.joint_pos[:, environment._canonical_joint_ids]
-                    .detach()
-                    .cpu()
-                    .numpy()
-                )
-                root_position = engine_vector_from_isaac_tensor(
-                    environment.robot.data.root_pos_w - environment.scene.env_origins
-                )
-                positions[:, tick] = root_position.detach().cpu().numpy()
-                _, _, linear_raw, _, contact = environment._canonical_facts()
-                velocities[:, tick] = (
-                    linear_raw.detach().cpu().numpy().astype(np.float64) / 1_000_000.0
-                )
-                contacts[:, tick] = contact.detach().cpu().numpy()
-                rewards[:, tick] = np.rint(
-                    reward.detach().cpu().numpy().astype(np.float64) * 65_536.0
-                ).astype(np.int64)
-                commands[:, tick] = environment._current_command().detach().cpu().numpy()
+                    actions = expected_action.to(torch.float32) / float(1 << 30)
+                    observations, reward, dones, _ = wrapped.step(actions)
+                    if not torch.equal(environment._action, expected_action):
+                        raise RuntimeError(
+                            "GPU did not consume the canonical action tape exactly"
+                        )
+                    if torch.any(dones):
+                        ended = (
+                            dones.nonzero(as_tuple=False).squeeze(-1).cpu().tolist()
+                        )
+                        raise RuntimeError(
+                            f"GPU slots ended before {args.motor_steps} ticks: "
+                            f"{ended[:8]}"
+                        )
+                    joints[batch, tick] = (
+                        environment.robot.data.joint_pos[
+                            :, environment._canonical_joint_ids
+                        ]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
+                    root_position = engine_vector_from_isaac_tensor(
+                        environment.robot.data.root_pos_w - environment.scene.env_origins
+                    )
+                    positions[batch, tick] = root_position.detach().cpu().numpy()
+                    _, _, linear_raw, _, contact = environment._canonical_facts()
+                    velocities[batch, tick] = (
+                        linear_raw.detach().cpu().numpy().astype(np.float64)
+                        / 1_000_000.0
+                    )
+                    contacts[batch, tick] = contact.detach().cpu().numpy()
+                    rewards[batch, tick] = np.rint(
+                        reward.detach().cpu().numpy().astype(np.float64) * 65_536.0
+                    ).astype(np.int64)
+                    commands[batch, tick] = (
+                        environment._current_command().detach().cpu().numpy()
+                    )
 
         path = write_policy_trajectory(
             output_path,
