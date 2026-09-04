@@ -30,6 +30,9 @@ BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 BIOMECHANICS_STANDING_PROFILE_ID = (
     "nextengine.motor.env.humanoid-biomechanics-standing.v2"
 )
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v1"
+)
 
 
 class MotorLabProtocolError(RuntimeError):
@@ -180,7 +183,11 @@ class MotorLabClient:
             normalized_action_to_raw(
                 normalized_actions,
                 self.descriptor.action_width,
-                q1_30=self.descriptor.profile_id == BIOMECHANICS_STANDING_PROFILE_ID,
+                q1_30=self.descriptor.profile_id
+                in {
+                    BIOMECHANICS_STANDING_PROFILE_ID,
+                    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+                },
             ),
         )
 

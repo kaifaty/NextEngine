@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate a closed biomechanics-standing RSL-RL policy in canonical CPU PhysX."""
+"""Evaluate a closed biomechanics standing or start/stop policy in CPU PhysX."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ from next_lab.isaac_training import (
     validate_closed_checkpoint,
 )
 from next_lab.motor_lab_client import (
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     BIOMECHANICS_STANDING_PROFILE_ID,
     MotorLabClient,
 )
@@ -62,8 +63,13 @@ def main() -> None:
     generation = load_active_training_generation(generation_index)
     profile_path = args.profile.resolve()
     profile = IsaacTrainingProfile.load(profile_path)
-    if profile.environment_profile_id != BIOMECHANICS_STANDING_PROFILE_ID:
-        raise ValueError("CPU policy evaluator accepts only biomechanics standing")
+    if profile.environment_profile_id not in {
+        BIOMECHANICS_STANDING_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    }:
+        raise ValueError(
+            "CPU policy evaluator accepts only biomechanics standing or forward start/stop"
+        )
     descriptor_path = require_external_path(
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
@@ -118,9 +124,7 @@ def main() -> None:
     contact_occupancies: list[float] = []
     action_absolute_maxima: list[float] = []
 
-    with MotorLabClient(
-        headless_path, BIOMECHANICS_STANDING_PROFILE_ID, 1, run_root
-    ) as client:
+    with MotorLabClient(headless_path, profile.environment_profile_id, 1, run_root) as client:
         if client.descriptor.maximum_episode_steps != args.max_steps:
             raise ValueError(
                 "max-steps must equal the closed environment bound: "

@@ -28,6 +28,7 @@ from next_lab.physical_sound_glass_corpus import solve_controlled_glass_corpus
 from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     load_json,
+    validate_biomechanics_forward_start_stop_descriptor,
     validate_biomechanics_descriptor,
     validate_biomechanics_standing_descriptor,
     validate_descriptor,
@@ -327,7 +328,12 @@ def main() -> int:
         descriptor_bytes = arguments.descriptor.read_bytes()
         descriptor = json.loads(descriptor_bytes)
         if "training_descriptor_id" in descriptor:
-            validate_biomechanics_standing_descriptor(descriptor)
+            if descriptor.get("training_descriptor_id") == (
+                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
+            ):
+                validate_biomechanics_forward_start_stop_descriptor(descriptor)
+            else:
+                validate_biomechanics_standing_descriptor(descriptor)
         elif descriptor.get("translator_id") in {
             BIOMECHANICS_TRANSLATOR_ID,
             BIOMECHANICS_TRANSLATOR_ID_V2,

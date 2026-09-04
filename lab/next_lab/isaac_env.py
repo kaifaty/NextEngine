@@ -10,6 +10,7 @@ from typing import Any, Iterable
 import torch
 
 from next_lab.motor_mirror import (
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     BIOMECHANICS_STANDING_PROFILE_ID,
     BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
@@ -21,7 +22,8 @@ from next_lab.motor_mirror import (
     derive_purpose_seed,
     flat_locomotion_command_schedule,
     select_environment_profile,
-    select_biomechanics_standing_profile,
+    select_biomechanics_training_profile,
+    validate_biomechanics_forward_start_stop_descriptor,
     validate_biomechanics_standing_descriptor,
     validate_current_biomechanics_descriptor,
     validate_descriptor,
@@ -94,6 +96,7 @@ def is_locomotion_profile(profile_id: str) -> bool:
     return profile_id in {
         FLAT_LOCOMOTION_PROFILE_ID,
         CURRICULUM_LOCOMOTION_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     }
 
 
@@ -107,6 +110,13 @@ def is_standing_profile(profile_id: str) -> bool:
 
 def is_biomechanics_standing_profile(profile_id: str) -> bool:
     return profile_id == BIOMECHANICS_STANDING_PROFILE_ID
+
+
+def is_biomechanics_profile(profile_id: str) -> bool:
+    return profile_id in {
+        BIOMECHANICS_STANDING_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    }
 
 
 def fall_height_threshold_micrometres(profile_id: str) -> int:
@@ -352,10 +362,22 @@ def isaac_actuator_limits_from_descriptor(
     }
 
 
+def validate_biomechanics_training_descriptor(descriptor: dict[str, Any]) -> None:
+    training_descriptor_id = descriptor.get("training_descriptor_id")
+    if training_descriptor_id == "nextengine.isaac.humanoid-biomechanics-standing.v2":
+        validate_biomechanics_standing_descriptor(descriptor)
+    elif training_descriptor_id == (
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
+    ):
+        validate_biomechanics_forward_start_stop_descriptor(descriptor)
+    else:
+        raise ValueError("unsupported biomechanics training descriptor")
+
+
 def authored_ground_clearance_metres(descriptor: dict[str, Any]) -> float:
     """Return the lowest authored collider point above the flat ground plane."""
     if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
-        validate_biomechanics_standing_descriptor(descriptor)
+        validate_biomechanics_training_descriptor(descriptor)
         minimum: int | None = None
         for body in descriptor["bodies"]:
             world_height = round(
@@ -421,7 +443,7 @@ def authored_ground_clearance_metres(descriptor: dict[str, Any]) -> float:
 
 def authored_root_height_micrometres(descriptor: dict[str, Any]) -> int:
     if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
-        validate_biomechanics_standing_descriptor(descriptor)
+        validate_biomechanics_training_descriptor(descriptor)
         roots = [
             body for body in descriptor["bodies"] if body["parent_body_slot"] is None
         ]
@@ -664,7 +686,7 @@ def engine_quaternion_xyzw_from_isaac_wxyz_tensor(quaternion: torch.Tensor) -> t
 
 def isaac_root_state_from_descriptor(descriptor: dict[str, Any]) -> tuple[float, ...]:
     if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
-        validate_biomechanics_standing_descriptor(descriptor)
+        validate_biomechanics_training_descriptor(descriptor)
         roots = [
             body for body in descriptor["bodies"] if body["parent_body_slot"] is None
         ]
@@ -786,12 +808,15 @@ def precompute_command_schedules(
         raise ValueError("episode ordinals and vector slots must have equal length")
     if profile_id == FLAT_LOCOMOTION_PROFILE_ID:
         return precompute_flat_command_schedules(run_root, ordinals, slots)
-    if profile_id != CURRICULUM_LOCOMOTION_PROFILE_ID:
+    if profile_id not in {
+        CURRICULUM_LOCOMOTION_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    }:
         raise ValueError(f"profile has no engine command schedule: {profile_id}")
     schedules = [
         curriculum_locomotion_command_schedule(
             derive_purpose_seed(run_root, ordinal, slot, "randomization.command"),
-            ordinal,
+            0 if profile_id == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID else ordinal,
         )
         for ordinal, slot in zip(ordinals, slots, strict=True)
     ]
@@ -814,12 +839,17 @@ def locomotion_reward_q16_tensor(
     contacting_foot_count: torch.Tensor,
     fell: torch.Tensor,
     profile_id: str = FLAT_LOCOMOTION_PROFILE_ID,
+    effort_normalization: int = 23 * 4 * 150_000_000,
+    action_rate_normalization: int = 23 * 2_000_000,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Evaluate the ten canonical locomotion components and weighted Q16 total."""
+    """Evaluate the canonical locomotion components and weighted Q16 total."""
     planar_error = torch.abs(local_linear_velocity_raw[:, 0] - command_raw[:, 0]) + torch.abs(
         local_linear_velocity_raw[:, 2] - command_raw[:, 1]
     )
-    curriculum = profile_id == CURRICULUM_LOCOMOTION_PROFILE_ID
+    curriculum = profile_id in {
+        CURRICULUM_LOCOMOTION_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    }
     if not is_locomotion_profile(profile_id):
         raise ValueError(f"unsupported locomotion reward profile: {profile_id}")
     planar = 65_536 - ratio_q16_tensor(
@@ -849,10 +879,10 @@ def locomotion_reward_q16_tensor(
         + torch.abs(local_angular_velocity_raw[:, 2]),
         4_000_000 if curriculum else 6_000_000,
     )
-    effort = ratio_q16_tensor(effort_sum_raw, 23 * 4 * 150_000_000)
+    effort = ratio_q16_tensor(effort_sum_raw, effort_normalization)
     action_rate = ratio_q16_tensor(
         torch.sum(torch.abs(applied_action_raw - previous_applied_action_raw), dim=-1),
-        23 * 2_000_000,
+        action_rate_normalization,
     )
     slip_denominator = contacting_foot_count * (2_000_000 if curriculum else 4_000_000)
     slip = torch.zeros_like(contacting_foot_slip_sum_raw)
@@ -1022,12 +1052,15 @@ if ISAAC_LAB_AVAILABLE:
 
         def __init__(self, cfg: NextEngineHumanoidDirectEnvCfg, descriptor_path: str, **kwargs: Any):
             descriptor = json.loads(Path(descriptor_path).read_text(encoding="utf-8"))
-            self._biomechanics_standing = is_biomechanics_standing_profile(
+            self._biomechanics_standing = is_biomechanics_profile(
                 cfg.environment_profile_id
             )
             if self._biomechanics_standing:
-                validate_biomechanics_standing_descriptor(descriptor)
-                self.profile = select_biomechanics_standing_profile(
+                if cfg.environment_profile_id == BIOMECHANICS_STANDING_PROFILE_ID:
+                    validate_biomechanics_standing_descriptor(descriptor)
+                else:
+                    validate_biomechanics_forward_start_stop_descriptor(descriptor)
+                self.profile = select_biomechanics_training_profile(
                     descriptor, cfg.environment_profile_id
                 )
                 self._contact_projections = _contact_body_projections(descriptor)
@@ -1446,13 +1479,21 @@ if ISAAC_LAB_AVAILABLE:
                     raise RuntimeError(
                         "contact substep cadence did not close at motor boundary"
                     )
-                _, quaternion_raw, linear_raw, angular_raw, _ = self._canonical_facts()
+                _, quaternion_raw, _, _, _ = self._canonical_facts()
                 root_relative_isaac = (
                     self.robot.data.root_pos_w - self.scene.env_origins
                 )
                 root_position_engine = engine_vector_from_isaac_tensor(
                     root_relative_isaac
                 )
+                root_linear_world_raw = torch.round(
+                    engine_vector_from_isaac_tensor(self.robot.data.root_lin_vel_w)
+                    * 1_000_000
+                ).to(torch.int64)
+                root_angular_world_raw = torch.round(
+                    engine_vector_from_isaac_tensor(self.robot.data.root_ang_vel_w)
+                    * 1_000_000
+                ).to(torch.int64)
                 root_forward = torch.round(
                     root_position_engine[:, 2] * 1_000_000
                 ).to(torch.int64)
@@ -1461,8 +1502,8 @@ if ISAAC_LAB_AVAILABLE:
                     neutral_targets_microradians=self._neutral_target,
                     root_quaternion_xyzw_q1_30=quaternion_raw,
                     root_forward_micrometres=root_forward,
-                    root_angular_velocity_microradians_per_second=angular_raw,
-                    root_forward_velocity_micrometres_per_second=linear_raw[:, 2],
+                    root_angular_velocity_microradians_per_second=root_angular_world_raw,
+                    root_forward_velocity_micrometres_per_second=root_linear_world_raw[:, 2],
                 )
                 self._previous_action.copy_(self._action)
                 self._action.copy_(
@@ -1827,12 +1868,28 @@ if ISAAC_LAB_AVAILABLE:
                 vertical_velocity_raw=vertical_velocity,
                 command_raw=self._current_command(),
                 effort_sum_raw=self._effort_sum,
-                applied_action_raw=self._action,
-                previous_applied_action_raw=self._previous_action,
+                applied_action_raw=(
+                    self._applied_target if self._biomechanics_standing else self._action
+                ),
+                previous_applied_action_raw=(
+                    self._previous_applied_target
+                    if self._biomechanics_standing
+                    else self._previous_action
+                ),
                 contacting_foot_slip_sum_raw=slip_sum,
                 contacting_foot_count=torch.sum(contacts.to(torch.int64), dim=-1),
                 fell=fallen,
                 profile_id=self.profile["profile_id"],
+                effort_normalization=(
+                    self._effort_normalization
+                    if self._biomechanics_standing
+                    else 23 * 4 * 150_000_000
+                ),
+                action_rate_normalization=(
+                    self._target_rate_normalization
+                    if self._biomechanics_standing
+                    else 23 * 2_000_000
+                ),
             )
             self.reward_components_q16.copy_(components)
             reward = total.to(torch.float32) / 65_536.0

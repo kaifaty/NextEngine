@@ -3,6 +3,7 @@ use std::io::{ErrorKind, Read, Write};
 use next_contracts::ids::ContentHash;
 use next_contracts::motor::{MotorContractError, MotorEnvironmentCheckpointEnvelopeV1};
 use next_motor::{
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
     BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
     VectorPolicyStepInput,
@@ -175,10 +176,14 @@ fn process_create(
     let slot_count = reader.read_u32()?;
     let run_root = reader.read_hash()?;
     reader.finish()?;
-    let runner = if profile_id == BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID {
-        ProtocolRunner::BiomechanicsStanding(Box::new(BiomechanicsStandingVectorRunner::create(
-            slot_count, run_root,
-        )?))
+    let runner = if matches!(
+        profile_id.as_str(),
+        BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID
+    ) {
+        ProtocolRunner::BiomechanicsStanding(Box::new(
+            BiomechanicsStandingVectorRunner::create_profile(&profile_id, slot_count, run_root)?,
+        ))
     } else {
         ProtocolRunner::Legacy(Box::new(MotorVectorRunner::create_profile(
             &profile_id,

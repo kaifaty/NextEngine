@@ -45,6 +45,7 @@ class IsaacTrainingProfile:
     policy: dict[str, Any]
     algorithm: dict[str, Any]
     evaluation: dict[str, Any]
+    initialization: dict[str, Any] | None
     profile_hash: str
 
     @classmethod
@@ -71,11 +72,17 @@ class IsaacTrainingProfile:
             policy=_mapping(value.get("policy"), "policy"),
             algorithm=_mapping(value.get("algorithm"), "algorithm"),
             evaluation=_mapping(value.get("evaluation"), "evaluation"),
+            initialization=(
+                _mapping(value.get("initialization"), "initialization")
+                if "initialization" in value
+                else None
+            ),
             profile_hash=canonical_json_hash(value),
         )
         _validate_policy(profile.policy)
         _validate_algorithm(profile.algorithm)
         _validate_evaluation(profile.evaluation)
+        _validate_initialization(profile.initialization)
         return profile
 
 
@@ -131,7 +138,7 @@ class ResolvedTrainingConfig:
         return digest.hexdigest()
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        value = {
             "profile_id": self.profile.profile_id,
             "profile_hash": self.profile.profile_hash,
             "environment_profile_id": self.profile.environment_profile_id,
@@ -145,6 +152,9 @@ class ResolvedTrainingConfig:
             "policy": self.profile.policy,
             "algorithm": self.profile.algorithm,
         }
+        if self.profile.initialization is not None:
+            value["initialization"] = self.profile.initialization
+        return value
 
 
 @dataclass(frozen=True)
@@ -619,6 +629,34 @@ def validate_resume_checkpoint(
     return manifest
 
 
+def validate_initialization_checkpoint(
+    checkpoint: Path,
+    target_profile: IsaacTrainingProfile,
+) -> dict[str, Any]:
+    initialization = target_profile.initialization
+    if initialization is None or initialization.get("mode") != "model-weights-only":
+        raise ValueError("training profile does not admit checkpoint initialization")
+    manifest = validate_closed_checkpoint(checkpoint)
+    training_config = manifest.get("training_config")
+    if not isinstance(training_config, dict):
+        raise ValueError("initial checkpoint has no training configuration")
+    expected = (
+        initialization["source_profile_id"],
+        initialization["source_profile_hash"],
+        initialization["source_generation_id"],
+        initialization["checkpoint_sha256"],
+    )
+    actual = (
+        training_config.get("profile_id"),
+        training_config.get("profile_hash"),
+        manifest.get("training_generation_id"),
+        sha256_file(checkpoint),
+    )
+    if actual != expected:
+        raise ValueError("initial checkpoint lineage mismatch")
+    return manifest
+
+
 def validate_closed_checkpoint(
     checkpoint: Path,
     expected_generation_id: str | None = None,
@@ -858,6 +896,25 @@ def _validate_evaluation(value: dict[str, Any]) -> None:
         raise ValueError("evaluation.seeds must be a non-empty array")
     for seed in seeds:
         _seed(seed)
+
+
+def _validate_initialization(value: dict[str, Any] | None) -> None:
+    if value is None:
+        return
+    if set(value) != {
+        "mode",
+        "source_profile_id",
+        "source_profile_hash",
+        "source_generation_id",
+        "checkpoint_sha256",
+    } or value.get("mode") != "model-weights-only":
+        raise ValueError("unsupported training initialization contract")
+    _nonempty_string(value.get("source_profile_id"), "initialization.source_profile_id")
+    _hash(value.get("source_profile_hash"), "initialization.source_profile_hash")
+    _nonempty_string(
+        value.get("source_generation_id"), "initialization.source_generation_id"
+    )
+    _hash(value.get("checkpoint_sha256"), "initialization.checkpoint_sha256")
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:

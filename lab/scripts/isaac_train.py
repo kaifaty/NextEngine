@@ -30,6 +30,7 @@ from next_lab.isaac_training import (
     require_run_id,
     sha256_file,
     training_config_hash,
+    validate_initialization_checkpoint,
     validate_resume_checkpoint,
 )
 
@@ -51,6 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int)
     parser.add_argument("--training-device")
     parser.add_argument("--resume", type=Path)
+    parser.add_argument("--initialize-policy", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--preflight-only", action="store_true")
     AppLauncher.add_app_launcher_args(parser)
@@ -101,8 +103,17 @@ def main() -> None:
             f"{profile.min_free_gpu_memory_mib} MiB required"
         )
 
+    if args.resume is not None and args.initialize_policy is not None:
+        raise ValueError("resume and policy initialization are mutually exclusive")
+    if (
+        profile.initialization is not None
+        and args.initialize_policy is None
+        and args.resume is None
+    ):
+        raise ValueError("training profile requires its bound initial checkpoint")
     parent: dict[str, Any] | None = None
     resume = None
+    initial_checkpoint = None
     if args.resume is not None:
         resume = require_external_path(
             args.resume, REPOSITORY_ROOT, label="resume checkpoint"
@@ -113,8 +124,28 @@ def main() -> None:
             generation.manifest.generation_id,
         )
         parent = {
+            "relationship": "resume",
             "checkpoint": str(resume),
             "checkpoint_sha256": sha256_file(resume),
+            "run_id": parent_manifest.get("run_id"),
+        }
+    if args.initialize_policy is not None:
+        initial_checkpoint = require_external_path(
+            args.initialize_policy,
+            REPOSITORY_ROOT,
+            label="initial policy checkpoint",
+        )
+        parent_manifest = validate_initialization_checkpoint(
+            initial_checkpoint,
+            profile,
+        )
+        parent = {
+            "relationship": "model-weights-only-initialization",
+            "checkpoint": str(initial_checkpoint),
+            "checkpoint_sha256": sha256_file(initial_checkpoint),
+            "training_generation_id": parent_manifest.get(
+                "training_generation_id"
+            ),
             "run_id": parent_manifest.get("run_id"),
         }
 
@@ -228,6 +259,13 @@ def main() -> None:
         if resume is not None:
             runner.load(str(resume), load_optimizer=True, map_location=config.device)
             runner.current_learning_iteration += 1
+        elif initial_checkpoint is not None:
+            runner.load(
+                str(initial_checkpoint),
+                load_optimizer=False,
+                map_location=config.device,
+            )
+            runner.current_learning_iteration = 0
         manifest["packages"] = package_versions()
         atomic_write_json(manifest_path, manifest)
 

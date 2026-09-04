@@ -19,6 +19,9 @@ BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 BIOMECHANICS_STANDING_PROFILE_ID = (
     "nextengine.motor.env.humanoid-biomechanics-standing.v2"
 )
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v1"
+)
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
@@ -398,6 +401,21 @@ def select_biomechanics_standing_profile(
     return profile
 
 
+def select_biomechanics_training_profile(
+    descriptor: dict[str, Any], profile_id: str
+) -> dict[str, Any]:
+    if profile_id == BIOMECHANICS_STANDING_PROFILE_ID:
+        return select_biomechanics_standing_profile(descriptor, profile_id)
+    if profile_id != BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID:
+        raise ValueError(f"unsupported biomechanics training profile: {profile_id}")
+    validate_biomechanics_forward_start_stop_descriptor(descriptor)
+    profiles = descriptor["environment_profiles"]
+    profile = profiles[0]
+    if profile.get("profile_id") != profile_id:
+        raise ValueError("biomechanics forward start/stop identity mismatch")
+    return profile
+
+
 def validate_biomechanics_standing_profile(profile: dict[str, Any]) -> None:
     for field in (
         "manifest_hash",
@@ -481,6 +499,98 @@ def validate_biomechanics_standing_profile(profile: dict[str, Any]) -> None:
         termination.get("timeout_ticks"),
     ) != (450_000, 60, 90_000_000, 3_600):
         raise ValueError("biomechanics standing termination mismatch")
+
+
+def validate_biomechanics_forward_start_stop_profile(profile: dict[str, Any]) -> None:
+    for field in (
+        "manifest_hash",
+        "observation_layout_hash",
+        "action_layout_hash",
+        "command_schedule_profile_hash",
+        "reward_profile_hash",
+        "translator_version_hash",
+        "termination_profile_hash",
+        "rng_derivation_profile_hash",
+        "correspondence_profile_hash",
+    ):
+        _require_hash(profile.get(field), field)
+    command = profile.get("command_profile")
+    if (
+        profile.get("profile_id") != BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID
+        or profile.get("observation_layout_id")
+        != "nextengine.motor.observation.humanoid-biomechanics-forward-start-stop.v1"
+        or profile.get("action_layout_id")
+        != "nextengine.motor.action.humanoid-biomechanics-forward-start-stop-residual.v1"
+        or profile.get("maximum_episode_steps") != 1_200
+        or profile.get("velocity_frame") != "root-local"
+        or profile.get("ground_half_extent_metres") != 50
+        or profile.get("target_root_height_micrometres") != 943_500
+        or not isinstance(command, dict)
+        or command.get("kind") != "sha256-counter-foundation-v1"
+        or command.get("profile_id")
+        != "nextengine.motor.command.humanoid-flat-curriculum.foundation.v2"
+        or command.get("warmup_ticks") != 120
+        or command.get("segment_ticks") != 240
+        or command.get("episode_ticks") != 1_200
+        or command.get("mode_weights_basis_points") != [4_000, 6_000, 0, 0]
+        or command.get("right_velocity_micrometres_per_second") != [0, 0]
+        or command.get("forward_velocity_micrometres_per_second") != [0, 750_000]
+        or command.get("yaw_rate_microradians_per_second") != [0, 0]
+        or command.get("linear_rate_limit_micrometres_per_second_squared") != 1_000_000
+        or command.get("yaw_rate_limit_microradians_per_second_squared") != 500_000
+    ):
+        raise ValueError("biomechanics forward start/stop semantics mismatch")
+    reference = profile.get("standing_reference")
+    if reference != {
+        "profile_id": "nextengine.motor.procedural-standing.v1",
+        "knee_target_microradians": 100_000,
+        "ankle_bias_microradians": -140_000,
+        "root_target_forward_micrometres": 0,
+    }:
+        raise ValueError("biomechanics forward start/stop reference mismatch")
+    observation = profile.get("observation")
+    action = profile.get("action")
+    if (
+        not isinstance(observation, dict)
+        or observation.get("channel_count") != 84
+        or observation.get("root_velocities") != "root-local"
+        or observation.get("contacts")
+        != ["contact.left-sole", "contact.right-sole"]
+        or not isinstance(action, dict)
+        or action.get("channel_count") != 23
+    ):
+        raise ValueError("biomechanics forward start/stop tensor layout mismatch")
+    components = profile.get("reward_components")
+    if not isinstance(components, list) or tuple(
+        component.get("component_id") for component in components
+    ) != CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS:
+        raise ValueError("biomechanics forward start/stop reward order mismatch")
+    if any(
+        component.get("minimum_raw") != 0
+        or component.get("maximum_raw") != 65_536
+        for component in components
+    ):
+        raise ValueError("biomechanics forward start/stop reward bounds mismatch")
+    normalizations = profile.get("reward_normalizations")
+    if not isinstance(normalizations, dict) or set(normalizations) != {
+        "planar_tracking_micrometres_per_second",
+        "yaw_tracking_microradians_per_second",
+        "root_height_micrometres",
+        "vertical_velocity_micrometres_per_second",
+        "roll_pitch_rate_microradians_per_second",
+        "applied_effort_per_motor_tick_micronewton_metres",
+        "applied_target_rate_microradians_per_motor_tick",
+        "contacting_sole_slip_micrometres_per_second",
+    }:
+        raise ValueError("biomechanics forward start/stop reward normalization mismatch")
+    termination = profile.get("termination")
+    if not isinstance(termination, dict) or (
+        termination.get("pelvis_height_micrometres_inclusive"),
+        termination.get("root_tilt_degrees_inclusive"),
+        termination.get("world_bound_micrometres_inclusive"),
+        termination.get("timeout_ticks"),
+    ) != (450_000, 60, 90_000_000, 1_200):
+        raise ValueError("biomechanics forward start/stop termination mismatch")
 
 
 def validate_golden(
@@ -794,6 +904,25 @@ def validate_biomechanics_standing_descriptor(descriptor: dict[str, Any]) -> Non
     if not isinstance(profiles, list) or len(profiles) != 1:
         raise ValueError("biomechanics standing descriptor profile mismatch")
     validate_biomechanics_standing_profile(profiles[0])
+
+
+def validate_biomechanics_forward_start_stop_descriptor(
+    descriptor: dict[str, Any]
+) -> None:
+    extras = {"training_descriptor_id", "observation_width", "environment_profiles"}
+    base = {key: value for key, value in descriptor.items() if key not in extras}
+    validate_current_biomechanics_descriptor(base)
+    if (
+        set(descriptor) != set(base) | extras
+        or descriptor.get("training_descriptor_id")
+        != "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
+        or descriptor.get("observation_width") != 84
+    ):
+        raise ValueError("biomechanics forward start/stop descriptor identity mismatch")
+    profiles = descriptor.get("environment_profiles")
+    if not isinstance(profiles, list) or len(profiles) != 1:
+        raise ValueError("biomechanics forward start/stop descriptor profile mismatch")
+    validate_biomechanics_forward_start_stop_profile(profiles[0])
 
 
 def _require_int_vector(value: Any, width: int, label: str) -> list[int]:

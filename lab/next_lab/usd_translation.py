@@ -21,6 +21,7 @@ from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     CURRENT_TRANSLATOR_VERSION,
     validate_biomechanics_descriptor,
+    validate_biomechanics_forward_start_stop_descriptor,
     validate_biomechanics_standing_descriptor,
     validate_current_biomechanics_descriptor,
     validate_descriptor,
@@ -563,7 +564,12 @@ def _current_biomechanics_base(descriptor: dict[str, Any]) -> dict[str, Any]:
     if "training_descriptor_id" not in descriptor:
         validate_current_biomechanics_descriptor(descriptor)
         return descriptor
-    validate_biomechanics_standing_descriptor(descriptor)
+    if descriptor.get("training_descriptor_id") == (
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
+    ):
+        validate_biomechanics_forward_start_stop_descriptor(descriptor)
+    else:
+        validate_biomechanics_standing_descriptor(descriptor)
     extras = {"training_descriptor_id", "observation_width", "environment_profiles"}
     return {key: value for key, value in descriptor.items() if key not in extras}
 

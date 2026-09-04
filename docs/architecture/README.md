@@ -308,6 +308,8 @@ traceability — навигационная карта, не admission authority
 | ADR-099 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/099-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
 | ADR-100 | [Bounded standing reward profile](adr/100-bounded-standing-reward-profile.md) | Accepted distinct standing V2 optimizer identity with eight bounded Q16 components; standing V1 bytes remain immutable and learned quality remains unproven |
 | ADR-101 | [Biomechanics command-only standing environment](adr/101-biomechanics-command-only-standing-environment.md) | Accepted current-body R8b standing identity: anatomical BodySchema V2/material V3, procedural-reference residual control and bounded reward; no corpus, policy-quality or runtime claim |
+| ADR-102 | [Biomechanics neutral self-clearance successor](adr/102-biomechanics-neutral-self-clearance-successor.md) | Accepted biomechanics V3/standing V2 successor with robust neutral self-clearance and source-conserving carrier projection |
+| ADR-103 | [R8b R&D-only walking discriminator before mirror repair](adr/103-r8b-rd-only-walking-discriminator.md) | Accepted one-run forward start/stop experiment; CPU evaluation and unchanged mirror gate prohibit automatic promotion |
 
 ## Proposed tracks
 
