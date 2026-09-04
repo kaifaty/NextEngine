@@ -1996,9 +1996,13 @@ reaches left/right single support for 31/34 ticks in a 105-tick probe. Isaac GPU
 and Isaac CPU still fail joint safety at ticks 96/105 despite exact actions.
 The [action investigation](development/r8b-walking-action-basis-2026-09-04.md)
 localizes drift to physical state before target feedback differs. Optimizer
-work remains stopped pending causal mirror repair and the original paired
-within-episode alternation audit. Separate mirrored swings do not close that
-gate; duration-aware gait credit remains the subsequent isolated experiment.
+work on Isaac remains stopped pending causal mirror repair and the original
+paired within-episode alternation audit. ADR-107 now admits one direct canonical
+CPU V5 run with CUDA PPO after exact native adapter/reset controls. Known
+parameter corrections did not repair first-substep divergence, including an
+airborne control. Separate swings do not close alternation; the direct run's
+final matrix explicitly requires alternating support. Duration-aware gait
+credit remains a separate experiment if the unchanged V5 reward fails.
 R8b remains a
 separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
@@ -2020,8 +2024,9 @@ checkpoints or the motion-reference corpus. Its fixed order is:
    PD/safety, command and reward. Deterministic paired CPU/Isaac tapes must demonstrate
    left-only and right-only support, a complete alternation, positive forward
    displacement and zero safety terminal while a standing control survives;
-4. learned forward start/stop checkpoint: only after the action-basis audit
-   passes may a separately hash-closed gait-credit discriminator retain the
+4. learned forward start/stop checkpoint: ADR-107 permits one direct canonical
+   CPU V5 discriminator after exact adapter controls, without claiming the
+   paired mirror audit passed. A later isolated gait-credit discriminator retains the
    fixed V2 command (`0.5 m/s`, no strafe/yaw/backward); each admitted held-out
    episode travels at least `3 m`, returns to exact zero command and remains
    standing for `180` motor ticks with the same zero-safety condition;
@@ -2246,8 +2251,10 @@ episodes. The completed post-failure research isolates the origin-anchored
 standing reference and absence of demonstrated single-support reachability.
 ADR-106 implements the action/reference and leg-proxy correction; bilateral
 CPU foot release passes, but exact-tape Isaac GPU/CPU joint safety fails.
-Next is first-substep mirror diagnosis followed by the original paired
-alternation gate, before another optimizer run.
+First-substep diagnosis has rejected the known parameter corrections as
+sufficient fixes. Next under ADR-107 is one hash-closed direct canonical CPU
+V5 run with CUDA PPO, exact adapter controls and final alternating-gait
+evaluation. This does not turn the failed paired mirror gate green.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains

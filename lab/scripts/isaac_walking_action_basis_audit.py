@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-
 from next_lab.isaac_training import atomic_write_json, require_external_path
 from next_lab.walking_action_basis import (
     ACTION_BASIS_CASES,
@@ -23,7 +22,6 @@ from next_lab.walking_action_basis import (
     evaluate_action_basis,
     validate_action_basis_tape,
 )
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,8 +36,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--action-tape", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=44)
-    parser.add_argument("--canonical-damping-probe", action="store_true",
-                        help="Report-only counterfactual: apply CPU compiler's 0.05 link damping")
+    parser.add_argument("--trace-initial-substeps", action="store_true")
+    parser.add_argument("--airborne-probe", action="store_true")
+    parser.add_argument("--canonical-contact-offset-probe", action="store_true")
+    parser.add_argument("--canonical-position-iterations-probe", action="store_true")
+    parser.add_argument(
+        "--canonical-damping-probe",
+        action="store_true",
+        help="Report-only counterfactual: apply CPU compiler's 0.05 link damping",
+    )
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -58,12 +63,16 @@ def supervise_audit(command: list[str], output: Path) -> int:
     if not isinstance(report, dict):
         return 4
     gates = report.get("gates")
-    return 0 if (
-        report.get("status") == "passed"
-        and isinstance(gates, dict)
-        and bool(gates)
-        and all(value is True for value in gates.values())
-    ) else 4
+    return (
+        0
+        if (
+            report.get("status") == "passed"
+            and isinstance(gates, dict)
+            and bool(gates)
+            and all(value is True for value in gates.values())
+        )
+        else 4
+    )
 
 
 def main() -> int:
@@ -83,11 +92,22 @@ def main() -> int:
         label="walking action-basis Isaac report",
         must_exist=False,
     )
-    if output.suffix != ".json" or output.exists() or output.with_suffix(".npz").exists():
-        raise ValueError("audit output must be a new .json path with a new .npz companion")
+    if (
+        output.suffix != ".json"
+        or output.exists()
+        or output.with_suffix(".npz").exists()
+    ):
+        raise ValueError(
+            "audit output must be a new .json path with a new .npz companion"
+        )
     if not args.audit_worker:
         return supervise_audit(
-            [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], "--audit-worker"],
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                *sys.argv[1:],
+                "--audit-worker",
+            ],
             output,
         )
     from isaaclab.app import AppLauncher
@@ -137,13 +157,57 @@ def main() -> int:
 
         import torch
         from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
-
         from next_lab.isaac_env import (
             NextEngineHumanoidDirectEnv,
             NextEngineHumanoidDirectEnvCfg,
         )
 
         class RecordingEnvironment(NextEngineHumanoidDirectEnv):
+            def _setup_scene(self):
+                super()._setup_scene()
+                if args.canonical_contact_offset_probe:
+                    import isaaclab.sim as sim_utils
+
+                    sim_utils.modify_collision_properties(
+                        "/World/ground",
+                        sim_utils.CollisionPropertiesCfg(
+                            contact_offset=0.02, rest_offset=0.0
+                        ),
+                    )
+
+            def _apply_action(self):
+                tracing = args.trace_initial_substeps and len(self.audit_substeps) < 8
+                if tracing:
+                    state = {
+                        "position": torch.round(
+                            self.robot.data.joint_pos[:, self._canonical_joint_ids]
+                            * 1_000_000
+                        )
+                        .to(torch.int64)
+                        .cpu()
+                        .tolist(),
+                        "velocity": torch.round(
+                            self.robot.data.joint_vel[:, self._canonical_joint_ids]
+                            * 1_000_000
+                        )
+                        .to(torch.int64)
+                        .cpu()
+                        .tolist(),
+                        "previous_sim_effort": self.robot.root_physx_view.get_dof_actuation_forces()[
+                            :, self._canonical_joint_ids
+                        ]
+                        .cpu()
+                        .tolist(),
+                    }
+                    forces = self._contact_pair_view.get_contact_force_matrix(
+                        dt=self.physics_dt
+                    )
+                    state["contact_force_max"] = float(forces.abs().max())
+                super()._apply_action()
+                if tracing:
+                    state["effort"] = self._previous_effort.cpu().tolist()
+                    self.audit_substeps.append(state)
+
             def _get_dones(self):
                 result = super()._get_dones()
                 self.audit_action = self._action.clone()
@@ -158,20 +222,59 @@ def main() -> int:
         env_cfg.environment_profile_id = ACTION_BASIS_PROFILE_ID
         env_cfg.episode_ordinal_start = 0
         env_cfg.sim.device = args.device
+        if args.canonical_position_iterations_probe:
+            env_cfg.asset.spawn.articulation_props.solver_position_iteration_count = 16
+        if args.canonical_contact_offset_probe:
+            import isaaclab.sim as sim_utils
+
+            env_cfg.asset.spawn.collision_props = sim_utils.CollisionPropertiesCfg(
+                contact_offset=0.02,
+                rest_offset=0.0,
+            )
         if args.canonical_damping_probe:
             import isaaclab.sim as sim_utils
+
             env_cfg.asset.spawn.rigid_props = sim_utils.RigidBodyPropertiesCfg(
-                linear_damping=0.05, angular_damping=0.05,
+                linear_damping=0.05,
+                angular_damping=0.05,
             )
         environment = RecordingEnvironment(
             env_cfg, descriptor_path=str(descriptor_path)
         )
+        environment.audit_substeps = []
+        if args.airborne_probe:
+            environment.robot.data.default_root_state[:, 2] += 2.0
         wrapped = RslRlVecEnvWrapper(environment, clip_actions=1.0)
         wrapped.reset()
+        loaded = {}
+        if args.trace_initial_substeps:
+            view = environment.robot.root_physx_view
+            for name in (
+                "masses",
+                "inertias",
+                "coms",
+                "dof_limits",
+                "dof_stiffnesses",
+                "dof_dampings",
+                "dof_armatures",
+                "dof_max_velocities",
+                "dof_max_forces",
+                "dof_friction_properties",
+                "material_properties",
+                "contact_offsets",
+                "rest_offsets",
+                "link_transforms",
+            ):
+                loaded[name] = getattr(view, "get_" + name)().cpu().tolist()
+            loaded["body_names"] = environment.robot.body_names
+            loaded["joint_names"] = environment.robot.joint_names
+            loaded["canonical_joint_ids"] = environment._canonical_joint_ids
 
         root_position = np.empty((case_count, motor_steps, 3), dtype=np.float64)
         root_velocity = np.empty_like(root_position)
-        joint_position = np.empty((case_count, motor_steps, action_width), dtype=np.float64)
+        joint_position = np.empty(
+            (case_count, motor_steps, action_width), dtype=np.float64
+        )
         contacts = np.empty((case_count, motor_steps, 2), dtype=np.bool_)
         done = np.zeros((case_count, motor_steps), dtype=np.bool_)
         targets = np.empty_like(tape)
@@ -191,22 +294,38 @@ def main() -> int:
                     environment.last_step_root_position.cpu().numpy() / 1_000_000.0
                 )
                 root_velocity[:, tick] = (
-                    environment.last_step_root_linear_velocity.cpu().numpy() / 1_000_000.0
+                    environment.last_step_root_linear_velocity.cpu().numpy()
+                    / 1_000_000.0
                 )
                 contacts[:, tick] = environment.audit_contacts.cpu().numpy()
                 targets[:, tick] = environment.audit_targets.cpu().numpy()
                 if np.any(done[:, tick]):
                     for slot in np.flatnonzero(done[:, tick]):
                         terminal_facts[ACTION_BASIS_CASES[slot]] = {
-                            name: bool(getattr(environment, "last_step_failure_" + name)[slot])
-                            for name in ("joint_safety", "self_collision", "hard_impact", "forbidden_contact", "fall")
+                            name: bool(
+                                getattr(environment, "last_step_failure_" + name)[slot]
+                            )
+                            for name in (
+                                "joint_safety",
+                                "self_collision",
+                                "hard_impact",
+                                "forbidden_contact",
+                                "fall",
+                            )
                         }
                     # Preserve the terminal commit; never mix a reset episode into this tape.
                     break
 
         root_position, root_velocity, joint_position, contacts, done, targets = (
-            value[:, :tick + 1] for value in
-            (root_position, root_velocity, joint_position, contacts, done, targets)
+            value[:, : tick + 1]
+            for value in (
+                root_position,
+                root_velocity,
+                joint_position,
+                contacts,
+                done,
+                targets,
+            )
         )
         gate = evaluate_action_basis(
             contact_occupancy=contacts,
@@ -215,26 +334,37 @@ def main() -> int:
         )
         paired_metrics = {
             "joint_position_rmse_rad": _rmse(
-                cpu["joint_position_rad"][:, :tick + 1], joint_position
+                cpu["joint_position_rad"][:, : tick + 1], joint_position
             ),
-            "root_position_rmse_m": _rmse(cpu["root_position_m"][:, :tick + 1], root_position),
+            "root_position_rmse_m": _rmse(
+                cpu["root_position_m"][:, : tick + 1], root_position
+            ),
             "root_velocity_rmse_mps": _rmse(
-                cpu["root_velocity_mps"][:, :tick + 1], root_velocity
+                cpu["root_velocity_mps"][:, : tick + 1], root_velocity
             ),
             "contact_occupancy_agreement": float(
-                np.mean(cpu["contact_occupancy"][:, :tick + 1] == contacts)
+                np.mean(cpu["contact_occupancy"][:, : tick + 1] == contacts)
             ),
-            "done_agreement": float(np.mean(cpu["done"][:, :tick + 1] == done)),
+            "done_agreement": float(np.mean(cpu["done"][:, : tick + 1] == done)),
         }
         gates = dict(gate["gates"])
         gates["exact_q1_30_action_consumption"] = exact_action
+        # A lifted reset is a causal diagnostic, never the frozen walking gate.
+        gates["canonical_reset"] = not args.airborne_probe
+        if args.airborne_probe:
+            paired_metrics = None
         status = "passed" if all(gates.values()) else "failed"
         report = {
             "schema_version": 1,
             **gate,
             "status": status,
-            "plane": "isaac-gpu-mirror" if args.device.startswith("cuda") else "isaac-cpu-diagnostic",
+            "plane": "isaac-gpu-mirror"
+            if args.device.startswith("cuda")
+            else "isaac-cpu-diagnostic",
             "canonical_damping_probe": args.canonical_damping_probe,
+            "airborne_probe": args.airborne_probe,
+            "canonical_contact_offset_probe": args.canonical_contact_offset_probe,
+            "canonical_position_iterations_probe": args.canonical_position_iterations_probe,
             "gates": gates,
             "action_tape_sha256": action_tape_sha256(tape),
             "cpu_trajectory_sha256": _sha256(cpu_path),
@@ -247,19 +377,30 @@ def main() -> int:
             "training_runs": 0,
             "optimizer_steps": 0,
             "tool_sha256": _sha256(Path(__file__).resolve()),
-            "environment_source_sha256": _sha256(REPOSITORY_ROOT / "lab/next_lab/isaac_env.py"),
-            "tape_module_sha256": _sha256(REPOSITORY_ROOT / "lab/next_lab/walking_action_basis.py"),
+            "environment_source_sha256": _sha256(
+                REPOSITORY_ROOT / "lab/next_lab/isaac_env.py"
+            ),
+            "tape_module_sha256": _sha256(
+                REPOSITORY_ROOT / "lab/next_lab/walking_action_basis.py"
+            ),
             "observed_motor_steps": tick + 1,
             "terminal_facts": terminal_facts,
+            "initial_substeps": environment.audit_substeps,
+            "loaded_properties": loaded,
             "paired_metrics_scope": "observed prefix including first terminal commit; incomplete tape fails the horizon gate",
         }
         trajectory_path = output.with_suffix(".npz")
         output.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
-            trajectory_path, action_raw=tape, applied_targets_raw=targets,
-            root_position_m=root_position, root_velocity_mps=root_velocity,
-            joint_position_rad=joint_position, contact_occupancy=contacts,
-            done=done, observed_motor_steps=np.asarray(tick + 1),
+            trajectory_path,
+            action_raw=tape,
+            applied_targets_raw=targets,
+            root_position_m=root_position,
+            root_velocity_mps=root_velocity,
+            joint_position_rad=joint_position,
+            contact_occupancy=contacts,
+            done=done,
+            observed_motor_steps=np.asarray(tick + 1),
         )
         report["trajectory_path"] = str(trajectory_path)
         report["trajectory_sha256"] = _sha256(trajectory_path)

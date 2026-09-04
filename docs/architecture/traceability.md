@@ -28,6 +28,7 @@
 | Дополнительные зависимости V9.10 | [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md) |
 | Дополнительные зависимости V9.11 | [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
 | Дополнительные зависимости V9.12 | [ADR-106](adr/106-walking-reference-and-leg-clearance-audit.md) |
+| Дополнительные зависимости V9.13 | [ADR-107](adr/107-canonical-cpu-walking-learner.md) |
 | Заменяет | TRACE-001 9.10 with V9.11 dependency; records bilateral reachability and the still-failed paired audit |
 
 ## Назначение
@@ -135,6 +136,11 @@ ADR-094 gates relative warnings on the bootstrap lower bound (`>=200bp`
 change and `>=200bp` CI95 low) exactly like failures, advances methodology
 to v11 and keeps failed-command diagnostics on stderr so gate members always
 aggregate.
+
+ADR-107 adds one direct canonical V5 CPU learner consumer: exact native
+adapter/reset control, correct final-observation timeout bootstrap and the
+frozen five-episode walking matrix. It supersedes ADR-106's training block only
+for that experiment. Failed MODEL-MIRROR and runtime gates remain unchanged.
 
 ## REQ/FAIL identifiers
 

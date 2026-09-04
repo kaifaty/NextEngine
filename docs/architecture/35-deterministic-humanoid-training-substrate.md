@@ -233,6 +233,16 @@ and trajectory differences keep paired alternation/correspondence and training
 blocked. `WALKING-ACTION-REACHABILITY-P0` is not MODEL-MIRROR-P1 or learned gait
 admission. Terminal recording must retain the pre-reset committed facts.
 
+[ADR-107](adr/107-canonical-cpu-walking-learner.md) supersedes the preceding
+optimizer sequencing for one direct canonical CPU V5 experiment only. CUDA
+computes the policy/optimizer, not physics. A CPU-specific frozen generation
+closes the clean commit, native executable, descriptor, profile, dependency
+versions, slot partition and sole run path; no USD/corpus is an input. Exact
+native adapter control and final-observation timeout bootstrap precede its
+1,024,000-sample budget. The final five-episode matrix requires real alternating
+support, >=3 m travel and 180 stopped ticks. Isaac correspondence and all
+runtime promotion gates remain unpassed; this is not another Isaac recipe.
+
 ## Checkpoint and replay
 
 `WorldCheckpointV5` atomically contains runtime/RPG state plus the final

@@ -1,0 +1,53 @@
+{
+  "schema": "nextengine.canonical-ppo-profile.v1",
+  "profile_id": "nextengine.canonical-rsl-rl.walking.v1",
+  "environment_profile_id": "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v5",
+  "descriptor_sha256": "0f4610fe25d52cd128b651a1533544f45bf20c855dd18d917e82eaf65fdcdb03",
+  "status": "AcceptedBoundedRD",
+  "seed": 44,
+  "num_envs": 128,
+  "shards": 8,
+  "steps_per_env": 32,
+  "iterations": 250,
+  "save_interval": 25,
+  "wall_seconds": 3600,
+  "device": "cuda:0",
+  "dependencies": {
+    "rsl-rl-lib": "3.1.2",
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.4",
+    "tensordict": "0.13.0"
+  },
+  "policy": {
+    "activation": "elu",
+    "actor_hidden_dims": [256, 128, 64],
+    "critic_hidden_dims": [256, 128, 64],
+    "actor_obs_normalization": true,
+    "critic_obs_normalization": true,
+    "init_noise_std": 0.25
+  },
+  "algorithm": {
+    "clip_param": 0.2,
+    "desired_kl": 0.008,
+    "entropy_coef": 0.001,
+    "gamma": 0.99,
+    "lam": 0.95,
+    "learning_rate": 0.0001,
+    "max_grad_norm": 1.0,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "schedule": "adaptive",
+    "use_clipped_value_loss": true,
+    "value_loss_coef": 1.0
+  },
+  "evaluation": {
+    "seeds": [1001, 1002, 1003, 1004, 1005],
+    "max_steps": 1200,
+    "minimum_forward_displacement_m": 3.0,
+    "maximum_forward_velocity_mae_mps": 0.2,
+    "stop_ticks": 180,
+    "maximum_stop_speed_mae_mps": 0.1,
+    "minimum_single_support_run_ticks": 8,
+    "minimum_support_switches": 2
+  }
+}

@@ -21,11 +21,12 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Compare actual loaded solver/link/joint/contact parameters
-  and per-substep efforts at the first two ticks. Correct only a demonstrated
-  mismatch, then repeat the paired tape and unchanged standing control.
+- **Next action:** Under ADR-107 freeze and run the direct CPU V5 experiment
+  with CUDA PPO. Adapter control passes 640 exact raw transitions and 29
+  resets; six adapter/PPO tests pass. No policy quality yet.
 - **Training:** No optimizer run started after the V4/V5 corrections. The
   original paired alternation/correspondence criterion remains unsatisfied.
+  ADR-107 permits one direct-CPU discriminator, not an Isaac retry.
 - **Do not retry:** Walking V1/V2/V3 unchanged, PPO/noise tuning, CPU PCM
   enablement, tolerance relaxation, standing-weight initialization into V5,
   or shortening the probe until it passes.
@@ -44,6 +45,8 @@
 4. Training-runner/current-contract before selecting any new run; diagnostics
    before changing an experiment. Earlier detailed task history is retained
    in Git at `5b9f6491` and the linked dated reports.
+5. [ADR-107](../../architecture/adr/107-canonical-cpu-walking-learner.md) and
+   [direct-CPU investigation](../r8b-canonical-walking-learner-2026-09-04.md).
 
 ## Current evidence
 
@@ -92,6 +95,24 @@ not clean-commit generation/run manifests.
   paired reproduction and standing non-regression; then test alternation
   and isolate duration-aware gait reward before a small fresh run.
 
+## D-017 — Learn directly on canonical physics
+
+- **Observation/evidence:** First substep starts with equal effort; divergence
+  persists airborne. Explicit canonical contact offset .02, position iterations
+  16 and damping .05, alone/together, still terminate. Loaded solver mass/COM/
+  inertias match. Exact evidence is in the direct-CPU investigation.
+- **Decision:** ADR-107 admits one fresh canonical CPU V5/CUDA PPO run, unchanged
+  body/actions/reward/safety, 1,024,000 samples, then five fixed evaluations.
+- **Rejected:** More speculative mirror tuning or claiming parameter matching
+  solved correspondence; transferring incompatible standing weights.
+- **Consequence:** Mirror remains failed but is not needed for this one direct
+  CPU experiment. No runtime authority, no sweep/resume or reward override.
+- **Uncertainty:** V5's instantaneous support reward may favor standing; a full
+  alternating gait is still unproved. Diagnose the final run before successor.
+- **Reconsider mirror when:** One demonstrated correction passes the original
+  tape and unchanged standing control, not a shorter or improved prefix.
+- **Next:** Clean-commit generation freeze, one bounded run, final evaluation.
+
 ## Active hypotheses
 
 | Hypothesis | Update | Next test |
@@ -133,9 +154,10 @@ not clean-commit generation/run manifests.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining implementation: a demonstrated mirror correction; then
-  within-episode alternating support, isolated gait credit, hash-closed
-  fresh training and canonical evaluation.
+- Remaining implementation: execute ADR-107's direct CPU run and canonical
+  evaluation; if needed, isolate duration-aware gait credit under a successor.
+  A demonstrated mirror correction remains separately necessary for Isaac
+  correspondence and promotion, not this direct CPU experiment.
 - No full V5 training generation has been activated and no new checkpoint
   exists. The user has authorized necessary fixes and training; the blocker
   is technical evidence, not missing permission.
