@@ -311,6 +311,7 @@ traceability — навигационная карта, не admission authority
 | ADR-102 | [Biomechanics neutral self-clearance successor](adr/102-biomechanics-neutral-self-clearance-successor.md) | Accepted biomechanics V3/standing V2 successor with robust neutral self-clearance and source-conserving carrier projection |
 | ADR-103 | [R8b R&D-only walking discriminator before mirror repair](adr/103-r8b-rd-only-walking-discriminator.md) | Accepted one-run forward start/stop experiment; CPU evaluation and unchanged mirror gate prohibit automatic promotion |
 | ADR-104 | [Discriminating R8b walking objective and one bounded successor run](adr/104-r8b-discriminating-walking-objective.md) | Accepted one V2 successor run with compact tracking, fixed start/stop lesson and unchanged promotion gates |
+| ADR-105 | [Dense-tracking R8b walking counterfactual](adr/105-r8b-dense-tracking-walking-counterfactual.md) | Accepted one V3 counterfactual after V2 exposed a zero-gradient compact-tracking boundary; all other training and promotion boundaries remain unchanged |
 
 ## Proposed tracks
 

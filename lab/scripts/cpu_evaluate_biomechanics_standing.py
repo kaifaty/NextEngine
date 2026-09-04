@@ -31,6 +31,7 @@ from next_lab.isaac_training import (
 from next_lab.motor_lab_client import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
     BIOMECHANICS_STANDING_PROFILE_ID,
     MotorLabClient,
 )
@@ -68,6 +69,7 @@ def main() -> None:
         BIOMECHANICS_STANDING_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
     }:
         raise ValueError(
             "CPU policy evaluator accepts only biomechanics standing or forward start/stop"

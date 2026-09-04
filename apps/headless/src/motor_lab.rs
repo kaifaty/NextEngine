@@ -5,6 +5,7 @@ use next_contracts::motor::{MotorContractError, MotorEnvironmentCheckpointEnvelo
 use next_motor::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
     BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
     VectorPolicyStepInput,
@@ -182,6 +183,7 @@ fn process_create(
         BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3
     ) {
         ProtocolRunner::BiomechanicsStanding(Box::new(
             BiomechanicsStandingVectorRunner::create_profile(&profile_id, slot_count, run_root)?,

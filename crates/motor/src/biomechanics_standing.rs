@@ -27,6 +27,8 @@ pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v1";
 pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v2";
+pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3: &str =
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v3";
 pub const BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID: &str =
     "nextengine.motor.observation.humanoid-biomechanics-forward-start-stop.v1";
 pub const BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID: &str =
@@ -70,6 +72,21 @@ pub const BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2: [&str; 11] = 
 pub const BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2: [i64; 11] = [
     131_072, 16_384, -32_768, -16_384, -6_554, -6_554, -1_311, -3_277, -6_554, 16_384, -655_360,
 ];
+pub const BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3: [&str; 11] = [
+    "reward.planar-command-tracking-dense",
+    "reward.yaw-rate-tracking-dense",
+    "reward.root-tilt-cost",
+    "reward.root-height-error-cost",
+    "reward.vertical-velocity-cost",
+    "reward.roll-pitch-rate-cost",
+    "reward.normalized-applied-effort-cost",
+    "reward.applied-target-rate-cost",
+    "reward.contacting-sole-tangential-slip-cost",
+    "reward.command-conditioned-support",
+    "reward.fall-component",
+];
+pub const BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V3: [i64; 11] =
+    BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2;
 
 #[derive(Clone, Debug)]
 pub struct BiomechanicsStandingRewardFactsV1<'a> {
@@ -327,6 +344,21 @@ pub fn biomechanics_forward_start_stop_reward_q16_v2(
     compiled: &CompiledBodySchemaV3,
     facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
 ) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
+    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, false)
+}
+
+pub fn biomechanics_forward_start_stop_reward_q16_v3(
+    compiled: &CompiledBodySchemaV3,
+    facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
+) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
+    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, true)
+}
+
+fn biomechanics_forward_start_stop_reward_q16_v2_or_v3(
+    compiled: &CompiledBodySchemaV3,
+    facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
+    dense_tracking: bool,
+) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
     let width = compiled.base.actuator_definitions.len();
     if width != 23
         || facts.applied_targets_microradians.len() != width
@@ -342,13 +374,20 @@ pub fn biomechanics_forward_start_stop_reward_q16_v2(
         + facts.root_local_linear_velocity_micrometres_per_second[2]
             .saturating_sub(facts.command_raw[1])
             .unsigned_abs() as u128;
-    let planar = square_q16(one_minus_q16(planar_error, 500_000)?)?;
-    let yaw = square_q16(one_minus_q16(
-        facts.root_local_angular_velocity_microradians_per_second[1]
-            .saturating_sub(facts.command_raw[2])
-            .unsigned_abs() as u128,
-        500_000,
-    )?)?;
+    let yaw_error = facts.root_local_angular_velocity_microradians_per_second[1]
+        .saturating_sub(facts.command_raw[2])
+        .unsigned_abs() as u128;
+    let (planar, yaw) = if dense_tracking {
+        (
+            dense_tracking_q16(planar_error, 500_000)?,
+            dense_tracking_q16(yaw_error, 500_000)?,
+        )
+    } else {
+        (
+            square_q16(one_minus_q16(planar_error, 500_000)?)?,
+            square_q16(one_minus_q16(yaw_error, 500_000)?)?,
+        )
+    };
     let [x, _, z, _] = facts.root_rotation_q1_30;
     let tilt = i128::from(x)
         .checked_mul(i128::from(x))
@@ -421,7 +460,11 @@ pub fn biomechanics_forward_start_stop_reward_q16_v2(
     ];
     let total = components
         .iter()
-        .zip(BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2)
+        .zip(if dense_tracking {
+            BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V3
+        } else {
+            BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2
+        })
         .try_fold(0_i64, |total, (component, coefficient)| {
             total
                 .checked_add(round_shift_ties_even(
@@ -506,6 +549,20 @@ pub fn biomechanics_forward_start_stop_environment_manifest_v2()
         BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2,
         BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2,
         biomechanics_forward_start_stop_reward_profile_hash_v2,
+    )
+}
+
+pub fn biomechanics_forward_start_stop_environment_manifest_v3()
+-> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v3();
+    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    biomechanics_forward_start_stop_environment_manifest(
+        &schema,
+        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
+        biomechanics_forward_start_stop_command_profile_hash_v2(&compiled),
+        BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3,
+        BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V3,
+        biomechanics_forward_start_stop_reward_profile_hash_v3,
     )
 }
 
@@ -732,8 +789,33 @@ pub fn biomechanics_forward_start_stop_isaac_descriptor_json_v2()
     descriptor["training_descriptor_id"] =
         json!("nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2");
     descriptor["observation_width"] = json!(84);
-    descriptor["environment_profiles"] =
-        Value::Array(vec![forward_profile_json_v2(&manifest, &compiled)]);
+    descriptor["environment_profiles"] = Value::Array(vec![forward_profile_json_v2_or_v3(
+        &manifest,
+        &compiled,
+        "square(max(0, 1 - absolute_error / normalization)) in Q16",
+    )]);
+    let mut output = serde_json::to_string_pretty(&descriptor)
+        .expect("serde_json::Value serialization cannot fail");
+    output.push('\n');
+    Ok(output)
+}
+
+pub fn biomechanics_forward_start_stop_isaac_descriptor_json_v3()
+-> Result<String, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v3();
+    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let manifest = biomechanics_forward_start_stop_environment_manifest_v3()?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_isaac_mirror_descriptor_json_v3()?)
+            .expect("engine-generated biomechanics descriptor is valid JSON");
+    descriptor["training_descriptor_id"] =
+        json!("nextengine.isaac.humanoid-biomechanics-forward-start-stop.v3");
+    descriptor["observation_width"] = json!(84);
+    descriptor["environment_profiles"] = Value::Array(vec![forward_profile_json_v2_or_v3(
+        &manifest,
+        &compiled,
+        "square(1 / (1 + (absolute_error / normalization)^2)) in Q16",
+    )]);
     let mut output = serde_json::to_string_pretty(&descriptor)
         .expect("serde_json::Value serialization cannot fail");
     output.push('\n');
@@ -899,9 +981,10 @@ fn forward_profile_json(
     })
 }
 
-fn forward_profile_json_v2(
+fn forward_profile_json_v2_or_v3(
     manifest: &MotorTrainingEnvironmentManifestV2,
     compiled: &CompiledBodySchemaV3,
+    tracking_kernel: &str,
 ) -> Value {
     let (_, effort_normalization, target_rate_normalization) = standing_normalizations(compiled);
     json!({
@@ -953,7 +1036,7 @@ fn forward_profile_json_v2(
         "reward_normalizations": {
             "planar_tracking_micrometres_per_second": 500_000,
             "yaw_tracking_microradians_per_second": 500_000,
-            "tracking_kernel": "square(max(0, 1 - absolute_error / normalization)) in Q16",
+            "tracking_kernel": tracking_kernel,
             "root_height_micrometres": 400_000,
             "vertical_velocity_micrometres_per_second": 2_000_000,
             "roll_pitch_rate_microradians_per_second": 4_000_000,
@@ -1162,6 +1245,42 @@ fn biomechanics_forward_start_stop_reward_profile_hash_v2(
     content_hash_from_bytes(sha256(&bytes))
 }
 
+fn biomechanics_forward_start_stop_reward_profile_hash_v3(
+    compiled: &CompiledBodySchemaV3,
+) -> ContentHash {
+    let mut bytes = domain_preimage(
+        "nextengine.motor.reward.biomechanics-forward-start-stop.v3",
+        compiled.base.body_schema_hash,
+    );
+    for (component, coefficient) in BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3
+        .into_iter()
+        .zip(BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V3)
+    {
+        push_text(&mut bytes, component);
+        bytes.extend_from_slice(&coefficient.to_le_bytes());
+    }
+    let (_, effort, target_rate) = standing_normalizations(compiled);
+    for normalization in [
+        BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
+        500_000,
+        500_000,
+        400_000,
+        2_000_000,
+        4_000_000,
+        i64::try_from(effort).expect("validated effort normalization fits i64"),
+        i64::try_from(target_rate).expect("validated target-rate normalization fits i64"),
+        2_000_000,
+    ] {
+        bytes.extend_from_slice(&normalization.to_le_bytes());
+    }
+    push_text(
+        &mut bytes,
+        "square(1 / (1 + (absolute_error / normalization)^2)) in Q16",
+    );
+    bytes.extend_from_slice(compiled.compiled_descriptor_hash.as_bytes());
+    content_hash_from_bytes(sha256(&bytes))
+}
+
 fn biomechanics_forward_start_stop_command_profile_hash_v2(
     compiled: &CompiledBodySchemaV3,
 ) -> ContentHash {
@@ -1202,6 +1321,26 @@ fn domain_preimage(domain: &str, body_schema_hash: ContentHash) -> Vec<u8> {
 fn push_text(bytes: &mut Vec<u8>, value: &str) {
     bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
     bytes.extend_from_slice(value.as_bytes());
+}
+
+fn dense_tracking_q16(
+    error: u128,
+    normalization: u128,
+) -> Result<i64, crate::TrainingEnvironmentError> {
+    let maximum_error = normalization
+        .checked_mul(4_096)
+        .ok_or(crate::TrainingEnvironmentError::ArithmeticOverflow)?;
+    let bounded_error = error.min(maximum_error);
+    let normalization_squared = normalization
+        .checked_mul(normalization)
+        .ok_or(crate::TrainingEnvironmentError::ArithmeticOverflow)?;
+    let error_squared = bounded_error
+        .checked_mul(bounded_error)
+        .ok_or(crate::TrainingEnvironmentError::ArithmeticOverflow)?;
+    let denominator = normalization_squared
+        .checked_add(error_squared)
+        .ok_or(crate::TrainingEnvironmentError::ArithmeticOverflow)?;
+    square_q16(ratio_q16(normalization_squared, denominator)?)
 }
 
 fn one_minus_q16(value: u128, maximum: u128) -> Result<i64, crate::TrainingEnvironmentError> {
@@ -1418,6 +1557,64 @@ mod tests {
         assert_eq!(
             descriptor["environment_profiles"][0]["command_profile"]["final_zero_ticks"],
             180
+        );
+    }
+
+    #[test]
+    fn forward_start_stop_v3_has_dense_monotonic_tracking_signal() {
+        let compiled = CompiledBodySchemaV3::compile(
+            &biomechanics_humanoid_body_schema_v3(),
+            PersistentId::from_bytes([0; 16]),
+        )
+        .expect("compiled biomechanics");
+        let targets = vec![0; compiled.base.actuator_definitions.len()];
+        let mut facts = BiomechanicsForwardStartStopRewardFactsV1 {
+            root_rotation_q1_30: [0, 0, 0, 1_i64 << 30],
+            root_height_micrometres: BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
+            root_vertical_velocity_micrometres_per_second: 0,
+            root_local_linear_velocity_micrometres_per_second: [0; 3],
+            root_local_angular_velocity_microradians_per_second: [0; 3],
+            command_raw: [0, 500_000, 0],
+            absolute_applied_effort_sum_micronewton_metres: 0,
+            applied_targets_microradians: &targets,
+            previous_applied_targets_microradians: &targets,
+            contacting_sole_slip_sum_micrometres_per_second: 0,
+            contacting_sole_count: 2,
+            fell: false,
+        };
+        let (stationary, stationary_total) =
+            biomechanics_forward_start_stop_reward_q16_v3(&compiled, &facts)
+                .expect("dense walking reward");
+        assert_eq!(stationary[0], 16_384);
+        assert_eq!(stationary_total, 49_152);
+
+        facts.root_local_linear_velocity_micrometres_per_second[2] = 250_000;
+        let (halfway, _) = biomechanics_forward_start_stop_reward_q16_v3(&compiled, &facts)
+            .expect("dense walking reward");
+        assert_eq!(halfway[0], 41_943);
+        facts.root_local_linear_velocity_micrometres_per_second[2] = 500_000;
+        facts.contacting_sole_count = 1;
+        let (tracking, tracking_total) =
+            biomechanics_forward_start_stop_reward_q16_v3(&compiled, &facts)
+                .expect("dense walking reward");
+        assert!(stationary[0] < halfway[0] && halfway[0] < tracking[0]);
+        assert_eq!(tracking[0], 65_536);
+        assert_eq!(tracking_total, 163_840);
+
+        let manifest = biomechanics_forward_start_stop_environment_manifest_v3()
+            .expect("forward start/stop v3 manifest");
+        assert_eq!(
+            manifest.environment_id.as_str(),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3
+        );
+        let descriptor: Value = serde_json::from_str(
+            &biomechanics_forward_start_stop_isaac_descriptor_json_v3()
+                .expect("forward v3 descriptor"),
+        )
+        .expect("valid JSON");
+        assert_eq!(
+            descriptor["environment_profiles"][0]["reward_normalizations"]["tracking_kernel"],
+            "square(1 / (1 + (absolute_error / normalization)^2)) in Q16"
         );
     }
 

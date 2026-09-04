@@ -61,3 +61,26 @@ signed forward travel, and mean absolute forward speed during the final stop
 is at most `0.15 m/s`. Failed `MODEL-MIRROR-P1` continues to prohibit runtime
 promotion regardless of this result.
 
+## V2 outcome and bounded belief update
+
+V2 completed all `1,024,000` transitions with finite metrics. Its final GPU
+checkpoint completes five `1,199`-step episodes without a safety terminal and
+stops with mean final-180-tick speed MAE `0.0216 m/s`, but achieves only
+`0.123 m` against `7.258 m` commanded. On canonical CPU the final checkpoint
+falls at tick `116`; checkpoint 25 survives all five horizons but moves
+`-0.176 m`. No saved checkpoint walks.
+
+This refutes H4 for the compact objective, not for the body/controller. At the
+initial stationary error, V2's width equals the `0.5 m/s` command, so
+`square(max(0, 1 - error / width))` is exactly zero and locally flat on the
+wrong side. The final GPU component mean (`0.226`) is explained by the
+zero-command warm-up and stop rather than forward tracking.
+
+ADR-105 therefore selects one minimal V3 counterfactual. It changes only the
+tracking kernel to the exact Q16 dense bounded function
+`square(1 / (1 + (error / width)^2))`. At `0.5`, `0.25` and `0 m/s` error its
+raw planar reward rises strictly from `16384` to `65536`, so PPO receives a
+monotonic signal from the inherited standing policy. The command schedule,
+coefficients, PPO, seed, body, controller, safety and acceptance gates remain
+unchanged. Failure next distinguishes reward sparsity from a command-
+curriculum, action or body limitation.

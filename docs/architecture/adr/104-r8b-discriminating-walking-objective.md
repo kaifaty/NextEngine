@@ -9,7 +9,7 @@
 | Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-065](065-curriculum-flat-command-locomotion-profile.md), [ADR-102](102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](103-r8b-rd-only-walking-discriminator.md) |
 | Supersedes | ADR-103 only for its prohibition on a second walking budget and only for the exact V2 discriminator below. V1 remains immutable negative evidence; correspondence and promotion gates are unchanged. |
-| Superseded by | none |
+| Superseded by | [ADR-105](105-r8b-dense-tracking-walking-counterfactual.md), only for one exact dense-tracking V3 counterfactual after V2 failed |
 
 ## Context
 
@@ -63,3 +63,6 @@ remain hash-closed in the external training store. Failure retires V2 as
 negative evidence and returns to environment/body diagnosis; it does not
 weaken the gate or authorize PPO tuning by default.
 
+V2 failed as specified: final GPU inference survives five horizons but travels
+only `0.123/7.258 m`; no saved canonical CPU checkpoint walks. ADR-105 records
+the resulting zero-gradient compact-kernel diagnosis and the sole successor.

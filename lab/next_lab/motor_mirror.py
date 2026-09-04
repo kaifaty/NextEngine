@@ -25,6 +25,9 @@ BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID = (
 BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2 = (
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v2"
 )
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3 = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v3"
+)
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
@@ -99,6 +102,11 @@ BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2 = (
     "reward.contacting-sole-tangential-slip-cost",
     "reward.command-conditioned-support",
     "reward.fall-component",
+)
+BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3 = (
+    "reward.planar-command-tracking-dense",
+    "reward.yaw-rate-tracking-dense",
+    *BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2[2:],
 )
 
 FLAT_COMMAND_PROFILE_V1 = {
@@ -436,6 +444,7 @@ def select_biomechanics_training_profile(
     if profile_id not in {
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
     }:
         raise ValueError(f"unsupported biomechanics training profile: {profile_id}")
     validate_biomechanics_forward_start_stop_descriptor(descriptor)
@@ -532,8 +541,11 @@ def validate_biomechanics_standing_profile(profile: dict[str, Any]) -> None:
 
 
 def validate_biomechanics_forward_start_stop_profile(profile: dict[str, Any]) -> None:
-    if profile.get("profile_id") == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2:
-        _validate_biomechanics_forward_start_stop_profile_v2(profile)
+    if profile.get("profile_id") in {
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+    }:
+        _validate_biomechanics_forward_start_stop_profile_v2_or_v3(profile)
         return
     for field in (
         "manifest_hash",
@@ -626,9 +638,12 @@ def validate_biomechanics_forward_start_stop_profile(profile: dict[str, Any]) ->
         raise ValueError("biomechanics forward start/stop termination mismatch")
 
 
-def _validate_biomechanics_forward_start_stop_profile_v2(
+def _validate_biomechanics_forward_start_stop_profile_v2_or_v3(
     profile: dict[str, Any],
 ) -> None:
+    dense_tracking = (
+        profile.get("profile_id") == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3
+    )
     for field in (
         "manifest_hash",
         "observation_layout_hash",
@@ -685,10 +700,15 @@ def _validate_biomechanics_forward_start_stop_profile_v2(
     ):
         raise ValueError("biomechanics forward start/stop v2 tensor layout mismatch")
     components = profile.get("reward_components")
+    expected_components = (
+        BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3
+        if dense_tracking
+        else BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2
+    )
     if not isinstance(components, list) or tuple(
         component.get("component_id") for component in components
-    ) != BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2:
-        raise ValueError("biomechanics forward start/stop v2 reward order mismatch")
+    ) != expected_components:
+        raise ValueError("biomechanics forward start/stop bounded reward order mismatch")
     if any(
         component.get("minimum_raw") != 0
         or component.get("maximum_raw") != 65_536
@@ -712,9 +732,13 @@ def _validate_biomechanics_forward_start_stop_profile_v2(
         normalizations["planar_tracking_micrometres_per_second"] != 500_000
         or normalizations["yaw_tracking_microradians_per_second"] != 500_000
         or normalizations["tracking_kernel"]
-        != "square(max(0, 1 - absolute_error / normalization)) in Q16"
+        != (
+            "square(1 / (1 + (absolute_error / normalization)^2)) in Q16"
+            if dense_tracking
+            else "square(max(0, 1 - absolute_error / normalization)) in Q16"
+        )
     ):
-        raise ValueError("biomechanics forward start/stop v2 tracking mismatch")
+        raise ValueError("biomechanics forward start/stop bounded tracking mismatch")
     termination = profile.get("termination")
     if not isinstance(termination, dict) or (
         termination.get("pelvis_height_micrometres_inclusive"),
@@ -1050,6 +1074,7 @@ def validate_biomechanics_forward_start_stop_descriptor(
         not in {
             "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
             "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
+            "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v3",
         }
         or descriptor.get("observation_width") != 84
     ):
@@ -1058,11 +1083,11 @@ def validate_biomechanics_forward_start_stop_descriptor(
     if not isinstance(profiles, list) or len(profiles) != 1:
         raise ValueError("biomechanics forward start/stop descriptor profile mismatch")
     profile = profiles[0]
-    expected_profile_id = (
-        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2
-        if descriptor["training_descriptor_id"].endswith(".v2")
-        else BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID
-    )
+    expected_profile_id = {
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v3": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+    }[descriptor["training_descriptor_id"]]
     if profile.get("profile_id") != expected_profile_id:
         raise ValueError("biomechanics forward start/stop descriptor/profile mismatch")
     validate_biomechanics_forward_start_stop_profile(profile)
