@@ -192,6 +192,20 @@ impl ReferenceSpawnOverrideV1 {
         }
     }
 
+    /// Plan 32: the avatar on the pond floor (`x −9..1 m`, `z 5..9.5 m`,
+    /// floor `−1.5 m`), looking `+x` along the pond and 12 degrees up, so
+    /// the camera 4 m west of the avatar lies inside the pond `0.73 m`
+    /// under its level (the camera focus sits `0.7 m` over the capsule
+    /// centre, at `0.1 m` here).
+    #[must_use]
+    pub const fn in_pond() -> Self {
+        Self {
+            translation_micrometres: [-4_500_000, -600_000, 7_250_000],
+            camera_yaw_millidegrees: -90_000,
+            camera_pitch_millidegrees: 12_000,
+        }
+    }
+
     /// Plan 24: the avatar south of vessel B (`x 15..17.8 m`, `z 1..2.5 m`),
     /// looking along `+z` into the vessel where the PhysX water demo pours.
     #[must_use]
@@ -607,18 +621,11 @@ fn grounded_capsule_checkpoint(
         subject_id: PersistentId::from_bytes([0x57; 16]),
         body_slot: 0,
     };
-    let floor_shape_id = PhysicsShapeIdV1 {
-        body_id: floor_body_id,
-        shape_slot: 0,
-    };
-    let floor = static_box_descriptor(
+    // Plan 32: the ground as four strips around the pond hole.
+    let floor = static_boxes_descriptor(
         floor_body_id,
-        floor_shape_id,
         &material_id,
-        [0, -100_000, 0],
-        [10_000_000, 100_000, 10_000_000],
-        WORLD_COLLISION_LAYER,
-        WORLD_COLLISION_MASK,
+        &crate::water::REFERENCE_GROUND_STRIPS_MICROMETRES,
     );
     let relay_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x58; 16]),
@@ -741,6 +748,15 @@ fn grounded_capsule_checkpoint(
         crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID,
         water_basin_rim_descriptor(&material_id),
     );
+    // Plan 32: the pond floor and its steps.
+    bodies.insert(
+        crate::water::REFERENCE_WATER_POND_BODY_ID,
+        static_boxes_descriptor(
+            crate::water::REFERENCE_WATER_POND_BODY_ID,
+            &material_id,
+            &crate::water::REFERENCE_WATER_POND_BOXES_MICROMETRES,
+        ),
+    );
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -770,9 +786,23 @@ fn grounded_capsule_checkpoint(
 /// Plan 16: the static rim around the basin, five world-space box shapes
 /// on one identity-pose body.
 fn water_basin_rim_descriptor(material_id: &SchemaId) -> PhysicsBodyDescriptorV1 {
-    let body_id = crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID;
-    let shapes: BTreeMap<_, _> = crate::water::REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES
-        .into_iter()
+    static_boxes_descriptor(
+        crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID,
+        material_id,
+        &crate::water::REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES,
+    )
+}
+
+/// World-space box shapes (centre, half extents) on one identity-pose
+/// static body.
+fn static_boxes_descriptor(
+    body_id: PhysicsBodyIdV1,
+    material_id: &SchemaId,
+    boxes: &[([i64; 3], [i64; 3])],
+) -> PhysicsBodyDescriptorV1 {
+    let shapes: BTreeMap<_, _> = boxes
+        .iter()
+        .copied()
         .enumerate()
         .map(|(shape_slot, (translation, half_extents))| {
             let shape_id = PhysicsShapeIdV1 {

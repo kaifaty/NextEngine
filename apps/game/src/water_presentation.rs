@@ -16,7 +16,8 @@ use next_desktop_sdl_ash::{
 use next_reference_game::{
     WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY,
     WATER_SURFACE_VERTEX_CAPACITY, WaterPresentationFrameV1, reference_water_basin_definition,
-    reference_water_surface_bindings, reference_water_vessel_definitions,
+    reference_water_pond_definition, reference_water_surface_bindings,
+    reference_water_vessel_definitions,
 };
 
 /// Frozen plan 09 shading constants for the jet (the NGQ10 revision 4 look
@@ -58,7 +59,10 @@ impl WaterPresentationFeed {
         }
         let mut minimum = reference_water_basin_definition().minimum_micrometres;
         let mut maximum = reference_water_basin_definition().maximum_micrometres;
-        for vessel in reference_water_vessel_definitions() {
+        for vessel in reference_water_vessel_definitions()
+            .into_iter()
+            .chain([reference_water_pond_definition()])
+        {
             for axis in 0..3 {
                 minimum[axis] = minimum[axis].min(vessel.minimum_micrometres[axis]);
                 maximum[axis] = maximum[axis].max(vessel.maximum_micrometres[axis]);

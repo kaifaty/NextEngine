@@ -37,6 +37,9 @@ pub const REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID: AssetId = AssetId::fro
 pub const REFERENCE_WATER_CRATE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x8d; 16]);
 /// Plan 16: the compound rim mesh around the basin (five boxes).
 pub const REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x8e; 16]);
+/// Plan 32: the pond interior (walls, floor, steps) and its surface quad.
+pub const REFERENCE_WATER_POND_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9d; 16]);
+pub const REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9e; 16]);
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

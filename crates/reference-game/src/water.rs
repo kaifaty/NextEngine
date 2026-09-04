@@ -49,6 +49,62 @@ pub const REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES: [([i64; 3], [i64; 3]); 5]
 ];
 pub const REFERENCE_WATER_BASIN_PROFILE_REVISION: u32 = 1;
 
+/// Plan 32: the pond sunk into the ground north of the spawn, `10 x 4.5 m`
+/// and `1.4 m` deep under a level `10 cm` below the ground; the first body
+/// of the scene that holds the third-person camera under the water.
+pub const REFERENCE_WATER_POND_ID: PersistentId = PersistentId::from_bytes([0x9a; 16]);
+pub const REFERENCE_WATER_POND_MINIMUM_MICROMETRES: [i64; 3] = [-9_000_000, -1_500_000, 5_000_000];
+pub const REFERENCE_WATER_POND_MAXIMUM_MICROMETRES: [i64; 3] = [1_000_000, 0, 9_500_000];
+pub const REFERENCE_WATER_POND_INITIAL_LEVEL_MICROMETRES: i64 = -100_000;
+pub const REFERENCE_WATER_POND_SURFACE_OBJECT_ID: PersistentId =
+    PersistentId::from_bytes([0x9c; 16]);
+/// Plan 32: the pond floor and the five full-width steps at the west end
+/// (centre, half extents), one static body.
+pub const REFERENCE_WATER_POND_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
+    subject_id: PersistentId::from_bytes([0x9b; 16]),
+    body_slot: 0,
+};
+pub const REFERENCE_WATER_POND_BOXES_MICROMETRES: [([i64; 3], [i64; 3]); 6] = [
+    (
+        [-4_000_000, -1_600_000, 7_250_000],
+        [5_000_000, 100_000, 2_250_000],
+    ),
+    (
+        [-8_750_000, -875_000, 7_250_000],
+        [250_000, 625_000, 2_250_000],
+    ),
+    (
+        [-8_250_000, -1_000_000, 7_250_000],
+        [250_000, 500_000, 2_250_000],
+    ),
+    (
+        [-7_750_000, -1_125_000, 7_250_000],
+        [250_000, 375_000, 2_250_000],
+    ),
+    (
+        [-7_250_000, -1_250_000, 7_250_000],
+        [250_000, 250_000, 2_250_000],
+    ),
+    (
+        [-6_750_000, -1_375_000, 7_250_000],
+        [250_000, 125_000, 2_250_000],
+    ),
+];
+/// Plan 32: the ground as four strips around the pond hole (centre, half
+/// extents), solid from the pond floor to the ground.
+pub const REFERENCE_GROUND_STRIPS_MICROMETRES: [([i64; 3], [i64; 3]); 4] = [
+    ([0, -850_000, -2_500_000], [10_000_000, 850_000, 7_500_000]),
+    ([0, -850_000, 9_750_000], [10_000_000, 850_000, 250_000]),
+    (
+        [-9_500_000, -850_000, 7_250_000],
+        [500_000, 850_000, 2_250_000],
+    ),
+    (
+        [5_500_000, -850_000, 7_250_000],
+        [4_500_000, 850_000, 2_250_000],
+    ),
+];
+
 /// ADR-103 first flow consumer (plan `continuum-water/07`): vessel A on a
 /// `1 m` shelf, `2 x 1.5 m` in plan, filled to `1.5 m`; vessel B on the
 /// floor, `2.8 x 1.5 m`, empty; a gated `0.04 m^2` pipe with its invert
@@ -162,8 +218,23 @@ pub fn reference_water_volumes() -> Result<WaterVolumeSetV1, ReferenceGameError>
     Ok(WaterVolumeSetV1::from_definitions(
         [reference_water_basin_definition()]
             .into_iter()
-            .chain(reference_water_vessel_definitions()),
+            .chain(reference_water_vessel_definitions())
+            .chain([reference_water_pond_definition()]),
     )?)
+}
+
+/// Plan 32: the sunken pond, a still body outside the flow network.
+#[must_use]
+pub fn reference_water_pond_definition() -> WaterVolumeDefinitionV1 {
+    WaterVolumeDefinitionV1 {
+        volume_id: REFERENCE_WATER_POND_ID,
+        minimum_micrometres: REFERENCE_WATER_POND_MINIMUM_MICROMETRES,
+        maximum_micrometres: REFERENCE_WATER_POND_MAXIMUM_MICROMETRES,
+        initial_level_micrometres: REFERENCE_WATER_POND_INITIAL_LEVEL_MICROMETRES,
+        swimming_depth_micrometres: REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES,
+        level_ramp: None,
+        profile_revision: REFERENCE_WATER_BASIN_PROFILE_REVISION,
+    }
 }
 
 /// Exact submersion of the player's capsule foot point: the committed
@@ -246,4 +317,70 @@ pub fn water_surface_translation(
         .effective_level(REFERENCE_WATER_BASIN_ID, tick)
         .ok_or(ReferenceGameError::PresentationAssetMissing)?;
     Ok([0, level, 0])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use next_contracts::physics::{CAPSULE_MAX_STEP_HEIGHT_MICROMETRES, WaterSubmersionClassV1};
+
+    /// Plan 32 G2: the pond's classification at its floor, its top step and
+    /// the ground beside it.
+    #[test]
+    fn pond_classifies_swimming_on_the_floor_and_wading_on_the_top_step() {
+        let volumes = reference_water_volumes().expect("reference volumes");
+        let floor = volumes.submersion_at([-4_500_000, -1_500_000, 7_250_000], 0);
+        assert_eq!(floor.class, WaterSubmersionClassV1::Swimming);
+        assert_eq!(floor.volume_id, Some(REFERENCE_WATER_POND_ID));
+        assert_eq!(floor.depth_micrometres, 1_400_000);
+        let top_step = volumes.submersion_at([-8_750_000, -250_000, 7_250_000], 0);
+        assert_eq!(top_step.class, WaterSubmersionClassV1::Wading);
+        let ground = volumes.submersion_at([-4_500_000, 0, 4_000_000], 0);
+        assert_eq!(ground.class, WaterSubmersionClassV1::Dry);
+    }
+
+    /// Plan 32 G3: step rises within the capsule's limit, the hole inside
+    /// the ground strips, no overlap with the other bodies.
+    #[test]
+    fn pond_steps_and_plan_fit_the_ground_and_the_other_bodies() {
+        let mut tops: Vec<i64> = REFERENCE_WATER_POND_BOXES_MICROMETRES[1..]
+            .iter()
+            .map(|(centre, half)| centre[1] + half[1])
+            .collect();
+        tops.sort_unstable();
+        let mut previous = REFERENCE_WATER_POND_MINIMUM_MICROMETRES[1];
+        for top in tops.iter().copied().chain([0]) {
+            assert!(top > previous && top - previous <= CAPSULE_MAX_STEP_HEIGHT_MICROMETRES);
+            previous = top;
+        }
+        let floor_top = REFERENCE_WATER_POND_BOXES_MICROMETRES[0].0[1]
+            + REFERENCE_WATER_POND_BOXES_MICROMETRES[0].1[1];
+        assert_eq!(floor_top, REFERENCE_WATER_POND_MINIMUM_MICROMETRES[1]);
+        let pond_min = REFERENCE_WATER_POND_MINIMUM_MICROMETRES;
+        let pond_max = REFERENCE_WATER_POND_MAXIMUM_MICROMETRES;
+        assert!(pond_min[0] > -10_000_000 && pond_max[0] < 10_000_000);
+        assert!(pond_min[2] > -10_000_000 && pond_max[2] < 10_000_000);
+        let disjoint = |other: &WaterVolumeDefinitionV1| {
+            pond_max[0] <= other.minimum_micrometres[0]
+                || other.maximum_micrometres[0] <= pond_min[0]
+                || pond_max[2] <= other.minimum_micrometres[2]
+                || other.maximum_micrometres[2] <= pond_min[2]
+        };
+        assert!(disjoint(&reference_water_basin_definition()));
+        for vessel in reference_water_vessel_definitions() {
+            assert!(disjoint(&vessel));
+        }
+        // Every ground strip stays outside the hole and inside the floor,
+        // reaching the ground at `y 0` and the pond floor below.
+        for (centre, half) in REFERENCE_GROUND_STRIPS_MICROMETRES {
+            let (x0, x1) = (centre[0] - half[0], centre[0] + half[0]);
+            let (z0, z1) = (centre[2] - half[2], centre[2] + half[2]);
+            assert!(x0 >= -10_000_000 && x1 <= 10_000_000 && z0 >= -10_000_000 && z1 <= 10_000_000);
+            assert!(
+                x1 <= pond_min[0] || x0 >= pond_max[0] || z1 <= pond_min[2] || z0 >= pond_max[2]
+            );
+            assert_eq!(centre[1] + half[1], 0);
+            assert!(centre[1] - half[1] <= pond_min[1]);
+        }
+    }
 }

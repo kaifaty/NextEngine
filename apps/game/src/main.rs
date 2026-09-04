@@ -123,6 +123,10 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             // Plan 11: a fresh session in front of the basin, looking at it.
             launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_water());
         }
+        if options.start_at_pond {
+            // Plan 32: on the pond floor, the camera under the level.
+            launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::in_pond());
+        }
         if options.physx_water {
             // Plan 24: the PhysX water demo pours into the basin, seen from
             // the water start.

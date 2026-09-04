@@ -79,8 +79,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 43);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 129);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 45);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 131);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -174,7 +174,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         interaction_definition_hash_v2(accept),
         interaction_definition_hash_v2(unconditioned_accept)
     );
-    assert_eq!(activated.render_content_catalog.meshes().len(), 17);
+    assert_eq!(activated.render_content_catalog.meshes().len(), 19);
     assert_eq!(activated.render_content_catalog.materials().len(), 12);
     assert_eq!(activated.render_content_catalog.textures().len(), 7);
     assert_eq!(
@@ -212,7 +212,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         .expect("floor mesh");
     assert_eq!(
         floor.normals_snorm16(),
-        Some([[0, i16::MAX, 0]; 4].as_slice())
+        Some([[0, i16::MAX, 0]; 16].as_slice())
     );
     let humanoid = activated
         .render_content_catalog

@@ -28,6 +28,8 @@ pub(super) struct GameOptions {
     /// Plan `continuum-water/11` diagnostic: walk to the basin and turn the
     /// camera to it through scripted input at start.
     pub(super) start_at_water: bool,
+    /// Plan 32: start on the pond floor with the camera under the level.
+    pub(super) start_at_pond: bool,
     pub(super) project: Option<PathBuf>,
     pub(super) expected_lock: Option<ContentHash>,
     pub(super) state_root: Option<PathBuf>,
@@ -53,6 +55,11 @@ impl GameOptions {
                         return Err(AppFailure::argument(
                             "--maximum-frames must be one positive integer",
                         ));
+                    }
+                }
+                "--start-at-pond" => {
+                    if std::mem::replace(&mut options.start_at_pond, true) {
+                        return Err(AppFailure::argument("--start-at-pond specified twice"));
                     }
                 }
                 "--start-at-water" => {
@@ -178,6 +185,11 @@ impl GameOptions {
         if options.maximum_frames.is_some() && !options.interactive {
             return Err(AppFailure::argument(
                 "--maximum-frames requires --interactive",
+            ));
+        }
+        if options.start_at_pond && !options.interactive {
+            return Err(AppFailure::argument(
+                "--start-at-pond requires --interactive",
             ));
         }
         if options.start_at_water && !options.interactive {

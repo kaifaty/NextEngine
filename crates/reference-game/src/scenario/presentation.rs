@@ -66,6 +66,9 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_WATER_CRATE_MESH_ASSET_ID)?;
     let (water_rim_mesh, water_rim_bounds) =
         mesh(crate::source::REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID)?;
+    let (pond_mesh, pond_bounds) = mesh(crate::source::REFERENCE_WATER_POND_MESH_ASSET_ID)?;
+    let (pond_surface_mesh, pond_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID)?;
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
@@ -384,6 +387,23 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
         PresentationBindingV1 {
+            // Plan 32: the pond interior follows its static body.
+            // Plan 16: the authored rim of the basin.
+            persistent_id: crate::water::REFERENCE_WATER_POND_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: pond_mesh,
+            material_revision: floor_material,
+            instance_ordinal: 19,
+            local_bounds: pond_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_POND_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
             // ADR-105: the floating crate follows its dynamic body pose.
             persistent_id: crate::water::REFERENCE_WATER_CRATE_BODY_ID.subject_id,
             presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
@@ -457,6 +477,14 @@ pub(crate) fn fixture_presentation_bindings(
             vessel_b_surface_mesh,
             vessel_b_surface_bounds,
             16,
+        ),
+        // Plan 32: the pond's surface quad.
+        (
+            crate::water::REFERENCE_WATER_POND_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_POND_ID,
+            pond_surface_mesh,
+            pond_surface_bounds,
+            20,
         ),
     ] {
         bindings.push(PresentationBindingV1 {
