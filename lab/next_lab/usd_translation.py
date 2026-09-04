@@ -564,9 +564,10 @@ def _current_biomechanics_base(descriptor: dict[str, Any]) -> dict[str, Any]:
     if "training_descriptor_id" not in descriptor:
         validate_current_biomechanics_descriptor(descriptor)
         return descriptor
-    if descriptor.get("training_descriptor_id") == (
-        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
-    ):
+    if descriptor.get("training_descriptor_id") in {
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
+    }:
         validate_biomechanics_forward_start_stop_descriptor(descriptor)
     else:
         validate_biomechanics_standing_descriptor(descriptor)

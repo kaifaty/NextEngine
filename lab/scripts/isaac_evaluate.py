@@ -209,12 +209,19 @@ def main() -> None:
         current_forward_velocity_error = torch.zeros(
             num_envs, device=config.device
         )
+        current_final_stop_forward_speed = torch.zeros(
+            num_envs, device=config.device
+        )
+        current_final_stop_samples = torch.zeros(
+            num_envs, dtype=torch.int64, device=config.device
+        )
         episode_returns: list[float] = []
         episode_lengths: list[int] = []
         episode_component_means: list[list[float]] = []
         episode_commanded_forward_distances: list[float] = []
         episode_achieved_forward_distances: list[float] = []
         episode_forward_velocity_mae: list[float] = []
+        episode_final_stop_forward_speed_mae: list[float] = []
         slot_returns: list[list[float]] = [[] for _ in range(num_envs)]
         slot_lengths: list[list[int]] = [[] for _ in range(num_envs)]
         completed_per_slot = torch.zeros(
@@ -265,6 +272,16 @@ def main() -> None:
                         .to(torch.float32)
                         / 1_000_000.0
                     )
+                    final_stop = current_lengths > max_steps - 180
+                    current_final_stop_forward_speed.add_(
+                        torch.where(
+                            final_stop,
+                            torch.abs(local_linear_velocity[:, 2]).to(torch.float32)
+                            / 1_000_000.0,
+                            0.0,
+                        )
+                    )
+                    current_final_stop_samples.add_(final_stop.to(torch.int64))
 
                 done_ids = dones.nonzero(as_tuple=False).squeeze(-1)
                 if len(done_ids) == 0:
@@ -288,6 +305,12 @@ def main() -> None:
                     episode_forward_velocity_mae.append(
                         float(current_forward_velocity_error[env_id].item()) / length
                     )
+                    stop_samples = int(current_final_stop_samples[env_id].item())
+                    if stop_samples:
+                        episode_final_stop_forward_speed_mae.append(
+                            float(current_final_stop_forward_speed[env_id].item())
+                            / stop_samples
+                        )
                     slot_returns[env_id].append(episode_return)
                     slot_lengths[env_id].append(length)
                     completed_per_slot[env_id] += 1
@@ -338,6 +361,8 @@ def main() -> None:
                 current_commanded_forward_distance[done_ids] = 0.0
                 current_achieved_forward_distance[done_ids] = 0.0
                 current_forward_velocity_error[done_ids] = 0.0
+                current_final_stop_forward_speed[done_ids] = 0.0
+                current_final_stop_samples[done_ids] = 0
                 if torch.all(completed_per_slot >= episodes_per_slot):
                     break
 
@@ -353,6 +378,13 @@ def main() -> None:
             component_metrics[component["component_id"]] = summary(values)
         movement_metrics = {}
         if episode_commanded_forward_distances:
+            final_stop_metrics: dict[str, Any] = {
+                "episodes_observed": len(episode_final_stop_forward_speed_mae)
+            }
+            if episode_final_stop_forward_speed_mae:
+                final_stop_metrics.update(
+                    summary(episode_final_stop_forward_speed_mae)
+                )
             movement_metrics = {
                 "commanded_forward_distance_metres": summary(
                     episode_commanded_forward_distances
@@ -363,6 +395,7 @@ def main() -> None:
                 "root_local_forward_velocity_mae_metres_per_second": summary(
                     episode_forward_velocity_mae
                 ),
+                "final_180_tick_zero_command_forward_speed_mae_metres_per_second": final_stop_metrics,
             }
         manifest.update(
             {

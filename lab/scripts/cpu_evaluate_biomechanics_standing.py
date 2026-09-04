@@ -30,6 +30,7 @@ from next_lab.isaac_training import (
 )
 from next_lab.motor_lab_client import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     BIOMECHANICS_STANDING_PROFILE_ID,
     MotorLabClient,
 )
@@ -66,6 +67,7 @@ def main() -> None:
     if profile.environment_profile_id not in {
         BIOMECHANICS_STANDING_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     }:
         raise ValueError(
             "CPU policy evaluator accepts only biomechanics standing or forward start/stop"
@@ -126,6 +128,7 @@ def main() -> None:
     commanded_forward_distances: list[float] = []
     achieved_forward_distances: list[float] = []
     forward_velocity_mae: list[float] = []
+    final_stop_forward_speed_mae: list[float] = []
 
     with MotorLabClient(headless_path, profile.environment_profile_id, 1, run_root) as client:
         if client.descriptor.maximum_episode_steps != args.max_steps:
@@ -144,6 +147,8 @@ def main() -> None:
             commanded_forward_distance = 0.0
             achieved_forward_distance = 0.0
             forward_error_sum = 0.0
+            final_stop_speed_sum = 0.0
+            final_stop_samples = 0
             final_pitch = 0.0
             final_step = None
             with torch.inference_mode():
@@ -174,6 +179,9 @@ def main() -> None:
                     commanded_forward_distance += commanded_forward / 60.0
                     achieved_forward_distance += achieved_forward / 60.0
                     forward_error_sum += abs(achieved_forward - commanded_forward)
+                    if result.motor_tick > args.max_steps - 180:
+                        final_stop_speed_sum += abs(achieved_forward)
+                        final_stop_samples += 1
                     final_step = result
                     observation = policy_observation(result.observation_raw, scales)
                     if result.terminated or result.truncated:
@@ -197,6 +205,10 @@ def main() -> None:
             commanded_forward_distances.append(commanded_forward_distance)
             achieved_forward_distances.append(achieved_forward_distance)
             forward_velocity_mae.append(forward_error_sum / final_step.motor_tick)
+            if final_stop_samples:
+                final_stop_forward_speed_mae.append(
+                    final_stop_speed_sum / final_stop_samples
+                )
 
         result: dict[str, Any] = {
             "schema": "nextengine.motor.cpu-policy-evaluation.v1",
@@ -236,6 +248,14 @@ def main() -> None:
             ),
             "root_local_forward_velocity_mae_metres_per_second": summary(
                 forward_velocity_mae
+            ),
+            "final_180_tick_zero_command_forward_speed_mae_metres_per_second": (
+                {
+                    "episodes_observed": len(final_stop_forward_speed_mae),
+                    **summary(final_stop_forward_speed_mae),
+                }
+                if final_stop_forward_speed_mae
+                else {"episodes_observed": 0}
             ),
         }
         atomic_write_json(manifest_path, result)

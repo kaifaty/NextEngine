@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / R&D_ONLY_WALKING_FAILED / NO_SECOND_BUDGET / MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / WALKING_V1_FAILED / WALKING_V2_AUTHORIZED / MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -19,10 +19,9 @@
   local optimum: rollout length improves substantially without forward
   progress. The evaluation schedule also lacks the roadmap-required final
   180-tick zero-command interval.
-- **Next action:** Do not train again. First freeze no-training reward and
-  schedule controls that reject the standing parent/zero action while binding
-  `>=3 m` commanded travel plus a 180-tick stop; independently repair
-  `MODEL-MIRROR-P1`. Any second optimizer budget needs a new explicit decision.
+- **Next action:** ADR-104 authorizes one V2 run after exact reward/schedule and
+  canonical CPU standing-parent/zero-action controls pass. Start that hash-
+  closed run; independently keep `MODEL-MIRROR-P1` as a promotion blocker.
 - **Current blocker:** Current CPU PhysX 5.9 / Isaac 5.1 GPU execution exceeds
   fixed correspondence limits. This no longer blocks the one discriminator,
   but still blocks runtime promotion, broader commands and any second budget.
@@ -74,7 +73,9 @@
 | V3 final-checkpoint CPU evaluation | Manifest `2cea5beb…b645`; five episodes each reach tick `3,600` and `terminal.timeout`, two-sole occupancy is `1.0`, minimum root height `0.943284 m`, maximum tilt `11.5313 deg` and final backward lean `10.1897 deg` | Canonical nominal standing gate passes; this checkpoint may become an immutable parent only after the remaining R&D boundary is declared |
 | [V3 paired-mirror investigation](r8b-model-mirror-p1-investigation-2026-09-04.md) | `MODEL-MIRROR-P1 FAILED`; independent closed-loop joint/root-velocity RMSE is `0.05634 rad / 0.06655 m/s`; exact CPU and GPU action tapes lose the other plane at ticks `171 / 116` | ADR-103 permits one R&D-only walking discriminator; promotion remains blocked and thresholds remain unchanged |
 | [ADR-103](../../architecture/adr/103-r8b-rd-only-walking-discriminator.md) | User-authorized one-run exception with distinct profile, standing-weight initialization and mandatory CPU evaluation | The one budget is consumed; the negative result grants no second budget or runtime authority |
+| [ADR-104](../../architecture/adr/104-r8b-discriminating-walking-objective.md) | Supersedes only ADR-103's no-second-budget clause for one V2 reward/schedule discriminator | Run only after its exact no-training controls; no broader curriculum or runtime authority follows |
 | [Forward start/stop R&D result](../r8b-forward-start-stop-rd-result-2026-09-04.md) | The completed 1,024,000-sample run is safe for five GPU episodes but travels only `0.084 m` against `3.944 m` commanded; CPU final travels `-0.025 m` on average and terminates all five episodes | Reject the walking claim. Freeze the lineage and repair the reward/evaluation discriminator without training before any new budget decision |
+| [Walking training research](../r8b-walking-training-research-2026-09-04.md) | Primary NVIDIA/ETH sources and local counterfactuals identify permissive tracking/positive posture bonuses and a non-proving stop schedule before PPO | ADR-104 selects one V2 fixed `0.5 m/s` lesson with compact tracking, posture costs and unchanged PPO/body/controller/safety |
 
 ## Decisions that still constrain the work
 
@@ -308,6 +309,25 @@
 - **Reconsider when:** The no-training controls pass and a user explicitly
   authorizes a separately identified second optimizer budget.
 
+### D-013 — Run one discriminating V2 walking lesson
+
+- **Observation:** V1 pays 64% planar tracking to a stationary policy at the
+  representative `0.5 m/s` command, while its schedule does not guarantee the
+  final stop. Finite optimizer metrics and retained exploration do not support
+  PPO tuning as the first repair.
+- **Evidence:** The dated walking research, NVIDIA Isaac Lab reward/config
+  sources, Rudin et al., and exact V1 GPU/CPU results.
+- **Decision:** ADR-104 admits exactly one seed-44 V2 run after goldens and
+  canonical CPU no-training controls. V2 changes only the task lesson/reward
+  identity; standing weights initialize the model only and PPO stays fixed.
+- **Rejected alternatives:** More V1 compute, PPO/noise tuning, weakening
+  safety, or adding broad/random commands before a first visible gait.
+- **Consequences:** V1 remains immutable. V2 must achieve five safe CPU
+  timeouts, at least `3 m` signed travel per episode and final-stop forward
+  speed MAE `<=0.15 m/s`; mirror failure still forbids runtime promotion.
+- **Reconsider when:** The V2 final checkpoint completes GPU and CPU evaluation
+  or fails with a new stable discriminator.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -315,7 +335,7 @@
 | H1: biomechanics V3 is learnable with pair-complete contacts | Final V3 policy completes one GPU and five CPU 3,600-tick episodes with zero safety terminal | Perturbation robustness is unmeasured | Retain the final checkpoint as the sole nominal standing parent candidate |
 | H2: ADR-100's bounded standing objective ports without another reward redesign | Final V3 policy completes the GPU and five CPU nominal gates | Perturbation robustness and paired trajectory correspondence remain open | Freeze the standing checkpoint as the walking parent; do not promote it to runtime authority |
 | H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` fails on joint/root velocity and cannot complete one common action tape | Keep GPU output R&D-only; repair/replace the mirror or explicitly change R&D sequencing |
-| H4: admitted standing initialization improves bounded forward start/stop | V3 initialization yields long safe GPU episodes | The run achieves only `0.084/3.944 m` on GPU; no CPU checkpoint demonstrates forward travel | Refuted for this reward/schedule identity; require a zero-action/standing-parent rejection control before another run |
+| H4: admitted standing initialization improves bounded forward start/stop | V3 initialization yields long safe GPU episodes | V1 achieves only `0.084/3.944 m` on GPU; no V1 CPU checkpoint demonstrates forward travel | Refuted for V1; V2 compact tracking/fixed lesson is the bounded successor discriminator |
 
 ## Required context
 
@@ -341,12 +361,11 @@ Read these sources in precedence order before acting:
 
 1. Preserve the completed standing and walking lineages, checkpoints and
    evaluations as immutable external evidence.
-2. Without training, freeze a successor command/evaluation schedule containing
-   at least `3 m` commanded travel and a final 180-tick zero command.
-3. Without training, make the standing parent and zero-action policy fail the
-   motion acceptance criterion while retaining explicit safety accounting.
-4. Repair `MODEL-MIRROR-P1`; request a new explicit decision before any second
-   optimizer budget.
+2. Run the exact V2 reward/schedule goldens and canonical CPU zero-action plus
+   standing-parent controls.
+3. Activate a distinct external generation and execute the one ADR-104 run.
+4. Evaluate its final checkpoint on GPU and canonical CPU; keep
+   `MODEL-MIRROR-P1` blocked independently.
 
 ## Do not retry
 

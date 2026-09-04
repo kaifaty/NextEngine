@@ -1,0 +1,63 @@
+# R8b walking training research — 2026-09-04
+
+## Question and observed failure
+
+The first forward start/stop run learned safe standing rather than locomotion:
+the final GPU policy achieved `0.084 m` against `3.944 m` commanded. At the
+steady `0.5 m/s` command, the V1 compact tracking term still paid
+`(1 - 0.5 / 2.5)^2 = 0.64`; independent upright, height and yaw bonuses then
+made stationary survival a strong local optimum.
+
+## Primary-source findings
+
+- NVIDIA Isaac Lab defines planar velocity tracking as an exponential kernel
+  over squared command error. Its current H1 locomotion configuration uses
+  `std = 0.5`, positive linear/yaw tracking, a biped feet-air-time term and
+  negative orientation/action-rate costs rather than independent positive
+  survival bonuses:
+  <https://isaac-sim.github.io/IsaacLab/develop/source/api/lab/isaaclab.envs.mdp.html>,
+  <https://github.com/isaac-sim/IsaacLab/blob/release/3.0.0-beta2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/h1/rough_env_cfg.py>.
+- The official Isaac Lab direct locomotion implementation uses
+  `exp(-squared_error / 0.25)`, gates feet-air-time reward on a non-zero
+  command and tracks actual episode-mean velocity error:
+  <https://github.com/isaac-sim/IsaacLab/blob/release/3.0.0-beta2/source/isaaclab_tasks/isaaclab_tasks/direct/anymal_c/anymal_c_env.py>.
+- Rudin et al. report that simple observations/actions/rewards can learn flat
+  locomotion with massively parallel PPO, but a biped needs an additional
+  single-foot signal for a walking gait; they also use a staged curriculum:
+  <https://arxiv.org/abs/2109.11978>.
+
+## Competing hypotheses
+
+| Hypothesis | Prediction | Result before new optimization |
+| --- | --- | --- |
+| H1 — V1 tracking is too permissive | A stationary body receives a large fraction of the moving optimum | Confirmed: `0.64` raw planar tracking at `0.5 m/s` error, plus independent posture bonuses |
+| H2 — PPO/exploration is the first failure | Metrics should diverge, collapse exploration or fail to improve survival | Not supported: all 250 records are finite, action noise remains about `0.34`, and episode length rises materially |
+| H3 — evaluation does not prove start/stop | The generated command path may omit the required final stop | Confirmed: V1 counter schedules do not guarantee a final 180-tick zero interval |
+| H4 — the body cannot produce a biped gait | A corrected objective still cannot acquire signed forward travel | Open; only a bounded successor run can discriminate it |
+
+## Smallest evidence-backed successor
+
+Freeze a distinct V2 profile; do not mutate V1 or tune PPO.
+
+- Use one deterministic first curriculum lesson: 120-tick warm-up, ramp to
+  `0.5 m/s`, ramp down early enough to provide exactly 180 final zero-command
+  ticks. Its integrated commanded distance is greater than `3 m`.
+- Replace the `2.5 m/s` tracking width with a deterministic Q16 compact-square
+  kernel of width `0.5 m/s`. This approximates the discrimination intent of
+  the exponential kernels while preserving exact CPU/GPU integer parity.
+- Make planar/yaw tracking the positive task reward; express tilt and height
+  as costs. Preserve bounded effort, target-rate, slip, one-sole support and
+  fall facts.
+- Keep the model, optimizer and PPO hyperparameters unchanged; initialize
+  only actor/critic and observation-normalizer weights from the admitted
+  standing checkpoint.
+
+Before training, exact goldens must show that stationary motion earns at most
+10% of the ideal moving reward, the schedule commands at least `3 m`, and its
+last 180 commands are zero. Canonical CPU zero-action and standing-parent
+controls must fail motion acceptance. A trained candidate passes only if all
+five canonical CPU episodes time out safely, each achieves at least `3 m`
+signed forward travel, and mean absolute forward speed during the final stop
+is at most `0.15 m/s`. Failed `MODEL-MIRROR-P1` continues to prohibit runtime
+promotion regardless of this result.
+

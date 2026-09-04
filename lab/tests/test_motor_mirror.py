@@ -30,7 +30,9 @@ from next_lab.isaac_env import (
     round_div_ties_even_tensor,
 )
 from next_lab.motor_mirror import (
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
+    biomechanics_forward_start_stop_command_schedule_v2,
     curriculum_locomotion_command_schedule,
     derive_purpose_seed,
     flat_locomotion_command_schedule,
@@ -304,6 +306,57 @@ class MotorMirrorTests(unittest.TestCase):
                     )
                 ],
             )
+
+    def test_forward_start_stop_v2_schedule_guarantees_travel_and_final_stop(self) -> None:
+        schedule = biomechanics_forward_start_stop_command_schedule_v2()
+        self.assertEqual(len(schedule), 1_201)
+        self.assertEqual(schedule[1_020], (0, 20, 0))
+        self.assertTrue(all(command == (0, 0, 0) for command in schedule[1_021:]))
+        self.assertGreaterEqual(
+            sum(command[1] for command in schedule[1:]),
+            3 * 60 * 1_000_000,
+        )
+        precomputed = precompute_command_schedules(
+            bytes(range(32)), [0, 99], [0, 7], BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2
+        )
+        self.assertEqual(precomputed.shape, (2, 1_201, 3))
+        torch.testing.assert_close(precomputed[0], precomputed[1])
+
+    def test_forward_start_stop_v2_reward_rejects_stationary_motion(self) -> None:
+        quaternion = torch.tensor([[0, 0, 0, 1 << 30]], dtype=torch.int64)
+        zeros3 = torch.zeros((1, 3), dtype=torch.int64)
+        zeros23 = torch.zeros((1, 23), dtype=torch.int64)
+        common = {
+            "quaternion_xyzw_q1_30": quaternion,
+            "root_height_micrometres": torch.tensor([943_500], dtype=torch.int64),
+            "target_root_height_micrometres": 943_500,
+            "local_angular_velocity_raw": zeros3,
+            "vertical_velocity_raw": torch.zeros(1, dtype=torch.int64),
+            "command_raw": torch.tensor([[0, 500_000, 0]], dtype=torch.int64),
+            "effort_sum_raw": torch.zeros(1, dtype=torch.int64),
+            "applied_action_raw": zeros23,
+            "previous_applied_action_raw": zeros23,
+            "contacting_foot_slip_sum_raw": torch.zeros(1, dtype=torch.int64),
+            "fell": torch.zeros(1, dtype=torch.bool),
+            "profile_id": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        }
+        stationary_components, stationary_total = locomotion_reward_q16_tensor(
+            local_linear_velocity_raw=zeros3,
+            contacting_foot_count=torch.tensor([2], dtype=torch.int64),
+            **common,
+        )
+        tracking = zeros3.clone()
+        tracking[:, 2] = 500_000
+        tracking_components, tracking_total = locomotion_reward_q16_tensor(
+            local_linear_velocity_raw=tracking,
+            contacting_foot_count=torch.tensor([1], dtype=torch.int64),
+            **common,
+        )
+        self.assertEqual(stationary_components[0, 0].item(), 0)
+        self.assertEqual(stationary_total.item(), 16_384)
+        self.assertEqual(tracking_components[0, 0].item(), 65_536)
+        self.assertEqual(tracking_total.item(), 163_840)
+        self.assertLessEqual(stationary_total.item() * 10, tracking_total.item())
 
     def test_curriculum_reward_sharpens_tracking_and_binds_support(self) -> None:
         quaternion = torch.tensor([[0, 0, 0, 1 << 30]], dtype=torch.int64)

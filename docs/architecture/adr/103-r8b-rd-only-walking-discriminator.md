@@ -9,7 +9,7 @@
 | Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-065](065-curriculum-flat-command-locomotion-profile.md), [ADR-102](102-biomechanics-neutral-self-clearance-successor.md) |
 | Supersedes | ADR-102 only for requiring passing `MODEL-MIRROR-P1` before any walking optimizer starts. All correspondence thresholds and promotion gates remain unchanged. |
-| Superseded by | none |
+| Superseded by | [ADR-104](104-r8b-discriminating-walking-objective.md), only for the no-second-budget clause and only for its exact V2 discriminator |
 
 ## Context
 

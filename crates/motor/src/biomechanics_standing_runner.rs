@@ -16,8 +16,10 @@ use next_physics_physx::{CanonicalPhysXSnapshotV2, PhysXAdapterError, PhysXArtic
 
 use crate::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS,
+    BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS, BiomechanicsContactClassV1,
     BiomechanicsContactClassifier, BiomechanicsForwardStartStopRewardFactsV1,
@@ -26,11 +28,14 @@ use crate::{
     BiomechanicsTerminalEvaluator, CompiledBodySchemaV2, CompiledBodySchemaV3,
     ContactClassificationError, JointControlStateV1, MotorCompileError, MotorObservationError,
     MotorSafetyError, ProceduralStandingError, TrainingEnvironmentError, VectorPolicyStepInput,
-    VectorResetOutput, biomechanics_forward_start_stop_environment_manifest_v1,
-    biomechanics_forward_start_stop_reward_q16_v1, biomechanics_humanoid_body_schema_v3,
-    biomechanics_standing_environment_manifest_v2, biomechanics_standing_reward_q16_v1,
-    curriculum_locomotion_command_schedule, derive_curriculum_locomotion_episode_seed_set,
-    derive_episode_seed_set, rotate_world_to_root_local_q1_30,
+    VectorResetOutput, biomechanics_forward_start_stop_command_schedule_v2,
+    biomechanics_forward_start_stop_environment_manifest_v1,
+    biomechanics_forward_start_stop_environment_manifest_v2,
+    biomechanics_forward_start_stop_reward_q16_v1, biomechanics_forward_start_stop_reward_q16_v2,
+    biomechanics_humanoid_body_schema_v3, biomechanics_standing_environment_manifest_v2,
+    biomechanics_standing_reward_q16_v1, curriculum_locomotion_command_schedule,
+    derive_curriculum_locomotion_episode_seed_set, derive_episode_seed_set,
+    rotate_world_to_root_local_q1_30,
 };
 
 const OBSERVATION_WIDTH: usize = 84;
@@ -90,6 +95,7 @@ pub struct BiomechanicsStandingVectorRunner {
     left_foot_actor: u64,
     right_foot_actor: u64,
     forward_start_stop: bool,
+    forward_start_stop_v2: bool,
     slots: Vec<BiomechanicsStandingSlot>,
 }
 
@@ -113,16 +119,19 @@ impl BiomechanicsStandingVectorRunner {
         if slot_count == 0 || slot_count > crate::training::MAX_CPU_VECTOR_SLOTS {
             return Err(BiomechanicsStandingRunnerError::SlotCount);
         }
-        let forward_start_stop = match profile_id {
-            BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID => false,
-            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID => true,
+        let (forward_start_stop, forward_start_stop_v2) = match profile_id {
+            BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID => (false, false),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID => (true, false),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2 => (true, true),
             _ => return Err(BiomechanicsStandingRunnerError::ProfileMismatch),
         };
         let compiled = CompiledBodySchemaV3::compile(
             &biomechanics_humanoid_body_schema_v3(),
             PersistentId::from_bytes([0; 16]),
         )?;
-        let manifest = if forward_start_stop {
+        let manifest = if forward_start_stop_v2 {
+            biomechanics_forward_start_stop_environment_manifest_v2()?
+        } else if forward_start_stop {
             biomechanics_forward_start_stop_environment_manifest_v1()?
         } else {
             biomechanics_standing_environment_manifest_v2()?
@@ -141,6 +150,7 @@ impl BiomechanicsStandingVectorRunner {
             left_foot_actor,
             right_foot_actor,
             forward_start_stop,
+            forward_start_stop_v2,
             slots,
         })
     }
@@ -190,7 +200,9 @@ impl BiomechanicsStandingVectorRunner {
             } else {
                 derive_episode_seed_set(self.run_root, episode_ordinal, vector_slot)?
             };
-            let command_schedule = if self.forward_start_stop {
+            let command_schedule = if self.forward_start_stop_v2 {
+                Some(biomechanics_forward_start_stop_command_schedule_v2())
+            } else if self.forward_start_stop {
                 let command_seed = seed_set
                     .purpose_seeds
                     .iter()
@@ -314,6 +326,7 @@ impl BiomechanicsStandingVectorRunner {
                 &mut self.slots[index],
                 &action.expect("complete staging was checked"),
                 self.forward_start_stop,
+                self.forward_start_stop_v2,
             )?);
         }
         output.sort_by_key(|value| (value.episode_ordinal, value.vector_slot));
@@ -375,6 +388,7 @@ fn step_slot(
     slot: &mut BiomechanicsStandingSlot,
     action_q1_30: &[i64],
     forward_start_stop: bool,
+    forward_start_stop_v2: bool,
 ) -> Result<BiomechanicsStandingVectorStepOutput, BiomechanicsStandingRunnerError> {
     let next_tick = slot
         .motor_tick
@@ -525,15 +539,29 @@ fn step_slot(
             contacting_sole_count,
             fell: root.position_micrometres[1] <= BIOMECHANICS_FALL_HEIGHT_MICROMETRES,
         };
-        let (components, total) = biomechanics_forward_start_stop_reward_q16_v1(compiled, &facts)?;
-        (
-            BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS
-                .into_iter()
-                .zip(components)
-                .map(|(id, value)| (schema_id(id), value))
-                .collect::<Vec<_>>(),
-            total,
-        )
+        if forward_start_stop_v2 {
+            let (components, total) =
+                biomechanics_forward_start_stop_reward_q16_v2(compiled, &facts)?;
+            (
+                BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2
+                    .into_iter()
+                    .zip(components)
+                    .map(|(id, value)| (schema_id(id), value))
+                    .collect::<Vec<_>>(),
+                total,
+            )
+        } else {
+            let (components, total) =
+                biomechanics_forward_start_stop_reward_q16_v1(compiled, &facts)?;
+            (
+                BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS
+                    .into_iter()
+                    .zip(components)
+                    .map(|(id, value)| (schema_id(id), value))
+                    .collect::<Vec<_>>(),
+                total,
+            )
+        }
     } else {
         let facts = BiomechanicsStandingRewardFactsV1 {
             root_rotation_q1_30: root.rotation_q1_30,

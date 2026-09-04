@@ -16,6 +16,7 @@ from next_lab.isaac_training import (
 )
 from next_lab.motor_mirror import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     validate_biomechanics_forward_start_stop_descriptor,
     validate_biomechanics_standing_descriptor,
     validate_descriptor,
@@ -55,7 +56,10 @@ def main() -> None:
     profile = IsaacTrainingProfile.load(arguments.profile.resolve())
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
     if "training_descriptor_id" in descriptor:
-        if profile.environment_profile_id == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID:
+        if profile.environment_profile_id in {
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
+        }:
             validate_biomechanics_forward_start_stop_descriptor(descriptor)
         else:
             validate_biomechanics_standing_descriptor(descriptor)

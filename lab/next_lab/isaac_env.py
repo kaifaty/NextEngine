@@ -11,6 +11,7 @@ import torch
 
 from next_lab.motor_mirror import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     BIOMECHANICS_STANDING_PROFILE_ID,
     BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
@@ -18,6 +19,7 @@ from next_lab.motor_mirror import (
     Q1_30_ONE,
     RATE_CLAMPED,
     STANDING_PROFILE_ID,
+    biomechanics_forward_start_stop_command_schedule_v2,
     curriculum_locomotion_command_schedule,
     derive_purpose_seed,
     flat_locomotion_command_schedule,
@@ -79,6 +81,19 @@ CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
     16_384,
     -655_360,
 )
+BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2 = (
+    131_072,
+    16_384,
+    -32_768,
+    -16_384,
+    -6_554,
+    -6_554,
+    -1_311,
+    -3_277,
+    -6_554,
+    16_384,
+    -655_360,
+)
 FROZEN_STAGE0_V1_BODY_SCHEMA_HASH = (
     "13f01daf349cddd84f6c3a068cf9da9ff1307a727949ffa9232ec2e02cbc9bd5"
 )
@@ -97,6 +112,7 @@ def is_locomotion_profile(profile_id: str) -> bool:
         FLAT_LOCOMOTION_PROFILE_ID,
         CURRICULUM_LOCOMOTION_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     }
 
 
@@ -116,6 +132,7 @@ def is_biomechanics_profile(profile_id: str) -> bool:
     return profile_id in {
         BIOMECHANICS_STANDING_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     }
 
 
@@ -808,6 +825,11 @@ def precompute_command_schedules(
         raise ValueError("episode ordinals and vector slots must have equal length")
     if profile_id == FLAT_LOCOMOTION_PROFILE_ID:
         return precompute_flat_command_schedules(run_root, ordinals, slots)
+    if profile_id == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2:
+        schedule = biomechanics_forward_start_stop_command_schedule_v2()
+        return torch.tensor(
+            [schedule for _ in ordinals], dtype=torch.int64, device="cpu"
+        )
     if profile_id not in {
         CURRICULUM_LOCOMOTION_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
@@ -846,18 +868,26 @@ def locomotion_reward_q16_tensor(
     planar_error = torch.abs(local_linear_velocity_raw[:, 0] - command_raw[:, 0]) + torch.abs(
         local_linear_velocity_raw[:, 2] - command_raw[:, 1]
     )
+    forward_start_stop_v2 = (
+        profile_id == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2
+    )
     curriculum = profile_id in {
         CURRICULUM_LOCOMOTION_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     }
     if not is_locomotion_profile(profile_id):
         raise ValueError(f"unsupported locomotion reward profile: {profile_id}")
-    planar = 65_536 - ratio_q16_tensor(
-        planar_error, 2_500_000 if curriculum else 6_500_000
+    planar_normalization = (
+        500_000 if forward_start_stop_v2 else (2_500_000 if curriculum else 6_500_000)
     )
+    yaw_normalization = (
+        500_000 if forward_start_stop_v2 else (1_500_000 if curriculum else 3_000_000)
+    )
+    planar = 65_536 - ratio_q16_tensor(planar_error, planar_normalization)
     yaw = 65_536 - ratio_q16_tensor(
         torch.abs(local_angular_velocity_raw[:, 1] - command_raw[:, 2]),
-        1_500_000 if curriculum else 3_000_000,
+        yaw_normalization,
     )
     if curriculum:
         planar = round_div_ties_even_tensor(planar * planar, 65_536)
@@ -867,10 +897,15 @@ def locomotion_reward_q16_tensor(
     tilt_reduction = round_div_ties_even_tensor(2 * (x * x + z * z), Q1_30_ONE)
     upright_q30 = torch.clamp(Q1_30_ONE - tilt_reduction, 0, Q1_30_ONE)
     upright = ratio_q16_tensor(upright_q30, Q1_30_ONE)
-    height = 65_536 - ratio_q16_tensor(
+    height_error = ratio_q16_tensor(
         torch.abs(root_height_micrometres - target_root_height_micrometres),
         400_000 if curriculum else 600_000,
     )
+    if forward_start_stop_v2:
+        upright = 65_536 - upright
+        height = height_error
+    else:
+        height = 65_536 - height_error
     vertical = ratio_q16_tensor(
         torch.abs(vertical_velocity_raw), 2_000_000 if curriculum else 3_000_000
     )
@@ -908,7 +943,11 @@ def locomotion_reward_q16_tensor(
             0,
         ).to(torch.int64)
         components = torch.stack((*base_components, support, fall), dim=-1)
-        coefficients_q16 = CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16
+        coefficients_q16 = (
+            BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2
+            if forward_start_stop_v2
+            else CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16
+        )
     else:
         components = torch.stack((*base_components, fall), dim=-1)
         coefficients_q16 = LOCOMOTION_REWARD_COEFFICIENTS_Q16

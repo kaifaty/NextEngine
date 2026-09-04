@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.71 |
+| Версия | 2.72 |
 | Последняя проверка | 2026-09-04 |
-| Заменяет | INDEX-001 2.70; indexes the Accepted current-biomechanics command-only standing environment without changing learned-policy authority |
+| Заменяет | INDEX-001 2.71; indexes the bounded R8b V2 walking discriminator without changing learned-policy authority |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -310,6 +310,7 @@ traceability — навигационная карта, не admission authority
 | ADR-101 | [Biomechanics command-only standing environment](adr/101-biomechanics-command-only-standing-environment.md) | Accepted current-body R8b standing identity: anatomical BodySchema V2/material V3, procedural-reference residual control and bounded reward; no corpus, policy-quality or runtime claim |
 | ADR-102 | [Biomechanics neutral self-clearance successor](adr/102-biomechanics-neutral-self-clearance-successor.md) | Accepted biomechanics V3/standing V2 successor with robust neutral self-clearance and source-conserving carrier projection |
 | ADR-103 | [R8b R&D-only walking discriminator before mirror repair](adr/103-r8b-rd-only-walking-discriminator.md) | Accepted one-run forward start/stop experiment; CPU evaluation and unchanged mirror gate prohibit automatic promotion |
+| ADR-104 | [Discriminating R8b walking objective and one bounded successor run](adr/104-r8b-discriminating-walking-objective.md) | Accepted one V2 successor run with compact tracking, fixed start/stop lesson and unchanged promotion gates |
 
 ## Proposed tracks
 
