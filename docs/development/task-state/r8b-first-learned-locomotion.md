@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / WALKING_V1_V2_FAILED / WALKING_V3_AUTHORIZED / MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / WALKING_V1_V2_V3_FAILED / RESEARCH_REQUIRED / MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -11,21 +11,25 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V3 standing passes, but walking V1 and V2 do not.
-  V2 final inference survives five GPU horizons yet travels only
-  `0.123/7.258 m`; no saved canonical CPU checkpoint walks.
-- **Why:** V2 removed the permissive reward but put the inherited stationary
-  policy exactly at the compact kernel's zero-gradient boundary. Its apparent
-  planar reward comes from the zero-command warm-up and stop intervals.
-- **Next action:** ADR-105 authorizes one V3 counterfactual changing only the
-  planar/yaw kernel to a dense exact Q16 function. Run goldens and canonical
-  no-training controls, then start one hash-closed seed-44 run.
+- **Current conclusion:** V3 standing passes, but all three command-only walking
+  attempts fail. Dense V3 survives five full GPU horizons yet travels only
+  `0.104/7.258 m`; canonical CPU falls at tick `156` in all five episodes and
+  moves `-0.822 m`.
+- **Why:** V2's zero-gradient boundary was real, but removing it was
+  insufficient. V3 materially increases the dense tracking return while the
+  policy remains essentially stationary on GPU and diverges backward on CPU.
+  Velocity tracking alone has not produced a gait under this lesson.
+- **Next action:** Stop optimizer runs. The persistent-problem rule now requires
+  a bounded research cycle that discriminates missing gait/contact curriculum,
+  action/observation limitations and CPU/Isaac dynamics before any new profile
+  or compute budget.
 - **Current blocker:** Current CPU PhysX 5.9 / Isaac 5.1 GPU execution exceeds
   fixed correspondence limits. This no longer blocks the one discriminator,
   but still blocks runtime promotion, broader commands and any further budget.
-- **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
-  checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
-  invalid for this question or have incompatible/rejected authority.
+- **Do not retry:** Never run/evaluate/resume standing V1, walking V1/V2/V3,
+  the broad V1 PPO checkpoints or any R123–R141/TRAIN-5 artifact unchanged;
+  they are either falsified for this question or have incompatible/rejected
+  authority. Do not substitute PPO/noise tuning for the required research.
 - **Kimodo finding:** NVIDIA Kimodo is a plausible future offline source of
   synthetic reference candidates, not a controller. It is excluded from the
   current R8b lineage and may be reconsidered only as a new post-foundation
@@ -77,6 +81,7 @@
 | Walking V2 optimizer and GPU evaluation | Run manifest `99a72819…e4f3`; final checkpoint `5099b8d3…038e`; GPU evaluation `47878e6f…5f3a` | All 250 metrics are finite and five GPU episodes survive, but mean travel is only `0.123/7.258 m`; reject walking |
 | Walking V2 canonical CPU sweep | Final evaluation `68e9539a…5119` falls at tick `116`; checkpoint 25 evaluation `0f6e6d9c…be46` survives five horizons but moves `-0.176 m`; all other saved checkpoints fall | No V2 checkpoint satisfies even signed-forward progress; preserve the lineage as negative evidence |
 | [ADR-105](../../architecture/adr/105-r8b-dense-tracking-walking-counterfactual.md) | V2 stationary `0.5 m/s` error has zero compact reward and no local gradient; exact dense Q16 goldens are monotonic | Admit one same-seed/same-budget V3 run changing only the tracking kernel |
+| Walking V3 optimizer and evaluation | Run manifest `d4a95969…c23d`; final checkpoint `da6924cc…e60`; GPU evaluation `1fe4c2cc…b81`; CPU evaluation `2dbe861e…968` | All `1,024,000` samples close. GPU completes `5/5` horizons safely but achieves only `0.104/7.258 m`; CPU falls at tick `156` in `5/5`, moves `-0.822 m` and reaches about `-59.85°` pitch. Reject dense tracking as a sufficient gait-discovery fix and stop further optimizer work pending research |
 
 ## Decisions that still constrain the work
 
@@ -344,7 +349,12 @@
   simultaneous curriculum/body/action changes.
 - **Consequences:** V3 remains `R&D_ONLY`; the unchanged CPU distance/stop gate
   and failed mirror gate still control any claim.
-- **Reconsider when:** V3 completes deterministic GPU and CPU evaluation.
+- **Outcome:** V3 completes all `1,024,000` samples and five safe GPU horizons,
+  but travels only `0.104/7.258 m`. Canonical CPU terminates all five episodes
+  at tick `156` with a backward fall and `-0.822 m` displacement. Dense tracking
+  is therefore not sufficient for gait discovery under the fixed lesson.
+- **Reconsider when:** Never retry V3 unchanged. A new experiment requires the
+  bounded post-failure research cycle and a distinct falsifiable hypothesis.
 
 ## Open hypotheses
 
@@ -353,7 +363,8 @@
 | H1: biomechanics V3 is learnable with pair-complete contacts | Final V3 policy completes one GPU and five CPU 3,600-tick episodes with zero safety terminal | Perturbation robustness is unmeasured | Retain the final checkpoint as the sole nominal standing parent candidate |
 | H2: ADR-100's bounded standing objective ports without another reward redesign | Final V3 policy completes the GPU and five CPU nominal gates | Perturbation robustness and paired trajectory correspondence remain open | Freeze the standing checkpoint as the walking parent; do not promote it to runtime authority |
 | H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` fails on joint/root velocity and cannot complete one common action tape | Keep GPU output R&D-only; repair/replace the mirror or explicitly change R&D sequencing |
-| H4: admitted standing initialization plus a dense task signal can acquire forward motion | V1/V2 retain survival and V2 exposes a precise zero-gradient boundary | Neither V1 nor V2 produces canonical forward travel | V3 changes only tracking density; direct GPU/CPU distance discriminates the hypothesis |
+| H4: admitted standing initialization plus a dense task signal can acquire forward motion | V1/V2 retain survival and V2 exposes a precise zero-gradient boundary | V3 also remains stationary on GPU and falls backward on CPU | Refuted for the fixed V3 lesson; do not add compute unchanged |
+| H5: velocity tracking lacks the contact-phase incentive needed to discover a biped gait | NVIDIA H1 and Rudin et al. include feet-air-time or single-foot gait signals; V1/V2/V3 all converge to survival without forward travel | No isolated gait-signal counterfactual exists for this body | Research contact/action traces and pre-register the smallest optimizer-free or tiny one-variable discriminator before another full run |
 
 ## Required context
 
@@ -379,11 +390,13 @@ Read these sources in precedence order before acting:
 
 1. Preserve the completed standing and walking lineages, checkpoints and
    evaluations as immutable external evidence.
-2. Run the exact V3 reward/schedule goldens and canonical CPU zero-action plus
-   standing-parent controls.
-3. Activate a distinct external generation and execute the one ADR-105 run.
-4. Evaluate its final checkpoint on GPU and canonical CPU; keep
-   `MODEL-MIRROR-P1` blocked independently.
+2. Treat V1, compact V2 and dense V3 as three failed remediation cycles; do not
+   launch another optimizer run or sweep PPO settings.
+3. Run a bounded research cycle over gait/contact curriculum, action and
+   observation adequacy, and the existing CPU/Isaac divergence. Use successful
+   controls and the smallest discriminating trace/probe before proposing code.
+4. Only a distinct, pre-registered one-variable profile with an explicit
+   rollback/non-regression check may request another compute budget.
 
 ## Do not retry
 
@@ -402,8 +415,8 @@ Read these sources in precedence order before acting:
   credible learned-humanoid foundation.
 - Any optimizer/evaluation/resume on biomechanics body V2 / standing V1 — its
   neutral contact boundary invalidates both completed contact-correct policies.
-- Walking V1 or compact-tracking V2 — both complete runs lack canonical signed
-  forward progress; only the distinct ADR-105 V3 counterfactual is active.
+- Walking V1, compact-tracking V2 or dense-tracking V3 — all complete runs lack
+  canonical signed forward progress; V3 also falls at tick `156` on CPU.
 - Kimodo or another generated-motion source inside current R8b — it would
   bypass the declared command-only lineage and cannot rehabilitate TRAIN-4.
 - GPU-only quality or video-only acceptance — CPU PhysX trajectories and
@@ -411,14 +424,14 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Standing is immutable positive evidence; walking V1/V2
-  are immutable negative evidence. ADR-105 V3 code changes only the tracking
-  kernel and awaits an external generation/run.
-- **Checks:** V2 completes all 250 records; final GPU survives but travels only
-  `0.123/7.258 m`. The CPU sweep finds no walking checkpoint. V3 focused
-  Rust/Python dense-kernel goldens pass.
-- **Remaining risk:** Dense tracking may still be insufficient for gait
-  discovery, and `MODEL-MIRROR-P1` remains failed.
+- **Workspace state:** Standing is immutable positive evidence; walking V1/V2/V3
+  are immutable negative evidence. No further walking optimizer run is
+  authorized.
+- **Checks:** V3 closes 250 records and `1,024,000` samples. Final GPU evaluation
+  completes `5/5` horizons but travels only `0.104/7.258 m`; canonical CPU
+  evaluation falls at tick `156` in `5/5` and travels `-0.822 m`.
+- **Remaining risk:** The missing gait-discovery mechanism is unresolved, and
+  `MODEL-MIRROR-P1` remains failed.
 - **Deferred:** Kimodo remains outside this foundation lineage.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed

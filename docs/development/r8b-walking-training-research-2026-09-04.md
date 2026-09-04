@@ -84,3 +84,20 @@ monotonic signal from the inherited standing policy. The command schedule,
 coefficients, PPO, seed, body, controller, safety and acceptance gates remain
 unchanged. Failure next distinguishes reward sparsity from a command-
 curriculum, action or body limitation.
+
+## V3 outcome and stop decision
+
+V3 completed all `1,024,000` samples. The final deterministic GPU evaluation
+(manifest SHA-256 `1fe4c2cc…b81`) completed all five `1,199`-step horizons with
+zero declared safety terminal and final-stop speed MAE `0.0185 m/s`, but mean
+forward travel was only `0.104 m` against `7.258 m` commanded. The canonical
+CPU evaluation (manifest SHA-256 `2dbe861e…968`) terminated all five episodes
+at tick `156` with `terminal.fall`, mean signed displacement `-0.822 m` and
+final pitch about `-59.85°`.
+
+The dense kernel fixes V2's local zero-gradient defect but does not produce a
+gait. That rejects reward-density alone as the next explanation and completes
+three failed command-only walking cycles. No further full optimizer run or PPO
+tuning is authorized until a bounded research cycle discriminates missing
+contact-phase/gait curriculum, action/observation limitations and the already
+failed CPU/Isaac dynamics correspondence using smaller successful controls.
