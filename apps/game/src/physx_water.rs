@@ -210,6 +210,54 @@ pub(crate) fn absorb(
     (positions, velocities, absorbed)
 }
 
+/// Plan 26: the colliders a stage frame places in the fluid: one per
+/// floating box whose plan centre lies inside the fluid box, as `(centre,
+/// half extents)` in metres. Pure.
+pub(crate) fn colliders_for_frame(
+    frame: &WaterPresentationFrameV1,
+    fluid_box: &FluidBox,
+) -> Vec<([f32; 3], [f32; 3])> {
+    let metres = |value: i64| value as f32 / 1_000_000.0;
+    frame
+        .boxes
+        .iter()
+        .filter_map(|floating| {
+            let minimum = floating.minimum_micrometres.map(metres);
+            let maximum = floating.maximum_micrometres.map(metres);
+            let centre = [
+                (minimum[0] + maximum[0]) * 0.5,
+                (minimum[1] + maximum[1]) * 0.5,
+                (minimum[2] + maximum[2]) * 0.5,
+            ];
+            let half = [
+                (maximum[0] - minimum[0]) * 0.5,
+                (maximum[1] - minimum[1]) * 0.5,
+                (maximum[2] - minimum[2]) * 0.5,
+            ];
+            (fluid_box.contains_plan(centre[0], centre[2]) && half.iter().all(|value| *value > 0.0))
+                .then_some((centre, half))
+        })
+        .take(16)
+        .collect()
+}
+
+/// Plan 26: particles strictly inside a collider shrunk by one spacing.
+pub(crate) fn particles_inside(
+    positions: &[[f32; 3]],
+    colliders: &[([f32; 3], [f32; 3])],
+) -> usize {
+    positions
+        .iter()
+        .filter(|position| {
+            colliders.iter().any(|(centre, half)| {
+                (0..3).all(|axis| {
+                    (position[axis] - centre[axis]).abs() < half[axis] - LANE_SPACING_METRES
+                })
+            })
+        })
+        .count()
+}
+
 /// Plan 25 statistics, printed at session end.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LaneStats {
@@ -220,6 +268,8 @@ pub(crate) struct LaneStats {
     pub(crate) last_particles: usize,
     pub(crate) cost_total_microseconds: u128,
     pub(crate) cost_max_microseconds: u128,
+    /// Plan 26: the largest count of particles inside a collider.
+    pub(crate) inside_colliders_max: usize,
 }
 
 pub(crate) struct PhysxWaterLane {
@@ -231,6 +281,8 @@ pub(crate) struct PhysxWaterLane {
     last_frame_index: Option<u64>,
     pending_positions: Vec<[f32; 3]>,
     pending_velocities: Vec<[f32; 3]>,
+    colliders: Vec<([f32; 3], [f32; 3])>,
+    collider_slots: u32,
     stats: LaneStats,
 }
 
@@ -282,6 +334,8 @@ impl PhysxWaterLane {
             last_frame_index: None,
             pending_positions: Vec::new(),
             pending_velocities: Vec::new(),
+            colliders: Vec::new(),
+            collider_slots: 0,
             stats: LaneStats::default(),
         })
     }
@@ -317,6 +371,21 @@ impl PhysxWaterLane {
             emission_for_frame(frame, &self.fluid_box, self.level_metres, room);
         self.pending_positions.extend(positions);
         self.pending_velocities.extend(velocities);
+        // Plan 26: the frame's boxes as kinematic colliders; a vanished box
+        // clears its slot. A failed collider update is reported once by the
+        // adapter's client error at the next step.
+        self.colliders = colliders_for_frame(frame, &self.fluid_box);
+        let used = u32::try_from(self.colliders.len()).unwrap_or(0);
+        for (slot, (centre, half)) in self.colliders.iter().enumerate() {
+            let slot = u32::try_from(slot).unwrap_or(u32::MAX);
+            if self.fluid.set_box(slot, *centre, *half).is_err() {
+                break;
+            }
+        }
+        for slot in used..self.collider_slots {
+            let _ = self.fluid.clear_box(slot);
+        }
+        self.collider_slots = used;
     }
 
     /// Steps the fluid by the frame's elapsed time, absorbs settled
@@ -361,6 +430,10 @@ impl PhysxWaterLane {
         self.stats.absorbed += absorbed as u64;
         self.stats.peak_particles = self.stats.peak_particles.max(positions.len());
         self.stats.last_particles = positions.len();
+        self.stats.inside_colliders_max = self
+            .stats
+            .inside_colliders_max
+            .max(particles_inside(&positions, &self.colliders));
         let cost = started.elapsed().as_micros();
         self.stats.cost_total_microseconds += cost;
         self.stats.cost_max_microseconds = self.stats.cost_max_microseconds.max(cost);
@@ -488,6 +561,23 @@ mod tests {
             10,
         );
         assert_eq!(capped.0.len(), 10);
+    }
+
+    #[test]
+    fn colliders_follow_the_frame_boxes_inside_the_fluid_box() {
+        let fluid_box = basin_fluid_box();
+        let inside = colliders_for_frame(&frame(vec![crate_box(0)], Vec::new()), &fluid_box);
+        assert_eq!(inside.len(), 1);
+        assert_eq!(inside[0].0, [6.5, 0.55, 2.0]);
+        assert_eq!(inside[0].1, [0.25, 0.25, 0.25]);
+        let mut far = crate_box(0);
+        far.minimum_micrometres[0] += 10_000_000;
+        far.maximum_micrometres[0] += 10_000_000;
+        assert!(colliders_for_frame(&frame(vec![far], Vec::new()), &fluid_box).is_empty());
+        assert!(colliders_for_frame(&frame(Vec::new(), Vec::new()), &fluid_box).is_empty());
+        // Inside means strictly inside the box shrunk by one spacing.
+        let positions = [[6.5, 0.55, 2.0], [6.5, 0.77, 2.0], [7.0, 0.55, 2.0]];
+        assert_eq!(particles_inside(&positions, &inside), 1);
     }
 
     #[test]

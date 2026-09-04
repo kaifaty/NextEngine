@@ -1385,7 +1385,11 @@ struct GpuFluid {
     float inverse_mass = 1.0F;
     float timestep = 0.0F;
     char device_name[64] = {};
+    /// Plan 26: kinematic box colliders driven by committed poses.
+    physx::PxRigidDynamic* colliders[16] = {};
 };
+
+constexpr std::uint32_t kFluidColliderSlots = 16;
 
 void destroy_gpu_fluid(GpuFluid* fluid) {
     if (fluid == nullptr) {
@@ -1409,6 +1413,11 @@ void destroy_gpu_fluid(GpuFluid* fluid) {
     for (physx::PxRigidStatic* plane : fluid->planes) {
         if (plane != nullptr) {
             plane->release();
+        }
+    }
+    for (physx::PxRigidDynamic* collider : fluid->colliders) {
+        if (collider != nullptr) {
+            collider->release();
         }
     }
     if (fluid->material != nullptr) {
@@ -1873,6 +1882,73 @@ std::int32_t ne_physx_fluid_set(
         return kCapacityExceeded;
     }
     return gpu_fluid_set(*fluid, positions, velocities, count) ? kOk : kInternalFailure;
+}
+
+// Plan 26: a kinematic box collider in the fluid scene, created on first
+// use and moved to its committed pose before the next step.
+std::int32_t ne_physx_fluid_set_box(
+    void* opaque_fluid,
+    std::uint32_t slot,
+    const std::uint32_t* centre_bits,
+    const std::uint32_t* half_extents_bits) noexcept {
+    auto* fluid = static_cast<GpuFluid*>(opaque_fluid);
+    if (fluid == nullptr || centre_bits == nullptr || half_extents_bits == nullptr) {
+        return kInvalidArgument;
+    }
+    if (slot >= kFluidColliderSlots) {
+        return kCapacityExceeded;
+    }
+    const physx::PxVec3 centre(
+        from_bits(centre_bits[0]), from_bits(centre_bits[1]), from_bits(centre_bits[2]));
+    const physx::PxVec3 half(
+        from_bits(half_extents_bits[0]),
+        from_bits(half_extents_bits[1]),
+        from_bits(half_extents_bits[2]));
+    if (!finite_vec(centre) || !finite_positive(half.x) || !finite_positive(half.y)
+        || !finite_positive(half.z)) {
+        return kInvalidArgument;
+    }
+    const physx::PxTransform pose(centre);
+    physx::PxRigidDynamic*& collider = fluid->colliders[slot];
+    if (collider == nullptr) {
+        collider = fluid->holder.physics->createRigidDynamic(pose);
+        if (collider == nullptr) {
+            return kOutOfMemory;
+        }
+        collider->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, true);
+        physx::PxShape* shape = physx::PxRigidActorExt::createExclusiveShape(
+            *collider, physx::PxBoxGeometry(half), *fluid->material);
+        if (shape == nullptr) {
+            collider->release();
+            collider = nullptr;
+            return kOutOfMemory;
+        }
+        fluid->scene->addActor(*collider);
+        return kOk;
+    }
+    physx::PxShape* shape = nullptr;
+    if (collider->getShapes(&shape, 1) == 1 && shape != nullptr) {
+        shape->setGeometry(physx::PxBoxGeometry(half));
+    }
+    collider->setKinematicTarget(pose);
+    return kOk;
+}
+
+std::int32_t ne_physx_fluid_clear_box(void* opaque_fluid, std::uint32_t slot) noexcept {
+    auto* fluid = static_cast<GpuFluid*>(opaque_fluid);
+    if (fluid == nullptr) {
+        return kInvalidArgument;
+    }
+    if (slot >= kFluidColliderSlots) {
+        return kCapacityExceeded;
+    }
+    physx::PxRigidDynamic*& collider = fluid->colliders[slot];
+    if (collider != nullptr) {
+        fluid->scene->removeActor(*collider);
+        collider->release();
+        collider = nullptr;
+    }
+    return kOk;
 }
 
 void ne_physx_fluid_destroy(void* opaque_fluid) noexcept {

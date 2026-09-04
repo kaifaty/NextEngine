@@ -499,6 +499,29 @@ impl NativeFluid {
         self.max_particles
     }
 
+    /// Plan 26: a kinematic box collider in the fluid (metres), created on
+    /// first use of `slot` (`< 16`) and moved to `centre` otherwise.
+    pub fn set_box(
+        &mut self,
+        slot: u32,
+        centre_metres: [f32; 3],
+        half_extents_metres: [f32; 3],
+    ) -> Result<(), PhysXFfiError> {
+        let centre = centre_metres.map(f32::to_bits);
+        let half = half_extents_metres.map(f32::to_bits);
+        // SAFETY: the handle is a live fluid owned by this value; both
+        // arrays hold three lanes and outlive the call.
+        status_result(unsafe {
+            raw::fluid_set_box(self.handle.as_ptr(), slot, centre.as_ptr(), half.as_ptr())
+        })
+    }
+
+    /// Plan 26: removes the collider of `slot`, if any.
+    pub fn clear_box(&mut self, slot: u32) -> Result<(), PhysXFfiError> {
+        // SAFETY: the handle is a live fluid owned by this value.
+        status_result(unsafe { raw::fluid_clear_box(self.handle.as_ptr(), slot) })
+    }
+
     pub fn read(&mut self) -> Result<FluidSample, PhysXFfiError> {
         let capacity = self.max_particles as usize;
         let mut positions = vec![0.0_f32; capacity * 3];
@@ -1050,6 +1073,15 @@ mod raw {
             velocities: *const f32,
             count: u32,
         ) -> i32;
+        #[link_name = "ne_physx_fluid_set_box"]
+        pub fn fluid_set_box(
+            fluid: *mut c_void,
+            slot: u32,
+            centre_bits: *const u32,
+            half_extents_bits: *const u32,
+        ) -> i32;
+        #[link_name = "ne_physx_fluid_clear_box"]
+        pub fn fluid_clear_box(fluid: *mut c_void, slot: u32) -> i32;
         #[link_name = "ne_physx_fluid_destroy"]
         pub fn fluid_destroy(fluid: *mut c_void);
         #[link_name = "ne_physx_world_create"]
@@ -1193,6 +1225,19 @@ mod raw {
         _velocities: *const f32,
         _count: u32,
     ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_set_box(
+        _fluid: *mut c_void,
+        _slot: u32,
+        _centre_bits: *const u32,
+        _half_extents_bits: *const u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_clear_box(_fluid: *mut c_void, _slot: u32) -> i32 {
         STATUS_UNAVAILABLE
     }
 

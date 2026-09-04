@@ -429,14 +429,15 @@ fn run_interactive_session(
     if let Some(lane) = physx_lane.borrow().as_ref() {
         let stats = lane.stats();
         eprintln!(
-            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}",
+            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}, inside_colliders_max={}",
             stats.frames,
             stats.peak_particles,
             stats.emitted,
             stats.absorbed,
             stats.last_particles,
             stats.cost_total_microseconds / u128::from(stats.frames.max(1)),
-            stats.cost_max_microseconds
+            stats.cost_max_microseconds,
+            stats.inside_colliders_max
         );
     }
     eprintln!(

@@ -87,6 +87,19 @@ pub unsafe fn fluid_set(
     STATUS_INVALID_ARGUMENT
 }
 
+pub unsafe fn fluid_set_box(
+    _fluid: *mut c_void,
+    _slot: u32,
+    _centre_bits: *const u32,
+    _half_extents_bits: *const u32,
+) -> i32 {
+    STATUS_INVALID_ARGUMENT
+}
+
+pub unsafe fn fluid_clear_box(_fluid: *mut c_void, _slot: u32) -> i32 {
+    STATUS_INVALID_ARGUMENT
+}
+
 pub unsafe fn fluid_destroy(_fluid: *mut c_void) {}
 
 pub unsafe fn version() -> PhysXVersion {
