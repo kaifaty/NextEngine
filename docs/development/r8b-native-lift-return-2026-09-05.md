@@ -1,6 +1,6 @@
 # R8b native V7 lift/return integration
 
-Status: `IMPLEMENTED / NATIVE_CONTROLS_PASS / TRAINING_NOT_YET_STARTED`.
+Status: `IMPLEMENTED / NATIVE_CONTROLS_PASS / V7_TRAINING_RUNNING`.
 Authority: [ADR-109](../architecture/adr/109-observable-sole-lift-and-return.md).
 Predecessor: [report-only discriminator](r8b-lift-return-discriminator-2026-09-05.md).
 
@@ -56,12 +56,24 @@ applied targets, safety checkpoints and terminal through the actual terminal.
 - PASS: 123 feature-enabled motor tests and five headless protocol tests.
 - PASS: 25 focused Python tests, including corruption rejection, independent
   phase/geometry controls, 88-channel timeout/reset and diagnostic-mode restore.
-- Native adapter and paired controls above pass. Linux host-check and final
-  formatting/static checks must close before the first generation freeze.
+- PASS: native adapter and paired controls above; Linux host-check, Rust fmt,
+  feature-enabled native clippy, Ruff and changed-document local links.
 - NOT RUN: V7 learned walking evaluation, Isaac correspondence and export/runtime.
 
-Next freeze clean commit/profile/executable/descriptor/dependencies under
-`generation-01`, then run its sole `runs/TRAIN-1`: 10,000 updates (40.96M
-transitions), 14,400 s ceiling, diagnostic updates 999/3999, final model 9999.
-This remains a learnability experiment, not a successful walking model. Keep
-the original safe horizon, 3 m, alternating support and stopping requirements.
+## Launched run
+
+Clean code `f0c15bd4ae73df4fbd5b7e95b97b39db3a2d7bc0` freezes generation-01.
+Generation manifest SHA-256:
+`0c7d54ff302ab0fd7cb31be98ae8a5b37e7e286ceeae5ed77f074e1224a1dfa1`.
+Profile SHA-256: `4d39a4e07694f34900d93c5d81008dab55606a91ded802aaca4f605c053f5c37`.
+The clean freeze repeats all 5,120 exact native control transitions. Its sole
+`generation-01/runs/TRAIN-1` is running with finite PPO updates confirmed;
+`evidence/training-01.log` and append-only `metrics.jsonl` are live projections.
+The run's output hashes close only when it terminates. Later documentation-only
+commits do not relabel the frozen implementation or alter its running inputs.
+
+Budget: 10,000 updates (40.96M transitions), 14,400 s ceiling, diagnostic updates
+999/3999, final model 9999. Next monitor the existing process and predeclared
+milestone, not launch another run. This remains a learnability experiment, not
+a successful walking model. Keep the original safe horizon, 3 m, alternating
+support and stopping requirements.

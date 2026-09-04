@@ -2016,7 +2016,7 @@ and two observable engine clocks, with unchanged physical dynamics. Its single
 CPU/CUDA run completed 4,096,000 samples but failed all final gait episodes.
 ADR-109's V7 lift/return environment now passes native paired geometry/cost and
 adapter controls. Its separately frozen 40.96M-transition successor run is
-next; no learned gait is claimed by this integration.
+now live at clean `f0c15bd4`; no learned gait is claimed by this integration.
 R8b remains a
 separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
@@ -2281,8 +2281,9 @@ now distinguishes actual native lifts from grounded rocking and rejects wrong
 side/persistent lift in synthetic phase controls. Native V7 integration now
 passes paired physics/safety and geometric-cost checks with 88 observations
 and 13 bounded reward components. ADR-109 admits one separately frozen 40.96M
-run with fixed milestones and unchanged final walking gates. The active queue
-is final preflight, generation freeze and that run; learned gait is unproved.
+run with fixed milestones and unchanged final walking gates. Preflight and
+Linux host-check pass; generation-01/TRAIN-1 is now live at clean `f0c15bd4`.
+The active queue is its fixed diagnostics and final evaluation; gait is unproved.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains

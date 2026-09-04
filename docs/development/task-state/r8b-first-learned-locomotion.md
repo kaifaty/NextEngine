@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V7_NATIVE_CONTROLS_PASS / PREPARING_FROZEN_RUN / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / V7_TRAINING_RUNNING / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -21,14 +21,15 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Close final checks and freeze V7 generation-01, then its
-  sole TRAIN-1. ADR-109 admits 40.96M transitions with diagnostic updates
-  999/3999 and final model 9999. Native paired states and costs already pass;
-  this is not walking quality. Do not restart V6 or initialize old weights.
+- **Next action:** Monitor existing V7 TRAIN-1 (exec session 50278, PID 2071350),
+  especially predeclared diagnostic updates 999/3999 and final model 9999.
+  Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
+  Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
   All final episodes end on contact impact at 382, after only 0.092032 m,
-  without single support. No optimizer is running yet. V7 implementation has
-  88 observations, 13 reward components and unchanged physics/actions/safety.
+  without single support. V7 now trains from fresh weights at clean `f0c15bd4`;
+  finite PPO updates confirmed. It has 88 observations, 13 reward components,
+  unchanged physics/actions/safety, and a 40.96M-transition / 14,400 s budget.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
@@ -226,8 +227,8 @@ has now failed walking quality; do not repeat it or alter safety to hide that.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining: finish V7 run preflight and execute its admitted learned evaluation;
-  the lift-and-return environment and geometric observations are implemented.
+- Remaining: complete the live V7 run and its admitted final learned evaluation;
+  its native controls, Python tests, clippy and broad Linux host-check pass.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
 - Generation-02 completed but failed walking quality. Full Linux host-check
