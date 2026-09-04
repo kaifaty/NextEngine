@@ -24,6 +24,14 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
     ordered = [joints[item["joint_id"]] for item in descriptor["actuators"]]
     position = [max(map(abs, joint["soft_limit_microradians"])) for joint in ordered]
     velocity = [joint["maximum_velocity_microradians_per_second"] for joint in ordered]
+    clock_scales = []
+    if descriptor.get("observation_width") == 86:
+        profiles = descriptor["environment_profiles"]
+        if len(profiles) != 1 or not profiles[0]["profile_id"].endswith(
+            "forward-start-stop.v6"
+        ):
+            raise ValueError("86-channel observations require walking V6")
+        clock_scales = [1 << 30] * 2
     scales = np.asarray(
         [1 << 30] * 4
         + [2_000_000] * 6
@@ -31,10 +39,15 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
         + velocity
         + position
         + [1_000_000] * 3
-        + [1, 1],
+        + [1, 1]
+        + clock_scales,
         dtype=np.float64,
     )
-    if scales.shape != (84,) or not np.isfinite(scales).all() or np.any(scales <= 0):
+    if (
+        scales.shape != (84 + len(clock_scales),)
+        or not np.isfinite(scales).all()
+        or np.any(scales <= 0)
+    ):
         raise ValueError("invalid canonical observation scales")
     return scales
 
@@ -69,11 +82,13 @@ class CanonicalVecEnv:
         matches = [
             item
             for item in descriptor["environment_profiles"]
-            if item["profile_id"].endswith("forward-start-stop.v5")
+            if item["profile_id"].endswith(
+                ("forward-start-stop.v5", "forward-start-stop.v6")
+            )
         ]
         if len(matches) != 1:
             raise ValueError(
-                "descriptor must contain exactly one walking V5 environment"
+                "descriptor must contain exactly one walking V5/V6 environment"
             )
         expected = matches[0]
         self.max_episode_length = expected["maximum_episode_steps"]
@@ -81,7 +96,7 @@ class CanonicalVecEnv:
         self.slots_per_shard = num_envs // shards
         self.clients: list[MotorLabClient] = []
         self.pool = ThreadPoolExecutor(max_workers=shards)
-        self.raw = np.empty((num_envs, 84), dtype=np.int64)
+        self.raw = np.empty((num_envs, len(self.scales)), dtype=np.int64)
         self.ordinals = np.empty(num_envs, dtype=np.int64)
         self.episode_length_buf = torch.zeros(num_envs, dtype=torch.long, device=device)
         self.last_steps: list[Any] = []

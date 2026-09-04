@@ -2,12 +2,13 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
-
 from next_lab.motor_lab_client import (
-    EnvironmentDescriptor,
     FLAT_LOCOMOTION_PROFILE_ID,
+    EnvironmentDescriptor,
     MotorLabClient,
     MotorLabProtocolError,
     RewardComponent,
@@ -21,6 +22,16 @@ from next_lab.trajectory_recorder import (
 
 
 class MotorLabClientTests(unittest.TestCase):
+    def test_periodic_walking_actions_are_q1_30_not_microradians(self):
+        client = object.__new__(MotorLabClient)
+        client.descriptor = SimpleNamespace(
+            profile_id="nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6",
+            action_width=23,
+        )
+        client.step = Mock(return_value=[])
+        client.step_normalized([1], np.full((1, 23), 0.5))
+        np.testing.assert_array_equal(client.step.call_args.args[1], np.full((1, 23), 1 << 29))
+
     def test_normalized_adapter_clamps_and_uses_ties_to_even(self) -> None:
         values = np.asarray([[0.0000005, 0.0000015, -2.0]], dtype=np.float64)
         self.assertEqual(

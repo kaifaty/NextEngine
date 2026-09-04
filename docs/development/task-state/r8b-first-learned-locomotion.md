@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / CANONICAL_LEARNER_FIXED / V5_CPU_WALKING_FAILED / PAIRED_ACTION_AUDIT_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / V6_PERIODIC_CREDIT_IMPLEMENTED / V5_CPU_WALKING_FAILED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -21,8 +21,8 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Implement an observable periodic load-transfer lesson with
-  graded credit before foot release; preserve body/action/safety constraints.
+- **Next action:** Finish V6 preflight, freeze its clean-commit generation and
+  execute ADR-108's fresh 4,096,000-sample run and unchanged final gait matrix.
   Corrected adapter control passes 5,120 exact transitions and 399 resets.
 - **Training:** ADR-107's direct CPU V5/CUDA PPO run completed 1,024,000
   samples. Final five episodes fall at tick 299 after 0.824657 m, with zero
@@ -47,6 +47,8 @@
    in Git at `5b9f6491` and the linked dated reports.
 5. [ADR-107](../../architecture/adr/107-canonical-cpu-walking-learner.md) and
    [direct-CPU investigation](../r8b-canonical-walking-learner-2026-09-04.md).
+6. [ADR-108](../../architecture/adr/108-observable-periodic-walking-credit.md)
+   and [step-credit investigation](../r8b-walking-step-credit-2026-09-05.md).
 
 ## Current evidence
 

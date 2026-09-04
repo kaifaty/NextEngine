@@ -7,7 +7,12 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
-from next_lab.canonical_ppo import CanonicalVecEnv, TerminalObservationPPO, shard_root
+from next_lab.canonical_ppo import (
+    CanonicalVecEnv,
+    TerminalObservationPPO,
+    observation_scales,
+    shard_root,
+)
 from rsl_rl.algorithms import PPO
 from rsl_rl.modules import ActorCritic
 from tensordict import TensorDict
@@ -105,6 +110,63 @@ class FakeClient:
 
 
 class CanonicalAdapterTests(unittest.TestCase):
+    def test_periodic_clock_scales_preserve_all_legacy_channels(self):
+        old = descriptor()
+        new = descriptor()
+        new["observation_width"] = 86
+        new["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v6"
+        np.testing.assert_array_equal(
+            observation_scales(old), observation_scales(new)[:84]
+        )
+        np.testing.assert_array_equal(observation_scales(new)[84:], [1 << 30] * 2)
+        new["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v5"
+        with self.assertRaisesRegex(ValueError, "V6"):
+            observation_scales(new)
+
+    def test_periodic_clock_survives_reset_and_final_observation(self):
+        class PeriodicClient(FakeClient):
+            def __init__(self, *args):
+                super().__init__(*args)
+                self.descriptor.observation_width = 86
+
+            def reset(self, slots):
+                results = super().reset(slots)
+                for result in results:
+                    result.observation_raw = np.concatenate(
+                        (result.observation_raw, [0, 0])
+                    )
+                return results
+
+            def step(self, ordinals, actions):
+                results = super().step(ordinals, actions)
+                for result in results:
+                    result.observation_raw = np.concatenate(
+                        (result.observation_raw, [1 << 30, -(1 << 30)])
+                    )
+                return results
+
+        data = descriptor()
+        data["observation_width"] = 86
+        data["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v6"
+        env = CanonicalVecEnv(
+            Path("unused"),
+            data,
+            num_envs=2,
+            shards=1,
+            run_root="00" * 32,
+            device="cpu",
+            client_factory=PeriodicClient,
+        )
+        try:
+            obs, _, _, extras = env.step(torch.zeros(2, 23))
+            np.testing.assert_array_equal(obs["policy"][:, 84:], np.zeros((2, 2)))
+            np.testing.assert_array_equal(
+                extras["terminal_observation"]["policy"][:, 84:], [[1, -1], [1, -1]]
+            )
+            self.assertEqual(extras["time_outs"].tolist(), [False, True])
+        finally:
+            env.close()
+
     def test_float_swing_mirroring_preserves_nonzero_targets(self):
         from next_lab.walking_action_basis import walking_action_basis_tape
 

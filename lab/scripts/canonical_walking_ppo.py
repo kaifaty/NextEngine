@@ -286,11 +286,20 @@ def train(headless, descriptor, profile, output):
                 raise TimeoutError("frozen optimizer wall budget exhausted")
             tick_start = time.monotonic()
             reasons = Counter()
+            moving_samples = 0
+            single_support_samples = np.zeros(2, dtype=np.int64)
+            moving_step_credit = 0
             with torch.inference_mode():
                 for _ in range(profile["steps_per_env"]):
                     actions = algorithm.act(obs)
                     obs, reward, done, extras = env.step(actions)
                     algorithm.process_env_step(obs, reward, done, extras)
+                    for result in env.last_steps:
+                        if np.any(result.command_raw):
+                            moving_samples += 1
+                            moving_step_credit += int(result.reward_components_raw[9])
+                            if int(np.count_nonzero(result.contact_flags)) == 1:
+                                single_support_samples += result.contact_flags
                     totals += reward.cpu().numpy()
                     episode_lengths += 1
                     for index in np.flatnonzero(done.cpu().numpy()):
@@ -318,6 +327,11 @@ def train(headless, descriptor, profile, output):
                 "mean_episode_return": float(np.mean(returns)) if returns else None,
                 "mean_episode_length": float(np.mean(lengths)) if lengths else None,
                 "terminal_reasons": dict(reasons),
+                "moving_samples": moving_samples,
+                "moving_single_support_samples": single_support_samples.tolist(),
+                "moving_step_credit_mean": moving_step_credit / (65536 * moving_samples)
+                if moving_samples
+                else None,
                 "collection_seconds": collect_end - tick_start,
                 "learning_seconds": time.monotonic() - collect_end,
                 "steps_per_second": env.num_envs
@@ -352,6 +366,7 @@ def main():
     parser.add_argument("mode", choices=("check-adapter", "freeze", "train"))
     parser.add_argument("--headless", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
+    parser.add_argument("--profile", type=Path, default=PROFILE)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--generation-index", type=Path)
     args = parser.parse_args()
@@ -360,7 +375,13 @@ def main():
     output = require_external_path(args.output, ROOT, label="run", must_exist=False)
     if output.exists():
         raise ValueError("run output must be new")
-    profile = json.loads(PROFILE.read_text())
+    profile_path = args.profile.resolve()
+    if profile_path not in (
+        PROFILE,
+        ROOT / "lab/profiles/canonical-rsl-rl-walking.v2.json",
+    ):
+        raise ValueError("only repository-admitted canonical profiles are supported")
+    profile = json.loads(profile_path.read_text())
     if sha256_file(descriptor_path) != profile["descriptor_sha256"]:
         raise ValueError("frozen descriptor file hash mismatch")
     descriptor = json.loads(descriptor_path.read_text())
@@ -383,7 +404,7 @@ def main():
         raise RuntimeError("frozen learner requires CUDA")
     closure = {
         "repository_commit": commit,
-        "profile_sha256": sha256_file(PROFILE),
+        "profile_sha256": sha256_file(profile_path),
         "descriptor_sha256": sha256_file(descriptor_path),
         "headless_sha256": sha256_file(headless),
         "dependencies": versions,
@@ -417,7 +438,7 @@ def main():
         "repository_commit": commit,
         "repository_dirty": dirty,
         "profile": profile,
-        "profile_sha256": sha256_file(PROFILE),
+        "profile_sha256": sha256_file(profile_path),
         "descriptor_path": str(descriptor_path),
         "descriptor_sha256": sha256_file(descriptor_path),
         "headless_path": str(headless),
@@ -427,9 +448,12 @@ def main():
         "dependencies": versions,
         "run_root": seed_root(profile["seed"]),
         "input_checkpoint": None,
-        "generation_id": "r8b-canonical-walking-v1",
+        "generation_id": "r8b-canonical-walking-v2"
+        if profile_path != PROFILE
+        else "r8b-canonical-walking-v1",
         "run_id": output.name,
-        "authority": "ADR-107 bounded R&D; no mirror or runtime promotion; no resume",
+        "authority": ("ADR-108" if profile_path != PROFILE else "ADR-107")
+        + " bounded R&D; no mirror or runtime promotion; no resume",
     }
     if generation is not None:
         manifest["generation_index_sha256"] = sha256_file(index_path)

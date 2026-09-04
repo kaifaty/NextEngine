@@ -35,6 +35,8 @@ pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v4";
 pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v5";
+pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6: &str =
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6";
 pub const BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID: &str =
     "nextengine.motor.observation.humanoid-biomechanics-forward-start-stop.v1";
 pub const BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID: &str =
@@ -610,6 +612,28 @@ pub fn biomechanics_forward_start_stop_environment_manifest_v5()
     )
 }
 
+pub fn biomechanics_forward_start_stop_environment_manifest_v6()
+-> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    let mut manifest = biomechanics_forward_start_stop_environment_manifest_v5()?;
+    manifest.environment_id = id(BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6);
+    let mut observation = manifest.observation_layout_hash.as_bytes().to_vec();
+    observation.extend_from_slice(
+        b"append:quadrature-triangle-clock-q1.30;period=72;start=120;zero-command=off;v1",
+    );
+    manifest.observation_layout_hash = content_hash_from_bytes(sha256(&observation));
+    let mut reward = manifest.reward_profile_hash.as_bytes().to_vec();
+    reward.extend_from_slice(b"replace-support:periodic-load-transfer.v1;cycle=72;start=120;left-load-knots=0:32768,6:0,30:0,42:65536,66:65536,72:32768;credit=max(0,1-2*abs(actual-left-target-left))*(1-min(1,weighted-planar-l1-speed/1mps));no-impulse=0;stop=both-contact;coefficient=65536");
+    manifest.reward_profile_hash = content_hash_from_bytes(sha256(&reward));
+    manifest.reward_components[9].component_id = id(crate::WALKING_LOAD_REWARD_ID);
+    manifest.reward_components[9].coefficient_q16 = 65_536;
+    manifest.correspondence_profile_hash = domain_hash(
+        "nextengine.motor.correspondence.biomechanics-forward-start-stop.v6-canonical-only",
+        manifest.body_schema_hash,
+    );
+    manifest.validate_for_protocol_v2()?;
+    Ok(manifest)
+}
+
 fn biomechanics_forward_start_stop_environment_manifest(
     schema: &next_contracts::body::BodySchemaV2,
     environment_profile_id: &str,
@@ -931,6 +955,47 @@ pub fn biomechanics_forward_start_stop_isaac_descriptor_json_v5()
     )]);
     let mut output = serde_json::to_string_pretty(&descriptor)
         .expect("serde_json::Value serialization cannot fail");
+    output.push('\n');
+    Ok(output)
+}
+
+pub fn biomechanics_forward_start_stop_canonical_descriptor_json_v6()
+-> Result<String, MotorCompileError> {
+    let compiled = CompiledBodySchemaV3::compile(
+        &biomechanics_humanoid_body_schema_v4(),
+        PersistentId::from_bytes([0; 16]),
+    )?;
+    let manifest = biomechanics_forward_start_stop_environment_manifest_v6()?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_forward_start_stop_isaac_descriptor_json_v5()?)
+            .expect("engine-generated descriptor");
+    let mut profile = forward_profile_json_v4_or_v5(
+        &manifest,
+        &compiled,
+        BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5,
+    );
+    profile["observation_layout_id"] =
+        json!("nextengine.motor.observation.humanoid-biomechanics-periodic-walking.v1");
+    profile["observation"]["channel_count"] = json!(86);
+    profile["observation"]["appended_clock"] = json!({
+        "offset": 84, "width": 2, "encoding": "quadrature-triangle-q1.30",
+        "cycle_ticks": crate::WALKING_CYCLE_TICKS,
+        "start_tick": crate::WALKING_PHASE_START_TICK, "zero_command": "off",
+    });
+    profile["periodic_load_credit"] = json!({
+        "version": 1, "left_load_knots_q16": [[0,32768],[6,0],[30,0],[42,65536],[66,65536],[72,32768]],
+        "impulse_measurement": "sum-absolute-world-Y-sole-ground-impulse-over-actual-substeps",
+        "stance_speed": "target-load-weighted-world-XZ-L1-final-snapshot",
+        "speed_normalization_um_s": 1_000_000,
+        "flight_credit_q16": 0,
+    });
+    descriptor["training_descriptor_id"] =
+        json!("nextengine.canonical.humanoid-biomechanics-forward-start-stop.v6");
+    descriptor["backend_admission"] = json!("canonical-cpu-only;Isaac-mirror-not-implemented");
+    descriptor["observation_width"] = json!(86);
+    descriptor["environment_profiles"] = json!([profile]);
+    let mut output = serde_json::to_string_pretty(&descriptor).expect("engine JSON");
     output.push('\n');
     Ok(output)
 }

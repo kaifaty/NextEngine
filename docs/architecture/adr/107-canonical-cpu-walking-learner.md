@@ -8,7 +8,7 @@
 | Decision date | 2026-09-04 |
 | Normative dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-106](106-walking-reference-and-leg-clearance-audit.md) |
 | Supersedes | ADR-106's no-optimizer sequencing only for one direct canonical CPU V5 experiment; not its Isaac recipes or promotion gates |
-| Superseded by | none |
+| Superseded by | [ADR-108](108-observable-periodic-walking-credit.md) for its one diagnosed V6 successor only; frozen V5 remains unchanged |
 
 ## Context and decision
 

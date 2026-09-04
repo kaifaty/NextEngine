@@ -42,6 +42,16 @@ The first admitted budget is consumed and its walking quality failed; do not
 use a new directory to grant another budget. See the current
 [task state](../docs/development/task-state/r8b-first-learned-locomotion.md).
 
+ADR-108's diagnosed successor uses
+`--profile lab/profiles/canonical-rsl-rl-walking.v2.json` in **all three modes**
+and the externally exported V6 descriptor from
+`export_biomechanics_canonical_walking_v6`. It has 86 observations (two appended
+engine-owned clocks), unchanged V5 body/actions/safety, and native periodic
+load-transfer credit. The single fresh budget is 4,096,000 samples, with the
+same final five-episode walking gates. V6 is canonical-only: do not route this
+descriptor through Isaac translation/training. The default profile remains the
+frozen V1 recipe, not an implicit upgrade or additional budget.
+
 ## Stage 0 mirror workflow
 
 1. Export the engine-owned v2 descriptor to an external training store:

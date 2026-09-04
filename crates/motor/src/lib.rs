@@ -21,6 +21,7 @@ mod mirror_v2;
 mod native_safety_scenarios;
 mod observation;
 mod performance;
+mod periodic_walking;
 mod physical_animation;
 mod procedural_standing;
 #[cfg(test)]
@@ -66,6 +67,7 @@ pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_FORWARD_START_STOP_FINAL_ZERO_TICKS_V2,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID,
@@ -82,12 +84,15 @@ pub use biomechanics_standing::{
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID_V1, BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID, BIOMECHANICS_STANDING_REWARD_COEFFICIENTS_Q16,
     BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS, BiomechanicsForwardStartStopRewardFactsV1,
-    BiomechanicsStandingRewardFactsV1, biomechanics_forward_start_stop_command_schedule_v2,
+    BiomechanicsStandingRewardFactsV1,
+    biomechanics_forward_start_stop_canonical_descriptor_json_v6,
+    biomechanics_forward_start_stop_command_schedule_v2,
     biomechanics_forward_start_stop_environment_manifest_v1,
     biomechanics_forward_start_stop_environment_manifest_v2,
     biomechanics_forward_start_stop_environment_manifest_v3,
     biomechanics_forward_start_stop_environment_manifest_v4,
     biomechanics_forward_start_stop_environment_manifest_v5,
+    biomechanics_forward_start_stop_environment_manifest_v6,
     biomechanics_forward_start_stop_isaac_descriptor_json_v1,
     biomechanics_forward_start_stop_isaac_descriptor_json_v2,
     biomechanics_forward_start_stop_isaac_descriptor_json_v3,
@@ -148,6 +153,10 @@ pub use observation::{
 pub use performance::{
     HumanoidPerformanceError, HumanoidPerformanceReportV1, HumanoidWorkerPerformanceV1,
     run_reference_humanoid_performance_v1,
+};
+pub use periodic_walking::{
+    WALKING_CLOCK_WIDTH, WALKING_CYCLE_TICKS, WALKING_LOAD_REWARD_ID, WALKING_PHASE_START_TICK,
+    periodic_load_credit_q16, walking_clock_q1_30, walking_left_load_target_q16,
 };
 pub use physical_animation::{
     PHYSICAL_ANIMATION_MAX_HELD_POSE_AGE_TICKS_V1,

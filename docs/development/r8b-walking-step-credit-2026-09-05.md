@@ -60,3 +60,29 @@ Remaining uncertainty: whether graded, phase-observable unloading discovers a
 safe step under the unchanged plant. A numerical reward oracle must distinguish
 balanced standing, correctly phased unloading, wrong-side unloading and flight
 before a new learning run. Physical quality, not shaped return, decides success.
+
+## Implemented V6 discriminator
+
+[ADR-108](../architecture/adr/108-observable-periodic-walking-credit.md) freezes
+the new lesson. Pure clock/reward controls and identical-action native V5/V6
+physics/safety tests pass. The first external adapter control correctly fails
+at tick 0: `MotorLabClient.step_normalized` did not yet recognize V6 and converted
+actions using the legacy microradian scale rather than Q1.30. The training
+adapter used Q1.30, so the independent control exposed the missing profile
+registration. Add V6 to that explicit dispatch and retain a direct regression
+test; do not add V6 to unsupported Isaac mirror dispatch tables. The failed
+`adapter-check-01` stays immutable, and no optimization occurred in it.
+
+V6 descriptor file SHA-256:
+`fb5276f5a3a847497db1d46aa23ade5f216202b8ed1b17005b73d04035310dca`.
+External root is `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v2/`.
+The previous native executable is preserved in `evidence/next_headless-v5-e3c967db`
+with full SHA-256 `e3c967db3e5c92fcd43e130ca768ee6b1c86958e26a9f75f3bf8c38aca9a55e0`;
+old manifests are not rewritten when the workspace build output changes.
+
+Preflight: `adapter-check-02` passes 5,120 exact raw transitions and 399 resets
+(step-root digest `f0b5384cf070a08a8267fbe5b1a0cffc740273c470a4083b661db15b95d8a13e`).
+All 120 native motor tests and five headless protocol tests pass. V5 descriptor
+is byte-exact with its previous `0f4610fe…db03` file hash. Focused Python tests
+cover clock scaling, final/pre-reset clocks, timeout masking and V6 Q1.30
+dispatch. Broad host-check will be reported separately before handoff.

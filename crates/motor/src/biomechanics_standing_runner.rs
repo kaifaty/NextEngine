@@ -20,6 +20,7 @@ use crate::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS,
@@ -112,6 +113,7 @@ pub struct BiomechanicsStandingVectorRunner {
     forward_start_stop_v2: bool,
     forward_start_stop_v3: bool,
     forward_start_stop_v4: bool,
+    periodic_gait: bool,
     residual_scale_multiplier_q16: i64,
     slots: Vec<BiomechanicsStandingSlot>,
 }
@@ -156,7 +158,8 @@ impl BiomechanicsStandingVectorRunner {
             BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4 => {
                 (true, true, true, true, false)
             }
-            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5 => {
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6 => {
                 (true, true, true, true, true)
             }
             _ => return Err(BiomechanicsStandingRunnerError::ProfileMismatch),
@@ -167,7 +170,10 @@ impl BiomechanicsStandingVectorRunner {
             biomechanics_humanoid_body_schema_v3()
         };
         let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
-        let manifest = if forward_start_stop_v5 {
+        let periodic_gait = profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6;
+        let manifest = if periodic_gait {
+            crate::biomechanics_forward_start_stop_environment_manifest_v6()?
+        } else if forward_start_stop_v5 {
             biomechanics_forward_start_stop_environment_manifest_v5()?
         } else if forward_start_stop_v4 {
             biomechanics_forward_start_stop_environment_manifest_v4()?
@@ -209,6 +215,7 @@ impl BiomechanicsStandingVectorRunner {
             forward_start_stop_v2,
             forward_start_stop_v3,
             forward_start_stop_v4,
+            periodic_gait,
             residual_scale_multiplier_q16,
             slots,
         })
@@ -217,6 +224,15 @@ impl BiomechanicsStandingVectorRunner {
     #[must_use]
     pub fn slot_count(&self) -> u32 {
         self.slots.len() as u32
+    }
+
+    #[must_use]
+    pub fn observation_width(&self) -> u32 {
+        if self.periodic_gait {
+            86
+        } else {
+            OBSERVATION_WIDTH as u32
+        }
     }
 
     #[must_use]
@@ -280,7 +296,7 @@ impl BiomechanicsStandingVectorRunner {
                 self.forward_start_stop_v4,
                 command_schedule,
             )?;
-            let observation_raw = slot_observation(
+            let mut observation_raw = slot_observation(
                 &self.compiled.base,
                 &slot.snapshot,
                 &slot.safety.checkpoint().applied_targets_microradians,
@@ -289,6 +305,9 @@ impl BiomechanicsStandingVectorRunner {
                 self.forward_start_stop,
                 slot.command_schedule[0],
             )?;
+            if self.periodic_gait {
+                observation_raw.extend(crate::walking_clock_q1_30(0, slot.command_schedule[0]));
+            }
             let current_observation_root = observation_root(&observation_raw);
             let physics_root = physics_witness_hash_v2(&slot.snapshot);
             let motor_root = motor_state_root(
@@ -389,6 +408,7 @@ impl BiomechanicsStandingVectorRunner {
                 self.forward_start_stop_v2,
                 self.forward_start_stop_v3,
                 self.residual_scale_multiplier_q16,
+                self.periodic_gait,
             )?);
         }
         output.sort_by_key(|value| (value.episode_ordinal, value.vector_slot));
@@ -461,6 +481,7 @@ fn step_slot(
     forward_start_stop_v2: bool,
     forward_start_stop_v3: bool,
     residual_scale_multiplier_q16: i64,
+    periodic_gait: bool,
 ) -> Result<BiomechanicsStandingVectorStepOutput, BiomechanicsStandingRunnerError> {
     let next_tick = slot
         .motor_tick
@@ -503,6 +524,7 @@ fn step_slot(
     };
     let mut absolute_effort_sum = 0_u128;
     let mut contact_frames = Vec::with_capacity(PHYSICS_SUBSTEPS);
+    let mut sole_vertical_impulses = [0_u128; 2];
     if joint_safety_error.is_none() {
         for _ in 0..PHYSICS_SUBSTEPS {
             let states = actuator_states(&compiled.base, &slot.snapshot)?;
@@ -521,6 +543,21 @@ fn step_slot(
                 dof_efforts[*dof as usize] = effort.effort_micronewton_metres;
             }
             slot.snapshot = slot.world.apply_efforts_and_step(&dof_efforts)?;
+            if periodic_gait {
+                for contact in &slot.snapshot.contacts {
+                    for (side, foot) in [left_foot_actor, right_foot_actor].into_iter().enumerate()
+                    {
+                        if (contact.actor_a_token == foot
+                            && contact.actor_b_token == crate::HUMANOID_GROUND_ACTOR_TOKEN)
+                            || (contact.actor_b_token == foot
+                                && contact.actor_a_token == crate::HUMANOID_GROUND_ACTOR_TOKEN)
+                        {
+                            sole_vertical_impulses[side] +=
+                                u128::from(contact.impulse_micronewton_seconds[1].unsigned_abs());
+                        }
+                    }
+                }
+            }
             if let Err(error) = slot
                 .safety
                 .validate_observed_joint_states(&actuator_states(&compiled.base, &slot.snapshot)?)
@@ -589,7 +626,7 @@ fn step_slot(
         .sum();
     let contacting_sole_count = u8::try_from(contacting_soles.len())
         .map_err(|_| BiomechanicsStandingRunnerError::ProfileMismatch)?;
-    let (reward_components_raw, reward_total_q16) = if forward_start_stop {
+    let (mut reward_components_raw, mut reward_total_q16) = if forward_start_stop {
         let local_linear = rotate_world_to_root_local_q1_30(
             root.rotation_q1_30,
             root.linear_velocity_micrometres_per_second,
@@ -675,7 +712,31 @@ fn step_slot(
         )
     };
     let contact_flags = contact_flags(&slot.snapshot, left_foot_actor, right_foot_actor);
-    let observation_raw = slot_observation(
+    if periodic_gait {
+        let mut speeds = [0_u128; 2];
+        for (side, foot) in [left_foot_actor, right_foot_actor].into_iter().enumerate() {
+            let link = slot
+                .snapshot
+                .links
+                .iter()
+                .find(|link| link.user_token == foot)
+                .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
+            speeds[side] =
+                u128::from(link.linear_velocity_micrometres_per_second[0].unsigned_abs())
+                    + u128::from(link.linear_velocity_micrometres_per_second[2].unsigned_abs());
+        }
+        let credit = crate::periodic_load_credit_q16(
+            slot.motor_tick,
+            command_raw,
+            sole_vertical_impulses,
+            speeds,
+            contact_flags,
+        );
+        // V3 support is binary with coefficient 1/4, so subtraction is exact.
+        reward_total_q16 = reward_total_q16 - reward_components_raw[9].1 / 4 + credit;
+        reward_components_raw[9] = (schema_id(crate::WALKING_LOAD_REWARD_ID), credit);
+    }
+    let mut observation_raw = slot_observation(
         &compiled.base,
         &slot.snapshot,
         &applied_targets,
@@ -684,6 +745,9 @@ fn step_slot(
         forward_start_stop,
         next_command_raw,
     )?;
+    if periodic_gait {
+        observation_raw.extend(crate::walking_clock_q1_30(next_tick, next_command_raw));
+    }
     let next_observation_root = observation_root(&observation_raw);
     let physics_root = physics_witness_hash_v2(&slot.snapshot);
     let motor_root = motor_state_root(
@@ -1132,6 +1196,96 @@ mod tests {
                 "native zero policy produced a self-collision"
             );
         }
+    }
+
+    #[test]
+    fn periodic_reward_changes_neither_native_dynamics_nor_safety() {
+        let mut old = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+            1,
+            ContentHash::from_bytes([19; 32]),
+        )
+        .expect("V5");
+        let mut new = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
+            1,
+            ContentHash::from_bytes([19; 32]),
+        )
+        .expect("V6");
+        assert_eq!(old.manifest.body_schema_hash, new.manifest.body_schema_hash);
+        assert_eq!(
+            old.manifest.action_layout_hash,
+            new.manifest.action_layout_hash
+        );
+        assert_eq!(
+            old.manifest.termination_profile_hash,
+            new.manifest.termination_profile_hash
+        );
+        assert_ne!(
+            old.manifest.reward_profile_hash,
+            new.manifest.reward_profile_hash
+        );
+        assert_ne!(
+            old.manifest.observation_layout_hash,
+            new.manifest.observation_layout_hash
+        );
+        let old_reset = old.reset_slots(&[0]).expect("reset V5");
+        let new_reset = new.reset_slots(&[0]).expect("reset V6");
+        assert_eq!(
+            old_reset[0].observation_raw,
+            new_reset[0].observation_raw[..84]
+        );
+        assert_eq!(&new_reset[0].observation_raw[84..], &[0, 0]);
+        let mut moving_credit_seen = false;
+        for _ in 0..300 {
+            let action = vec![VectorPolicyStepInput {
+                vector_slot: 0,
+                episode_ordinal: 1,
+                action_microradians: vec![0; 23],
+            }];
+            let a = old
+                .step_actions_lockstep(action.clone())
+                .expect("step V5")
+                .remove(0);
+            let b = new
+                .step_actions_lockstep(action)
+                .expect("step V6")
+                .remove(0);
+            assert_eq!(a.frame.snapshot, b.frame.snapshot);
+            assert_eq!(
+                a.frame.applied_targets_microradians,
+                b.frame.applied_targets_microradians
+            );
+            assert_eq!(a.terminal_reason_id, b.terminal_reason_id);
+            assert_eq!(a.frame.joint_safety_error, b.frame.joint_safety_error);
+            assert_eq!(a.frame.observation_raw, b.frame.observation_raw[..84]);
+            assert_eq!(
+                &b.frame.observation_raw[84..],
+                &crate::walking_clock_q1_30(b.frame.motor_tick, b.next_command_raw)
+            );
+            for index in (0..11).filter(|index| *index != 9) {
+                assert_eq!(
+                    a.reward_components_raw[index],
+                    b.reward_components_raw[index]
+                );
+            }
+            let credit = b.reward_components_raw[9].1;
+            assert!((0..=65_536).contains(&credit));
+            if b.command_raw != [0; 3] && credit > 0 {
+                moving_credit_seen = true;
+            }
+            assert_eq!(
+                b.reward_total_q16,
+                a.reward_total_q16 - a.reward_components_raw[9].1 / 4 + credit
+            );
+            if a.terminated || a.truncated {
+                break;
+            }
+        }
+        assert!(
+            moving_credit_seen,
+            "native contact impulses must produce observable movement-phase credit"
+        );
     }
 
     #[test]

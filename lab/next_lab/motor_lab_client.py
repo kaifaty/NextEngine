@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import struct
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Self
 
 import numpy as np
 
@@ -44,6 +45,9 @@ BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4 = (
 )
 BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5 = (
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v5"
+)
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6 = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6"
 )
 
 
@@ -203,6 +207,7 @@ class MotorLabClient:
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
+                    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6,
                 },
             ),
         )
@@ -251,7 +256,7 @@ class MotorLabClient:
                 stderr = self._process.stderr.read().decode("utf-8", errors="replace")
                 raise RuntimeError(f"motor-lab exited with {self._process.returncode}: {stderr}")
 
-    def __enter__(self) -> MotorLabClient:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, _type: object, _value: object, _traceback: object) -> None:

@@ -8,6 +8,7 @@ use next_motor::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
     BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
     VectorPolicyStepInput,
@@ -188,6 +189,7 @@ fn process_create(
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
     ) {
         ProtocolRunner::BiomechanicsStanding(Box::new(
             BiomechanicsStandingVectorRunner::create_profile(&profile_id, slot_count, run_root)?,
@@ -223,7 +225,11 @@ fn process_create(
     response.extend_from_slice(&manifest.maximum_episode_steps.to_le_bytes());
     response.extend_from_slice(&manifest.physics_hz.to_le_bytes());
     response.extend_from_slice(&manifest.motor_hz.to_le_bytes());
-    response.extend_from_slice(&84_u32.to_le_bytes());
+    let observation_width = match &runner {
+        ProtocolRunner::Legacy(_) => 84,
+        ProtocolRunner::BiomechanicsStanding(runner) => runner.observation_width(),
+    };
+    response.extend_from_slice(&observation_width.to_le_bytes());
     response.extend_from_slice(&23_u32.to_le_bytes());
     push_len(&mut response, manifest.reward_components.len())?;
     for component in &manifest.reward_components {
