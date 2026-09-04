@@ -1,284 +1,126 @@
 # Physical sound synthesis — current task state
 
-| Field | Value |
-| --- | --- |
-| Status | `AUTOMATIC_DEVELOPMENT_CYCLE_COMPLETE / BOTH_NEURAL_CANDIDATES_REJECTED / ANALYTIC_CONTROL_PREFERRED / ROADMAP_V46_ACTIVE / M0_ADMISSION_BLOCKED / RESEARCH_ONLY / FALLBACK_REQUIRED` |
-| Updated | `2026-09-05` |
-| Task key | `physical-sound-synthesis` |
-| Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
-| Definition of done | One evidence-selected bounded-neural material/archetype pack, independently qualified validator and deterministic cooker process untouched holdout/shadow roles exactly once and supply one fallback-safe demo prop; the same pipeline can then start fresh Steel, Glass and Wood packs without per-sound human approval |
-| Primary deliverable | A playable ML-produced impact WAV and fallback-safe demo, with honest experimental/admission status |
-| Last primary artifact | External `audible-glass-cycle-2026-09-05`: 11 development reconstructions for each of two neural candidates and the analytic-only control, with original/previous/candidate comparisons. Analytic control is preferred; the user-liked original model remains unchanged. |
-| Supporting-only checkpoints | `0`: the audible reconstruction pilot produced new neural WAVs; no admission or generalization claim. |
-| Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
+Updated: 2026-09-05. Working context, not architecture authority.
+Status: ACTIVE_GOAL / TEXT_TO_SOUND_PILOT / RESEARCH_ONLY / FALLBACK_REQUIRED.
 
 ## Resume in 60 seconds
 
-- **Automatic cycle:** user requested autonomous training/validation. The bounded two-candidate cycle completed in `249.35 s`: 16 training strikes from `761160/761161`, 11 development strikes from the whole excluded `761162` recording. Both networks fit the teacher parameters nearly exactly but fail the fixed development comparison. Mean spectral/envelope/attack errors: previous `2.09634/0.75525/1.38978`; expanded-data MLP `3.11714/2.82105/2.43014`; analytically anchored MLP `1.74364/1.97123/1.01343`; analytic-only control `0.69560/0.33529/0.27242`. Automatic selection rejects both neural candidates and prefers analytic reconstruction. The second neural candidate improves spectrum/attack but regresses the envelope; lower aggregate spectral error alone must not qualify it.
-- **Cycle evidence:** [result.json](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json), [analytic preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/analytic-preview.wav). Each triplet is original -> previous model -> candidate; previews contain the first three development strikes. Both candidate weights/parameter predictions and all comparisons are retained. This is reference reconstruction and development selection, not independent material/striker classification or protected holdout qualification. Analytic input-dependent estimation is not relabelled a learned gain. Twelve focused tests and Ruff passed; saved candidate predictions and metrics were independently replayed from checkpoints.
-- **Latest conclusion:** frozen-checkpoint inference on nine later, non-overlapping strikes from the same three recordings does not demonstrate useful transfer. Mean spectral error is `1.49691` versus `0.31040` on training crops (`4.82x`); the neural model loses to retrieval of the nearest old fitted parameter vector on all `9/9` examples (retrieval mean `0.95099`). This does not prove an intrinsic neural limitation or isolate the cause; three-example memorization, sparse coverage and input/parameter representation remain competing explanations.
-- **Unseen evidence:** [result.json](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/result.json), [12-second preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/preview.wav), [all nine comparisons](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/comparison.wav). Original -> neural per pair; the sibling retrieval comparison adds the nearest training fit. The checkpoint hash stayed unchanged, zero optimization steps ran, and the positive control reproduced all three old parameter predictions exactly. These are model-unseen windows in disclosed training recordings, not independent objects or protected holdout evidence. Eight focused tests and Ruff passed; all emitted WAVs were checked for valid length and unclipped PCM.
-- **Current conclusion:** the user-authorized audible pilot completed in `99.53 s` on CPU: three disclosed Freesound wine-glass training crops -> 32-mode direct fits -> MLP encoder -> new WAVs. Neural/direct spectral-error ratios are `1.00264`, `0.99909`, `0.96758`; all meet the pilot's `<=1.10` criterion, and checkpoint reload reproduces PCM exactly. This is in-sample reconstruction, not new-object generation or physical identification.
-- **Exact result:** [result.json](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/result.json), [comparison.wav](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav). Comparison order for each of `761160/761161/761162`: original, direct fit, neural, with 0.5-second pauses and one common gain per triplet. The same folder contains weights, parameters, initial renders and the exact executed pre-format script matching the report hash. The tracked script subsequently received formatting, explicit closure bindings and partial-run status handling; final-code inference was checked against these saved artifacts.
-- **Outcome guard:** new neural WAVs now exist. Inspect actual reconstruction errors before expanding representation or source acquisition; experimental metrics do not certify naturalness. Existing [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) admission evidence and `NoUsefulTeacher` result remain unchanged.
-- **Planning authority:** [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md) is the long-lived execution roadmap. M0 is blocked; E0 second-project/parent power and V0 independent-validator source growth are the parallel next packages.
-- **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
-- **V32 truth result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
-- **D0/D1 result:** the [permanent disclosed roster](../physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md) preserves all nine opened families; [D1](../physical-sound-v41-d1-alias-component-roster-result-2026-09-03.md) remains immutable evidence but its AV-MSF validator placement is superseded for future work by the newly discovered source-component aliases.
-- **C0/C0R result:** the old [C0 corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md) remains immutable historical evidence, while [C0R](../physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md) supersedes its role projections with a 65-parent disjoint corpus and grants only corrected B0R/R0R and C1 authority.
-- **B0/R0/B0R/R0R result:** old B0/R0 are historical after repair. Corrected [B0R/R0R](../physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md) freezes global median `1.312187716`, project balanced accuracy `0.783333333`, material improvement `-0.098113339` with bootstrap 95% `[-0.162685572, -0.028345252]`, and a `49`-parent deficit. Exact Steel remains absent from train.
-- **External controls:** Clatter is a frozen empirical-modal baseline with 36 value-identical groups. B0 proves it and V31 analytic P1 lack independent compatible truth; D0 closes current NISR/VibraVerse revisions and structural rows remain zero. IETeasy is train-only under a different NDAC-75 contract.
-- **Next action:** retain the user-liked original model and the successful analytic control. Pause further size/epoch/data variants of the supervised parameter MLP: expanded-data and anchored variants both failed transfer despite near-zero training parameter error. Before another training attempt, run bounded research/diagnosis separating sparse coverage, non-unique modal parameter targets and waveform/parameter-loss mismatch. The analytic-only control is the successful counterfactual; a neural successor must demonstrate added value over it, not merely over the weak old network. All opened recordings remain development evidence; do not alter corpus roles or infer missing geometry/force metadata. E0/V0 remains the later independent admission-evidence path.
-- **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
-- **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
-- **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
-- **Product boundary:** SPEC-45 remains `Proposed`; the new WAVs and checkpoint are external report-only artifacts, with no public schema, validator release or runtime promotion.
+- **Full user goal:** a neural system generates realistic impacts, friction,
+  rolling, destruction, water and rain from descriptions of objects/events.
+  Sound depends on both materials, shape/size, force/speed and flow/rain
+  intensity. It must generate new combinations without a target recording,
+  learn from internet data, improve through automatic training/validation
+  without per-sound human approval, and eventually supply engine-usable sound.
+  Reconstructing an input recording does not satisfy this objective.
+- **Latest primary artifact:** [text-pilot preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/text-pilot-2026-09-05/preview.wav):
+  12 descriptions, first fixed seed, five seconds each with 0.5-second gaps.
+  AudioLDM2 generated 24 candidates plus two empty-prompt controls offline.
+  No input audio and no local training. This is a pretrained generative
+  baseline, not an already-trained physical-attribute model.
+- **Exact current evidence and reproduction:**
+  [text-generation pilot](../physical-sound-text-generation-pilot.md).
+  External roots end in `text-pilot-2026-09-05`,
+  `text-pilot-fp32-2026-09-05`, and
+  `text-pilot-200steps-2026-09-05` under
+  `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
+  Read their actual `result.json` and `ast-tags.json`, not just this summary.
+- **100-step findings:** CLAP exact-prompt rank one on 7/24, target similarity
+  beats empty prompt on 20/24. Separate audio-only AST has coarse expected
+  tags in top five on 5/20 scorable cases (all water/rain); steel has no exact
+  ontology label and is unscored. CLAP is shared with the generator, AST is
+  not; neither is a calibrated naturalness or physical-correctness validator.
+- **Precision counterfactual:** FP32 yields the same counts and median PCM
+  correlation 0.99912 with FP16; precision is not the main failure cause.
+  At 200 steps CLAP moves to 8/24 and 21/24, while AST moves to 6/20;
+  doubling compute does not resolve the failures. All three runs are complete.
+- **Next action:** compare a materially different pretrained base on the same
+  event/material cases. TangoFlux has official inference/fine-tuning code and is the next
+  research candidate; do not assume it is installed or tested. No further
+  similar tuning after two failed counterfactuals without bounded research.
+  Then adapt a useful base with physical/event controls and real-data checks;
+  do not optimize only the generator's own CLAP score.
+- **Current hardware:** NVIDIA RTX 3080, 10 GiB, CUDA works in the unrestricted
+  environment. Prior sandbox GPU failures are not current evidence.
+  `lab/.venv/bin/python` has Torch 2.13.0+cu130 and the optional generation
+  dependencies listed in the pilot note. Network is disabled for inference
+  via offline flags after public pinned safetensors downloads.
+- **Verification:** 18 focused tests, Ruff and diff checks passed; all 81 WAVs
+  read back with valid length/unclipped PCM and individual hashes checked.
+  No background processes remain after this checkpoint.
+- **All goal requirements remain open beyond this baseline:** independent
+  robust validation, improvement through local learning, precise physical
+  controls, demonstrated new-condition generalization and engine integration.
+  No goal completion or product admission has been claimed.
 
-## Current program state
+## Preserve these constraints
 
-| Stage | State | Exact consequence |
-| --- | --- | --- |
-| V16 L0–L1 | `L0B_REPEAT_EXACT_REJECT / FAMILY_CLOSED` | Gain structure is learnable, but poles/damping, continuity, waveform and coverage OOD fail; no test-driven retry or real training. |
-| V17 G0 | `COMPLETE / REPEAT_EXACT_REJECT` | Absolute/transfer/mutation gates pass, but neural/ridge ratios `0.9497x/0.9239x` miss the required `<=0.90x`; V17 O/F/I were not run. |
-| V18 P0b/B0 | `PROTOCOL_FROZEN / REPEAT_EXACT_PASS` | [B0](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) passes `19/19` gates and freezes its exact ridge hash. |
-| V18 O0–I0 | `O0_REPEAT_EXACT_REJECT / F0_I0_NOT_RUN` | [O0](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md) misses thinning gates; V18 closes and integration stays sealed. |
-| V19 R0/P0a | `R0_COMPLETE / P0A_FROZEN` | Composite integrity/fill/reachability and disjoint bands, thresholds, reason codes and ablations are frozen before C0 implementation. |
-| V19 C0–I0 | `C0_PASS / F0_IMPLEMENTATION_CONFORMANCE_REJECT / I0_NOT_RUN` | F0 bytes reproduce, but Cylinder/Bowl exceed frozen topology-gradient `0.50`; the artifact is control-only. |
-| V20 M0–I1 | `M0B_PASS / I1_REPEAT_EXACT_REJECT / CLOSED` | Acoustic diagnostics pass; F0 lineage, one remesh gate and one P0c owner defect forbid capability credit. |
-| V21 P0d–I2 | `F1A_SINGLE_RUN_RESOURCE_REJECT / NO_ARTIFACT / CLOSED` | P1a/implementation are exact, but run A exceeded `1,800 s`; no quality inference and no V21 retry. |
-| V22 P1r–I2 | `F1R_IMPLEMENTATION_REJECT / NO_ARTIFACT / CLOSED` | Numeric equivalence passed; missing evaluator API export spent `2201…2312` before quality publication. |
-| V23 P2a–F2a | `IMPLEMENTATION_CONFORMANCE_REJECT / NO_ARTIFACT / CLOSED` | `2601…2712` are spent after missing inherited `analytic_surface`; B not started, `2801…2912` retired unopened and quality unobserved. |
-| V25 R0–M0a | `M0A-I_PASS / M0A-E_PREPROCESS_CONFORMANCE_REJECT / CLOSED` | First train row binds refined mesh but misses the coarse vertex lattice by `1.67 mm`; no model values opened and B did not run. |
-| V27 R0–R1 | `R0_PASS / R1_A_RESOURCE_TIMEOUT / CLOSED` | R1 used root `d013ec35…f456` but reached `1,800 s` without canonical output; B did not run and quality remains unobserved. |
-| V28 H0–R2 | `R1_PASS / R2_REPEAT_EXACT_REPRESENTATION_REJECT / M0C_CLOSED` | Execution is solved, but decay ratio `1.924`, remesh `0.01156` and physical counterfactual errors `0.49–3.00` reject the causal generator. |
-| V32 F0–PR | `P0_P1_T0_V0A_M0_COMPLETE / M1_REPEAT_EXACT_DEVELOPMENT_REJECT / COMPACT_RESIDUAL_FAMILY_CLOSED` | M1 passes physics/resources but loses contact to nearest, opens no holdout and authorizes no M2. |
-| V33 R0–PR | `D0_REPEAT_EXACT_CONTRACT_REJECT / NO_ARTIFACT / NO_QUALITY_INFERENCE / H0_UNOPENED / CLOSED` | D0 has no exact nodal witness, so both processes reject after development access. Fresh-role successor must close structural and terminal-path coverage before training; all real `6/27` gates remain unchanged. |
-| V34–V46 R0–P0 | `V37_D0_METRIC_REJECT_CLOSED / C1A_D2_C0R_COMPLETE / B0R_R0R_SIGNAL_INSUFFICIENT / G0B1C1_COMPLETE / 71_REAL_ACOUSTIC_SUPPORTED / DEFICIT_34 / V46_D0_NO_TRUSTED_TEACHER / D1_INDEX_COMPLETE / B0_NO_USEFUL_TEACHER / M0_BLOCKED / E0_V0_NEXT` | B0 repeat-exactly preserves the real global floor but finds no independently scoreable synthetic/structural teacher. E0/V0 internet-source power is next; fitting, admission, cook, demo and runtime stay closed. |
+- The user will not record impacts, hit glass or supply force-sensor data.
+  Use internet sources. Preserve source attribution and applicable terms;
+  unknown/incompatible redistribution terms exclude distribution.
+- Generate playable media at each meaningful experiment checkpoint. Keep all
+  candidates and honest failures; protocols, inventories and validators do
+  not replace the audible deliverable. Supporting-only debt is currently zero.
+- This broad goal does not authorize runtime neural weights or gameplay
+  authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
+  is Proposed; report-only waveform generation/authored-asset research is
+  allowed. Production retains ordinary clips and an authored fallback.
+  Promotion requires the existing ADR/consumer/ProductCheck workflow.
+- Do not repurpose protected holdout, shadow, validator or one-shot roles.
+  Opened development/train evidence cannot become independent test evidence.
+  Pretraining overlap of foundation models is unknown, not automatically clean.
+- Do not invent geometry, composition, exact force, velocity or listener
+  metadata from material labels or audio. Perceptual prompt fidelity and
+  calibrated physical response are separate claims.
+- Generated WAVs, datasets, weights and caches remain outside Git. Do not
+  replace the liked glass demo/profile with a weak research candidate.
+- Keep one roadmap. [V46](../../plans/physical-sound-synthesis-roadmap-v46.md)
+  records the earlier bounded impact admission program, not proof the broad
+  goal is achieved. Individual lab runs do not change product roadmap status.
 
-## Material transition: V46 B0 lane-aware control tournament
+## Previous audible work — controls, not the endpoint
 
-- **Evidence:** [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) final seal `bdb00f87` precedes target access; A/B reproduce five artifacts, read only 134 C0R train/development targets (`682,733` bytes), preserve all forbidden counters at zero and return `NoUsefulTeacher`.
-- **Conclusion/decision:** global prototype remains the disclosed floor (`1.312187716`; project-balanced mean `1.326293656`), but Clatter, analytic P1, train-only IETeasy and empty synthetic/structural lanes cannot be independently ranked on a common target. M0 has no authority.
-- **Smallest next action:** render one existing disclosed ML/control prediction as a report-only WAV with its baseline comparison. Do not add a protocol; E0/V0 resumes after the audible checkpoint.
+- **Liked training reconstruction:** [first pilot result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/result.json),
+  [comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav).
+  Three Freesound wine-glass crops -> fitted modal teachers -> MLP -> PCM.
+  User liked it. In-sample acoustic loss 1.31725 -> 0.324965; no generalization.
+- **Frozen transfer failure:** [unseen result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/result.json).
+  Nine later strikes: spectral error 1.49691 vs training 0.31040; nearest
+  old fitted parameters beat the network on 9/9. Same recordings, not new objects.
+- **Automatic cycle:** [cycle result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json),
+  [analytic preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/analytic-preview.wav).
+  16 strikes from 761160/761161 train, 11 later strikes from excluded recording
+  761162 development. Expanded and anchored MLPs fit training parameters but
+  fail development: spectral/envelope/attack errors respectively
+  3.11714/2.82105/2.43014 and 1.74364/1.97123/1.01343.
+  Analytic-only control wins at 0.69560/0.33529/0.27242.
+- Do not retry size/epoch variants of that supervised parameter MLP. Sparse
+  data, nonunique modal targets and parameter/audio-loss mismatch were not
+  isolated. More importantly, audio-to-parameter input is the wrong interface
+  for the full goal. An input-dependent analytic fit is not a learned gain.
+- The three source MP3s remain in
+  `ps2-freesound-wine-glass-v1/research`; same author/pack and generator-train
+  family, not known identical objects. Do not infer wall thickness or force.
 
-## Durable negative knowledge
+## Legacy admission evidence and forbidden retries
 
-- R2 direct/phase, separable and low-rank listener fields collapse or lose
-  held endpoints; coordinate kernels without physical mode-shape evidence are
-  not a successor.
-- R3A V3B cleanly rejects a general neural codec as modal-fidelity evidence.
-- V5 optimization variants and V8/V9 residual/modal capacities fail real
-  spectrum/modal transfer; nearby capacity or postfilter tuning is closed.
-- V11 proves source excitation, response observability and query relevance are
-  different evidence domains. A smooth impact is not broadband by assumption.
-- V12 object `41` has valid impacts but cannot support the intended shared FRF;
-  its microphone must not be opened by weakening the preregistered gate.
-- Static random-phase magnitude residual and the retired V9 residual are not
-  admissible shortcuts. Unexplained energy remains uncertainty/fallback until
-  a separately preregistered residual family passes held evidence.
-
-## Active decisions
-
-| Decision | Smallest decisive evidence | Reconsider when |
-| --- | --- | --- |
-| Physical sound stays presentation-only and keeps an authored fallback. | SPEC-45 is `Proposed`; current integration does not affect gameplay/replay state. | A superseding Accepted ADR. |
-| The user supplies no local recordings; evidence is internet-sourced. | Product-owner constraint D-006. | Explicit product-owner reversal. |
-| Validation must become automatic, but it does not block report-only WAVs. | Per-sound human review does not scale; the post-DiffSound outcome debt proves admission-first sequencing hides audible progress. | A simpler automatic policy proves bounded risk, or the user changes the goal. |
-| Runtime ML remains out of scope; accepted outputs are cooked offline. | Existing deterministic/fallback boundary. | A measured runtime need plus a separate Accepted ADR. |
-| B0 supplies no useful trusted teacher and cannot authorize admission. | V46 B0 result: global floor `1.312187716`, zero independently scoreable non-real teachers. | A new compatible independent source or an exact B0 defect. |
-| Do not create another roadmap/protocol-only checkpoint. | No post-DiffSound listenable ML artifact despite multiple support packages. | One report-only ML WAV is rendered or a concrete blocker requires a product decision. |
-
-## Historical decision index — not required on resume
-
-| ID | Decision | Reconsideration condition |
-| --- | --- | --- |
-| D-001 | Physical audio is presentation-only; gameplay hearing remains deterministic `AcousticFactV1`. | A superseding Accepted ADR. |
-| D-002 | Impact is first; rolling, scraping, fracture, cloth, fluid, fire and biological sound are separate work. | An admitted impact vertical and separately scoped consumer. |
-| D-003 | Acoustic profiles stay separate from physics-material authority. | A consumer proves a shared physical source-of-truth field. |
-| D-004 | Production waits for an engine-owned committed contact projection; no raw PhysX callback path. | Projection and ProductCheck exist. |
-| D-005 | Neural inference is offline; runtime receives deterministic cooked clips. | A measured need and separate ADR define runtime model/fault/fallback. |
-| D-006 | Real evidence is internet-sourced; the user performs no local impact recording. | Explicit product-owner reversal. |
-| D-007 | Validation is an independent frozen ensemble with calibrated OOD, not a per-sound human queue. | A simpler policy proves equal bounded risk and coverage. |
-| D-008 | Missing geometry/support/force/listener axes narrow the claim and are never inferred from labels. | A hash-closed source supplies the axis. |
-| D-009 | First ML task is exact-object contact variation at one canonical listener; radiation is later. | A visible consumer proves radiation must precede contact variation. |
-| D-010 | A neural waveform decoder is report-only and cannot satisfy cooker admission. | A future Accepted ADR changes the deterministic product boundary. |
-| D-011 | Geometry/contact ML predicts bounded modal gains around object-global frequency/damping and must beat classical controls. | Fresh held evidence rejects this factorization. |
-| D-012 | `CanonicalImpactField` and `MeasuredTransferField` are distinct claims in every record and validator decision. | A paired broadband source and accepted evidence safely unify them. |
-| D-013 | `FallbackOnly` and `FallbackOutOfDomain` are valid terminal object states, not invitations to tune. | A new preregistered method family revision supplies new evidence. |
-| D-014 | Research Record V0 remains external and experimental until a concrete product consumer and ADR justify a public contract. | Accepted architecture promotion. |
-| D-015 | A learned canonical-impact prior may claim bounded plausibility, not true material recovery or arbitrary-force transfer; network output is cooked offline. | Independent exact-object and measured-transfer evidence justifies a stronger record. |
-| D-016 | Materials enter as independent packs. V46 PSEL chooses the first pack signal-blind from exact-label real-source power, runtime-descriptor coverage, provenance and feasible role closure; partial/synthetic lanes do not affect the choice, and Steel, Glass and Wood otherwise remain `FallbackOnly`. | A completed pack or new hash-closed real source changes which still-unfrozen pack has the cheapest admissible evidence path. |
-| D-017 | Capability, disclosed-data candidate quality and protected admission are separate certificates; only admission can authorize a cooked research vertical. | Evidence proves that this separation invalidates the representation experiment or a superseding Accepted ADR changes the boundary. |
-| D-018 | The V16 generic object MLP plus pooled context decoder is closed after repeat-exact known-truth rejection; its opened test cannot select a retry. | A new preregistered family passes isolated global/contact/OOD controls and a disjoint unopened truth tournament twice exactly. |
-| D-019 | V17 tests scale-separated global modes, deterministic intrinsic coverage and a masked intrinsic field independently before integration. | One isolated certificate falsifies its hypothesis or a new research record justifies another decomposition. |
-| D-020 | P0b freezes deterministic scale-separated ridge as the provisional global scaffold and preserves unopened P0a O/F/I roles unchanged; neural capacity is reserved for surface transport. | Fresh B0 rejects the scaffold or disclosed-real residual evidence motivates a preregistered global residual family. |
-| D-021 | Raw nearest-context graph distance is closed as a complete coverage certificate after O0 thinning failure; disconnection and ambient-geodesic checks remain valid components. | A fresh preregistered density/fill family passes disjoint test identities without valid false OOD. |
-| D-022 | V19 coverage is an ordered deterministic composite: structural context closure, set-level intrinsic fill, then local intrinsic reachability; learned confidence cannot replace these checks. | Fresh C0 rejects the composite or evidence proves a layer is redundant without weakening a frozen gate. |
-| D-023 | C0 passes twice exactly and becomes an immutable prerequisite/hash input to F0/I0; later learning cannot replace or refit it. | A new preregistered coverage revision is required by a demonstrated fresh-domain failure. |
-| D-024 | F0 is a learned topology-conditioned prior plus deterministic intrinsic harmonic extension of only the observed residual; C0 rejects bypass inference and select fallback. | Fresh F0 rejects the hybrid or disclosed-real evidence motivates a new preregistered family. |
-| D-025 | F0 bytes repeat exactly but fail frozen P0b because runner used topology gradient `0.55` instead of `0.50`; its artifact is control-only. | Never retroactively; a fresh preregistered field family must pass the original strict gate. |
-| D-026 | Automatic integration validation separates hard structure, modal parameters, phase-tolerant acoustics and diagnostics; raw waveform cannot block when accepted frequency error permits phase drift. | A preregistered alignment/phase contract proves raw samples measure an independent required product property. |
-| D-027 | M0b passes twice exactly; raw MRLM/DE stay diagnostic while mean-centered log magnitude and normalized backward-EDC slope become immutable I1 metrics with physical gain gates intact. | Fresh I1 causally rejects the frozen operator. |
-| D-028 | V20 I1 remains a repeat-exact reject: its values may attribute failure but cannot select an F1 candidate, threshold or retry. | Never; a future result may supersede the field family but cannot retroactively reopen I1. |
-| D-029 | V21 first tests a bounded continuous topology-native residual with paired remesh evidence; large neural operators are escalation-only. | Both small preregistered F1 candidates fail fresh development while controls prove the corpus/evaluator valid. |
-| D-030 | V21 F1a is a resource reject with no quality observation; only a fresh-band execution-equivalent V22 successor may answer the same scientific question. | V22 F1r passes resource and repeat-exact gates or closes the execution family. |
-| D-031 | V22 closes on implementation conformance with no quality artifact; V23 replaces iterative neural training with fixed nonlinear features plus closed-form ridge and requires full evaluator API smoke. | Fresh V23 evidence rejects or admits the smaller family. |
-| D-032 | V23 is the last bounded formula baseline. V24 shifts the product path to a synthetic-teacher plus internet-calibrated offline neural student and an independently frozen automatic validator. | New evidence proves a non-learned method meets the same protected real admission and scaling goals more cheaply. |
-| D-033 | V23 closes without quality after its declared API smoke missed an inherited `analytic_surface` dependency. Later pipelines must execute the complete owning entry point on value-independent fixtures, not only enumerate callbacks. | Never reopen V23; reconsider the harness rule only if a mechanically checked dependency closure proves equivalent coverage. |
-| D-034 | V24 D0 passes the complete V3 owner twice exactly and becomes the sole three-lane corpus contract; it grants protocol sequencing, not teacher/real/model quality. | A fresh contract defect proves a lane claim can leak, fabricate an axis or expose a protected role. |
-| D-035 | T0 uses closed-form plates/beams for causal known truth; X0 uses only disclosed Blue Bowl development evidence. Their lane records combine into one V3 manifest, and neither grants real Metal or admission credit. | T0 fails its analytic/remesh controls or X0 lineage cannot preserve exact claims without opening sealed evidence. |
-| D-036 | T0 passes twice exactly and becomes the frozen synthetic lane for V24; only X0 plus a valid combined D0 V3 record may authorize M0 protocol work. | A T0 artifact/hash/control defect is found, or X0 cannot be represented without fabricating an absent real axis. |
-| D-037 | X0 and the combined V3 record pass twice; `DeclaredAxisCoverageIncomplete` is the required honest state for partial real lanes, so M0 may supervise missing physics only from T0 and use X0 only for its observed axes/losses. | D0 later accepts a fabricated real axis, sealed row 2407 materializes, or an M0 loss consumes an absent X0 target. |
-| D-038 | M0 uses one CPU seed/capacity and canonical weights, synthetic protected-role order and X0 disclosed-development losses; local MLflow records lineage but is neither deterministic authority nor a model registry. | A contract fixture shows the frozen model/loss cannot be implemented without a semantic change, before model values open. |
-| D-039 | M0 is superseded before values because one-hot material input makes isolated `E`/density gates unobservable. M0a adds exact T0 physical coordinates plus an all-or-none mask; X0 Glass keeps zero values/mask `0`. | A future hash-closed source supplies authoritative real material constants or an unopened fixture proves the M0a coordinate contract inconsistent. |
-| D-040 | M0a-I passes the complete owning-entry fixture twice exactly at commit `6b04dc5f` and implementation root `9df63e…e46`; official values stay unopened, so these identities freeze the family before M0a-E. | An implementation/hash/protected-role defect is found before official execution; after any value opens, a successor requires a new hypothesis and protocol rather than tuning this family. |
-| D-041 | M0a-E spends M0a on a preprocessing conformance reject before model values: exact-vertex remesh sampling cannot represent all legal official contacts. M0b may replace only this sampling with deterministic barycentric surface evaluation plus full official-profile fixture coverage. | The P0 fixture falsifies barycentric invariants or proves a second model/value-affecting semantic change is necessary before implementation. |
-| D-042 | P0 freezes the execution-equivalent M0b surface evaluator at `4fff3ebd…65e7`: strict point-on-surface validation, canonical face tie-break and float64 barycentric interpolation; every M0a model/value choice remains unchanged. | I0's value-independent full-entry or official-shape fixture proves the protocol internally inconsistent before official M0b values. |
-| D-043 | I0 smoke exercises D-042's reconsideration condition: surface evaluation passes, but unpadded inherited transfer alignment rejects all three adaptation contexts. P0a `54522c26…49e8` adds at most 512 zero samples per side and keeps anchor/window/model semantics unchanged. | Alignment fixtures or complete preprocessing show the bounded pad/copy invariants cannot cover legal context without another value-affecting change. |
-| D-044 | V27 makes an external learned generator the scalable authoring path; formulas remain teacher, deterministic renderer, constraints and fallback. Admission belongs to a separate real-data validator, then an offline cooker publishes ordinary clips. | A non-learned method passes the same protected multi-object admission more cheaply, or an Accepted ADR authorizes a different product boundary. |
-| D-045 | R0 passes the complete M0b owner twice and the actual official context-only preflight at commit `db85c799`, root `d013ec35…f456`; this freezes preprocessing before R1 values. | A hash/fixture/access defect is found before R1, or R1 itself returns a conformance failure attributable to the frozen owner. |
-| D-046 | R1-A times out at `1,800 s` with no canonical output; B is not started, quality stays unobserved and M0b is spent. R2A/R2B cannot be selected from a resource result. | Never for R1; a fresh protocol may proceed only after a successful value-independent cost control and new falsifiable resource hypothesis. |
-| D-047 | V28 H0 proves the frozen synthetic loss observes only the first `4,096` of `144,000` rendered samples; five random fixtures preserve losses/components/gradients exactly and measured steps are `83.7×` faster. Fresh M0c may change only this render horizon after a full-owner cost oracle. | A frozen equivalence fixture differs, a future loss consumes a later sample, or the official-shape cost oracle misses its preregistered envelope. |
-| D-049 | R0 `28cab428…9000` and R1 root `524411d3…6d32` admit M0c execution: exact prefix/gradients, complete-entry A/B and two 10,000-step runs pass at `164.616/155.428 s` and `~1.01 GB`. This authorizes fresh official R2 only, not a quality/runtime claim. | R2 finds an implementation/access defect or a frozen M0c identity/hash mismatch before its values open. |
-| D-050 | R2 A/B repeat all six artifacts and close M0c: output-space frequency/gain/spectrum improve, but decay, remesh and physical interventions reject before holdout. Opened values may attribute failure but cannot select a nearby retry or automatically authorize waveform/codec latent. | A fresh preregistered family structurally enforces physical interventions/remesh invariance on unopened evidence, or a source/access defect invalidates R2. |
-| D-051 | V29 keeps Glass immutable; Q1-M proves the two-project exact-Steel release is source-power OOD and assigns no role. Q1a source growth and P0 truth remain independent prerequisites. | A fresh current exposure ledger plus at least nine role-capable projects closes unchanged Q1 gates, or P0 truth rejects the hybrid. |
-| D-052 | V30 makes internet acquisition, whole-project role power, independent validation, physics-locked ML, one-shot admission and deterministic cooking separate certificates. Provider failure publishes no partial corpus or source credit. | A successful Q1a capture proves the existing evidence factory insufficient, or a cheaper autonomous path satisfies the same independence, causal and fallback gates. |
-| D-053 | E2 passes capture and audit A/B exactly with zero signal, but E3 rejects whole-project power despite raw `32/73`; E4 may target only the measured `6/27` weaker-role frontier. | A fresh metadata increment closes the unchanged partition gate or invalidates an E2 identity. |
-| D-054 | V32 T0 passes repeat-exactly and becomes the immutable `9 Pass / 7 Reject` mechanics truth for V0. It cannot grant real material, validator-release or admission credit; source scouting remains bounded. | A T0 artifact/invariant defect is found before V0 values, a fresh source closes S1, or evidence proves V0/M1 cannot be evaluated independently of protected real roles. |
-| D-055 | V0-v1 target-ID-only retrieval is closed after repeat-exact clean false positive. V0a may change only retrieval equivalence to exact target modal signature and must retain plate→beam rejection. | A T0 defect invalidates the alias or a preregistered counterexample proves modal equivalence still permits an inadmissible retrieval copy. |
-| D-056 | V0a passes repeat-exactly with `9 Pass / 7 Reject`, both lawful alias classes and plate→beam rejection. It grants M0 protocol sequencing only, never real validation or ProductCheck credit. | A V0a identity/probe defect appears before M0 values or a fresh preregistered mutation escapes the frozen specialist conjunction. |
-| D-057 | M0 cannot predict frequency or consume mesh resolution/object/role labels. Three bounded positive multipliers preserve P1 nodes, signs, impulse scaling and remesh identity structurally; M1 is one-shot. | Value-independent conformance falsifies a structural invariant or official M1 closes the family without selecting a nearby retry. |
-| D-058 | M0 owner conformance passes repeat-exactly at 1,491 parameters with zero development/holdout rows. The 3-step loss is a discarded finite-gradient probe, never candidate evidence. | An identity/test defect appears before M1 or M1 returns its frozen terminal pass/reject/resource result. |
-| D-059 | V33 D0 is spent and closed after a repeat-exact post-training `nodal_zero_exact` protocol reject with no artifact or quality inference. H0 stays exact zero. | Never reopen V33; a successor needs fresh roles, zero-target hard-gate witness census and whole-owner terminal-publication preflight. |
-| D-060 | V34 F0/C0 preserve the spectral hypothesis, freeze fresh roles and prove actual witnesses with zero forbidden access; T0 remains mandatory before training. | T0 falsifies target safety or D0/H0 returns its one-shot terminal result. |
-| D-061 | V34 T0 freezes publisher `60c54b…8f8d` and proves every terminal/failpoint atomic on discarded official-shape payloads; future D0 must import it unchanged. | A pre-access identity defect appears before D0 or D0 returns its terminal result. |
-| D-062 | V34 H0 repeat-exactly rejects only geometry-only contact at `1.756639x` nearest; all other metric/hard/resource gates pass. V34 is closed. | A new roadmap supplies a materially distinct geometry-conditioned hypothesis and fresh roles; never reopen H0. |
-| D-063 | V35 D0 repeat-exactly faults on `len(RoleData)` after all train/development targets open; no metric, prediction or weight publishes, so quality is unobserved, roles are spent and H0 stays exact zero. | Never reopen V35 or reconstruct internal values. |
-| D-064 | V36 A0 freezes explicit immutable `RoleBatch`, no implicit length, strict owner-boundary typing, complete D0/H0 stage/callable hashes and seal-gated official capabilities; official values remain zero. | C0/X0/E0 falsifies exact-path use, or D0/H0 returns any terminal result. |
-| D-065 | V36 X0 freezes publisher `b142b2e1…ae81` and proves 38 mutations, all D0/H0 scientific terminals, all four pre-commit failpoints and access-sensitive exception conversion twice exactly. | A publisher/trace defect appears before D0, or D0/H0 returns a terminal result. |
-| D-066 | V36 E0 freezes owner `6fb8be54…bb9a2`, repeats the full discarded D0/H0 tree exactly within the resource envelope and checks in seal `b4368696…e516` with zero official access. It grants only seal-verifier and one-shot D0 sequencing, never quality. | Any sealed byte/environment/root binding drifts before D0, or D0/H0 returns a terminal result. |
-| D-067 | Pre-access official-provider review revoked first seal `45091c72…48a8`: numerical work was shared, but official traces would have inherited discarded claim/freeze/zero-access metadata. Provider-kind now selects provenance only; weights and predictions remain byte-exact and full E0 was resealed before any fresh target. | A metadata choice changes a numerical hash, or an official trace/freeze/access receipt disagrees with its capability. |
-| D-068 | V37 is an ML-first program rebaseline, not a new target generation: it carries the sealed V36 D0/H0 bytes unchanged, then requires internet-only data, an independent automatic validator, one-shot admission, offline deterministic cooking and authored fallback. | V36 terminal evidence, source-power evidence or a concrete product consumer justifies changing the ordered gates through another explicit roadmap revision. |
-| D-069 | V36 rejects scalar hybrid transfer; V37 QSO-v0 then proves its owner/structure but official D0 rejects the representation. Its field/trunk fusion, roles, opened values and nearby knobs are closed. | Never reopen V37; a successor requires a substantively new family and fresh identities selected without V37 target values. |
-| D-070 | X0 owner `69b567d5…e7d` and publisher `a840ff12…041a` repeat eight D0/H0 scientific terminals, both exception classes and four atomic failpoints exactly; only natural `Pass` has bundle/freeze, and H0 binds the D0 decision root plus freeze. E0 is authorized, never official D0/H0. | An owner/publisher identity or terminal-shape defect appears before E0, or E0 cannot repeat the full frozen candidate/control workload inside its envelope. |
-| D-071 | E0 owner `0ec78599…fbe5` repeats all 15,120 zero-target rows and nine paths at `39.73/40.36 s`, `806,372/825,816 KiB`; checked-in seal `608f9019…1d7f` binds owner, publisher, environment, D0/H0 topology and roots with zero forbidden access. Only official D0 is authorized. | Any seal binding drifts before D0, or D0 returns its one-shot terminal result; never infer scientific quality from discarded zeros. |
-| D-072 | Pre-access audit revokes E0-only authorization: F0 omitted exact coefficient/reduction/row-mixture semantics. T0 supplies 72 seed-derived coefficients, frozen environment, full metadata roots and artificial mutations; composite seal `7bae65cc…61573` solely authorizes D0, with official targets still zero. | Any T0/E0 binding drifts, or D0 returns its terminal result; never choose missing truth details after official access. |
-| D-073 | D0R correctly sealed the provider-ready owner; official D0 then repeat-exactly returns `MetricReject`, publishes rejected evidence only and leaves H0 unopened. | Never rerun or reinterpret D0R artificial success as QSO quality. |
-| D-074 | V39 F0 proves the permanent-disclosed/protected split mechanics twice exactly with all access counters zero. Disclosed projects can support bounded automatic iteration but can never return to protected roles; only one frozen winner may later open method holdout and joint shadow. | F1 or D0 evidence shows parent leakage, protected exposure, validator bias or no useful grouped development discriminator. |
-| D-075 | F1 mechanically reproduces IETeasy as one project with 15 physical samples, 150 non-independent recordings, four non-Metal groups and zero strict-Steel groups; `6/23` is an exact historical planner replay only. RSAudio/DiffImpact remain zero-power. | A source-identity defect invalidates IETeasy or fresh versioned metadata makes either deferred lead auditable. |
-| D-076 | Protected eligibility is fail-closed at whole project/revision-family scope. ObjectFolder Real, opened YCB `bj5w8` and opened REALIMPACT revisions are disclosed/quarantined until exact payload and physical-parent lineage proves an independent successor. | A hash-closed publisher record and I0 ledger prove a genuinely new revision with disjoint parents and zero signal/feature/target/selection exposure. |
-| D-077 | I0 repeat-exactly accounts `11/11` candidates with zero forbidden access, permanently discloses nine opened families and establishes clean `9 Steel / 7 non-Metal`; best protected roles miss `13/34` and `13/31`, so only D0/S0 open. | A clean metadata batch improves the exact whole-project frontier; S1 remains blocked until both roles and five reserves satisfy the frozen minima. |
-| D-078 | D0 repeat-exactly freezes all nine disclosed families as `5 train / 2 development / 2 validator`, preserves zero clean-family spend and protected access, and grants only disclosed C0–L0 sequencing under V41. | C0 proves a frozen family alias or capability is invalid before model/feature values; repair requires a new pre-access roster revision, never an in-place role move. |
-| D-079 | V41 separates a repeatable disclosed lab from one-shot independent admission: multi-supervision masks exploit partial internet evidence, but `LabWinner` has no cooker, runtime or release authority. | Independent S1/V1/H0/A0 evidence passes, or C0/V0 shows the separation cannot prevent parent, target or validator leakage. |
-| D-080 | D0's family-disjoint role projection is superseded because one Blue Bowl crossed generator/validator families; D1 co-locates REALIMPACT/ObjectFolder in train and moves AV-MSF to validator without signal, clean or protected access. | New exact metadata proves another cross-component physical parent alias before C0 target access; repair requires another immutable pre-access roster revision. |
-| D-081 | C0 repeat-exactly materializes 139 disclosed rows as 278 content objects and immutable `44 train / 70 development / 25 validator` projections; acoustic values are pseudo-targets and only four rows observe geometry/contact/listener transfer. | A source/hash/decoder/parent defect invalidates the corpus before B0, or a new pre-access corpus revision explicitly supersedes C0; never infer absolute force or product quality. |
-| D-082 | B0 repeat-exactly freezes global prototype median `1.337593650`; every coarse-material, retrieval, local, ridge and pointwise-MLP control loses, while exact Steel is absent from train. V42 therefore requires R0 domain attribution and a B1 runtime-descriptor signal gate before neural training. | R0/B1 on a source-backed descriptor plane proves a grouped cross-project improvement beyond the frozen global floor, or a corpus defect invalidates B0. |
-| D-083 | R0 repeat-exactly returns `CorpusSignalInsufficient`: project/source identity is strong, but coarse material and oracle project-centering both lose under leave-project-out; no candidate was trained. C1 descriptor/source growth is next and M0 remains blocked. | C1/B1 source-backed runtime descriptors beat the frozen global floor with grouped cross-project power, or an exact corpus/audit defect invalidates R0. |
-| D-084 | C1A repeat-exactly confirms AV-MSF/ObjectFolder aliases `6`/`80` and ID-80 material conflict with zero acoustic/model/protected/network access. C0 isolation and V0 readiness are superseded; only D2/C0R is authorized. | A defect in frozen C1A inputs/owner/result invalidates the identity proof, or authoritative primary metadata resolves the conflict before C0R; acoustic similarity alone cannot do so. |
-| D-085 | D2/C0R repeat-exactly co-locates all 20 AV-MSF rows in train, merges aliases `6`/`80`, quarantines five object-80 material labels and preserves 278 content objects byte-for-byte. Only B0R/R0R and C1 are authorized; V0 remains source-power OOD. | A defect in the frozen repair inputs, projections, content hashes or atomic publication invalidates C0R before baseline/descriptor values; never restore the leaked projection in place. |
-| D-086 | B0R/R0R repeat-exactly returns `CorrectedCorpusSignalInsufficient`: global median `1.312187716` beats every material/retrieval/ML control, material LPO is `-0.098113339`, project identity is strong and the fresh planning deficit is `49` parents. Only C1/G0 and metadata-first V0S proceed. | C1/B1 source-backed runtime descriptors beat the frozen global floor with grouped cross-project power, or an exact B0R/R0R input/owner/audit defect invalidates the result. |
-| D-087 | C1 repeat-exactly freezes nine runtime descriptor axes and fail-closed internet metadata intake; current C0R has `0` descriptor-complete parents, so only G0 metadata-source growth is authorized. | A frozen input/owner/contract defect invalidates C1, or G0 source evidence changes exact descriptor coverage through a hash-bound successor profile. |
-| D-088 | G0B0 repeat-exactly freezes catalogue/materialization/PSEL eligibility and binds `15` IETeasy parents to `150` publisher-hashed waveforms; five normalize to Steel, but payload and targets stay unopened and one project cannot satisfy PSEL. | A source/hash/sample-folder/material bridge defect invalidates G0B0, or G0B1 materializes exact targets and a second independent Steel project closes signal-blind source power. |
-| D-089 | G0B1a repeat-exactly verifies the pre-signal repetition-1 payload for all `15` IETeasy parents and proves mono/48 kHz onset/target feasibility, but `15/15` targets saturate C0's 12-mode cap and grant zero corpus credit. | A preregistered G0B1b cap/overshoot audit admits an exact versioned target policy, after which one immutable project-wide disclosed role may materialize. |
-| D-090 | G0B1b repeat-exactly admits scale normalization but rejects fixed caps `12/24/48/96`; the non-saturating reference contains `138–225` peaks and even cap 96 passes only `9/15`. | G0B1c0 supplies a value-independent successor; never raise top-N or select another target from future IETeasy values. |
-| D-091 | G0B1c0 repeat-exactly admits a fixed 75-value tonal/residual/count target on synthetic clean/noise/mix/shift/scale/resource controls with zero IETeasy access. | Any target change requires a new synthetic-only revision; G0B1c1 values never select its thresholds. |
-| D-092 | G0B1c1 repeat-exactly materializes all 15 signal-blind IETeasy selections in one train increment; support becomes 71, deficit 34, but one project leaves PSEL blocked. | A genuinely independent descriptor-to-signal project passes metadata, alias, payload and frozen-target gates, or an exact G0B1c1 binding/content defect invalidates the increment. |
-| D-093 | V45 splits incomplete internet evidence into explicit empirical-prior, synthetic-modal, structural-transfer, real-acoustic, validator and protected claim lanes. Partial evidence may train only observed recipe heads; it never lowers `71/105`, project-independence, validator or one-shot admission gates. | A public hash-closed source passes the existing full descriptor/event/microphone correspondence and real-parent power gates, or masked multi-fidelity controls fail to add signal beyond analytic/disclosed baselines. |
-| D-094 | R0 repeat-exactly binds ten source revisions and returns `2/2/2/2/2/0` prospective empirical/modal/structural/real-acoustic/validator/protected lane counts with zero payload access, parent credit and project credit. Only T0 schema/projection work is authorized. | A bound source identity/hash/alias/claim defect invalidates R0 before T0, or a later preregistered preflight changes one source through an immutable successor row. |
-| D-095 | V46 is the stable execution roadmap: an immediate D0/D1/B0/M0 lab and parallel E0/PSEL/B1/V0 evidence track converge on at most one LabWinner, one-shot admission, deterministic cook and fallback-safe demo. Individual rejects do not create a new roadmap. | `MVP_PASS`, `MVP_FALLBACK_ONLY`, a semantic change to SPEC-45, or evidence that the two-track ordering makes the declared MVP impossible. |
-| D-096 | D0 repeat-exactly returns `NoTrustedSyntheticTeacher`: current NISR and VibraVerse revisions fail generation-lineage gates before all samples and payload values. D1/B0 proceed with zero external synthetic rows plus analytic/Clatter controls. | A new exact source revision binds upstream assets, executable generator/configuration and per-artifact generation identity; it requires a new preflight and never reopens D0. |
-| D-097 | D1 repeat-exactly compiles 154 real rows and 36 Clatter controls into one claim-masked index without opening 308 referenced content objects; source target contracts and all role/project/parent boundaries remain explicit. Only B0 control comparison is authorized. | A bound input/owner/index defect invalidates D1 before target access, or a successor source adds an independently admitted lane; raw row/parent count alone never raises planning or validator power. |
-| D-098 | B0 repeat-exactly reproduces global/ridge/retrieval on the compatible C0R contract, retains global median `1.312187716` and returns `NoUsefulTeacher` with zero cross-contract comparisons and zero independently scoreable non-real teachers. M0 is blocked; E0/V0 source power is next. | A new exact synthetic/structural source supplies independent compatible truth through a fresh preflight, or an exact B0 binding/owner/target-access defect invalidates this result; Clatter labels and contract conversion never substitute. |
-## Open hypotheses
-
-| Hypothesis | Evidence for | Evidence against | Next discriminator |
-| --- | --- | --- | --- |
-| H1: the V35/V36 hybrid closes geometry and contact transfer together | Decay/global gain and individual experts carry signal | V36 contact is `2.394927x` nearest; geometry/joint best-control ratios are `4.195670x/3.550940x` | `REJECTED`; research explicit topology/surface query interaction, never retune V36 |
-| H2: continuous local interpolation is sufficient | Local controls remain competitive and beat QSO-v0 on several axes | They do not close contact-only/joint transfer as a general generator | Retain as mandatory control, not a standalone successor |
-| H3: explicit field/query operator can recover contact transfer | D0R proves the complete target-aware owner and artificial ablations | V37 D0 passes only `11/22` metrics; field-only ablation refutes the declared contribution | `REJECTED`; never retry QSO-v0 or tune from spent D0 |
-| H4: automatic validator reaches useful bounded risk | V0a synthetic mechanics pass `9/7`; V45 identifies prospective independent acoustic controls | No new source has yet passed exact validator parent/project power; protected power remains OOD | V46 E0/V0 source-power audit, then one-shot A0 |
-| H5: baked atlas meets product cost | Offline clips preserve current deterministic fallback boundary | Whole-mixer/voice cost is unmeasured | V46 K0/P0 after the evidence-selected pack passes A0 |
-
-## Do not retry
-
-- V21 `1801…2112`, abandoned staging or the many-small-call F1a runner. Do not
-  reconstruct missing metrics or use the resource reject as a quality signal.
-- V22 `2201…2512`, the missing-export repair/retry or any internal state. Its
-  equivalence pass and implementation reject provide no field-quality signal.
-- V23 `2601…2912`, adding `analytic_surface`, starting B or reusing any opened
-  train/development value. Test/integration retire unopened; no V23 result is a
-  quality signal.
-- The V16 generic object MLP, pooled-context decoder, opened 18-object corpus or
-  any capacity/seed/update/threshold/contact variant selected from L0b results.
-- The V17 global neural head, opened G0 rows or nearby variants; preserve its
-  scale separation and verify the unchanged ridge only on fresh B0 evidence.
-- O0 nearest-context distance, its opened test meshes, threshold/percentile or thinning-count variants as a successor selection surface.
-- Any per-object threshold, seed, capacity, checkpoint, contact or model
-  selection after a role is opened.
-- Lowering V12-C4 force coverage, selecting favorable object-41 contacts or
-  opening its response/protected roles.
-- Claiming arbitrary-force response from canonical normalized impacts or
-  publisher-deconvolved response without raw paired provenance.
-- Prompt-to-waveform, a universal codec, stationary random-phase residual or
-  nearby V9 residual as the engine formula.
-- M0c seed/capacity/loss/horizon/threshold/contact variants or any retry chosen
-  from R2 control values; its official representation result is spent.
-- V34 seed/width/basis/stencil/step/loss/threshold variants, exact-contact split detection or reuse of any V34 role, target, prediction or weight.
-- V35 roles, internal values or repaired execution. Preserve its scientific knobs only through V36 fresh identities and the sealed-owner ladder.
-- V37 QSO-v0 roles, targets, predictions, ratios, field/trunk fusion or nearby architecture/hyperparameter variants selected from D0.
-- Another coordinate/listener kernel without surface mode-shape evidence.
-- Local microphone/hammer capture, manual validation of every sound, raw
-  PhysX-callback mixing or runtime neural inference first.
-- Dropping object-92 contact `35`, treating 35 complete quartets as a pass or
-  fetching the already-proven irrelevant 12-GiB checkpoint.
-
-## Active required context
-
-Read only what the immediate action needs, at most these seven current sources:
-
-1. [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md).
-2. [B0 result](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md).
-3. [D1 corpus result](../physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md).
-4. [Recipe V3 result](../physical-sound-v45-t0-recipe-v3-result-2026-09-03.md).
-5. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-6. [DiffSound trial](../physical-sound-diffsound-trial-2026-08-26.md).
-7. Exact implementation or run artifact required by the next experiment.
-
-## Historical context index — not required on resume
-
-The list below preserves discovery links only. Do not read it recursively or as
-a prerequisite for the next experiment; Git and the active sources above carry
-the current path.
-
-Read in precedence order:
-
-Current program: [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md), [B0 result](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md), [B0 protocol](../physical-sound-v46-b0-lane-aware-control-tournament-protocol-2026-09-03.md), [D1 result](../physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md), [D1 protocol](../physical-sound-v46-d1-corpus-compiler-protocol-2026-09-03.md), [D0 result](../physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md), [D0 protocol](../physical-sound-v46-d0-synthetic-source-preflight-protocol-2026-09-03.md), superseded [Roadmap V45](../../plans/physical-sound-synthesis-roadmap-v45.md), [C0 result](../physical-sound-v45-c0-clatter-external-control-result-2026-09-03.md), [C0 protocol](../physical-sound-v45-c0-clatter-external-control-protocol-2026-09-03.md), [T0 result](../physical-sound-v45-t0-recipe-v3-result-2026-09-03.md), [R0 result](../physical-sound-v45-r0-source-claim-ledger-result-2026-09-03.md), [V45 research](../physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md), superseded [Roadmap V44](../../plans/physical-sound-synthesis-roadmap-v44.md), [G0B1c1 corpus increment](../physical-sound-v44-g0b1c1-ieteasy-corpus-increment-result-2026-09-03.md), [G0B1c0 synthetic target](../physical-sound-v44-g0b1c0-noise-robust-target-synthetic-result-2026-09-03.md), [G0B1b target audit](../physical-sound-v44-g0b1b-target-cap-normalization-audit-result-2026-09-03.md), [G0B1a payload/target result](../physical-sound-v44-g0b1a-ieteasy-payload-target-probe-result-2026-09-03.md), [G0A structured-source result](../physical-sound-v44-g0a-structured-source-increment-result-2026-09-03.md), [C1 descriptor result](../physical-sound-v44-c1-runtime-descriptor-contract-result-2026-09-03.md), [B0R/R0R corrected result](../physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md), superseded [Roadmap V43](../../plans/physical-sound-synthesis-roadmap-v43.md), [D2/C0R repair result](../physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md), [C1A lineage result](../physical-sound-v43-c1a-lineage-audit-result-2026-09-03.md).
-1. [Agent routing](../../architecture/agent-routing.md), SPEC-00 and SPEC-01.
-2. SPEC-08/24/26/30, ADR-027/046/058/071 and
-   [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md).
-3. [Roadmap V35](../../plans/physical-sound-synthesis-roadmap-v35.md), [V35 I0 result](../physical-sound-v35-i0-complete-owner-terminal-proof-result-2026-09-03.md), [V35 B0 result](../physical-sound-v35-b0-local-gate-conformance-result-2026-09-03.md), [V35 C0 result](../physical-sound-v35-c0-witness-and-coverage-census-result-2026-09-02.md), [V35 F0 result](../physical-sound-v35-f0-geometry-hybrid-profile-freeze-result-2026-09-02.md), [V35 F0 protocol](../physical-sound-v35-f0-geometry-hybrid-profile-freeze-protocol-2026-09-02.md), [V35 research](../physical-sound-v35-geometry-conditioned-hybrid-research-2026-09-02.md), [V34 H0](../physical-sound-v34-h0-method-holdout-result-2026-09-02.md), [Roadmap V34](../../plans/physical-sound-synthesis-roadmap-v34.md), [Roadmap V33](../../plans/physical-sound-synthesis-roadmap-v33.md), [V33 I0 result](../physical-sound-v33-i0-mode-local-spectral-owner-result-2026-09-02.md), [V33 F0 result](../physical-sound-v33-f0-fresh-role-spectral-freeze-result-2026-09-02.md), [V33 R0 research](../physical-sound-v33-mode-local-spectral-successor-research-2026-09-02.md), [Roadmap V32](../../plans/physical-sound-synthesis-roadmap-v32.md), [V32 M1 result](../physical-sound-v32-m1-known-truth-tournament-result-2026-09-02.md), [V32 M0 protocol](../physical-sound-v32-m0-physics-locked-residual-protocol-2026-09-02.md), [V32 V0a result](../physical-sound-v32-v0a-modal-equivalence-validator-result-2026-09-02.md), [V32 T0 result](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md), [Roadmap V31](../../plans/physical-sound-synthesis-roadmap-v31.md), [Roadmap V30](../../plans/physical-sound-synthesis-roadmap-v30.md), [E2 result](../physical-sound-v30-e2-q1a-source-growth-result-2026-09-02.md), [Roadmap V29](../../plans/physical-sound-synthesis-roadmap-v29.md), [Q1-M result](../physical-sound-v29-q1m-metal-role-power-result-2026-09-02.md), [V29 research](../physical-sound-v29-validator-first-ml-rebaseline-research-2026-09-02.md), [Roadmap V28](../../plans/physical-sound-synthesis-roadmap-v28.md), [V28 R2 result](../physical-sound-v28-r2-official-feasibility-result-2026-09-02.md), [Roadmap V24](../../plans/physical-sound-synthesis-roadmap-v24.md), [V24 D0 result](../physical-sound-v24-d0-neural-evidence-plane-result-2026-09-01.md), [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
-   [F0 result](../physical-sound-v19-f0-residual-harmonic-field-result-2026-09-01.md), [P0b](../physical-sound-v19-p0b-field-integration-protocol-2026-09-01.md), [C0 result](../physical-sound-v19-c0-composite-coverage-result-2026-09-01.md), [P0a](../physical-sound-v19-p0a-composite-coverage-protocol-2026-09-01.md), [V19 research](../physical-sound-v19-composite-coverage-research-2026-09-01.md),
-   [Roadmap V18](../../plans/physical-sound-synthesis-roadmap-v18.md),
-   [P0b protocol](../physical-sound-v18-p0b-hybrid-truth-protocol-2026-09-01.md), [B0 result](../physical-sound-v18-b0-deterministic-global-baseline-result-2026-09-01.md) and [O0 result](../physical-sound-v18-o0-intrinsic-coverage-result-2026-09-01.md),
-   [G0 result](../physical-sound-v17-g0-scale-separated-global-oracle-result-2026-09-01.md),
-   [Roadmap V17](../../plans/physical-sound-synthesis-roadmap-v17.md),
-   [V17 research](../physical-sound-v17-factorized-operator-research-2026-09-01.md),
-   [P0a protocol](../physical-sound-v17-p0a-disjoint-factorized-truth-protocol-2026-09-01.md),
-   [Roadmap V16](../../plans/physical-sound-synthesis-roadmap-v16.md),
-   [V16 rebaseline](../physical-sound-v16-decoupled-learning-admission-rebaseline-2026-09-01.md),
-   [L0a protocol](../physical-sound-v16-l0a-known-truth-neural-oracle-protocol-2026-09-01.md),
-   [L0b result](../physical-sound-v16-l0b-known-truth-neural-oracle-result-2026-09-01.md),
-   [S0c result](../physical-sound-v15-s0c-source-sufficiency-role-freeze-result-2026-09-01.md),
-   [N1a result](../physical-sound-v14-n1a-dataset-contract-v1-result-2026-09-01.md),
-   [M2c result](../physical-sound-v13-m2c-realimpact-five-impact-control-result-2026-08-31.md),
-   [C4a result](../physical-sound-r3a-v12-c4a-object41-real-frf-fit-result-2026-08-31.md),
-   and [Roadmap V12](../../plans/physical-sound-synthesis-roadmap-v12.md).
-4. [C3 result](../physical-sound-r3a-v12-c3-object41-source-role-freeze-result-2026-08-31.md),
-   [C2 result](../physical-sound-r3a-v12-c2-internet-source-zero-decode-inventory-2026-08-31.md),
-   [C1 result](../physical-sound-r3a-v12-c1-acquisition-coverage-oracle-result-2026-08-31.md)
-   and [B1R3 result](../physical-sound-r3a-v11-b1r3-local-modal-support-result-2026-08-31.md).
-5. [Main product roadmap](../../roadmap.md) for scheduling/promotion facts.
-
-## Handoff
-
-- **Workspace/quality/next:** Roadmap V46 remains the stable roadmap and B0 remains `NoUsefulTeacher`. The task has outcome debt: before more E0/V0 infrastructure, render one already disclosed report-only ML/control prediction as a playable WAV or report the exact execution blocker. Real support remains `71/105`; admission, runtime authority and replacement of the authored fallback remain blocked.
+- [V46 B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md)
+  remains NoUsefulTeacher, M0 admission blocked, real support 71/105. E0/V0
+  source-power work is an admission path, not a prerequisite for report-only WAVs.
+- [Corrected corpus](../physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md)
+  supersedes leaked AV-MSF/ObjectFolder role projections.
+  [Disclosed roster](../physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md)
+  preserves nine permanently opened families. Opened ObjectFolder Real,
+  YCB bj5w8 and REALIMPACT revisions are not clean protected evidence.
+- V12 object 41 remains acquisition OOD: do not lower force coverage, select
+  favourable contacts or open its response/protected roles. For object 92 do
+  not drop contact 35 or download the already-proven irrelevant 12-GiB segment.
+- V16–V37 spent protected experiment families stay closed. Do not tune their
+  thresholds, roles, seeds, capacities or contacts from opened results, or
+  reconstruct missing outputs from failed runs. In particular, M0c physical
+  response and QSO-v0 geometry/contact transfer were rejected.
+- Stationary random-phase residual, universal codec and prompt-to-waveform
+  cannot be relabelled as admitted physical formulas. A waveform model is
+  allowed as this separate report-only generator, with its own explicit claims.
+- Prior detailed D-001…D-098 history and retired plans are available in Git
+  at `ed8b9401:docs/development/task-state/physical-sound-synthesis.md`.
+  They are a discovery index, not recursive mandatory reading.
