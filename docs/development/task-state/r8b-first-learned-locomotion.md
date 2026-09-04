@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / MODEL_MIRROR_P1_OPEN / NO_RUNTIME_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / MODEL_MIRROR_P1_FAILED / WALKING_BLOCKED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -19,11 +19,13 @@
   PPO a usable physical horizon. Across 1,024,000 samples, final-20 mean
   rollout length reaches `389.25` versus `143.61` for the rejected V2 body;
   deterministic inference then reaches the full `3,600`-tick CPU bound.
-- **Next action:** Close a paired V3 `MODEL-MIRROR-P1` trajectory check, then
-  create the distinct bounded forward start/stop environment and initialize it
-  from the immutable standing checkpoint.
-- **Current blocker:** Formal CPU/Isaac trajectory correspondence and walking
-  environment identity remain open; no runtime policy authority exists.
+- **Next action:** Make the explicit product decision recorded in the
+  [paired-mirror investigation](r8b-model-mirror-p1-investigation-2026-09-04.md):
+  repair/replace the mirror, or permit one separately identified `R&D_ONLY`
+  walking discriminator without weakening its promotion gates.
+- **Current blocker:** Current CPU PhysX 5.9 / Isaac 5.1 GPU execution exceeds
+  the fixed joint and root-velocity correspondence limits; ADR-102 therefore
+  prohibits starting the walking optimizer. No runtime policy authority exists.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -70,7 +72,7 @@
 | V3 standing optimizer | Generation manifest `e82416ec…ea5b`; run manifest `e185f9f9…dab6`; metrics `cca93b87…dd6e`; final `model_249.pt` `254f9d3d…f41d`; all 1,024,000 samples and 250 metric records close on clean commit `b6734160…fac4` | Final-20 mean length is `389.25`, peak mean `474.59`; training is healthy but quality is decided only by deterministic evaluation |
 | V3 final-checkpoint Isaac evaluation | Manifest `4f8bb898…eae6`; seed `1001` reaches length `3,599`, return `6194.1616`, one truncation and zero declared safety/contact/fall terminals | Contact-complete nominal GPU standing passes |
 | V3 final-checkpoint CPU evaluation | Manifest `2cea5beb…b645`; five episodes each reach tick `3,600` and `terminal.timeout`, two-sole occupancy is `1.0`, minimum root height `0.943284 m`, maximum tilt `11.5313 deg` and final backward lean `10.1897 deg` | Canonical nominal standing gate passes; this checkpoint may become an immutable parent only after the remaining R&D boundary is declared |
-| R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | Independent CPU/GPU pass outcomes are not the required 256 matched ten-second trajectory comparison; runtime authority remains blocked |
+| [V3 paired-mirror investigation](r8b-model-mirror-p1-investigation-2026-09-04.md) | `MODEL-MIRROR-P1 FAILED`; independent closed-loop joint/root-velocity RMSE is `0.05634 rad / 0.06655 m/s`; exact CPU and GPU action tapes lose the other plane at ticks `171 / 116` | Walking remains blocked by ADR-102; do not weaken thresholds or call either one-plane pass correspondence |
 
 ## Decisions that still constrain the work
 
@@ -275,8 +277,8 @@
 | --- | --- | --- | --- |
 | H1: biomechanics V3 is learnable with pair-complete contacts | Final V3 policy completes one GPU and five CPU 3,600-tick episodes with zero safety terminal | Perturbation robustness is unmeasured | Retain the final checkpoint as the sole nominal standing parent candidate |
 | H2: ADR-100's bounded standing objective ports without another reward redesign | Final V3 policy completes the GPU and five CPU nominal gates | Perturbation robustness and paired trajectory correspondence remain open | Freeze the standing checkpoint as the walking parent; do not promote it to runtime authority |
-| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` remains `NOT_RUN` | Keep GPU output R&D-only and capture paired trajectories before the walking run |
-| H4: admitted standing initialization improves bounded forward start/stop | V3 now has a complete nominal standing checkpoint | No V3 walking environment or checkpoint exists | Close the paired mirror check, then initialize one distinct forward start/stop run |
+| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` fails on joint/root velocity and cannot complete one common action tape | Keep GPU output R&D-only; repair/replace the mirror or explicitly change R&D sequencing |
+| H4: admitted standing initialization improves bounded forward start/stop | V3 now has a complete nominal standing checkpoint | P1 fails and no V3 walking environment or checkpoint exists | Await the explicit mirror-versus-R&D-only sequencing decision |
 
 ## Required context
 
