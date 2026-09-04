@@ -294,7 +294,7 @@ mod tests {
         assert_eq!(water.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(WATER_SCENE_FRAGMENT_SHADER_BYTES)),
-            "1250ae8b199fff010f3615318ce0447f8ef123a6f42d6dfdc59124e8f291c8cc"
+            "e8cb5534b170561b164262a0e0dde758e912cba301d41b49ee3c5d9ad8c52957"
         );
         let water_scene =
             water_scene_shader_modules().expect("checked-in water scene modules decode");

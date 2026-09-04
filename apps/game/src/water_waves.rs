@@ -4,10 +4,7 @@
 //! excited by the stage's box and edge records, reflective at the rim,
 //! damped, clamped. The stage stays pure and the authority reads nothing.
 
-use next_reference_game::{
-    WATER_SURFACE_GRID_COLUMNS, WATER_SURFACE_GRID_ROWS, WaterEdgePresentationV1,
-    WaterFloatingBoxV1,
-};
+use next_reference_game::{WaterEdgePresentationV1, WaterFloatingBoxV1, WaterSurfaceGridV1};
 
 /// The presentation clock of the grid (one published frame).
 pub(crate) const WAVE_FRAME_SECONDS: f32 = 1.0 / 60.0;
@@ -45,12 +42,16 @@ impl WaveGridV1 {
     /// `z`) at the ring's vertex resolution with the authored depth;
     /// `None` when the explicit scheme would be unstable at this size.
     pub(crate) fn new(
+        grid: WaterSurfaceGridV1,
         minimum_micrometres: [i64; 2],
         maximum_micrometres: [i64; 2],
         depth_micrometres: i64,
     ) -> Option<Self> {
-        let columns = WATER_SURFACE_GRID_COLUMNS as usize;
-        let rows = WATER_SURFACE_GRID_ROWS as usize;
+        if !grid.is_valid() {
+            return None;
+        }
+        let columns = grid.columns as usize;
+        let rows = grid.rows as usize;
         let to_metres = |value: i64| value as f32 / 1_000_000.0;
         let extent = [
             to_metres(maximum_micrometres[0] - minimum_micrometres[0]),
@@ -83,6 +84,11 @@ impl WaveGridV1 {
             heights: vec![0.0; columns * rows],
             previous: vec![0.0; columns * rows],
         })
+    }
+
+    /// Plan 42: the grid's columns and rows.
+    pub(crate) fn dimensions(&self) -> (usize, usize) {
+        (self.columns, self.rows)
     }
 
     /// The cell under a world point, if inside the plan.
@@ -249,7 +255,13 @@ mod tests {
     fn grid() -> WaveGridV1 {
         // The reference basin: 4 x 2 m, 0.5 m deep (c = 2.2 m/s, cells
         // 0.129 x 0.133 m, courant 0.28 / 0.28).
-        WaveGridV1::new([4_500_000, 1_000_000], [8_500_000, 3_000_000], 500_000).expect("stable")
+        WaveGridV1::new(
+            WaterSurfaceGridV1::STANDARD,
+            [4_500_000, 1_000_000],
+            [8_500_000, 3_000_000],
+            500_000,
+        )
+        .expect("stable")
     }
 
     #[test]
@@ -321,7 +333,15 @@ mod tests {
                 .all(|h| h.abs() <= WAVE_HEIGHT_CAP_METRES)
         );
         // 0.4 m wide, 3 m deep: cells 13 mm, c 5.4 m/s, courant 7.
-        assert!(WaveGridV1::new([0, 0], [400_000, 200_000], 3_000_000).is_none());
+        assert!(
+            WaveGridV1::new(
+                WaterSurfaceGridV1::STANDARD,
+                [0, 0],
+                [400_000, 200_000],
+                3_000_000
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -347,10 +367,27 @@ mod tests {
     fn bench_four_rings_per_frame() {
         let mut grids = vec![
             grid(),
-            WaveGridV1::new([12_000_000, 1_000_000], [14_000_000, 2_500_000], 500_000).expect("a"),
-            WaveGridV1::new([15_000_000, 1_000_000], [17_800_000, 2_500_000], 500_000).expect("b"),
-            WaveGridV1::new([-9_000_000, 5_000_000], [1_000_000, 9_500_000], 1_400_000)
-                .expect("pond"),
+            WaveGridV1::new(
+                WaterSurfaceGridV1::STANDARD,
+                [12_000_000, 1_000_000],
+                [14_000_000, 2_500_000],
+                500_000,
+            )
+            .expect("a"),
+            WaveGridV1::new(
+                WaterSurfaceGridV1::STANDARD,
+                [15_000_000, 1_000_000],
+                [17_800_000, 2_500_000],
+                500_000,
+            )
+            .expect("b"),
+            WaveGridV1::new(
+                WaterSurfaceGridV1::STANDARD,
+                [-9_000_000, 5_000_000],
+                [1_000_000, 9_500_000],
+                1_400_000,
+            )
+            .expect("pond"),
         ];
         let falling = WaterFloatingBoxV1 {
             minimum_micrometres: [6_250_000, 0, 1_750_000],

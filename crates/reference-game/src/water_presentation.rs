@@ -17,13 +17,50 @@ use next_contracts::physics::{
 
 /// Presentation frames per second the stage integrates its jet at.
 pub const WATER_PRESENTATION_FRAMES_PER_SECOND: u32 = 60;
-/// Height grid of one surface quad.
-pub const WATER_SURFACE_GRID_COLUMNS: u32 = 32;
-pub const WATER_SURFACE_GRID_ROWS: u32 = 16;
-/// Declared ring capacities for one surface quad.
-pub const WATER_SURFACE_VERTEX_CAPACITY: u32 = WATER_SURFACE_GRID_COLUMNS * WATER_SURFACE_GRID_ROWS;
-pub const WATER_SURFACE_INDEX_CAPACITY: u32 =
-    (WATER_SURFACE_GRID_COLUMNS - 1) * (WATER_SURFACE_GRID_ROWS - 1) * 6;
+/// Plan 42: the height grid of one surface ring; the standard grid and the
+/// large one for bodies over ten metres across.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WaterSurfaceGridV1 {
+    pub columns: u32,
+    pub rows: u32,
+}
+
+impl WaterSurfaceGridV1 {
+    pub const STANDARD: Self = Self {
+        columns: 32,
+        rows: 16,
+    };
+    pub const LARGE: Self = Self {
+        columns: 64,
+        rows: 32,
+    };
+
+    #[must_use]
+    pub const fn vertex_count(self) -> u32 {
+        self.columns * self.rows
+    }
+
+    #[must_use]
+    pub const fn index_count(self) -> u32 {
+        (self.columns - 1) * (self.rows - 1) * 6
+    }
+
+    /// At least two columns and rows, at most the large grid's.
+    #[must_use]
+    pub const fn is_valid(self) -> bool {
+        self.columns >= 2
+            && self.rows >= 2
+            && self.columns <= Self::LARGE.columns
+            && self.rows <= Self::LARGE.rows
+    }
+}
+
+/// The standard height grid of one surface quad.
+pub const WATER_SURFACE_GRID_COLUMNS: u32 = WaterSurfaceGridV1::STANDARD.columns;
+pub const WATER_SURFACE_GRID_ROWS: u32 = WaterSurfaceGridV1::STANDARD.rows;
+/// Declared ring capacities: the large grid's (plan 42).
+pub const WATER_SURFACE_VERTEX_CAPACITY: u32 = WaterSurfaceGridV1::LARGE.vertex_count();
+pub const WATER_SURFACE_INDEX_CAPACITY: u32 = WaterSurfaceGridV1::LARGE.index_count();
 /// Ripple amplitude cap; the authored quad bounds admit exactly this.
 pub const WATER_RIPPLE_CAP_MICROMETRES: i64 = 20_000;
 /// Incoming or outgoing flux per tick that reaches the amplitude cap.
@@ -369,6 +406,8 @@ pub struct WaterEdgePresentationV1 {
 pub struct WaterSurfaceBindingV1 {
     pub volume_id: PersistentId,
     pub mesh_asset_id: AssetId,
+    /// Plan 42: the ring grid of this surface.
+    pub grid: WaterSurfaceGridV1,
 }
 
 /// The reference scene's surface quads.
@@ -379,34 +418,42 @@ pub fn reference_water_surface_bindings() -> [WaterSurfaceBindingV1; 8] {
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_BASIN_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_SURFACE_MESH_ASSET_ID,
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_VESSEL_A_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID,
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_VESSEL_B_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID,
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_POND_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID,
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_LAKE_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID,
+            grid: WaterSurfaceGridV1::LARGE,
         },
         WaterSurfaceBindingV1 {
             volume_id: cells[0],
             mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[0],
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: cells[1],
             mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[1],
+            grid: WaterSurfaceGridV1::STANDARD,
         },
         WaterSurfaceBindingV1 {
             volume_id: cells[2],
             mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[2],
+            grid: WaterSurfaceGridV1::STANDARD,
         },
     ]
 }
@@ -620,8 +667,8 @@ fn surface_grid(
     vortices: &[Vortex],
     frame_index: u64,
 ) -> WaterSurfaceUpdateV1 {
-    let columns = WATER_SURFACE_GRID_COLUMNS as usize;
-    let rows = WATER_SURFACE_GRID_ROWS as usize;
+    let columns = binding.grid.columns as usize;
+    let rows = binding.grid.rows as usize;
     let [x0, _, z0] = definition.minimum_micrometres;
     let [x1, _, z1] = definition.maximum_micrometres;
     let mut positions = Vec::with_capacity(columns * rows);
@@ -1005,6 +1052,51 @@ fn edge_records(
 mod tests {
     use super::*;
 
+    /// Plan 42 G2: the profiles validate, the lake is the large ring with
+    /// plan cells under 0.45 m, every other surface the standard one.
+    #[test]
+    fn the_lake_carries_the_large_grid_and_the_rest_the_standard() {
+        assert!(WaterSurfaceGridV1::STANDARD.is_valid());
+        assert!(WaterSurfaceGridV1::LARGE.is_valid());
+        assert!(
+            !WaterSurfaceGridV1 {
+                columns: 1,
+                rows: 1
+            }
+            .is_valid()
+        );
+        assert!(
+            !WaterSurfaceGridV1 {
+                columns: 65,
+                rows: 33
+            }
+            .is_valid()
+        );
+        assert_eq!(WaterSurfaceGridV1::LARGE.vertex_count(), 2_048);
+        assert_eq!(WaterSurfaceGridV1::LARGE.index_count(), 11_718);
+        assert_eq!(WaterSurfaceGridV1::STANDARD.vertex_count(), 512);
+        assert_eq!(WaterSurfaceGridV1::STANDARD.index_count(), 2_790);
+        let volumes = crate::water::reference_water_volumes().expect("volumes");
+        for binding in reference_water_surface_bindings() {
+            assert!(binding.grid.is_valid());
+            let definition = &volumes.definitions[&binding.volume_id];
+            let cell_x = (definition.maximum_micrometres[0] - definition.minimum_micrometres[0])
+                / i64::from(binding.grid.columns - 1);
+            let cell_z = (definition.maximum_micrometres[2] - definition.minimum_micrometres[2])
+                / i64::from(binding.grid.rows - 1);
+            if binding.volume_id == crate::water::REFERENCE_WATER_LAKE_ID {
+                assert_eq!(binding.grid, WaterSurfaceGridV1::LARGE);
+                // 20 m over 63 and 14 m over 31: 0.317 x 0.452 m.
+                assert!(
+                    cell_x <= 460_000 && cell_z <= 460_000,
+                    "{cell_x} x {cell_z}"
+                );
+            } else {
+                assert_eq!(binding.grid, WaterSurfaceGridV1::STANDARD);
+            }
+        }
+    }
+
     #[test]
     fn integer_sine_is_bounded_and_periodic() {
         for angle in [0, 16_384, 32_768, 49_152, 65_536, 70_000, -5_000] {
@@ -1099,12 +1191,16 @@ mod tests {
         let again = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
         assert_eq!(first, again);
         assert_eq!(first.surfaces.len(), 8);
-        for surface in &first.surfaces {
+        for (surface, binding) in first.surfaces.iter().zip(bindings.iter()) {
+            // Plan 42: each ring at its binding's grid, under the capacities.
+            assert_eq!(surface.volume_id, binding.volume_id);
             assert_eq!(
                 surface.positions_micrometres.len(),
-                WATER_SURFACE_VERTEX_CAPACITY as usize
+                binding.grid.vertex_count() as usize
             );
-            assert_eq!(surface.indices.len(), WATER_SURFACE_INDEX_CAPACITY as usize);
+            assert_eq!(surface.indices.len(), binding.grid.index_count() as usize);
+            assert!(surface.positions_micrometres.len() <= WATER_SURFACE_VERTEX_CAPACITY as usize);
+            assert!(surface.indices.len() <= WATER_SURFACE_INDEX_CAPACITY as usize);
             let definition = &volumes.definitions[&surface.volume_id];
             for position in &surface.positions_micrometres {
                 assert!(position[1].abs() <= WATER_RIPPLE_CAP_MICROMETRES);

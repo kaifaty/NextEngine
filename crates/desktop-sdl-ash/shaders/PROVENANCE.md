@@ -209,3 +209,14 @@ and levels). Compiled with the same pinned Linux `glslang` 15.1.0:
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_wet.frag.spv water_wet.frag
 ```
+
+## Detail fade (plan `continuum-water/42`)
+
+`water_scene.frag` scales its detail tilt by `12 / (12 + d)` with `d` the
+distance from the camera in metres, so the `0.11` and `0.18 m` detail waves
+no longer shimmer on far water. Compiled with the same pinned Linux
+`glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
+```

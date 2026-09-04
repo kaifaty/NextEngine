@@ -27,7 +27,11 @@ const JET_REFRACTION_STRENGTH: f32 = 0.08;
 const JET_BOUNDS_MARGIN_MICROMETRES: i64 = 1_000_000;
 
 pub(crate) struct WaterPresentationFeed {
-    surfaces: Vec<(AssetId, AssetRevisionRefV1)>,
+    surfaces: Vec<(
+        AssetId,
+        AssetRevisionRefV1,
+        next_reference_game::WaterSurfaceGridV1,
+    )>,
     particle_bounds: AabbI64V1,
     sequence: u64,
     last_frame: Option<Arc<WaterPresentationFrameV1>>,
@@ -60,7 +64,7 @@ impl WaterPresentationFeed {
                     )
                 })?;
             let revision = mesh.asset_revision().map_err(|error| error.to_string())?;
-            surfaces.push((binding.mesh_asset_id, revision));
+            surfaces.push((binding.mesh_asset_id, revision, binding.grid));
         }
         let mut minimum = reference_water_basin_definition().minimum_micrometres;
         let mut maximum = reference_water_basin_definition().maximum_micrometres;
@@ -97,6 +101,7 @@ impl WaterPresentationFeed {
                     .find(|definition| definition.volume_id == binding.volume_id)
                     .and_then(|definition| {
                         crate::water_waves::WaveGridV1::new(
+                            binding.grid,
                             [
                                 definition.minimum_micrometres[0],
                                 definition.minimum_micrometres[2],
@@ -125,10 +130,11 @@ impl WaterPresentationFeed {
     pub(crate) fn dynamic_surface_profiles(&self) -> Vec<DynamicSurfaceProfileV1> {
         self.surfaces
             .iter()
-            .map(|(_, revision)| DynamicSurfaceProfileV1 {
+            .map(|(_, revision, grid)| DynamicSurfaceProfileV1 {
                 mesh_revision: *revision,
-                vertex_capacity: WATER_SURFACE_VERTEX_CAPACITY,
-                index_capacity: WATER_SURFACE_INDEX_CAPACITY,
+                // Plan 42: each ring declares its own grid's counts.
+                vertex_capacity: grid.vertex_count(),
+                index_capacity: grid.index_count(),
                 residency: DynamicSurfaceResidencyV1::DeviceLocal,
                 shading: DynamicSurfaceShadingV1::WaterSurface,
             })
@@ -185,10 +191,10 @@ impl WaterPresentationFeed {
         self.last_excited_frame = Some(frame.frame_index);
         let mut updates = Vec::with_capacity(frame.surfaces.len());
         for surface in &frame.surfaces {
-            let Some((_, revision)) = self
+            let Some((_, revision, _)) = self
                 .surfaces
                 .iter()
-                .find(|(asset_id, _)| *asset_id == surface.mesh_asset_id)
+                .find(|(asset_id, _, _)| *asset_id == surface.mesh_asset_id)
             else {
                 continue;
             };
@@ -245,8 +251,7 @@ fn waved_surface(
     surface: &next_reference_game::WaterSurfaceUpdateV1,
     grid: &crate::water_waves::WaveGridV1,
 ) -> (Vec<[i64; 3]>, Vec<[i16; 3]>) {
-    let columns = next_reference_game::WATER_SURFACE_GRID_COLUMNS as usize;
-    let rows = next_reference_game::WATER_SURFACE_GRID_ROWS as usize;
+    let (columns, rows) = grid.dimensions();
     let cap = next_reference_game::WATER_RIPPLE_CAP_MICROMETRES;
     let mut positions = surface.positions_micrometres.clone();
     if positions.len() != columns * rows {

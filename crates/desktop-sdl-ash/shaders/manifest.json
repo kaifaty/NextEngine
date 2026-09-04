@@ -356,9 +356,9 @@
     {
       "stage": "fragment",
       "source": "water_scene.frag",
-      "source_sha256": "ab3fe06cbb01a1dd06d496e948837af3ec731a994b8bae1b118f14978f8e20a9",
+      "source_sha256": "05bb0bc9d6154dee4b91eb38af53f52079d54962e8e9f610ea0209a43305b0b3",
       "module": "water_scene.frag.spv",
-      "module_sha256": "1250ae8b199fff010f3615318ce0447f8ef123a6f42d6dfdc59124e8f291c8cc"
+      "module_sha256": "e8cb5534b170561b164262a0e0dde758e912cba301d41b49ee3c5d9ad8c52957"
     },
     {
       "stage": "fragment",

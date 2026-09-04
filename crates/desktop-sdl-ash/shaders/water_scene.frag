@@ -44,6 +44,8 @@ const float BODY_DIFFUSE_WEIGHT = 0.6;
 const vec3 SKY_HORIZON = vec3(0.48, 0.60, 0.68);
 const vec3 SKY_ZENITH = vec3(0.10, 0.20, 0.34);
 const float DETAIL_NORMAL_OFFSET = 0.03;
+// Plan 42: the detail tilt is whole at the camera and a fifth at 50 m.
+const float DETAIL_FADE_METRES = 12.0;
 const float REFLECTION_DISTORTION = 0.02;
 const float CAUSTIC_STRENGTH = 1.0;
 const float CAUSTIC_ABSORPTION_PER_METRE = 1.0;
@@ -81,6 +83,10 @@ void main() {
         float g1 = cos(k1 * dot(d1, p) - k1 * 0.35 * t);
         float g2 = cos(k2 * dot(d2, p) - k2 * 0.5 * t);
         vec2 tilt = (d1 * g1 + d2 * g2) * DETAIL_NORMAL_OFFSET;
+        // Plan 42: 0.11-0.18 m waves alias past a few metres and shimmer
+        // far away; fade the tilt with the distance from the camera.
+        float detail_distance = distance(frame.camera_world_position.xyz, in_world_position);
+        tilt *= DETAIL_FADE_METRES / (DETAIL_FADE_METRES + detail_distance);
         normal = normalize(normal + vec3(tilt.x, 0.0, tilt.y));
     }
 

@@ -102,6 +102,6 @@ pub use water_presentation::{
     WATER_SPLASH_SPEED_THRESHOLD_MICROMETRES_PER_SECOND, WATER_SURFACE_GRID_COLUMNS,
     WATER_SURFACE_GRID_ROWS, WATER_SURFACE_INDEX_CAPACITY, WATER_SURFACE_VERTEX_CAPACITY,
     WaterEdgePresentationKindV1, WaterEdgePresentationV1, WaterFloatingBoxV1, WaterJetParticlesV1,
-    WaterPresentationFrameV1, WaterSurfaceBindingV1, WaterSurfaceUpdateV1,
+    WaterPresentationFrameV1, WaterSurfaceBindingV1, WaterSurfaceGridV1, WaterSurfaceUpdateV1,
     compute_water_presentation_frame, floating_boxes, reference_water_surface_bindings,
 };
