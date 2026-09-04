@@ -80,7 +80,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         first.project_lock.project_lock_sha256
     );
     assert_eq!(activated.content_manifest.body.root_assets.len(), 45);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 131);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 133);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -916,7 +916,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .filter(|entry| entry.schema_ref.schema_id.as_str() == NEUTRAL_AUDIO_SCHEMA_ID)
         .collect();
     // Four engine-owned reference clips plus the test clip.
-    assert_eq!(audio_entries.len(), 5);
+    assert_eq!(audio_entries.len(), 7);
     let test_entry = audio_entries
         .iter()
         .find(|entry| entry.asset_revision.asset_id == clip.asset_id)
@@ -936,7 +936,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = activate_project(&store).expect("activate with audio");
-    assert_eq!(activated.audio_clips.len(), 5);
+    assert_eq!(activated.audio_clips.len(), 7);
     assert!(activated.audio_clips.contains(&clip));
     std::fs::remove_dir_all(root).expect("remove audio store");
 

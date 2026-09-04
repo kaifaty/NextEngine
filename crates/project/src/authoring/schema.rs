@@ -519,6 +519,17 @@ pub(super) enum AuthoringAudioRecordV1 {
         period: u32,
         source_span: AuthoringSourceSpanV1,
     },
+    /// Plan `continuum-water/34`: flat noise with short fades at both ends
+    /// and a loop region over the whole clip (a flowing-water bed).
+    NoiseLoop {
+        asset_id: String,
+        record_revision: u64,
+        sample_rate_hz: u32,
+        frames: u32,
+        amplitude: i32,
+        seed: u32,
+        source_span: AuthoringSourceSpanV1,
+    },
 }
 
 impl AuthoringAudioRecordV1 {
@@ -526,7 +537,8 @@ impl AuthoringAudioRecordV1 {
         match self {
             Self::NoiseBurst { source_span, .. }
             | Self::TwoTone { source_span, .. }
-            | Self::Thud { source_span, .. } => source_span,
+            | Self::Thud { source_span, .. }
+            | Self::NoiseLoop { source_span, .. } => source_span,
         }
     }
 }

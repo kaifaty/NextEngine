@@ -91,6 +91,9 @@ pub struct ReferenceGameDriverV2 {
     audio_cue_bindings: Arc<Vec<AudioEventCueBindingV1>>,
     audio_listener_binding: AudioListenerBindingV1,
     audio_mixer: AudioMixerV1,
+    /// Plan 34: the water clips and the presentation-only water audio memory.
+    water_audio_clips: crate::water_audio::WaterAudioClipsV1,
+    water_audio: crate::water_audio::WaterAudioStateV1,
     #[cfg(feature = "physical-sound-lab")]
     physical_sound_lab: ExperimentalPhysicalSoundMixer,
     #[cfg(feature = "physical-sound-lab")]
@@ -116,6 +119,7 @@ struct PreparedReferenceGameState {
     presentation_bindings: Vec<PresentationBindingV1>,
     presentation_extractor: PresentationExtractorV1,
     audio_mixer: AudioMixerV1,
+    water_audio: crate::water_audio::WaterAudioStateV1,
     #[cfg(feature = "physical-sound-lab")]
     physical_sound_lab: ExperimentalPhysicalSoundMixer,
     audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
@@ -319,6 +323,8 @@ impl ReferenceGameDriverV2 {
             &fixture.activated_project,
         )?);
         let audio_listener_binding = crate::audio::reference_audio_listener_binding(&fixture);
+        let water_audio_clips =
+            crate::audio::reference_water_audio_clips(&fixture.activated_project)?;
         let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
         let audio_scene = extract_audio_scene(
             snapshot_epoch,
@@ -348,6 +354,8 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings,
             audio_listener_binding,
             audio_mixer,
+            water_audio_clips,
+            water_audio: crate::water_audio::WaterAudioStateV1::default(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab: physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]
@@ -488,6 +496,8 @@ impl ReferenceGameDriverV2 {
         // Authoritative recovery resets the presentation-only mixer: in-flight
         // one-shots may be omitted after a restart but never replayed
         // (SPEC-30 consumption recovery semantics).
+        let water_audio_clips =
+            crate::audio::reference_water_audio_clips(&fixture.activated_project)?;
         let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
         let audio_scene = extract_audio_scene(
             presentation_extractor.snapshot_epoch(),
@@ -517,6 +527,8 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings,
             audio_listener_binding,
             audio_mixer,
+            water_audio_clips,
+            water_audio: crate::water_audio::WaterAudioStateV1::default(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab: physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]
@@ -593,6 +605,7 @@ impl ReferenceGameDriverV2 {
         let mut physical_animation = self.physical_animation.clone();
         let mut presentation_extractor = self.presentation_extractor.clone();
         let mut audio_mixer = self.audio_mixer.clone();
+        let mut water_audio = self.water_audio.clone();
         #[cfg(feature = "physical-sound-lab")]
         let mut physical_sound_lab = self.physical_sound_lab.clone();
         let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
@@ -800,17 +813,54 @@ impl ReferenceGameDriverV2 {
             ui_records,
             skinning_records,
         )?;
+        // Plan 34: the tick's water records as emitters and cues, the
+        // listener's submersion as the low-pass.
+        let water_checkpoint = prepared_runtime.physics_checkpoint();
+        let water_inputs = crate::water_audio::WaterAudioInputsV1 {
+            edges: crate::water_presentation::water_audio_edge_records(
+                &water_checkpoint.water_volumes,
+                &water_checkpoint.water_flow,
+                prepared_runtime.next_tick(),
+            ),
+            boxes: crate::water_presentation::floating_boxes_with_ids(water_checkpoint),
+        };
+        let mut water_emitters =
+            crate::water_audio::flow_emitters(&water_inputs.edges, &self.water_audio_clips);
+        let crate::water_audio::WaterSplashRecordsV1 {
+            emitters: splash_emitters,
+            cues: splash_cues,
+            facts: splash_facts,
+        } = crate::water_audio::splash_records(
+            &water_inputs.boxes,
+            &water_checkpoint.water_volumes,
+            prepared_runtime.next_tick(),
+            self.audio_listener_binding.listener_id,
+            &self.water_audio_clips,
+            &mut water_audio,
+        )?;
+        water_emitters.extend(splash_emitters);
         let audio_scene = extract_audio_scene(
             presentation_extractor.snapshot_epoch(),
             self.next_audio_sequence,
             prepared_runtime.next_tick(),
             &self.audio_listener_binding,
-            &[],
+            &water_emitters,
             &self.audio_cue_bindings,
             prepared_runtime.events(),
             prepared_runtime.physics_snapshot(),
         )?;
-        let audio_pcm = audio_mixer.mix_tick(&audio_scene, &self.audio_clips);
+        let audio_scene =
+            crate::water_audio::scene_with_water(audio_scene, splash_cues, splash_facts)?;
+        let mut audio_pcm = audio_mixer.mix_tick(&audio_scene, &self.audio_clips);
+        crate::water_audio::low_pass_in_place(
+            &mut audio_pcm,
+            crate::water_audio::listener_submerged(
+                &water_checkpoint.water_volumes,
+                camera.current_result_sample.pose.translation_micrometres,
+                prepared_runtime.next_tick(),
+            ),
+            &mut water_audio,
+        );
         #[cfg(feature = "physical-sound-lab")]
         let audio_pcm = {
             let excitations = if self.physical_sound_lab_enabled {
@@ -861,6 +911,7 @@ impl ReferenceGameDriverV2 {
                 presentation_bindings,
                 presentation_extractor,
                 audio_mixer,
+                water_audio,
                 #[cfg(feature = "physical-sound-lab")]
                 physical_sound_lab,
                 audio_scene,
@@ -925,6 +976,7 @@ impl ReferenceGameDriverV2 {
         self.presentation_bindings = validated.state.presentation_bindings;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.audio_mixer = validated.state.audio_mixer;
+        self.water_audio = validated.state.water_audio;
         #[cfg(feature = "physical-sound-lab")]
         {
             self.physical_sound_lab = validated.state.physical_sound_lab;

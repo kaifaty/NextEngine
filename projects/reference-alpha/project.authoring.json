@@ -1856,7 +1856,9 @@
     { "synth": "noise-burst", "asset_id": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1", "record_revision": 1, "sample_rate_hz": 48000, "frames": 4800, "amplitude": 9000, "seed": 1592594996, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } },
     { "synth": "two-tone", "asset_id": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2", "record_revision": 1, "sample_rate_hz": 48000, "frames": 9600, "amplitude": 8000, "first_period": 55, "second_period": 36, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } },
     { "synth": "thud", "asset_id": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3", "record_revision": 1, "sample_rate_hz": 48000, "frames": 7200, "amplitude": 12000, "period": 480, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } },
-    { "synth": "two-tone", "asset_id": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4", "record_revision": 1, "sample_rate_hz": 48000, "frames": 3600, "amplitude": 5000, "first_period": 73, "second_period": 73, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } }
+    { "synth": "two-tone", "asset_id": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4", "record_revision": 1, "sample_rate_hz": 48000, "frames": 3600, "amplitude": 5000, "first_period": 73, "second_period": 73, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } },
+    { "synth": "noise-loop", "asset_id": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5", "record_revision": 1, "sample_rate_hz": 48000, "frames": 24000, "amplitude": 6000, "seed": 2470012345, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } },
+    { "synth": "noise-burst", "asset_id": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6", "record_revision": 1, "sample_rate_hz": 48000, "frames": 6000, "amplitude": 11000, "seed": 1783562091, "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 } }
   ],
   "neutral_animation_catalogs": [
     {

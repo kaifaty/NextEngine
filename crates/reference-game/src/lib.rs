@@ -16,6 +16,7 @@ mod topology;
 mod ui;
 mod ui_dialogue;
 mod water;
+pub mod water_audio;
 mod water_presentation;
 
 pub mod audio;

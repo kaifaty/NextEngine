@@ -69,6 +69,7 @@ pub(super) fn build_audio_clip(
     revision: u64,
     sample_rate: u32,
     samples: &[i16],
+    loop_region_or_none: Option<AudioLoopRegionV1>,
 ) -> Result<NeutralAudioV1, ProjectAuthoringError> {
     if samples.is_empty() {
         return Err(ProjectAuthoringError::InvalidValue);
@@ -97,7 +98,7 @@ pub(super) fn build_audio_clip(
         1,
         AudioPcmEncodingV1::PcmS16Le,
         u64::try_from(samples.len()).map_err(|_| ProjectAuthoringError::InvalidValue)?,
-        None,
+        loop_region_or_none,
         Vec::new(),
         AudioLoudnessMetadataV1::new(integrated, peak_q16_16)?,
         pcm,
@@ -126,6 +127,31 @@ pub(super) fn synthesize_noise_burst(frames: u32, amplitude: i32, seed: u32) -> 
             let noise = i32::from((state & 0xffff) as u16) - 32_767;
             let sample = i64::from(noise) * i64::from(envelope(amplitude, index, frames)) / 32_767;
             sample.clamp(-32_767, 32_767) as i16
+        })
+        .collect()
+}
+
+/// Plan `continuum-water/34`: flat noise between two linear fades of
+/// `NOISE_LOOP_FADE_FRAMES` (5 ms at 48 kHz), looped over the whole clip.
+pub(super) const NOISE_LOOP_FADE_FRAMES: u32 = 240;
+
+pub(super) fn synthesize_noise_loop(frames: u32, amplitude: i32, seed: u32) -> Vec<i16> {
+    let mut state = seed.max(1);
+    let fade = NOISE_LOOP_FADE_FRAMES.min(frames / 2).max(1);
+    (0..frames)
+        .map(|index| {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            let noise = i32::from((state & 0xffff) as u16) - 32_767;
+            let gain = if index < fade {
+                i64::from(index + 1) * i64::from(amplitude) / i64::from(fade)
+            } else if index + fade >= frames {
+                i64::from(frames - index) * i64::from(amplitude) / i64::from(fade)
+            } else {
+                i64::from(amplitude)
+            };
+            (i64::from(noise) * gain / 32_767).clamp(-32_767, 32_767) as i16
         })
         .collect()
 }
@@ -174,4 +200,42 @@ pub(super) fn append_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), Proj
     bytes.extend_from_slice(&length.to_le_bytes());
     bytes.extend_from_slice(value.as_bytes());
     Ok(())
+}
+
+#[cfg(test)]
+mod noise_loop_tests {
+    use super::{NOISE_LOOP_FADE_FRAMES, synthesize_noise_loop};
+
+    /// Plan 34 G2: fades at both ends, a flat body, deterministic.
+    #[test]
+    fn noise_loop_has_fades_and_a_flat_body() {
+        let frames = 24_000;
+        let samples = synthesize_noise_loop(frames, 6_000, 7);
+        assert_eq!(samples.len(), frames as usize);
+        assert!(
+            samples[0].unsigned_abs() <= 30,
+            "first frame {}",
+            samples[0]
+        );
+        let fade = NOISE_LOOP_FADE_FRAMES as usize;
+        let head: i64 = samples[..fade / 4]
+            .iter()
+            .map(|s| i64::from(s.unsigned_abs()))
+            .sum();
+        let tail: i64 = samples[frames as usize - fade / 4..]
+            .iter()
+            .map(|s| i64::from(s.unsigned_abs()))
+            .sum();
+        let body: i64 = samples[fade..fade + fade / 4]
+            .iter()
+            .map(|s| i64::from(s.unsigned_abs()))
+            .sum();
+        assert!(
+            head < body / 4 && tail < body / 4,
+            "head {head} body {body} tail {tail}"
+        );
+        let peak = samples.iter().map(|s| s.unsigned_abs()).max().unwrap();
+        assert!(peak <= 6_000 && peak > 5_000, "peak {peak}");
+        assert_eq!(samples, synthesize_noise_loop(frames, 6_000, 7));
+    }
 }

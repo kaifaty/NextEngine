@@ -36,7 +36,8 @@ use next_contracts::animation_content::{
     NeutralAnimationValueV1, NeutralSkeletonJointV1, NeutralSkeletonV1, NeutralTransformV1,
 };
 use next_contracts::audio::{
-    AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1, NeutralAudioV1,
+    AudioLoopRegionV1, AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1,
+    NeutralAudioV1,
 };
 use next_contracts::body::{
     BODY_PROJECTION_COMPILER_PROFILE_ID_V1, BODY_SCHEMA_ASSET_VERSION_V1, BodySchemaAssetV1,
@@ -378,7 +379,28 @@ fn build_audio_records(
         .iter()
         .map(|record| {
             validate_span(project_directory, record.source_span())?;
+            let mut loop_region_or_none = None;
             let (id, revision, sample_rate, samples) = match record {
+                AuthoringAudioRecordV1::NoiseLoop {
+                    asset_id: id,
+                    record_revision,
+                    sample_rate_hz,
+                    frames,
+                    amplitude,
+                    seed,
+                    ..
+                } => {
+                    loop_region_or_none = Some(
+                        AudioLoopRegionV1::new(0, u64::from(*frames))
+                            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                    );
+                    (
+                        id,
+                        *record_revision,
+                        *sample_rate_hz,
+                        synthesize_noise_loop(*frames, *amplitude, *seed),
+                    )
+                }
                 AuthoringAudioRecordV1::NoiseBurst {
                     asset_id: id,
                     record_revision,
@@ -423,7 +445,13 @@ fn build_audio_records(
                     synthesize_thud(*frames, *period, *amplitude),
                 ),
             };
-            build_audio_clip(asset_id(id)?, revision, sample_rate, &samples)
+            build_audio_clip(
+                asset_id(id)?,
+                revision,
+                sample_rate,
+                &samples,
+                loop_region_or_none,
+            )
         })
         .collect()
 }

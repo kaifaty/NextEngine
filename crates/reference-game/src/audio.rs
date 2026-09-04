@@ -31,6 +31,9 @@ pub const REFERENCE_SWITCH_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa1; 1
 pub const REFERENCE_PICKUP_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa2; 16]);
 pub const REFERENCE_MELEE_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa3; 16]);
 pub const REFERENCE_DIALOGUE_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa4; 16]);
+/// Plan 34: the flowing-water loop and the splash.
+pub const REFERENCE_WATER_FLOW_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa5; 16]);
+pub const REFERENCE_WATER_SPLASH_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa6; 16]);
 
 /// Text ID of the dialogue-accept subtitle (SPEC-08 voice-absent fallback).
 pub const REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID: &str = "nextengine.ui.text.subtitle.dialogue-accept";
@@ -139,6 +142,27 @@ pub fn reference_audio_cue_bindings(
             Some(REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID),
         )?,
     ])
+}
+
+/// Plan 34: the water clips' exact revisions from the activated content;
+/// a missing clip fails closed before any live tick.
+pub fn reference_water_audio_clips(
+    activated_project: &ActivatedProjectV8,
+) -> Result<crate::water_audio::WaterAudioClipsV1, ReferenceGameError> {
+    let revision = |asset_id: AssetId| {
+        activated_project
+            .content_manifest
+            .body
+            .asset_entries
+            .iter()
+            .find(|entry| entry.asset_revision.asset_id == asset_id)
+            .map(|entry| entry.asset_revision)
+            .ok_or(ReferenceGameError::AudioAssetMissing)
+    };
+    Ok(crate::water_audio::WaterAudioClipsV1 {
+        flow: revision(REFERENCE_WATER_FLOW_CLIP_ASSET_ID)?,
+        splash: revision(REFERENCE_WATER_SPLASH_CLIP_ASSET_ID)?,
+    })
 }
 
 /// Listener binding anchored to the exact player capsule body.

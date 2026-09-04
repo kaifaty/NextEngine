@@ -128,6 +128,18 @@ pub struct WaterFloatingBoxV1 {
 pub fn floating_boxes(
     checkpoint: &next_contracts::physics::PhysicsWorldCheckpointV1,
 ) -> Vec<WaterFloatingBoxV1> {
+    floating_boxes_with_ids(checkpoint)
+        .into_iter()
+        .map(|(_, floating)| floating)
+        .collect()
+}
+
+/// Plan 34: the same records with their body ids (the splash cues key on
+/// the body).
+#[must_use]
+pub fn floating_boxes_with_ids(
+    checkpoint: &next_contracts::physics::PhysicsWorldCheckpointV1,
+) -> Vec<(next_contracts::physics::PhysicsBodyIdV1, WaterFloatingBoxV1)> {
     let mut boxes = Vec::new();
     for (body_id, body) in &checkpoint.catalog.bodies {
         if body.motion_kind != next_contracts::physics::PhysicsMotionKindV1::Dynamic {
@@ -173,12 +185,15 @@ pub fn floating_boxes(
             });
         }
         if let Some((minimum_micrometres, maximum_micrometres)) = bounds {
-            boxes.push(WaterFloatingBoxV1 {
-                minimum_micrometres,
-                maximum_micrometres,
-                vertical_velocity_micrometres_per_second: state
-                    .linear_velocity_micrometres_per_second[1],
-            });
+            boxes.push((
+                *body_id,
+                WaterFloatingBoxV1 {
+                    minimum_micrometres,
+                    maximum_micrometres,
+                    vertical_velocity_micrometres_per_second: state
+                        .linear_velocity_micrometres_per_second[1],
+                },
+            ));
         }
     }
     boxes
@@ -767,6 +782,17 @@ fn shared_face_midpoint(a: &WaterVolumeDefinitionV1, b: &WaterVolumeDefinitionV1
     let z0 = a.minimum_micrometres[2].max(b.minimum_micrometres[2]);
     let z1 = a.maximum_micrometres[2].min(b.maximum_micrometres[2]);
     [(x0 + x1) / 2, (z0 + z1) / 2]
+}
+
+/// Plan 34: the tick's edge records for the audio scene (the droplet
+/// streams are the render side's business).
+#[must_use]
+pub fn water_audio_edge_records(
+    volumes: &WaterVolumeSetV1,
+    network: &WaterFlowNetworkV1,
+    tick: u64,
+) -> Vec<WaterEdgePresentationV1> {
+    edge_records(volumes, network, tick, 0).0
 }
 
 /// Plan 21 (SPEC-38 practice 3): one record per active edge in edge id
