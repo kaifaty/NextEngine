@@ -28,6 +28,23 @@ class TangoTrainTest(unittest.TestCase):
         self.assertAlmostEqual(float(prediction.grad[:, :33].sum()), 1, places=5)
         self.assertAlmostEqual(float(prediction.grad[:, 33:].sum()), 1, places=5)
 
+    def test_uniform_control_matches_direct_mse_without_region_reweighting(self):
+        target = torch.zeros(1, 645, 64)
+        prediction = torch.ones_like(target, requires_grad=True)
+        full = train.loss_parts(prediction, target)["full"]
+        self.assertEqual(
+            float(full.detach()), float((prediction - target).square().mean().detach())
+        )
+        full.backward()
+        self.assertTrue(
+            torch.equal(
+                prediction.grad, torch.full_like(prediction, 2 / prediction.numel())
+            )
+        )
+        self.assertAlmostEqual(
+            float(prediction.grad[:, :33].sum()), 2 * 33 / 645, places=6
+        )
+
     def test_invalid_shapes_and_regions(self):
         target = torch.zeros(1, 645, 64)
         for frames in (0, 645, 646):

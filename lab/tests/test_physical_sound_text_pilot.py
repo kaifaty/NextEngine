@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from scipy.io import wavfile
@@ -14,6 +15,30 @@ import physical_sound_text_tags as tags
 
 
 class TextPilotTest(unittest.TestCase):
+    def test_clap_wrapper_retains_case_and_empty_control_pairing(self):
+        manifest = {
+            "cases": [{"id": "a", "prompt": "glass"}, {"id": "b", "prompt": "wood"}],
+            "rows": [
+                {"case": 1, "seed": 42, "wav": "wood.wav"},
+                {"case": 0, "seed": 42, "wav": "glass.wav"},
+            ],
+            "controls": [{"id": "empty-prompt", "seed": 42, "wav": "empty.wav"}],
+            "seeds": [42],
+        }
+        scores = [[0.1, 0.8], [0.6, 0.3], [0.4, 0.5]]
+        with patch.object(tags, "clap_similarities", return_value=scores):
+            result = tags.clap_measurement(manifest)
+        self.assertEqual(result["top1_count"], 2)
+        self.assertEqual(result["beats_empty_prompt_count"], 2)
+        self.assertAlmostEqual(result["rows"][0]["target_gain_over_empty_prompt"], 0.3)
+        self.assertAlmostEqual(result["rows"][1]["target_gain_over_empty_prompt"], 0.2)
+        self.assertEqual(result["paired_changes"], [])
+
+    def test_empty_clap_batch_fails_before_loading_models(self):
+        for prompts, recordings in (([], [{}]), (["glass"], [])):
+            with self.assertRaisesRegex(ValueError, "nonempty"):
+                tags.clap_similarities(prompts, recordings)
+
     def test_unknown_ontology_axis_is_unscored(self):
         self.assertEqual(tags.EXPECTED["steel-metal"], ())
         result = tags.summarize(np.array([0.7, 0.2]), ["Glass", "Rain"], ())

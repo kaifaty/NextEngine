@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FIRST_GENERATIVE_LORA_TRAINED / BASE_RETAINED / RESEARCH_ONLY.
+Status: ACTIVE_GOAL / TWO_LORA_FITS_UNPROMOTED / TARGET_PIPELINE_RESEARCH_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,43 +12,49 @@ Status: ACTIVE_GOAL / FIRST_GENERATIVE_LORA_TRAINED / BASE_RETAINED / RESEARCH_O
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [real glass -> base -> step 40 -> step 120](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/glass-training-comparison.wav),
-  16 seconds, repeated for two seeds. First actual generative fine-tune:
-  786,432 LoRA parameters, 120 steps, 16 disclosed train/11 development crops.
+- **Latest primary artifact:** [real glass -> base -> balanced fit -> uniform fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-uniform-2026-09-05/objective-comparison.wav),
+  16 seconds, repeated for two seeds. Two actual generative fine-tunes:
+  786,432 LoRA parameters, 120 steps each, 16 train/11 development crops.
   Generation takes only text and duration. Runtime/liked glass remains unchanged.
-  [Reloaded adapter, all twelve event prompts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-reload-2026-09-05/preview.wav).
+  [Duration/guidance comparison, problematic seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-duration-guidance-2026-09-05/comparison.wav).
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest external roots are `tangoflux-lora-glass-2026-09-05` and
-  `tangoflux-lora-reload-2026-09-05` under
+  Latest external roots are `tangoflux-lora-uniform-2026-09-05` and
+  `tangoflux-duration-guidance-2026-09-05` under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Read fit `result.json`, its step0/40/120 `ast-clap.json` and reload results.
-  Original base root is `tangoflux-pilot-2026-09-05`.
-- **Decisive training result:** development active flow MSE 1.32718 -> 0.96294
-  (-27.4%), but padding error worsens 7.4% and full-horizon error 3.7%.
-  Balanced objective improves 16.6%. AST passes coarse tags on 10/10 at all
-  three checkpoints; CLAP mean falls 0.35858 -> 0.33929. Trained glass prompt
-  seed-123 CLAP falls 0.22953 -> 0.10767. Keep the base: lower denoising loss
-  did not establish better free generation. Do not select solely by flow loss.
-  Loss gives equal weight to 33 active and 612 padding frames; duration 1.5 s.
+  Read uniform `result.json` and step40/120 `ast-clap.json`; probe `result.json`,
+  `ast-tags.json`, `real-positive-controls.json`. The original balanced fit is
+  `tangoflux-lora-glass-2026-09-05`; its step0 scores are the exact-WAV baseline.
+- **Decisive training result:** balanced active MSE 1.32718 -> 0.96294 improves,
+  but padding worsens; uniform loss improves active/padding/full to
+  0.97712/0.59010/0.60990 (base 1.32718/0.60084/0.63801). Neither improves free
+  generation: ten-case CLAP mean base/balanced/uniform 0.35858/0.33929/0.34063;
+  uniform trained-prompt scores 0.23561/0.10643 versus base 0.27602/0.22953.
+  AST coarse tags pass 10/10 throughout. Keep the base; scalar fit loss and
+  coarse tags miss this failure. Both runs have identical sources, cached
+  posteriors, sample order and bit-exact baseline WAVs. Only the loss changes.
+  Balanced weights 33 active/612 padding frames equally; uniform is upstream MSE.
   Frozen T5/VAE/base, rank-8 attention q/v adapter, AdamW 1e-4, BF16 autocast,
-  FP32 inference. Full train/render cycle took 314.21 s on the 10-GiB GPU.
-- **Model comparison:** AudioLDM2/TangoFlux CLAP top-one counts 8/24 vs 15/24,
-  better-than-empty counts 21/24 vs 24/24; AST coarse expected top-five tags
-  6/20 vs 15/20. Steel remains unscored by the exact material ontology and can
-  sound/classify glass-like. Rolling lacks the expected tag; scraping has
-  Rub/Filing rather than the fixed Scrape label. Light/heavy rain pair margins
-  disagree across seeds. These are useful diagnostics, not physical admission.
-- **Precision counterfactual:** FP32 yields the same counts and median PCM
-  correlation 0.99912 with FP16; precision is not the main failure cause.
-  At 200 steps CLAP moves to 8/24 and 21/24, while AST moves to 6/20;
-  doubling compute does not resolve the failures. All three runs are complete.
-- **Next action:** discriminate short-duration/padding and guidance effects on
-  free generation using the same prompt/seed base control, before longer fits.
-  Inspect both active and padding terms; broad AST tags missed loss/semantic
-  disagreement. Then expand internet data beyond the single glass family.
-  Do not restart model shopping/modal MLPs, optimize only CLAP or use protected
-  evidence. First learnability is not physical-attribute generalization.
+  FP32 inference. Balanced/uniform train/render cycles took 314.21/325.71 s.
+- **Counterfactuals already run:** 28 same-seed WAVs, duration 1.5/5 s, CFG
+  1/2/4.5, plus base-unconditional branch. Longer clips reduce the penalty,
+  not create a gain; low CFG has poor absolute scores; base-unconditional is
+  not a repair. Do not repeat this sweep. All four historical WAV controls and
+  exact upstream latent replay pass; scoring replays within 1e-6.
+- **Validator limitation:** all six real/VAE controls prefer wooden-stick/glass
+  over knife/glass in the current wording-confounded caption bank. Their true
+  target cosines are 0.38–0.46, above generated examples; ranks cannot establish
+  striker identity. Steel remains unscored, and no perceptual risk is calibrated.
+- **Next action — bounded research after two fits:** inspect official codec
+  semantics and test real -> VAE mean versus posterior-sample -> audible WAV.
+  Current controls decode only the mean, while training samples the posterior.
+  Distinguish target corruption/mismatch, constant-caption sparse-data fitting
+  and inadequate free-generation evaluation before a third fit. If targets are
+  sound, expand internet data beyond this family. No nearby rank/lr/epoch sweep,
+  model shopping, modal-MLP restart or protected-role reuse.
+- **Earlier base comparison:** TangoFlux beat AudioLDM2 on the fixed diagnostics;
+  AudioLDM2 FP32/200-step counterfactuals did not fix quality. Details are in
+  the pilot note. These are not physical-control or generalization certificates.
 - **Current hardware:** NVIDIA RTX 3080, 10 GiB, CUDA works in the unrestricted
   environment. Prior sandbox GPU failures are not current evidence.
   `lab/.venv/bin/python` has Torch 2.13.0+cu130 and the optional generation
@@ -58,12 +64,10 @@ Status: ACTIVE_GOAL / FIRST_GENERATIVE_LORA_TRAINED / BASE_RETAINED / RESEARCH_O
   LoRA adds peft 0.12.0. Torch/model libraries are unchanged. External source is
   loaded by `lab/scripts/physical_sound_tangoflux_pilot.py`; all checkpoint
   values and the T5 alias are verified before inference.
-- **Verification:** cached FP32 training loss equals upstream exactly at
-  0.32723280787467957. All 84 fit and 26 reload WAVs passed signal/hash checks.
-  Fresh adapter reload reproduces four controls' stereo/mono hashes exactly.
-  Thirty focused tests, Ruff and diff checks pass. Tests include active/padding
-  gradients and malformed sources/adapters. All jobs are terminal. Detailed
-  verification and commands are in the pilot note.
+- **Verification:** 36 focused tests, Ruff and diff/link checks pass. All 56
+  probe and 84 uniform-fit WAVs pass signal/hash checks. Earlier fresh adapter
+  reload reproduces four controls' stereo/mono hashes exactly. All jobs are
+  terminal; detailed evidence and reproduction are in the pilot note.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, audible improvement through local learning, precise physical
   controls, demonstrated new-condition generalization and engine integration.

@@ -320,3 +320,129 @@ denoising loss on these recordings is not proof of unseen material, shape,
 force, speed, water-flow or rainfall control; those full-goal requirements and
 engine admission remain open. No model-shopping or modal-MLP restart follows
 from this result.
+
+## Duration/guidance counterfactual (2026-09-05)
+
+[Audible comparison, previously problematic seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-duration-guidance-2026-09-05/comparison.wav)
+is 37.5 seconds. First the 1.5-second condition, then five seconds; within each,
+CFG 1 base/adapted, then CFG 4.5 base/adapted/base-unconditional. All **28**
+candidates (both seeds 42/123, both durations, CFG 1/2/4.5 and the conditional-only
+adapter counterfactual at 4.5) remain individually available in that directory.
+No model was trained or chosen from these scores. Generation plus CLAP scoring
+took 256.38 seconds; AST was measured afterwards.
+
+[Classifier-free guidance](https://arxiv.org/abs/2207.12598) combines conditional
+and unconditional model predictions. Our counterfactual therefore separately
+tests requested duration, guidance strength and retaining the **base**
+unconditional prediction at the same evolving latent. Both branches use the
+same batch shape; no external classifier guides generation. A local inference
+wrapper avoids the pinned upstream revision's unsupported keyword in its
+`guidance_scale <= 1` branch. At scale 1 it returns the conditional prediction
+exactly, not an unconditional sample or a numerically unstable subtraction.
+At CFG 4.5 the new wrapper's latent is bit-exact with the upstream method.
+All four historical base/adapted 1.5-second WAV pairs replay exactly, and their
+factored FP32 CLAP measurements reproduce the previous scores within `1e-6`.
+
+| Duration / CFG | Base mean target cosine | Adapted minus base, two seeds |
+| --- | ---: | --- |
+| 1.5 s / 1 | 0.04281 | -0.00502, +0.01051 |
+| 1.5 s / 2 | 0.07036 | +0.00429, +0.00718 |
+| 1.5 s / 4.5 | 0.25277 | -0.03762, -0.12186 |
+| 5 s / 1 | -0.04872 | -0.01134, -0.01908 |
+| 5 s / 2 | 0.14132 | -0.01452, +0.00432 |
+| 5 s / 4.5 | 0.26089 | -0.00992, -0.00159 |
+
+- Longer requested audio reduces the large adaptation penalty at CFG 4.5 but
+  does not reverse it. Changing duration also changes the scored clip length;
+  this does not isolate conditioning from evaluator length sensitivity.
+- Reducing CFG to 2 yields tiny positive changes at 1.5 seconds, but both
+  absolute text scores are poor, and only one of two examples has a coarse
+  glass/clink tag in AST. CFG 1 is worse. Selecting by improvement alone would
+  mistake an inadequate baseline for useful sound.
+- Keeping the base unconditional branch is not a repair: mean target deltas
+  are -0.10176 at 1.5 seconds and -0.01710 at five seconds. This rejects that
+  specific remedy, not the existence of all possible unconditional drift.
+- In the previously bad seed-123/default-CFG example, the 10-ms energy peak
+  moves from 670 ms (base) to 0 ms (adapted), or 110 ms with base-unconditional.
+  This is a measured timing change, not proof of a particular physical cause.
+
+The six original/VAE controls were additionally scored against the **same**
+five-caption bank. Original target cosines are 0.40049/0.40553/0.41696; VAE
+cosines 0.38179/0.44653/0.45743. All six nevertheless rank the wooden-stick/glass
+caption above the knife/glass caption. The captions differ in wording beyond
+the striker, so these ranks cannot establish striker identity or a material-pair
+error. `real-positive-controls.json` preserves the scores and WAV hashes. The
+probe now includes this measurement in its runnable path; in the first run it
+was performed immediately afterwards. Neither prompt similarity nor coarse
+AST tagging is a calibrated physical/naturalness admission gate.
+
+All 56 individual WAVs passed hash, duration, dimensions, sample-rate and
+unclipped-PCM checks. The comparison is playable and all four historical replay
+controls passed. This narrows the next experiment to the **training objective**:
+compare the hand-weighted active/padding objective against original uniform
+full-horizon flow MSE, holding recordings, LoRA initialization, sampling and
+steps fixed. Do not repeat the duration/CFG sweep as a supposed quality fix.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_probe.py \
+  --checkpoint /absolute/external/tango-fit/adapter-step120.safetensors \
+  --output /absolute/external/tango-probe
+```
+
+## Uniform-loss control (2026-09-05)
+
+[Real glass -> base -> balanced fit -> uniform fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-uniform-2026-09-05/objective-comparison.wav)
+repeats for seeds 42/123, 16 seconds total. The new external run is
+`tangoflux-lora-uniform-2026-09-05`; its step40/120 directories contain the
+five-prompt/two-seed WAV matrices and `ast-clap.json`. It completed 120 steps
+and three render sets in 325.71 seconds.
+
+This changes **only the optimized loss** to the original uniform full-horizon
+flow MSE. All 27 cached posterior tensors have the same safetensors hash
+`03a024064bf211f9f7d2773ac4df62fcf49f1334fd2059571353152810754631` as the balanced
+run; source/crop metadata, LoRA configuration and all 120 sampled source indices
+match. All twelve baseline stereo/mono pairs replay exactly. The same seeded
+sampling recipe and initialization are retained. Baseline scoring therefore
+uses the existing exact-WAV report rather than a redundant model run.
+
+| Development metric | Base | Balanced step 120 | Uniform step 120 |
+| --- | ---: | ---: | ---: |
+| Active flow MSE | 1.32718 | 0.96294 | 0.97712 |
+| Padding flow MSE | 0.60084 | 0.64510 | 0.59010 |
+| Full-horizon flow MSE | 0.63801 | 0.66136 | 0.60990 |
+| Mean CLAP target similarity, ten generations | 0.35858 | 0.33929 | 0.34063 |
+
+Uniform MSE removes the active-versus-padding tradeoff: both regions improve
+over the base. But free-generation alignment still degrades. The two trained
+glass-prompt cosines are 0.23561/0.10643, versus base 0.27602/0.22953. Coarse
+AST tags remain 10/10 and CLAP top-one remains 8/10, again hiding the degree of
+degradation. Neither adapter is selected as a quality improvement. No repeated
+human audition is needed to refrain from promoting an unproven candidate.
+
+This does not prove insufficient model capacity or that neural sound synthesis
+cannot work. Two comparable fits now show better denoising loss without a
+free-generation gain. Stop nearby rank/lr/epoch/objective tuning and apply the
+bounded-research escalation: distinguish corrupted/mismatched codec targets,
+over-specialization to tiny constant-caption data, and insufficient validation
+of generative quality. The next inexpensive executable discriminator is
+**real waveform -> VAE mean versus sampled posterior -> audible reconstruction**
+on the disclosed sources: current positive controls decode only the mean,
+whereas training samples the posterior. Inspect the official codec/training
+implementation and score both target paths before another fit. If targets are
+sound, expand real internet data beyond this one glass family rather than
+trying another local hyperparameter variant. The full multi-material,
+water/rain, physical-control and new-condition goal remains unchanged.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --sources /absolute/external/ps2-freesound-wine-glass-v1/research \
+  --output /absolute/external/tango-uniform --steps 120 --objective full
+```
+
+Verification: 36 focused tests, Ruff formatting/static checks and diff/link
+checks passed. The probe's 56 and uniform run's 84 individual WAVs were checked
+for hashes, dimensions, rate, duration and PCM headroom; both comparison files
+and the three new stage previews were read back. No Cargo, ProductCheck or
+engine audition was run: this remains an external-only Python lab change.

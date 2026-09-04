@@ -83,8 +83,10 @@ def load_audio(path: Path, expected_hash: str | None = None) -> np.ndarray:
     )
 
 
-def clap_measurement(manifest: dict) -> dict:
-    """Same frozen CLAP as AudioLDM2; separate report, not an unbiased judge."""
+def clap_similarities(prompts: list[str], recordings: list[dict]) -> list[list[float]]:
+    """Frozen FP32 CPU scores for arbitrary disclosed diagnostic recordings."""
+    if not prompts or not recordings:
+        raise ValueError("nonempty prompts and recordings required")
     import torch
     from transformers import ClapFeatureExtractor, ClapModel, RobertaTokenizer
 
@@ -98,17 +100,15 @@ def clap_measurement(manifest: dict) -> dict:
     extractor = ClapFeatureExtractor.from_pretrained(
         pilot.MODEL, subfolder="feature_extractor", **options
     )
-    records, controls = [], []
+    result = []
     with torch.inference_mode():
         tokens = tokenizer(
-            [row["prompt"] for row in manifest["cases"]],
+            prompts,
             padding=True,
             return_tensors="pt",
         )
         text = torch.nn.functional.normalize(model.get_text_features(**tokens), dim=-1)
-        for row in manifest["rows"] + manifest["controls"]:
-            if "wav" not in row:
-                continue
+        for row in recordings:
             audio = resample_poly(load_audio(Path(row["wav"]), row["sha256"]), 3, 1)
             np.random.seed(0)
             features = extractor([audio], sampling_rate=48000, return_tensors="pt")
@@ -116,17 +116,31 @@ def clap_measurement(manifest: dict) -> dict:
                 model.get_audio_features(**features), dim=-1
             )
             scores = (embedding @ text.T)[0].numpy()
-            measured = {"seed": row["seed"], "similarities": scores.tolist()}
-            if "case" in row:
-                records.append(
-                    {
-                        **measured,
-                        "case": row["case"],
-                        **pilot.alignment(scores, row["case"]),
-                    }
-                )
-            else:
-                controls.append({**measured, "id": row["id"]})
+            if not np.isfinite(scores).all():
+                raise ValueError("nonfinite CLAP output")
+            result.append(scores.tolist())
+    return result
+
+
+def clap_measurement(manifest: dict) -> dict:
+    """Same frozen CLAP as AudioLDM2; separate report, not an unbiased judge."""
+    inputs = [row for row in manifest["rows"] + manifest["controls"] if "wav" in row]
+    similarities = clap_similarities(
+        [row["prompt"] for row in manifest["cases"]], inputs
+    )
+    records, controls = [], []
+    for row, scores in zip(inputs, similarities, strict=True):
+        measured = {"seed": row["seed"], "similarities": scores}
+        if "case" in row:
+            records.append(
+                {
+                    **measured,
+                    "case": row["case"],
+                    **pilot.alignment(np.array(scores, dtype=np.float32), row["case"]),
+                }
+            )
+        else:
+            controls.append({**measured, "id": row["id"]})
     paired = []
     for seed in manifest["seeds"]:
         rows = sorted(

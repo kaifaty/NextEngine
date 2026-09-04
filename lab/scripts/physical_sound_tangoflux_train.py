@@ -223,7 +223,7 @@ def render(model, vae, output, step):
     return str(output / "result.json")
 
 
-def run(source_root, output, steps=120, lr=1e-4):
+def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
     from diffusers.training_utils import compute_density_for_timestep_sampling
     from peft import LoraConfig
     from safetensors.torch import save_file
@@ -233,6 +233,8 @@ def run(source_root, output, steps=120, lr=1e-4):
         raise ValueError("output must be a new external directory")
     if not 1 <= steps <= 400 or not np.isfinite(lr) or not 0 < lr <= 1e-3:
         raise ValueError("bounded training steps and learning rate required")
+    if objective not in ("balanced", "full"):
+        raise ValueError("unknown training objective")
     output.mkdir(parents=True)
     shutil.copyfile(__file__, output / "executed-script.py")
     started = time.monotonic()
@@ -252,7 +254,12 @@ def run(source_root, output, steps=120, lr=1e-4):
         "duration": SECONDS,
         "learning_rate": lr,
         "precision": "FP32 frozen weights and LoRA; BF16 training autocast; FP32 generation",
-        "loss": "half active 33-frame MSE plus half remaining 612-frame MSE; no CLAP reward",
+        "loss": (
+            "half active 33-frame MSE plus half remaining 612-frame MSE; no CLAP reward"
+            if objective == "balanced"
+            else "upstream uniform full-horizon MSE; no CLAP reward"
+        ),
+        "objective": objective,
         "scope": "disclosed recording-disjoint development, not unseen objects or physical controls",
         "checkpoints": [],
         "training": [],
@@ -359,7 +366,7 @@ def run(source_root, output, steps=120, lr=1e-4):
                 prediction = velocity(
                     model, (1 - sigma) * latent + sigma * noise, sigma, condition
                 )
-                loss = loss_parts(prediction, noise - latent)["balanced"]
+                loss = loss_parts(prediction, noise - latent)[objective]
             if not torch.isfinite(loss):
                 raise ValueError("nonfinite training loss")
             loss.backward()
@@ -405,5 +412,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--steps", type=int, default=120)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--objective", choices=("balanced", "full"), default="balanced")
     args = parser.parse_args()
-    run(args.sources, args.output, args.steps, args.lr)
+    run(args.sources, args.output, args.steps, args.lr, args.objective)
