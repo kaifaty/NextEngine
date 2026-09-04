@@ -1352,7 +1352,14 @@ if ISAAC_LAB_AVAILABLE:
             )
             normalizations = self.profile["reward_normalizations"]
             self._pose_normalization = int(
-                normalizations["joint_pose_soft_rom_span_sum_microradians"]
+                normalizations.get(
+                    "joint_pose_soft_rom_span_sum_microradians",
+                    sum(
+                        joint["soft_limit_microradians"][1]
+                        - joint["soft_limit_microradians"][0]
+                        for joint in joints
+                    ),
+                )
             )
             self._effort_normalization = int(
                 normalizations["applied_effort_per_motor_tick_micronewton_metres"]
