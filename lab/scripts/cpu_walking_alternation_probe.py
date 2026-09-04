@@ -30,10 +30,18 @@ def main():
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--headless", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--tape-output", type=Path)
     args = parser.parse_args()
     output = require_external_path(args.output, ROOT, label="report", must_exist=False)
     if output.exists():
         raise ValueError("output must be fresh")
+    tape_output = None
+    if args.tape_output is not None:
+        tape_output = require_external_path(
+            args.tape_output, ROOT, label="action tape", must_exist=False
+        )
+        if tape_output.exists():
+            raise ValueError("action tape output must be fresh")
     descriptor = json.loads(args.descriptor.read_text())
     if (
         sha256_file(args.descriptor)
@@ -81,6 +89,18 @@ def main():
                     "support_switches": 0,
                 }
             )
+    if tape_output is not None:
+        atomic_write_json(
+            tape_output,
+            {
+                "action_q1_30": np.rint(np.stack(tapes).astype(np.float64) * (1 << 30))
+                .astype(np.int64)
+                .tolist(),
+                "cases": cases,
+                "descriptor_sha256": sha256_file(args.descriptor),
+                "tool_sha256": sha256_file(Path(__file__)),
+            },
+        )
     env = CanonicalVecEnv(
         args.headless.resolve(),
         descriptor,

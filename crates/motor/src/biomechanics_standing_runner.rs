@@ -60,6 +60,11 @@ pub struct BiomechanicsStandingFrameResult {
     pub snapshot: CanonicalPhysXSnapshotV2,
     pub contact_frames: Vec<crate::BiomechanicsContactFrameV1>,
     pub contact_flags: [i64; 2],
+    /// Diagnostic projection only; does not alter the terminal or replay record.
+    pub joint_safety_error: Option<MotorSafetyError>,
+    /// Actual simulation steps, excluding repeated contact samples after a failure.
+    pub completed_physics_substeps: usize,
+    pub safety_checkpoint: Option<crate::BiomechanicsSafetyCheckpointV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -531,6 +536,7 @@ fn step_slot(
             }
         }
     }
+    let completed_physics_substeps = contact_frames.len();
     while contact_frames.len() < PHYSICS_SUBSTEPS {
         contact_frames.push(slot.classifier.classify_substep(
             &slot.snapshot,
@@ -732,6 +738,9 @@ fn step_slot(
             snapshot: slot.snapshot.clone(),
             contact_frames,
             contact_flags,
+            joint_safety_error,
+            completed_physics_substeps,
+            safety_checkpoint: joint_safety_error.map(|_| slot.safety.checkpoint()),
         },
         reward_components_raw,
         reward_total_q16,
@@ -1109,6 +1118,8 @@ mod tests {
             assert_eq!(step[0].frame.motor_tick, expected_tick);
             assert!(!step[0].terminated, "unexpected native termination");
             assert!(!step[0].truncated, "unexpected native truncation");
+            assert_eq!(step[0].frame.joint_safety_error, None);
+            assert_eq!(step[0].frame.completed_physics_substeps, PHYSICS_SUBSTEPS);
             assert!(
                 step[0]
                     .frame
@@ -1181,5 +1192,7 @@ mod tests {
             Some("terminal.joint-safety")
         );
         assert!(!violations.is_empty());
+        assert!(step.frame.joint_safety_error.is_some());
+        assert!(step.frame.completed_physics_substeps <= PHYSICS_SUBSTEPS);
     }
 }

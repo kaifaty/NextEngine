@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `ACTIVE_R&D / CANONICAL_LEARNER_FIXED / V5_CPU_WALKING_FAILED / PAIRED_ACTION_AUDIT_FAILED / NO_RUNTIME_AUTHORITY` |
-| Updated | 2026-09-04 |
+| Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
 | Definition of done | Five complete canonical standing episodes, then five forward/start/stop episodes with at least 3 m travel and 180 final zero-command ticks, all without safety events |
@@ -21,8 +21,8 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Localize the exact stance-ankle/safety-envelope failure
-  during foot return, then isolate a dense weight-transfer/lift/place lesson.
+- **Next action:** Implement an observable periodic load-transfer lesson with
+  graded credit before foot release; preserve body/action/safety constraints.
   Corrected adapter control passes 5,120 exact transitions and 399 resets.
 - **Training:** ADR-107's direct CPU V5/CUDA PPO run completed 1,024,000
   samples. Final five episodes fall at tick 299 after 0.824657 m, with zero
@@ -139,6 +139,14 @@ not clean-commit generation/run manifests.
   outcomes. No second optimizer run is active or admitted.
 
 ## Active hypotheses
+
+The [foot-return discriminator](../r8b-walking-step-credit-2026-09-05.md)
+localizes tick 115 to right-ankle-roll power/rate incompatibility: required
+minimum 127.694 N·m exceeds the 120.164 N·m power cap. Zero new-tick work and
+zero physical substeps rule out work exhaustion and a new observed ROM breach.
+The manual tape is unsafe; no evidence justifies a safety-controller change.
+Keep the exact safety code and substep diagnostic. Next change concerns learning
+credit, not limits, noise or a repeated unchanged PPO run.
 
 | Hypothesis | Update | Next test |
 | --- | --- | --- |
