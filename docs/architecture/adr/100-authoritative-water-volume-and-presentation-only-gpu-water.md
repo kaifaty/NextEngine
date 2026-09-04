@@ -10,7 +10,7 @@
 | Last verified | 2026-09-03 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-003](003-vulkan-renderer-and-shader-toolchain.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-101](101-presentation-only-dynamic-surface-ring.md) |
 | Supersedes | ADR-076 clauses "GPU DFSPH is optional correspondence-only work", the crate-coupled first consumer and "debug points/spheres are sufficient presentation", for water V1 only |
-| Superseded by | none |
+| Superseded by | none; one clause narrowed by [ADR-106](106-physx-particle-fluids-as-the-water-presentation-lane.md) (2026-09-04): the game process may load the vendor GPU library at runtime for presentation water behind a run option and a capability probe; `headless`, the contracts and every root keep the original clause |
 
 ## Context
 

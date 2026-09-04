@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.82 |
+| Версия | 2.83 |
 | Последняя проверка | 2026-09-04 |
-| Заменяет | INDEX-001 2.81; records the Proposed ADR-106 (PhysX particle fluids as the optional water presentation lane, task-state D-011) and its plan `continuum-water/23`; INDEX-001 2.80; records ADR-101 0.3 (dynamic surface shading, the `water_surface` suite of plan `continuum-water/12`) |
+| Заменяет | INDEX-001 2.82; ADR-106 Accepted 1.0 (2026-09-04) with plan `continuum-water/24` (the first PhysX water demo) and plan 25; INDEX-001 2.81 recorded the Proposed ADR-106 (PhysX particle fluids as the optional water presentation lane, task-state D-011) and its plan `continuum-water/23`; INDEX-001 2.80; records ADR-101 0.3 (dynamic surface shading, the `water_surface` suite of plan `continuum-water/12`) |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -313,7 +313,7 @@ traceability — навигационная карта, не admission authority
 | ADR-103 | [Authoritative water flow network](adr/103-authoritative-water-flow-network.md) | Accepted 2026-09-03; cells are `WaterVolume`s, edges (open sill, pipe, gate, pump, source, sink) move water by head in one exact integer Jacobi step per tick, field 5 of the physics checkpoint (schema 3), commands `SetGate`/`SetPump`/`SetSource`, check `CONTINUUM-WATER-FLOW-P1` |
 | ADR-104 | [Water V1 authority is the exact table and flow network](adr/104-water-v1-authority-is-the-exact-table-and-flow-network.md) | Accepted 2026-09-03; closes the water authority ladder on ADR-100/ADR-103, keeps particle water presentation-only for V1, routes rigid coupling through exact levels, demotes the ADR-076 particle ladder to research reports and names the four `CONTINUUM-WATER-*` product checks (all four pass) |
 | ADR-105 | [Exact-level buoyancy reaction batch](adr/105-exact-level-buoyancy-reaction-batch.md) | Accepted 2026-09-03; the first one-pass coupling consumer: an exact impulse batch from committed water levels and body bounds rides `PhysicsStepInputV2` schema 3 (WB1 implemented: the reference crate floats), PhysX stays the sole rigid writer, check `CONTINUUM-WATER-BUOYANCY-P1`, plan `continuum-water/08` |
-| ADR-106 | [PhysX particle fluids as the optional water presentation lane](adr/106-physx-particle-fluids-as-the-water-presentation-lane.md) | Proposed 2026-09-04 (task-state D-011): the water authority stays exact; a PhysX PBD fluid becomes the optional, runtime-loaded, NVIDIA-only presentation lane behind a run option and a capability probe with the ring-and-droplet presentation as the fallback; narrows one ADR-100 clause for `game` only; first increment the probe of plan `continuum-water/23` (`xtask physx pbd-probe`, research report `PHYSX-WATER-PRESENT-R1`) |
+| ADR-106 | [PhysX particle fluids as the optional water presentation lane](adr/106-physx-particle-fluids-as-the-water-presentation-lane.md) | Accepted 2026-09-04 (1.0, on the plan 23 probe and the plan 24 demo; task-state D-011): the water authority stays exact; a PhysX PBD fluid becomes the optional, runtime-loaded, NVIDIA-only presentation lane behind a run option and a capability probe with the ring-and-droplet presentation as the fallback; narrows one ADR-100 clause for `game` only; first increment the probe of plan `continuum-water/23` (`xtask physx pbd-probe`, research report `PHYSX-WATER-PRESENT-R1`) |
 
 ## Proposed tracks
 

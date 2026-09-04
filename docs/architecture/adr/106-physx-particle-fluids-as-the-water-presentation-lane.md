@@ -3,9 +3,9 @@
 | Field | Value |
 |---|---|
 | ID | ADR-106 |
-| Status | Proposed |
-| Version | 0.1 |
-| Decision date | pending (accept on the plan 23 probe evidence) |
+| Status | Accepted |
+| Version | 1.0 |
+| Decision date | 2026-09-04 (accepted by the user on the plan 23 probe and the plan 24 demo) |
 | Proposal date | 2026-09-04 |
 | Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-04](../04-rendering-and-platform.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-102](102-presentation-particle-surface-pass.md), [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
@@ -64,10 +64,13 @@ velocities and kernels.
   is narrowed to: no such dependency enters `headless`, the contracts or
   any root; `game` may load the vendor GPU library at runtime for
   presentation only, behind the option and the probe.
-- The first increment is the probe of plan `continuum-water/23`
-  (`xtask physx pbd-probe`, research report `PHYSX-WATER-PRESENT-R1`);
-  acceptance of this ADR follows its evidence. The lane in the game is
-  plan 24.
+- The first increment was the probe of plan `continuum-water/23`
+  (`xtask physx pbd-probe`, research report `PHYSX-WATER-PRESENT-R1`:
+  RTX 3080, `16,384` particles at `1.5-1.8 ms` per step, fail-closed
+  without the library) and the demo of plan 24 (a block of PhysX water
+  dropped onto the basin's exact level through the ADR-102 pass); the
+  ADR was accepted on that evidence. The lane's increments continue from
+  plan `continuum-water/25`.
 - Rejected alternatives (research note): a custom Vulkan compute solver
   (vendor-neutral, but the largest build); Dimforge Nexus (no fluids yet,
   experimental); Salva (CPU, too slow at game scale); Jolt/Rapier (no
