@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+import torch
 from scipy.io import wavfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -11,6 +12,19 @@ import physical_sound_tangoflux_pilot as tango
 
 
 class TangoTest(unittest.TestCase):
+    def test_adapter_is_complete_finite_and_cannot_replace_base_weights(self):
+        expected = {"transformer.to_q.lora_A.default.weight": torch.zeros(8, 16)}
+        tango.validate_adapter_weights(expected, expected)
+        for invalid in (
+            {},
+            {**expected, "transformer.to_q.weight": torch.zeros(16, 16)},
+            {name: torch.zeros(4, 16) for name in expected},
+            {name: torch.full((8, 16), float("nan")) for name in expected},
+            {name: value.half() for name, value in expected.items()},
+        ):
+            with self.assertRaises(ValueError):
+                tango.validate_adapter_weights(invalid, expected)
+
     def test_complete_weights_except_tied_alias(self):
         tango.verify_weight_keys(["text_encoder.encoder.embed_tokens.weight"], [])
         for missing, extra in (

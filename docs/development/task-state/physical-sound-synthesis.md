@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TANGOFLUX_BASE_SELECTED_FOR_ADAPTATION / RESEARCH_ONLY / FALLBACK_REQUIRED.
+Status: ACTIVE_GOAL / FIRST_GENERATIVE_LORA_TRAINED / BASE_RETAINED / RESEARCH_ONLY.
 
 ## Resume in 60 seconds
 
@@ -12,60 +12,60 @@ Status: ACTIVE_GOAL / TANGOFLUX_BASE_SELECTED_FOR_ADAPTATION / RESEARCH_ONLY / F
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [TangoFlux preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/preview.wav),
-  [22-second AudioLDM2/TangoFlux glass and wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/base-vs-tango-preview.wav).
-  Same 12 descriptions/two seeds, 24 candidates plus two empty-prompt controls.
-  Each candidate has native 44.1-kHz stereo and 16-kHz mono scoring copies.
-  TangoFlux run completed in 194.09 s. No input audio or local training;
-  the pretrained base is now selected for a bounded adaptation experiment.
+- **Latest primary artifact:** [real glass -> base -> step 40 -> step 120](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/glass-training-comparison.wav),
+  16 seconds, repeated for two seeds. First actual generative fine-tune:
+  786,432 LoRA parameters, 120 steps, 16 disclosed train/11 development crops.
+  Generation takes only text and duration. Runtime/liked glass remains unchanged.
+  [Reloaded adapter, all twelve event prompts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-reload-2026-09-05/preview.wav).
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  External roots end in `text-pilot-2026-09-05`,
-  `text-pilot-fp32-2026-09-05`, and
-  `text-pilot-200steps-2026-09-05` under
+  Latest external roots are `tangoflux-lora-glass-2026-09-05` and
+  `tangoflux-lora-reload-2026-09-05` under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  TangoFlux root is `tangoflux-pilot-2026-09-05`. Read its `result.json` and
-  `ast-clap-fp32.json`; the 200-step AudioLDM2 root has the same remeasurement.
-  Both use one FP32 CPU CLAP scorer, avoiding historical FP16 weight rounding.
+  Read fit `result.json`, its step0/40/120 `ast-clap.json` and reload results.
+  Original base root is `tangoflux-pilot-2026-09-05`.
+- **Decisive training result:** development active flow MSE 1.32718 -> 0.96294
+  (-27.4%), but padding error worsens 7.4% and full-horizon error 3.7%.
+  Balanced objective improves 16.6%. AST passes coarse tags on 10/10 at all
+  three checkpoints; CLAP mean falls 0.35858 -> 0.33929. Trained glass prompt
+  seed-123 CLAP falls 0.22953 -> 0.10767. Keep the base: lower denoising loss
+  did not establish better free generation. Do not select solely by flow loss.
+  Loss gives equal weight to 33 active and 612 padding frames; duration 1.5 s.
+  Frozen T5/VAE/base, rank-8 attention q/v adapter, AdamW 1e-4, BF16 autocast,
+  FP32 inference. Full train/render cycle took 314.21 s on the 10-GiB GPU.
 - **Model comparison:** AudioLDM2/TangoFlux CLAP top-one counts 8/24 vs 15/24,
   better-than-empty counts 21/24 vs 24/24; AST coarse expected top-five tags
   6/20 vs 15/20. Steel remains unscored by the exact material ontology and can
   sound/classify glass-like. Rolling lacks the expected tag; scraping has
   Rub/Filing rather than the fixed Scrape label. Light/heavy rain pair margins
   disagree across seeds. These are useful diagnostics, not physical admission.
-- **100-step findings:** CLAP exact-prompt rank one on 7/24, target similarity
-  beats empty prompt on 20/24. Separate audio-only AST has coarse expected
-  tags in top five on 5/20 scorable cases (all water/rain); steel has no exact
-  ontology label and is unscored. CLAP is shared with the generator, AST is
-  not; neither is a calibrated naturalness or physical-correctness validator.
 - **Precision counterfactual:** FP32 yields the same counts and median PCM
   correlation 0.99912 with FP16; precision is not the main failure cause.
   At 200 steps CLAP moves to 8/24 and 21/24, while AST moves to 6/20;
   doubling compute does not resolve the failures. All three runs are complete.
-- **Next action:** stop foundation-model shopping and run one bounded small
-  TangoFlux fine-tune on disclosed real wine-glass recordings. Reuse the two
-  training recording IDs and third development ID described below; preserve
-  the base and unrelated wood/water/rain prompts as regression controls.
-  Render before/after during the first short training cycle. Generation still
-  takes text, not a target waveform. This is a first learnability test for an
-  observed family, not a substitute for physical-attribute generalization.
-  Do not optimize only CLAP or tune from protected evidence.
+- **Next action:** discriminate short-duration/padding and guidance effects on
+  free generation using the same prompt/seed base control, before longer fits.
+  Inspect both active and padding terms; broad AST tags missed loss/semantic
+  disagreement. Then expand internet data beyond the single glass family.
+  Do not restart model shopping/modal MLPs, optimize only CLAP or use protected
+  evidence. First learnability is not physical-attribute generalization.
 - **Current hardware:** NVIDIA RTX 3080, 10 GiB, CUDA works in the unrestricted
   environment. Prior sandbox GPU failures are not current evidence.
   `lab/.venv/bin/python` has Torch 2.13.0+cu130 and the optional generation
   dependencies listed in the pilot note. Network is disabled for inference
   via offline flags after public pinned safetensors downloads.
   TangoFlux also imports datasets 2.21.0, which pins fsspec to 2024.6.1;
-  Torch/model libraries are unchanged. Hash-pinned external model source is
+  LoRA adds peft 0.12.0. Torch/model libraries are unchanged. External source is
   loaded by `lab/scripts/physical_sound_tangoflux_pilot.py`; all checkpoint
   values and the T5 alias are verified before inference.
-- **Verification:** nine current pilot tests plus four existing pilot tests,
-  Ruff and diff checks pass. All 52 individual TangoFlux WAVs passed shape,
-  sample-rate, headroom and hash checks. Previous 81 WAVs remain unchanged.
-  Scorer replay isolated FP16 weight rounding (residual max cosine 5.38e-7).
-  No background processes remain after this checkpoint.
+- **Verification:** cached FP32 training loss equals upstream exactly at
+  0.32723280787467957. All 84 fit and 26 reload WAVs passed signal/hash checks.
+  Fresh adapter reload reproduces four controls' stereo/mono hashes exactly.
+  Thirty focused tests, Ruff and diff checks pass. Tests include active/padding
+  gradients and malformed sources/adapters. All jobs are terminal. Detailed
+  verification and commands are in the pilot note.
 - **All goal requirements remain open beyond this baseline:** independent
-  robust validation, improvement through local learning, precise physical
+  robust validation, audible improvement through local learning, precise physical
   controls, demonstrated new-condition generalization and engine integration.
   No goal completion or product admission has been claimed.
 

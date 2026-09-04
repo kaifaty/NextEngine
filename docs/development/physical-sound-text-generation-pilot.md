@@ -215,3 +215,108 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
   --source /absolute/external/tango-run/result.json \
   --output /absolute/external/tango-run/ast-clap-fp32.json --with-clap
 ```
+
+## First actual generative fine-tune (2026-09-05)
+
+[Listen: real glass -> base -> step 40 -> step 120](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/glass-training-comparison.wav).
+The sequence repeats for seeds 42 and 123 (16 seconds total, half-second gaps,
+no loudness matching). The real example comes from development recording
+761162. Generation receives **text and duration only**, never that recording.
+[Step-120 preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/step120/preview.wav)
+also includes wooden-stick/glass, wood, water and rain controls.
+
+The reversible experiment trains 786,432 LoRA parameters (rank/alpha 8,
+attention `to_q`/`to_v` only), freezing all original TangoFlux/T5/VAE weights.
+Dependency addition: `peft==0.12.0`; previous pinned libraries are unchanged.
+The implementation follows the upstream [SFT flow target and VAE encoding](https://github.com/declare-lab/TangoFlux/blob/main/tangoflux/train.py)
+and the installed Diffusers 0.30.3 [adapter interface](https://huggingface.co/docs/diffusers/v0.30.3/api/loaders/peft).
+It executes only the previously inspected hash-pinned HF model code, not the
+moving GitHub training script. Cached text conditioning reproduces the exact
+upstream FP32 SFT loss: both are `0.32723280787467957` on the same RNG control.
+
+Training uses the previously disclosed 16 crops from recordings 761160/761161;
+all 11 crops of 761162 are excluded from this fit. Same author/pack is not
+proof of independent physical objects; this is **development**, not a pristine
+test. Hashes and crop identities are retained. Each 1.5-second crop is resampled
+to stereo 44.1 kHz, peak-normalized to 0.5 and padded to the upstream 30-second
+latent horizon. VAE posterior means/stds are cached; training samples the
+posterior, while fixed development measurements use its mean and three fixed
+noise levels. One prompt describes a knife hitting a wine glass once.
+There are no invented geometry, force or striker-material measurements.
+
+Unlike upstream uniform MSE, this short-impact experiment gives half the loss
+to the first 33 latent frames and half to the remaining 612 frames. Both terms
+remain visible: padding must not hide a bad impact, nor can the impact excuse
+bad padding. AdamW uses `1e-4`, 120 steps, BF16 training autocast with FP32
+weights. All audition generations remain FP32, 50 flow steps, CFG 4.5.
+The complete training plus three before/during/after render sets took 314.21 s;
+peak CUDA allocation was 4,655,436,288 bytes. Only adapter weights are saved.
+
+| Development metric (lower is better) | Base | Step 40 | Step 120 |
+| --- | ---: | ---: | ---: |
+| Active-region flow MSE | 1.32718 | 1.26713 | 0.96294 |
+| Padding-region flow MSE | 0.60084 | 0.61090 | 0.64510 |
+| Balanced objective | 0.96401 | 0.93901 | 0.80402 |
+| Full-horizon uniform MSE | 0.63801 | 0.64448 | 0.66136 |
+
+**Learnability changed, quality improvement is not established.** Active error
+improves 27.4%, but padding worsens 7.4% and the full-horizon error worsens 3.7%.
+Frozen AST retains a coarse expected tag in all 10/10 cases at every stage;
+that coarse gate misses the degradation in text alignment. Mean CLAP target
+similarity across ten cases falls from 0.35858 to 0.33929. For the trained
+knife/glass prompt it falls from 0.27602/0.22953 to 0.23840/0.10767 (two seeds).
+The latter changes its highest-scoring description from wooden-stick/glass to
+wood. Thus a lower flow loss must not automatically promote an adapter.
+CLAP is not a calibrated naturalness judge either: these results support
+**keeping the base**, not declaring every adapted sound perceptually worse.
+
+Three original/VAE round-trip pairs are retained as controls. Their prior
+multiresolution spectral errors are 0.6464/0.6671/0.6890 and envelope errors
+0.0962/0.1352/0.1187: the codec is lossy, not an exact waveform identity path.
+AST gives the real and round-tripped examples strong Ding/Clang tags, so exact
+glass/striker identity cannot be inferred from those tags. Its existing NumPy
+mel-filter warning remains visible; no calibrated quality gate is claimed.
+
+The checkpoint can be loaded in a fresh process using the original pilot's
+`--adapter` option. It validates the source revision, recorded checkpoint hash,
+fixed adapter shape, complete key coverage and finite FP32 tensors; it cannot
+replace arbitrary base weights. A separate reload run generated all 12 original
+event prompts with seed 42, including steel, rolling, scraping and breaking:
+[reloaded adapter preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-reload-2026-09-05/preview.wav).
+Four same-prompt controls match the step-120 stereo and mono WAV hashes exactly.
+On these twelve original prompts/seed 42, CLAP exact-prompt top-one changes
+from base 9/12 to adapter 8/12, mean target similarity 0.34070 -> 0.33703;
+AST coarse expected tags remain 8/10 (steel is still unscored). This broader
+check does not establish an overall gain either.
+All 84 individual training-run WAVs and 26 reload WAVs passed hashes, dimensions,
+duration, rate and unclipped PCM checks. The 16-second comparison and all four
+previews were read back. Nothing replaces the liked engine glass profile.
+Thirty focused pilot, training and existing audible-glass tests passed;
+Ruff formatting/static checks and `git diff --check` passed. ProductCheck,
+Cargo and engine audition were not run: no runtime/public-contract changes.
+
+Reproduce with external output directories and the existing disclosed MP3 root:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --sources /absolute/external/ps2-freesound-wine-glass-v1/research \
+  --output /absolute/external/tango-fit --steps 120
+# Score step0, step40 and step120 with the same command, changing the directory:
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_text_tags.py \
+  --source /absolute/external/tango-fit/step120/result.json \
+  --output /absolute/external/tango-fit/step120/ast-clap.json --with-clap
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --adapter /absolute/external/tango-fit/adapter-step120.safetensors \
+  --output /absolute/external/tango-reload --seeds 42
+```
+
+Next: discriminate short-duration/padding and guidance effects on **free
+generation**, with a same-prompt, same-seed base control, before another longer
+fit. Then expand real internet training coverage beyond this family. Lower
+denoising loss on these recordings is not proof of unseen material, shape,
+force, speed, water-flow or rainfall control; those full-goal requirements and
+engine admission remain open. No model-shopping or modal-MLP restart follows
+from this result.

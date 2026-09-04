@@ -32,6 +32,66 @@ def verify_weight_keys(missing: list[str], unexpected: list[str]):
         raise ValueError(f"incomplete model weights: {missing}, {unexpected}")
 
 
+def validate_adapter_weights(weights, expected):
+    import torch
+
+    if not expected or set(weights) != set(expected):
+        raise ValueError("adapter key coverage mismatch")
+    for name, value in weights.items():
+        if (
+            "lora_" not in name
+            or value.shape != expected[name].shape
+            or value.dtype != torch.float32
+            or not torch.isfinite(value).all()
+        ):
+            raise ValueError(f"invalid adapter tensor: {name}")
+
+
+def load_adapter(model, checkpoint: Path) -> dict:
+    """Reload this experiment's adapter without accepting arbitrary base weights."""
+    from peft import LoraConfig
+    from safetensors.torch import load_file
+
+    checkpoint = checkpoint.resolve()
+    if not 0 < checkpoint.stat().st_size <= 16 * 1024**2:
+        raise ValueError("adapter outside bounded size")
+    report = json.loads((checkpoint.parent / "result.json").read_text())
+    if report["status"] != "complete" or (report["model"], report["revision"]) != (
+        MODEL,
+        REVISION,
+    ):
+        raise ValueError("incomplete or incompatible adapter run")
+    if any(
+        report["adapter"][key] != value
+        for key, value in (
+            ("rank", 8),
+            ("alpha", 8),
+            ("target_modules", ["to_q", "to_v"]),
+        )
+    ):
+        raise ValueError("unsupported adapter configuration")
+    digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    matches = [
+        row for row in report["checkpoints"] if row.get("adapter_sha256") == digest
+    ]
+    if len(matches) != 1:
+        raise ValueError("checkpoint absent or ambiguous in training report")
+    model.requires_grad_(False)
+    model.transformer.add_adapter(
+        LoraConfig(r=8, lora_alpha=8, target_modules=["to_q", "to_v"])
+    )
+    expected = {name: p for name, p in model.named_parameters() if p.requires_grad}
+    weights = load_file(checkpoint)
+    validate_adapter_weights(weights, expected)
+    model.load_state_dict(weights, strict=False)
+    model.requires_grad_(False)
+    return {
+        "path": str(checkpoint),
+        "sha256": digest,
+        "training_steps": matches[0]["step"],
+    }
+
+
 def load_models(output: Path):
     import torch
     from diffusers import AutoencoderOobleck
@@ -123,7 +183,13 @@ def publish(output: Path, name: str, wave: np.ndarray) -> tuple[dict, np.ndarray
     }, mono * record["pcm_gain"]
 
 
-def run(output: Path, steps: int, seeds: tuple[int, ...], seconds: float):
+def run(
+    output: Path,
+    steps: int,
+    seeds: tuple[int, ...],
+    seconds: float,
+    adapter: Path | None = None,
+):
     import torch
 
     output = output.resolve()
@@ -161,6 +227,9 @@ def run(output: Path, steps: int, seeds: tuple[int, ...], seconds: float):
     pilot.save_report(output / "result.json", report)
     try:
         model, vae = load_models(output)
+        if adapter is not None:
+            report["adapter"] = load_adapter(model, adapter)
+            report["local_training_steps"] = report["adapter"]["training_steps"]
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model.to(device)
         vae.to(device)
@@ -251,5 +320,10 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=50)
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 123])
     parser.add_argument("--seconds", type=float, default=5.0)
+    parser.add_argument(
+        "--adapter",
+        type=Path,
+        help="External adapter checkpoint from the bounded training experiment",
+    )
     args = parser.parse_args()
-    run(args.output, args.steps, tuple(args.seeds), args.seconds)
+    run(args.output, args.steps, tuple(args.seeds), args.seconds, args.adapter)
