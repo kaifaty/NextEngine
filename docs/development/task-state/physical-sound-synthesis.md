@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TWO_LORA_FITS_UNPROMOTED / TARGET_PIPELINE_RESEARCH_NEXT.
+Status: ACTIVE_GOAL / CODEC_SAMPLING_NOT_CAUSAL_IN_CONTROLS / WATER_RAIN_DATA_READY.
 
 ## Resume in 60 seconds
 
@@ -12,30 +12,39 @@ Status: ACTIVE_GOAL / TWO_LORA_FITS_UNPROMOTED / TARGET_PIPELINE_RESEARCH_NEXT.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [real glass -> base -> balanced fit -> uniform fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-uniform-2026-09-05/objective-comparison.wav),
-  16 seconds, repeated for two seeds. Two actual generative fine-tunes:
-  786,432 LoRA parameters, 120 steps each, 16 train/11 development crops.
-  Generation takes only text and duration. Runtime/liked glass remains unchanged.
-  [Duration/guidance comparison, problematic seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-duration-guidance-2026-09-05/comparison.wav).
+- **Latest primary artifacts:** [original -> codec mean -> sample](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-codec-targets-2026-09-05/comparison.wav)
+  (18 s, reconstruction diagnostic, not a new text generator), and
+  [real rain/pouring-water/water-drop training and development examples](/home/kaifaty/.codex/experiments/nextengine/physical-sound/esc50-water-rain-2026-09-05/sources-preview.wav)
+  (33 s, internet source recordings). No new weights trained this checkpoint.
+  The last text-generative fits remain unpromoted; runtime/liked glass is unchanged.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest external roots are `tangoflux-lora-uniform-2026-09-05` and
-  `tangoflux-duration-guidance-2026-09-05` under
+  Latest external roots are `tangoflux-codec-targets-2026-09-05` and
+  `esc50-water-rain-2026-09-05` under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Read uniform `result.json` and step40/120 `ast-clap.json`; probe `result.json`,
-  `ast-tags.json`, `real-positive-controls.json`. The original balanced fit is
-  `tangoflux-lora-glass-2026-09-05`; its step0 scores are the exact-WAV baseline.
-- **Decisive training result:** balanced active MSE 1.32718 -> 0.96294 improves,
-  but padding worsens; uniform loss improves active/padding/full to
-  0.97712/0.59010/0.60990 (base 1.32718/0.60084/0.63801). Neither improves free
-  generation: ten-case CLAP mean base/balanced/uniform 0.35858/0.33929/0.34063;
-  uniform trained-prompt scores 0.23561/0.10643 versus base 0.27602/0.22953.
-  AST coarse tags pass 10/10 throughout. Keep the base; scalar fit loss and
-  coarse tags miss this failure. Both runs have identical sources, cached
-  posteriors, sample order and bit-exact baseline WAVs. Only the loss changes.
-  Balanced weights 33 active/612 padding frames equally; uniform is upstream MSE.
-  Frozen T5/VAE/base, rank-8 attention q/v adapter, AdamW 1e-4, BF16 autocast,
-  FP32 inference. Balanced/uniform train/render cycles took 314.21/325.71 s.
+  Codec `result.json`/`ast-tags.json`; water `result.json`/`real-clap.json`,
+  pinned CSV/LICENSE and `audio/`. Prior balanced/uniform runs are
+  `tangoflux-lora-glass-2026-09-05` / `tangoflux-lora-uniform-2026-09-05`.
+- **Codec discriminator:** official training samples the posterior; our formula
+  matches the installed distribution with the same CPU RNG. Three mean WAVs
+  replay exactly. Nine sampled reconstructions retain CLAP 0.371–0.464 and
+  spectral error within -0.01160/+0.01456 of the mean. Padding is -100…-95 dBFS.
+  No evidence of gross target corruption from sampling in these controls;
+  do not launch another glass fit merely switching to posterior means.
+- **New corpus ready:** pinned ESC-50 revision
+  `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`, 117 WAVs/100 source recordings:
+  93 train (folds 1–4), 24 disclosed development (fold 5), source-ID-disjoint.
+  40 rain, 37 pouring water, 40 water drops; generic class captions, physical
+  attributes null. Frozen CLAP matches 110/117 labels; all disagreements remain.
+  Dataset CC-BY-NC 3.0 and individual notices retained. IDs 67152/79220/126433
+  (CC-Sampling+) remain unfetched. Ten source files touch full-scale PCM.
+  Local URL-bearing metadata/filename screen found no prior ID collisions;
+  scope is bounded, foundation pretraining independence is unknown.
+- **Prior fits:** balanced and uniform losses improve fit but not free-generation
+  alignment: CLAP mean base/balanced/uniform 0.35858/0.33929/0.34063, AST 10/10
+  throughout. Uniform improves both active/padding regions; still keep the base.
+  Exact sources/posteriors/sample-order/baseline controls match. Frozen T5/VAE/
+  base, rank-8 q/v LoRA, AdamW 1e-4, BF16 train/FP32 inference; details in the note.
 - **Counterfactuals already run:** 28 same-seed WAVs, duration 1.5/5 s, CFG
   1/2/4.5, plus base-unconditional branch. Longer clips reduce the penalty,
   not create a gain; low CFG has poor absolute scores; base-unconditional is
@@ -45,29 +54,22 @@ Status: ACTIVE_GOAL / TWO_LORA_FITS_UNPROMOTED / TARGET_PIPELINE_RESEARCH_NEXT.
   over knife/glass in the current wording-confounded caption bank. Their true
   target cosines are 0.38–0.46, above generated examples; ranks cannot establish
   striker identity. Steel remains unscored, and no perceptual risk is calibrated.
-- **Next action — bounded research after two fits:** inspect official codec
-  semantics and test real -> VAE mean versus posterior-sample -> audible WAV.
-  Current controls decode only the mean, while training samples the posterior.
-  Distinguish target corruption/mismatch, constant-caption sparse-data fitting
-  and inadequate free-generation evaluation before a third fit. If targets are
-  sound, expand internet data beyond this family. No nearby rank/lr/epoch sweep,
-  model shopping, modal-MLP restart or protected-role reuse.
-- **Earlier base comparison:** TangoFlux beat AudioLDM2 on the fixed diagnostics;
-  AudioLDM2 FP32/200-step counterfactuals did not fix quality. Details are in
-  the pilot note. These are not physical-control or generalization certificates.
-- **Current hardware:** NVIDIA RTX 3080, 10 GiB, CUDA works in the unrestricted
-  environment. Prior sandbox GPU failures are not current evidence.
-  `lab/.venv/bin/python` has Torch 2.13.0+cu130 and the optional generation
-  dependencies listed in the pilot note. Network is disabled for inference
-  via offline flags after public pinned safetensors downloads.
-  TangoFlux also imports datasets 2.21.0, which pins fsspec to 2024.6.1;
-  LoRA adds peft 0.12.0. Torch/model libraries are unchanged. External source is
-  loaded by `lab/scripts/physical_sound_tangoflux_pilot.py`; all checkpoint
-  values and the T5 alias are verified before inference.
-- **Verification:** 36 focused tests, Ruff and diff/link checks pass. All 56
-  probe and 84 uniform-fit WAVs pass signal/hash checks. Earlier fresh adapter
-  reload reproduces four controls' stereo/mono hashes exactly. All jobs are
-  terminal; detailed evidence and reproduction are in the pilot note.
+- **Next action:** bounded multi-event learning on the existing water/rain corpus,
+  with actual five-second targets, class-specific text conditioning and before/
+  after WAVs. Keep the base, glass/wood regression controls and source-disjoint
+  development. Generalize the existing trainer instead of a new training stack.
+  Use uniform upstream loss as the control and validate free generation, not
+  merely denoising loss/CLAP. No more nearby fits on the same glass-only data,
+  model shopping, modal-MLP restart, invented physical labels or protected reuse.
+- **Hardware/runtime:** RTX 3080, 10 GiB, working CUDA. `lab/.venv/bin/python`
+  has Torch 2.13.0+cu130, datasets 2.21.0/fsspec 2024.6.1, peft 0.12.0 and the
+  pinned libraries in the pilot note. Inference runs offline. The Tango pilot
+  loads only hash-reviewed external source and verifies all checkpoint values
+  and the tied T5 alias. Old sandbox GPU failures are not current evidence.
+- **Verification:** codec 48 new/6 referenced WAVs and all 117 source WAVs pass
+  hash/shape/rate/length checks; 18/33-second previews checked. Sampling and
+  ingestion have 45 passing focused tests; Ruff/diff/link checks pass. Jobs terminal;
+  checks, limitations and reproduction are in the pilot note.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, audible improvement through local learning, precise physical
   controls, demonstrated new-condition generalization and engine integration.

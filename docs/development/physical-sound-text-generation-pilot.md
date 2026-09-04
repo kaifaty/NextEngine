@@ -446,3 +446,91 @@ checks passed. The probe's 56 and uniform run's 84 individual WAVs were checked
 for hashes, dimensions, rate, duration and PCM headroom; both comparison files
 and the three new stage previews were read back. No Cargo, ProductCheck or
 engine audition was run: this remains an external-only Python lab change.
+
+## Codec target discriminator and water/rain data (2026-09-05)
+
+[Original -> VAE mean -> posterior sample, three recordings](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-codec-targets-2026-09-05/comparison.wav)
+is an 18-second **reconstruction diagnostic**, not a new text generator.
+The full external `tangoflux-codec-targets-2026-09-05` run retains three means
+and nine posterior samples (seeds 0/42/123), each with a 1.5-second audition
+and a five-second version exposing padded silence. The preview uses seed 42.
+
+The official [TangoFlux training implementation](https://github.com/declare-lab/TangoFlux/blob/main/tangoflux/train.py)
+samples the VAE posterior. In the installed, pinned
+[Diffusers 0.30.3 codec](https://github.com/huggingface/diffusers/blob/v0.30.3/src/diffusers/models/autoencoders/autoencoder_oobleck.py),
+the sample is mean plus softplus-derived standard deviation times Gaussian
+noise. A focused test verifies our cache sampling against that distribution
+with the same CPU generator; it does not assert CPU/GPU RNG stream identity.
+The exact published posterior hash and all three mean-reconstruction WAV
+hashes match. The large padding-latent standard deviation (~0.974 RMS) does
+**not** imply noisy decoded audio.
+
+The executable discriminator does not support posterior-sampling corruption
+as the cause of the failed fits in these controls:
+
+- Sample-versus-mean changes in relative spectral error range from -0.01160
+  to +0.01456. Source-level mean errors remain 0.64642/0.66711/0.68902; the
+  codec itself is lossy, but sampling adds no large systematic degradation.
+- Sample target CLAP scores span 0.37099–0.46404, near the corresponding
+  mean scores 0.38179/0.44653/0.45743. They remain well above the failed
+  free-generation examples. AST likewise retains the same coarse ringing tags.
+- Padding RMS is approximately -100 to -95 dBFS, 64–70 dB below active RMS;
+  there is no large audible-energy tail induced by sampling in these controls.
+
+The run took 12.60 seconds before AST measurement. All 48 newly rendered WAVs
+and six referenced original WAVs passed hash/signal checks; the comparison
+was read back at exactly 18 seconds. This rejects a proposed **sampling fix**
+on the tested controls, not every possible codec limitation. No third fit on
+the same three recordings was launched.
+
+Instead, the next curriculum now has real examples beyond rigid glass:
+[rain -> pouring water -> water drops, train/development examples](/home/kaifaty/.codex/experiments/nextengine/physical-sound/esc50-water-rain-2026-09-05/sources-preview.wav).
+This 33-second preview contains **source recordings**, not generated output.
+The [ESC-50 source repository](https://github.com/karolpiczak/ESC-50) is pinned to
+`33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`. Its metadata groups fragments from
+one source recording in the same fold. We use folds 1–4 for training and fold
+5 as disclosed development, not as an untouched or pretraining-independent test.
+
+Downloaded **117 five-second WAVs from 100 source recordings**: 93 train,
+24 development; 40 rain, 37 pouring-water, 40 water-drop clips. The source-ID
+sets are disjoint. The dataset-level CC-BY-NC 3.0 notice, original full license
+file and individual author/source notices are retained externally alongside
+the pinned CSV, URLs and hashes. Three pouring-water source IDs
+67152/79220/126433 have CC-Sampling+ notices; their audio remains unfetched
+because that path has not been reviewed. No additional restriction is silently
+treated as permission, and no redistribution or engine admission is claimed.
+
+A bounded collision screen found no overlap with existing artifact filenames
+or the 39 source IDs in 43 URL-bearing JSON metadata files under 2 MB. This
+states the screen's actual scope, not a complete foundation-training audit;
+legacy protected audio/roles were not opened or reassigned. The new data have
+weak **event-class** captions only: physical attributes remain `null`. Neither
+water intensity, rainfall rate, geometry nor material pairs are invented.
+Ten source files touch full-scale PCM; the original samples and peak metadata
+are retained, not falsely certified as artifact-free or silently edited.
+
+An unmodified frozen CLAP diagnostic on all real examples matches their coarse
+category on rain 39/40, pouring water 37/37, and water drops 34/40. All seven
+disagreements remain in the corpus; these scores did not select recordings or
+calibrate an acceptance threshold. `real-clap.json` records the complete matrix.
+This is sufficient to start a bounded multi-event learning experiment with
+before/after WAVs and unrelated glass/wood controls; it does not yet prove that
+a fine-tuned generator will improve or control continuous physical properties.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_codec_probe.py \
+  --fit /absolute/external/tango-fit --output /absolute/external/codec-probe
+lab/.venv/bin/python lab/scripts/physical_sound_water_sources.py \
+  --prior-root /absolute/external/physical-sound \
+  --output /absolute/external/new-water-corpus
+```
+
+The acquisition tool downloads only data, refuses malformed identities,
+missing/unknown notices and known source-role collisions, and preserves
+source-level splitting. It refuses existing output directories; use the
+completed external corpus instead of reacquiring it or reassigning its roles.
+
+Verification: 45 focused tests and Ruff/diff/local-link checks passed. No
+Cargo/ProductCheck or engine audition was run; no runtime or public contract
+changed. The base generator and both earlier adapters remain untouched.
