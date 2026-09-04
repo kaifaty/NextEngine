@@ -32,6 +32,10 @@ pub(super) struct GameOptions {
     pub(super) start_at_pond: bool,
     /// Plan 36: start south of the vessels, in reach of the gate lever.
     pub(super) start_at_vessels: bool,
+    /// Plan 39: start south of the pond, looking at the stream and the dam.
+    pub(super) start_at_falls: bool,
+    /// Plan 39: start on the lake's west bank, looking over the lake.
+    pub(super) start_at_lake: bool,
     pub(super) project: Option<PathBuf>,
     pub(super) expected_lock: Option<ContentHash>,
     pub(super) state_root: Option<PathBuf>,
@@ -57,6 +61,16 @@ impl GameOptions {
                         return Err(AppFailure::argument(
                             "--maximum-frames must be one positive integer",
                         ));
+                    }
+                }
+                "--start-at-lake" => {
+                    if std::mem::replace(&mut options.start_at_lake, true) {
+                        return Err(AppFailure::argument("--start-at-lake specified twice"));
+                    }
+                }
+                "--start-at-falls" => {
+                    if std::mem::replace(&mut options.start_at_falls, true) {
+                        return Err(AppFailure::argument("--start-at-falls specified twice"));
                     }
                 }
                 "--start-at-vessels" => {
@@ -192,6 +206,16 @@ impl GameOptions {
         if options.maximum_frames.is_some() && !options.interactive {
             return Err(AppFailure::argument(
                 "--maximum-frames requires --interactive",
+            ));
+        }
+        if options.start_at_lake && !options.interactive {
+            return Err(AppFailure::argument(
+                "--start-at-lake requires --interactive",
+            ));
+        }
+        if options.start_at_falls && !options.interactive {
+            return Err(AppFailure::argument(
+                "--start-at-falls requires --interactive",
             ));
         }
         if options.start_at_vessels && !options.interactive {

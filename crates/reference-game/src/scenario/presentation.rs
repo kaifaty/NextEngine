@@ -69,6 +69,15 @@ pub(crate) fn fixture_presentation_bindings(
     let (pond_mesh, pond_bounds) = mesh(crate::source::REFERENCE_WATER_POND_MESH_ASSET_ID)?;
     let (pond_surface_mesh, pond_surface_bounds) =
         mesh(crate::source::REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID)?;
+    let (works_mesh, works_bounds) = mesh(crate::source::REFERENCE_WATER_WORKS_MESH_ASSET_ID)?;
+    let (lake_surface_mesh, lake_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID)?;
+    let stream_surface_meshes = [
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[0])?,
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[1])?,
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[2])?,
+    ];
+    let stream_cells = crate::water::reference_water_stream_cell_ids();
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
@@ -420,6 +429,22 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
         PresentationBindingV1 {
+            // Plan 39: the lake works follow their static body.
+            persistent_id: crate::water::REFERENCE_WATER_WORKS_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: works_mesh,
+            material_revision: floor_material,
+            instance_ordinal: 22,
+            local_bounds: works_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_WORKS_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
             // Plan 36: the gate lever follows its static body.
             persistent_id: crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID.subject_id,
             presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
@@ -501,6 +526,35 @@ pub(crate) fn fixture_presentation_bindings(
             pond_surface_mesh,
             pond_surface_bounds,
             20,
+        ),
+        // Plan 39: the lake and the stream cells.
+        (
+            crate::water::REFERENCE_WATER_LAKE_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_LAKE_ID,
+            lake_surface_mesh,
+            lake_surface_bounds,
+            23,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[0],
+            stream_cells[0],
+            stream_surface_meshes[0].0,
+            stream_surface_meshes[0].1,
+            24,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[1],
+            stream_cells[1],
+            stream_surface_meshes[1].0,
+            stream_surface_meshes[1].1,
+            25,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[2],
+            stream_cells[2],
+            stream_surface_meshes[2].0,
+            stream_surface_meshes[2].1,
+            26,
         ),
     ] {
         bindings.push(PresentationBindingV1 {

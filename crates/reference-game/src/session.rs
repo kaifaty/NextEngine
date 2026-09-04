@@ -209,6 +209,30 @@ impl ReferenceSpawnOverrideV1 {
         }
     }
 
+    /// Plan 39: the avatar south-west of the pond (`x −7.5 m`, `z 3.5 m`),
+    /// looking `+z` over the pond with the stream's terraces and the dam
+    /// to the right of the avatar (a third-person camera hides whatever
+    /// the avatar faces), slightly down.
+    #[must_use]
+    pub const fn at_falls() -> Self {
+        Self {
+            translation_micrometres: [-7_500_000, 900_000, 3_500_000],
+            camera_yaw_millidegrees: 0,
+            camera_pitch_millidegrees: -8_000,
+        }
+    }
+
+    /// Plan 39: the avatar on the west bank's top (`3 m`), looking `+x`
+    /// over the lake toward the dam, slightly down.
+    #[must_use]
+    pub const fn at_lake() -> Self {
+        Self {
+            translation_micrometres: [-20_500_000, 3_900_000, 21_000_000],
+            camera_yaw_millidegrees: -60_000,
+            camera_pitch_millidegrees: -12_000,
+        }
+    }
+
     /// Plan 24: the avatar south of vessel B (`x 15..17.8 m`, `z 1..2.5 m`),
     /// looking along `+z` into the vessel where the PhysX water demo pours.
     #[must_use]
@@ -772,6 +796,15 @@ fn grounded_capsule_checkpoint(
             crate::water::REFERENCE_WATER_POND_BODY_ID,
             &material_id,
             &crate::water::REFERENCE_WATER_POND_BOXES_MICROMETRES,
+        ),
+    );
+    // Plan 39: the lake works, one static body of world-space boxes.
+    bodies.insert(
+        crate::water::REFERENCE_WATER_WORKS_BODY_ID,
+        static_boxes_descriptor(
+            crate::water::REFERENCE_WATER_WORKS_BODY_ID,
+            &material_id,
+            &crate::water::reference_water_works_boxes(),
         ),
     );
     // Plan 36: the gate lever, a body posed at the lever (the crate mesh is

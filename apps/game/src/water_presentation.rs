@@ -64,9 +64,12 @@ impl WaterPresentationFeed {
         }
         let mut minimum = reference_water_basin_definition().minimum_micrometres;
         let mut maximum = reference_water_basin_definition().maximum_micrometres;
+        let showcase = next_reference_game::reference_water_showcase_definitions()
+            .map_err(|error| error.to_string())?;
         for vessel in reference_water_vessel_definitions()
             .into_iter()
             .chain([reference_water_pond_definition()])
+            .chain(showcase.iter().cloned())
         {
             for axis in 0..3 {
                 minimum[axis] = minimum[axis].min(vessel.minimum_micrometres[axis]);
@@ -84,6 +87,7 @@ impl WaterPresentationFeed {
             .into_iter()
             .chain(reference_water_vessel_definitions())
             .chain([reference_water_pond_definition()])
+            .chain(showcase)
             .collect();
         let waves = reference_water_surface_bindings()
             .into_iter()

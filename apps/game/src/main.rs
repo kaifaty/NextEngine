@@ -129,6 +129,14 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             // Plan 32: on the pond floor, the camera under the level.
             launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::in_pond());
         }
+        if options.start_at_lake {
+            // Plan 39: on the west bank's top, the lake ahead.
+            launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_lake());
+        }
+        if options.start_at_falls {
+            // Plan 39: south of the pond, the stream and the dam ahead.
+            launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::at_falls());
+        }
         if options.start_at_vessels {
             // Plan 36: south of the vessels, in reach of the gate lever.
             launch.spawn_override =

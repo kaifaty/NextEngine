@@ -40,6 +40,15 @@ pub const REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID: AssetId = AssetId::from_bytes
 /// Plan 32: the pond interior (walls, floor, steps) and its surface quad.
 pub const REFERENCE_WATER_POND_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9d; 16]);
 pub const REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9e; 16]);
+/// Plan 39: the lake works (banks, dam, sill, stairs, terraces, walls), the
+/// lake's surface quad and the three stream cells' quads.
+pub const REFERENCE_WATER_WORKS_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe5; 16]);
+pub const REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe6; 16]);
+pub const REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS: [AssetId; 3] = [
+    AssetId::from_bytes([0xe7; 16]),
+    AssetId::from_bytes([0xe8; 16]),
+    AssetId::from_bytes([0xe9; 16]),
+];
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

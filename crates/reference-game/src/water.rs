@@ -90,6 +90,38 @@ pub const REFERENCE_WATER_POND_BOXES_MICROMETRES: [([i64; 3], [i64; 3]); 6] = [
         [250_000, 125_000, 2_250_000],
     ),
 ];
+/// Plan 39: the lake behind the dam, the stream's lattice and the works
+/// (banks, dam, sill, stairs, terraces, walls) that hold them.
+pub const REFERENCE_WATER_LAKE_ID: PersistentId = PersistentId::from_bytes([0xe0; 16]);
+pub const REFERENCE_WATER_LAKE_MINIMUM_MICROMETRES: [i64; 3] = [-20_000_000, 0, 14_000_000];
+pub const REFERENCE_WATER_LAKE_MAXIMUM_MICROMETRES: [i64; 3] = [0, 4_000_000, 28_000_000];
+pub const REFERENCE_WATER_LAKE_INITIAL_LEVEL_MICROMETRES: i64 = 2_250_000;
+pub const REFERENCE_WATER_STREAM_REGION_ID: PersistentId = PersistentId::from_bytes([0xe3; 16]);
+pub const REFERENCE_WATER_STREAM_MINIMUM_X_MICROMETRES: i64 = -4_750_000;
+pub const REFERENCE_WATER_STREAM_WIDTH_MICROMETRES: i64 = 1_500_000;
+pub const REFERENCE_WATER_STREAM_ORIGIN_Z_MICROMETRES: i64 = 10_000_000;
+pub const REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES: i64 = 1_000_000;
+/// South to north: the fall's cell, the middle terrace, the crest terrace.
+pub const REFERENCE_WATER_STREAM_FLOORS_MICROMETRES: [i64; 3] = [500_000, 1_200_000, 2_000_000];
+pub const REFERENCE_WATER_STREAM_SILL_COEFFICIENT_PERMILLE: u32 = 600;
+pub const REFERENCE_WATER_DAM_CREST_MICROMETRES: i64 = 2_200_000;
+pub const REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND: i64 = 3_000_000;
+pub const REFERENCE_WATER_WEIR_ID: PersistentId = PersistentId::from_bytes([0xf0; 16]);
+pub const REFERENCE_WATER_FALL_ID: PersistentId = PersistentId::from_bytes([0xf1; 16]);
+pub const REFERENCE_WATER_SPRING_ID: PersistentId = PersistentId::from_bytes([0xf2; 16]);
+pub const REFERENCE_WATER_DRAIN_ID: PersistentId = PersistentId::from_bytes([0xf3; 16]);
+pub const REFERENCE_WATER_LAKE_SURFACE_OBJECT_ID: PersistentId =
+    PersistentId::from_bytes([0xea; 16]);
+pub const REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS: [PersistentId; 3] = [
+    PersistentId::from_bytes([0xeb; 16]),
+    PersistentId::from_bytes([0xec; 16]),
+    PersistentId::from_bytes([0xed; 16]),
+];
+pub const REFERENCE_WATER_WORKS_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
+    subject_id: PersistentId::from_bytes([0xe4; 16]),
+    body_slot: 0,
+};
+
 /// Plan 36: the gate lever, a static cube south of vessel B in reach of the
 /// vessels' start; its body id and the water-gate system principal.
 pub const REFERENCE_WATER_GATE_LEVER_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
@@ -103,17 +135,97 @@ pub const REFERENCE_WATER_GATE_SYSTEM_ID: &str = "nextengine.reference.water-gat
 /// Plan 32: the ground as four strips around the pond hole (centre, half
 /// extents), solid from the pond floor to the ground.
 pub const REFERENCE_GROUND_STRIPS_MICROMETRES: [([i64; 3], [i64; 3]); 4] = [
-    ([0, -850_000, -2_500_000], [10_000_000, 850_000, 7_500_000]),
-    ([0, -850_000, 9_750_000], [10_000_000, 850_000, 250_000]),
+    // Plan 39: the floor spans 60 x 60 m around the pond's hole.
     (
-        [-9_500_000, -850_000, 7_250_000],
-        [500_000, 850_000, 2_250_000],
+        [0, -850_000, -12_500_000],
+        [30_000_000, 850_000, 17_500_000],
+    ),
+    ([0, -850_000, 19_750_000], [30_000_000, 850_000, 10_250_000]),
+    (
+        [-19_500_000, -850_000, 7_250_000],
+        [10_500_000, 850_000, 2_250_000],
     ),
     (
-        [5_500_000, -850_000, 7_250_000],
-        [4_500_000, 850_000, 2_250_000],
+        [15_500_000, -850_000, 7_250_000],
+        [14_500_000, 850_000, 2_250_000],
     ),
 ];
+/// Plan 39: the lake's banks, the dam and its sill, the west stairs, the
+/// stream's terraces and side walls (centre, half extents), one body.
+#[must_use]
+pub fn reference_water_works_boxes() -> Vec<([i64; 3], [i64; 3])> {
+    let mut boxes = vec![
+        // West, east and north banks, 1 m thick, 3 m high.
+        (
+            [-20_500_000, 1_500_000, 21_000_000],
+            [500_000, 1_500_000, 8_000_000],
+        ),
+        (
+            [500_000, 1_500_000, 21_000_000],
+            [500_000, 1_500_000, 8_000_000],
+        ),
+        (
+            [-10_000_000, 1_500_000, 28_500_000],
+            [11_000_000, 1_500_000, 500_000],
+        ),
+        // The dam (south bank) in two pieces around the spillway.
+        (
+            [-12_875_000, 1_500_000, 13_500_000],
+            [8_125_000, 1_500_000, 500_000],
+        ),
+        (
+            [-1_125_000, 1_500_000, 13_500_000],
+            [2_125_000, 1_500_000, 500_000],
+        ),
+        // The spillway sill: the dam's crest at 2.2 m.
+        (
+            [-4_000_000, 1_100_000, 13_500_000],
+            [750_000, 1_100_000, 500_000],
+        ),
+    ];
+    // Twelve steps up the west bank's outside, 0.25 m rise, 1 m tread.
+    for step in 0..12_i64 {
+        let top = 250_000 * (step + 1);
+        boxes.push((
+            [-21_500_000, top / 2, 17_500_000 + step * 1_000_000],
+            [500_000, top / 2, 500_000],
+        ));
+    }
+    // The terraces under the stream's cells and the side walls 0.3 m over
+    // each floor.
+    for (row, floor) in REFERENCE_WATER_STREAM_FLOORS_MICROMETRES.iter().enumerate() {
+        let z = REFERENCE_WATER_STREAM_ORIGIN_Z_MICROMETRES
+            + REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES * row as i64
+            + REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES / 2;
+        let x_centre = REFERENCE_WATER_STREAM_MINIMUM_X_MICROMETRES
+            + REFERENCE_WATER_STREAM_WIDTH_MICROMETRES / 2;
+        boxes.push((
+            [x_centre, floor / 2, z],
+            [
+                REFERENCE_WATER_STREAM_WIDTH_MICROMETRES / 2,
+                floor / 2,
+                REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES / 2,
+            ],
+        ));
+        let wall_top = floor + 300_000;
+        for side in [
+            REFERENCE_WATER_STREAM_MINIMUM_X_MICROMETRES - 125_000,
+            REFERENCE_WATER_STREAM_MINIMUM_X_MICROMETRES
+                + REFERENCE_WATER_STREAM_WIDTH_MICROMETRES
+                + 125_000,
+        ] {
+            boxes.push((
+                [side, wall_top / 2, z],
+                [
+                    125_000,
+                    wall_top / 2,
+                    REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES / 2,
+                ],
+            ));
+        }
+    }
+    boxes
+}
 
 /// ADR-103 first flow consumer (plan `continuum-water/07`): vessel A on a
 /// `1 m` shelf, `2 x 1.5 m` in plan, filled to `1.5 m`; vessel B on the
@@ -165,10 +277,75 @@ pub fn reference_water_vessel_definitions() -> [WaterVolumeDefinitionV1; 2] {
     ]
 }
 
+/// Plan 39: the lake, a still big body behind the dam.
+#[must_use]
+pub fn reference_water_lake_definition() -> WaterVolumeDefinitionV1 {
+    WaterVolumeDefinitionV1 {
+        volume_id: REFERENCE_WATER_LAKE_ID,
+        minimum_micrometres: REFERENCE_WATER_LAKE_MINIMUM_MICROMETRES,
+        maximum_micrometres: REFERENCE_WATER_LAKE_MAXIMUM_MICROMETRES,
+        initial_level_micrometres: REFERENCE_WATER_LAKE_INITIAL_LEVEL_MICROMETRES,
+        swimming_depth_micrometres: REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES,
+        level_ramp: None,
+        profile_revision: REFERENCE_WATER_BASIN_PROFILE_REVISION,
+    }
+}
+
+/// Plan 39: the stream as a lattice region of three cells along `z`.
+#[must_use]
+pub fn reference_water_stream_region() -> next_contracts::physics::WaterLatticeRegionV1 {
+    next_contracts::physics::WaterLatticeRegionV1 {
+        region_id: REFERENCE_WATER_STREAM_REGION_ID,
+        origin_micrometres: [
+            REFERENCE_WATER_STREAM_MINIMUM_X_MICROMETRES,
+            0,
+            REFERENCE_WATER_STREAM_ORIGIN_Z_MICROMETRES,
+        ],
+        cell_size_micrometres: [
+            REFERENCE_WATER_STREAM_WIDTH_MICROMETRES,
+            REFERENCE_WATER_STREAM_CELL_LENGTH_MICROMETRES,
+        ],
+        columns: 1,
+        rows: 3,
+        ceiling_micrometres: 4_000_000,
+        floor_micrometres: REFERENCE_WATER_STREAM_FLOORS_MICROMETRES.to_vec(),
+        initial_level_micrometres: REFERENCE_WATER_STREAM_FLOORS_MICROMETRES
+            .iter()
+            .map(|floor| floor + 50_000)
+            .collect(),
+        sill_coefficient_permille: REFERENCE_WATER_STREAM_SILL_COEFFICIENT_PERMILLE,
+        profile_revision: REFERENCE_WATER_BASIN_PROFILE_REVISION,
+    }
+}
+
+/// Plan 39: the stream cells' ids, south to north.
+#[must_use]
+pub fn reference_water_stream_cell_ids() -> [PersistentId; 3] {
+    let region = reference_water_stream_region();
+    [
+        region.cell_id(0, 0),
+        region.cell_id(0, 1),
+        region.cell_id(0, 2),
+    ]
+}
+
+/// Plan 39: the lake and the stream cells, in the order of the showcase.
+pub fn reference_water_showcase_definitions()
+-> Result<Vec<WaterVolumeDefinitionV1>, ReferenceGameError> {
+    let mut definitions = vec![reference_water_lake_definition()];
+    definitions.extend(
+        reference_water_stream_region()
+            .definitions()
+            .map_err(ReferenceGameError::Physics)?,
+    );
+    Ok(definitions)
+}
+
 /// The authored edges of the reference flow network.
 #[must_use]
-pub fn reference_water_flow_edges() -> [WaterFlowEdgeV1; 3] {
-    [
+pub fn reference_water_flow_edges() -> Vec<WaterFlowEdgeV1> {
+    let cells = reference_water_stream_cell_ids();
+    let mut edges = vec![
         WaterFlowEdgeV1 {
             edge_id: REFERENCE_WATER_FLOW_GATE_ID,
             cell_a: REFERENCE_WATER_VESSEL_A_ID,
@@ -196,7 +373,53 @@ pub fn reference_water_flow_edges() -> [WaterFlowEdgeV1; 3] {
                 rate_cubic_millimetres_per_second: FLOW_SINK_RATE_CUBIC_MILLIMETRES_PER_SECOND,
             },
         },
-    ]
+        // Plan 39: the dam's weir, the fall into the pond, the spring and
+        // the drain; the stream's own sills come from its region.
+        WaterFlowEdgeV1 {
+            edge_id: REFERENCE_WATER_WEIR_ID,
+            cell_a: REFERENCE_WATER_LAKE_ID,
+            cell_b: Some(cells[2]),
+            kind: WaterFlowEdgeKindV1::Open {
+                sill_micrometres: REFERENCE_WATER_DAM_CREST_MICROMETRES,
+                width_millimetres: REFERENCE_WATER_STREAM_WIDTH_MICROMETRES / 1_000,
+                coefficient_permille: REFERENCE_WATER_STREAM_SILL_COEFFICIENT_PERMILLE,
+            },
+        },
+        WaterFlowEdgeV1 {
+            edge_id: REFERENCE_WATER_FALL_ID,
+            cell_a: cells[0],
+            cell_b: Some(REFERENCE_WATER_POND_ID),
+            kind: WaterFlowEdgeKindV1::Open {
+                sill_micrometres: REFERENCE_WATER_STREAM_FLOORS_MICROMETRES[0],
+                width_millimetres: REFERENCE_WATER_STREAM_WIDTH_MICROMETRES / 1_000,
+                coefficient_permille: REFERENCE_WATER_STREAM_SILL_COEFFICIENT_PERMILLE,
+            },
+        },
+        WaterFlowEdgeV1 {
+            edge_id: REFERENCE_WATER_SPRING_ID,
+            cell_a: REFERENCE_WATER_LAKE_ID,
+            cell_b: None,
+            kind: WaterFlowEdgeKindV1::Source {
+                rate_cubic_millimetres_per_second:
+                    REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND,
+            },
+        },
+        WaterFlowEdgeV1 {
+            edge_id: REFERENCE_WATER_DRAIN_ID,
+            cell_a: REFERENCE_WATER_POND_ID,
+            cell_b: None,
+            kind: WaterFlowEdgeKindV1::Sink {
+                rate_cubic_millimetres_per_second:
+                    REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND,
+            },
+        },
+    ];
+    edges.extend(
+        reference_water_stream_region()
+            .edges()
+            .expect("the reference stream region is valid"),
+    );
+    edges
 }
 
 /// The genesis flow network over the reference water table.
@@ -229,7 +452,8 @@ pub fn reference_water_volumes() -> Result<WaterVolumeSetV1, ReferenceGameError>
         [reference_water_basin_definition()]
             .into_iter()
             .chain(reference_water_vessel_definitions())
-            .chain([reference_water_pond_definition()]),
+            .chain([reference_water_pond_definition()])
+            .chain(reference_water_showcase_definitions()?),
     )?)
 }
 
@@ -349,6 +573,99 @@ mod tests {
         assert_eq!(ground.class, WaterSubmersionClassV1::Dry);
     }
 
+    /// Plan 39 G2: the showcase validates, flows and holds its levels.
+    #[test]
+    fn the_lake_feeds_the_stream_and_the_pond_holds_its_level() {
+        let mut volumes = reference_water_volumes().expect("volumes");
+        assert_eq!(volumes.definitions.len(), 8);
+        let mut network = reference_water_flow(&volumes).expect("network");
+        // The network's cell volumes are the exact water; level-derived
+        // volumes truncate (a micrometre of the lake's level is 0.28 L).
+        let total = |network: &WaterFlowNetworkV1| -> i128 {
+            network
+                .cells
+                .values()
+                .map(|cell| i128::from(cell.volume_cubic_millimetres))
+                .sum()
+        };
+        let before = total(&network);
+        for _ in 0..1_800 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        let lake = volumes
+            .effective_level(REFERENCE_WATER_LAKE_ID, 1_800)
+            .expect("lake");
+        assert!((2_200_000..=2_350_000).contains(&lake), "lake level {lake}");
+        let pond = volumes
+            .effective_level(REFERENCE_WATER_POND_ID, 1_800)
+            .expect("pond");
+        assert!((-150_000..=-50_000).contains(&pond), "pond level {pond}");
+        let cells = reference_water_stream_cell_ids();
+        let region = reference_water_stream_region();
+        for edge in [
+            REFERENCE_WATER_WEIR_ID,
+            region.edge_id(cells[2], cells[1]),
+            region.edge_id(cells[1], cells[0]),
+            REFERENCE_WATER_FALL_ID,
+        ] {
+            let flux = network.edge_flux(edge).expect("edge");
+            assert!(flux != 0, "edge {edge:?} carries water at the end");
+        }
+        // Conservation: the spring and the drain cancel per tick; vessel B's
+        // sink is bounded while B fills, so the vessels' source can only add
+        // (at most 0.5 L/s over the run).
+        let after = total(&network);
+        let delta = after - before;
+        assert!(
+            (0..=30_000_000).contains(&delta),
+            "total moved by {delta} mm^3 over 1800 ticks"
+        );
+    }
+
+    /// Plan 39 G3: the stage carries eight surfaces and the showcase's edge
+    /// records once the stream runs.
+    #[test]
+    fn the_stage_shows_the_showcase() {
+        use crate::water_presentation::{
+            WaterEdgePresentationKindV1, compute_water_presentation_frame,
+            reference_water_surface_bindings,
+        };
+        let mut volumes = reference_water_volumes().expect("volumes");
+        let mut network = reference_water_flow(&volumes).expect("network");
+        for _ in 0..300 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        let frame = compute_water_presentation_frame(
+            &volumes,
+            &network,
+            &reference_water_surface_bindings(),
+            &[],
+            300,
+            300,
+        );
+        assert_eq!(frame.surfaces.len(), 8);
+        let kind = |edge: PersistentId| {
+            frame
+                .edges
+                .iter()
+                .find(|record| record.edge_id == edge)
+                .map(|record| record.kind)
+        };
+        assert!(
+            kind(REFERENCE_WATER_WEIR_ID).is_some(),
+            "the weir has a record"
+        );
+        assert_eq!(
+            kind(REFERENCE_WATER_FALL_ID),
+            Some(WaterEdgePresentationKindV1::Fall),
+            "the drop into the pond is a fall"
+        );
+        let cells = reference_water_stream_cell_ids();
+        let region = reference_water_stream_region();
+        assert!(kind(region.edge_id(cells[2], cells[1])).is_some());
+        assert!(kind(region.edge_id(cells[1], cells[0])).is_some());
+    }
+
     /// Plan 32 G3: step rises within the capsule's limit, the hole inside
     /// the ground strips, no overlap with the other bodies.
     #[test]
@@ -368,8 +685,8 @@ mod tests {
         assert_eq!(floor_top, REFERENCE_WATER_POND_MINIMUM_MICROMETRES[1]);
         let pond_min = REFERENCE_WATER_POND_MINIMUM_MICROMETRES;
         let pond_max = REFERENCE_WATER_POND_MAXIMUM_MICROMETRES;
-        assert!(pond_min[0] > -10_000_000 && pond_max[0] < 10_000_000);
-        assert!(pond_min[2] > -10_000_000 && pond_max[2] < 10_000_000);
+        assert!(pond_min[0] > -30_000_000 && pond_max[0] < 30_000_000);
+        assert!(pond_min[2] > -30_000_000 && pond_max[2] < 30_000_000);
         let disjoint = |other: &WaterVolumeDefinitionV1| {
             pond_max[0] <= other.minimum_micrometres[0]
                 || other.maximum_micrometres[0] <= pond_min[0]
@@ -385,7 +702,7 @@ mod tests {
         for (centre, half) in REFERENCE_GROUND_STRIPS_MICROMETRES {
             let (x0, x1) = (centre[0] - half[0], centre[0] + half[0]);
             let (z0, z1) = (centre[2] - half[2], centre[2] + half[2]);
-            assert!(x0 >= -10_000_000 && x1 <= 10_000_000 && z0 >= -10_000_000 && z1 <= 10_000_000);
+            assert!(x0 >= -30_000_000 && x1 <= 30_000_000 && z0 >= -30_000_000 && z1 <= 30_000_000);
             assert!(
                 x1 <= pond_min[0] || x0 >= pond_max[0] || z1 <= pond_min[2] || z0 >= pond_max[2]
             );

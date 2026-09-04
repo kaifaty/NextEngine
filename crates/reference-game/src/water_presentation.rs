@@ -373,7 +373,8 @@ pub struct WaterSurfaceBindingV1 {
 
 /// The reference scene's surface quads.
 #[must_use]
-pub fn reference_water_surface_bindings() -> [WaterSurfaceBindingV1; 4] {
+pub fn reference_water_surface_bindings() -> [WaterSurfaceBindingV1; 8] {
+    let cells = crate::water::reference_water_stream_cell_ids();
     [
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_BASIN_ID,
@@ -390,6 +391,22 @@ pub fn reference_water_surface_bindings() -> [WaterSurfaceBindingV1; 4] {
         WaterSurfaceBindingV1 {
             volume_id: crate::water::REFERENCE_WATER_POND_ID,
             mesh_asset_id: crate::source::REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID,
+        },
+        WaterSurfaceBindingV1 {
+            volume_id: crate::water::REFERENCE_WATER_LAKE_ID,
+            mesh_asset_id: crate::source::REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID,
+        },
+        WaterSurfaceBindingV1 {
+            volume_id: cells[0],
+            mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[0],
+        },
+        WaterSurfaceBindingV1 {
+            volume_id: cells[1],
+            mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[1],
+        },
+        WaterSurfaceBindingV1 {
+            volume_id: cells[2],
+            mesh_asset_id: crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[2],
         },
     ]
 }
@@ -1079,7 +1096,7 @@ mod tests {
         let first = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
         let again = compute_water_presentation_frame(&volumes, &network, &bindings, &[], 1, 7);
         assert_eq!(first, again);
-        assert_eq!(first.surfaces.len(), 4);
+        assert_eq!(first.surfaces.len(), 8);
         for surface in &first.surfaces {
             assert_eq!(
                 surface.positions_micrometres.len(),
