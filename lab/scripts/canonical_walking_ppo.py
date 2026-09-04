@@ -52,7 +52,11 @@ def make_env(
 
 def adapter_control(headless, descriptor, profile):
     """Raw native controls use the same partition/root but independent processes."""
-    env = make_env(headless, descriptor, profile, device="cpu", num_envs=4, shards=2)
+    slots = profile["num_envs"] // profile["shards"]
+    count = 2 * slots
+    env = make_env(
+        headless, descriptor, profile, device="cpu", num_envs=count, shards=2
+    )
     controls = []
     transitions = 0
     terminals = 0
@@ -62,29 +66,33 @@ def adapter_control(headless, descriptor, profile):
             control = MotorLabClient(
                 headless,
                 profile["environment_profile_id"],
-                2,
+                slots,
                 shard_root(seed_root(profile["seed"]), shard),
             )
             controls.append(control)
-            reset = control.reset([0, 1])
+            reset = sorted(
+                control.reset(list(range(slots))), key=lambda item: item.vector_slot
+            )
             np.testing.assert_array_equal(
-                env.raw[shard * 2 : shard * 2 + 2],
+                env.raw[shard * slots : (shard + 1) * slots],
                 np.stack([item.observation_raw for item in reset]),
             )
         rng = np.random.default_rng(193)
         for tick in range(160):
             # Includes zero control and unsafe exploration to exercise independent resets.
-            actions = np.zeros((4, 23), dtype=np.float32)
-            actions[1:] = rng.uniform(-0.8, 0.8, size=(3, 23)).astype(np.float32)
+            actions = np.zeros((count, 23), dtype=np.float32)
+            actions[1:] = rng.uniform(-0.8, 0.8, size=(count - 1, 23)).astype(
+                np.float32
+            )
             ordinals = env.ordinals.copy()
             _obs, rewards, _dones, extras = env.step(torch.from_numpy(actions))
             for shard, control in enumerate(controls):
                 batch = control.step_normalized(
-                    ordinals[2 * shard : 2 * shard + 2],
-                    actions[2 * shard : 2 * shard + 2],
+                    ordinals[slots * shard : slots * (shard + 1)],
+                    actions[slots * shard : slots * (shard + 1)],
                 )
-                for local, expected in enumerate(batch):
-                    index = shard * 2 + local
+                for expected in batch:
+                    index = shard * slots + expected.vector_slot
                     actual = env.last_steps[index]
                     for field in fields(expected):
                         np.testing.assert_equal(
@@ -106,7 +114,7 @@ def adapter_control(headless, descriptor, profile):
                 if ended:
                     terminals += len(ended)
                     for reset in control.reset(ended):
-                        index = 2 * shard + reset.vector_slot
+                        index = slots * shard + reset.vector_slot
                         np.testing.assert_array_equal(
                             env.raw[index], reset.observation_raw
                         )

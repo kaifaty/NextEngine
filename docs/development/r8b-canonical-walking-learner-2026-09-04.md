@@ -62,6 +62,25 @@ adapter correctness, not policy quality.
 
 ## Remaining uncertainty
 
+### Infrastructure correction before the first optimizer update
+
+Generation-01 TRAIN-1 failed before any PPO update/checkpoint: the initial
+adapter incorrectly required slot-sorted native responses. Production
+`crates/motor/src/training/runner.rs` sorts reset and step outputs by
+`(episode_ordinal, vector_slot)`. Asynchronous terminations reorder a 16-slot
+batch. This is an adapter defect, not a physics failure or failed learner.
+The original two-slot controls did not discriminate the ordering assumption.
+
+The adapter now aligns by explicit slot and still rejects duplicates/missing
+slots and mismatched episode ordinals. A control at the real 16-slots-per-shard
+partition passes **5,120 transitions and 399 terminals/resets**, all raw fields
+exact. Digest `4dcb9802ee6c91e1b210eb5a4cca9a958e286a6d385805386bfb499b0808fe86`;
+external `r8b-canonical-walking-v1/adapter-control-02/run-manifest.json`.
+Eight focused adapter/PPO tests and 17 combined tests pass, as do Ruff and
+diff checks. Generation-01 remains preserved failed evidence. Generation-02
+recloses the repaired infrastructure for the same seed/profile and previously
+unexecuted optimizer budget; it is not a hyperparameter or reward retry.
+
 Walking V5 can release either foot but a complete alternating gait is not yet
 demonstrated. Its unchanged instantaneous support reward may still favor
 standing; the direct-CPU run must answer that before isolated gait-credit work.

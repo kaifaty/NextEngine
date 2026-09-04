@@ -124,7 +124,10 @@ class CanonicalVecEnv:
             raise
 
     def _reset(self, shard: int, slots: list[int]) -> None:
-        results = self.clients[shard].reset(slots)
+        # Native responses use (episode ordinal, vector slot), not slot order.
+        results = sorted(
+            self.clients[shard].reset(slots), key=lambda item: item.vector_slot
+        )
         if [item.vector_slot for item in results] != slots:
             raise RuntimeError("canonical reset order/count mismatch")
         for item in results:
@@ -159,7 +162,10 @@ class CanonicalVecEnv:
             futures.append(
                 self.pool.submit(client.step, self.ordinals[part], raw_actions[part])
             )
-        results_by_shard = [future.result() for future in futures]
+        results_by_shard = [
+            sorted(future.result(), key=lambda item: item.vector_slot)
+            for future in futures
+        ]
         results = []
         for shard, batch in enumerate(results_by_shard):
             if [item.vector_slot for item in batch] != list(

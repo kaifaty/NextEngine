@@ -157,6 +157,41 @@ class CanonicalAdapterTests(unittest.TestCase):
             self.make_env(bad_factory)
         self.assertTrue(clients[0].closed)
 
+    def test_response_order_is_not_assumed_to_be_slot_order(self):
+        class ReorderedClient(FakeClient):
+            def reset(self, slots):
+                return list(reversed(super().reset(slots)))
+
+            def step(self, ordinals, actions):
+                return list(reversed(super().step(ordinals, actions)))
+
+        env = self.make_env(ReorderedClient)
+        try:
+            env.step(torch.zeros(4, 23))
+            self.assertEqual(
+                [item.vector_slot for item in env.last_steps], [0, 1, 0, 1]
+            )
+            self.assertEqual(
+                [int(item.observation_raw[0]) for item in env.last_steps],
+                [100, 101, 100, 101],
+            )
+        finally:
+            env.close()
+
+    def test_duplicate_response_slot_is_rejected(self):
+        class DuplicateClient(FakeClient):
+            def step(self, ordinals, actions):
+                values = super().step(ordinals, actions)
+                values[1].vector_slot = 0
+                return values
+
+        env = self.make_env(DuplicateClient)
+        try:
+            with self.assertRaisesRegex(RuntimeError, "order/count"):
+                env.step(torch.zeros(4, 23))
+        finally:
+            env.close()
+
     def test_shard_partition_is_repeatable_and_distinct(self):
         self.assertEqual(shard_root("ab" * 32, 0), shard_root("ab" * 32, 0))
         self.assertNotEqual(shard_root("ab" * 32, 0), shard_root("ab" * 32, 1))

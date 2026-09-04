@@ -22,8 +22,8 @@
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Under ADR-107 freeze and run the direct CPU V5 experiment
-  with CUDA PPO. Adapter control passes 640 exact raw transitions and 29
-  resets; six adapter/PPO tests pass. No policy quality yet.
+  with CUDA PPO. Corrected adapter control passes 5,120 exact raw transitions
+  and 399 resets; eight adapter/PPO tests pass. No policy quality yet.
 - **Training:** No optimizer run started after the V4/V5 corrections. The
   original paired alternation/correspondence criterion remains unsatisfied.
   ADR-107 permits one direct-CPU discriminator, not an Isaac retry.
@@ -112,6 +112,11 @@ not clean-commit generation/run manifests.
 - **Reconsider mirror when:** One demonstrated correction passes the original
   tape and unchanged standing control, not a shorter or improved prefix.
 - **Next:** Clean-commit generation freeze, one bounded run, final evaluation.
+- **Infrastructure repair:** Generation-01 failed before the first PPO update
+  because native responses sort by `(episode ordinal, slot)`, not slot alone.
+  Align by explicit slot; retain duplicate/missing/ordinal checks. Do not
+  repeat the two-slot-only control. Generation-02 binds the repaired adapter
+  to the unchanged profile and unexecuted optimizer budget.
 
 ## Active hypotheses
 
