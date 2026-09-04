@@ -41,6 +41,15 @@ const SPRAY_SUBDROPLETS: u32 = 12;
 const SPRAY_STREAK_SECONDS: f32 = 1.0 / 60.0;
 const BULK_NEIGHBOUR_COUNT: u32 = 20;
 const EDGE_RADIUS_SCALE: f32 = 0.5;
+/// Plan 30: anisotropic kernels (Yu and Turk 2010) from the weighted
+/// covariance of the neighbourhood; semi-axes `KS·√λ`, the smallest axis
+/// raised to `r_max / KR`, every axis clamped to the profile radius band.
+const KERNEL_MIN_NEIGHBOURS: u32 = 8;
+const KERNEL_SCALE: f32 = 1.0;
+const KERNEL_MAX_RATIO: f32 = 4.0;
+const KERNEL_MIN_AXIS_SCALE: f32 = 0.25;
+const KERNEL_MAX_AXIS_SCALE: f32 = 2.0;
+const KERNEL_PROFILE_RADIUS_METRES: f32 = LANE_RADIUS_MICROMETRES as f32 / 1_000_000.0;
 /// Plan 25: a particle this close above the level at rest has returned to
 /// the exact water (two spacings).
 const ABSORB_BAND_METRES: f32 = 2.0 * LANE_SPACING_METRES;
@@ -273,13 +282,448 @@ pub(crate) fn particles_inside(
 /// `65,535`), through a dense uniform grid of cell `radius` over the
 /// particles' bounds (linked cells, the forward half of the `27`
 /// neighbourhood so every pair is visited once). Pure.
+#[cfg(test)]
 pub(crate) fn neighbour_counts_and_clusters(
     positions: &[[f32; 3]],
     radius: f32,
 ) -> (Vec<u8>, Vec<u16>) {
-    const NONE: u32 = u32::MAX;
+    let neighbourhood = neighbourhood_of(positions, radius);
+    (neighbourhood.counts, neighbourhood.clusters)
+}
+
+/// Plan 27's counts and clusters plus plan 30's kernels, from one sweep.
+pub(crate) struct NeighbourhoodV1 {
+    pub(crate) counts: Vec<u8>,
+    pub(crate) clusters: Vec<u16>,
+    /// Symmetric kernel `xx xy xz yy yz zz` in inverse metres; zero for a
+    /// particle with too few neighbours (the pass's isotropic fallback).
+    pub(crate) kernels: Vec<[f32; 6]>,
+}
+
+/// Weighted moment sums of one particle's neighbourhood (self excluded).
+#[derive(Clone, Copy, Default)]
+struct Moments {
+    weight: f32,
+    first: [f32; 3],
+    second: [f32; 6],
+}
+
+impl Moments {
+    #[inline(always)]
+    fn add(&mut self, delta: [f32; 3], weight: f32) {
+        self.weight += weight;
+        for (first, delta) in self.first.iter_mut().zip(delta) {
+            *first += weight * delta;
+        }
+        self.second[0] += weight * delta[0] * delta[0];
+        self.second[1] += weight * delta[0] * delta[1];
+        self.second[2] += weight * delta[0] * delta[2];
+        self.second[3] += weight * delta[1] * delta[1];
+        self.second[4] += weight * delta[1] * delta[2];
+        self.second[5] += weight * delta[2] * delta[2];
+    }
+
+    /// The weighted covariance with the particle itself at weight one.
+    fn covariance(&self) -> [f32; 6] {
+        let total = self.weight + 1.0;
+        let mean = self.first.map(|value| value / total);
+        [
+            self.second[0] / total - mean[0] * mean[0],
+            self.second[1] / total - mean[0] * mean[1],
+            self.second[2] / total - mean[0] * mean[2],
+            self.second[3] / total - mean[1] * mean[1],
+            self.second[4] / total - mean[1] * mean[2],
+            self.second[5] / total - mean[2] * mean[2],
+        ]
+    }
+}
+
+/// Eigenvalues (ascending) and unit eigenvectors (columns) of a symmetric
+/// `xx xy xz yy yz zz` matrix: the closed trigonometric form for the
+/// values, cross products of rows of `A − λI` for the vectors (a repeated
+/// value falls back to an orthonormal completion). Plan 30 revision 2:
+/// the Jacobi solver kept below as the test oracle cost 300 ns per
+/// particle; this form costs a third of it.
+pub(crate) fn symmetric_eigen(matrix: [f32; 6]) -> ([f32; 3], [[f32; 3]; 3]) {
+    let [xx, xy, xz, yy, yz, zz] = matrix;
+    let off = xy * xy + xz * xz + yz * yz;
+    let q = (xx + yy + zz) / 3.0;
+    let p2 = (xx - q) * (xx - q) + (yy - q) * (yy - q) + (zz - q) * (zz - q) + 2.0 * off;
+    let p = (p2 / 6.0).sqrt();
+    if p <= 1e-6 * q.abs().max(f32::MIN_POSITIVE) {
+        // Every direction is an eigenvector: an isotropic matrix.
+        return (
+            [q, q, q],
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        );
+    }
+    let b = [
+        (xx - q) / p,
+        xy / p,
+        xz / p,
+        (yy - q) / p,
+        yz / p,
+        (zz - q) / p,
+    ];
+    let determinant = b[0] * (b[3] * b[5] - b[4] * b[4]) - b[1] * (b[1] * b[5] - b[4] * b[2])
+        + b[2] * (b[1] * b[4] - b[3] * b[2]);
+    let r = (determinant / 2.0).clamp(-1.0, 1.0);
+    let phi = r.acos() / 3.0;
+    let largest = q + 2.0 * p * phi.cos();
+    let smallest = q + 2.0 * p * (phi + 2.0 * std::f32::consts::FRAC_PI_3).cos();
+    let middle = 3.0 * q - largest - smallest;
+    let values = [smallest, middle, largest];
+    let eigenvector = |value: f32| -> Option<[f32; 3]> {
+        let rows = [
+            [xx - value, xy, xz],
+            [xy, yy - value, yz],
+            [xz, yz, zz - value],
+        ];
+        let cross = |a: [f32; 3], b: [f32; 3]| {
+            [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ]
+        };
+        let candidates = [
+            cross(rows[0], rows[1]),
+            cross(rows[0], rows[2]),
+            cross(rows[1], rows[2]),
+        ];
+        let mut best = candidates[0];
+        let mut best_length = 0.0;
+        for candidate in candidates {
+            let length = candidate[0] * candidate[0]
+                + candidate[1] * candidate[1]
+                + candidate[2] * candidate[2];
+            if length > best_length {
+                best_length = length;
+                best = candidate;
+            }
+        }
+        let floor = 1e-10 * p2 * p2;
+        (best_length > floor).then(|| best.map(|component| component / best_length.sqrt()))
+    };
+    let unit_orthogonal = |v: [f32; 3]| -> [f32; 3] {
+        let helper = if v[0].abs() < 0.9 {
+            [1.0, 0.0, 0.0]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+        let w = [
+            v[1] * helper[2] - v[2] * helper[1],
+            v[2] * helper[0] - v[0] * helper[2],
+            v[0] * helper[1] - v[1] * helper[0],
+        ];
+        let length = (w[0] * w[0] + w[1] * w[1] + w[2] * w[2]).sqrt();
+        w.map(|component| component / length)
+    };
+    // The vector of the value farthest from the other two is the best
+    // conditioned; the second comes from the other extreme or a completion.
+    let (first, second) = if largest - middle >= middle - smallest {
+        let v_largest = eigenvector(largest).unwrap_or([0.0, 0.0, 1.0]);
+        let v_smallest = eigenvector(smallest).unwrap_or_else(|| unit_orthogonal(v_largest));
+        (v_smallest, v_largest)
+    } else {
+        let v_smallest = eigenvector(smallest).unwrap_or([1.0, 0.0, 0.0]);
+        let v_largest = eigenvector(largest).unwrap_or_else(|| unit_orthogonal(v_smallest));
+        (v_smallest, v_largest)
+    };
+    // Near-repeated values leave the two extremes ill conditioned; the
+    // second is re-orthogonalised against the first (Gram–Schmidt) and a
+    // collapsed remainder falls back to a completion.
+    let projection = first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
+    let mut second = [
+        second[0] - projection * first[0],
+        second[1] - projection * first[1],
+        second[2] - projection * first[2],
+    ];
+    let second_length =
+        (second[0] * second[0] + second[1] * second[1] + second[2] * second[2]).sqrt();
+    if second_length > 1e-3 {
+        second = second.map(|component| component / second_length);
+    } else {
+        second = unit_orthogonal(first);
+    }
+    let v_middle = [
+        second[1] * first[2] - second[2] * first[1],
+        second[2] * first[0] - second[0] * first[2],
+        second[0] * first[1] - second[1] * first[0],
+    ];
+    let mut vectors = [[0.0; 3]; 3];
+    for row in 0..3 {
+        vectors[row][0] = first[row];
+        vectors[row][1] = v_middle[row];
+        vectors[row][2] = second[row];
+    }
+    (values, vectors)
+}
+
+/// The cyclic Jacobi solver, the test oracle for `symmetric_eigen`.
+#[cfg(test)]
+pub(crate) fn symmetric_eigen_jacobi(matrix: [f32; 6]) -> ([f32; 3], [[f32; 3]; 3]) {
+    let mut a = [
+        [matrix[0], matrix[1], matrix[2]],
+        [matrix[1], matrix[3], matrix[4]],
+        [matrix[2], matrix[4], matrix[5]],
+    ];
+    let mut v = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    // Jacobi converges quadratically: a relative off-diagonal floor stops
+    // the sweeps after a few rotations instead of running them all.
+    let scale = (matrix[0] * matrix[0] + matrix[3] * matrix[3] + matrix[5] * matrix[5])
+        .max(f32::MIN_POSITIVE);
+    for _ in 0..16 {
+        let off = a[0][1] * a[0][1] + a[0][2] * a[0][2] + a[1][2] * a[1][2];
+        if off <= 1e-12 * scale {
+            break;
+        }
+        for (p, q) in [(0, 1), (0, 2), (1, 2)] {
+            if a[p][q].abs() < 1e-20 {
+                continue;
+            }
+            let theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q]);
+            let t = theta.signum() / (theta.abs() + (theta * theta + 1.0).sqrt());
+            let c = 1.0 / (t * t + 1.0).sqrt();
+            let s = t * c;
+            for row in &mut a {
+                let akp = row[p];
+                let akq = row[q];
+                row[p] = c * akp - s * akq;
+                row[q] = s * akp + c * akq;
+            }
+            let (row_p, row_q) = (a[p], a[q]);
+            a[p] = std::array::from_fn(|k| c * row_p[k] - s * row_q[k]);
+            a[q] = std::array::from_fn(|k| s * row_p[k] + c * row_q[k]);
+            for row in &mut v {
+                let vp = row[p];
+                let vq = row[q];
+                row[p] = c * vp - s * vq;
+                row[q] = s * vp + c * vq;
+            }
+        }
+    }
+    let mut order = [0, 1, 2];
+    order.sort_by(|x, y| a[*x][*x].total_cmp(&a[*y][*y]));
+    let values = order.map(|index| a[index][index]);
+    let mut vectors = [[0.0; 3]; 3];
+    for (column, index) in order.iter().enumerate() {
+        for row in 0..3 {
+            vectors[row][column] = v[row][*index];
+        }
+    }
+    (values, vectors)
+}
+
+/// Plan 30: the kernel `G = R·diag(1/r)·Rᵀ` from a neighbourhood's
+/// covariance, semi-axes clamped as frozen in the plan.
+fn kernel_of(covariance: [f32; 6], profile_radius: f32) -> [f32; 6] {
+    let (values, vectors) = symmetric_eigen(covariance);
+    let mut radii = values.map(|value| KERNEL_SCALE * value.max(0.0).sqrt());
+    let largest = radii[2].max(1e-6);
+    for radius in &mut radii {
+        *radius = (*radius).max(largest / KERNEL_MAX_RATIO).clamp(
+            KERNEL_MIN_AXIS_SCALE * profile_radius,
+            KERNEL_MAX_AXIS_SCALE * profile_radius,
+        );
+    }
+    let mut kernel = [0.0; 6];
+    for axis in 0..3 {
+        let inverse = 1.0 / radii[axis];
+        let v = [vectors[0][axis], vectors[1][axis], vectors[2][axis]];
+        kernel[0] += inverse * v[0] * v[0];
+        kernel[1] += inverse * v[0] * v[1];
+        kernel[2] += inverse * v[0] * v[2];
+        kernel[3] += inverse * v[1] * v[1];
+        kernel[4] += inverse * v[1] * v[2];
+        kernel[5] += inverse * v[2] * v[2];
+    }
+    kernel
+}
+
+/// Threads of the neighbourhood sweep (plan 30 revision 2), bounded so
+/// the frame's other work keeps its cores.
+const NEIGHBOURHOOD_THREADS: usize = 4;
+
+pub(crate) fn neighbourhood_of(positions: &[[f32; 3]], radius: f32) -> NeighbourhoodV1 {
     let count = positions.len();
+    if count == 0 {
+        return NeighbourhoodV1 {
+            counts: Vec::new(),
+            clusters: Vec::new(),
+            kernels: Vec::new(),
+        };
+    }
+    // Plan 30 revision 2: particles are sorted by cell (counting sort) and
+    // every worker sweeps its own contiguous range of particles over the
+    // full 27-cell neighbourhood, writing only its own particle's count,
+    // moments and kernel; the pairs `a < b` it finds are edges for the
+    // sequential union-find of the clusters afterwards. Results are
+    // scattered back to the input order at the end.
+    let mut minimum = [f32::INFINITY; 3];
+    for position in positions {
+        for axis in 0..3 {
+            minimum[axis] = minimum[axis].min(position[axis]);
+        }
+    }
+    let mut dims = [1_usize; 3];
+    for position in positions {
+        for axis in 0..3 {
+            let cell = ((position[axis] - minimum[axis]) / radius) as usize + 1;
+            dims[axis] = dims[axis].max(cell + 1);
+        }
+    }
+    let cell_of = |position: &[f32; 3]| -> [usize; 3] {
+        [
+            ((position[0] - minimum[0]) / radius) as usize,
+            ((position[1] - minimum[1]) / radius) as usize,
+            ((position[2] - minimum[2]) / radius) as usize,
+        ]
+    };
+    let index_of = |cell: [usize; 3]| (cell[2] * dims[1] + cell[1]) * dims[0] + cell[0];
+    let cell_count = dims[0] * dims[1] * dims[2];
+    let mut cell_index = vec![0_usize; count];
+    let mut starts = vec![0_usize; cell_count + 1];
+    for (index, position) in positions.iter().enumerate() {
+        let slot = index_of(cell_of(position));
+        cell_index[index] = slot;
+        starts[slot + 1] += 1;
+    }
+    for slot in 0..cell_count {
+        starts[slot + 1] += starts[slot];
+    }
+    let mut fill = starts.clone();
+    let mut order = vec![0_u32; count];
+    let mut sorted_cell = vec![0_usize; count];
+    let mut xs = vec![0.0_f32; count];
+    let mut ys = vec![0.0_f32; count];
+    let mut zs = vec![0.0_f32; count];
+    for (index, position) in positions.iter().enumerate() {
+        let slot = cell_index[index];
+        let sorted = fill[slot];
+        order[sorted] = index as u32;
+        sorted_cell[sorted] = slot;
+        xs[sorted] = position[0];
+        ys[sorted] = position[1];
+        zs[sorted] = position[2];
+        fill[slot] += 1;
+    }
+    let radius_squared = radius * radius;
+    let inverse_radius = 1.0 / radius;
+    let (xs, ys, zs, starts, sorted_cell) = (&xs, &ys, &zs, &starts, &sorted_cell);
+    let dims = &dims;
+    // One worker's sweep over `range` of sorted particles.
+    let sweep = |range: std::ops::Range<usize>,
+                 counts: &mut [u32],
+                 kernels: &mut [[f32; 6]],
+                 edges: &mut Vec<(u32, u32)>| {
+        const BLOCK: usize = 64;
+        for (local, a) in range.enumerate() {
+            let (ax, ay, az) = (xs[a], ys[a], zs[a]);
+            let slot = sorted_cell[a];
+            let cell = [
+                slot % dims[0],
+                (slot / dims[0]) % dims[1],
+                slot / (dims[0] * dims[1]),
+            ];
+            let mut a_count = 0_u32;
+            let mut a_moments = Moments::default();
+            for dz in -1_isize..=1 {
+                for dy in -1_isize..=1 {
+                    for dx in -1_isize..=1 {
+                        let neighbour = [
+                            cell[0] as isize + dx,
+                            cell[1] as isize + dy,
+                            cell[2] as isize + dz,
+                        ];
+                        if neighbour[0] < 0
+                            || neighbour[1] < 0
+                            || neighbour[2] < 0
+                            || neighbour[0] as usize >= dims[0]
+                            || neighbour[1] as usize >= dims[1]
+                            || neighbour[2] as usize >= dims[2]
+                        {
+                            continue;
+                        }
+                        let other = index_of([
+                            neighbour[0] as usize,
+                            neighbour[1] as usize,
+                            neighbour[2] as usize,
+                        ]);
+                        let (mut b_begin, run_end) = (starts[other], starts[other + 1]);
+                        while b_begin < run_end {
+                            let length = (run_end - b_begin).min(BLOCK);
+                            let mut distances = [0.0_f32; BLOCK];
+                            let (bx, by, bz) = (
+                                &xs[b_begin..b_begin + length],
+                                &ys[b_begin..b_begin + length],
+                                &zs[b_begin..b_begin + length],
+                            );
+                            for (distance, ((x, y), z)) in distances[..length]
+                                .iter_mut()
+                                .zip(bx.iter().zip(by).zip(bz))
+                            {
+                                let dx = x - ax;
+                                let dy = y - ay;
+                                let dz = z - az;
+                                *distance = dx * dx + dy * dy + dz * dz;
+                            }
+                            for (k, distance_squared) in distances[..length].iter().enumerate() {
+                                let b = b_begin + k;
+                                if b == a || *distance_squared > radius_squared {
+                                    continue;
+                                }
+                                a_count += 1;
+                                let ratio = distance_squared.sqrt() * inverse_radius;
+                                let weight = 1.0 - ratio * ratio * ratio;
+                                a_moments.add([bx[k] - ax, by[k] - ay, bz[k] - az], weight);
+                                if b > a {
+                                    edges.push((a as u32, b as u32));
+                                }
+                            }
+                            b_begin += length;
+                        }
+                    }
+                }
+            }
+            counts[local] = a_count;
+            if a_count >= KERNEL_MIN_NEIGHBOURS {
+                kernels[local] = kernel_of(a_moments.covariance(), KERNEL_PROFILE_RADIUS_METRES);
+            }
+        }
+    };
     let mut counts = vec![0_u32; count];
+    let mut kernels = vec![[0.0_f32; 6]; count];
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .clamp(1, NEIGHBOURHOOD_THREADS);
+    let chunk = count.div_ceil(threads).max(1);
+    let mut edge_lists: Vec<Vec<(u32, u32)>> = Vec::new();
+    if threads == 1 || count < 2 * chunk {
+        let mut edges = Vec::new();
+        sweep(0..count, &mut counts, &mut kernels, &mut edges);
+        edge_lists.push(edges);
+    } else {
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = counts
+                .chunks_mut(chunk)
+                .zip(kernels.chunks_mut(chunk))
+                .enumerate()
+                .map(|(worker, (counts, kernels))| {
+                    let sweep = &sweep;
+                    scope.spawn(move || {
+                        let begin = worker * chunk;
+                        let mut edges = Vec::new();
+                        sweep(begin..begin + counts.len(), counts, kernels, &mut edges);
+                        edges
+                    })
+                })
+                .collect();
+            for handle in handles {
+                edge_lists.push(handle.join().expect("neighbourhood worker panicked"));
+            }
+        });
+    }
     let mut parent: Vec<u32> = (0..count as u32).collect();
     fn find(parent: &mut [u32], mut index: u32) -> u32 {
         while parent[index as usize] != index {
@@ -288,101 +732,11 @@ pub(crate) fn neighbour_counts_and_clusters(
         }
         index
     }
-    if count > 0 {
-        let mut minimum = [f32::INFINITY; 3];
-        for position in positions {
-            for axis in 0..3 {
-                minimum[axis] = minimum[axis].min(position[axis]);
-            }
-        }
-        let mut dims = [1_usize; 3];
-        for position in positions {
-            for axis in 0..3 {
-                let cell = ((position[axis] - minimum[axis]) / radius) as usize + 1;
-                dims[axis] = dims[axis].max(cell + 1);
-            }
-        }
-        let cell_of = |position: &[f32; 3]| -> [usize; 3] {
-            [
-                ((position[0] - minimum[0]) / radius) as usize,
-                ((position[1] - minimum[1]) / radius) as usize,
-                ((position[2] - minimum[2]) / radius) as usize,
-            ]
-        };
-        let index_of = |cell: [usize; 3]| (cell[2] * dims[1] + cell[1]) * dims[0] + cell[0];
-        let mut heads = vec![NONE; dims[0] * dims[1] * dims[2]];
-        let mut next = vec![NONE; count];
-        for (index, position) in positions.iter().enumerate() {
-            let slot = index_of(cell_of(position));
-            next[index] = heads[slot];
-            heads[slot] = index as u32;
-        }
-        // The forward half of the neighbourhood: cells after this one in
-        // scan order, plus this cell with `other > index`.
-        const FORWARD: [[isize; 3]; 13] = [
-            [1, 0, 0],
-            [-1, 1, 0],
-            [0, 1, 0],
-            [1, 1, 0],
-            [-1, -1, 1],
-            [0, -1, 1],
-            [1, -1, 1],
-            [-1, 0, 1],
-            [0, 0, 1],
-            [1, 0, 1],
-            [-1, 1, 1],
-            [0, 1, 1],
-            [1, 1, 1],
-        ];
-        let radius_squared = radius * radius;
-        let link = |a: usize, b: usize, counts: &mut [u32], parent: &mut [u32]| {
-            let delta = [
-                positions[b][0] - positions[a][0],
-                positions[b][1] - positions[a][1],
-                positions[b][2] - positions[a][2],
-            ];
-            if delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] <= radius_squared {
-                counts[a] += 1;
-                counts[b] += 1;
-                let root_a = find(parent, a as u32);
-                let root_b = find(parent, b as u32);
-                if root_a != root_b {
-                    parent[root_a as usize] = root_b;
-                }
-            }
-        };
-        for (index, position) in positions.iter().enumerate() {
-            let cell = cell_of(position);
-            let mut other = next[index];
-            while other != NONE {
-                link(index, other as usize, &mut counts, &mut parent);
-                other = next[other as usize];
-            }
-            for offset in FORWARD {
-                let neighbour = [
-                    cell[0] as isize + offset[0],
-                    cell[1] as isize + offset[1],
-                    cell[2] as isize + offset[2],
-                ];
-                if neighbour[0] < 0
-                    || neighbour[1] < 0
-                    || neighbour[2] < 0
-                    || neighbour[0] as usize >= dims[0]
-                    || neighbour[1] as usize >= dims[1]
-                    || neighbour[2] as usize >= dims[2]
-                {
-                    continue;
-                }
-                let mut other = heads[index_of([
-                    neighbour[0] as usize,
-                    neighbour[1] as usize,
-                    neighbour[2] as usize,
-                ])];
-                while other != NONE {
-                    link(index, other as usize, &mut counts, &mut parent);
-                    other = next[other as usize];
-                }
-            }
+    for (a, b) in edge_lists.iter().flatten() {
+        let root_a = find(&mut parent, *a);
+        let root_b = find(&mut parent, *b);
+        if root_a != root_b {
+            parent[root_a as usize] = root_b;
         }
     }
     let mut sizes = vec![0_u32; count];
@@ -392,16 +746,20 @@ pub(crate) fn neighbour_counts_and_clusters(
     for root in &roots {
         sizes[*root as usize] += 1;
     }
-    (
-        counts
-            .iter()
-            .map(|value| u8::try_from(*value).unwrap_or(u8::MAX))
-            .collect(),
-        roots
-            .iter()
-            .map(|root| u16::try_from(sizes[*root as usize]).unwrap_or(u16::MAX))
-            .collect(),
-    )
+    let mut out_counts = vec![0_u8; count];
+    let mut out_clusters = vec![0_u16; count];
+    let mut out_kernels = vec![[0.0_f32; 6]; count];
+    for (sorted, original) in order.iter().enumerate() {
+        let original = *original as usize;
+        out_counts[original] = u8::try_from(counts[sorted]).unwrap_or(u8::MAX);
+        out_clusters[original] = u16::try_from(sizes[roots[sorted] as usize]).unwrap_or(u16::MAX);
+        out_kernels[original] = kernels[sorted];
+    }
+    NeighbourhoodV1 {
+        counts: out_counts,
+        clusters: out_clusters,
+        kernels: out_kernels,
+    }
 }
 
 /// Plan 25 statistics, printed at session end.
@@ -421,6 +779,8 @@ pub(crate) struct LaneStats {
     pub(crate) analysis_max_microseconds: u128,
     pub(crate) spray_fraction_max_permille: u32,
     pub(crate) spray_fraction_last_permille: u32,
+    /// Plan 30: particles sent with a non-zero kernel in the last frame.
+    pub(crate) kernels_last_permille: u32,
 }
 
 /// One frame's fluid state after the step, absorption and emission.
@@ -607,8 +967,11 @@ impl PhysxWaterLane {
         // this frame's picture.
         // Plan 27: neighbours and clusters from the fluid's own density.
         let analysis_started = Instant::now();
-        let (neighbours, clusters) =
-            neighbour_counts_and_clusters(&positions, NEIGHBOUR_RADIUS_METRES);
+        let NeighbourhoodV1 {
+            counts: neighbours,
+            clusters,
+            kernels,
+        } = neighbourhood_of(&positions, NEIGHBOUR_RADIUS_METRES);
         let analysis_cost = analysis_started.elapsed().as_micros();
         self.stats.analysis_total_microseconds += analysis_cost;
         self.stats.analysis_max_microseconds =
@@ -632,6 +995,7 @@ impl PhysxWaterLane {
         let mut update_velocities = Vec::with_capacity(positions.len());
         let mut update_neighbours = Vec::with_capacity(positions.len());
         let mut update_clusters = Vec::with_capacity(positions.len());
+        let mut update_kernels = Vec::with_capacity(positions.len());
         for (index, (position, velocity)) in positions.iter().zip(&velocities).enumerate() {
             let point = position.map(micrometres);
             if !self.bounds.contains(point) {
@@ -642,17 +1006,24 @@ impl PhysxWaterLane {
                 .push(velocity.map(|value| (value * 1_000_000.0).clamp(-2.0e9, 2.0e9) as i32));
             update_neighbours.push(neighbours[index]);
             update_clusters.push(clusters[index]);
+            update_kernels.push(kernels[index]);
         }
         if update_positions.is_empty() {
             return Ok(None);
         }
+        let with_kernel = update_kernels
+            .iter()
+            .filter(|kernel| kernel.iter().any(|value| *value != 0.0))
+            .count();
+        self.stats.kernels_last_permille =
+            u32::try_from(with_kernel * 1_000 / update_positions.len()).unwrap_or(u32::MAX);
         Ok(Some(Arc::new(ParticleSurfaceUpdateV1::new(
             sequence,
             update_positions,
             update_neighbours,
             update_clusters,
             update_velocities,
-            Vec::new(),
+            update_kernels,
         )?)))
     }
 
@@ -739,6 +1110,201 @@ impl PhysxWaterLane {
 mod tests {
     use super::*;
     use next_reference_game::{WaterEdgePresentationV1, WaterFloatingBoxV1, WaterJetParticlesV1};
+
+    /// Semi-axes of a packed kernel, ascending (metres).
+    fn kernel_axes(kernel: [f32; 6]) -> [f32; 3] {
+        let (values, _) = symmetric_eigen(kernel);
+        let mut axes = values.map(|value| 1.0 / value);
+        axes.sort_by(f32::total_cmp);
+        axes
+    }
+
+    #[test]
+    fn jacobi_solver_recovers_diagonal_and_rotated_eigenvalues() {
+        let (values, vectors) = symmetric_eigen([3.0, 0.0, 0.0, 1.0, 0.0, 2.0]);
+        assert!((values[0] - 1.0).abs() < 1e-5 && (values[2] - 3.0).abs() < 1e-5);
+        assert!(
+            (vectors[1][0].abs() - 1.0).abs() < 1e-5,
+            "smallest axis is y"
+        );
+        // diag(1, 2, 3) rotated by 30 degrees about z.
+        let (c, s) = (30_f32.to_radians().cos(), 30_f32.to_radians().sin());
+        let xx = c * c * 1.0 + s * s * 2.0;
+        let yy = s * s * 1.0 + c * c * 2.0;
+        let xy = c * s * (1.0 - 2.0);
+        let (values, _) = symmetric_eigen([xx, xy, 0.0, yy, 0.0, 3.0]);
+        for (value, expected) in values.iter().zip([1.0, 2.0, 3.0]) {
+            assert!((value - expected).abs() < 1e-5, "{values:?}");
+        }
+    }
+
+    /// Plan 30 timing probe at the lane's density (5,000 particles on a
+    /// jittered 0.05 m lattice); run with `--ignored --nocapture`.
+    #[test]
+    #[ignore = "timing probe"]
+    fn bench_neighbourhood() {
+        let mut state = 0x9E37_79B9_u32;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            (state % 10_000) as f32 / 10_000.0
+        };
+        let mut positions = Vec::new();
+        for x in 0..17 {
+            for y in 0..17 {
+                for z in 0..17 {
+                    if positions.len() < 5_000 {
+                        positions.push([
+                            x as f32 * 0.05 + next() * 0.01,
+                            y as f32 * 0.05 + next() * 0.01,
+                            z as f32 * 0.05 + next() * 0.01,
+                        ]);
+                    }
+                }
+            }
+        }
+        for _ in 0..3 {
+            let started = Instant::now();
+            let neighbourhood = neighbourhood_of(&positions, NEIGHBOUR_RADIUS_METRES);
+            let sweep = started.elapsed();
+            let mean = neighbourhood
+                .counts
+                .iter()
+                .map(|c| f32::from(*c))
+                .sum::<f32>()
+                / positions.len() as f32;
+            let started = Instant::now();
+            let mut sum = 0.0_f32;
+            for m in 0..5_000 {
+                let (values, _) =
+                    symmetric_eigen([1e-3 + m as f32 * 1e-7, 1e-4, 2e-4, 2e-3, 1e-4, 1.5e-3]);
+                sum += values[0];
+            }
+            let eigen = started.elapsed();
+            eprintln!("sweep {sweep:?} mean_neighbours {mean} eigen5000 {eigen:?} ({sum})");
+        }
+    }
+
+    #[test]
+    fn closed_form_eigen_matches_the_jacobi_oracle() {
+        let mut state = 0x2545_F491_u32;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            (state % 10_000) as f32 / 10_000.0 - 0.5
+        };
+        for case in 0..2_000 {
+            // Random covariance-like matrices at the lane's scale, plus a
+            // few degenerate ones.
+            let m = match case % 4 {
+                0 => [2e-3, 0.0, 0.0, 2e-3, 0.0, 2e-3],
+                1 => [2e-3, 0.0, 0.0, 2e-3, 0.0, 5e-4],
+                _ => {
+                    let a = [next() * 1e-3, next() * 1e-3, next() * 1e-3];
+                    let b = [next() * 1e-3, next() * 1e-3, next() * 1e-3];
+                    let c = [next() * 1e-3, next() * 1e-3, next() * 1e-3];
+                    let dot = |u: [f32; 3], v: [f32; 3]| u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+                    let row = |i: usize| [a[i], b[i], c[i]];
+                    [
+                        dot(row(0), row(0)),
+                        dot(row(0), row(1)),
+                        dot(row(0), row(2)),
+                        dot(row(1), row(1)),
+                        dot(row(1), row(2)),
+                        dot(row(2), row(2)),
+                    ]
+                }
+            };
+            let (values, vectors) = symmetric_eigen(m);
+            let (oracle, _) = symmetric_eigen_jacobi(m);
+            let scale = oracle[2].abs().max(1e-9);
+            for axis in 0..3 {
+                assert!(
+                    (values[axis] - oracle[axis]).abs() <= 1e-3 * scale,
+                    "case {case}: {values:?} vs {oracle:?}"
+                );
+                // A·v = λ·v and the columns are orthonormal.
+                let v = [vectors[0][axis], vectors[1][axis], vectors[2][axis]];
+                let av = [
+                    m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+                    m[1] * v[0] + m[3] * v[1] + m[4] * v[2],
+                    m[2] * v[0] + m[4] * v[1] + m[5] * v[2],
+                ];
+                for k in 0..3 {
+                    assert!(
+                        (av[k] - values[axis] * v[k]).abs() <= 1e-3 * scale,
+                        "case {case} axis {axis}: {av:?} vs {values:?} {v:?}"
+                    );
+                }
+                let length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+                assert!((length - 1.0).abs() < 1e-4, "case {case}: {vectors:?}");
+                let other = (axis + 1) % 3;
+                let w = [vectors[0][other], vectors[1][other], vectors[2][other]];
+                assert!(
+                    (v[0] * w[0] + v[1] * w[1] + v[2] * w[2]).abs() < 1e-3,
+                    "case {case}: {vectors:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn isolated_particle_sends_the_zero_kernel() {
+        let neighbourhood = neighbourhood_of(&[[0.0, 0.0, 0.0], [5.0, 0.0, 0.0]], 0.1);
+        assert_eq!(neighbourhood.kernels, vec![[0.0; 6]; 2]);
+    }
+
+    #[test]
+    fn flat_sheet_flattens_the_kernel_vertically() {
+        let mut positions = Vec::new();
+        for x in 0..21 {
+            for z in 0..21 {
+                positions.push([
+                    x as f32 * LANE_SPACING_METRES,
+                    0.0,
+                    z as f32 * LANE_SPACING_METRES,
+                ]);
+            }
+        }
+        let centre = 10 * 21 + 10;
+        let neighbourhood = neighbourhood_of(&positions, NEIGHBOUR_RADIUS_METRES);
+        let kernel = neighbourhood.kernels[centre];
+        assert!(kernel[3] > kernel[0] && kernel[3] > kernel[5], "{kernel:?}");
+        assert!(
+            kernel[1].abs() < 1e-6 && kernel[4].abs() < 1e-6,
+            "{kernel:?}"
+        );
+        let axes = kernel_axes(kernel);
+        assert!(axes[2] / axes[0] <= KERNEL_MAX_RATIO + 1e-3, "{axes:?}");
+        assert!(axes[0] >= KERNEL_MIN_AXIS_SCALE * KERNEL_PROFILE_RADIUS_METRES - 1e-6);
+    }
+
+    #[test]
+    fn filled_ball_keeps_the_kernel_near_isotropic() {
+        let mut positions = vec![[0.0, 0.0, 0.0]];
+        for x in -4..=4 {
+            for y in -4..=4 {
+                for z in -4..=4 {
+                    let point = [x, y, z].map(|value| value as f32 * LANE_SPACING_METRES);
+                    if (x, y, z) != (0, 0, 0)
+                        && point[0] * point[0] + point[1] * point[1] + point[2] * point[2]
+                            <= 0.2 * 0.2
+                    {
+                        positions.push(point);
+                    }
+                }
+            }
+        }
+        let neighbourhood = neighbourhood_of(&positions, NEIGHBOUR_RADIUS_METRES);
+        let axes = kernel_axes(neighbourhood.kernels[0]);
+        assert!(axes[2] / axes[0] < 1.1, "{axes:?}");
+        assert!(
+            (axes[1] - KERNEL_PROFILE_RADIUS_METRES).abs() < 0.3 * KERNEL_PROFILE_RADIUS_METRES,
+            "{axes:?}"
+        );
+    }
 
     fn frame(
         boxes: Vec<WaterFloatingBoxV1>,
