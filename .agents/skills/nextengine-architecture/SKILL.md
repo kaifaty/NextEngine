@@ -8,6 +8,8 @@ description: "Use for NextEngine changes to public contracts, authority boundari
 All paths are relative to the workspace containing `docs/architecture/`.
 Architecture protects product semantics; it must not turn a reversible
 experiment into a documentation program.
+Shared outcome, documentation and verification policy lives in
+[AGENTS.md](../../../AGENTS.md). Apply it without duplicating its checklists.
 
 ## Classify before loading architecture
 
@@ -34,8 +36,8 @@ without being represented as shipped or validated.
 2. Read every SPEC/ADR governing the changed semantics in full. Search snippets
    are discovery aids, not authority. When no row matches, use the index and
    glossary to locate the actual owner; do not load unrelated documents.
-3. On conflict apply repository precedence: newer superseding Accepted ADR,
-   workflow/profile ADR, subsystem SPEC, SPEC-00, then glossary.
+3. On conflict apply the precedence defined in `AGENTS.md`; this skill does
+   not establish a separate hierarchy for workflow or profile ADRs.
 4. Treat Proposed technology as an experiment. State its fallback and do not
    present it as shipped before the affected product check passes.
 5. Implement gameplay mutations through production commands and committed
@@ -47,35 +49,6 @@ without being represented as shipped or validated.
    not grounds for a new numbered roadmap.
 8. For a semantic architecture change, add a superseding ADR and update affected
    SPECs, the architecture index, traceability and routing in one coherent change.
-
-## Outcome and solution selection
-
-- Define the primary user-observable deliverable before supporting machinery.
-  For an audio task, a WAV or running scene is primary; a validator, manifest,
-  protocol or roadmap is supporting work unless explicitly requested.
-- Each bounded iteration should produce that artifact or a decisive blocker.
-  After two supporting-only checkpoints, stop adding infrastructure and switch
-  to the smallest end-to-end vertical slice, reporting any reduced claim.
-- Prefer the simplest design satisfying current product, safety, determinism and
-  verification requirements. Add abstractions, layers or coordination only for
-  a demonstrated constraint.
-- Compare alternatives only on criteria that can change the decision. Record
-  complexity or benchmarks only when material to the chosen design.
-- Prefer working code and focused tests over a planning document. A reversible
-  local experiment needs no pre-implementation protocol unless it opens
-  protected evidence, consumes a substantial irreversible budget or the user
-  explicitly requested preregistration.
-- Apply hard constraints at the boundary actually being changed; do not expand a
-  local experiment into a redesign of adjacent systems.
-
-## Documentation guard
-
-- Maintain one stable roadmap. Revise or replace it only when the objective,
-  product sequencing or governing semantics change, not after each negative run.
-- Prefer one implementation/result commit. Do not create separate freeze,
-  protocol, conformance and result commits for one reversible experiment.
-- Write a report when it records a reusable decision. File count, hashes and
-  repeat-exact runs are not progress toward a different primary deliverable.
 
 ## Maintenance
 

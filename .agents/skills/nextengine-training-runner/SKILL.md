@@ -1,6 +1,6 @@
 ---
 name: nextengine-training-runner
-description: "Prepare and execute hash-closed NextEngine humanoid training, initialization, evaluation, or bounded performance runs. Use when Codex is asked to start, continue, resume, reproduce, monitor, or plan a TRAIN-5+ run; select generation/profile/corpus/checkpoint inputs; validate an external training store; construct an Isaac Lab invocation; or decide whether a checkpoint is compatible. Russian triggers include: запусти обучение, продолжи обучение, возобнови checkpoint, подготовь run, профиль обучения, generation manifest, TRAIN-5, PPO запуск."
+description: "Prepare, run, resume or monitor NextEngine humanoid TRAIN-5+ PPO training, evaluation and performance runs, including generation preflight and checkpoint compatibility. Applies to the humanoid Isaac workflow, not audio synthesis or generic model training."
 ---
 
 # NextEngine training runner
@@ -8,6 +8,8 @@ description: "Prepare and execute hash-closed NextEngine humanoid training, init
 Prepare a run only from an exact admitted generation closure. Treat production
 CPU PhysX as canonical, Isaac as an accelerated mirror, and the optimizer as a
 private stochastic tool.
+These launch and evidence requirements belong to the humanoid TRAIN workflow.
+Do not apply them to unrelated model experiments.
 
 ## Resolve the workspace
 

@@ -29,17 +29,17 @@
 - Trigger a language, library or meta-skill from the immediate obstacle, not merely because the repository happens to use that language, framework or workspace shape.
 - Prefer a narrow project-specific skill over a generic pack. For example, NextEngine TRAIN execution and diagnosis use the dedicated runner/diagnostics skills rather than a general RL or Stable-Baselines3 guide.
 - When a repository-local skill and a global skill have the same name, use the repository-local version only unless it explicitly delegates to the global one.
-- Start with at most one specialist reference. Load another only when observed evidence exposes a second independent boundary.
+- Load specialist references only for the immediate question. This guidance does not limit required reads of governing contracts.
 - A skill may constrain how the requested work is done, but it must not expand the primary deliverable into its full catalog of optional capabilities, artifacts or audits.
 
 ## Durable task context
 
-- For long-running, resumed, handed-off, research-heavy or approach-changing work, use the repository `maintain-task-context` skill and read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
+- Use the repository `maintain-task-context` skill when recovering task state after context loss, handing work off, or preserving a durable constraint or decision whose loss would cause costly repetition. Task duration, research, routine status and individual failed runs do not by themselves activate it. When resuming, read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
 - Create or update task-state only at a material transition: evidence invalidates the approach, a failed path must not be repeated, a new constraint changes the next action, the allowed claim or scope changes, or work pauses or hands off. Do not turn it into a per-turn progress diary.
-- Record reviewable engineering rationale as observation, exact evidence, conclusion, decision, rejected alternatives, consequences, remaining uncertainty, reconsideration condition and smallest next action. Do not record private chain-of-thought, secrets, raw logs or heavy/generated artifacts.
+- Record the current result, decisive evidence, constraints and next action. Add rejected alternatives or reconsideration conditions only when they prevent likely repetition. Do not record private chain-of-thought, secrets, raw logs or heavy/generated artifacts.
 - Task-state is bounded working context, not authority. It never overrides Accepted SPEC/ADR, the roadmap, tracked profiles/manifests or exact evidence. Promote architecture semantics, roadmap facts, repository rules and reusable workflows to their real sources in the same coherent change.
-- Keep the stable non-dated task-state path as the current resume surface, use Git for history, and move detailed investigation to linked dated research/evidence reports when the state approaches 250 lines.
-- Task-state resumes from its compact summary and at most seven active context pointers. Historical or superseded links are an index, not recursive mandatory reading. Supporting-only task-state edits do not reset outcome debt.
+- Keep one stable non-dated task-state path as the current resume surface and use Git for history. Aim for fewer than 150 lines; prune stale detail and link existing evidence before creating another report.
+- Resume from the compact summary and follow only the evidence needed for the immediate action. Historical or superseded links are an index, not recursive mandatory reading. Supporting-only task-state edits do not reset outcome debt.
 
 ## Roadmap context
 
