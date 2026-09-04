@@ -1,0 +1,44 @@
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import numpy as np
+from scipy.io import wavfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import physical_sound_tangoflux_pilot as tango
+
+
+class TangoTest(unittest.TestCase):
+    def test_complete_weights_except_tied_alias(self):
+        tango.verify_weight_keys(["text_encoder.encoder.embed_tokens.weight"], [])
+        for missing, extra in (
+            ([], []),
+            (["fc.0.weight"], []),
+            (["text_encoder.encoder.embed_tokens.weight"], ["bogus"]),
+        ):
+            with self.assertRaises(ValueError):
+                tango.verify_weight_keys(missing, extra)
+
+    def test_stereo_export_and_resample(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wave = (
+                np.stack([np.sin(np.arange(44100) * 0.1)] * 2).astype(np.float32) * 1.5
+            )
+            record, mono = tango.publish(Path(directory), "test", wave)
+            sr, pcm = wavfile.read(record["native_wav"])
+            self.assertEqual((sr, pcm.shape), (44100, (44100, 2)))
+            self.assertEqual(len(mono), 16000)
+            self.assertLessEqual(np.abs(pcm.astype(np.int32)).max(), 32113)
+            self.assertLess(record["native_pcm_gain"], 1)
+
+    def test_invalid_wave_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for wave in (np.zeros((2, 100)), np.ones(100), np.full((2, 100), np.nan)):
+                with self.assertRaises(ValueError):
+                    tango.publish(Path(directory), "test", wave)
+
+
+if __name__ == "__main__":
+    unittest.main()

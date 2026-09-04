@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TEXT_TO_SOUND_PILOT / RESEARCH_ONLY / FALLBACK_REQUIRED.
+Status: ACTIVE_GOAL / TANGOFLUX_BASE_SELECTED_FOR_ADAPTATION / RESEARCH_ONLY / FALLBACK_REQUIRED.
 
 ## Resume in 60 seconds
 
@@ -12,18 +12,27 @@ Status: ACTIVE_GOAL / TEXT_TO_SOUND_PILOT / RESEARCH_ONLY / FALLBACK_REQUIRED.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [text-pilot preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/text-pilot-2026-09-05/preview.wav):
-  12 descriptions, first fixed seed, five seconds each with 0.5-second gaps.
-  AudioLDM2 generated 24 candidates plus two empty-prompt controls offline.
-  No input audio and no local training. This is a pretrained generative
-  baseline, not an already-trained physical-attribute model.
+- **Latest primary artifact:** [TangoFlux preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/preview.wav),
+  [22-second AudioLDM2/TangoFlux glass and wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/base-vs-tango-preview.wav).
+  Same 12 descriptions/two seeds, 24 candidates plus two empty-prompt controls.
+  Each candidate has native 44.1-kHz stereo and 16-kHz mono scoring copies.
+  TangoFlux run completed in 194.09 s. No input audio or local training;
+  the pretrained base is now selected for a bounded adaptation experiment.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
   External roots end in `text-pilot-2026-09-05`,
   `text-pilot-fp32-2026-09-05`, and
   `text-pilot-200steps-2026-09-05` under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Read their actual `result.json` and `ast-tags.json`, not just this summary.
+  TangoFlux root is `tangoflux-pilot-2026-09-05`. Read its `result.json` and
+  `ast-clap-fp32.json`; the 200-step AudioLDM2 root has the same remeasurement.
+  Both use one FP32 CPU CLAP scorer, avoiding historical FP16 weight rounding.
+- **Model comparison:** AudioLDM2/TangoFlux CLAP top-one counts 8/24 vs 15/24,
+  better-than-empty counts 21/24 vs 24/24; AST coarse expected top-five tags
+  6/20 vs 15/20. Steel remains unscored by the exact material ontology and can
+  sound/classify glass-like. Rolling lacks the expected tag; scraping has
+  Rub/Filing rather than the fixed Scrape label. Light/heavy rain pair margins
+  disagree across seeds. These are useful diagnostics, not physical admission.
 - **100-step findings:** CLAP exact-prompt rank one on 7/24, target similarity
   beats empty prompt on 20/24. Separate audio-only AST has coarse expected
   tags in top five on 5/20 scorable cases (all water/rain); steel has no exact
@@ -33,19 +42,27 @@ Status: ACTIVE_GOAL / TEXT_TO_SOUND_PILOT / RESEARCH_ONLY / FALLBACK_REQUIRED.
   correlation 0.99912 with FP16; precision is not the main failure cause.
   At 200 steps CLAP moves to 8/24 and 21/24, while AST moves to 6/20;
   doubling compute does not resolve the failures. All three runs are complete.
-- **Next action:** compare a materially different pretrained base on the same
-  event/material cases. TangoFlux has official inference/fine-tuning code and is the next
-  research candidate; do not assume it is installed or tested. No further
-  similar tuning after two failed counterfactuals without bounded research.
-  Then adapt a useful base with physical/event controls and real-data checks;
-  do not optimize only the generator's own CLAP score.
+- **Next action:** stop foundation-model shopping and run one bounded small
+  TangoFlux fine-tune on disclosed real wine-glass recordings. Reuse the two
+  training recording IDs and third development ID described below; preserve
+  the base and unrelated wood/water/rain prompts as regression controls.
+  Render before/after during the first short training cycle. Generation still
+  takes text, not a target waveform. This is a first learnability test for an
+  observed family, not a substitute for physical-attribute generalization.
+  Do not optimize only CLAP or tune from protected evidence.
 - **Current hardware:** NVIDIA RTX 3080, 10 GiB, CUDA works in the unrestricted
   environment. Prior sandbox GPU failures are not current evidence.
   `lab/.venv/bin/python` has Torch 2.13.0+cu130 and the optional generation
   dependencies listed in the pilot note. Network is disabled for inference
   via offline flags after public pinned safetensors downloads.
-- **Verification:** 18 focused tests, Ruff and diff checks passed; all 81 WAVs
-  read back with valid length/unclipped PCM and individual hashes checked.
+  TangoFlux also imports datasets 2.21.0, which pins fsspec to 2024.6.1;
+  Torch/model libraries are unchanged. Hash-pinned external model source is
+  loaded by `lab/scripts/physical_sound_tangoflux_pilot.py`; all checkpoint
+  values and the T5 alias are verified before inference.
+- **Verification:** nine current pilot tests plus four existing pilot tests,
+  Ruff and diff checks pass. All 52 individual TangoFlux WAVs passed shape,
+  sample-rate, headroom and hash checks. Previous 81 WAVs remain unchanged.
+  Scorer replay isolated FP16 weight rounding (residual max cosine 5.38e-7).
   No background processes remain after this checkpoint.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, improvement through local learning, precise physical

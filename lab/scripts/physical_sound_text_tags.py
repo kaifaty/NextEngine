@@ -83,7 +83,97 @@ def load_audio(path: Path, expected_hash: str | None = None) -> np.ndarray:
     )
 
 
-def run(source: Path, output: Path, real_glass: list[Path]):
+def clap_measurement(manifest: dict) -> dict:
+    """Same frozen CLAP as AudioLDM2; separate report, not an unbiased judge."""
+    import torch
+    from transformers import ClapFeatureExtractor, ClapModel, RobertaTokenizer
+
+    options = {"revision": pilot.REVISION, "local_files_only": True}
+    model = ClapModel.from_pretrained(
+        pilot.MODEL, subfolder="text_encoder", use_safetensors=True, **options
+    ).eval()
+    tokenizer = RobertaTokenizer.from_pretrained(
+        pilot.MODEL, subfolder="tokenizer", **options
+    )
+    extractor = ClapFeatureExtractor.from_pretrained(
+        pilot.MODEL, subfolder="feature_extractor", **options
+    )
+    records, controls = [], []
+    with torch.inference_mode():
+        tokens = tokenizer(
+            [row["prompt"] for row in manifest["cases"]],
+            padding=True,
+            return_tensors="pt",
+        )
+        text = torch.nn.functional.normalize(model.get_text_features(**tokens), dim=-1)
+        for row in manifest["rows"] + manifest["controls"]:
+            if "wav" not in row:
+                continue
+            audio = resample_poly(load_audio(Path(row["wav"]), row["sha256"]), 3, 1)
+            np.random.seed(0)
+            features = extractor([audio], sampling_rate=48000, return_tensors="pt")
+            embedding = torch.nn.functional.normalize(
+                model.get_audio_features(**features), dim=-1
+            )
+            scores = (embedding @ text.T)[0].numpy()
+            measured = {"seed": row["seed"], "similarities": scores.tolist()}
+            if "case" in row:
+                records.append(
+                    {
+                        **measured,
+                        "case": row["case"],
+                        **pilot.alignment(scores, row["case"]),
+                    }
+                )
+            else:
+                controls.append({**measured, "id": row["id"]})
+    paired = []
+    for seed in manifest["seeds"]:
+        rows = sorted(
+            (row for row in records if row["seed"] == seed), key=lambda row: row["case"]
+        )
+        if [row["case"] for row in rows] != list(range(len(manifest["cases"]))):
+            raise ValueError("incomplete case matrix")
+        matrix = np.array([row["similarities"] for row in rows])
+        baseline = next(
+            row
+            for row in controls
+            if row["seed"] == seed and row["id"] == "empty-prompt"
+        )
+        for index, row in enumerate(rows):
+            row["target_gain_over_empty_prompt"] = float(
+                matrix[index, index] - baseline["similarities"][index]
+            )
+        # Pair indices are defined only for the original fixed experiment set.
+        if manifest["cases"] == [
+            {"id": key, "prompt": prompt} for key, prompt in pilot.CASES
+        ]:
+            for first, second in pilot.PAIRS:
+                paired.append(
+                    {
+                        "seed": seed,
+                        "first": pilot.CASES[first][0],
+                        "second": pilot.CASES[second][0],
+                        "own_vs_swapped_margin": pilot.pair_margin(
+                            matrix, first, second
+                        ),
+                    }
+                )
+    return {
+        "model": f"{pilot.MODEL}/text_encoder",
+        "revision": pilot.REVISION,
+        "scope": "prompt alignment, not calibrated quality; potentially biased by generator/pretraining",
+        "rows": records,
+        "controls": controls,
+        "paired_changes": paired,
+        "top1_count": sum(row["target_rank"] == 1 for row in records),
+        "beats_empty_prompt_count": sum(
+            row["target_gain_over_empty_prompt"] > 0 for row in records
+        ),
+    }
+
+
+def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = False):
     import torch
     from transformers import ASTFeatureExtractor, ASTForAudioClassification
 
@@ -161,6 +251,8 @@ def run(source: Path, output: Path, real_glass: list[Path]):
             record = {"id": key, **metadata, **summarize(scores, labels, EXPECTED[key])}
             report["rows"].append(record)
             print(json.dumps({"id": key, "top3": record["top10"][:3]}), flush=True)
+    if with_clap:
+        report["clap"] = clap_measurement(manifest)
     pilot.save_report(output, report)
 
 
@@ -169,5 +261,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--real-glass", type=Path, nargs="*", default=[])
+    parser.add_argument("--with-clap", action="store_true")
     args = parser.parse_args()
-    run(args.source, args.output, args.real_glass)
+    run(args.source, args.output, args.real_glass, args.with_clap)
