@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod biomechanics;
+mod biomechanics_standing;
 mod capsule_procedural;
 #[cfg(test)]
 mod capsule_procedural_tests;
@@ -43,6 +44,13 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_BODY_COUNT, BIOMECHANICS_HUMANOID_COLLIDER_COUNT,
     BIOMECHANICS_HUMANOID_DOF, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
     BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS, biomechanics_humanoid_body_schema_v2,
+};
+pub use biomechanics_standing::{
+    BIOMECHANICS_STANDING_ACTION_LAYOUT_ID, BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID,
+    BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS, BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
+    BIOMECHANICS_STANDING_REWARD_COEFFICIENTS_Q16, BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS,
+    BiomechanicsStandingRewardFactsV1, biomechanics_standing_environment_manifest_v1,
+    biomechanics_standing_isaac_descriptor_json_v1, biomechanics_standing_reward_q16_v1,
 };
 pub use capsule_procedural::{
     CAPSULE_PROCEDURAL_MOTOR_PROFILE_VERSION_V1, CapsuleMotorDecisionV1, CapsuleMotorRouteV1,

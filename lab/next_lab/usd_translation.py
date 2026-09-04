@@ -21,6 +21,7 @@ from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     CURRENT_TRANSLATOR_VERSION,
     validate_biomechanics_descriptor,
+    validate_biomechanics_standing_descriptor,
     validate_current_biomechanics_descriptor,
     validate_descriptor,
 )
@@ -34,7 +35,12 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         BIOMECHANICS_TRANSLATOR_ID,
         BIOMECHANICS_TRANSLATOR_ID_V2,
     }:
-        return _render_biomechanics_usda(descriptor)
+        source = (
+            _current_biomechanics_base(descriptor)
+            if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID_V2
+            else descriptor
+        )
+        return _render_biomechanics_usda(source)
     validate_descriptor(descriptor)
     if descriptor.get("translator_version") != TRANSLATOR_VERSION:
         raise ValueError("translator version mismatch")
@@ -252,7 +258,7 @@ def _render_biomechanics_usda(descriptor: dict[str, Any]) -> str:
 
 
 def render_ground_usda(descriptor: dict[str, Any]) -> str:
-    validate_current_biomechanics_descriptor(descriptor)
+    descriptor = _current_biomechanics_base(descriptor)
     ground = material_catalog(descriptor)[GROUND_MATERIAL_ID]
     lines = [
         "#usda 1.0",
@@ -448,31 +454,34 @@ def translate_to_store(
 def _translate_current_biomechanics_to_store(
     descriptor: dict[str, Any], store_root: Path
 ) -> dict[str, Any]:
-    validate_current_biomechanics_descriptor(descriptor)
+    base = _current_biomechanics_base(descriptor)
+    descriptor_hash = _descriptor_content_sha256(descriptor)
     run_root = (
         store_root
         / "derived"
-        / descriptor["body_schema_hash"]
-        / descriptor["compiled_descriptor_hash"]
+        / base["body_schema_hash"]
+        / base["compiled_descriptor_hash"]
     )
+    if descriptor is not base:
+        run_root = run_root / "training" / descriptor_hash
     run_root.mkdir(parents=True, exist_ok=True)
-    humanoid_payload = render_usda(descriptor).encode("utf-8")
-    ground_payload = render_ground_usda(descriptor).encode("utf-8")
+    humanoid_payload = render_usda(base).encode("utf-8")
+    ground_payload = render_ground_usda(base).encode("utf-8")
     humanoid_path = run_root / "humanoid.usda"
     ground_path = run_root / "ground.usda"
     manifest = {
         "schema_version": 3,
         "translator_id": BIOMECHANICS_TRANSLATOR_ID_V2,
         "translator_version": BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2,
-        "descriptor_schema_version": descriptor["schema_version"],
-        "compiled_descriptor_schema_version": descriptor[
+        "descriptor_schema_version": base["schema_version"],
+        "compiled_descriptor_schema_version": base[
             "compiled_descriptor_schema_version"
         ],
-        "body_schema_hash": descriptor["body_schema_hash"],
-        "compiled_descriptor_hash": descriptor["compiled_descriptor_hash"],
-        "material_lineage_hash": descriptor["material_lineage_hash"],
-        "ground_material_id": descriptor["ground_material_id"],
-        "descriptor_content_sha256": _descriptor_content_sha256(descriptor),
+        "body_schema_hash": base["body_schema_hash"],
+        "compiled_descriptor_hash": base["compiled_descriptor_hash"],
+        "material_lineage_hash": base["material_lineage_hash"],
+        "ground_material_id": base["ground_material_id"],
+        "descriptor_content_sha256": descriptor_hash,
         "usd_path": "humanoid.usda",
         "usd_sha256": hashlib.sha256(humanoid_payload).hexdigest(),
         "ground_usd_path": "ground.usda",
@@ -508,7 +517,7 @@ def validate_translation_bundle(
     humanoid_usd_path: Path | None = None,
     ground_usd_path: Path | None = None,
 ) -> dict[str, Any]:
-    validate_current_biomechanics_descriptor(descriptor)
+    base = _current_biomechanics_base(descriptor)
     manifest_path = manifest_path.resolve()
     if not manifest_path.is_file():
         raise FileNotFoundError("current biomechanics translation manifest is absent")
@@ -519,10 +528,10 @@ def validate_translation_bundle(
         "translator_version": BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2,
         "descriptor_schema_version": 2,
         "compiled_descriptor_schema_version": 3,
-        "body_schema_hash": descriptor["body_schema_hash"],
-        "compiled_descriptor_hash": descriptor["compiled_descriptor_hash"],
-        "material_lineage_hash": descriptor["material_lineage_hash"],
-        "ground_material_id": descriptor["ground_material_id"],
+        "body_schema_hash": base["body_schema_hash"],
+        "compiled_descriptor_hash": base["compiled_descriptor_hash"],
+        "material_lineage_hash": base["material_lineage_hash"],
+        "ground_material_id": base["ground_material_id"],
         "descriptor_content_sha256": _descriptor_content_sha256(descriptor),
         "usd_path": "humanoid.usda",
         "ground_usd_path": "ground.usda",
@@ -548,6 +557,15 @@ def validate_translation_bundle(
     ):
         raise ValueError("current biomechanics translated USD identity mismatch")
     return manifest
+
+
+def _current_biomechanics_base(descriptor: dict[str, Any]) -> dict[str, Any]:
+    if "training_descriptor_id" not in descriptor:
+        validate_current_biomechanics_descriptor(descriptor)
+        return descriptor
+    validate_biomechanics_standing_descriptor(descriptor)
+    extras = {"training_descriptor_id", "observation_width", "environment_profiles"}
+    return {key: value for key, value in descriptor.items() if key not in extras}
 
 
 def _descriptor_content_sha256(descriptor: dict[str, Any]) -> str:

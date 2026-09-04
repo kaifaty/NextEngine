@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import struct
 from pathlib import Path
 from typing import Any, Iterable
 
 import torch
 
 from next_lab.motor_mirror import (
+    BIOMECHANICS_STANDING_PROFILE_ID,
     BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
     FLAT_LOCOMOTION_PROFILE_ID,
@@ -19,8 +21,12 @@ from next_lab.motor_mirror import (
     derive_purpose_seed,
     flat_locomotion_command_schedule,
     select_environment_profile,
+    select_biomechanics_standing_profile,
+    validate_biomechanics_standing_descriptor,
+    validate_current_biomechanics_descriptor,
     validate_descriptor,
 )
+from next_lab.usd_translation import validate_translation_bundle
 
 BOUNDED_STANDING_REWARD_COEFFICIENTS_Q16 = (
     65_536,
@@ -86,11 +92,24 @@ def is_locomotion_profile(profile_id: str) -> bool:
 
 
 def is_standing_profile(profile_id: str) -> bool:
-    return profile_id in {STANDING_PROFILE_ID, BOUNDED_STANDING_PROFILE_ID}
+    return profile_id in {
+        STANDING_PROFILE_ID,
+        BOUNDED_STANDING_PROFILE_ID,
+        BIOMECHANICS_STANDING_PROFILE_ID,
+    }
+
+
+def is_biomechanics_standing_profile(profile_id: str) -> bool:
+    return profile_id == BIOMECHANICS_STANDING_PROFILE_ID
 
 
 def fall_height_threshold_micrometres(profile_id: str) -> int:
-    return 450_000 if is_locomotion_profile(profile_id) else 250_000
+    return (
+        450_000
+        if is_locomotion_profile(profile_id)
+        or is_biomechanics_standing_profile(profile_id)
+        else 250_000
+    )
 
 
 def require_finite_tensor(
@@ -149,6 +168,28 @@ def isaac_actuator_limits_from_descriptor(
 
 def authored_ground_clearance_metres(descriptor: dict[str, Any]) -> float:
     """Return the lowest authored collider point above the flat ground plane."""
+    if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
+        validate_biomechanics_standing_descriptor(descriptor)
+        minimum: int | None = None
+        for body in descriptor["bodies"]:
+            world_height = round(
+                _f32_from_bits(body["initial_translation_f32_bits"][1]) * 1_000_000
+            )
+            for collider in body["colliders"]:
+                if collider.get("contact_role") != 8:
+                    continue
+                geometry = collider["geometry"]
+                if geometry.get("kind") != "box":
+                    raise ValueError("sole support collider must be a box")
+                bottom = (
+                    world_height
+                    + collider["local_translation_micrometres"][1]
+                    - geometry["half_extents_micrometres"][1]
+                )
+                minimum = bottom if minimum is None else min(minimum, bottom)
+        if minimum is None:
+            raise ValueError("biomechanics descriptor contains no sole colliders")
+        return minimum / 1_000_000.0
     bodies = {body["body_id"]: body for body in descriptor["bodies"]}
     world_heights: dict[str, int] = {}
     while len(world_heights) < len(bodies):
@@ -193,6 +234,17 @@ def authored_ground_clearance_metres(descriptor: dict[str, Any]) -> float:
 
 
 def authored_root_height_micrometres(descriptor: dict[str, Any]) -> int:
+    if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
+        validate_biomechanics_standing_descriptor(descriptor)
+        roots = [
+            body for body in descriptor["bodies"] if body["parent_body_slot"] is None
+        ]
+        if len(roots) != 1:
+            raise ValueError("descriptor must contain exactly one root body")
+        return round(
+            _f32_from_bits(roots[0]["initial_translation_f32_bits"][1])
+            * 1_000_000
+        )
     roots = [body for body in descriptor["bodies"] if body["parent_body_id"] is None]
     if len(roots) != 1:
         raise ValueError("descriptor must contain exactly one root body")
@@ -277,6 +329,139 @@ def fixed_pd_tensor(
     return effort, flags
 
 
+def biomechanics_procedural_standing_targets_tensor(
+    *,
+    actuator_joint_ids: tuple[str, ...],
+    neutral_targets_microradians: torch.Tensor,
+    root_quaternion_xyzw_q1_30: torch.Tensor,
+    root_forward_micrometres: torch.Tensor,
+    root_angular_velocity_microradians_per_second: torch.Tensor,
+    root_forward_velocity_micrometres_per_second: torch.Tensor,
+) -> torch.Tensor:
+    if (
+        neutral_targets_microradians.dtype != torch.int64
+        or neutral_targets_microradians.shape != (len(actuator_joint_ids),)
+        or root_quaternion_xyzw_q1_30.dtype != torch.int64
+        or root_quaternion_xyzw_q1_30.shape[-1] != 4
+    ):
+        raise ValueError("invalid procedural standing tensor layout")
+    pitch_proxy = round_div_ties_even_tensor(
+        root_quaternion_xyzw_q1_30[:, 0] * 2_000_000, Q1_30_ONE
+    )
+    ankle_pitch = (
+        -140_000
+        + round_div_ties_even_tensor(pitch_proxy, 2)
+        + round_div_ties_even_tensor(
+            root_angular_velocity_microradians_per_second[:, 0], 20
+        )
+        + round_div_ties_even_tensor(root_forward_micrometres, 10)
+        + round_div_ties_even_tensor(root_forward_velocity_micrometres_per_second, 50)
+    )
+    targets = neutral_targets_microradians[None].expand(
+        root_quaternion_xyzw_q1_30.shape[0], -1
+    ).clone()
+    for index, joint_id in enumerate(actuator_joint_ids):
+        if joint_id.endswith("-knee"):
+            targets[:, index] = 100_000
+        elif joint_id.endswith("-ankle-pitch"):
+            targets[:, index] = ankle_pitch
+    return targets
+
+
+def biomechanics_fixed_pd_safety_tensor(
+    *,
+    target_microradians: torch.Tensor,
+    position_microradians: torch.Tensor,
+    velocity_microradians_per_second: torch.Tensor,
+    previous_effort_micronewton_metres: torch.Tensor,
+    used_positive_work_microjoules: torch.Tensor,
+    stiffness_q16: torch.Tensor,
+    damping_q16: torch.Tensor,
+    effort_minimum: torch.Tensor,
+    effort_maximum: torch.Tensor,
+    maximum_effort_rate_per_second: torch.Tensor,
+    maximum_power_microwatts: torch.Tensor,
+    maximum_positive_work_microjoules: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    values = (
+        target_microradians,
+        position_microradians,
+        velocity_microradians_per_second,
+        previous_effort_micronewton_metres,
+        used_positive_work_microjoules,
+        stiffness_q16,
+        damping_q16,
+        effort_minimum,
+        effort_maximum,
+        maximum_effort_rate_per_second,
+        maximum_power_microwatts,
+        maximum_positive_work_microjoules,
+    )
+    if any(value.dtype != torch.int64 for value in values):
+        raise ValueError("biomechanics safety tensors must use int64")
+    requested = round_div_ties_even_tensor(
+        stiffness_q16 * (target_microradians - position_microradians), 65_536
+    ) - round_div_ties_even_tensor(
+        damping_q16 * velocity_microradians_per_second, 65_536
+    )
+    maximum_delta = round_div_ties_even_tensor(
+        maximum_effort_rate_per_second, 240
+    )
+    velocity_abs = torch.abs(velocity_microradians_per_second)
+    nonzero = velocity_abs > 0
+    unlimited = torch.full_like(velocity_abs, torch.iinfo(torch.int64).max)
+    power_maximum = torch.where(
+        nonzero,
+        torch.div(
+            maximum_power_microwatts * 1_000_000,
+            torch.clamp(velocity_abs, min=1),
+            rounding_mode="floor",
+        ),
+        unlimited,
+    )
+    remaining_work = maximum_positive_work_microjoules - used_positive_work_microjoules
+    work_maximum = torch.where(
+        nonzero,
+        torch.div(
+            torch.clamp(remaining_work, min=0) * 240 * 1_000_000,
+            torch.clamp(velocity_abs, min=1),
+            rounding_mode="floor",
+        ),
+        unlimited,
+    )
+    minimum = torch.maximum(
+        torch.maximum(effort_minimum, previous_effort_micronewton_metres - maximum_delta),
+        -power_maximum,
+    )
+    maximum = torch.minimum(
+        torch.minimum(effort_maximum, previous_effort_micronewton_metres + maximum_delta),
+        power_maximum,
+    )
+    maximum = torch.where(
+        velocity_microradians_per_second > 0,
+        torch.minimum(maximum, work_maximum),
+        maximum,
+    )
+    minimum = torch.where(
+        velocity_microradians_per_second < 0,
+        torch.maximum(minimum, -work_maximum),
+        minimum,
+    )
+    infeasible = (remaining_work < 0) | (minimum > maximum)
+    effort = torch.minimum(torch.maximum(requested, minimum), maximum)
+    positive_power = torch.clamp(
+        effort * velocity_microradians_per_second, min=0
+    )
+    charge = torch.div(
+        positive_power + 240_000_000 - 1,
+        240_000_000,
+        rounding_mode="floor",
+    )
+    next_work = used_positive_work_microjoules + charge
+    infeasible |= next_work > maximum_positive_work_microjoules
+    return effort, next_work, infeasible
+
+
 def engine_vector_from_isaac_tensor(vector: torch.Tensor) -> torch.Tensor:
     """Map Isaac (+X,+Y,+Z) to engine (+right,+up,+forward)."""
     if vector.shape[-1] != 3:
@@ -292,6 +477,21 @@ def engine_quaternion_xyzw_from_isaac_wxyz_tensor(quaternion: torch.Tensor) -> t
 
 
 def isaac_root_state_from_descriptor(descriptor: dict[str, Any]) -> tuple[float, ...]:
+    if descriptor.get("translator_id") == "nextengine.isaac.biomechanics-mirror.v2":
+        validate_biomechanics_standing_descriptor(descriptor)
+        roots = [
+            body for body in descriptor["bodies"] if body["parent_body_slot"] is None
+        ]
+        if len(roots) != 1:
+            raise ValueError("descriptor must declare exactly one root body")
+        root = roots[0]
+        x, up, forward = tuple(
+            _f32_from_bits(value) for value in root["initial_translation_f32_bits"]
+        )
+        qx, qy, qz, qw = tuple(
+            _f32_from_bits(value) for value in root["initial_rotation_f32_bits"]
+        )
+        return (x, -forward, up, qw, qx, -qz, qy, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     roots = [body for body in descriptor["bodies"] if body["parent_body_id"] is None]
     if len(roots) != 1:
         raise ValueError("descriptor must declare exactly one root body")
@@ -314,6 +514,15 @@ def isaac_root_state_from_descriptor(descriptor: dict[str, Any]) -> tuple[float,
         0.0,
         0.0,
     )
+
+
+def _f32_from_bits(value: int) -> float:
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value < 2**32:
+        raise ValueError("f32 bit pattern must be a u32")
+    result = struct.unpack("<f", struct.pack("<I", value))[0]
+    if not torch.isfinite(torch.tensor(result)):
+        raise ValueError("f32 bit pattern must be finite")
+    return result
 
 
 def rotate_world_to_root_local_q1_30_tensor(
@@ -510,6 +719,10 @@ def bounded_standing_reward_q16_tensor(
     contacting_foot_slip_sum_raw: torch.Tensor,
     contacting_foot_count: torch.Tensor,
     fell: torch.Tensor,
+    joint_reference_raw: torch.Tensor | None = None,
+    joint_pose_normalization: int = 23 * 1_500_000,
+    effort_normalization: int = 23 * 4 * 150_000_000,
+    action_rate_normalization: int = 23 * 2_000_000,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Evaluate the engine-owned bounded standing V2 reward in exact Q16."""
     x = quaternion_xyzw_q1_30[:, 0]
@@ -521,9 +734,16 @@ def bounded_standing_reward_q16_tensor(
         torch.abs(root_height_micrometres - target_root_height_micrometres),
         600_000,
     )
+    reference = (
+        torch.zeros_like(joint_position_raw)
+        if joint_reference_raw is None
+        else joint_reference_raw
+    )
+    if reference.shape != joint_position_raw.shape:
+        raise ValueError("standing joint reference shape mismatch")
     pose = 65_536 - ratio_q16_tensor(
-        torch.sum(torch.abs(joint_position_raw), dim=-1),
-        23 * 1_500_000,
+        torch.sum(torch.abs(joint_position_raw - reference), dim=-1),
+        joint_pose_normalization,
     )
     linear_motion = ratio_q16_tensor(
         torch.sum(torch.abs(linear_velocity_raw), dim=-1),
@@ -534,10 +754,10 @@ def bounded_standing_reward_q16_tensor(
         3 * 6_000_000,
     )
     root_motion = torch.maximum(linear_motion, angular_motion)
-    effort = ratio_q16_tensor(effort_sum_raw, 23 * 4 * 150_000_000)
+    effort = ratio_q16_tensor(effort_sum_raw, effort_normalization)
     action_rate = ratio_q16_tensor(
         torch.sum(torch.abs(applied_action_raw - previous_applied_action_raw), dim=-1),
-        23 * 2_000_000,
+        action_rate_normalization,
     )
     slip_denominator = contacting_foot_count * 4_000_000
     slip = torch.zeros_like(contacting_foot_slip_sum_raw)
@@ -616,8 +836,28 @@ if ISAAC_LAB_AVAILABLE:
 
         def __init__(self, cfg: NextEngineHumanoidDirectEnvCfg, descriptor_path: str, **kwargs: Any):
             descriptor = json.loads(Path(descriptor_path).read_text(encoding="utf-8"))
-            validate_descriptor(descriptor)
-            self.profile = select_environment_profile(descriptor, cfg.environment_profile_id)
+            self._biomechanics_standing = is_biomechanics_standing_profile(
+                cfg.environment_profile_id
+            )
+            if self._biomechanics_standing:
+                validate_biomechanics_standing_descriptor(descriptor)
+                self.profile = select_biomechanics_standing_profile(
+                    descriptor, cfg.environment_profile_id
+                )
+                humanoid_path = Path(cfg.asset.spawn.usd_path).resolve()
+                validate_translation_bundle(
+                    descriptor,
+                    humanoid_path.with_name("translation-manifest.json"),
+                    humanoid_usd_path=humanoid_path,
+                    ground_usd_path=humanoid_path.with_name("ground.usda"),
+                )
+                cfg.asset.spawn.articulation_props.enabled_self_collisions = True
+                cfg.asset.spawn.articulation_props.solver_velocity_iteration_count = 4
+            else:
+                validate_descriptor(descriptor)
+                self.profile = select_environment_profile(
+                    descriptor, cfg.environment_profile_id
+                )
             self.descriptor = descriptor
             self.authored_ground_clearance_m = (
                 require_compatible_authored_ground_clearance(descriptor)
@@ -637,6 +877,13 @@ if ISAAC_LAB_AVAILABLE:
             self._previous_action = torch.zeros_like(self._action)
             self._previous_effort = torch.zeros_like(self._action)
             self._effort_sum = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
+            self._applied_target = torch.zeros_like(self._action)
+            self._previous_applied_target = torch.zeros_like(self._action)
+            self._reference_target = torch.zeros_like(self._action)
+            self._positive_work = torch.zeros_like(self._action)
+            self._joint_safety_violation = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
             if not 0 <= cfg.episode_ordinal_start < 2**63:
                 raise ValueError("episode_ordinal_start must be a non-negative 63-bit integer")
             self._episode_ordinals = torch.full(
@@ -670,12 +917,19 @@ if ISAAC_LAB_AVAILABLE:
             )
             if len(self._foot_body_ids) != 2:
                 raise RuntimeError("descriptor declares exactly two foot effectors")
+            if self._biomechanics_standing:
+                self._load_biomechanics_control_tensors()
             self._capture_reset_defaults()
             for name in (
                 "_action",
                 "_previous_action",
                 "_previous_effort",
                 "_effort_sum",
+                "_applied_target",
+                "_previous_applied_target",
+                "_reference_target",
+                "_positive_work",
+                "_joint_safety_violation",
                 "_episode_ordinals",
                 "_command_schedule",
                 "reward_components_q16",
@@ -683,6 +937,86 @@ if ISAAC_LAB_AVAILABLE:
                 "_episode_component_sums",
             ):
                 setattr(self, name, getattr(self, name).to(self.device))
+
+        def _load_biomechanics_control_tensors(self) -> None:
+            joint_by_id = {
+                joint["joint_id"]: joint for joint in self.descriptor["joints"]
+            }
+            records = self.descriptor["actuators"]
+            self._actuator_joint_ids = tuple(
+                str(record["joint_id"]) for record in records
+            )
+            joints = [joint_by_id[joint_id] for joint_id in self._actuator_joint_ids]
+
+            def tensor(values: list[int]) -> torch.Tensor:
+                return torch.tensor(values, dtype=torch.int64, device=self.device)
+
+            self._neutral_target = tensor(
+                [joint["neutral_position_microradians"] for joint in joints]
+            )
+            self._soft_minimum = tensor(
+                [joint["soft_limit_microradians"][0] for joint in joints]
+            )
+            self._soft_maximum = tensor(
+                [joint["soft_limit_microradians"][1] for joint in joints]
+            )
+            self._hard_minimum = tensor(
+                [joint["hard_limit_microradians"][0] for joint in joints]
+            )
+            self._hard_maximum = tensor(
+                [joint["hard_limit_microradians"][1] for joint in joints]
+            )
+            self._maximum_velocity = tensor(
+                [joint["maximum_velocity_microradians_per_second"] for joint in joints]
+            )
+            self._joint_position_scale = torch.maximum(
+                torch.abs(self._soft_minimum), torch.abs(self._soft_maximum)
+            )
+            self._residual_scale = tensor(
+                [record["residual_scale_microradians"] for record in records]
+            )
+            self._target_delta = tensor(
+                [
+                    max(
+                        abs(record["target_delta_microradians_per_motor_tick"][0]),
+                        abs(record["target_delta_microradians_per_motor_tick"][1]),
+                    )
+                    for record in records
+                ]
+            )
+            self._stiffness_q16 = tensor([record["stiffness_q16"] for record in records])
+            self._damping_q16 = tensor([record["damping_q16"] for record in records])
+            self._effort_minimum = tensor(
+                [record["effort_micronewton_metres"][0] for record in records]
+            )
+            self._effort_maximum = tensor(
+                [record["effort_micronewton_metres"][1] for record in records]
+            )
+            self._maximum_effort_rate = tensor(
+                [
+                    record["maximum_effort_rate_micronewton_metres_per_second"]
+                    for record in records
+                ]
+            )
+            self._maximum_power = tensor(
+                [record["maximum_power_microwatts"] for record in records]
+            )
+            self._maximum_positive_work = tensor(
+                [
+                    record["maximum_positive_work_microjoules_per_motor_tick"]
+                    for record in records
+                ]
+            )
+            normalizations = self.profile["reward_normalizations"]
+            self._pose_normalization = int(
+                normalizations["joint_pose_soft_rom_span_sum_microradians"]
+            )
+            self._effort_normalization = int(
+                normalizations["applied_effort_per_motor_tick_micronewton_metres"]
+            )
+            self._target_rate_normalization = int(
+                normalizations["applied_target_rate_microradians_per_motor_tick"]
+            )
 
         def _capture_reset_defaults(self) -> None:
             """Close the engine-authored pose into deterministic reset templates."""
@@ -736,13 +1070,66 @@ if ISAAC_LAB_AVAILABLE:
             self.feet = ContactSensor(self.cfg.feet)
             self.scene.articulations["humanoid"] = self.robot
             self.scene.sensors["feet"] = self.feet
-            sim_utils.spawn_ground_plane("/World/ground", sim_utils.GroundPlaneCfg())
+            if self._biomechanics_standing:
+                ground_path = str(
+                    Path(self.cfg.asset.spawn.usd_path).with_name("ground.usda")
+                )
+                ground = sim_utils.UsdFileCfg(usd_path=ground_path)
+                ground.func("/World/ground", ground)
+            else:
+                sim_utils.spawn_ground_plane("/World/ground", sim_utils.GroundPlaneCfg())
             self.scene.clone_environments(copy_from_source=False)
 
         def _pre_physics_step(self, actions: torch.Tensor) -> None:
             self.extras.pop("log", None)
             if actions.shape != (self.num_envs, 23) or not torch.isfinite(actions).all():
                 raise ValueError("invalid canonical action batch")
+            if self._biomechanics_standing:
+                _, quaternion_raw, linear_raw, angular_raw, _ = self._canonical_facts()
+                root_relative_isaac = (
+                    self.robot.data.root_pos_w - self.scene.env_origins
+                )
+                root_position_engine = engine_vector_from_isaac_tensor(
+                    root_relative_isaac
+                )
+                root_forward = torch.round(
+                    root_position_engine[:, 2] * 1_000_000
+                ).to(torch.int64)
+                reference = biomechanics_procedural_standing_targets_tensor(
+                    actuator_joint_ids=self._actuator_joint_ids,
+                    neutral_targets_microradians=self._neutral_target,
+                    root_quaternion_xyzw_q1_30=quaternion_raw,
+                    root_forward_micrometres=root_forward,
+                    root_angular_velocity_microradians_per_second=angular_raw,
+                    root_forward_velocity_micrometres_per_second=linear_raw[:, 2],
+                )
+                self._previous_action.copy_(self._action)
+                self._action.copy_(
+                    torch.round(
+                        torch.clamp(actions, -1.0, 1.0) * float(Q1_30_ONE)
+                    ).to(torch.int64)
+                )
+                residual = round_div_ties_even_tensor(
+                    self._action * self._residual_scale, Q1_30_ONE
+                )
+                candidate = torch.minimum(
+                    torch.maximum(reference + residual, self._soft_minimum),
+                    self._soft_maximum,
+                )
+                self._reference_target.copy_(reference)
+                self._previous_applied_target.copy_(self._applied_target)
+                self._applied_target.copy_(
+                    torch.minimum(
+                        torch.maximum(
+                            candidate, self._applied_target - self._target_delta
+                        ),
+                        self._applied_target + self._target_delta,
+                    )
+                )
+                self._effort_sum.zero_()
+                self._positive_work.zero_()
+                self._joint_safety_violation.zero_()
+                return
             self._previous_action.copy_(self._action)
             self._action.copy_(
                 torch.round(torch.clamp(actions, -1.0, 1.0) * 1_000_000).to(torch.int64)
@@ -756,6 +1143,54 @@ if ISAAC_LAB_AVAILABLE:
             require_finite_tensor("joint_vel", joint_velocity)
             position = torch.round(joint_position * 1_000_000).to(torch.int64)
             velocity = torch.round(joint_velocity * 1_000_000).to(torch.int64)
+            if self._biomechanics_standing:
+                observed_violation = torch.any(
+                    (position < self._hard_minimum)
+                    | (position > self._hard_maximum)
+                    | (torch.abs(velocity) > self._maximum_velocity),
+                    dim=-1,
+                )
+                effort, next_work, infeasible = biomechanics_fixed_pd_safety_tensor(
+                    target_microradians=self._applied_target,
+                    position_microradians=position,
+                    velocity_microradians_per_second=velocity,
+                    previous_effort_micronewton_metres=self._previous_effort,
+                    used_positive_work_microjoules=self._positive_work,
+                    stiffness_q16=self._stiffness_q16,
+                    damping_q16=self._damping_q16,
+                    effort_minimum=self._effort_minimum,
+                    effort_maximum=self._effort_maximum,
+                    maximum_effort_rate_per_second=self._maximum_effort_rate,
+                    maximum_power_microwatts=self._maximum_power,
+                    maximum_positive_work_microjoules=self._maximum_positive_work,
+                )
+                violation = observed_violation | torch.any(infeasible, dim=-1)
+                self._joint_safety_violation |= violation
+                published = torch.where(
+                    self._joint_safety_violation[:, None],
+                    torch.zeros_like(effort),
+                    effort,
+                )
+                self._previous_effort.copy_(
+                    torch.where(
+                        self._joint_safety_violation[:, None],
+                        self._previous_effort,
+                        effort,
+                    )
+                )
+                self._positive_work.copy_(
+                    torch.where(
+                        self._joint_safety_violation[:, None],
+                        self._positive_work,
+                        next_work,
+                    )
+                )
+                self._effort_sum.add_(torch.sum(torch.abs(published), dim=-1))
+                self.robot.set_joint_effort_target(
+                    published.to(torch.float32) / 1_000_000.0,
+                    joint_ids=self._canonical_joint_ids,
+                )
+                return
             effort, _ = fixed_pd_tensor(self._action, position, velocity, self._previous_effort)
             self._previous_effort.copy_(effort)
             self._effort_sum.add_(torch.sum(torch.abs(effort), dim=-1))
@@ -794,6 +1229,35 @@ if ISAAC_LAB_AVAILABLE:
         def _get_observations(self) -> dict[str, torch.Tensor]:
             quaternion, _, linear_raw, angular_raw, contacts = self._canonical_facts()
             command = self._current_command()
+            if self._biomechanics_standing:
+                joint_position_raw = torch.round(
+                    self.robot.data.joint_pos[:, self._canonical_joint_ids]
+                    * 1_000_000
+                ).to(torch.int64)
+                joint_velocity_raw = torch.round(
+                    self.robot.data.joint_vel[:, self._canonical_joint_ids]
+                    * 1_000_000
+                ).to(torch.int64)
+                policy = torch.cat(
+                    (
+                        quaternion,
+                        linear_raw.to(torch.float32) / 2_000_000.0,
+                        angular_raw.to(torch.float32) / 2_000_000.0,
+                        joint_position_raw.to(torch.float32)
+                        / self._joint_position_scale.to(torch.float32),
+                        joint_velocity_raw.to(torch.float32)
+                        / self._maximum_velocity.to(torch.float32),
+                        self._applied_target.to(torch.float32)
+                        / self._joint_position_scale.to(torch.float32),
+                        command.to(torch.float32) / 1_000_000.0,
+                        contacts.to(torch.float32),
+                    ),
+                    dim=-1,
+                )
+                if policy.shape[-1] != 84:
+                    raise RuntimeError("biomechanics standing observation width mismatch")
+                require_finite_tensor("biomechanics_standing_observation", policy)
+                return {"policy": policy}
             policy = torch.cat(
                 (
                     quaternion,
@@ -832,7 +1296,10 @@ if ISAAC_LAB_AVAILABLE:
                 (torch.abs(foot_velocity[..., 0]) + torch.abs(foot_velocity[..., 2])) * 1_000_000
             ).to(torch.int64)
             slip_sum = torch.sum(slip_per_foot * contacts.to(torch.int64), dim=-1)
-            if self.profile["profile_id"] == BOUNDED_STANDING_PROFILE_ID:
+            if self.profile["profile_id"] in {
+                BOUNDED_STANDING_PROFILE_ID,
+                BIOMECHANICS_STANDING_PROFILE_ID,
+            }:
                 joint_position_raw = torch.round(
                     self.robot.data.joint_pos[:, self._canonical_joint_ids] * 1_000_000
                 ).to(torch.int64)
@@ -844,11 +1311,39 @@ if ISAAC_LAB_AVAILABLE:
                     linear_velocity_raw=linear_raw,
                     angular_velocity_raw=angular_raw,
                     effort_sum_raw=self._effort_sum,
-                    applied_action_raw=self._action,
-                    previous_applied_action_raw=self._previous_action,
+                    applied_action_raw=(
+                        self._applied_target
+                        if self._biomechanics_standing
+                        else self._action
+                    ),
+                    previous_applied_action_raw=(
+                        self._previous_applied_target
+                        if self._biomechanics_standing
+                        else self._previous_action
+                    ),
                     contacting_foot_slip_sum_raw=slip_sum,
                     contacting_foot_count=torch.sum(contacts.to(torch.int64), dim=-1),
                     fell=fallen,
+                    joint_reference_raw=(
+                        self._reference_target
+                        if self._biomechanics_standing
+                        else None
+                    ),
+                    joint_pose_normalization=(
+                        self._pose_normalization
+                        if self._biomechanics_standing
+                        else 23 * 1_500_000
+                    ),
+                    effort_normalization=(
+                        self._effort_normalization
+                        if self._biomechanics_standing
+                        else 23 * 4 * 150_000_000
+                    ),
+                    action_rate_normalization=(
+                        self._target_rate_normalization
+                        if self._biomechanics_standing
+                        else 23 * 2_000_000
+                    ),
                 )
                 self.reward_components_q16.copy_(components)
                 reward = total.to(torch.float32) / 65_536.0
@@ -928,6 +1423,21 @@ if ISAAC_LAB_AVAILABLE:
                 / 1_000_000.0
             )
             terminated = root[:, 2] <= threshold
+            if self._biomechanics_standing:
+                quaternion = engine_quaternion_xyzw_from_isaac_wxyz_tensor(
+                    self.robot.data.root_quat_w
+                )
+                up_y = 1.0 - 2.0 * (
+                    quaternion[:, 0] * quaternion[:, 0]
+                    + quaternion[:, 2] * quaternion[:, 2]
+                )
+                planar = root[:, :2] - self.scene.env_origins[:, :2]
+                terminated |= (
+                    (up_y <= 0.5)
+                    | (torch.abs(planar[:, 0]) >= 90.0)
+                    | (torch.abs(planar[:, 1]) >= 90.0)
+                    | self._joint_safety_violation
+                )
             if is_locomotion_profile(self.profile["profile_id"]):
                 displacement = root[:, :2] - self.scene.env_origins[:, :2]
                 terminated |= (torch.abs(displacement[:, 0]) >= 90.0) | (
@@ -975,6 +1485,15 @@ if ISAAC_LAB_AVAILABLE:
             self._previous_action[env_ids] = 0
             self._previous_effort[env_ids] = 0
             self._effort_sum[env_ids] = 0
+            self._applied_target[env_ids] = 0
+            self._previous_applied_target[env_ids] = 0
+            self._reference_target[env_ids] = 0
+            self._positive_work[env_ids] = 0
+            self._joint_safety_violation[env_ids] = False
+            if self._biomechanics_standing:
+                self._applied_target[env_ids] = self._neutral_target
+                self._previous_applied_target[env_ids] = self._neutral_target
+                self._reference_target[env_ids] = self._neutral_target
             self._episode_reward_sum[env_ids] = 0.0
             self._episode_component_sums[env_ids] = 0.0
             self._episode_ordinals[env_ids] += 1

@@ -14,7 +14,10 @@ from next_lab.isaac_training import (
     require_external_path,
     sha256_file,
 )
-from next_lab.motor_mirror import validate_descriptor
+from next_lab.motor_mirror import (
+    validate_biomechanics_standing_descriptor,
+    validate_descriptor,
+)
 from next_lab.usd_translation import render_usda
 
 
@@ -49,7 +52,10 @@ def main() -> None:
     )
     profile = IsaacTrainingProfile.load(arguments.profile.resolve())
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-    validate_descriptor(descriptor)
+    if "training_descriptor_id" in descriptor:
+        validate_biomechanics_standing_descriptor(descriptor)
+    else:
+        validate_descriptor(descriptor)
     profile_ids = {
         item.get("profile_id") for item in descriptor["environment_profiles"]
     }

@@ -12,6 +12,8 @@ from next_lab.biomechanics_preview import (
 from next_lab.isaac_env import (
     authored_ground_clearance_metres,
     authored_root_height_micrometres,
+    biomechanics_fixed_pd_safety_tensor,
+    biomechanics_procedural_standing_targets_tensor,
     bounded_standing_reward_q16_tensor,
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
@@ -221,6 +223,50 @@ class MotorMirrorTests(unittest.TestCase):
         values = torch.tensor([5, 7, -5, -7], dtype=torch.int64)
         actual = round_div_ties_even_tensor(values, 2)
         torch.testing.assert_close(actual, torch.tensor([2, 4, -2, -4], dtype=torch.int64))
+
+    def test_biomechanics_standing_reference_and_safety_are_descriptor_shaped(self) -> None:
+        joints = ("joint.left-knee", "joint.left-ankle-pitch", "joint.torso-yaw")
+        targets = biomechanics_procedural_standing_targets_tensor(
+            actuator_joint_ids=joints,
+            neutral_targets_microradians=torch.zeros(3, dtype=torch.int64),
+            root_quaternion_xyzw_q1_30=torch.tensor(
+                [[0, 0, 0, 1 << 30]], dtype=torch.int64
+            ),
+            root_forward_micrometres=torch.zeros(1, dtype=torch.int64),
+            root_angular_velocity_microradians_per_second=torch.zeros(
+                (1, 3), dtype=torch.int64
+            ),
+            root_forward_velocity_micrometres_per_second=torch.zeros(
+                1, dtype=torch.int64
+            ),
+        )
+        self.assertEqual(targets.tolist(), [[100_000, -140_000, 0]])
+
+        shape = (1, 1)
+        zero = torch.zeros(shape, dtype=torch.int64)
+        effort, work, infeasible = biomechanics_fixed_pd_safety_tensor(
+            target_microradians=torch.full(shape, 100_000, dtype=torch.int64),
+            position_microradians=zero,
+            velocity_microradians_per_second=zero,
+            previous_effort_micronewton_metres=zero,
+            used_positive_work_microjoules=zero,
+            stiffness_q16=torch.full(shape, 400 * 65_536, dtype=torch.int64),
+            damping_q16=torch.full(shape, 40 * 65_536, dtype=torch.int64),
+            effort_minimum=torch.full(shape, -350_000_000, dtype=torch.int64),
+            effort_maximum=torch.full(shape, 350_000_000, dtype=torch.int64),
+            maximum_effort_rate_per_second=torch.full(
+                shape, 3_500_000_000, dtype=torch.int64
+            ),
+            maximum_power_microwatts=torch.full(
+                shape, 1_200_000_000, dtype=torch.int64
+            ),
+            maximum_positive_work_microjoules=torch.full(
+                shape, 20_000_000, dtype=torch.int64
+            ),
+        )
+        self.assertEqual(effort.item(), 14_583_333)
+        self.assertEqual(work.item(), 0)
+        self.assertFalse(infeasible.item())
 
     def test_torch_root_local_transform_matches_python_golden(self) -> None:
         golden = load_json(FIXTURE)["root_local_transform"]

@@ -48,6 +48,10 @@ BOUNDED_STANDING_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/isaac-rsl-rl-rtx3080-standing.v2.json"
 )
+BIOMECHANICS_STANDING_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/isaac-rsl-rl-rtx3080-biomechanics-standing.v1.json"
+)
 
 
 class IsaacTrainingTests(unittest.TestCase):
@@ -112,6 +116,18 @@ class IsaacTrainingTests(unittest.TestCase):
         self.assertEqual(bounded.policy, legacy.policy)
         self.assertEqual(bounded.algorithm, legacy.algorithm)
         self.assertEqual(bounded.evaluation, legacy.evaluation)
+
+    def test_biomechanics_standing_is_a_small_independent_successor_run(self) -> None:
+        profile = IsaacTrainingProfile.load(BIOMECHANICS_STANDING_PROFILE)
+        config = ResolvedTrainingConfig.from_profile(profile)
+        self.assertEqual(
+            profile.environment_profile_id,
+            "nextengine.motor.env.humanoid-biomechanics-standing.v1",
+        )
+        self.assertEqual(config.num_envs * config.steps_per_env * config.iterations, 1_024_000)
+        self.assertEqual(profile.policy["init_noise_std"], 0.35)
+        self.assertEqual(profile.evaluation["max_steps"], 3_600)
+        self.assertEqual(profile.evaluation["seeds"], [1001, 1002, 1003, 1004, 1005])
 
     def test_config_hash_binds_artifacts_and_overrides(self) -> None:
         profile = IsaacTrainingProfile.load(PROFILE)

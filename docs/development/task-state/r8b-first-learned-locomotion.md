@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / STAGE0_V1_BODY_RETIRED / BIOMECHANICS_SUCCESSOR_REQUIRED / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / BIOMECHANICS_STANDING_PREFLIGHT / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -11,25 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The completed bounded-reward run is a useful numerical
-  control, but its frozen Stage 0 V1 body is not an acceptable learned-humanoid
-  foundation. It has 24 sphere colliders, 23 same-axis X revolute joints,
-  identical symmetric `±1.5 rad` limits and identical isotropic inertia tuples.
-  Retire this body from further optimizer work.
-- **Why:** Frame-by-frame review of the exact seed-1001 `model_800.pt` capture
-  shows a repeatable crossed-leg collapse from the reset at episode tick `0` to
-  the `0.25 m` fall threshold near tick `97`. The descriptor, generated USD and
-  source BodySchema confirm that the apparent anatomy is not merely a viewer
-  artifact. The viewer adds cosmetic cylinders, but the physics bodies really
-  are spheres and every physical joint axis really is X.
-- **Next action:** Start from the existing biomechanics BodySchema V2 design,
-  first diagnose and close its failing neutral-sole contact test, then admit a
-  new command-only standing environment/profile carrying the bounded reward.
-  Run a short CPU neutral/zero-action discriminator before any new GPU budget.
-- **Current blocker:** The biomechanics V2 mock-ABI articulation test currently
-  rejects the neutral pose because both soles do not contact the ground, and no
-  hash-closed standing generation consumes that schema yet. `MODEL-MIRROR-P1`
-  remains `NOT_RUN` for any successor.
+- **Current conclusion:** ADR-101 admits a distinct command-only standing
+  environment over the anatomical biomechanics V2 body and material-complete
+  V3 descriptor. The bead-like Stage 0 body remains retired from optimization.
+- **Why:** The authored neutral geometry has exact zero sole clearance. The old
+  blocker was a false mock-ABI test: that mock exports no contacts. Native pinned
+  PhysX reports two distinct sole shape contacts, and the current-material body
+  completes a 32-tick reset/step/safety/contact/termination/reward preflight.
+- **Next action:** Freeze and activate one external descriptor/USD generation,
+  pass a four-slot Isaac reset/reward smoke, then run only the 1,024,000-
+  transition seed-42 discriminator.
+- **Current blocker:** GPU descriptor/USD runtime smoke is not yet executed.
+  `MODEL-MIRROR-P1` remains `NOT_RUN`; no policy-quality or runtime authority
+  exists.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -64,7 +58,7 @@
 | Standing V2 deterministic evaluation | Seed `1001`: final `model_999.pt` terminates at tick `100`; peak-region `model_800.pt` terminates at tick `97`; neither truncates at `3,600` | Stop the five-seed matrix at the first failed gate and reject both obvious checkpoint selectors; do not start walking or promote authority |
 | Stage 0 V1 physical-model audit | Exact descriptor `13f01daf…bd5`: 24 bodies and 24 sphere colliders; 23 revolute joints, all axis `+X`, all hard limits `±1.5 rad`; identical isotropic inertia tuples. Generated USD preserves all 23 joints as X-axis revolutes with `±85.9436693°` limits | The viewer exaggerates the bead-like appearance but does not invent it. This schema is a deterministic toy discriminator, not an anatomically credible humanoid for product learning |
 | `model_800.pt` frame audit | Exact 132-frame capture: reset at frame `33`; root height progresses approximately `1.10, 1.02, 1.07, 1.03, 0.90, 0.83, 0.75, 0.63, 0.49, 0.38, 0.27 m` through frames `40..110`; legs cross and the pelvis collapses before the deterministic tick-`97` termination | Falsifies a single bad-frame or viewer-only explanation; failure is a reproducible whole-episode collapse on the declared body |
-| Biomechanics BodySchema V2 | `nextengine.body.humanoid-biomechanics-raja-1700.v2`: distinct pitch/yaw/roll axes, asymmetric anatomical ROM, box feet/limbs/torso, CoM/full inertia and contact roles | Correct existing foundation for the successor, but not yet runnable: the fresh-articulation test fails the neutral-sole ground-contact invariant |
+| Biomechanics standing environment | ADR-101; body `nextengine.body.humanoid-biomechanics-raja-1700.v2`; material V3 descriptor `6751853a…f027`; environment `nextengine.motor.env.humanoid-biomechanics-standing.v1`; manifest `1b60550d…73bb` | Native PhysX proves two distinct sole contacts and 32 reset/step ticks with complete actuator safety, contact classification, running termination and bounded reward |
 | R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | GPU reset/reward smoke is not paired CPU/Isaac trajectory evidence; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
@@ -211,9 +205,9 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: the existing biomechanics V2 design is the minimum viable standing foundation | Distinct joint axes, anatomical ROM, support boxes, full inertia and contact metadata already exist | Its fresh-articulation test reports that neutral soles do not both contact ground | Reproduce and localize the neutral-pose contact failure on CPU before changing any frozen numeric identity |
-| H2: ADR-100's bounded standing objective can be ported without another reward redesign | Its CPU bounds and GPU run remain finite and materially improve rollout survival | New geometry/inertia changes reward distributions and reset contact behavior | Freeze new goldens and run a 32-tick CPU neutral/zero-action probe on the successor |
-| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/mirror infrastructure exists | Current correspondence readiness is `NOT_RUN`, and the old USD describes only V1 | Exact successor descriptor/USD preflight followed by paired CPU/Isaac comparison and CPU final evaluation |
+| H1: the existing biomechanics V2 design is the minimum viable standing foundation | Native PhysX proves exact neutral clearance, two sole contacts and stable procedural standing | Learned residual behavior is unmeasured | Run the isolated 1,024,000-transition discriminator, then evaluate on CPU |
+| H2: ADR-100's bounded standing objective ports without another reward redesign | Exact CPU V3 reward remains bounded for 32 live ticks and uses descriptor-derived normalizers | GPU distribution is not yet observed | Four-slot Isaac reset/reward smoke, then inspect finite run metrics |
+| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact and separately hash-bound | `MODEL-MIRROR-P1` remains `NOT_RUN` | Keep GPU output R&D-only; require paired trajectories and CPU final evaluation before any promotion |
 | H4: admitted standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No valid-body standing or walking checkpoint exists | Defer until the successor passes the complete standing gate |
 
 ## Required context
@@ -238,14 +232,12 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Keep both completed Stage 0 V1-body runs immutable as numerical and pipeline
-   controls; do not use their checkpoints as successor initialization.
-2. Reproduce and localize the biomechanics V2 neutral-sole contact failure on
-   canonical CPU PhysX. Fix it under a distinct schema hash/identity if any
-   frozen numeric or semantic value changes.
-3. Admit a new command-only standing environment/profile over the biomechanics
-   successor, port the bounded reward, and pass exact CPU reset/reward/zero-action
-   preflight before generating an Isaac mirror or authorizing GPU training.
+1. Keep both completed Stage 0 V1-body runs immutable and use no checkpoint as
+   successor initialization.
+2. Create and activate the exact external biomechanics standing descriptor/USD
+   generation.
+3. Pass a four-slot Isaac reset/reward smoke, then execute only the bounded
+   1,024,000-transition seed-42 discriminator.
 
 ## Do not retry
 

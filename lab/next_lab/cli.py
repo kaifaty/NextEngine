@@ -29,6 +29,7 @@ from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     load_json,
     validate_biomechanics_descriptor,
+    validate_biomechanics_standing_descriptor,
     validate_descriptor,
     validate_golden,
 )
@@ -325,7 +326,9 @@ def main() -> int:
     if arguments.command == "translate-body":
         descriptor_bytes = arguments.descriptor.read_bytes()
         descriptor = json.loads(descriptor_bytes)
-        if descriptor.get("translator_id") in {
+        if "training_descriptor_id" in descriptor:
+            validate_biomechanics_standing_descriptor(descriptor)
+        elif descriptor.get("translator_id") in {
             BIOMECHANICS_TRANSLATOR_ID,
             BIOMECHANICS_TRANSLATOR_ID_V2,
         }:

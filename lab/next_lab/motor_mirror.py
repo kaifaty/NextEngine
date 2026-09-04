@@ -16,6 +16,9 @@ COMMAND_COUNTER_DOMAIN = b"nextengine.motor-command-counter.v1\0"
 COMMAND_SCHEDULE_DOMAIN = b"nextengine.motor-command-schedule.v1\0"
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
+BIOMECHANICS_STANDING_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-biomechanics-standing.v1"
+)
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
@@ -49,6 +52,16 @@ BOUNDED_STANDING_REWARD_COMPONENT_IDS = (
     "reward.normalized-applied-effort-cost",
     "reward.applied-action-rate-cost",
     "reward.contacting-foot-tangential-slip-cost",
+    "reward.fall-component",
+)
+BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS = (
+    "reward.upright-yaw-invariant",
+    "reward.root-height-tracking",
+    "reward.procedural-standing-pose-tracking-normalized",
+    "reward.root-motion-cost",
+    "reward.normalized-applied-effort-cost",
+    "reward.applied-target-rate-cost",
+    "reward.contacting-sole-tangential-slip-cost",
     "reward.fall-component",
 )
 LOCOMOTION_REWARD_COMPONENT_IDS = (
@@ -369,6 +382,107 @@ def select_environment_profile(
     raise ValueError(f"unsupported environment profile: {profile_id}")
 
 
+def select_biomechanics_standing_profile(
+    descriptor: dict[str, Any], profile_id: str
+) -> dict[str, Any]:
+    validate_biomechanics_standing_descriptor(descriptor)
+    if profile_id != BIOMECHANICS_STANDING_PROFILE_ID:
+        raise ValueError(f"unsupported biomechanics standing profile: {profile_id}")
+    profiles = descriptor.get("environment_profiles")
+    if not isinstance(profiles, list) or len(profiles) != 1:
+        raise ValueError("biomechanics standing profile closure mismatch")
+    profile = profiles[0]
+    if not isinstance(profile, dict) or profile.get("profile_id") != profile_id:
+        raise ValueError("biomechanics standing identity mismatch")
+    validate_biomechanics_standing_profile(profile)
+    return profile
+
+
+def validate_biomechanics_standing_profile(profile: dict[str, Any]) -> None:
+    for field in (
+        "manifest_hash",
+        "observation_layout_hash",
+        "action_layout_hash",
+        "command_schedule_profile_hash",
+        "reward_profile_hash",
+        "translator_version_hash",
+        "termination_profile_hash",
+        "rng_derivation_profile_hash",
+        "correspondence_profile_hash",
+    ):
+        _require_hash(profile.get(field), field)
+    if (
+        profile.get("profile_id") != BIOMECHANICS_STANDING_PROFILE_ID
+        or profile.get("observation_layout_id")
+        != "nextengine.motor.observation.humanoid-biomechanics-standing.v1"
+        or profile.get("action_layout_id")
+        != "nextengine.motor.action.humanoid-biomechanics-standing-residual.v1"
+        or profile.get("maximum_episode_steps") != 3_600
+        or profile.get("velocity_frame") != "world"
+        or profile.get("ground_half_extent_metres") != 50
+        or profile.get("target_root_height_micrometres") != 943_500
+        or profile.get("command_profile") != {"kind": "zero"}
+    ):
+        raise ValueError("biomechanics standing semantics mismatch")
+    reference = profile.get("standing_reference")
+    if reference != {
+        "profile_id": "nextengine.motor.procedural-standing.v1",
+        "knee_target_microradians": 100_000,
+        "ankle_bias_microradians": -140_000,
+        "root_target_forward_micrometres": 0,
+    }:
+        raise ValueError("biomechanics standing reference mismatch")
+    observation = profile.get("observation")
+    action = profile.get("action")
+    if (
+        not isinstance(observation, dict)
+        or observation.get("channel_count") != 84
+        or observation.get("contacts")
+        != ["contact.left-sole", "contact.right-sole"]
+        or not isinstance(action, dict)
+        or action.get("channel_count") != 23
+    ):
+        raise ValueError("biomechanics standing tensor layout mismatch")
+    components = profile.get("reward_components")
+    if not isinstance(components, list) or tuple(
+        component.get("component_id") for component in components
+    ) != BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS:
+        raise ValueError("biomechanics standing reward order mismatch")
+    if any(
+        component.get("minimum_raw") != 0
+        or component.get("maximum_raw") != 65_536
+        for component in components
+    ):
+        raise ValueError("biomechanics standing reward bounds mismatch")
+    normalizations = profile.get("reward_normalizations")
+    expected_normalization_keys = {
+        "root_height_micrometres",
+        "joint_pose_soft_rom_span_sum_microradians",
+        "root_linear_l1_micrometres_per_second",
+        "root_angular_l1_microradians_per_second",
+        "applied_effort_per_motor_tick_micronewton_metres",
+        "applied_target_rate_microradians_per_motor_tick",
+        "contacting_sole_slip_micrometres_per_second",
+    }
+    if (
+        not isinstance(normalizations, dict)
+        or set(normalizations) != expected_normalization_keys
+        or any(
+            not isinstance(value, int) or isinstance(value, bool) or value <= 0
+            for value in normalizations.values()
+        )
+    ):
+        raise ValueError("biomechanics standing reward normalization mismatch")
+    termination = profile.get("termination")
+    if not isinstance(termination, dict) or (
+        termination.get("pelvis_height_micrometres_inclusive"),
+        termination.get("root_tilt_degrees_inclusive"),
+        termination.get("world_bound_micrometres_inclusive"),
+        termination.get("timeout_ticks"),
+    ) != (450_000, 60, 90_000_000, 3_600):
+        raise ValueError("biomechanics standing termination mismatch")
+
+
 def validate_golden(
     golden: dict[str, Any], descriptor_bytes: bytes | None = None
 ) -> None:
@@ -663,6 +777,23 @@ def validate_current_biomechanics_descriptor(descriptor: dict[str, Any]) -> None
     validate_biomechanics_descriptor(descriptor)
     if descriptor.get("translator_id") != BIOMECHANICS_TRANSLATOR_ID_V2:
         raise ValueError("current biomechanics mirror V2 is required")
+
+
+def validate_biomechanics_standing_descriptor(descriptor: dict[str, Any]) -> None:
+    extras = {"training_descriptor_id", "observation_width", "environment_profiles"}
+    base = {key: value for key, value in descriptor.items() if key not in extras}
+    validate_current_biomechanics_descriptor(base)
+    if (
+        set(descriptor) != set(base) | extras
+        or descriptor.get("training_descriptor_id")
+        != "nextengine.isaac.humanoid-biomechanics-standing.v1"
+        or descriptor.get("observation_width") != 84
+    ):
+        raise ValueError("biomechanics standing descriptor identity mismatch")
+    profiles = descriptor.get("environment_profiles")
+    if not isinstance(profiles, list) or len(profiles) != 1:
+        raise ValueError("biomechanics standing descriptor profile mismatch")
+    validate_biomechanics_standing_profile(profiles[0])
 
 
 def _require_int_vector(value: Any, width: int, label: str) -> list[int]:
