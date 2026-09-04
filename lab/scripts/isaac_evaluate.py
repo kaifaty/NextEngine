@@ -216,6 +216,7 @@ def main() -> None:
             "forbidden_contact": 0,
             "fall": 0,
         }
+        self_collision_events: list[dict[str, Any]] = []
         step_budget = max_steps * episodes_per_slot
 
         with torch.inference_mode():
@@ -257,6 +258,39 @@ def main() -> None:
                             terminal_reason_counts[reason] += int(
                                 getattr(environment, field)[env_id].item()
                             )
+                        pair_indices = (
+                            environment.last_step_self_collision_pair_mask[env_id]
+                            .nonzero(as_tuple=False)
+                            .squeeze(-1)
+                            .detach()
+                            .cpu()
+                            .tolist()
+                        )
+                        if pair_indices:
+                            self_collision_events.append(
+                                {
+                                    "episode": len(episode_lengths) - 1,
+                                    "vector_slot": env_id,
+                                    "motor_tick": length,
+                                    "pairs": [
+                                        {
+                                            "pair_id": environment.contact_pair_ids[index],
+                                            "impulse_micronewton_seconds": environment.last_step_contact_pair_impulse[
+                                                env_id, index
+                                            ]
+                                            .detach()
+                                            .cpu()
+                                            .tolist(),
+                                            "separation_micrometres": int(
+                                                environment.last_step_contact_pair_separation[
+                                                    env_id, index
+                                                ].item()
+                                            ),
+                                        }
+                                        for index in pair_indices
+                                    ],
+                                }
+                            )
                 current_returns[done_ids] = 0.0
                 current_lengths[done_ids] = 0
                 current_components[done_ids] = 0.0
@@ -284,6 +318,7 @@ def main() -> None:
                     "terminated": terminated_count,
                     "truncated": truncated_count,
                     "reason_counts": terminal_reason_counts,
+                    "self_collision_events": self_collision_events,
                 },
                 "slot_balance": {
                     "episode_counts": completed_counts,
