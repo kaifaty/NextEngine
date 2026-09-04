@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / BODY_V3_SUCCESSOR_READY / STANDING_RETRAIN_NEXT / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / MODEL_MIRROR_P1_OPEN / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -11,25 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Pair-complete contact invalidates both V1-body
-  biomechanics checkpoints. The full fresh contact-correct run improves mean
-  rollout length `3.19 -> 143.61`, but its final policy self-collides at GPU
-  tick `139` and CPU tick `135`. The neutral V2 body has only `405 um`
-  pelvis/forearm clearance, so ADR-102 selects a distinct V3 successor rather
-  than training around the defect.
-- **Why:** V3 widens the shoulder roots to give `45,405 um` exact neutral
-  pelvis/forearm clearance and reprojects near-massless serial-axis carriers
-  while conserving source-segment mass and inertia. Zero residual now has no
-  immediate self-contact: canonical CPU reaches all `3,600` ticks; Isaac
-  reaches tick `109` and then physically falls forward through ankle ROM. The
-  latter is useful optimizer input, not a neutral-geometry failure.
-- **Next action:** Commit the V3/body and standing-V2 identity, create a fresh
-  hash-closed external generation, then run one 250-iteration PPO discriminator
-  from random weights. Evaluate its predeclared final checkpoint on GPU and CPU
-  before any forward-command work.
-- **Current blocker:** No contact-correct V3 standing checkpoint exists.
-  `MODEL-MIRROR-P1`, CPU standing admission, perturbation robustness and walking
-  remain open; no policy-quality or runtime authority exists.
+- **Current conclusion:** The fresh V3 standing policy passes the declared
+  nominal standing gate. Its predeclared `model_249.pt` survives the complete
+  contact-correct Isaac episode and five canonical CPU PhysX episodes with
+  zero safety terminal; both feet remain in contact for every CPU sample.
+- **Why:** The V3 successor removes the neutral pelvis/forearm trap and gives
+  PPO a usable physical horizon. Across 1,024,000 samples, final-20 mean
+  rollout length reaches `389.25` versus `143.61` for the rejected V2 body;
+  deterministic inference then reaches the full `3,600`-tick CPU bound.
+- **Next action:** Close a paired V3 `MODEL-MIRROR-P1` trajectory check, then
+  create the distinct bounded forward start/stop environment and initialize it
+  from the immutable standing checkpoint.
+- **Current blocker:** Formal CPU/Isaac trajectory correspondence and walking
+  environment identity remain open; no runtime policy authority exists.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -73,7 +67,10 @@
 | Contact-correct 25-iteration discriminator | Run manifest `d7e7bc0c…ca0b`, metrics `b0da57ea…071d`, final `model_24.pt` `9616d933…9bde`; mean episode length `3.19 -> 17.94`, self-collision share falls about `0.803 -> 0.177`; deterministic evaluation manifest `337e0d8a…2c33` reaches tick `68` then joint-safety terminates | The unchanged body/profile has usable learning signal. Run the full fresh 250-iteration discriminator; do not yet redesign the body or start walking |
 | Contact-correct 250-iteration V2-body discriminator | Run manifest `629a6961…f141`, metrics `e08dde63…7b3f`, final `model_249.pt` `166c469e…775`; mean episode length improves `3.19 -> 143.61`, but final evaluation self-collides at GPU tick `139` and CPU tick `135` | The optimizer learns, but the `405 um` neutral pelvis/forearm gap makes the body identity inadmissible; preserve the run as negative evidence |
 | ADR-102 V3 no-training controls | Exact neutral pelvis/forearm AABB clearance is `45,405 um`; zero residual reaches canonical CPU timeout at tick `3,600` without a safety event and Isaac tick `109` without self-contact before a physical forward fall | Immediate geometry/contact blocker is removed; begin one fresh hash-closed V3 standing run rather than requiring the hand-written fallback to solve standing |
-| R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | GPU reset/reward smoke is not paired CPU/Isaac trajectory evidence; CPU/Isaac and runtime claims remain blocked |
+| V3 standing optimizer | Generation manifest `e82416ec…ea5b`; run manifest `e185f9f9…dab6`; metrics `cca93b87…dd6e`; final `model_249.pt` `254f9d3d…f41d`; all 1,024,000 samples and 250 metric records close on clean commit `b6734160…fac4` | Final-20 mean length is `389.25`, peak mean `474.59`; training is healthy but quality is decided only by deterministic evaluation |
+| V3 final-checkpoint Isaac evaluation | Manifest `4f8bb898…eae6`; seed `1001` reaches length `3,599`, return `6194.1616`, one truncation and zero declared safety/contact/fall terminals | Contact-complete nominal GPU standing passes |
+| V3 final-checkpoint CPU evaluation | Manifest `2cea5beb…b645`; five episodes each reach tick `3,600` and `terminal.timeout`, two-sole occupancy is `1.0`, minimum root height `0.943284 m`, maximum tilt `11.5313 deg` and final backward lean `10.1897 deg` | Canonical nominal standing gate passes; this checkpoint may become an immutable parent only after the remaining R&D boundary is declared |
+| R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | Independent CPU/GPU pass outcomes are not the required 256 matched ten-second trajectory comparison; runtime authority remains blocked |
 
 ## Decisions that still constrain the work
 
@@ -276,10 +273,10 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: biomechanics V3 is learnable with pair-complete contacts | V2 training improves final mean length to `143.61`; V3 removes the immediate self-contact and gives the optimizer a 109-tick GPU baseline | No trained V3 checkpoint exists | Run the fresh 250-iteration V3 standing discriminator |
-| H2: ADR-100's bounded standing objective ports without another reward redesign | Exact CPU V3 reward is bounded; contact-correct optimizer metrics remain finite and survival improves | No contact-correct full-horizon checkpoint exists | Evaluate the predeclared final fresh checkpoint on GPU and CPU |
-| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact and separately hash-bound | `MODEL-MIRROR-P1` remains `NOT_RUN` | Keep GPU output R&D-only; require paired trajectories and CPU final evaluation before any promotion |
-| H4: admitted standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No valid-body standing or walking checkpoint exists | Defer until the successor passes the complete standing gate |
+| H1: biomechanics V3 is learnable with pair-complete contacts | Final V3 policy completes one GPU and five CPU 3,600-tick episodes with zero safety terminal | Perturbation robustness is unmeasured | Retain the final checkpoint as the sole nominal standing parent candidate |
+| H2: ADR-100's bounded standing objective ports without another reward redesign | Final V3 policy completes the GPU and five CPU nominal gates | Perturbation robustness and paired trajectory correspondence remain open | Freeze the standing checkpoint as the walking parent; do not promote it to runtime authority |
+| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` remains `NOT_RUN` | Keep GPU output R&D-only and capture paired trajectories before the walking run |
+| H4: admitted standing initialization improves bounded forward start/stop | V3 now has a complete nominal standing checkpoint | No V3 walking environment or checkpoint exists | Close the paired mirror check, then initialize one distinct forward start/stop run |
 
 ## Required context
 
@@ -305,13 +302,12 @@ Read these sources in precedence order before acting:
 
 1. Keep both completed Stage 0 V1-body runs and the new biomechanics generation,
    run, checkpoint and evaluations immutable.
-2. Commit the V3 morphology/standing-V2 successor and run one fresh
-   250-iteration standing discriminator from random weights.
-3. Evaluate only its predeclared final checkpoint on GPU and CPU; if both pass,
-   capture paired `MODEL-MIRROR-P1` trajectories.
-4. Start no forward-command optimizer run before the canonical standing gate
-   passes; add bounded perturbation evaluation separately rather than pretending
-   the five deterministic seed labels provide it.
+2. Preserve the V3 generation, run, final checkpoint and GPU/CPU evaluations as
+   immutable external evidence.
+3. Capture paired V3 `MODEL-MIRROR-P1` trajectories.
+4. Then create a distinct bounded forward start/stop environment and initialize
+   it from the standing checkpoint; add perturbation evaluation separately
+   rather than pretending deterministic seed labels provide it.
 
 ## Do not retry
 
@@ -337,14 +333,13 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Both V2-body biomechanics runs remain immutable negative
-  evidence. ADR-102 and the working implementation select V3/standing V2; a
-  fresh hash-closed run is next.
-- **Checks:** Focused Rust/Python tests pass; V3 zero residual reaches CPU tick
-  `3,600` and Isaac tick `109` without self-contact.
-- **Remaining risk:** No contact-correct V3 standing checkpoint exists.
-  `MODEL-MIRROR-P1`, perturbed robustness, walking and runtime authority remain
-  blocked. Kimodo remains deferred.
+- **Workspace state:** The V3 standing generation and checkpoint are immutable
+  external evidence; repository HEAD `b6734160…fac4` is clean.
+- **Checks:** Focused Rust/Python tests pass; final V3 policy reaches one full
+  contact-complete GPU episode and five full canonical CPU episodes.
+- **Remaining risk:** `MODEL-MIRROR-P1`, perturbed robustness, walking and
+  runtime authority remain open.
+- **Deferred:** Kimodo remains outside this foundation lineage.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.
