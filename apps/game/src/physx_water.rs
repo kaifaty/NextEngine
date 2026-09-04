@@ -31,6 +31,16 @@ const LANE_TIMESTEP: Duration = Duration::from_micros(16_667);
 const LANE_MAX_STEPS_PER_FRAME: u32 = 4;
 const LANE_MAX_PARTICLES: u32 = 16_384;
 const LANE_RADIUS_MICROMETRES: u32 = 45_000;
+/// Plan 27: neighbours within two spacings drive spray and bulk.
+const NEIGHBOUR_RADIUS_METRES: f32 = 2.0 * LANE_SPACING_METRES;
+const SPRAY_NEIGHBOUR_THRESHOLD: u32 = 6;
+const SPRAY_CLUSTER_THRESHOLD: u32 = 8;
+const SPRAY_RADIUS_MICROMETRES: u32 = 4_000;
+const SPRAY_ALPHA: f32 = 0.5;
+const SPRAY_SUBDROPLETS: u32 = 12;
+const SPRAY_STREAK_SECONDS: f32 = 1.0 / 60.0;
+const BULK_NEIGHBOUR_COUNT: u32 = 20;
+const EDGE_RADIUS_SCALE: f32 = 0.5;
 /// Plan 25: a particle this close above the level at rest has returned to
 /// the exact water (two spacings).
 const ABSORB_BAND_METRES: f32 = 2.0 * LANE_SPACING_METRES;
@@ -258,6 +268,142 @@ pub(crate) fn particles_inside(
         .count()
 }
 
+/// Plan 27: neighbour counts within `radius` (capped at `255`) and the
+/// sizes of the connected components over the same links (capped at
+/// `65,535`), through a dense uniform grid of cell `radius` over the
+/// particles' bounds (linked cells, the forward half of the `27`
+/// neighbourhood so every pair is visited once). Pure.
+pub(crate) fn neighbour_counts_and_clusters(
+    positions: &[[f32; 3]],
+    radius: f32,
+) -> (Vec<u8>, Vec<u16>) {
+    const NONE: u32 = u32::MAX;
+    let count = positions.len();
+    let mut counts = vec![0_u32; count];
+    let mut parent: Vec<u32> = (0..count as u32).collect();
+    fn find(parent: &mut [u32], mut index: u32) -> u32 {
+        while parent[index as usize] != index {
+            parent[index as usize] = parent[parent[index as usize] as usize];
+            index = parent[index as usize];
+        }
+        index
+    }
+    if count > 0 {
+        let mut minimum = [f32::INFINITY; 3];
+        for position in positions {
+            for axis in 0..3 {
+                minimum[axis] = minimum[axis].min(position[axis]);
+            }
+        }
+        let mut dims = [1_usize; 3];
+        for position in positions {
+            for axis in 0..3 {
+                let cell = ((position[axis] - minimum[axis]) / radius) as usize + 1;
+                dims[axis] = dims[axis].max(cell + 1);
+            }
+        }
+        let cell_of = |position: &[f32; 3]| -> [usize; 3] {
+            [
+                ((position[0] - minimum[0]) / radius) as usize,
+                ((position[1] - minimum[1]) / radius) as usize,
+                ((position[2] - minimum[2]) / radius) as usize,
+            ]
+        };
+        let index_of = |cell: [usize; 3]| (cell[2] * dims[1] + cell[1]) * dims[0] + cell[0];
+        let mut heads = vec![NONE; dims[0] * dims[1] * dims[2]];
+        let mut next = vec![NONE; count];
+        for (index, position) in positions.iter().enumerate() {
+            let slot = index_of(cell_of(position));
+            next[index] = heads[slot];
+            heads[slot] = index as u32;
+        }
+        // The forward half of the neighbourhood: cells after this one in
+        // scan order, plus this cell with `other > index`.
+        const FORWARD: [[isize; 3]; 13] = [
+            [1, 0, 0],
+            [-1, 1, 0],
+            [0, 1, 0],
+            [1, 1, 0],
+            [-1, -1, 1],
+            [0, -1, 1],
+            [1, -1, 1],
+            [-1, 0, 1],
+            [0, 0, 1],
+            [1, 0, 1],
+            [-1, 1, 1],
+            [0, 1, 1],
+            [1, 1, 1],
+        ];
+        let radius_squared = radius * radius;
+        let link = |a: usize, b: usize, counts: &mut [u32], parent: &mut [u32]| {
+            let delta = [
+                positions[b][0] - positions[a][0],
+                positions[b][1] - positions[a][1],
+                positions[b][2] - positions[a][2],
+            ];
+            if delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] <= radius_squared {
+                counts[a] += 1;
+                counts[b] += 1;
+                let root_a = find(parent, a as u32);
+                let root_b = find(parent, b as u32);
+                if root_a != root_b {
+                    parent[root_a as usize] = root_b;
+                }
+            }
+        };
+        for (index, position) in positions.iter().enumerate() {
+            let cell = cell_of(position);
+            let mut other = next[index];
+            while other != NONE {
+                link(index, other as usize, &mut counts, &mut parent);
+                other = next[other as usize];
+            }
+            for offset in FORWARD {
+                let neighbour = [
+                    cell[0] as isize + offset[0],
+                    cell[1] as isize + offset[1],
+                    cell[2] as isize + offset[2],
+                ];
+                if neighbour[0] < 0
+                    || neighbour[1] < 0
+                    || neighbour[2] < 0
+                    || neighbour[0] as usize >= dims[0]
+                    || neighbour[1] as usize >= dims[1]
+                    || neighbour[2] as usize >= dims[2]
+                {
+                    continue;
+                }
+                let mut other = heads[index_of([
+                    neighbour[0] as usize,
+                    neighbour[1] as usize,
+                    neighbour[2] as usize,
+                ])];
+                while other != NONE {
+                    link(index, other as usize, &mut counts, &mut parent);
+                    other = next[other as usize];
+                }
+            }
+        }
+    }
+    let mut sizes = vec![0_u32; count];
+    let roots: Vec<u32> = (0..count as u32)
+        .map(|index| find(&mut parent, index))
+        .collect();
+    for root in &roots {
+        sizes[*root as usize] += 1;
+    }
+    (
+        counts
+            .iter()
+            .map(|value| u8::try_from(*value).unwrap_or(u8::MAX))
+            .collect(),
+        roots
+            .iter()
+            .map(|root| u16::try_from(sizes[*root as usize]).unwrap_or(u16::MAX))
+            .collect(),
+    )
+}
+
 /// Plan 25 statistics, printed at session end.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LaneStats {
@@ -270,6 +416,11 @@ pub(crate) struct LaneStats {
     pub(crate) cost_max_microseconds: u128,
     /// Plan 26: the largest count of particles inside a collider.
     pub(crate) inside_colliders_max: usize,
+    /// Plan 27: the host analysis per frame and the spray fraction.
+    pub(crate) analysis_total_microseconds: u128,
+    pub(crate) analysis_max_microseconds: u128,
+    pub(crate) spray_fraction_max_permille: u32,
+    pub(crate) spray_fraction_last_permille: u32,
 }
 
 pub(crate) struct PhysxWaterLane {
@@ -348,14 +499,14 @@ impl PhysxWaterLane {
             absorption_per_metre: [1.2, 0.5, 0.25],
             refraction_strength: 0.08,
             thickness_scale: 1.0,
-            spray_neighbour_threshold: 0,
-            spray_radius_micrometres: 0,
-            spray_alpha: 0.0,
-            spray_cluster_threshold: 0,
-            spray_subdroplets: 1,
-            spray_streak_seconds: 0.0,
-            bulk_neighbour_count: 0,
-            edge_radius_scale: 1.0,
+            spray_neighbour_threshold: SPRAY_NEIGHBOUR_THRESHOLD,
+            spray_radius_micrometres: SPRAY_RADIUS_MICROMETRES,
+            spray_alpha: SPRAY_ALPHA,
+            spray_cluster_threshold: SPRAY_CLUSTER_THRESHOLD,
+            spray_subdroplets: SPRAY_SUBDROPLETS,
+            spray_streak_seconds: SPRAY_STREAK_SECONDS,
+            bulk_neighbour_count: BULK_NEIGHBOUR_COUNT,
+            edge_radius_scale: EDGE_RADIUS_SCALE,
             cleanup_radius_pixels: 4,
         }
     }
@@ -440,10 +591,34 @@ impl PhysxWaterLane {
         // Droplets that left the declared bounds (the pass rejects any
         // position outside them, exclusive at the maximum) are dropped for
         // this frame's picture.
+        // Plan 27: neighbours and clusters from the fluid's own density.
+        let analysis_started = Instant::now();
+        let (neighbours, clusters) =
+            neighbour_counts_and_clusters(&positions, NEIGHBOUR_RADIUS_METRES);
+        let analysis_cost = analysis_started.elapsed().as_micros();
+        self.stats.analysis_total_microseconds += analysis_cost;
+        self.stats.analysis_max_microseconds =
+            self.stats.analysis_max_microseconds.max(analysis_cost);
+        if !positions.is_empty() {
+            let spray = neighbours
+                .iter()
+                .zip(&clusters)
+                .filter(|(count, cluster)| {
+                    u32::from(**count) < SPRAY_NEIGHBOUR_THRESHOLD
+                        || u32::from(**cluster) < SPRAY_CLUSTER_THRESHOLD
+                })
+                .count();
+            let permille = u32::try_from(spray * 1_000 / positions.len()).unwrap_or(u32::MAX);
+            self.stats.spray_fraction_last_permille = permille;
+            self.stats.spray_fraction_max_permille =
+                self.stats.spray_fraction_max_permille.max(permille);
+        }
         let micrometres = |value: f32| (value * 1_000_000.0).round() as i64;
         let mut update_positions = Vec::with_capacity(positions.len());
         let mut update_velocities = Vec::with_capacity(positions.len());
-        for (position, velocity) in positions.iter().zip(&velocities) {
+        let mut update_neighbours = Vec::with_capacity(positions.len());
+        let mut update_clusters = Vec::with_capacity(positions.len());
+        for (index, (position, velocity)) in positions.iter().zip(&velocities).enumerate() {
             let point = position.map(micrometres);
             if !self.bounds.contains(point) {
                 continue;
@@ -451,6 +626,8 @@ impl PhysxWaterLane {
             update_positions.push(point);
             update_velocities
                 .push(velocity.map(|value| (value * 1_000_000.0).clamp(-2.0e9, 2.0e9) as i32));
+            update_neighbours.push(neighbours[index]);
+            update_clusters.push(clusters[index]);
         }
         if update_positions.is_empty() {
             return Ok(None);
@@ -458,8 +635,8 @@ impl PhysxWaterLane {
         Ok(Some(Arc::new(ParticleSurfaceUpdateV1::new(
             sequence,
             update_positions,
-            Vec::new(),
-            Vec::new(),
+            update_neighbours,
+            update_clusters,
             update_velocities,
             Vec::new(),
         )?)))
@@ -578,6 +755,75 @@ mod tests {
         // Inside means strictly inside the box shrunk by one spacing.
         let positions = [[6.5, 0.55, 2.0], [6.5, 0.77, 2.0], [7.0, 0.55, 2.0]];
         assert_eq!(particles_inside(&positions, &inside), 1);
+    }
+
+    #[test]
+    fn neighbour_grid_matches_brute_force_and_clusters_are_consistent() {
+        // A deterministic pseudo-random cloud in a 1 m cube plus one
+        // isolated particle far away.
+        let mut state = 0x9e37_79b9_u32;
+        let mut next = || {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            (state % 10_000) as f32 / 10_000.0
+        };
+        let mut positions: Vec<[f32; 3]> = (0..2_000).map(|_| [next(), next(), next()]).collect();
+        positions.push([10.0, 10.0, 10.0]);
+        let radius = NEIGHBOUR_RADIUS_METRES;
+        let (counts, clusters) = neighbour_counts_and_clusters(&positions, radius);
+        let count = positions.len();
+        let mut brute = vec![0_u32; count];
+        let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); count];
+        for a in 0..count {
+            for b in (a + 1)..count {
+                let d: f32 = (0..3)
+                    .map(|axis| (positions[a][axis] - positions[b][axis]).powi(2))
+                    .sum();
+                if d <= radius * radius {
+                    brute[a] += 1;
+                    brute[b] += 1;
+                    adjacency[a].push(b);
+                    adjacency[b].push(a);
+                }
+            }
+        }
+        for index in 0..count {
+            assert_eq!(
+                u32::from(counts[index]),
+                brute[index].min(255),
+                "particle {index}"
+            );
+        }
+        let mut component = vec![usize::MAX; count];
+        let mut sizes = Vec::new();
+        for start in 0..count {
+            if component[start] != usize::MAX {
+                continue;
+            }
+            let id = sizes.len();
+            let mut stack = vec![start];
+            let mut size = 0;
+            component[start] = id;
+            while let Some(index) = stack.pop() {
+                size += 1;
+                for &other in &adjacency[index] {
+                    if component[other] == usize::MAX {
+                        component[other] = id;
+                        stack.push(other);
+                    }
+                }
+            }
+            sizes.push(size);
+        }
+        for index in 0..count {
+            assert_eq!(
+                usize::from(clusters[index]),
+                sizes[component[index]].min(65_535)
+            );
+        }
+        assert_eq!(counts[count - 1], 0);
+        assert_eq!(clusters[count - 1], 1);
     }
 
     #[test]

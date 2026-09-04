@@ -429,7 +429,7 @@ fn run_interactive_session(
     if let Some(lane) = physx_lane.borrow().as_ref() {
         let stats = lane.stats();
         eprintln!(
-            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}, inside_colliders_max={}",
+            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}, inside_colliders_max={}, analysis_mean_us={}, analysis_max_us={}, spray_max_permille={}, spray_last_permille={}",
             stats.frames,
             stats.peak_particles,
             stats.emitted,
@@ -437,7 +437,11 @@ fn run_interactive_session(
             stats.last_particles,
             stats.cost_total_microseconds / u128::from(stats.frames.max(1)),
             stats.cost_max_microseconds,
-            stats.inside_colliders_max
+            stats.inside_colliders_max,
+            stats.analysis_total_microseconds / u128::from(stats.frames.max(1)),
+            stats.analysis_max_microseconds,
+            stats.spray_fraction_max_permille,
+            stats.spray_fraction_last_permille
         );
     }
     eprintln!(
