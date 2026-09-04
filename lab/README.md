@@ -27,6 +27,21 @@ termination/truncation. `MotorLabClient.step` accepts raw integer arrays only;
 `step_normalized` is an explicit finite/clamped ties-to-even adapter. Neither
 client nor recorder writes inside the repository.
 
+## Direct canonical CPU learning
+
+The separate ADR-107 command-only CPU learner is
+`scripts/canonical_walking_ppo.py`. It runs in the pinned Isaac Python
+environment for RSL-RL/PyTorch dependencies **without launching Isaac Sim**.
+`check-adapter` compares all native raw fields and partial resets;
+`freeze` binds a clean commit/executable/descriptor/profile to one external
+generation; `train --generation-index ...` accepts only that generation's
+new run path and automatically evaluates the predeclared final checkpoint.
+All modes require explicit `--headless`, `--descriptor` and `--output` paths.
+It has no resume/initialization path or Python-owned physics/reward overrides.
+The first admitted budget is consumed and its walking quality failed; do not
+use a new directory to grant another budget. See the current
+[task state](../docs/development/task-state/r8b-first-learned-locomotion.md).
+
 ## Stage 0 mirror workflow
 
 1. Export the engine-owned v2 descriptor to an external training store:

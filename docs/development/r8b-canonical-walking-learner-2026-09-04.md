@@ -60,7 +60,76 @@ atomicity, input identity rejection/cleanup, shard roots and correct timeout
 bootstrap and a synthetic PPO update through the installed library. This is
 adapter correctness, not policy quality.
 
-## Remaining uncertainty
+## Closed optimizer result and post-run diagnosis
+
+Generation-02 TRAIN-1 on clean commit `bb8cbc8e` completed all 250 updates /
+1,024,000 transitions. All declared artifact hashes and monotonic metric
+counters verify. Average observed throughput was 4,636 samples/s on this
+non-exclusive host (not a performance gate). Initial/final 20-update mean
+episode lengths were 38.271/220.789; final-window action noise was 0.247584.
+
+External root:
+`/home/kaifaty/NextEngine-training/r8b-canonical-walking-v1/generation-02/runs/TRAIN-1/`.
+
+| Artifact | SHA-256 |
+|---|---|
+| `run-manifest.json` | `06e71127cd1dd72bddd1c3c18427ea5ea8281ccf4ceb43e5e51f3823d946c70f` |
+| final `model_249.pt` | `74e6d4793d233179e7852f1013f286059642c511894971c7fb9b0ed2dd84372f` |
+| `evaluation.json` | `6df276e51c1ec2aea7a15ac50a220f8b706fa9fa9f1eec7dc15ac9210e33e3b6` |
+
+**Walking FAILED.** Every final deterministic CUDA-policy/CPU-physics episode
+ends at tick 299 with `terminal.fall`, forward displacement 0.824657 m,
+velocity MAE 0.203355 m/s and **zero single-support ticks on either side**.
+There is no final stop interval. The identical nominal-seed results do not
+establish robustness. Do not relabel translation while falling as walking.
+
+The report-only exploration matrix uses the same final checkpoint, CPU
+inference, 16 slots, first episodes only and common random numbers (seed 2001).
+Mean/noise/quarter-noise cases respectively average 301/227.625/217.4375 ticks;
+**all have zero single-support samples**. CPU versus CUDA inference and batch
+shape differ from the final matrix, so the 301/299 difference is not an exact
+replay claim. Within the noise matrix those inputs stay fixed. Output:
+`r8b-canonical-walking-v1/exploration-audit-01.json`.
+This rejects noise reduction alone as a demonstrated foot-release remedy.
+
+Nine report-only compositions of the successful single-foot template vary
+swing amplitude 0.5/0.75/1 and duration 0.5/1/1.5. None completes the fixed
+600-tick horizon or a qualified support switch. Full-amplitude variants reach
+20/35/37 right-only support ticks before failing. Most failures occur before
+the opposite-foot phase. Output `alternation-probe-02.json`; the added terminal
+joint audit in `alternation-probe-03.json` reproduces every original case field
+exactly. Several failures exceed ankle hard ROM by 1,053–4,994 urad. The
+duration=1/amplitude=1 case instead has no final-state hard-ROM or velocity
+excess, so its precise safety-envelope failure remains unresolved. These
+finite failures do not prove that the body cannot walk.
+
+`alternation-probe-01.json` is **INVALID**: the first prototype passed float
+targets to a raw-int mirror helper, erasing the opposite-foot targets. It is
+preserved, not used as evidence. Explicit Q1.30 conversion plus a regression
+test fixes this report-only tool defect; -02/-03 use the corrected mirror.
+
+Pinned primary-source recheck (accessed 2026-09-04): Isaac Lab 2.3.2
+[H1 reward configuration](https://raw.githubusercontent.com/isaac-sim/IsaacLab/v2.3.2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/h1/rough_env_cfg.py)
+uses biped air/contact-duration credit, while its
+[reward implementation](https://raw.githubusercontent.com/isaac-sim/IsaacLab/v2.3.2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/mdp/rewards.py)
+rewards sustained one-foot support up to 0.4 seconds, gated by a moving command.
+It also uses yaw-frame velocity tracking and foot-slip costs. These are prior
+art, not proof that copying those terms fixes this body.
+
+Decision: the direct data plane is repaired, but coordinate weight transfer,
+lift and placement before another full walking optimizer run. Localize the
+first stance-ankle/safety-envelope failure on the exact return segment and
+test a dense step/weight-transfer curriculum under a distinct environment
+identity. Do not relax safety, repeat the noise test or increase PPO budget
+without a new discriminator. No second optimizer budget is consumed/admitted.
+
+Verification: full Linux `cargo run -p xtask -- host-check` passed (Rust 1.97.1).
+The earlier explicit PhysX runtime replay bootstrap-closure failure is a
+separate uncorrected path; full host-check does not waive it. No new Rust
+physics/body/control changes were made in this direct-learner change.
+Final focused Python verification passes 18 tests, including float/raw mirror
+preservation; Ruff and `git diff --check` also pass. All optimizer processes
+are finished; no recurring monitor or automatic successor run was created.
 
 ### Infrastructure correction before the first optimizer update
 

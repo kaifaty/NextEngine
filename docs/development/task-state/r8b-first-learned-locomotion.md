@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V3_STANDING_NOMINAL_GATE_PASS / V5_CPU_REACHABILITY_PASS / PAIRED_ACTION_AUDIT_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / CANONICAL_LEARNER_FIXED / V5_CPU_WALKING_FAILED / PAIRED_ACTION_AUDIT_FAILED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -21,12 +21,12 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Under ADR-107 freeze and run the direct CPU V5 experiment
-  with CUDA PPO. Corrected adapter control passes 5,120 exact raw transitions
-  and 399 resets; eight adapter/PPO tests pass. No policy quality yet.
-- **Training:** No optimizer run started after the V4/V5 corrections. The
-  original paired alternation/correspondence criterion remains unsatisfied.
-  ADR-107 permits one direct-CPU discriminator, not an Isaac retry.
+- **Next action:** Localize the exact stance-ankle/safety-envelope failure
+  during foot return, then isolate a dense weight-transfer/lift/place lesson.
+  Corrected adapter control passes 5,120 exact transitions and 399 resets.
+- **Training:** ADR-107's direct CPU V5/CUDA PPO run completed 1,024,000
+  samples. Final five episodes fall at tick 299 after 0.824657 m, with zero
+  single-support ticks. Walking is FAILED. No optimizer is currently running.
 - **Do not retry:** Walking V1/V2/V3 unchanged, PPO/noise tuning, CPU PCM
   enablement, tolerance relaxation, standing-weight initialization into V5,
   or shortening the probe until it passes.
@@ -118,6 +118,26 @@ not clean-commit generation/run manifests.
   repeat the two-slot-only control. Generation-02 binds the repaired adapter
   to the unchanged profile and unexecuted optimizer budget.
 
+## D-018 — Direct learning does not yet discover a step
+
+- **Evidence:** Generation-02 TRAIN-1 (`bb8cbc8e`) is closed and hash-verified;
+  final model `74e6d479…4372f`, run manifest `06e71127…6c70f`. Full paths/hashes
+  and source links are in the direct-CPU investigation. All final episodes
+  fall at 299 with 0.824657 m travel and no one-foot support.
+- **Discriminators:** 16-slot mean/current-noise/quarter-noise first-episode
+  matrices all have zero single support. Nine coherent single-foot-template
+  compositions fail before any complete alternation; several exceed stance
+  ankle hard ROM, and one needs exact safety-envelope localization.
+- **Conclusion:** Infrastructure and mirror drift are not sufficient to
+  explain absent gait. Noise reduction alone has no positive control. These
+  results do not prove global physical infeasibility.
+- **Decision:** Do not spend another unchanged PPO budget. First localize the
+  return/weight-transfer boundary and isolate a dense step curriculum in a
+  new environment identity. Original safety, 3 m, stop and gait gates remain.
+- **Do not reuse:** `alternation-probe-01.json` is invalid (float-to-raw mirror
+  bug). -02/-03 use corrected integer conversion and exactly reproduce case
+  outcomes. No second optimizer run is active or admitted.
+
 ## Active hypotheses
 
 | Hypothesis | Update | Next test |
@@ -159,10 +179,11 @@ not clean-commit generation/run manifests.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining implementation: execute ADR-107's direct CPU run and canonical
-  evaluation; if needed, isolate duration-aware gait credit under a successor.
+- Remaining implementation: a safe coordinated step/weight-transfer lesson,
+  separately identified gait credit, then another admitted learned evaluation.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
-- No full V5 training generation has been activated and no new checkpoint
-  exists. The user has authorized necessary fixes and training; the blocker
-  is technical evidence, not missing permission.
+- Generation-02 completed but failed walking quality. Full Linux host-check
+  passes; optional PhysX runtime replay still has the separate bootstrap
+  profile-closure issue. The user has authorized necessary fixes and training;
+  the remaining blocker is technical evidence, not missing permission.

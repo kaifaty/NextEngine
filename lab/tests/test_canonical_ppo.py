@@ -105,6 +105,17 @@ class FakeClient:
 
 
 class CanonicalAdapterTests(unittest.TestCase):
+    def test_float_swing_mirroring_preserves_nonzero_targets(self):
+        from next_lab.walking_action_basis import walking_action_basis_tape
+
+        from lab.scripts.cpu_walking_alternation_probe import mirror_target
+
+        target = walking_action_basis_tape()[1, 104].astype(np.float64) / (1 << 30)
+        mirrored = mirror_target(target)
+        self.assertEqual(np.count_nonzero(target), np.count_nonzero(mirrored))
+        self.assertEqual(mirrored[10], target[0])
+        np.testing.assert_array_equal(mirror_target(mirrored), target)
+
     def make_env(self, factory=FakeClient):
         return CanonicalVecEnv(
             Path("unused"),
