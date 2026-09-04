@@ -2,6 +2,7 @@
 
 mod biomechanics;
 mod biomechanics_standing;
+mod biomechanics_standing_runner;
 mod capsule_procedural;
 #[cfg(test)]
 mod capsule_procedural_tests;
@@ -51,6 +52,10 @@ pub use biomechanics_standing::{
     BIOMECHANICS_STANDING_REWARD_COEFFICIENTS_Q16, BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS,
     BiomechanicsStandingRewardFactsV1, biomechanics_standing_environment_manifest_v1,
     biomechanics_standing_isaac_descriptor_json_v1, biomechanics_standing_reward_q16_v1,
+};
+pub use biomechanics_standing_runner::{
+    BiomechanicsStandingFrameResult, BiomechanicsStandingRunnerError,
+    BiomechanicsStandingVectorRunner, BiomechanicsStandingVectorStepOutput,
 };
 pub use capsule_procedural::{
     CAPSULE_PROCEDURAL_MOTOR_PROFILE_VERSION_V1, CapsuleMotorDecisionV1, CapsuleMotorRouteV1,

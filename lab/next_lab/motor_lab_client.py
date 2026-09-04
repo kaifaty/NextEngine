@@ -27,6 +27,9 @@ CURRICULUM_LOCOMOTION_PROFILE_ID = (
 )
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
+BIOMECHANICS_STANDING_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-biomechanics-standing.v1"
+)
 
 
 class MotorLabProtocolError(RuntimeError):
@@ -174,7 +177,11 @@ class MotorLabClient:
     ) -> list[StepResult]:
         return self.step(
             episode_ordinals,
-            normalized_action_to_raw(normalized_actions, self.descriptor.action_width),
+            normalized_action_to_raw(
+                normalized_actions,
+                self.descriptor.action_width,
+                q1_30=self.descriptor.profile_id == BIOMECHANICS_STANDING_PROFILE_ID,
+            ),
         )
 
     def checkpoint(self, vector_slot: int, episode_ordinal: int) -> bytes:
@@ -344,6 +351,8 @@ class MotorLabClient:
 def normalized_action_to_raw(
     normalized_actions: Sequence[Sequence[float]] | np.ndarray,
     action_width: int = 23,
+    *,
+    q1_30: bool = False,
 ) -> np.ndarray:
     values = np.asarray(normalized_actions, dtype=np.float64)
     if values.ndim != 2 or values.shape[1] != action_width:
@@ -351,7 +360,8 @@ def normalized_action_to_raw(
     if not np.isfinite(values).all():
         raise ValueError("normalized actions must be finite")
     clipped = np.clip(values, -1.0, 1.0)
-    return np.rint(clipped * 1_000_000.0).astype(np.int64)
+    scale = float(1 << 30) if q1_30 else 1_000_000.0
+    return np.rint(clipped * scale).astype(np.int64)
 
 
 def _command(executable: str | Path | Sequence[str | Path]) -> list[str]:

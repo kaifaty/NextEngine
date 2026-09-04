@@ -27,6 +27,10 @@ class MotorLabClientTests(unittest.TestCase):
             normalized_action_to_raw(values, action_width=3).tolist(),
             [[0, 2, -1_000_000]],
         )
+        self.assertEqual(
+            normalized_action_to_raw([[0.5, -2.0]], action_width=2, q1_30=True).tolist(),
+            [[1 << 29, -(1 << 30)]],
+        )
         with self.assertRaisesRegex(ValueError, "finite"):
             normalized_action_to_raw([[float("nan")]], action_width=1)
 

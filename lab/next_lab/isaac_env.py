@@ -82,6 +82,10 @@ FROZEN_STAGE0_V1_BODY_SCHEMA_HASH = (
 )
 FROZEN_STAGE0_V1_ROOT_HEIGHT_MICROMETRES = 1_050_000
 FROZEN_STAGE0_V1_GROUND_PENETRATION_MICROMETRES = -45_000
+MICRO_SCALE = 1_000_000
+ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS = 50_000
+CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS = 250_000
+LOW_IMPULSE_GRACE_SUBSTEPS = 4
 
 
 def is_locomotion_profile(profile_id: str) -> bool:
@@ -124,6 +128,186 @@ def require_finite_tensor(
 
 def isaac_prim_name(identifier: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", identifier)
+
+
+def _hard_impact_limit_for_role(contact_role: int) -> int:
+    if contact_role == 8:
+        return 6_000_000
+    if contact_role in {1, 2, 4, 5, 6}:
+        return 4_000_000
+    if contact_role in {7, 9, 10, 11}:
+        return 3_000_000
+    if contact_role == 3:
+        return 1_000_000
+    raise ValueError(f"unsupported biomechanics contact role: {contact_role}")
+
+
+def _contact_body_projections(
+    descriptor: dict[str, Any],
+) -> tuple[tuple[str, int, int], ...]:
+    projections: list[tuple[str, int, int]] = []
+    for body in descriptor["bodies"]:
+        candidates = []
+        for collider in body["colliders"]:
+            role = int(collider["contact_role"])
+            shape = int(collider["shape_token"])
+            candidates.append((_hard_impact_limit_for_role(role), role, shape))
+        if candidates:
+            hard_limit, role, _ = min(candidates)
+            projections.append((str(body["body_id"]), role, hard_limit))
+    if not projections or len({body_id for body_id, _, _ in projections}) != len(
+        projections
+    ):
+        raise ValueError("invalid contact-bearing body projection")
+    return tuple(projections)
+
+
+def _contact_pair_layout(
+    projections: tuple[tuple[str, int, int], ...],
+) -> dict[str, tuple[int | bool | str, ...]]:
+    body_count = len(projections)
+    sensor: list[int] = []
+    filter_index: list[int] = []
+    primary_role: list[int] = []
+    hard_limit: list[int] = []
+    self_contact: list[bool] = []
+    pair_id: list[str] = []
+    for body_index, (_, role, limit) in enumerate(projections):
+        sensor.append(body_index)
+        filter_index.append(0)
+        primary_role.append(role)
+        hard_limit.append(limit)
+        self_contact.append(False)
+        pair_id.append(f"ground:{projections[body_index][0]}")
+    for first in range(body_count):
+        for second in range(first + 1, body_count):
+            sensor.append(first)
+            filter_index.append(1 + second)
+            primary_role.append(projections[first][1])
+            hard_limit.append(min(projections[first][2], projections[second][2]))
+            self_contact.append(True)
+            pair_id.append(f"{projections[first][0]}:{projections[second][0]}")
+    return {
+        "sensor": tuple(sensor),
+        "filter": tuple(filter_index),
+        "primary_role": tuple(primary_role),
+        "hard_limit": tuple(hard_limit),
+        "self_contact": tuple(self_contact),
+        "pair_id": tuple(pair_id),
+    }
+
+
+def _integer_vector_threshold(
+    impulse: torch.Tensor,
+    threshold: torch.Tensor | int,
+    *,
+    inclusive: bool,
+) -> torch.Tensor:
+    if impulse.dtype != torch.int64 or impulse.shape[-1] != 3:
+        raise ValueError("canonical contact impulse must be int64 xyz")
+    limit = torch.as_tensor(threshold, dtype=torch.int64, device=impulse.device)
+    while limit.ndim < impulse.ndim - 1:
+        limit = limit.unsqueeze(0)
+    absolute = torch.abs(impulse)
+    bounded = torch.minimum(absolute, limit[..., None])
+    magnitude_squared = torch.sum(bounded * bounded, dim=-1)
+    limit_squared = limit * limit
+    if inclusive:
+        return torch.any(absolute >= limit[..., None], dim=-1) | (
+            magnitude_squared >= limit_squared
+        )
+    return torch.any(absolute > limit[..., None], dim=-1) | (
+        magnitude_squared > limit_squared
+    )
+
+
+def _classify_contact_pairs_tensor(
+    impulse_micronewton_seconds: torch.Tensor,
+    minimum_separation_micrometres: torch.Tensor,
+    previous_continuity: torch.Tensor,
+    hard_limits: torch.Tensor,
+    self_contact: torch.Tensor,
+    primary_roles: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    if (
+        impulse_micronewton_seconds.dtype != torch.int64
+        or minimum_separation_micrometres.dtype != torch.int64
+        or previous_continuity.dtype != torch.int64
+        or impulse_micronewton_seconds.shape[:-1]
+        != minimum_separation_micrometres.shape
+        or minimum_separation_micrometres.shape != previous_continuity.shape
+        or hard_limits.shape != minimum_separation_micrometres.shape[-1:]
+        or self_contact.shape != hard_limits.shape
+        or primary_roles.shape != hard_limits.shape
+    ):
+        raise ValueError("contact pair tensor layout mismatch")
+    active = (minimum_separation_micrometres < 0) | _integer_vector_threshold(
+        impulse_micronewton_seconds,
+        ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS,
+        inclusive=True,
+    )
+    continuity = torch.where(
+        active, previous_continuity + 1, torch.zeros_like(previous_continuity)
+    )
+    material = active & (
+        _integer_vector_threshold(
+            impulse_micronewton_seconds,
+            CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS,
+            inclusive=False,
+        )
+        | (continuity > LOW_IMPULSE_GRACE_SUBSTEPS)
+    )
+    hard_impact = active & _integer_vector_threshold(
+        impulse_micronewton_seconds, hard_limits, inclusive=False
+    )
+    return {
+        "active": active,
+        "continuity": continuity,
+        "material": material,
+        "hard_impact": hard_impact,
+        "self_collision": material & self_contact[None],
+        "forbidden_locomotion": material
+        & ~self_contact[None]
+        & (primary_roles[None] != 8),
+    }
+
+
+def _minimum_contact_separation_tensor(
+    separation_metres: torch.Tensor,
+    contact_count: torch.Tensor,
+    contact_start: torch.Tensor,
+) -> torch.Tensor:
+    if (
+        separation_metres.ndim != 2
+        or separation_metres.shape[1] != 1
+        or contact_count.shape != contact_start.shape
+        or contact_count.dtype != torch.int32
+        or contact_start.dtype != torch.int32
+    ):
+        raise ValueError("PhysX contact detail tensor layout mismatch")
+    flat_count = contact_count.reshape(-1).to(torch.int64)
+    flat_start = contact_start.reshape(-1).to(torch.int64)
+    expected_start = torch.cumsum(flat_count, dim=0) - flat_count
+    packed = torch.all((flat_count == 0) | (flat_start == expected_start))
+    if packed.device.type == "cuda":
+        torch._assert_async(
+            packed, "PhysX contact detail buffer is not canonical packed order"
+        )
+    elif not bool(packed.item()):
+        raise RuntimeError("PhysX contact detail buffer is not canonical packed order")
+    owner = torch.repeat_interleave(
+        torch.arange(flat_count.numel(), device=flat_count.device), flat_count
+    )
+    used = separation_metres.reshape(-1)[: owner.shape[0]]
+    canonical = torch.round(used.to(torch.float64) * MICRO_SCALE).to(torch.int64)
+    output = torch.full(
+        (flat_count.numel(),),
+        torch.iinfo(torch.int64).max,
+        dtype=torch.int64,
+        device=flat_count.device,
+    )
+    output.scatter_reduce_(0, owner, canonical, reduce="amin", include_self=True)
+    return output.reshape(contact_count.shape)
 
 
 def isaac_actuator_limits_from_descriptor(
@@ -844,6 +1028,8 @@ if ISAAC_LAB_AVAILABLE:
                 self.profile = select_biomechanics_standing_profile(
                     descriptor, cfg.environment_profile_id
                 )
+                self._contact_projections = _contact_body_projections(descriptor)
+                self._contact_layout = _contact_pair_layout(self._contact_projections)
                 humanoid_path = Path(cfg.asset.spawn.usd_path).resolve()
                 validate_translation_bundle(
                     descriptor,
@@ -884,6 +1070,58 @@ if ISAAC_LAB_AVAILABLE:
             self._joint_safety_violation = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
             )
+            if self._biomechanics_standing:
+                pair_count = len(self._contact_layout["sensor"])
+                self._contact_continuity = torch.zeros(
+                    (cfg.scene.num_envs, pair_count), dtype=torch.int64
+                )
+                self._self_collision_pair_violation = torch.zeros(
+                    (cfg.scene.num_envs, pair_count), dtype=torch.bool
+                )
+                self._self_collision_pair_impulse = torch.zeros(
+                    (cfg.scene.num_envs, pair_count, 3), dtype=torch.int64
+                )
+                self._self_collision_pair_separation = torch.full(
+                    (cfg.scene.num_envs, pair_count),
+                    torch.iinfo(torch.int64).max,
+                    dtype=torch.int64,
+                )
+                self._contact_physics_substeps_started = 0
+                self._hard_impact_violation = torch.zeros(
+                    cfg.scene.num_envs, dtype=torch.bool
+                )
+                self._self_collision_violation = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self._forbidden_contact_violation = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_joint_safety = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_hard_impact = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_self_collision = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_forbidden_contact = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_fall = torch.zeros_like(
+                    self._hard_impact_violation
+                )
+                self.last_step_self_collision_pair_mask = torch.zeros_like(
+                    self._self_collision_pair_violation
+                )
+                self.last_step_contact_pair_impulse = torch.zeros(
+                    (cfg.scene.num_envs, pair_count, 3), dtype=torch.int64
+                )
+                self.last_step_contact_pair_separation = torch.full(
+                    (cfg.scene.num_envs, pair_count),
+                    torch.iinfo(torch.int64).max,
+                    dtype=torch.int64,
+                )
             if not 0 <= cfg.episode_ordinal_start < 2**63:
                 raise ValueError("episode_ordinal_start must be a non-negative 63-bit integer")
             self._episode_ordinals = torch.full(
@@ -919,6 +1157,7 @@ if ISAAC_LAB_AVAILABLE:
                 raise RuntimeError("descriptor declares exactly two foot effectors")
             if self._biomechanics_standing:
                 self._load_biomechanics_control_tensors()
+                self._setup_contact_pair_view()
             self._capture_reset_defaults()
             for name in (
                 "_action",
@@ -937,6 +1176,25 @@ if ISAAC_LAB_AVAILABLE:
                 "_episode_component_sums",
             ):
                 setattr(self, name, getattr(self, name).to(self.device))
+            if self._biomechanics_standing:
+                for name in (
+                    "_contact_continuity",
+                    "_self_collision_pair_violation",
+                    "_self_collision_pair_impulse",
+                    "_self_collision_pair_separation",
+                    "_hard_impact_violation",
+                    "_self_collision_violation",
+                    "_forbidden_contact_violation",
+                    "last_step_failure_joint_safety",
+                    "last_step_failure_hard_impact",
+                    "last_step_failure_self_collision",
+                    "last_step_failure_forbidden_contact",
+                    "last_step_failure_fall",
+                    "last_step_self_collision_pair_mask",
+                    "last_step_contact_pair_impulse",
+                    "last_step_contact_pair_separation",
+                ):
+                    setattr(self, name, getattr(self, name).to(self.device))
 
         def _load_biomechanics_control_tensors(self) -> None:
             joint_by_id = {
@@ -1018,6 +1276,53 @@ if ISAAC_LAB_AVAILABLE:
                 normalizations["applied_target_rate_microradians_per_motor_tick"]
             )
 
+        def _setup_contact_pair_view(self) -> None:
+            body_patterns = [
+                f"/World/envs/env_*/Humanoid/Bodies/{isaac_prim_name(body_id)}"
+                for body_id, _, _ in self._contact_projections
+            ]
+            filters = [
+                ["/World/ground/Collision", *body_patterns]
+                for _ in body_patterns
+            ]
+            pair_count = len(self._contact_layout["sensor"])
+            self._contact_pair_view = (
+                self.feet._physics_sim_view.create_rigid_contact_view(
+                    body_patterns,
+                    filter_patterns=filters,
+                    max_contact_data_count=16 * pair_count * self.num_envs,
+                )
+            )
+            expected_sensor_count = len(body_patterns) * self.num_envs
+            expected_filter_count = 1 + len(body_patterns)
+            if (
+                self._contact_pair_view.sensor_count != expected_sensor_count
+                or self._contact_pair_view.filter_count != expected_filter_count
+            ):
+                raise RuntimeError("Isaac rigid-contact tensor layout mismatch")
+            self._contact_pair_sensor = torch.tensor(
+                self._contact_layout["sensor"], dtype=torch.int64, device=self.device
+            )
+            self._contact_pair_filter = torch.tensor(
+                self._contact_layout["filter"], dtype=torch.int64, device=self.device
+            )
+            self._contact_pair_hard_limit = torch.tensor(
+                self._contact_layout["hard_limit"],
+                dtype=torch.int64,
+                device=self.device,
+            )
+            self._contact_pair_self = torch.tensor(
+                self._contact_layout["self_contact"],
+                dtype=torch.bool,
+                device=self.device,
+            )
+            self._contact_pair_primary_role = torch.tensor(
+                self._contact_layout["primary_role"],
+                dtype=torch.int64,
+                device=self.device,
+            )
+            self.contact_pair_ids = tuple(self._contact_layout["pair_id"])
+
         def _capture_reset_defaults(self) -> None:
             """Close the engine-authored pose into deterministic reset templates."""
             root_template = torch.tensor(
@@ -1085,6 +1390,10 @@ if ISAAC_LAB_AVAILABLE:
             if actions.shape != (self.num_envs, 23) or not torch.isfinite(actions).all():
                 raise ValueError("invalid canonical action batch")
             if self._biomechanics_standing:
+                if self._contact_physics_substeps_started != 0:
+                    raise RuntimeError(
+                        "contact substep cadence did not close at motor boundary"
+                    )
                 _, quaternion_raw, linear_raw, angular_raw, _ = self._canonical_facts()
                 root_relative_isaac = (
                     self.robot.data.root_pos_w - self.scene.env_origins
@@ -1129,6 +1438,14 @@ if ISAAC_LAB_AVAILABLE:
                 self._effort_sum.zero_()
                 self._positive_work.zero_()
                 self._joint_safety_violation.zero_()
+                self._hard_impact_violation.zero_()
+                self._self_collision_violation.zero_()
+                self._forbidden_contact_violation.zero_()
+                self._self_collision_pair_violation.zero_()
+                self._self_collision_pair_impulse.zero_()
+                self._self_collision_pair_separation.fill_(
+                    torch.iinfo(torch.int64).max
+                )
                 return
             self._previous_action.copy_(self._action)
             self._action.copy_(
@@ -1137,6 +1454,11 @@ if ISAAC_LAB_AVAILABLE:
             self._effort_sum.zero_()
 
         def _apply_action(self) -> None:
+            if self._biomechanics_standing:
+                if self._contact_physics_substeps_started > 0:
+                    self._consume_biomechanics_contact_substep()
+                if self._contact_physics_substeps_started >= self.cfg.decimation:
+                    raise RuntimeError("too many contact substeps before motor commit")
             joint_position = self.robot.data.joint_pos[:, self._canonical_joint_ids]
             joint_velocity = self.robot.data.joint_vel[:, self._canonical_joint_ids]
             require_finite_tensor("joint_pos", joint_position)
@@ -1190,6 +1512,7 @@ if ISAAC_LAB_AVAILABLE:
                     published.to(torch.float32) / 1_000_000.0,
                     joint_ids=self._canonical_joint_ids,
                 )
+                self._contact_physics_substeps_started += 1
                 return
             effort, _ = fixed_pd_tensor(self._action, position, velocity, self._previous_effort)
             self._previous_effort.copy_(effort)
@@ -1225,6 +1548,73 @@ if ISAAC_LAB_AVAILABLE:
             ticks = torch.clamp(self.episode_length_buf, 0, 1_200).to(torch.int64)
             envs = torch.arange(self.num_envs, device=self.device)
             return self._command_schedule[envs, ticks]
+
+        def _consume_biomechanics_contact_substep(self) -> None:
+            body_count = len(self._contact_projections)
+            filter_count = 1 + body_count
+            force = self._contact_pair_view.get_contact_force_matrix(dt=self.physics_dt)
+            expected_force_shape = (
+                body_count * self.num_envs,
+                filter_count,
+                3,
+            )
+            if force.shape != expected_force_shape:
+                raise RuntimeError("Isaac contact force matrix changed layout")
+            force_by_env = force.reshape(
+                body_count, self.num_envs, filter_count, 3
+            ).permute(1, 0, 2, 3)
+            selected_force = force_by_env[
+                :, self._contact_pair_sensor, self._contact_pair_filter
+            ]
+            impulse = torch.round(
+                selected_force.to(torch.float64) * self.physics_dt * MICRO_SCALE
+            ).to(torch.int64)
+            contact_data = self._contact_pair_view.get_contact_data(dt=self.physics_dt)
+            minimum_separation = _minimum_contact_separation_tensor(
+                contact_data[3], contact_data[4], contact_data[5]
+            )
+            separation_by_env = minimum_separation.reshape(
+                body_count, self.num_envs, filter_count
+            ).permute(1, 0, 2)
+            selected_separation = separation_by_env[
+                :, self._contact_pair_sensor, self._contact_pair_filter
+            ]
+            self.last_step_contact_pair_impulse.copy_(impulse)
+            self.last_step_contact_pair_separation.copy_(selected_separation)
+            classification = _classify_contact_pairs_tensor(
+                impulse,
+                selected_separation,
+                self._contact_continuity,
+                self._contact_pair_hard_limit,
+                self._contact_pair_self,
+                self._contact_pair_primary_role,
+            )
+            self._contact_continuity.copy_(classification["continuity"])
+            self._hard_impact_violation |= torch.any(
+                classification["hard_impact"], dim=-1
+            )
+            self._self_collision_violation |= torch.any(
+                classification["self_collision"], dim=-1
+            )
+            new_self_collision = classification["self_collision"]
+            self._self_collision_pair_impulse.copy_(
+                torch.where(
+                    new_self_collision[..., None],
+                    impulse,
+                    self._self_collision_pair_impulse,
+                )
+            )
+            self._self_collision_pair_separation.copy_(
+                torch.where(
+                    new_self_collision,
+                    selected_separation,
+                    self._self_collision_pair_separation,
+                )
+            )
+            self._self_collision_pair_violation |= classification["self_collision"]
+            self._forbidden_contact_violation |= torch.any(
+                classification["forbidden_locomotion"], dim=-1
+            )
 
         def _get_observations(self) -> dict[str, torch.Tensor]:
             quaternion, _, linear_raw, angular_raw, contacts = self._canonical_facts()
@@ -1422,8 +1812,15 @@ if ISAAC_LAB_AVAILABLE:
                 fall_height_threshold_micrometres(self.profile["profile_id"])
                 / 1_000_000.0
             )
-            terminated = root[:, 2] <= threshold
+            fall = root[:, 2] <= threshold
+            terminated = fall.clone()
             if self._biomechanics_standing:
+                if self._contact_physics_substeps_started != self.cfg.decimation:
+                    raise RuntimeError(
+                        "motor commit does not contain four contact substeps"
+                    )
+                self._consume_biomechanics_contact_substep()
+                self._contact_physics_substeps_started = 0
                 quaternion = engine_quaternion_xyzw_from_isaac_wxyz_tensor(
                     self.robot.data.root_quat_w
                 )
@@ -1437,6 +1834,31 @@ if ISAAC_LAB_AVAILABLE:
                     | (torch.abs(planar[:, 0]) >= 90.0)
                     | (torch.abs(planar[:, 1]) >= 90.0)
                     | self._joint_safety_violation
+                    | self._hard_impact_violation
+                    | self._self_collision_violation
+                    | self._forbidden_contact_violation
+                )
+                self.last_step_failure_joint_safety.copy_(
+                    self._joint_safety_violation
+                )
+                self.last_step_failure_hard_impact.copy_(
+                    self._hard_impact_violation
+                )
+                self.last_step_failure_self_collision.copy_(
+                    self._self_collision_violation
+                )
+                self.last_step_failure_forbidden_contact.copy_(
+                    self._forbidden_contact_violation
+                )
+                self.last_step_failure_fall.copy_(fall)
+                self.last_step_self_collision_pair_mask.copy_(
+                    self._self_collision_pair_violation
+                )
+                self.last_step_contact_pair_impulse.copy_(
+                    self._self_collision_pair_impulse
+                )
+                self.last_step_contact_pair_separation.copy_(
+                    self._self_collision_pair_separation
                 )
             if is_locomotion_profile(self.profile["profile_id"]):
                 displacement = root[:, :2] - self.scene.env_origins[:, :2]
@@ -1468,6 +1890,17 @@ if ISAAC_LAB_AVAILABLE:
                     log[f"Episode_Component/{component_id}"] = (
                         self._episode_component_sums[completed_ids, index] / lengths
                     )
+                if self._biomechanics_standing:
+                    for reason in (
+                        "joint_safety",
+                        "hard_impact",
+                        "self_collision",
+                        "forbidden_contact",
+                        "fall",
+                    ):
+                        log[f"Episode_Termination/{reason}"] = getattr(
+                            self, f"last_step_failure_{reason}"
+                        )[completed_ids].to(torch.float32)
                 self.extras["log"] = log
             super()._reset_idx(env_ids)
             root_state = self.robot.data.default_root_state[env_ids].clone()
@@ -1494,6 +1927,11 @@ if ISAAC_LAB_AVAILABLE:
                 self._applied_target[env_ids] = self._neutral_target
                 self._previous_applied_target[env_ids] = self._neutral_target
                 self._reference_target[env_ids] = self._neutral_target
+                self._contact_continuity[env_ids] = 0
+                self._self_collision_pair_violation[env_ids] = False
+                self._hard_impact_violation[env_ids] = False
+                self._self_collision_violation[env_ids] = False
+                self._forbidden_contact_violation[env_ids] = False
             self._episode_reward_sum[env_ids] = 0.0
             self._episode_component_sums[env_ids] = 0.0
             self._episode_ordinals[env_ids] += 1

@@ -2,7 +2,11 @@ use std::io::{ErrorKind, Read, Write};
 
 use next_contracts::ids::ContentHash;
 use next_contracts::motor::{MotorContractError, MotorEnvironmentCheckpointEnvelopeV1};
-use next_motor::{MotorVectorRunner, TrainingEnvironmentError, VectorPolicyStepInput};
+use next_motor::{
+    BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
+    BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
+    VectorPolicyStepInput,
+};
 
 const MAGIC: &[u8; 8] = b"NEMLAB\0\0";
 const PROTOCOL_VERSION: u16 = 2;
@@ -54,7 +58,40 @@ fn serve(mut reader: impl Read, mut writer: impl Write) -> Result<(), String> {
 #[derive(Default)]
 struct ProtocolSession {
     last_request_id: Option<u64>,
-    runner: Option<MotorVectorRunner>,
+    runner: Option<ProtocolRunner>,
+}
+
+#[derive(Debug)]
+enum ProtocolRunner {
+    Legacy(Box<MotorVectorRunner>),
+    BiomechanicsStanding(Box<BiomechanicsStandingVectorRunner>),
+}
+
+impl ProtocolRunner {
+    fn slot_count(&self) -> u32 {
+        match self {
+            Self::Legacy(runner) => runner.slot_count(),
+            Self::BiomechanicsStanding(runner) => runner.slot_count(),
+        }
+    }
+
+    fn profile_id(&self) -> &str {
+        match self {
+            Self::Legacy(runner) => runner.profile().profile_id(),
+            Self::BiomechanicsStanding(runner) => runner.manifest().environment_id.as_str(),
+        }
+    }
+
+    fn checkpoint_slot(
+        &self,
+        vector_slot: u32,
+        episode_ordinal: u64,
+    ) -> Result<MotorEnvironmentCheckpointEnvelopeV1, ProtocolFailure> {
+        match self {
+            Self::Legacy(runner) => Ok(runner.checkpoint_slot(vector_slot, episode_ordinal)?),
+            Self::BiomechanicsStanding(_) => Err(ProtocolFailure::OperationUnsupported),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -138,13 +175,26 @@ fn process_create(
     let slot_count = reader.read_u32()?;
     let run_root = reader.read_hash()?;
     reader.finish()?;
-    let runner = MotorVectorRunner::create_profile(&profile_id, slot_count, run_root)?;
-    let manifest = runner.manifest();
+    let runner = if profile_id == BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID {
+        ProtocolRunner::BiomechanicsStanding(Box::new(BiomechanicsStandingVectorRunner::create(
+            slot_count, run_root,
+        )?))
+    } else {
+        ProtocolRunner::Legacy(Box::new(MotorVectorRunner::create_profile(
+            &profile_id,
+            slot_count,
+            run_root,
+        )?))
+    };
+    let (manifest, manifest_hash) = match &runner {
+        ProtocolRunner::Legacy(runner) => (runner.manifest(), runner.manifest_hash()),
+        ProtocolRunner::BiomechanicsStanding(runner) => (runner.manifest(), runner.manifest_hash()),
+    };
     manifest.validate_for_protocol_v2()?;
     let mut response = Vec::new();
     push_text(&mut response, manifest.environment_id.as_str())?;
     for hash in [
-        runner.manifest_hash(),
+        manifest_hash,
         manifest.observation_layout_hash,
         manifest.action_layout_hash,
         manifest.command_schedule_profile_hash,
@@ -173,17 +223,17 @@ fn process_create(
     Ok(response)
 }
 
-fn process_reset(
-    runner: &mut MotorVectorRunner,
-    payload: &[u8],
-) -> Result<Vec<u8>, ProtocolFailure> {
+fn process_reset(runner: &mut ProtocolRunner, payload: &[u8]) -> Result<Vec<u8>, ProtocolFailure> {
     let mut reader = PayloadReader::new(payload);
     let count = reader.read_len(256)?;
     let vector_slots = (0..count)
         .map(|_| reader.read_u32())
         .collect::<Result<Vec<_>, _>>()?;
     reader.finish()?;
-    let values = runner.reset_slots(&vector_slots)?;
+    let values = match runner {
+        ProtocolRunner::Legacy(runner) => runner.reset_slots(&vector_slots)?,
+        ProtocolRunner::BiomechanicsStanding(runner) => runner.reset_slots(&vector_slots)?,
+    };
     let mut response = Vec::new();
     push_len(&mut response, values.len())?;
     for value in values {
@@ -202,10 +252,7 @@ fn process_reset(
     Ok(response)
 }
 
-fn process_step(
-    runner: &mut MotorVectorRunner,
-    payload: &[u8],
-) -> Result<Vec<u8>, ProtocolFailure> {
+fn process_step(runner: &mut ProtocolRunner, payload: &[u8]) -> Result<Vec<u8>, ProtocolFailure> {
     let mut reader = PayloadReader::new(payload);
     let count = reader.read_len(256)?;
     let mut inputs = Vec::with_capacity(count);
@@ -217,7 +264,19 @@ fn process_step(
         });
     }
     reader.finish()?;
-    let values = runner.step_actions_lockstep(inputs)?;
+    match runner {
+        ProtocolRunner::Legacy(runner) => {
+            encode_legacy_steps(runner.step_actions_lockstep(inputs)?)
+        }
+        ProtocolRunner::BiomechanicsStanding(runner) => {
+            encode_biomechanics_steps(runner.step_actions_lockstep(inputs)?)
+        }
+    }
+}
+
+fn encode_legacy_steps(
+    values: Vec<next_motor::VectorStepOutput>,
+) -> Result<Vec<u8>, ProtocolFailure> {
     let mut response = Vec::new();
     push_len(&mut response, values.len())?;
     for value in values {
@@ -291,10 +350,75 @@ fn process_step(
     Ok(response)
 }
 
-fn process_checkpoint(
-    runner: &MotorVectorRunner,
-    payload: &[u8],
+fn encode_biomechanics_steps(
+    values: Vec<next_motor::BiomechanicsStandingVectorStepOutput>,
 ) -> Result<Vec<u8>, ProtocolFailure> {
+    let mut response = Vec::new();
+    push_len(&mut response, values.len())?;
+    for value in values {
+        response.extend_from_slice(&value.episode_ordinal.to_le_bytes());
+        response.extend_from_slice(&value.vector_slot.to_le_bytes());
+        response.extend_from_slice(&value.frame.motor_tick.to_le_bytes());
+        for command in [value.command_raw, value.next_command_raw] {
+            for component in command {
+                response.extend_from_slice(&component.to_le_bytes());
+            }
+        }
+        push_i64_values(&mut response, &value.frame.applied_action_q1_30)?;
+        push_i64_values(&mut response, &value.frame.observation_raw)?;
+        push_len(&mut response, value.reward_components_raw.len())?;
+        for (component_id, component_value) in &value.reward_components_raw {
+            push_text(&mut response, component_id.as_str())?;
+            response.extend_from_slice(&component_value.to_le_bytes());
+        }
+        response.extend_from_slice(&value.reward_total_q16.to_le_bytes());
+        response.push(u8::from(value.terminated));
+        response.push(u8::from(value.truncated));
+        if let Some(reason) = &value.terminal_reason_id {
+            response.push(1);
+            push_text(&mut response, reason.as_str())?;
+        } else {
+            response.push(0);
+        }
+        response.extend_from_slice(value.step_record.physics_root.as_bytes());
+        response.extend_from_slice(value.step_record.motor_root.as_bytes());
+        response.extend_from_slice(value.step_record.step_root.as_bytes());
+        let root = value
+            .frame
+            .snapshot
+            .links
+            .first()
+            .ok_or(ProtocolFailure::Encoding)?;
+        push_i64_array(&mut response, root.position_micrometres);
+        push_i64_array(&mut response, root.rotation_q1_30);
+        push_i64_array(&mut response, root.linear_velocity_micrometres_per_second);
+        push_i64_array(&mut response, root.angular_velocity_microradians_per_second);
+        push_i64_values(
+            &mut response,
+            &value
+                .frame
+                .snapshot
+                .joints
+                .iter()
+                .map(|joint| joint.position_microradians)
+                .collect::<Vec<_>>(),
+        )?;
+        push_i64_values(
+            &mut response,
+            &value
+                .frame
+                .snapshot
+                .joints
+                .iter()
+                .map(|joint| joint.velocity_microradians_per_second)
+                .collect::<Vec<_>>(),
+        )?;
+        push_i64_values(&mut response, &value.frame.contact_flags)?;
+    }
+    Ok(response)
+}
+
+fn process_checkpoint(runner: &ProtocolRunner, payload: &[u8]) -> Result<Vec<u8>, ProtocolFailure> {
     let mut reader = PayloadReader::new(payload);
     let vector_slot = reader.read_u32()?;
     let episode_ordinal = reader.read_u64()?;
@@ -307,14 +431,19 @@ fn process_checkpoint(
 }
 
 fn process_restore(
-    runner: &mut MotorVectorRunner,
+    runner: &mut ProtocolRunner,
     payload: &[u8],
 ) -> Result<Vec<u8>, ProtocolFailure> {
     let mut reader = PayloadReader::new(payload);
     let envelope_bytes = reader.read_bytes(MAX_REQUEST_BYTES)?;
     reader.finish()?;
     let envelope = MotorEnvironmentCheckpointEnvelopeV1::from_canonical_bytes(envelope_bytes)?;
-    let observation = runner.restore_slot(&envelope)?;
+    let observation = match runner {
+        ProtocolRunner::Legacy(runner) => runner.restore_slot(&envelope)?,
+        ProtocolRunner::BiomechanicsStanding(_) => {
+            return Err(ProtocolFailure::OperationUnsupported);
+        }
+    };
     let mut response = Vec::new();
     response.extend_from_slice(&envelope.episode_ordinal.to_le_bytes());
     response.extend_from_slice(&envelope.vector_slot.to_le_bytes());
@@ -330,7 +459,7 @@ fn process_ping(session: &ProtocolSession, payload: &[u8]) -> Result<Vec<u8>, Pr
     if let Some(runner) = &session.runner {
         response.push(1);
         response.extend_from_slice(&runner.slot_count().to_le_bytes());
-        push_text(&mut response, runner.profile().profile_id())?;
+        push_text(&mut response, runner.profile_id())?;
     } else {
         response.push(0);
         response.extend_from_slice(&0_u32.to_le_bytes());
@@ -339,15 +468,13 @@ fn process_ping(session: &ProtocolSession, payload: &[u8]) -> Result<Vec<u8>, Pr
     Ok(response)
 }
 
-fn require_runner(
-    session: &mut ProtocolSession,
-) -> Result<&mut MotorVectorRunner, ProtocolFailure> {
+fn require_runner(session: &mut ProtocolSession) -> Result<&mut ProtocolRunner, ProtocolFailure> {
     session.runner.as_mut().ok_or(ProtocolFailure::NotCreated)
 }
 
 fn require_runner_mut(
     session: &mut ProtocolSession,
-) -> Result<&mut MotorVectorRunner, ProtocolFailure> {
+) -> Result<&mut ProtocolRunner, ProtocolFailure> {
     require_runner(session)
 }
 
@@ -504,6 +631,7 @@ impl<'a> PayloadReader<'a> {
 #[derive(Debug)]
 enum ProtocolFailure {
     Training(TrainingEnvironmentError),
+    BiomechanicsStanding(BiomechanicsStandingRunnerError),
     Contract(MotorContractError),
     Opcode,
     Payload,
@@ -512,24 +640,27 @@ enum ProtocolFailure {
     StaleRequest,
     NotCreated,
     AlreadyCreated,
+    OperationUnsupported,
 }
 
 impl ProtocolFailure {
     const fn status(&self) -> u32 {
         match self {
-            Self::Training(_) | Self::Contract(_) => 1,
+            Self::Training(_) | Self::BiomechanicsStanding(_) | Self::Contract(_) => 1,
             Self::Opcode => 2,
             Self::Payload => 3,
             Self::Capacity => 4,
             Self::Encoding => 5,
             Self::StaleRequest => 6,
             Self::NotCreated | Self::AlreadyCreated => 7,
+            Self::OperationUnsupported => 8,
         }
     }
 
     const fn stable_code(&self) -> &'static str {
         match self {
             Self::Training(error) => error.stable_code(),
+            Self::BiomechanicsStanding(error) => error.stable_code(),
             Self::Contract(error) => error.stable_code(),
             Self::Opcode => "MOTOR_LAB_OPCODE_UNSUPPORTED",
             Self::Payload => "MOTOR_LAB_PAYLOAD_INVALID",
@@ -538,6 +669,7 @@ impl ProtocolFailure {
             Self::StaleRequest => "MOTOR_LAB_REQUEST_ID_STALE",
             Self::NotCreated => "MOTOR_LAB_ENVIRONMENT_NOT_CREATED",
             Self::AlreadyCreated => "MOTOR_LAB_ENVIRONMENT_ALREADY_CREATED",
+            Self::OperationUnsupported => "MOTOR_LAB_OPERATION_UNSUPPORTED",
         }
     }
 }
@@ -545,6 +677,12 @@ impl ProtocolFailure {
 impl From<TrainingEnvironmentError> for ProtocolFailure {
     fn from(value: TrainingEnvironmentError) -> Self {
         Self::Training(value)
+    }
+}
+
+impl From<BiomechanicsStandingRunnerError> for ProtocolFailure {
+    fn from(value: BiomechanicsStandingRunnerError) -> Self {
+        Self::BiomechanicsStanding(value)
     }
 }
 

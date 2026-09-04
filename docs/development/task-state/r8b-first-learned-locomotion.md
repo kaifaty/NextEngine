@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / BIOMECHANICS_GPU_STANDING_REPEATABILITY_PASS / CPU_ADMISSION_OPEN / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / CONTACT_TERMINATION_REPAIRED / OLD_CHECKPOINT_REJECTED / STANDING_RETRAIN_READY / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
@@ -11,26 +11,27 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The distinct ADR-101 biomechanics standing lineage
-  completes its exact 1,024,000-transition seed-42 discriminator. The
-  predeclared final `model_249.pt` then reaches the complete nominal Isaac
-  timeout in all five evaluation runs without a fall termination. The bead-like
-  Stage 0 body remains retired from optimization.
-- **Why:** The authored neutral geometry has exact zero sole clearance. Native
-  pinned PhysX reports two distinct sole contacts and passes the 32-tick
-  reset/step/safety/contact/termination/reward preflight. The external
-  descriptor/USD smoke passes, the optimizer output is hash-closed, and seeds
-  `1001..1005` each report length `3599`, `terminated=0`, `truncated=1` under
-  Isaac's zero-based timeout accounting.
-- **Next action:** Preserve the run and evaluations unchanged. Add the missing
-  policy-consumer CPU evaluation/correspondence path and close GPU
-  hard-impact/self-collision classification before making a learned-standing
-  claim or starting forward-command training.
-- **Current blocker:** The five GPU evaluations all replay the same deterministic
-  neutral reset and therefore prove nominal repeatability, not perturbation
-  robustness. GPU hard-impact/self-collision classification, CPU policy
-  evaluation and `MODEL-MIRROR-P1` remain open; no policy-quality or runtime
-  authority exists.
+- **Current conclusion:** The first biomechanics checkpoint is rejected, not a
+  standing candidate. Canonical CPU policy evaluation terminates it at motor
+  tick `1` on a pelvis/right-forearm material self-contact. Once the omitted
+  pair-complete contact terminal was restored in Isaac, the same checkpoint
+  terminates at step `2` with `self_collision=1`. The previous five GPU
+  timeouts were contact-blind false positives.
+- **Why:** The production CPU consumer now executes the exact 84-channel
+  observation, Q1.30 residual, procedural controller, safety, native PhysX,
+  contact, termination and reward path. Isaac now consumes all 14 ground pairs
+  and 91 unique self pairs at every physics substep using canonical impulse,
+  separation and continuity thresholds. A 102,400-transition bounded probe
+  improves mean episode length `3.19 -> 17.94`; its deterministic final
+  checkpoint reaches tick `68`, so learning signal exists but standing is not
+  yet admitted.
+- **Next action:** Commit the CPU consumer and Isaac contact-terminal repair,
+  then start one fresh 250-iteration standing discriminator from random weights
+  under the unchanged declared profile. Evaluate its predeclared final
+  checkpoint on GPU and CPU before any forward-command work.
+- **Current blocker:** No contact-correct standing checkpoint exists.
+  `MODEL-MIRROR-P1`, CPU standing admission, perturbation robustness and walking
+  remain open; no policy-quality or runtime authority exists.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -69,6 +70,9 @@
 | Biomechanics external generation and smoke | Generation `nextengine.training.generation.r8b-biomechanics-standing.v1`, manifest `1155e289…f95`; descriptor bytes `fb72047e…0647`; humanoid USD `5ea8a3b9…3834`; four-slot reset/reward smoke passes on RTX 3080 | The exact current-body inputs execute in Isaac; this is GPU preflight rather than correspondence evidence |
 | Biomechanics standing optimizer run | `r8b-biomechanics-standing-seed42-v1` completes `1,024,000` samples and 250 metric records on clean commit `e72df2ce…`; run manifest `4e952700…ab7e`, metrics `8f7163d3…ab1b`, 11 checkpoint hashes close; final `model_249.pt` `59a89d33…ad81` | The isolated discriminator completes without non-finite metrics; early/final 20-iteration mean episode length rises `34.645 -> 322.325`, but training aggregates alone are not a standing claim |
 | Biomechanics final-checkpoint GPU evaluation | Predeclared `model_249.pt`; seeds `1001..1005` each complete with length `3599`, return `6247.1797`, `terminated=0`, `truncated=1`, fall component `0`; evaluation manifest hashes `be850111…8f97` / `a8cda116…be28` / `40ea82c8…835` / `dca83d5f…51e3` / `46e99e3e…6a3` | Nominal deterministic Isaac standing repeatability passes. Identical per-seed results expose that standing reset has no seed-dependent perturbation; GPU contact-safety closure and CPU authority remain open |
+| Canonical CPU evaluation of biomechanics `model_249.pt` | Manifest `62a43513…3076`; checkpoint terminates at tick `1` with `terminal.self-collision`; right forearm/pelvis impulse is about `0.297335 N·s` | Reject the checkpoint and all earlier contact-blind quality claims; preserve artifacts only as negative evidence |
+| Contact-complete Isaac counterfactual | Exact 14-ground/91-self pair classifier makes the same `model_249.pt` terminate at step `2` with `self_collision=1`; a zero residual reaches a symmetric pelvis/forearm contact at step `3` around `0.26..0.30 N·s` because the neutral AABB clearance is only about `0.4 mm` | Confirms the omitted GPU terminal and a narrow CPU/GPU contact-boundary mismatch; do not weaken the safety threshold or change morphology before testing learnability |
+| Contact-correct 25-iteration discriminator | Run manifest `d7e7bc0c…ca0b`, metrics `b0da57ea…071d`, final `model_24.pt` `9616d933…9bde`; mean episode length `3.19 -> 17.94`, self-collision share falls about `0.803 -> 0.177`; deterministic evaluation manifest `337e0d8a…2c33` reaches tick `68` then joint-safety terminates | The unchanged body/profile has usable learning signal. Run the full fresh 250-iteration discriminator; do not yet redesign the body or start walking |
 | R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | GPU reset/reward smoke is not paired CPU/Isaac trajectory evidence; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
@@ -211,17 +215,16 @@
 - **Reconsider when:** Never for product learned-humanoid evidence. The V1 body
   may remain only as an explicitly labelled regression/toy fixture.
 
-### D-008 — Preserve the first biomechanics checkpoint as GPU R&D evidence
+### D-008 — Preserve the first biomechanics checkpoint as superseded GPU R&D evidence
 
 - **Observation:** The predeclared final checkpoint survives the full nominal
   Isaac horizon five times, but every evaluation is identical because standing
   has an exact zero command and deterministic neutral reset.
 - **Evidence:** The closed run/checkpoint hashes and five immutable evaluation
   manifests listed above; all report timeout rather than termination.
-- **Decision:** Preserve `model_249.pt` as the first viable-body standing R&D
-  candidate. Do not cherry-pick an intermediate checkpoint, start walking, or
-  promote a learned policy until CPU inference/evaluation and the missing GPU
-  contact-safety classification close.
+- **Decision:** Preserve `model_249.pt` and its original evaluations as immutable
+  R&D evidence. D-009 supersedes its candidate status after the missing GPU
+  contact-safety classification and CPU evaluation rejected it.
 - **Rejected alternatives:** Calling five seed labels perturbation robustness,
   treating GPU timeout as CPU authority, or immediately spending a larger PPO
   budget.
@@ -230,15 +233,39 @@
   but cannot change its evidence status.
 - **Uncertainty:** Survival under perturbed resets, hard impacts, self-contact
   and the canonical CPU policy consumer is still unmeasured.
-- **Reconsider when:** Paired CPU/Isaac trajectories and complete CPU held-out
-  episodes pass with all declared terminal categories observable.
+- **Reconsider when:** Never as a candidate; only a fresh contact-correct run may
+  earn standing admission.
+
+### D-009 — Reject contact-blind standing and retrain before walking
+
+- **Observation:** `model_249.pt` passes only while Isaac omits the declared
+  hard-impact/self-collision terminal. The canonical CPU path and repaired GPU
+  path both terminate it immediately on self-collision.
+- **Evidence:** CPU manifest `62a43513…3076`, repaired-GPU terminal result, exact
+  pelvis/forearm pair facts and the bounded 25-iteration discriminator listed
+  above.
+- **Decision:** Preserve the old run unchanged as negative evidence. Train one
+  fresh standing policy from random weights with pair-complete GPU contact
+  termination, then require CPU evaluation before any forward profile or run.
+- **Rejected alternatives:** Resuming or initializing from the invalid
+  checkpoint, ignoring positive-separation contact impulses, widening safety
+  thresholds, or changing the body before the cheap learnability discriminator.
+- **Consequences:** The standing profile semantics stay unchanged; this is an
+  implementation-conformance repair. The new run gets a distinct run ID and
+  clean source commit. Walking remains gated.
+- **Uncertainty:** Whether 250 iterations are sufficient for deterministic
+  full-horizon contact-safe standing and whether its CPU trajectory remains
+  within correspondence tolerance.
+- **Reconsider when:** The fresh final checkpoint either passes the GPU/CPU
+  gates or fails with a stable clustered terminal that warrants a new bounded
+  morphology/controller experiment.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: the existing biomechanics V2 design is the minimum viable standing foundation | Native PhysX proves exact neutral clearance/two sole contacts; the learned residual survives five nominal complete Isaac episodes | CPU learned-policy behavior and perturbation robustness remain unmeasured | Implement CPU policy evaluation and paired CPU/Isaac trajectory checks |
-| H2: ADR-100's bounded standing objective ports without another reward redesign | Exact CPU V3 reward is bounded; GPU smoke/run/evaluation remain finite and produce full-horizon nominal survival | Full contact-terminal correspondence is not closed | Add GPU hard-impact/self-collision observation and compare exact terminal/reward facts |
+| H1: the existing biomechanics V2 design remains learnable without a morphology change | Native zero residual survives 32 CPU ticks; contact-correct PPO improves mean length `3.19 -> 17.94` in 25 iterations and deterministic survival reaches `68` ticks | GPU zero residual self-contacts at step `3` because pelvis/forearm clearance is near the contact boundary | Run the fresh 250-iteration standing discriminator; redesign only if failure clusters remain stable |
+| H2: ADR-100's bounded standing objective ports without another reward redesign | Exact CPU V3 reward is bounded; contact-correct optimizer metrics remain finite and survival improves | No contact-correct full-horizon checkpoint exists | Evaluate the predeclared final fresh checkpoint on GPU and CPU |
 | H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact and separately hash-bound | `MODEL-MIRROR-P1` remains `NOT_RUN` | Keep GPU output R&D-only; require paired trajectories and CPU final evaluation before any promotion |
 | H4: admitted standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No valid-body standing or walking checkpoint exists | Defer until the successor passes the complete standing gate |
 
@@ -266,11 +293,10 @@ Read these sources in precedence order before acting:
 
 1. Keep both completed Stage 0 V1-body runs and the new biomechanics generation,
    run, checkpoint and evaluations immutable.
-2. Implement the missing CPU policy-consumer evaluation path and paired
-   `MODEL-MIRROR-P1` trajectory evidence for `model_249.pt`.
-3. Close GPU hard-impact/self-collision classification against the declared
-   termination identity, then rerun evaluation under a new artifact identity if
-   executable semantics change.
+2. Commit the implemented CPU policy consumer and pair-complete Isaac contact
+   terminal, then run one fresh 250-iteration standing discriminator.
+3. Evaluate only its predeclared final checkpoint on GPU and CPU; if both pass,
+   capture paired `MODEL-MIRROR-P1` trajectories.
 4. Start no forward-command optimizer run before the canonical standing gate
    passes; add bounded perturbation evaluation separately rather than pretending
    the five deterministic seed labels provide it.
@@ -297,17 +323,14 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Commits `baf482d1…`, `9ac7661d…` and `e72df2ce…` retire
-  the toy body, separate mock/native contact evidence and implement the ADR-101
-  biomechanics standing environment/profile. The external generation, bounded
-  optimizer run, final checkpoint and five evaluations are complete and
-  immutable.
-- **Checks:** Focused Rust/Python tests, workspace `host-check`,
-  `persistence-replay`, native current-material PhysX preflight, descriptor/USD
-  validation, four-slot Isaac reset/reward smoke and five nominal final-
-  checkpoint evaluations pass. All run metric/checkpoint hashes close.
-- **Remaining risk:** The learned result has only nominal GPU repeatability.
-  GPU hard-impact/self-collision classification, CPU policy evaluation,
+- **Workspace state:** The first biomechanics run and its five contact-blind GPU
+  evaluations remain immutable negative evidence. The working change adds the
+  canonical CPU policy consumer and exact GPU pair-complete contact terminal;
+  the fresh contact-correct standing run is next.
+- **Checks:** Focused Rust/Python tests pass; native zero policy survives 32
+  ticks; repaired Isaac rejects the old checkpoint on self-collision; the
+  25-iteration diagnostic run and its deterministic evaluation are hash-closed.
+- **Remaining risk:** No contact-correct standing checkpoint exists.
   `MODEL-MIRROR-P1`, perturbed robustness, walking and runtime authority remain
   blocked. Kimodo remains deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy

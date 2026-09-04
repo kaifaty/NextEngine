@@ -209,6 +209,13 @@ def main() -> None:
         )
         terminated_count = 0
         truncated_count = 0
+        terminal_reason_counts = {
+            "joint_safety": 0,
+            "hard_impact": 0,
+            "self_collision": 0,
+            "forbidden_contact": 0,
+            "fall": 0,
+        }
         step_budget = max_steps * episodes_per_slot
 
         with torch.inference_mode():
@@ -244,6 +251,12 @@ def main() -> None:
                     completed_per_slot[env_id] += 1
                     terminated_count += int(environment.reset_terminated[env_id].item())
                     truncated_count += int(environment.reset_time_outs[env_id].item())
+                    if hasattr(environment, "last_step_failure_self_collision"):
+                        for reason in terminal_reason_counts:
+                            field = f"last_step_failure_{reason}"
+                            terminal_reason_counts[reason] += int(
+                                getattr(environment, field)[env_id].item()
+                            )
                 current_returns[done_ids] = 0.0
                 current_lengths[done_ids] = 0
                 current_components[done_ids] = 0.0
@@ -270,6 +283,7 @@ def main() -> None:
                 "termination": {
                     "terminated": terminated_count,
                     "truncated": truncated_count,
+                    "reason_counts": terminal_reason_counts,
                 },
                 "slot_balance": {
                     "episode_counts": completed_counts,

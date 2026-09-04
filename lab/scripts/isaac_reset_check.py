@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-root-angular-speed", type=float, default=2.0)
     parser.add_argument("--max-joint-speed", type=float, default=5.0)
     parser.add_argument("--max-root-height-overshoot", type=float, default=0.02)
+    parser.add_argument("--skip-forced-fall", action="store_true")
     parser.add_argument("--check-device")
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
@@ -114,38 +115,40 @@ def main() -> None:
         )
         require_below_tolerance("initial reset", initial_errors)
 
-        forced_root = expected_root.clone()
-        forced_root[:, 2] = environment.scene.env_origins[:, 2] - 10.0
-        forced_root[:, 7:] = 0.0
-        lower = environment.robot.data.soft_joint_pos_limits[:, :, 0]
-        upper = environment.robot.data.soft_joint_pos_limits[:, :, 1]
-        forced_joint_position = torch.clamp(
-            expected_joint_position + 0.05,
-            min=lower,
-            max=upper,
-        )
-        forced_joint_velocity = torch.full_like(expected_joint_velocity, 0.25)
-        environment.robot.write_root_state_to_sim(forced_root)
-        environment.robot.write_joint_state_to_sim(
-            forced_joint_position, forced_joint_velocity
-        )
-
         zero_actions = torch.zeros(
             (config.num_envs, 23), dtype=torch.float32, device=config.device
         )
-        _, _, dones, _ = wrapped.step(zero_actions)
-        if not torch.all(dones > 0) or not torch.all(environment.reset_terminated):
-            raise RuntimeError("forced fall did not terminate every environment slot")
-        if torch.any(environment.episode_length_buf != 0):
-            raise RuntimeError("episode length was not cleared by automatic reset")
+        automatic_reset_errors = initial_errors
+        if not args.skip_forced_fall:
+            forced_root = expected_root.clone()
+            forced_root[:, 2] = environment.scene.env_origins[:, 2] - 10.0
+            forced_root[:, 7:] = 0.0
+            lower = environment.robot.data.soft_joint_pos_limits[:, :, 0]
+            upper = environment.robot.data.soft_joint_pos_limits[:, :, 1]
+            forced_joint_position = torch.clamp(
+                expected_joint_position + 0.05,
+                min=lower,
+                max=upper,
+            )
+            forced_joint_velocity = torch.full_like(expected_joint_velocity, 0.25)
+            environment.robot.write_root_state_to_sim(forced_root)
+            environment.robot.write_joint_state_to_sim(
+                forced_joint_position, forced_joint_velocity
+            )
 
-        automatic_reset_errors = state_errors(
-            environment,
-            expected_root,
-            expected_joint_position,
-            expected_joint_velocity,
-        )
-        require_below_tolerance("automatic reset", automatic_reset_errors)
+            _, _, dones, _ = wrapped.step(zero_actions)
+            if not torch.all(dones > 0) or not torch.all(environment.reset_terminated):
+                raise RuntimeError("forced fall did not terminate every environment slot")
+            if torch.any(environment.episode_length_buf != 0):
+                raise RuntimeError("episode length was not cleared by automatic reset")
+
+            automatic_reset_errors = state_errors(
+                environment,
+                expected_root,
+                expected_joint_position,
+                expected_joint_velocity,
+            )
+            require_below_tolerance("automatic reset", automatic_reset_errors)
         motion = {
             "maximum_joint_speed_rps": 0.0,
             "maximum_root_angular_speed_rps": 0.0,
@@ -161,10 +164,51 @@ def main() -> None:
             "component_maximum_q16": [-(2**63)]
             * len(environment.profile["reward_components"]),
         }
-        for _ in range(args.survival_steps):
+        for survival_step in range(args.survival_steps):
             _, rewards, dones, _ = wrapped.step(zero_actions)
             if torch.any(dones > 0):
-                raise RuntimeError("zero-action state terminated immediately after reset")
+                diagnostics = {}
+                for reason in (
+                    "joint_safety",
+                    "hard_impact",
+                    "self_collision",
+                    "forbidden_contact",
+                    "fall",
+                ):
+                    field = f"last_step_failure_{reason}"
+                    if hasattr(environment, field):
+                        diagnostics[reason] = int(
+                            torch.sum(getattr(environment, field)).item()
+                        )
+                if hasattr(environment, "last_step_self_collision_pair_mask"):
+                    pair_mask = torch.any(
+                        environment.last_step_self_collision_pair_mask, dim=0
+                    ).nonzero(as_tuple=False).squeeze(-1)
+                    diagnostics["self_collision_pairs"] = [
+                        environment.contact_pair_ids[index]
+                        for index in pair_mask.detach().cpu().tolist()
+                    ]
+                    diagnostics["self_collision_pair_facts"] = [
+                        {
+                            "pair_id": environment.contact_pair_ids[index],
+                            "impulse_micronewton_seconds": environment.last_step_contact_pair_impulse[
+                                0, index
+                            ]
+                            .detach()
+                            .cpu()
+                            .tolist(),
+                            "separation_micrometres": int(
+                                environment.last_step_contact_pair_separation[
+                                    0, index
+                                ].item()
+                            ),
+                        }
+                        for index in pair_mask.detach().cpu().tolist()
+                    ]
+                raise RuntimeError(
+                    "zero-action state terminated after reset at survival step "
+                    f"{survival_step + 1}: {diagnostics}"
+                )
             if not torch.isfinite(rewards).all():
                 raise RuntimeError("reward probe produced a non-finite total")
             components = environment.reward_components_q16

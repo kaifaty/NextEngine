@@ -10,6 +10,10 @@ import numpy as np
 import torch
 
 from next_lab.isaac_env import (
+    _classify_contact_pairs_tensor,
+    _contact_body_projections,
+    _contact_pair_layout,
+    _minimum_contact_separation_tensor,
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
     isaac_actuator_limits_from_descriptor,
@@ -58,101 +62,6 @@ def _ground_usd_path_from_humanoid(humanoid_usd_path: str) -> str:
     return str(Path(humanoid_usd_path).with_name("ground.usda"))
 
 
-def _hard_impact_limit_for_role(role: int) -> int:
-    if role == 8:
-        return 6_000_000
-    if role in {1, 2, 4, 5, 6}:
-        return 4_000_000
-    if role in {7, 9, 10, 11}:
-        return 3_000_000
-    if role == 3:
-        return 1_000_000
-    raise ValueError("unknown BodyContactRoleV2 ordinal")
-
-
-def _contact_body_projections(
-    descriptor: dict[str, Any],
-) -> tuple[tuple[str, int, int], ...]:
-    projections: list[tuple[str, int, int]] = []
-    for body in descriptor["bodies"]:
-        candidates = []
-        for collider in body["colliders"]:
-            role = int(collider["contact_role"])
-            shape = int(collider["shape_token"])
-            candidates.append((_hard_impact_limit_for_role(role), role, shape))
-        if candidates:
-            hard_limit, role, _ = min(candidates)
-            projections.append((str(body["body_id"]), role, hard_limit))
-    if not projections or len({body_id for body_id, _, _ in projections}) != len(
-        projections
-    ):
-        raise ValueError("invalid contact-bearing body projection")
-    return tuple(projections)
-
-
-def _contact_pair_layout(
-    projections: tuple[tuple[str, int, int], ...],
-) -> dict[str, tuple[int | bool | str, ...]]:
-    body_count = len(projections)
-    sensor: list[int] = []
-    filter_index: list[int] = []
-    primary_role: list[int] = []
-    secondary_role: list[int] = []
-    hard_limit: list[int] = []
-    self_contact: list[bool] = []
-    pair_id: list[str] = []
-    for body_index, (_, role, limit) in enumerate(projections):
-        sensor.append(body_index)
-        filter_index.append(0)
-        primary_role.append(role)
-        secondary_role.append(0)
-        hard_limit.append(limit)
-        self_contact.append(False)
-        pair_id.append(f"ground:{projections[body_index][0]}")
-    for first in range(body_count):
-        for second in range(first + 1, body_count):
-            sensor.append(first)
-            filter_index.append(1 + second)
-            primary_role.append(projections[first][1])
-            secondary_role.append(projections[second][1])
-            hard_limit.append(min(projections[first][2], projections[second][2]))
-            self_contact.append(True)
-            pair_id.append(f"{projections[first][0]}:{projections[second][0]}")
-    return {
-        "sensor": tuple(sensor),
-        "filter": tuple(filter_index),
-        "primary_role": tuple(primary_role),
-        "secondary_role": tuple(secondary_role),
-        "hard_limit": tuple(hard_limit),
-        "self_contact": tuple(self_contact),
-        "pair_id": tuple(pair_id),
-    }
-
-
-def _integer_vector_threshold(
-    impulse: torch.Tensor,
-    threshold: torch.Tensor | int,
-    *,
-    inclusive: bool,
-) -> torch.Tensor:
-    if impulse.dtype != torch.int64 or impulse.shape[-1] != 3:
-        raise ValueError("canonical contact impulse must be int64 xyz")
-    limit = torch.as_tensor(threshold, dtype=torch.int64, device=impulse.device)
-    while limit.ndim < impulse.ndim - 1:
-        limit = limit.unsqueeze(0)
-    absolute = torch.abs(impulse)
-    bounded = torch.minimum(absolute, limit[..., None])
-    magnitude_squared = torch.sum(bounded * bounded, dim=-1)
-    limit_squared = limit * limit
-    if inclusive:
-        return torch.any(absolute >= limit[..., None], dim=-1) | (
-            magnitude_squared >= limit_squared
-        )
-    return torch.any(absolute > limit[..., None], dim=-1) | (
-        magnitude_squared > limit_squared
-    )
-
-
 def _contact_impulse_magnitude_micronewton_seconds(
     impulse: torch.Tensor,
 ) -> torch.Tensor:
@@ -187,57 +96,6 @@ def _contact_impact_margin_cost_tensor(
         min=0.0,
         max=1.0,
     )
-
-
-def _classify_contact_pairs_tensor(
-    impulse_micronewton_seconds: torch.Tensor,
-    minimum_separation_micrometres: torch.Tensor,
-    previous_continuity: torch.Tensor,
-    hard_limits: torch.Tensor,
-    self_contact: torch.Tensor,
-    primary_roles: torch.Tensor,
-) -> dict[str, torch.Tensor]:
-    if (
-        impulse_micronewton_seconds.dtype != torch.int64
-        or minimum_separation_micrometres.dtype != torch.int64
-        or previous_continuity.dtype != torch.int64
-        or impulse_micronewton_seconds.shape[:-1]
-        != minimum_separation_micrometres.shape
-        or minimum_separation_micrometres.shape != previous_continuity.shape
-        or hard_limits.shape != minimum_separation_micrometres.shape[-1:]
-        or self_contact.shape != hard_limits.shape
-        or primary_roles.shape != hard_limits.shape
-    ):
-        raise ValueError("contact pair tensor layout mismatch")
-    active = (minimum_separation_micrometres < 0) | _integer_vector_threshold(
-        impulse_micronewton_seconds,
-        ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS,
-        inclusive=True,
-    )
-    continuity = torch.where(
-        active, previous_continuity + 1, torch.zeros_like(previous_continuity)
-    )
-    material = active & (
-        _integer_vector_threshold(
-            impulse_micronewton_seconds,
-            CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS,
-            inclusive=False,
-        )
-        | (continuity > LOW_IMPULSE_GRACE_SUBSTEPS)
-    )
-    hard_impact = active & _integer_vector_threshold(
-        impulse_micronewton_seconds, hard_limits, inclusive=False
-    )
-    self_collision = material & self_contact[None]
-    forbidden_locomotion = material & ~self_contact[None] & (primary_roles[None] != 8)
-    return {
-        "active": active,
-        "continuity": continuity,
-        "material": material,
-        "hard_impact": hard_impact,
-        "self_collision": self_collision,
-        "forbidden_locomotion": forbidden_locomotion,
-    }
 
 
 def _terminal_reason_tensor(
@@ -279,44 +137,6 @@ def _terminal_reason_tensor(
     reason = torch.where(non_finite, 1, reason)
     reason = torch.where(tracking_lost & (reason == 0), 9, reason)
     return torch.where(success & (reason == 0), 10, reason)
-
-
-def _minimum_contact_separation_tensor(
-    separation_metres: torch.Tensor,
-    contact_count: torch.Tensor,
-    contact_start: torch.Tensor,
-) -> torch.Tensor:
-    if (
-        separation_metres.ndim != 2
-        or separation_metres.shape[1] != 1
-        or contact_count.shape != contact_start.shape
-        or contact_count.dtype != torch.int32
-        or contact_start.dtype != torch.int32
-    ):
-        raise ValueError("PhysX contact detail tensor layout mismatch")
-    flat_count = contact_count.reshape(-1).to(torch.int64)
-    flat_start = contact_start.reshape(-1).to(torch.int64)
-    expected_start = torch.cumsum(flat_count, dim=0) - flat_count
-    packed = torch.all((flat_count == 0) | (flat_start == expected_start))
-    if packed.device.type == "cuda":
-        torch._assert_async(
-            packed, "PhysX contact detail buffer is not canonical packed order"
-        )
-    elif not bool(packed.item()):
-        raise RuntimeError("PhysX contact detail buffer is not canonical packed order")
-    owner = torch.repeat_interleave(
-        torch.arange(flat_count.numel(), device=flat_count.device), flat_count
-    )
-    used = separation_metres.reshape(-1)[: owner.shape[0]]
-    canonical = torch.round(used.to(torch.float64) * MICRO_SCALE).to(torch.int64)
-    output = torch.full(
-        (flat_count.numel(),),
-        torch.iinfo(torch.int64).max,
-        dtype=torch.int64,
-        device=flat_count.device,
-    )
-    output.scatter_reduce_(0, owner, canonical, reduce="amin", include_self=True)
-    return output.reshape(contact_count.shape)
 
 
 def _prim(identifier: str) -> str:
@@ -1238,7 +1058,7 @@ if ISAAC_LAB_AVAILABLE:
                 for body_id, _, _ in self._contact_projections
             ]
             filters = [
-                ["/World/ground/GroundPlane/CollisionPlane", *body_patterns]
+                ["/World/ground/Collision", *body_patterns]
                 for _ in body_patterns
             ]
             pair_count = len(self._contact_layout["sensor"])
