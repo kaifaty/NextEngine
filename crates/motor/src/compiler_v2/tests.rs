@@ -211,7 +211,7 @@ fn worker_subject_permutation_preserves_compiler_and_backend_roots() {
 }
 
 #[test]
-#[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
+#[cfg(feature = "physx-sdk")]
 fn frozen_biomechanics_profile_builds_a_fresh_native_articulation() {
     use next_physics_physx::PhysXArticulationWorldV2;
 
@@ -233,7 +233,15 @@ fn frozen_biomechanics_profile_builds_a_fresh_native_articulation() {
         !stepped.contacts.is_empty(),
         "neutral soles must contact ground"
     );
-    let mut sole_contact_count = 0;
+    let expected_sole_tokens = compiled
+        .collider_contact_roles
+        .iter()
+        .filter_map(|(token, role)| {
+            (*role == BodyContactRoleV2::FootWithSoleFeature).then_some(*token)
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(expected_sole_tokens.len(), 2);
+    let mut observed_sole_tokens = BTreeSet::new();
     for contact in stepped.contacts {
         let shape_token = if contact.actor_a_token == 1 {
             Some(contact.shape_b_token)
@@ -253,7 +261,7 @@ fn frozen_biomechanics_profile_builds_a_fresh_native_articulation() {
         };
         let role = compiled.collider_contact_roles.get(&shape_token);
         if role == Some(&BodyContactRoleV2::FootWithSoleFeature) {
-            sole_contact_count += 1;
+            observed_sole_tokens.insert(shape_token);
         } else {
             assert!(
                 contact.separation_micrometres > 0 && contact.impulse_micronewton_seconds == [0; 3],
@@ -263,10 +271,34 @@ fn frozen_biomechanics_profile_builds_a_fresh_native_articulation() {
             );
         }
     }
-    assert!(
-        sole_contact_count > 0,
-        "both feet define the support polygon"
+    assert_eq!(
+        observed_sole_tokens, expected_sole_tokens,
+        "both feet must define the neutral support polygon"
     );
+}
+
+#[test]
+#[cfg(feature = "mock-abi")]
+fn mock_abi_builds_and_steps_the_biomechanics_articulation_without_contact_claims() {
+    use next_physics_physx::PhysXArticulationWorldV2;
+
+    let compiled = CompiledBodySchemaV2::compile(
+        &biomechanics_humanoid_body_schema_v2(),
+        PersistentId::from_bytes([11; 16]),
+    )
+    .expect("compile frozen biomechanics profile");
+    let mut world =
+        PhysXArticulationWorldV2::create(compiled.physx_scene_profile, &compiled.physx_catalog)
+            .expect("create mock biomechanics articulation");
+    let snapshot = world.capture().expect("capture fresh articulation");
+    assert_eq!(snapshot.links.len(), BIOMECHANICS_HUMANOID_BODY_COUNT);
+    assert_eq!(snapshot.joints.len(), BIOMECHANICS_HUMANOID_DOF);
+
+    let stepped = world
+        .apply_efforts_and_step(&[0; BIOMECHANICS_HUMANOID_DOF])
+        .expect("step mock biomechanics articulation");
+    assert_eq!(stepped.links.len(), BIOMECHANICS_HUMANOID_BODY_COUNT);
+    assert_eq!(stepped.joints.len(), BIOMECHANICS_HUMANOID_DOF);
 }
 
 #[test]
