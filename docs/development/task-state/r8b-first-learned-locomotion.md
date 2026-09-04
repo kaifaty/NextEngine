@@ -2,33 +2,34 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SELECTED / ACTIVE_R&D / V2_RUN_COMPLETE / REWARD_SCALE_FIXED / STANDING_GATE_FAIL / NO_AUTHORITY` |
+| Status | `SELECTED / ACTIVE_R&D / STAGE0_V1_BODY_RETIRED / BIOMECHANICS_SUCCESSOR_REQUIRED / NO_AUTHORITY` |
 | Updated | 2026-09-04 |
 | Task key | `r8b-first-learned-locomotion` |
-| Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on the frozen Stage 0 V1 humanoid |
+| Scope | Produce the first visible learned standing and bounded forward start/stop checkpoints on an anatomically meaningful successor to the frozen Stage 0 V1 humanoid |
 | Definition of done | Five fixed held-out CPU PhysX episodes pass the complete 3,600-tick standing gate, then five pass the bounded forward/start/stop gate, with exact manifests, zero declared safety events and replay-bound visual evidence when capture is available |
 | Authority | Working context only; Accepted SPEC/ADR, tracked profiles/manifests, exact run artifacts and `docs/roadmap.md` outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The bounded-reward V2 discriminator completed all
-  `4,096,000` transitions. It fixes the V1 numerical failure and learns much
-  longer stochastic rollouts, but it does not produce an admissible standing
-  policy: deterministic actor-mean evaluation falls at tick `100` for
-  `model_999.pt` and tick `97` for the peak-region `model_800.pt`.
-- **Why:** Final value loss is `6.876` instead of V1's approximately `5.33e18`,
-  all metrics are finite, and final-20 reported mean episode length is
-  `1,721.33` versus V1's `62.39`. The best reported training mean reaches
-  `2,623.84/3,600` at iteration `818`, but the held-out deterministic result
-  falsifies complete standing under this exact budget/profile.
-- **Next action:** Do not spend another unchanged V2 run. First discriminate
-  whether the remaining failure is actor-mean versus stochastic-policy quality,
-  checkpoint-selection volatility, or a low-height reward exploit; then change
-  one identified cause under a new V3 identity.
-- **Current blocker:** The required five-seed `3,600`-tick standing gate fails on
-  the first deterministic seed, so the remaining seeds and walking stage are
-  not run. `MODEL-MIRROR-P1` also remains `NOT_RUN`; this blocks authority even
-  if later policy quality passes.
+- **Current conclusion:** The completed bounded-reward run is a useful numerical
+  control, but its frozen Stage 0 V1 body is not an acceptable learned-humanoid
+  foundation. It has 24 sphere colliders, 23 same-axis X revolute joints,
+  identical symmetric `±1.5 rad` limits and identical isotropic inertia tuples.
+  Retire this body from further optimizer work.
+- **Why:** Frame-by-frame review of the exact seed-1001 `model_800.pt` capture
+  shows a repeatable crossed-leg collapse from the reset at episode tick `0` to
+  the `0.25 m` fall threshold near tick `97`. The descriptor, generated USD and
+  source BodySchema confirm that the apparent anatomy is not merely a viewer
+  artifact. The viewer adds cosmetic cylinders, but the physics bodies really
+  are spheres and every physical joint axis really is X.
+- **Next action:** Start from the existing biomechanics BodySchema V2 design,
+  first diagnose and close its failing neutral-sole contact test, then admit a
+  new command-only standing environment/profile carrying the bounded reward.
+  Run a short CPU neutral/zero-action discriminator before any new GPU budget.
+- **Current blocker:** The biomechanics V2 mock-ABI articulation test currently
+  rejects the neutral pose because both soles do not contact the ground, and no
+  hash-closed standing generation consumes that schema yet. `MODEL-MIRROR-P1`
+  remains `NOT_RUN` for any successor.
 - **Do not retry:** Never run/evaluate/resume standing V1, the broad V1 PPO
   checkpoints or any R123–R141/TRAIN-5 artifact; they are either causally
   invalid for this question or have incompatible/rejected authority.
@@ -44,7 +45,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Roadmap R8](../../roadmap.md) | `R8B SELECTED / FIRST_RUN_COMPLETE / V1_REWARD_SCALE_BLOCKED` | Keeps the visibility-first lineage active but prohibits another V1 run or runtime promotion |
+| [Roadmap R8](../../roadmap.md) | `R8B SELECTED / STAGE0_V1_BODY_RETIRED / BIOMECHANICS_SUCCESSOR_REQUIRED` | Keeps the visibility-first lineage active but prohibits further optimizer work on the toy V1 body |
 | [ADR-064](../../architecture/adr/064-canonical-flat-command-locomotion-environment.md) | `Accepted`; frozen standing and flat-command V1 environments | Reuse exact engine-owned BodySchema, observation, action, safety and CPU PhysX boundaries |
 | [ADR-065](../../architecture/adr/065-curriculum-flat-command-locomotion-profile.md) | Prior broad V1 PPO held-out survival about 135–137 ticks; `768/768` falls; bounded V2 first stage exists | Do not repeat broad commands; standing precedes only `0..0.75 m/s` forward start/stop |
 | [Stopped TRAIN-4 state](humanoid-motor-training.md) | `R141_INVALID / STOP_NO_RETRY` | R8b consumes no motion corpus, reference tracker, R123–R141 cache/witness or rejected checkpoint |
@@ -59,8 +60,11 @@
 | Standing V2 CPU no-training probe | Production PhysX motor-lab, seed root `42…42`, one slot, 32 zero-action ticks; no terminal; all component/total bounds pass; observed total `32697..104730` Q16 | Reward scale is executable and commensurate on the canonical CPU path; this is not policy quality or CPU/Isaac correspondence |
 | Standing V2 generation and GPU preflight | Generation `nextengine.training.generation.r8b-standing.v2`, manifest `8ab18b39…dee`; exact descriptor `89299e79…c90` and USD `5524a778…e54d`; four-slot ten-step reset/reward smoke passes with exact resets and bounded rewards | The intended clean V2 inputs execute on the RTX 3080; this is preflight, not correspondence or policy quality |
 | Standing V2 optimizer run | `r8b-standing-v2-seed42-v1` completed `4,096,000` samples; metrics `3d734c3d…cf`, 1,000 finite records; all 21 checkpoint hashes close; final `model_999.pt` `0d7eb3e4…890` | Reward-scale fix succeeds numerically and materially improves training survival, but does not itself grant a standing claim |
-| Standing V2 learning outcome | Early-20 reported mean length `99.72`; final-20 `1,721.33`; peak reported mean `2,623.84/3,600` at iteration `818`; final value loss `6.876`, maximum `260.783` | The body/profile can acquire a partial standing behavior; the exact run remains volatile and below the complete-episode gate |
+| Standing V2 learning outcome | Early-20 reported mean length `99.72`; final-20 `1,721.33`; peak reported mean `2,623.84/3,600` at iteration `818`; final value loss `6.876`, maximum `260.783` | The optimizer acquires longer survival on the toy body; this grants neither an anatomical nor a complete-standing claim |
 | Standing V2 deterministic evaluation | Seed `1001`: final `model_999.pt` terminates at tick `100`; peak-region `model_800.pt` terminates at tick `97`; neither truncates at `3,600` | Stop the five-seed matrix at the first failed gate and reject both obvious checkpoint selectors; do not start walking or promote authority |
+| Stage 0 V1 physical-model audit | Exact descriptor `13f01daf…bd5`: 24 bodies and 24 sphere colliders; 23 revolute joints, all axis `+X`, all hard limits `±1.5 rad`; identical isotropic inertia tuples. Generated USD preserves all 23 joints as X-axis revolutes with `±85.9436693°` limits | The viewer exaggerates the bead-like appearance but does not invent it. This schema is a deterministic toy discriminator, not an anatomically credible humanoid for product learning |
+| `model_800.pt` frame audit | Exact 132-frame capture: reset at frame `33`; root height progresses approximately `1.10, 1.02, 1.07, 1.03, 0.90, 0.83, 0.75, 0.63, 0.49, 0.38, 0.27 m` through frames `40..110`; legs cross and the pelvis collapses before the deterministic tick-`97` termination | Falsifies a single bad-frame or viewer-only explanation; failure is a reproducible whole-episode collapse on the declared body |
+| Biomechanics BodySchema V2 | `nextengine.body.humanoid-biomechanics-raja-1700.v2`: distinct pitch/yaw/roll axes, asymmetric anatomical ROM, box feet/limbs/torso, CoM/full inertia and contact roles | Correct existing foundation for the successor, but not yet runnable: the fresh-articulation test fails the neutral-sole ground-contact invariant |
 | R8b correspondence | `MODEL-MIRROR-P1 NOT_RUN` | GPU reset/reward smoke is not paired CPU/Isaac trajectory evidence; CPU/Isaac and runtime claims remain blocked |
 
 ## Decisions that still constrain the work
@@ -178,17 +182,39 @@
   alone is insufficient for complete standing under this profile and budget.
 - **Uncertainty:** Whether the remaining gap is primarily learned action-noise
   dependence, checkpoint volatility or an objective exploit around low height.
-- **Reconsider when:** A bounded diagnostic distinguishes those explanations;
-  do not repeat V2 unchanged.
+- **Reconsider when:** Superseded by D-007; do not repeat V2 on the frozen
+  Stage 0 V1 body.
+
+### D-007 — Retire the Stage 0 V1 body from learned-humanoid optimization
+
+- **Observation:** The failed policy was trained on a 24-sphere body whose 23
+  nominal yaw/roll/pitch joints are all collinear X-axis revolutes with the same
+  symmetric ROM. Knees can hyperextend and feet provide no plantar support area.
+- **Evidence:** Exact Stage 0 descriptor and USD, `reference.rs`, the V1 compiler
+  restrictions, and every frame of the seed-1001 `model_800.pt` capture.
+- **Decision:** Preserve completed V1-body runs as immutable diagnostic evidence,
+  but do not tune, resume or train this body again for a learned-humanoid claim.
+  The next optimizer candidate must consume an admitted biomechanics successor
+  with distinct joint axes, anatomical ROM and support geometry.
+- **Rejected alternatives:** Blaming only the browser renderer, PPO/noise tuning
+  on the same body, a larger budget, or treating serial same-axis joints as an
+  acceptable approximation of compound human joints.
+- **Consequences:** The bounded reward remains useful, but body/reset/descriptor
+  identities must change together in a new generation. Previous checkpoints are
+  not initialization for the successor.
+- **Uncertainty:** Whether the existing biomechanics V2 neutral-pose failure is
+  a schema geometry issue or an articulation-build/ground-contact issue.
+- **Reconsider when:** Never for product learned-humanoid evidence. The V1 body
+  may remain only as an explicitly labelled regression/toy fixture.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: the frozen V1 body can learn complete-episode standing with the smallest MLP profile | V2 training mean survival rises from about `100` to a peak `2,623.84` ticks | Final and peak-region deterministic policies fall at ticks `100` and `97`; the exact-budget complete-standing claim is falsified | Compare stochastic-policy and actor-mean rollouts for closed checkpoints before changing PPO or reward |
-| H2: immutable standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No R8b walking comparison exists | Compare declared standing-parent initialization with the smallest clean control under one fixed budget |
-| H3: Isaac can shorten iteration without changing candidate admissibility | Descriptor/mirror infrastructure exists | Current correspondence readiness is `NOT_RUN` | Exact mirror preflight followed by CPU final evaluation |
-| H4: V2 training reward permits a low-height survival strategy that does not transfer to deterministic standing | Long training episodes can report root-height tracking near zero while remaining above the `0.25 m` fall threshold | One failed deterministic evaluation still has mean height tracking `0.751`; it does not isolate this cause | Inspect closed-checkpoint rollout height/termination distributions and compare them with action-noise mode |
+| H1: the existing biomechanics V2 design is the minimum viable standing foundation | Distinct joint axes, anatomical ROM, support boxes, full inertia and contact metadata already exist | Its fresh-articulation test reports that neutral soles do not both contact ground | Reproduce and localize the neutral-pose contact failure on CPU before changing any frozen numeric identity |
+| H2: ADR-100's bounded standing objective can be ported without another reward redesign | Its CPU bounds and GPU run remain finite and materially improve rollout survival | New geometry/inertia changes reward distributions and reset contact behavior | Freeze new goldens and run a 32-tick CPU neutral/zero-action probe on the successor |
+| H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/mirror infrastructure exists | Current correspondence readiness is `NOT_RUN`, and the old USD describes only V1 | Exact successor descriptor/USD preflight followed by paired CPU/Isaac comparison and CPU final evaluation |
+| H4: admitted standing initialization improves bounded forward start/stop | Foundation-first curriculum removes most simultaneous objectives | No valid-body standing or walking checkpoint exists | Defer until the successor passes the complete standing gate |
 
 ## Required context
 
@@ -212,13 +238,14 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Keep both completed V1 and V2 external runs immutable. V1 is dimensionally
-   invalid for optimization; V2 is the exact negative/partial-learning control.
-2. Do not run seeds `1002..1005`, walking, correspondence or another optimizer
-   budget until one bounded diagnostic distinguishes stochastic action-noise
-   dependence, checkpoint volatility and low-height reward exploitation.
-3. If one cause is isolated, freeze the smallest one-variable V3 change and
-   its rollback/non-regression check before authorizing more GPU compute.
+1. Keep both completed Stage 0 V1-body runs immutable as numerical and pipeline
+   controls; do not use their checkpoints as successor initialization.
+2. Reproduce and localize the biomechanics V2 neutral-sole contact failure on
+   canonical CPU PhysX. Fix it under a distinct schema hash/identity if any
+   frozen numeric or semantic value changes.
+3. Admit a new command-only standing environment/profile over the biomechanics
+   successor, port the bounded reward, and pass exact CPU reset/reward/zero-action
+   preflight before generating an Isaac mirror or authorizing GPU training.
 
 ## Do not retry
 
@@ -232,6 +259,9 @@ Read these sources in precedence order before acting:
 - Standing V1 optimizer/evaluation/resume — the complete seed-42 run shows its
   raw effort/action units dominate the objective, and its metrics are not
   manifest-bound.
+- Any further optimizer/evaluation/resume on the frozen Stage 0 V1 body,
+  including bounded-reward V2 — its all-sphere, all-X articulation is not a
+  credible learned-humanoid foundation.
 - Kimodo or another generated-motion source inside current R8b — it would
   bypass the declared command-only lineage and cannot rehabilitate TRAIN-4.
 - GPU-only quality or video-only acceptance — CPU PhysX trajectories and
@@ -241,15 +271,16 @@ Read these sources in precedence order before acting:
 
 - **Workspace state:** Commit `3435b164…` implements ADR-100, bounded standing
   V2 and its hash-closed profile. Its independent external generation and
-  optimizer run are complete and immutable; no checkpoint is selected.
+  optimizer run are complete and immutable; no checkpoint is selected. The
+  subsequent physical-model/frame audit retires its Stage 0 V1 body from future
+  learned-humanoid optimization and selects the biomechanics successor path.
 - **Checks:** Focused Python/Rust reward checks, workspace `host-check` and
   `persistence-replay` pass. Run sample count, 1,000 finite metrics records and
   all 21 declared checkpoint hashes pass. GPU reset/reward smoke passes.
-- **Remaining risk:** Numerical reward scale is fixed, but deterministic policy
-  quality fails the first held-out seed. CPU/Isaac correspondence, five-seed
-  quality, walking and runtime authority remain blocked. Kimodo retarget yield,
-  physical admissibility, learning benefit and exact license closure remain
-  unmeasured and deferred.
+- **Remaining risk:** Numerical reward scale is fixed, but the active body
+  foundation is not. Biomechanics V2 currently fails neutral-sole contact;
+  successor identity, CPU/Isaac correspondence, five-seed quality, walking and
+  runtime authority remain blocked. Kimodo remains deferred.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed
   quality, replay and fallback gates.
