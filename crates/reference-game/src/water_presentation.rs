@@ -956,6 +956,8 @@ fn edge_records(
                     frame_index,
                 );
             }
+            // Plan 41: a seep is vertical and silent; no record, no emitter.
+            WaterFlowEdgeKindV1::Seep { .. } => continue,
             WaterFlowEdgeKindV1::Pump { .. }
             | WaterFlowEdgeKindV1::Source { .. }
             | WaterFlowEdgeKindV1::Sink { .. } => {

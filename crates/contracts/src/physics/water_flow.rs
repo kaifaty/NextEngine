@@ -37,6 +37,8 @@ pub const MAX_WATER_FLOW_EDGES: usize = 256;
 pub const WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED: i64 = 9_810_000;
 /// Bound on any authored or commanded rate: one cubic metre per second.
 pub const MAX_WATER_FLOW_RATE_CUBIC_MILLIMETRES_PER_SECOND: i64 = 1_000_000_000;
+/// Plan 41 (ADR-103 1.1): the largest infiltration capacity of a seep, `1 mm/s`.
+pub const MAX_WATER_SEEP_RATE_MICROMETRES_PER_SECOND: i64 = 1_000_000;
 /// Bound on authored areas and widths (`1000 m^2`, `1000 m`).
 const MAX_AREA_SQUARE_MILLIMETRES: i64 = 1_000_000_000;
 const MAX_WIDTH_MILLIMETRES: i64 = 1_000_000;
@@ -49,6 +51,7 @@ const KIND_GATE: u32 = 3;
 const KIND_PUMP: u32 = 4;
 const KIND_SOURCE: u32 = 5;
 const KIND_SINK: u32 = 6;
+const KIND_SEEP: u32 = 7;
 
 const COMMAND_SET_GATE_TAG: u8 = 1;
 const COMMAND_SET_PUMP_TAG: u8 = 2;
@@ -104,6 +107,11 @@ pub enum WaterFlowEdgeKindV1 {
     Sink {
         rate_cubic_millimetres_per_second: i64,
     },
+    /// Plan 41 (ADR-103 1.1): infiltration from `cell_a` into the ground-water
+    /// cell `cell_b` at a capacity per plan area while `cell_a`'s level is
+    /// above `cell_b`'s; limited like an open sill, so it stops when the
+    /// water table reaches the surface.
+    Seep { rate_micrometres_per_second: i64 },
 }
 
 impl WaterFlowEdgeKindV1 {
@@ -116,6 +124,7 @@ impl WaterFlowEdgeKindV1 {
             Self::Pump { .. } => KIND_PUMP,
             Self::Source { .. } => KIND_SOURCE,
             Self::Sink { .. } => KIND_SINK,
+            Self::Seep { .. } => KIND_SEEP,
         }
     }
 
@@ -123,7 +132,11 @@ impl WaterFlowEdgeKindV1 {
     pub const fn joins_two_cells(&self) -> bool {
         matches!(
             self,
-            Self::Open { .. } | Self::Pipe { .. } | Self::Gate { .. } | Self::Pump { .. }
+            Self::Open { .. }
+                | Self::Pipe { .. }
+                | Self::Gate { .. }
+                | Self::Pump { .. }
+                | Self::Seep { .. }
         )
     }
 
@@ -178,6 +191,10 @@ impl WaterFlowEdgeKindV1 {
                 rate_cubic_millimetres_per_second,
             } => (0..=MAX_WATER_FLOW_RATE_CUBIC_MILLIMETRES_PER_SECOND)
                 .contains(&rate_cubic_millimetres_per_second),
+            Self::Seep {
+                rate_micrometres_per_second,
+            } => (0..=MAX_WATER_SEEP_RATE_MICROMETRES_PER_SECOND)
+                .contains(&rate_micrometres_per_second),
         };
         if valid {
             Ok(())
@@ -239,6 +256,9 @@ impl WaterFlowEdgeKindV1 {
             | Self::Sink {
                 rate_cubic_millimetres_per_second,
             } => (rate_cubic_millimetres_per_second, 0, 0, 0, false),
+            Self::Seep {
+                rate_micrometres_per_second,
+            } => (rate_micrometres_per_second, 0, 0, 0, false),
         };
         encode_struct([
             field_u32(1, self.tag()),
@@ -299,6 +319,9 @@ impl WaterFlowEdgeKindV1 {
             },
             KIND_SINK => Self::Sink {
                 rate_cubic_millimetres_per_second: a,
+            },
+            KIND_SEEP => Self::Seep {
+                rate_micrometres_per_second: a,
             },
             other => {
                 return Err(PhysicsContractError::UnknownTag(
@@ -1266,6 +1289,18 @@ impl WaterFlowNetworkV1 {
                 WaterFlowEdgeKindV1::Sink { .. } => {
                     -(i128::from(state.rate_cubic_millimetres_per_second) / hz)
                 }
+                WaterFlowEdgeKindV1::Seep {
+                    rate_micrometres_per_second,
+                } => {
+                    // Plan 41: capacity (um/s) times the wetted plan area (mm^2)
+                    // is um mm^2/s; a thousandth is mm^3/s. Only downwards.
+                    let b = b.expect("validated two-cell edge");
+                    if a.level > b.level {
+                        i128::from(rate_micrometres_per_second) * i128::from(a.area) / 1000 / hz
+                    } else {
+                        0
+                    }
+                }
             };
             // Limits: water above the sill on the source side and half the
             // equalising volume for two-cell edges; the whole cell for sinks.
@@ -1561,6 +1596,156 @@ mod tests {
         )
         .expect("network");
         (volumes, network)
+    }
+
+    fn ground_and_pond() -> (WaterVolumeSetV1, WaterFlowNetworkV1) {
+        // A pond of 2 x 1.5 m beside a ground cell of 4 x 4 m that reaches
+        // above the pond, its table 1.5 m under the pond's floor.
+        let pond = vessel(1, 1_000_000, 2_000_000, 1_500_000, 1_500_000);
+        let ground = WaterVolumeDefinitionV1 {
+            volume_id: id(2),
+            minimum_micrometres: [13_000_000, -3_000_000, -1_000_000],
+            maximum_micrometres: [17_000_000, 3_000_000, 3_000_000],
+            initial_level_micrometres: -500_000,
+            swimming_depth_micrometres: 1_200_000,
+            level_ramp: None,
+            profile_revision: 1,
+        };
+        let volumes = WaterVolumeSetV1::from_definitions([pond, ground]).expect("volumes");
+        let network = WaterFlowNetworkV1::from_edges(
+            30,
+            [WaterFlowEdgeV1 {
+                edge_id: id(0x31),
+                cell_a: id(1),
+                cell_b: Some(id(2)),
+                kind: WaterFlowEdgeKindV1::Seep {
+                    rate_micrometres_per_second: 100,
+                },
+            }],
+            &volumes,
+        )
+        .expect("network");
+        (volumes, network)
+    }
+
+    /// Plan 41 G2: a seep carries capacity times plan area, downwards only,
+    /// conserves the total and stops when the table reaches the pond.
+    #[test]
+    fn a_seep_soaks_the_pond_into_the_ground_until_the_table_reaches_it() {
+        let (mut volumes, mut network) = ground_and_pond();
+        let before = network.total_volume();
+        network.step_in_place(&mut volumes).expect("step");
+        // 100 um/s over 3 m^2 (3_000_000 mm^2) = 300_000 mm^3/s; 10_000 per tick.
+        assert_eq!(network.edge_flux(id(0x31)), Some(10_000));
+        assert_eq!(network.total_volume(), before);
+        for _ in 0..999 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        assert_eq!(network.total_volume(), before);
+        let pond = volumes.effective_level(id(1), 1_000).expect("pond");
+        assert!(pond < 1_500_000, "the pond drained: {pond}");
+        // A table at the wetted level stops the seep (an authored level
+        // resynchronises the cell at the next step).
+        let ground = volumes.states.get_mut(&id(2)).expect("ground");
+        ground.level_micrometres = pond;
+        ground.record_revision += 1;
+        network.step_in_place(&mut volumes).expect("step");
+        assert_eq!(network.edge_flux(id(0x31)), Some(0));
+    }
+
+    /// Plan 41 G2: a well pump draws the table down and stops at its head.
+    #[test]
+    fn a_well_pumps_the_ground_until_its_head_is_exceeded() {
+        let pond = vessel(1, 1_000_000, 2_000_000, 1_500_000, 1_000_000);
+        let ground = WaterVolumeDefinitionV1 {
+            volume_id: id(2),
+            minimum_micrometres: [9_000_000, -3_000_000, -1_000_000],
+            maximum_micrometres: [13_000_000, 0, 3_000_000],
+            initial_level_micrometres: -1_000_000,
+            swimming_depth_micrometres: 1_200_000,
+            level_ramp: None,
+            profile_revision: 1,
+        };
+        let mut volumes = WaterVolumeSetV1::from_definitions([pond, ground]).expect("volumes");
+        let mut network = WaterFlowNetworkV1::from_edges(
+            30,
+            [WaterFlowEdgeV1 {
+                edge_id: id(0x32),
+                cell_a: id(2),
+                cell_b: Some(id(1)),
+                kind: WaterFlowEdgeKindV1::Pump {
+                    rate_cubic_millimetres_per_second: 3_000_000,
+                    maximum_head_micrometres: 2_020_000,
+                    initially_enabled: true,
+                },
+            }],
+            &volumes,
+        )
+        .expect("network");
+        let before = network.total_volume();
+        for _ in 0..60 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        assert_eq!(network.total_volume(), before);
+        assert_eq!(network.edge_flux(id(0x32)), Some(100_000));
+        let table = volumes.effective_level(id(2), 60).expect("ground");
+        assert!(table < -1_000_000, "the table fell: {table}");
+        // The pond rises 33 um per tick on 3 m^2 and the table falls 6 um
+        // on 16 m^2; the head of 2.02 m is exceeded within the next
+        // thousand ticks and the well stops.
+        for _ in 0..1_000 {
+            network.step_in_place(&mut volumes).expect("step");
+        }
+        assert_eq!(network.edge_flux(id(0x32)), Some(0));
+        let pond = volumes.effective_level(id(1), 1_060).expect("pond");
+        let table = volumes.effective_level(id(2), 1_060).expect("ground");
+        assert!(pond - table > 2_020_000, "head {}", pond - table);
+    }
+
+    /// Plan 41 G2: tag 7 round-trips, tag 8 is unknown, no command addresses a seep.
+    #[test]
+    fn a_seep_is_the_seventh_kind_and_takes_no_command() {
+        let kind = WaterFlowEdgeKindV1::Seep {
+            rate_micrometres_per_second: 48,
+        };
+        assert_eq!(kind.tag(), 7);
+        assert!(kind.joins_two_cells());
+        let bytes = kind.canonical_record().expect("record");
+        assert_eq!(
+            WaterFlowEdgeKindV1::from_record(&bytes, CanonicalDecodeLimits::default())
+                .expect("kind"),
+            kind
+        );
+        let unknown = encode_struct([
+            field_u32(1, 8),
+            field_i64(2, 48),
+            field_i64(3, 0),
+            field_u32(4, 0),
+            field_u32(5, 0),
+            field_bool(6, false),
+        ])
+        .expect("record");
+        assert!(matches!(
+            WaterFlowEdgeKindV1::from_record(&unknown, CanonicalDecodeLimits::default()),
+            Err(PhysicsContractError::UnknownTag(8))
+        ));
+        assert!(
+            WaterFlowEdgeKindV1::Seep {
+                rate_micrometres_per_second: MAX_WATER_SEEP_RATE_MICROMETRES_PER_SECOND + 1,
+            }
+            .validate()
+            .is_err()
+        );
+        let (_, network) = ground_and_pond();
+        let command = WaterFlowCommandV1::SetSource {
+            edge_id: id(0x31),
+            expected_record_revision: 0,
+            rate_cubic_millimetres_per_second: 1,
+        };
+        assert_eq!(
+            network.apply_command(&command, 1).unwrap_err(),
+            WaterFlowRejectionV1::WrongKind
+        );
     }
 
     #[test]

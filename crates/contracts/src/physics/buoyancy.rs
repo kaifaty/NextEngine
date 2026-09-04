@@ -765,6 +765,13 @@ pub fn water_currents(
         let Some(cell_b) = edge.cell_b else {
             continue;
         };
+        // Plan 41: a seep is a vertical transfer; it makes no plan current.
+        if matches!(
+            edge.kind,
+            super::water_flow::WaterFlowEdgeKindV1::Seep { .. }
+        ) {
+            continue;
+        }
         let Some(flux) = network.edge_flux(*edge_id) else {
             continue;
         };

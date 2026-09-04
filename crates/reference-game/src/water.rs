@@ -109,7 +109,23 @@ pub const REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND: i64 = 3_000_
 pub const REFERENCE_WATER_WEIR_ID: PersistentId = PersistentId::from_bytes([0xf0; 16]);
 pub const REFERENCE_WATER_FALL_ID: PersistentId = PersistentId::from_bytes([0xf1; 16]);
 pub const REFERENCE_WATER_SPRING_ID: PersistentId = PersistentId::from_bytes([0xf2; 16]);
-pub const REFERENCE_WATER_DRAIN_ID: PersistentId = PersistentId::from_bytes([0xf3; 16]);
+/// Plan 41: the pond and the lake seep into a hidden ground-water cell under
+/// the showcase (`60 x 60 m` in plan, `y` from `-40` to `-10 m`, the table
+/// at `-12 m`), and the spring pumps the ground water back into the lake.
+/// Seeps and spring balance exactly per tick: `48 um/s` over the pond's
+/// `45 m^2` (`2.16 L/s`) plus `3 um/s` over the lake's `280 m^2`
+/// (`0.84 L/s`) equal the spring's `3 L/s`, so the cycle is closed.
+pub const REFERENCE_WATER_POND_SEEP_ID: PersistentId = PersistentId::from_bytes([0xf3; 16]);
+pub const REFERENCE_WATER_GROUND_ID: PersistentId = PersistentId::from_bytes([0xf4; 16]);
+pub const REFERENCE_WATER_LAKE_SEEP_ID: PersistentId = PersistentId::from_bytes([0xf5; 16]);
+pub const REFERENCE_WATER_GROUND_MINIMUM_MICROMETRES: [i64; 3] =
+    [-30_000_000, -40_000_000, -20_000_000];
+pub const REFERENCE_WATER_GROUND_MAXIMUM_MICROMETRES: [i64; 3] =
+    [30_000_000, -10_000_000, 40_000_000];
+pub const REFERENCE_WATER_GROUND_INITIAL_LEVEL_MICROMETRES: i64 = -12_000_000;
+pub const REFERENCE_WATER_POND_SEEP_RATE_MICROMETRES_PER_SECOND: i64 = 48;
+pub const REFERENCE_WATER_LAKE_SEEP_RATE_MICROMETRES_PER_SECOND: i64 = 3;
+pub const REFERENCE_WATER_SPRING_MAXIMUM_HEAD_MICROMETRES: i64 = 20_000_000;
 pub const REFERENCE_WATER_LAKE_SURFACE_OBJECT_ID: PersistentId =
     PersistentId::from_bytes([0xea; 16]);
 pub const REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS: [PersistentId; 3] = [
@@ -291,6 +307,21 @@ pub fn reference_water_lake_definition() -> WaterVolumeDefinitionV1 {
     }
 }
 
+/// Plan 41: the ground-water cell under the showcase; its level is the
+/// water table. No surface object, no ring.
+#[must_use]
+pub fn reference_water_ground_definition() -> WaterVolumeDefinitionV1 {
+    WaterVolumeDefinitionV1 {
+        volume_id: REFERENCE_WATER_GROUND_ID,
+        minimum_micrometres: REFERENCE_WATER_GROUND_MINIMUM_MICROMETRES,
+        maximum_micrometres: REFERENCE_WATER_GROUND_MAXIMUM_MICROMETRES,
+        initial_level_micrometres: REFERENCE_WATER_GROUND_INITIAL_LEVEL_MICROMETRES,
+        swimming_depth_micrometres: REFERENCE_WATER_BASIN_SWIMMING_DEPTH_MICROMETRES,
+        level_ramp: None,
+        profile_revision: REFERENCE_WATER_BASIN_PROFILE_REVISION,
+    }
+}
+
 /// Plan 39: the stream as a lattice region of three cells along `z`.
 #[must_use]
 pub fn reference_water_stream_region() -> next_contracts::physics::WaterLatticeRegionV1 {
@@ -395,22 +426,33 @@ pub fn reference_water_flow_edges() -> Vec<WaterFlowEdgeV1> {
                 coefficient_permille: REFERENCE_WATER_STREAM_SILL_COEFFICIENT_PERMILLE,
             },
         },
+        // Plan 41: the spring pumps the ground water into the lake; the
+        // pond and the lake seep back into the ground.
         WaterFlowEdgeV1 {
             edge_id: REFERENCE_WATER_SPRING_ID,
-            cell_a: REFERENCE_WATER_LAKE_ID,
-            cell_b: None,
-            kind: WaterFlowEdgeKindV1::Source {
+            cell_a: REFERENCE_WATER_GROUND_ID,
+            cell_b: Some(REFERENCE_WATER_LAKE_ID),
+            kind: WaterFlowEdgeKindV1::Pump {
                 rate_cubic_millimetres_per_second:
                     REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND,
+                maximum_head_micrometres: REFERENCE_WATER_SPRING_MAXIMUM_HEAD_MICROMETRES,
+                initially_enabled: true,
             },
         },
         WaterFlowEdgeV1 {
-            edge_id: REFERENCE_WATER_DRAIN_ID,
+            edge_id: REFERENCE_WATER_POND_SEEP_ID,
             cell_a: REFERENCE_WATER_POND_ID,
-            cell_b: None,
-            kind: WaterFlowEdgeKindV1::Sink {
-                rate_cubic_millimetres_per_second:
-                    REFERENCE_WATER_SPRING_RATE_CUBIC_MILLIMETRES_PER_SECOND,
+            cell_b: Some(REFERENCE_WATER_GROUND_ID),
+            kind: WaterFlowEdgeKindV1::Seep {
+                rate_micrometres_per_second: REFERENCE_WATER_POND_SEEP_RATE_MICROMETRES_PER_SECOND,
+            },
+        },
+        WaterFlowEdgeV1 {
+            edge_id: REFERENCE_WATER_LAKE_SEEP_ID,
+            cell_a: REFERENCE_WATER_LAKE_ID,
+            cell_b: Some(REFERENCE_WATER_GROUND_ID),
+            kind: WaterFlowEdgeKindV1::Seep {
+                rate_micrometres_per_second: REFERENCE_WATER_LAKE_SEEP_RATE_MICROMETRES_PER_SECOND,
             },
         },
     ];
@@ -453,7 +495,8 @@ pub fn reference_water_volumes() -> Result<WaterVolumeSetV1, ReferenceGameError>
             .into_iter()
             .chain(reference_water_vessel_definitions())
             .chain([reference_water_pond_definition()])
-            .chain(reference_water_showcase_definitions()?),
+            .chain(reference_water_showcase_definitions()?)
+            .chain([reference_water_ground_definition()]),
     )?)
 }
 
@@ -577,7 +620,7 @@ mod tests {
     #[test]
     fn the_lake_feeds_the_stream_and_the_pond_holds_its_level() {
         let mut volumes = reference_water_volumes().expect("volumes");
-        assert_eq!(volumes.definitions.len(), 8);
+        assert_eq!(volumes.definitions.len(), 9);
         let mut network = reference_water_flow(&volumes).expect("network");
         // The network's cell volumes are the exact water; level-derived
         // volumes truncate (a micrometre of the lake's level is 0.28 L).
@@ -589,6 +632,20 @@ mod tests {
                 .sum()
         };
         let before = total(&network);
+        let cycle_before = {
+            let cells = reference_water_stream_cell_ids();
+            [
+                REFERENCE_WATER_LAKE_ID,
+                cells[0],
+                cells[1],
+                cells[2],
+                REFERENCE_WATER_POND_ID,
+                REFERENCE_WATER_GROUND_ID,
+            ]
+            .into_iter()
+            .map(|cell| i128::from(network.cell_volume(cell).expect("cycle cell")))
+            .sum::<i128>()
+        };
         for _ in 0..1_800 {
             network.step_in_place(&mut volumes).expect("step");
         }
@@ -607,19 +664,37 @@ mod tests {
             region.edge_id(cells[2], cells[1]),
             region.edge_id(cells[1], cells[0]),
             REFERENCE_WATER_FALL_ID,
+            REFERENCE_WATER_SPRING_ID,
+            REFERENCE_WATER_POND_SEEP_ID,
+            REFERENCE_WATER_LAKE_SEEP_ID,
         ] {
             let flux = network.edge_flux(edge).expect("edge");
             assert!(flux != 0, "edge {edge:?} carries water at the end");
         }
-        // Conservation: the spring and the drain cancel per tick; vessel B's
+        // Plan 41: the cycle lake -> stream -> pond -> ground -> spring is
+        // closed, so its six cells conserve their total exactly; vessel B's
         // sink is bounded while B fills, so the vessels' source can only add
-        // (at most 0.5 L/s over the run).
+        // (at most 0.5 L/s over the run) to the whole.
+        let cycle = |network: &WaterFlowNetworkV1| -> i128 {
+            [
+                REFERENCE_WATER_LAKE_ID,
+                cells[0],
+                cells[1],
+                cells[2],
+                REFERENCE_WATER_POND_ID,
+                REFERENCE_WATER_GROUND_ID,
+            ]
+            .into_iter()
+            .map(|cell| i128::from(network.cell_volume(cell).expect("cycle cell")))
+            .sum()
+        };
         let after = total(&network);
         let delta = after - before;
         assert!(
             (0..=30_000_000).contains(&delta),
             "total moved by {delta} mm^3 over 1800 ticks"
         );
+        assert_eq!(cycle(&network), cycle_before, "the cycle is closed");
     }
 
     /// Plan 39 G3: the stage carries eight surfaces and the showcase's edge
@@ -664,6 +739,14 @@ mod tests {
         let region = reference_water_stream_region();
         assert!(kind(region.edge_id(cells[2], cells[1])).is_some());
         assert!(kind(region.edge_id(cells[1], cells[0])).is_some());
+        // Plan 41 G4: the spring wells up as a mouth in the lake; the seeps
+        // are vertical and silent, no record.
+        assert_eq!(
+            kind(REFERENCE_WATER_SPRING_ID),
+            Some(WaterEdgePresentationKindV1::Mouth)
+        );
+        assert_eq!(kind(REFERENCE_WATER_POND_SEEP_ID), None);
+        assert_eq!(kind(REFERENCE_WATER_LAKE_SEEP_ID), None);
     }
 
     /// Plan 32 G3: step rises within the capsule's limit, the hole inside

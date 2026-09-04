@@ -4,10 +4,10 @@
 |---|---|
 | ID | ADR-103 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-09-03 |
 | Proposal date | 2026-09-02 |
-| Last verified | 2026-09-03 |
+| Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Supersedes | none (extends the ADR-100 `WaterVolume` owner) |
 | Superseded by | none |
@@ -64,6 +64,10 @@ speed `0.5..0.55` of free fall for the head (revisions 5-9).
      command;
    - `Source` / `Sink`: a constant rate from or to the outside (rain,
      inflow, evaporation, drain).
+   - `Seep` (revision 1.1): infiltration from a wetted cell into a
+     ground-water cell at a capacity `k` per plan area, `q = k * A_a`
+     while the wetted level is above the water table, limited like an
+     open sill; it stops when the table reaches the surface.
    Coefficients are profile constants in the network record, never code
    constants; the defaults are the research calibration (`c_d = 0.40`
    for short openings, `0.13` for long lined ducts, `c_w = 0.385`).
@@ -164,6 +168,28 @@ Ordered by value, each with its own frozen plan and evidence:
 - `xtask water-flow` runs `CONTINUUM-WATER-FLOW-P1` (plan 07 gates):
   `1,800` ticks, gate closed at tick `300` and reopened at `360`, save at
   `900`, restore and continue, four rejections, repeated generation.
+
+### Revision 1.1 (2026-09-04): the `Seep` kind and ground water
+
+Plan `continuum-water/41` (plan 31 item 9). `WaterFlowEdgeKindV1::Seep {
+rate_micrometres_per_second }` is the seventh kind (tag `7`), a two-cell
+edge from a wetted cell into a ground-water cell: the flux per second is
+the infiltration capacity times the wetted cell's plan area while its
+level is above the ground cell's, else `0`, limited by the wetted cell's
+whole volume and half the equalising volume so the seep stops exactly
+when the water table reaches the surface. The capacity validates in
+`0..=1 mm/s`; no command addresses a seep (`WrongKind`); the canonical
+record puts the capacity in field 2 with the other slots zero, and an
+older build rejects tag `7` as `UnknownTag` (a checkpoint holding a seep
+does not load there; the checkpoint schema is unchanged). A ground-water
+cell is an ordinary volume under the terrain whose level is the water
+table; a well is a `Pump` out of it, bounded by its maximum head. The
+currents of ADR-105 ignore seeps (a vertical transfer makes no plan
+current), and the presentation makes neither a record nor an audio
+emitter of one. The reference showcase closes its cycle: the pond
+(`48 um/s`) and the lake (`3 um/s`) seep into a hidden ground cell and
+the spring pumps the ground water back into the lake at `3 L/s`, the
+same amount per tick.
 
 ## Consequences
 
