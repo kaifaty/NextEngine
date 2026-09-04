@@ -1,3 +1,4 @@
+import copy
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,43 @@ import physical_sound_tangoflux_train as train
 
 
 class TangoTrainTest(unittest.TestCase):
+    def test_multi_event_corpus_roles_and_captions(self):
+        rows = [
+            {
+                "filename": f"{fold}-{index}.wav",
+                "category": key,
+                "prompt": prompt,
+                "fold": fold,
+                "role": "train" if fold == "1" else "development",
+                "src_file": f"{fold}-{index}",
+                "physical_attributes": None,
+            }
+            for fold in ("1", "5")
+            for index, (key, prompt) in enumerate(train.water.PROMPTS.items())
+        ]
+        self.assertEqual(train.corpus_split(rows), ([0, 1, 2], [3, 4, 5]))
+        for key, value in (
+            ("prompt", "invented exact flow rate"),
+            ("role", "train"),
+            ("physical_attributes", {"force": 1}),
+            ("src_file", rows[0]["src_file"]),
+            ("fold", "0"),
+        ):
+            invalid = copy.deepcopy(rows)
+            invalid[3][key] = value
+            with self.assertRaises(ValueError):
+                train.corpus_split(invalid)
+        with self.assertRaises(ValueError):
+            train.corpus_split(rows + rows[:1])
+
+    def test_five_second_active_region_not_glass_duration(self):
+        target = torch.zeros(1, 645, 64)
+        prediction = target.clone()
+        prediction[:, 33:108] = 1
+        parts = train.loss_parts(prediction, target, 108)
+        self.assertAlmostEqual(float(parts["active"]), 75 / 108, places=6)
+        self.assertEqual(float(parts["tail"]), 0)
+
     def test_active_sound_not_diluted_by_padding(self):
         target = torch.zeros(1, 645, 64)
         prediction = target.clone()

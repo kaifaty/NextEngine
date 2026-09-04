@@ -1,4 +1,4 @@
-"""Bounded text-only TangoFlux LoRA learnability experiment on disclosed glass.
+"""Bounded text-only TangoFlux LoRA on disclosed glass or water/rain sources.
 
 Powered by Stability AI; TangoFlux / Hung et al., non-commercial research only.
 Internet recordings are training targets, never inference inputs. Development
@@ -21,7 +21,9 @@ import physical_sound_audible_glass_cycle as cycle
 import physical_sound_audible_glass_unseen as unseen
 import physical_sound_tangoflux_pilot as tango
 import physical_sound_text_pilot as pilot
+import physical_sound_water_sources as water
 import torch
+from scipy.io import wavfile
 from scipy.signal import resample_poly
 
 PROMPT = "A knife hits a wine glass once, followed by a ringing glass decay."
@@ -74,6 +76,84 @@ def prepare_sources(source_root: Path):
     return rows, waves, train, development
 
 
+def corpus_split(rows):
+    if not rows or len({r["filename"] for r in rows}) != len(rows):
+        raise ValueError("nonempty unique corpus rows required")
+    for row in rows:
+        if (
+            row["category"] not in water.PROMPTS
+            or row["prompt"] != water.PROMPTS[row["category"]]
+        ):
+            raise ValueError("unknown event caption")
+        if row["fold"] not in ("1", "2", "3", "4", "5"):
+            raise ValueError("invalid source fold")
+        if (
+            row["role"] != ("development" if row["fold"] == "5" else "train")
+            or row["physical_attributes"] is not None
+        ):
+            raise ValueError("source role or physical attributes changed")
+    train_indices = [i for i, r in enumerate(rows) if r["role"] == "train"]
+    development = [i for i, r in enumerate(rows) if r["role"] == "development"]
+    if (
+        not train_indices
+        or not development
+        or (
+            {rows[i]["src_file"] for i in train_indices}
+            & {rows[i]["src_file"] for i in development}
+        )
+    ):
+        raise ValueError("source-disjoint train/development required")
+    return train_indices, development
+
+
+def prepare_water_sources(root):
+    manifest = json.loads((root / "result.json").read_text())
+    if (manifest["status"], manifest["dataset"], manifest["revision"]) != (
+        "complete",
+        "karolpiczak/ESC-50",
+        water.REVISION,
+    ):
+        raise ValueError("incomplete or incompatible water corpus")
+    rows = manifest["rows"]
+    if len(rows) != 117:
+        raise ValueError("unexpected disclosed corpus size")
+    train_indices, development = corpus_split(rows)
+    result, waves, controls = [], [], set()
+    for row in rows:
+        path = Path(row["wav"]).resolve()
+        if (
+            not path.is_relative_to((root / "audio").resolve())
+            or path.name != row["filename"]
+        ):
+            raise ValueError("audio outside the declared corpus")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != row["sha256"]:
+            raise ValueError("water source hash mismatch")
+        rate, pcm = wavfile.read(path)
+        if (
+            rate != tango.RATE
+            or pcm.dtype != np.int16
+            or pcm.shape != (5 * tango.RATE,)
+            or not np.any(pcm)
+        ):
+            raise ValueError("invalid water source waveform")
+        wave = pcm.astype(np.float32) / 32768
+        gain = min(1.0, 0.5 / float(np.max(np.abs(wave))))
+        pair = (row["category"], row["role"])
+        result.append(
+            {
+                **row,
+                "id": path.stem,
+                "sound_id": row["src_file"],
+                "duration": 5.0,
+                "normalization_gain": gain,
+                "vae_control": pair not in controls,
+            }
+        )
+        controls.add(pair)
+        waves.append(np.stack([wave * gain, wave * gain]))
+    return result, waves, train_indices, development
+
+
 def cache_latents(vae, waves, rows, output):
     means, stds, controls = [], [], []
     vae.to("cuda")
@@ -93,7 +173,7 @@ def cache_latents(vae, waves, rows, output):
                 raise ValueError("invalid VAE posterior")
             means.append(mean)
             stds.append(std)
-            if row["id"].endswith("-0"):
+            if row.get("vae_control", row["id"].endswith("-0")):
                 reconstructed = (
                     vae.decode(posterior.mean)
                     .sample[0, :, : wave.shape[1]]
@@ -111,11 +191,11 @@ def cache_latents(vae, waves, rows, output):
     return torch.cat(means), torch.cat(stds), controls
 
 
-def conditioning(model):
+def conditioning(model, prompt=PROMPT, seconds=SECONDS):
     with torch.no_grad():
-        text, mask = model.encode_text([PROMPT])
+        text, mask = model.encode_text([prompt])
         pooled = model.fc(torch.where(mask[..., None], text, float("nan")).nanmean(1))
-        duration = model.encode_duration(torch.tensor([SECONDS], device="cuda"))
+        duration = model.encode_duration(torch.tensor([seconds], device="cuda"))
         hidden = torch.cat([text, duration], dim=1)
     return hidden, pooled
 
@@ -136,7 +216,9 @@ def velocity(model, noisy, sigma, condition):
     )[0]
 
 
-def evaluate_flow(model, means, indices, condition):
+def evaluate_flow(
+    model, means, indices, condition, row_conditions=None, active_frames=ACTIVE_FRAMES
+):
     records = []
     model.transformer.eval()
     with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
@@ -147,9 +229,12 @@ def evaluate_flow(model, means, indices, condition):
                 noise = torch.randn(latent.shape, generator=rng, device="cuda")
                 sigma = torch.tensor(value, device="cuda")
                 prediction = velocity(
-                    model, (1 - sigma) * latent + sigma * noise, sigma, condition
+                    model,
+                    (1 - sigma) * latent + sigma * noise,
+                    sigma,
+                    condition if row_conditions is None else row_conditions[index],
                 )
-                parts = loss_parts(prediction, noise - latent)
+                parts = loss_parts(prediction, noise - latent, active_frames)
                 records.append(
                     {
                         "index": index,
@@ -163,7 +248,7 @@ def evaluate_flow(model, means, indices, condition):
     }
 
 
-def render(model, vae, output, step):
+def render(model, vae, output, step, cases=CASES, durations=None):
     output.mkdir()
     model.eval().to("cuda")
     report = {
@@ -176,14 +261,18 @@ def render(model, vae, output, step):
         "steps": 50,
         "seeds": [42, 123],
         "precision": "float32",
-        "cases": [{"id": k, "prompt": p} for k, p in CASES],
+        "cases": [{"id": k, "prompt": p} for k, p in cases],
         "rows": [],
         "controls": [],
     }
     preview = []
     for seed in report["seeds"]:
-        for index, (key, prompt) in enumerate((*CASES, ("empty-prompt", ""))):
-            duration = SECONDS if index == 0 else 5.0
+        for index, (key, prompt) in enumerate((*cases, ("empty-prompt", ""))):
+            duration = (
+                (SECONDS if index == 0 else 5.0)
+                if durations is None
+                else (*durations, 5.0)[index]
+            )
             torch.manual_seed(seed)
             with torch.no_grad():
                 latent = model.inference_flow(
@@ -207,7 +296,7 @@ def render(model, vae, output, step):
                 model.to("cuda")
             record, mono = tango.publish(output, f"{key}-seed{seed}", wave)
             record.update({"seed": seed, "seconds": duration})
-            if index < len(CASES):
+            if index < len(cases):
                 report["rows"].append({"case": index, **record})
                 if seed == 42:
                     preview.extend((mono, np.zeros(pilot.RATE // 2, dtype=np.float32)))
@@ -223,7 +312,15 @@ def render(model, vae, output, step):
     return str(output / "result.json")
 
 
-def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
+def run(
+    source_root,
+    output,
+    steps=120,
+    lr=1e-4,
+    objective="balanced",
+    corpus=None,
+    diagnostics=False,
+):
     from diffusers.training_utils import compute_density_for_timestep_sampling
     from peft import LoraConfig
     from safetensors.torch import save_file
@@ -235,6 +332,8 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
         raise ValueError("bounded training steps and learning rate required")
     if objective not in ("balanced", "full"):
         raise ValueError("unknown training objective")
+    if (source_root is None) == (corpus is None):
+        raise ValueError("exactly one source collection required")
     output.mkdir(parents=True)
     shutil.copyfile(__file__, output / "executed-script.py")
     started = time.monotonic()
@@ -264,8 +363,31 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
         "checkpoints": [],
         "training": [],
     }
+    active_frames = ACTIVE_FRAMES
+    cases, durations = CASES, None
     try:
-        rows, waves, train, development = prepare_sources(source_root)
+        if corpus is None:
+            rows, waves, train, development = prepare_sources(source_root)
+        else:
+            rows, waves, train, development = prepare_water_sources(corpus)
+            active_frames = math.ceil(5 * tango.RATE / 2048)
+            cases = (*water.PROMPTS.items(), ("glass-metal", PROMPT), pilot.CASES[2])
+            durations = (5.0, 5.0, 5.0, SECONDS, 5.0)
+            report.update(
+                prompt=None,
+                duration=5.0,
+                active_frames=active_frames,
+                corpus_manifest=str(corpus / "result.json"),
+                corpus_sha256=hashlib.sha256(
+                    (corpus / "result.json").read_bytes()
+                ).hexdigest(),
+                attribution="Powered by Stability AI; TangoFlux / Hung et al.; ESC-50 / Piczak and attributed source authors",
+            )
+            if objective == "balanced":
+                report["loss"] = (
+                    "half active 108-frame MSE plus half remaining 537-frame MSE; no CLAP reward"
+                )
+            shutil.copyfile(corpus / "LICENSE", output / "CORPUS_LICENSE")
         report.update(
             {
                 "sources": rows,
@@ -281,14 +403,28 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
         save_file({"mean": means, "std": stds}, output / "posterior.safetensors")
         report["vae_controls"] = controls
         model.to("cuda")
-        condition = conditioning(model)
+        condition_cache = {
+            (row.get("prompt", PROMPT), row.get("duration", SECONDS)): None
+            for row in rows
+        }
+        for key in condition_cache:
+            condition_cache[key] = conditioning(model, *key)
+        row_conditions = [
+            condition_cache[(row.get("prompt", PROMPT), row.get("duration", SECONDS))]
+            for row in rows
+        ]
+        condition = row_conditions[0]
+        first_prompt = rows[0].get("prompt", PROMPT)
+        first_duration = rows[0].get("duration", SECONDS)
         # Compare cached-conditioning implementation against the exact upstream
         # unweighted SFT loss before adapting anything; same RNG/scheduler.
         latent = means[:1].to("cuda")
         with torch.no_grad():
             torch.manual_seed(765)
             upstream = model(
-                latent, [PROMPT], duration=torch.tensor([SECONDS], device="cuda")
+                latent,
+                [first_prompt],
+                duration=torch.tensor([first_duration], device="cuda"),
             )[0]
             torch.manual_seed(765)
             noise = torch.randn_like(latent)
@@ -329,8 +465,17 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
             if step in checkpoints:
                 measured = {
                     "step": step,
-                    "train": evaluate_flow(model, means, train, condition),
-                    "development": evaluate_flow(model, means, development, condition),
+                    "train": evaluate_flow(
+                        model, means, train, condition, row_conditions, active_frames
+                    ),
+                    "development": evaluate_flow(
+                        model,
+                        means,
+                        development,
+                        condition,
+                        row_conditions,
+                        active_frames,
+                    ),
                 }
                 if step:
                     weights = {
@@ -344,7 +489,7 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
                         checkpoint.read_bytes()
                     ).hexdigest()
                 measured["generation"] = render(
-                    model, vae, output / f"step{step}", step
+                    model, vae, output / f"step{step}", step, cases, durations
                 )
                 report["checkpoints"].append(measured)
                 pilot.save_report(output / "result.json", report)
@@ -364,9 +509,12 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
             sigma = model.noise_scheduler_copy.sigmas[schedule_index].to("cuda")
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 prediction = velocity(
-                    model, (1 - sigma) * latent + sigma * noise, sigma, condition
+                    model,
+                    (1 - sigma) * latent + sigma * noise,
+                    sigma,
+                    row_conditions[index],
                 )
-                loss = loss_parts(prediction, noise - latent)[objective]
+                loss = loss_parts(prediction, noise - latent, active_frames)[objective]
             if not torch.isfinite(loss):
                 raise ValueError("nonfinite training loss")
             loss.backward()
@@ -386,6 +534,17 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
             if (step + 1) % 10 == 0:
                 pilot.save_report(output / "result.json", report)
                 print(json.dumps(report["training"][-1]), flush=True)
+        if diagnostics:
+            import physical_sound_text_tags as tags
+
+            del optimizer, parameters, model, vae
+            torch.cuda.empty_cache()
+            for measured in report["checkpoints"]:
+                source = Path(measured["generation"])
+                scored = source.parent / "ast-clap.json"
+                tags.run(source, scored, [], with_clap=True)
+                measured["diagnostics"] = str(scored)
+                pilot.save_report(output / "result.json", report)
         report.update(
             {
                 "status": "complete",
@@ -408,10 +567,27 @@ def run(source_root, output, steps=120, lr=1e-4, objective="balanced"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sources", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--sources", type=Path)
+    inputs.add_argument(
+        "--corpus", type=Path, help="Completed attributed water/rain corpus directory"
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--steps", type=int, default=120)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--objective", choices=("balanced", "full"), default="balanced")
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="Run frozen AST/CLAP after all generation checkpoints",
+    )
     args = parser.parse_args()
-    run(args.sources, args.output, args.steps, args.lr, args.objective)
+    run(
+        args.sources,
+        args.output,
+        args.steps,
+        args.lr,
+        args.objective,
+        args.corpus,
+        args.diagnostics,
+    )

@@ -534,3 +534,82 @@ completed external corpus instead of reacquiring it or reassigning its roles.
 Verification: 45 focused tests and Ruff/diff/local-link checks passed. No
 Cargo/ProductCheck or engine audition was run; no runtime or public contract
 changed. The base generator and both earlier adapters remain untouched.
+
+## Multi-event water/rain learning (2026-09-05)
+
+[Listen: rain, pouring water, water drops — base then step 240 for each](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-water-rain-fit-2026-09-05/comparison.wav).
+This 33-second preview uses seed 42, with no recording at inference. Both
+seeds 42/123, the step-40 intermediate, empty-prompt controls and glass/wood
+regression examples remain in the external run; the preview does not select
+the better seed. [Final water drops, seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-water-rain-fit-2026-09-05/step240/water_drops-seed123.wav)
+is also directly playable. These are new generations, not codec reconstructions.
+
+The existing trainer now accepts the completed attributed `--corpus`, validates
+source hashes/PCM/roles, caches three event captions and uses full five-second
+targets (108 active latent frames). It preserves the old glass invocation.
+The 93 permitted training clips and 24 disclosed development clips remain
+source-ID-disjoint. Random sampling visited 92/93 training clips in 240 updates:
+82 rain, 72 pouring-water and 86 water-drop updates. No development audio enters
+the optimizer. Generic captions do not establish flow rate or physical controls.
+
+The run uses the same frozen TangoFlux/T5/VAE, rank-8 q/v LoRA (786,432 learned
+parameters), AdamW 1e-4, BF16 training and FP32 50-step generation. Uniform
+upstream flow MSE is the objective; neither AST nor CLAP supplies training
+reward. Cached conditioning matches exact upstream loss at
+0.46225404739379883. All four initial glass/wood mono and stereo controls
+replay the prior baseline exactly. `--diagnostics` automatically runs the
+frozen AST/CLAP measurements after checkpoint generation, without a separate
+manual scoring step. Total execution including diagnostics: 487.99 seconds;
+peak Torch CUDA allocation: 4,654,928,384 bytes (not total device usage).
+
+The result is **not a replacement for the base model**. Development active
+flow MSE falls 25.43% (1.55279 -> 1.15788), and full-horizon MSE falls 16.11%
+(0.76171 -> 0.63897), with improvements in all three event classes. Yet
+free-generation alignment regresses overall:
+
+| Mean target CLAP, two seeds | Base | Step 40 | Step 240 |
+|---|---:|---:|---:|
+| Rain | 0.46055 | 0.46127 | 0.45653 |
+| Pouring water | 0.35234 | 0.35083 | 0.31383 |
+| Water drops | 0.41781 | 0.41930 | 0.44578 |
+| Glass regression control | 0.25277 | 0.25101 | 0.10684 |
+| Wood regression control | 0.39026 | 0.38967 | 0.33657 |
+
+CLAP top-1 across five prompts drops from 8/10 to 6/10; all 10 still beat
+their empty-prompt controls. AST expected coarse tags appear in the top five
+for 10/10 base and step-40 sounds but 9/10 final sounds: glass seed 123 loses
+its glass/clink match. Both final pouring-water sounds prefer the water-drop
+caption in CLAP, while AST emphasizes taps/water. The water-drop score gain
+occurs on both seeds, but this is prompt alignment, not independently calibrated
+naturalness or proof of a physical response. Two seeds do not establish robust
+generalization; classifier pretraining overlap remains unknown. AST retains
+the previously disclosed NumPy frontend/zero-mel-filter warning limitation.
+
+This is evidence that multi-event learning changes generated sounds, and that
+the automated diagnostics can expose cross-event regression despite improving
+training loss. It is not evidence that simply enlarging the data or training
+longer solves the goal. Keep the base and the liked demo unchanged. The next
+bounded discriminator should address retention of the base's useful behavior
+(for example a researched reference-model/rehearsal control), while retaining
+the pouring-water versus droplets distinction; do not extend this adapter's
+epochs or declare its best class a general solution. No repeat of the already
+negative glass duration/CFG, posterior-mean or modal-MLP experiments is justified.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --corpus /absolute/external/esc50-water-rain-2026-09-05 \
+  --output /absolute/external/new-water-rain-fit \
+  --steps 240 --objective full --diagnostics
+```
+
+All 96 individual WAVs (72 generated, 24 original/codec controls) passed
+hash, rate, duration, PCM type, shape, non-silence and headroom checks. Three
+24-second stage previews and the 33-second comparison were read back; both
+adapter hashes match. The focused suite has 43 passing tests, including new
+caption/role/source-split and five-second loss-region cases. Ruff formatting,
+static analysis and diff/local-link checks passed. An initial module-qualified
+test command failed because an existing test imports a sibling by bare name;
+the corrected invocation uses `PYTHONPATH=lab/tests`. No code workaround or
+test exclusion was needed. Cargo/ProductCheck and engine audition were not run:
+this is an external Python experiment with no runtime/public-contract change.

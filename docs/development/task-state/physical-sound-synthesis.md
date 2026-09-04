@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / CODEC_SAMPLING_NOT_CAUSAL_IN_CONTROLS / WATER_RAIN_DATA_READY.
+Status: ACTIVE_GOAL / MULTI_EVENT_FIT_COMPLETED / CROSS_EVENT_REGRESSION / BASE_RETAINED.
 
 ## Resume in 60 seconds
 
@@ -12,64 +12,67 @@ Status: ACTIVE_GOAL / CODEC_SAMPLING_NOT_CAUSAL_IN_CONTROLS / WATER_RAIN_DATA_RE
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifacts:** [original -> codec mean -> sample](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-codec-targets-2026-09-05/comparison.wav)
-  (18 s, reconstruction diagnostic, not a new text generator), and
-  [real rain/pouring-water/water-drop training and development examples](/home/kaifaty/.codex/experiments/nextengine/physical-sound/esc50-water-rain-2026-09-05/sources-preview.wav)
-  (33 s, internet source recordings). No new weights trained this checkpoint.
-  The last text-generative fits remain unpromoted; runtime/liked glass is unchanged.
+- **Latest primary artifact:** [rain/pouring water/drops, base -> trained for each](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-water-rain-fit-2026-09-05/comparison.wav)
+  (33 s, seed 42, text-only inference). Step 0/40/240 and both seeds 42/123,
+  glass/wood/empty controls and 96 individual WAVs are retained. The 240-step
+  multi-event fit is complete, with automatic AST/CLAP diagnostics. Water-drop
+  alignment improves but pouring water and glass/wood regress. Keep the base;
+  no adapter promotion or runtime/liked-glass change.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest external roots are `tangoflux-codec-targets-2026-09-05` and
-  `esc50-water-rain-2026-09-05` under
+  Latest external fit is `tangoflux-water-rain-fit-2026-09-05`; sources are
+  `esc50-water-rain-2026-09-05`, under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Codec `result.json`/`ast-tags.json`; water `result.json`/`real-clap.json`,
-  pinned CSV/LICENSE and `audio/`. Prior balanced/uniform runs are
-  `tangoflux-lora-glass-2026-09-05` / `tangoflux-lora-uniform-2026-09-05`.
-- **Codec discriminator:** official training samples the posterior; our formula
-  matches the installed distribution with the same CPU RNG. Three mean WAVs
-  replay exactly. Nine sampled reconstructions retain CLAP 0.371–0.464 and
-  spectral error within -0.01160/+0.01456 of the mean. Padding is -100…-95 dBFS.
-  No evidence of gross target corruption from sampling in these controls;
-  do not launch another glass fit merely switching to posterior means.
+  Fit `result.json`, stage `result.json`/`ast-clap.json`, adapters and comparison;
+  source `result.json`/`real-clap.json`, pinned CSV/LICENSE and `audio/`.
+  The note records prior codec, glass balanced/uniform and CFG experiments.
+- **Multi-event evidence:** 240 updates, 92/93 permitted train clips visited,
+  five-second targets and three captions, uniform full-horizon MSE. Development
+  active/full MSE improves 25.43%/16.11%. Mean CLAP base -> final: rain
+  .46055 -> .45653; pour .35234 -> .31383; drops .41781 -> .44578; glass
+  .25277 -> .10684; wood .39026 -> .33657. Top-1 8/10 -> 6/10; AST 10/10 ->
+  9/10 (glass seed 123 regresses). Both pour outputs prefer the drop caption.
+  Drop alignment gains on both seeds are not a calibrated naturalness claim.
+  Cached upstream loss and four baseline WAV replays match exactly. Run 487.99 s.
+- **Codec discriminator:** official posterior sampling matches our formula and
+  retains CLAP 0.371–0.464, spectral error within -.01160/+.01456 of the mean,
+  padding -100…-95 dBFS. Three mean WAVs replay exactly. No gross sampling
+  corruption in these controls; do not retry glass merely switching to means.
 - **New corpus ready:** pinned ESC-50 revision
   `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`, 117 WAVs/100 source recordings:
   93 train (folds 1–4), 24 disclosed development (fold 5), source-ID-disjoint.
   40 rain, 37 pouring water, 40 water drops; generic class captions, physical
   attributes null. Frozen CLAP matches 110/117 labels; all disagreements remain.
-  Dataset CC-BY-NC 3.0 and individual notices retained. IDs 67152/79220/126433
-  (CC-Sampling+) remain unfetched. Ten source files touch full-scale PCM.
-  Local URL-bearing metadata/filename screen found no prior ID collisions;
-  scope is bounded, foundation pretraining independence is unknown.
-- **Prior fits:** balanced and uniform losses improve fit but not free-generation
-  alignment: CLAP mean base/balanced/uniform 0.35858/0.33929/0.34063, AST 10/10
-  throughout. Uniform improves both active/padding regions; still keep the base.
-  Exact sources/posteriors/sample-order/baseline controls match. Frozen T5/VAE/
-  base, rank-8 q/v LoRA, AdamW 1e-4, BF16 train/FP32 inference; details in the note.
-- **Counterfactuals already run:** 28 same-seed WAVs, duration 1.5/5 s, CFG
-  1/2/4.5, plus base-unconditional branch. Longer clips reduce the penalty,
-  not create a gain; low CFG has poor absolute scores; base-unconditional is
-  not a repair. Do not repeat this sweep. All four historical WAV controls and
-  exact upstream latent replay pass; scoring replays within 1e-6.
+  CC-BY-NC 3.0/individual notices retained; CC-Sampling+ IDs 67152/79220/126433
+  unfetched. Ten full-scale PCM sources. Bounded prior-ID screen found no
+  collisions; foundation pretraining independence is unknown.
+- **Prior glass fits:** CLAP base/balanced/uniform .35858/.33929/.34063;
+  AST 10/10 throughout, despite improved fit. Exact source/posterior/order/
+  baseline controls match. Frozen base/T5/VAE, rank-8 q/v LoRA, AdamW 1e-4,
+  BF16 train/FP32 inference; details in the note.
+- **Counterfactuals already run:** 28 WAVs, duration 1.5/5 s, CFG 1/2/4.5,
+  base-unconditional branch. None repairs glass; do not repeat. Four historical
+  WAV and upstream latent replays pass; scores replay within 1e-6.
 - **Validator limitation:** all six real/VAE controls prefer wooden-stick/glass
   over knife/glass in the current wording-confounded caption bank. Their true
   target cosines are 0.38–0.46, above generated examples; ranks cannot establish
   striker identity. Steel remains unscored, and no perceptual risk is calibrated.
-- **Next action:** bounded multi-event learning on the existing water/rain corpus,
-  with actual five-second targets, class-specific text conditioning and before/
-  after WAVs. Keep the base, glass/wood regression controls and source-disjoint
-  development. Generalize the existing trainer instead of a new training stack.
-  Use uniform upstream loss as the control and validate free generation, not
-  merely denoising loss/CLAP. No more nearby fits on the same glass-only data,
-  model shopping, modal-MLP restart, invented physical labels or protected reuse.
-- **Hardware/runtime:** RTX 3080, 10 GiB, working CUDA. `lab/.venv/bin/python`
-  has Torch 2.13.0+cu130, datasets 2.21.0/fsspec 2024.6.1, peft 0.12.0 and the
-  pinned libraries in the pilot note. Inference runs offline. The Tango pilot
-  loads only hash-reviewed external source and verifies all checkpoint values
-  and the tied T5 alias. Old sandbox GPU failures are not current evidence.
-- **Verification:** codec 48 new/6 referenced WAVs and all 117 source WAVs pass
-  hash/shape/rate/length checks; 18/33-second previews checked. Sampling and
-  ingestion have 45 passing focused tests; Ruff/diff/link checks pass. Jobs terminal;
-  checks, limitations and reproduction are in the pilot note.
+- **Next action:** a bounded retention discriminator, supported by focused
+  research into reference-model/rehearsal regularization, before another fit.
+  Preserve useful base behavior and test the pouring-water/drop distinction;
+  deliver before/after sound with the same regression controls. Do not extend
+  the unregularized adapter's epochs merely because development MSE improved.
+  Keep the existing trainer (`--corpus ... --objective full --diagnostics`),
+  not a new stack. No more glass-only fits, model shopping, modal-MLP restart,
+  invented physical labels or protected reuse.
+- **Hardware/runtime:** RTX 3080 10 GiB, working CUDA, `lab/.venv/bin/python`,
+  Torch 2.13.0+cu130, datasets 2.21.0/fsspec 2024.6.1, peft 0.12.0. Offline
+  inference loads hash-reviewed code, verifies weights/T5 alias. Old sandbox
+  GPU failures are stale; exact pinned libraries are in the pilot note.
+- **Verification:** all 96 fit WAVs, three 24-second stage previews and 33-second
+  comparison pass signal/hash checks; adapters match. 43 focused tests and
+  Ruff/diff/local-link checks pass. All jobs terminal. No Cargo/ProductCheck
+  or engine audition: external Python lab only. Reproduction is in the note.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, audible improvement through local learning, precise physical
   controls, demonstrated new-condition generalization and engine integration.
@@ -104,11 +107,9 @@ Status: ACTIVE_GOAL / CODEC_SAMPLING_NOT_CAUSAL_IN_CONTROLS / WATER_RAIN_DATA_RE
 
 - **Liked training reconstruction:** [first pilot result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/result.json),
   [comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav).
-  Three Freesound wine-glass crops -> fitted modal teachers -> MLP -> PCM.
-  User liked it. In-sample acoustic loss 1.31725 -> 0.324965; no generalization.
+  User liked three fitted glass reconstructions; no generalization.
 - **Frozen transfer failure:** [unseen result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/result.json).
-  Nine later strikes: spectral error 1.49691 vs training 0.31040; nearest
-  old fitted parameters beat the network on 9/9. Same recordings, not new objects.
+  Nearest old parameters beat the MLP on 9/9 later strikes, not new objects.
 - **Automatic cycle:** [cycle result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json),
   [analytic preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/analytic-preview.wav).
   16 strikes from 761160/761161 train, 11 later strikes from excluded recording
@@ -146,4 +147,3 @@ Status: ACTIVE_GOAL / CODEC_SAMPLING_NOT_CAUSAL_IN_CONTROLS / WATER_RAIN_DATA_RE
   allowed as this separate report-only generator, with its own explicit claims.
 - Prior detailed D-001…D-098 history and retired plans are available in Git
   at `ed8b9401:docs/development/task-state/physical-sound-synthesis.md`.
-  They are a discovery index, not recursive mandatory reading.

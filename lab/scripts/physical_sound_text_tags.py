@@ -23,6 +23,9 @@ REVISION = "f826b80d28226b62986cc218e5cec390b1096902"
 # striker is an AudioSet label. Keep those limitations visible instead of
 # pretending a generic clink certifies a specific material pair.
 EXPECTED = {
+    "rain": ("Rain", "Raindrop", "Rain on surface"),
+    "pouring_water": ("Water", "Pour"),
+    "water_drops": ("Drip", "Water"),
     "glass-metal": ("Glass", "Chink, clink"),
     "glass-wood": ("Glass", "Chink, clink"),
     "wood-metal": ("Wood", "Knock", "Wood block"),
