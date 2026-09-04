@@ -31,6 +31,11 @@ pub(crate) struct WaterPresentationFeed {
     particle_bounds: AabbI64V1,
     sequence: u64,
     last_frame: Option<Arc<WaterPresentationFrameV1>>,
+    /// Plan 38: the wave grid per surface mesh (none when unstable).
+    waves: Vec<(AssetId, Option<crate::water_waves::WaveGridV1>)>,
+    /// Plan 38: the last published frame index, so a republished frame
+    /// does not excite the grid twice.
+    last_excited_frame: Option<u64>,
 }
 
 /// Dynamic surface updates plus the optional jet particle update for one
@@ -74,11 +79,42 @@ impl WaterPresentationFeed {
         }
         let particle_bounds =
             AabbI64V1::new(minimum, maximum).map_err(|error| error.to_string())?;
+        // Plan 38: one wave grid per ring at its authored depth.
+        let definitions: Vec<_> = [reference_water_basin_definition()]
+            .into_iter()
+            .chain(reference_water_vessel_definitions())
+            .chain([reference_water_pond_definition()])
+            .collect();
+        let waves = reference_water_surface_bindings()
+            .into_iter()
+            .map(|binding| {
+                let grid = definitions
+                    .iter()
+                    .find(|definition| definition.volume_id == binding.volume_id)
+                    .and_then(|definition| {
+                        crate::water_waves::WaveGridV1::new(
+                            [
+                                definition.minimum_micrometres[0],
+                                definition.minimum_micrometres[2],
+                            ],
+                            [
+                                definition.maximum_micrometres[0],
+                                definition.maximum_micrometres[2],
+                            ],
+                            definition.initial_level_micrometres
+                                - definition.minimum_micrometres[1],
+                        )
+                    });
+                (binding.mesh_asset_id, grid)
+            })
+            .collect();
         Ok(Self {
             surfaces,
             particle_bounds,
             sequence: 0,
             last_frame: None,
+            waves,
+            last_excited_frame: None,
         })
     }
 
@@ -140,6 +176,9 @@ impl WaterPresentationFeed {
             (None, None) => return Ok((Vec::new(), None)),
         };
         let sequence = self.next_sequence();
+        // Plan 38: excite once per stage frame, step once per publication.
+        let excite = self.last_excited_frame != Some(frame.frame_index);
+        self.last_excited_frame = Some(frame.frame_index);
         let mut updates = Vec::with_capacity(frame.surfaces.len());
         for surface in &frame.surfaces {
             let Some((_, revision)) = self
@@ -149,11 +188,33 @@ impl WaterPresentationFeed {
             else {
                 continue;
             };
+            let grid = self
+                .waves
+                .iter_mut()
+                .find(|(asset_id, _)| *asset_id == surface.mesh_asset_id)
+                .and_then(|(_, grid)| grid.as_mut());
+            let (positions, normals) = match grid {
+                Some(grid) => {
+                    if excite {
+                        grid.excite(
+                            &frame.boxes,
+                            &frame.edges,
+                            next_reference_game::REFERENCE_WATER_FLOW_TICKS_PER_SECOND,
+                        );
+                    }
+                    grid.step();
+                    waved_surface(surface, grid)
+                }
+                None => (
+                    surface.positions_micrometres.clone(),
+                    surface.normals_snorm16.clone(),
+                ),
+            };
             updates.push(Arc::new(DynamicSurfaceUpdateV1::new(
                 *revision,
                 sequence,
-                surface.positions_micrometres.clone(),
-                surface.normals_snorm16.clone(),
+                positions,
+                normals,
                 surface.indices.clone(),
             )?));
         }
@@ -172,4 +233,47 @@ impl WaterPresentationFeed {
         self.last_frame = Some(frame);
         Ok((updates, particles))
     }
+}
+
+/// Plan 38: the ring's vertices with the grid's heights added (under the
+/// catalog's `±20 mm` cap) and the normals recomputed by the stage's rule.
+fn waved_surface(
+    surface: &next_reference_game::WaterSurfaceUpdateV1,
+    grid: &crate::water_waves::WaveGridV1,
+) -> (Vec<[i64; 3]>, Vec<[i16; 3]>) {
+    let columns = next_reference_game::WATER_SURFACE_GRID_COLUMNS as usize;
+    let rows = next_reference_game::WATER_SURFACE_GRID_ROWS as usize;
+    let cap = next_reference_game::WATER_RIPPLE_CAP_MICROMETRES;
+    let mut positions = surface.positions_micrometres.clone();
+    if positions.len() != columns * rows {
+        return (positions, surface.normals_snorm16.clone());
+    }
+    for row in 0..rows {
+        for column in 0..columns {
+            let index = row * columns + column;
+            positions[index][1] =
+                (positions[index][1] + grid.height_micrometres(column, row)).clamp(-cap, cap - 1);
+        }
+    }
+    let cell_x = ((positions[columns - 1][0] - positions[0][0]) / (columns as i64 - 1)).max(1);
+    let cell_z =
+        ((positions[(rows - 1) * columns][2] - positions[0][2]) / (rows as i64 - 1)).max(1);
+    let height_of = |column: usize, row: usize| positions[row * columns + column][1];
+    let mut normals = Vec::with_capacity(columns * rows);
+    for row in 0..rows {
+        for column in 0..columns {
+            let left = height_of(column.saturating_sub(1), row);
+            let right = height_of((column + 1).min(columns - 1), row);
+            let back = height_of(column, row.saturating_sub(1));
+            let front = height_of(column, (row + 1).min(rows - 1));
+            let slope_x = (left - right) * 32_767 / (2 * cell_x);
+            let slope_z = (back - front) * 32_767 / (2 * cell_z);
+            normals.push([
+                slope_x.clamp(-16_000, 16_000) as i16,
+                32_767,
+                slope_z.clamp(-16_000, 16_000) as i16,
+            ]);
+        }
+    }
+    (positions, normals)
 }

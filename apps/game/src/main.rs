@@ -25,6 +25,8 @@ mod cli;
 mod physx_water;
 #[cfg(feature = "desktop-sdl-ash")]
 mod water_presentation;
+#[cfg(feature = "desktop-sdl-ash")]
+mod water_waves;
 
 use cli::{AppFailure, GameOptions};
 
