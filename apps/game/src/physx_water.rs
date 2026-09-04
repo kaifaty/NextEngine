@@ -50,6 +50,11 @@ const KERNEL_MAX_RATIO: f32 = 4.0;
 const KERNEL_MIN_AXIS_SCALE: f32 = 0.25;
 const KERNEL_MAX_AXIS_SCALE: f32 = 2.0;
 const KERNEL_PROFILE_RADIUS_METRES: f32 = LANE_RADIUS_MICROMETRES as f32 / 1_000_000.0;
+/// Plan 40: the kernel's weight on its own previous value, the pause before
+/// the fluid is recreated after a failure, and the attempts allowed.
+const KERNEL_BLEND_PREVIOUS: f32 = 0.7;
+const RECREATE_AFTER_FRAMES: u64 = 300;
+const RECREATE_MAX_ATTEMPTS: u32 = 3;
 /// Plan 25: a particle this close above the level at rest has returned to
 /// the exact water (two spacings).
 const ABSORB_BAND_METRES: f32 = 2.0 * LANE_SPACING_METRES;
@@ -201,14 +206,20 @@ pub(crate) fn emission_for_frame(
 /// within the band above the level moving slower than the threshold, or
 /// below the floor, has returned to the exact water. Pure. Returns the kept
 /// set and the number absorbed.
+#[allow(
+    clippy::type_complexity,
+    reason = "the absorption's four outputs are one frame's sample, kept together"
+)]
 pub(crate) fn absorb(
     sample: &FluidSample,
     level_metres: f32,
-) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, usize) {
+) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, usize, Vec<usize>) {
     let mut positions = Vec::with_capacity(sample.positions.len());
     let mut velocities = Vec::with_capacity(sample.positions.len());
+    let mut kept = Vec::with_capacity(sample.positions.len());
     let mut absorbed = 0;
-    for (position, velocity) in sample.positions.iter().zip(&sample.velocities) {
+    for (index, (position, velocity)) in sample.positions.iter().zip(&sample.velocities).enumerate()
+    {
         if !position.iter().all(|value| value.is_finite())
             || !velocity.iter().all(|value| value.is_finite())
         {
@@ -225,8 +236,47 @@ pub(crate) fn absorb(
         }
         positions.push(*position);
         velocities.push(*velocity);
+        kept.push(index);
     }
-    (positions, velocities, absorbed)
+    (positions, velocities, absorbed, kept)
+}
+
+/// Plan 40: one particle's kernel blended with its own previous one.
+#[must_use]
+pub(crate) fn blend_kernel(previous: Option<[f32; 6]>, new: [f32; 6]) -> [f32; 6] {
+    let is_zero = |kernel: &[f32; 6]| kernel.iter().all(|value| *value == 0.0);
+    match previous {
+        Some(previous) if !is_zero(&previous) && !is_zero(&new) => {
+            let mut blended = [0.0; 6];
+            for (axis, value) in blended.iter_mut().enumerate() {
+                *value = KERNEL_BLEND_PREVIOUS * previous[axis]
+                    + (1.0 - KERNEL_BLEND_PREVIOUS) * new[axis];
+            }
+            blended
+        }
+        _ => new,
+    }
+}
+
+/// Plan 40: the flicker measure `sum |k - k_previous| / sum |k|` in permille
+/// over the particles with a previous kernel.
+#[must_use]
+pub(crate) fn kernel_change_permille(pairs: &[([f32; 6], [f32; 6])]) -> u32 {
+    let mut change = 0.0_f32;
+    let mut magnitude = 0.0_f32;
+    for (kernel, previous) in pairs {
+        for (value, before) in kernel.iter().zip(previous) {
+            change += (value - before).abs();
+            magnitude += value.abs();
+        }
+    }
+    if magnitude <= 0.0 {
+        0
+    } else {
+        (change / magnitude * 1_000.0)
+            .round()
+            .clamp(0.0, 1_000_000.0) as u32
+    }
 }
 
 /// Plan 26: the colliders a stage frame places in the fluid: one per
@@ -781,6 +831,11 @@ pub(crate) struct LaneStats {
     pub(crate) spray_fraction_last_permille: u32,
     /// Plan 30: particles sent with a non-zero kernel in the last frame.
     pub(crate) kernels_last_permille: u32,
+    /// Plan 40: particles blended with a previous kernel, the flicker
+    /// measure, and the fluid's recreations after failures.
+    pub(crate) kernels_blended_permille: u32,
+    pub(crate) kernel_change_permille: u32,
+    pub(crate) recoveries: u32,
 }
 
 /// One frame's fluid state after the step, absorption and emission.
@@ -791,12 +846,26 @@ struct FluidAdvance {
     emitted: usize,
 }
 
+/// Plan 40: the fluid's creation inputs, kept for a recreation.
+#[derive(Clone)]
+struct FluidRecipe {
+    fluid_box: FluidBox,
+    gpu_library_path: String,
+}
+
 pub(crate) struct PhysxWaterLane {
-    /// `None` after a failure (plan 29): the lane is demoted for the rest
-    /// of the session and the stage's droplets show instead.
+    /// `None` after a failure (plan 29): the lane is demoted until plan 40's
+    /// recreation succeeds, and the stage's droplets show meanwhile.
     fluid: Option<NativeFluid>,
     failure: Option<String>,
     inject_failure_after: Option<u64>,
+    /// Plan 40: identity per particle slot and the previous kernels by id.
+    ids: Vec<u32>,
+    next_id: u32,
+    previous_kernels: std::collections::HashMap<u32, [f32; 6]>,
+    recipe: FluidRecipe,
+    frames_demoted: u64,
+    recreation_attempts: u32,
     fluid_box: FluidBox,
     level_metres: f32,
     accumulator: Duration,
@@ -841,21 +910,25 @@ impl PhysxWaterLane {
             )
         };
         let path = gpu_library_path().ok_or_else(|| "PhysX GPU library not found".to_owned())?;
-        let fluid = NativeFluid::create_reporting(&FluidDesc {
-            spacing_metres: LANE_SPACING_METRES,
-            box_min_metres: fluid_box.min,
-            box_max_metres: fluid_box.max,
-            seed_min_metres: seed_min,
-            seed_max_metres: seed_max,
-            timestep_seconds: LANE_TIMESTEP.as_secs_f32(),
-            max_particles: LANE_MAX_PARTICLES,
-            gpu_library_path: Some(path.display().to_string()),
-        })
-        .map_err(|(error, reason)| format!("PhysX fluid unavailable: {error} ({reason})"))?;
+        let recipe = FluidRecipe {
+            fluid_box,
+            gpu_library_path: path.display().to_string(),
+        };
+        let mut fluid = Self::create_fluid(&recipe, seed_min, seed_max)?;
+        let seeded = fluid
+            .read()
+            .map(|sample| sample.positions.len())
+            .unwrap_or(0);
         Ok(Self {
             fluid: Some(fluid),
             failure: None,
             inject_failure_after,
+            ids: (0..seeded as u32).collect(),
+            next_id: seeded as u32,
+            previous_kernels: std::collections::HashMap::new(),
+            recipe,
+            frames_demoted: 0,
+            recreation_attempts: 0,
             fluid_box,
             level_metres,
             accumulator: Duration::ZERO,
@@ -867,6 +940,66 @@ impl PhysxWaterLane {
             collider_slots: 0,
             stats: LaneStats::default(),
         })
+    }
+
+    /// Creates a fluid from the recipe, seeded inside `seed_min..seed_max`
+    /// (an empty seed for an empty fluid).
+    fn create_fluid(
+        recipe: &FluidRecipe,
+        seed_min: [f32; 3],
+        seed_max: [f32; 3],
+    ) -> Result<NativeFluid, String> {
+        NativeFluid::create_reporting(&FluidDesc {
+            spacing_metres: LANE_SPACING_METRES,
+            box_min_metres: recipe.fluid_box.min,
+            box_max_metres: recipe.fluid_box.max,
+            seed_min_metres: seed_min,
+            seed_max_metres: seed_max,
+            timestep_seconds: LANE_TIMESTEP.as_secs_f32(),
+            max_particles: LANE_MAX_PARTICLES,
+            gpu_library_path: Some(recipe.gpu_library_path.clone()),
+        })
+        .map_err(|(error, reason)| format!("PhysX fluid unavailable: {error} ({reason})"))
+    }
+
+    /// Plan 40: after the pause, recreates the fluid empty; a failure keeps
+    /// the lane demoted until the next attempt or for good.
+    fn try_recreate(&mut self) {
+        self.frames_demoted += 1;
+        if self.frames_demoted < RECREATE_AFTER_FRAMES
+            || self.recreation_attempts >= RECREATE_MAX_ATTEMPTS
+        {
+            return;
+        }
+        self.frames_demoted = 0;
+        self.recreation_attempts += 1;
+        let centre = [
+            (self.recipe.fluid_box.min[0] + self.recipe.fluid_box.max[0]) * 0.5,
+            self.recipe.fluid_box.min[1],
+            (self.recipe.fluid_box.min[2] + self.recipe.fluid_box.max[2]) * 0.5,
+        ];
+        match Self::create_fluid(&self.recipe, centre, centre) {
+            Ok(fluid) => {
+                eprintln!(
+                    "next_game: PHYSX_WATER_RECREATED after attempt {}",
+                    self.recreation_attempts
+                );
+                self.fluid = Some(fluid);
+                self.failure = None;
+                self.ids.clear();
+                self.previous_kernels.clear();
+                self.accumulator = Duration::ZERO;
+                self.collider_slots = 0;
+                self.stats.recoveries += 1;
+            }
+            Err(reason) => {
+                eprintln!(
+                    "next_game: PHYSX_WATER_RECREATION_FAILED attempt {}: {reason}",
+                    self.recreation_attempts
+                );
+                self.failure = Some(format!("recreation failed: {reason}"));
+            }
+        }
     }
 
     pub(crate) fn particle_surface_profile(&self) -> ParticleSurfaceProfileV1 {
@@ -931,10 +1064,12 @@ impl PhysxWaterLane {
         // Plan 29: a demoted lane answers with no update; a failure of the
         // fluid demotes it and clears the picture once.
         if self.fluid.is_none() {
+            self.try_recreate();
             return Ok(None);
         }
         let started = Instant::now();
         if self.inject_failure_after == Some(self.stats.frames) {
+            self.inject_failure_after = None;
             return self.demote(
                 "PHYSX_WATER_INJECTED_FAILURE",
                 &format!("injected after {} lane frames", self.stats.frames),
@@ -970,8 +1105,35 @@ impl PhysxWaterLane {
         let NeighbourhoodV1 {
             counts: neighbours,
             clusters,
-            kernels,
+            kernels: raw_kernels,
         } = neighbourhood_of(&positions, NEIGHBOUR_RADIUS_METRES);
+        // Plan 40: every kernel blended with the same particle's previous
+        // one; the flicker measure over the blended pairs.
+        let mut kernels = Vec::with_capacity(raw_kernels.len());
+        let mut pairs = Vec::new();
+        let mut next_previous = std::collections::HashMap::with_capacity(raw_kernels.len());
+        for (index, raw) in raw_kernels.iter().enumerate() {
+            let id = self.ids.get(index).copied().unwrap_or(u32::MAX);
+            let previous = self.previous_kernels.get(&id).copied();
+            let blended = blend_kernel(previous, *raw);
+            if let Some(previous) = previous
+                && previous.iter().any(|value| *value != 0.0)
+                && blended.iter().any(|value| *value != 0.0)
+            {
+                pairs.push((blended, previous));
+            }
+            if blended.iter().any(|value| *value != 0.0) {
+                next_previous.insert(id, blended);
+            }
+            kernels.push(blended);
+        }
+        self.previous_kernels = next_previous;
+        self.stats.kernels_blended_permille = if positions.is_empty() {
+            0
+        } else {
+            u32::try_from(pairs.len() * 1_000 / positions.len()).unwrap_or(u32::MAX)
+        };
+        self.stats.kernel_change_permille = kernel_change_permille(&pairs);
         let analysis_cost = analysis_started.elapsed().as_micros();
         self.stats.analysis_total_microseconds += analysis_cost;
         self.stats.analysis_max_microseconds =
@@ -1049,11 +1211,26 @@ impl PhysxWaterLane {
         let sample = fluid
             .read()
             .map_err(|error| ("PHYSX_WATER_READ_FAILED", error.to_string()))?;
-        let (mut positions, mut velocities, absorbed) = absorb(&sample, self.level_metres);
+        let (mut positions, mut velocities, absorbed, kept) = absorb(&sample, self.level_metres);
+        // Plan 40: the kept slots keep their ids; the emitted get new ones.
+        if self.ids.len() != sample.positions.len() {
+            self.ids = (0..sample.positions.len())
+                .map(|_| {
+                    self.next_id = self.next_id.wrapping_add(1);
+                    self.next_id
+                })
+                .collect();
+        }
+        let mut ids: Vec<u32> = kept.iter().map(|index| self.ids[*index]).collect();
         let room = (fluid.max_particles() as usize).saturating_sub(positions.len());
         let emitted = self.pending_positions.len().min(room);
         positions.extend(self.pending_positions.drain(..emitted));
         velocities.extend(self.pending_velocities.drain(..emitted));
+        for _ in 0..emitted {
+            self.next_id = self.next_id.wrapping_add(1);
+            ids.push(self.next_id);
+        }
+        self.ids = ids;
         self.pending_positions.clear();
         self.pending_velocities.clear();
         if absorbed > 0 || emitted > 0 {
@@ -1248,6 +1425,53 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn kernels_blend_with_their_previous_and_the_flicker_halves() {
+        let a = [10.0, 0.0, 0.0, 12.0, 0.0, 11.0];
+        let b = [12.0, 0.0, 0.0, 10.0, 0.0, 13.0];
+        assert_eq!(blend_kernel(None, a), a);
+        assert_eq!(blend_kernel(Some(a), [0.0; 6]), [0.0; 6]);
+        let mixed = blend_kernel(Some(a), b);
+        assert!((mixed[0] - 10.6).abs() < 1e-5 && (mixed[3] - 11.4).abs() < 1e-5);
+        let mut raw_pairs = Vec::new();
+        let mut blended_pairs = Vec::new();
+        let mut previous = a;
+        let mut blended_previous = a;
+        for frame in 0..20 {
+            let raw = if frame % 2 == 0 { b } else { a };
+            raw_pairs.push((raw, previous));
+            let blended = blend_kernel(Some(blended_previous), raw);
+            blended_pairs.push((blended, blended_previous));
+            previous = raw;
+            blended_previous = blended;
+        }
+        let raw_change = kernel_change_permille(&raw_pairs);
+        let blended_change = kernel_change_permille(&blended_pairs);
+        assert!(
+            blended_change * 2 <= raw_change,
+            "raw {raw_change} vs blended {blended_change}"
+        );
+    }
+
+    #[test]
+    fn absorb_returns_the_kept_indices_in_order() {
+        let sample = FluidSample {
+            positions: vec![
+                [0.0, 1.0, 0.0],
+                [0.0, 0.2, 0.0],
+                [0.0, 0.05, 0.0],
+                [0.0, 2.0, 0.0],
+            ],
+            velocities: vec![[0.0; 3], [0.0; 3], [0.0; 3], [0.0, -1.0, 0.0]],
+        };
+        // 0.2 m over the level is above the absorption band (0.1 m); 0.05 m
+        // at rest is absorbed.
+        let (positions, _, absorbed, kept) = absorb(&sample, 0.0);
+        assert_eq!(kept, vec![0, 1, 3]);
+        assert_eq!(positions.len(), 3);
+        assert_eq!(absorbed, 1);
     }
 
     #[test]
@@ -1497,7 +1721,7 @@ mod tests {
                 [1.0, 0.0, 0.0],
             ],
         };
-        let (positions, velocities, absorbed) = absorb(&sample, level);
+        let (positions, velocities, absorbed, _kept) = absorb(&sample, level);
         assert_eq!(absorbed, 2, "the settled one and the one below the floor");
         assert_eq!(positions.len(), 2);
         assert_eq!(velocities.len(), 2);

@@ -504,6 +504,7 @@ fn run_interactive_session(
                     .unwrap_or(u64::MAX),
                     inside_colliders_max: stats.inside_colliders_max as u64,
                     spray_fraction_max_permille: stats.spray_fraction_max_permille,
+                    recoveries: stats.recoveries,
                 }
             }
             None => next_application::PresentationFluidReportV1 {
@@ -520,6 +521,7 @@ fn run_interactive_session(
                 analysis_mean_us: 0,
                 inside_colliders_max: 0,
                 spray_fraction_max_permille: 0,
+                recoveries: 0,
             },
         });
     }
@@ -527,7 +529,7 @@ fn run_interactive_session(
     if let Some(lane) = physx_lane.borrow().as_ref() {
         let stats = lane.stats();
         eprintln!(
-            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}, inside_colliders_max={}, analysis_mean_us={}, analysis_max_us={}, spray_max_permille={}, spray_last_permille={}, kernels_last_permille={}",
+            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}, inside_colliders_max={}, analysis_mean_us={}, analysis_max_us={}, spray_max_permille={}, spray_last_permille={}, kernels_last_permille={}, kernels_blended_permille={}, kernel_change_permille={}, recoveries={}",
             stats.frames,
             stats.peak_particles,
             stats.emitted,
@@ -540,7 +542,10 @@ fn run_interactive_session(
             stats.analysis_max_microseconds,
             stats.spray_fraction_max_permille,
             stats.spray_fraction_last_permille,
-            stats.kernels_last_permille
+            stats.kernels_last_permille,
+            stats.kernels_blended_permille,
+            stats.kernel_change_permille,
+            stats.recoveries
         );
     }
     eprintln!(

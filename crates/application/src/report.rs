@@ -32,6 +32,9 @@ pub struct PresentationFluidReportV1 {
     pub analysis_mean_us: u64,
     pub inside_colliders_max: u64,
     pub spray_fraction_max_permille: u32,
+    /// Plan 40: the fluid's recreations after failures.
+    #[serde(default)]
+    pub recoveries: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -257,6 +260,7 @@ mod presentation_fluid_tests {
             analysis_mean_us: 0,
             inside_colliders_max: 0,
             spray_fraction_max_permille: 0,
+            recoveries: 0,
         });
         let json = with_lane.to_json().expect("serialises");
         assert!(json.contains("\"presentation_fluid\":{\"lane\":\"physx-pbd\",\"active\":false"));
