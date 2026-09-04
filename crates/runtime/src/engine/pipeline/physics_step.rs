@@ -52,6 +52,7 @@ pub(super) fn finish_physical_step(
                 WaterBuoyancyBatchV1::compute(
                     profile,
                     &checkpoint.water_volumes,
+                    Some(&checkpoint.water_flow),
                     &checkpoint.catalog,
                     &checkpoint.snapshot,
                     context_tick,

@@ -24,6 +24,7 @@ use super::primitives::PhysicsBodyIdV1;
 use super::primitives::{PhysicsGeometryV1, PhysicsMotionKindV1};
 use super::snapshot::PhysicsCanonicalSnapshotV2;
 use super::water::{WaterVolumeDefinitionV1, WaterVolumeSetV1};
+use super::water_flow::WaterFlowNetworkV1;
 
 /// ADR-105 bound: one record per dynamic body, at most this many per tick
 /// (the water-volume bound).
@@ -470,9 +471,16 @@ impl WaterBuoyancyBatchV1 {
     /// gameplay tick. A body inside several volumes binds the one with
     /// the largest clipped volume (lowest id on ties). Bodies outside every
     /// volume receive no record.
+    /// ADR-105 revision 1.1: `network` supplies the cells' currents; the
+    /// drag acts on the body's velocity relative to its cell's water.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the batch's inputs are the committed state's parts, kept explicit"
+    )]
     pub fn compute(
         profile: &WaterBuoyancyProfileV1,
         volumes: &WaterVolumeSetV1,
+        network: Option<&WaterFlowNetworkV1>,
         catalog: &PhysicsWorldCatalogV1,
         snapshot: &PhysicsCanonicalSnapshotV2,
         gameplay_tick: u64,
@@ -483,6 +491,10 @@ impl WaterBuoyancyBatchV1 {
         if gameplay_hz == 0 {
             return Err(PhysicsContractError::InvalidProfile);
         }
+        let currents = match network {
+            Some(network) => water_currents(volumes, network, gameplay_tick, gameplay_hz)?,
+            None => BTreeMap::new(),
+        };
         // Revision 2: the identifiers once per batch, the effective levels
         // once per volume, and a plan-rectangle reject before the exact
         // clip; the same volumes in the same order, so ties resolve as
@@ -551,6 +563,7 @@ impl WaterBuoyancyBatchV1 {
                 profile,
                 &clipped,
                 state.linear_velocity_micrometres_per_second,
+                currents.get(&volume_id).copied().unwrap_or([0; 3]),
                 gameplay_hz,
             )?;
             records.push(WaterBuoyancyRecordV1 {
@@ -733,10 +746,108 @@ fn clip_bounds(
 
 /// `J_y = rho g V / hz` upward and `J = -k rho V v / (1000 hz)` per axis,
 /// in micronewton-seconds (`rho` kg/m^3, `g` um/s^2, `V` mm^3, `v` um/s).
+/// ADR-105 revision 1.1: the water velocity of every network cell from
+/// the committed fluxes, micrometres per second per axis. A two-cell edge
+/// with flux `Q` (cubic millimetres per tick, positive from `a` to `b`)
+/// gives both cells `Q hz 10^9 / (depth width)` along the unit plan
+/// direction from `a`'s plan centre to `b`'s (q15); `depth` is the cell's
+/// effective level over its floor, `width` its plan extent projected
+/// across the direction. One-cell edges contribute nothing; sums run in
+/// edge-id order with `i128` intermediates, truncating toward zero.
+pub fn water_currents(
+    volumes: &WaterVolumeSetV1,
+    network: &WaterFlowNetworkV1,
+    gameplay_tick: u64,
+    gameplay_hz: u32,
+) -> Result<BTreeMap<PersistentId, [i64; 3]>, PhysicsContractError> {
+    let mut currents: BTreeMap<PersistentId, [i64; 3]> = BTreeMap::new();
+    for (edge_id, edge) in &network.edges {
+        let Some(cell_b) = edge.cell_b else {
+            continue;
+        };
+        let Some(flux) = network.edge_flux(*edge_id) else {
+            continue;
+        };
+        if flux == 0 {
+            continue;
+        }
+        let (Some(a), Some(b)) = (
+            volumes.definitions.get(&edge.cell_a),
+            volumes.definitions.get(&cell_b),
+        ) else {
+            continue;
+        };
+        let centre = |definition: &WaterVolumeDefinitionV1| {
+            [
+                i128::from(definition.minimum_micrometres[0])
+                    + i128::from(definition.maximum_micrometres[0]),
+                i128::from(definition.minimum_micrometres[2])
+                    + i128::from(definition.maximum_micrometres[2]),
+            ]
+        };
+        let (from, to) = (centre(a), centre(b));
+        let delta = [to[0] - from[0], to[1] - from[1]];
+        let length = integer_sqrt_i128(delta[0] * delta[0] + delta[1] * delta[1]);
+        if length == 0 {
+            continue;
+        }
+        // Unit plan direction in q15.
+        let direction = [delta[0] * 32_767 / length, delta[1] * 32_767 / length];
+        for (cell_id, definition) in [(edge.cell_a, a), (cell_b, b)] {
+            let Some(level) = volumes.effective_level(cell_id, gameplay_tick) else {
+                continue;
+            };
+            let depth = i128::from(level.saturating_sub(definition.minimum_micrometres[1]));
+            if depth <= 0 {
+                continue;
+            }
+            let extent_x =
+                i128::from(definition.maximum_micrometres[0] - definition.minimum_micrometres[0]);
+            let extent_z =
+                i128::from(definition.maximum_micrometres[2] - definition.minimum_micrometres[2]);
+            let width = (direction[1].abs() * extent_x + direction[0].abs() * extent_z) / 32_767;
+            if width <= 0 {
+                continue;
+            }
+            // Q [mm^3/tick] * hz -> mm^3/s; * 1e9 -> um^3/s; / (um * um) -> um/s.
+            let speed = i128::from(flux)
+                .checked_mul(i128::from(gameplay_hz))
+                .and_then(|value| value.checked_mul(MICROMETRES_CUBED_PER_CUBIC_MILLIMETRE))
+                .ok_or(PhysicsContractError::WaterBuoyancyInvalid)?
+                / (depth * width);
+            let entry = currents.entry(cell_id).or_insert([0; 3]);
+            let along = [speed * direction[0] / 32_767, speed * direction[1] / 32_767];
+            entry[0] = i64::try_from(i128::from(entry[0]) + along[0])
+                .map_err(|_| PhysicsContractError::WaterBuoyancyInvalid)?;
+            entry[2] = i64::try_from(i128::from(entry[2]) + along[1])
+                .map_err(|_| PhysicsContractError::WaterBuoyancyInvalid)?;
+        }
+    }
+    Ok(currents)
+}
+
+fn integer_sqrt_i128(value: i128) -> i128 {
+    if value <= 0 {
+        return 0;
+    }
+    let mut low = 0_i128;
+    let mut high = 1_i128 << 64;
+    while low < high {
+        let middle = (low + high + 1) / 2;
+        if middle * middle <= value {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    low
+}
+
 fn impulse_for(
     profile: &WaterBuoyancyProfileV1,
     clipped: &ClippedBoundsV1,
     velocity_micrometres_per_second: [i64; 3],
+    water_velocity_micrometres_per_second: [i64; 3],
     gameplay_hz: u32,
 ) -> Result<[i64; 3], PhysicsContractError> {
     let rho = i128::from(profile.water_density_kilograms_per_cubic_metre);
@@ -752,10 +863,13 @@ fn impulse_for(
     for axis in 0..3 {
         // k [permille/s] * rho * V * v [um/s]: 1e-3 * kg * 1e-9 * 1e-6 m/s
         // = 1e-18 N s per second; / hz then * 1e6 -> uN s.
+        // Revision 1.1: the velocity relative to the cell's water.
+        let relative = i128::from(velocity_micrometres_per_second[axis])
+            - i128::from(water_velocity_micrometres_per_second[axis]);
         let drag = i128::from(profile.damping_permille_per_second)
             .checked_mul(rho)
             .and_then(|value| value.checked_mul(volume))
-            .and_then(|value| value.checked_mul(i128::from(velocity_micrometres_per_second[axis])))
+            .and_then(|value| value.checked_mul(relative))
             .ok_or(PhysicsContractError::WaterBuoyancyInvalid)?
             / (MICROMETRES_CUBED_PER_CUBIC_MILLIMETRE * 1_000 * hz);
         impulse[axis] = -drag;

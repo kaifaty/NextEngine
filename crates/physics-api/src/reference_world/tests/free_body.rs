@@ -336,3 +336,235 @@ fn external_impulse_launches_a_box_and_unknown_bodies_reject() {
         Some(ReferencePhysicsError::StepInputMismatch)
     );
 }
+
+/// SPEC-26 2.9 (plan `continuum-water/37`) G3: an unsupported box moves
+/// with its horizontal velocity and stops at a wall; a resting box does not.
+#[test]
+fn unsupported_boxes_drift_and_resting_boxes_keep_the_push_only_rule() {
+    use next_contracts::physics::{
+        ExternalImpulseV1, WaterExchangeContextV1, WaterExchangeTupleV1,
+    };
+    // A box resting on the floor (bottom at y 0) and one held in the air by
+    // an upward impulse each tick (the water's job in the game).
+    let mut world = world_with_boxes(
+        [0, 900_000, 0],
+        &[
+            (0xa1, [2_000_000, 300_000, 0]),
+            (0xa2, [-2_000_000, 1_000_000, 0]),
+        ],
+    )
+    .expect("free-body world activates");
+    let body = |world: &ReferencePhysicsWorld, byte: u8| {
+        world
+            .snapshot()
+            .sorted_body_states
+            .keys()
+            .copied()
+            .find(|id| id.subject_id.as_bytes()[0] == byte)
+            .expect("box body id")
+    };
+    let resting = body(&world, 0xa1);
+    let floating = body(&world, 0xa2);
+    let start_resting = box_state(&world, 0xa1).pose.translation_micrometres;
+    let start_floating = box_state(&world, 0xa2).pose.translation_micrometres;
+    // The gravity delta per tick for the fixture mass: hold the floating
+    // box with the exact opposite impulse plus a horizontal push.
+    let mass = super::fixture::FIXTURE_DYNAMIC_MASS_MICROKILOGRAMS;
+    let gravity_impulse =
+        i64::try_from(u128::from(mass) * 9_810_000 / 1_000_000 / 30).expect("fits");
+    for tick in 0..30 {
+        let mut input = step_input(&world, tick, None);
+        let context = WaterExchangeContextV1 {
+            world_id: input.world_id,
+            source_revision: 0,
+            source_root: input.expected_snapshot_hash,
+            destination_revision: input.expected_world_revision,
+            destination_root: input.expected_snapshot_hash,
+        };
+        let horizontal = if tick == 0 { 6_000_000 } else { 0 };
+        input.external_impulses = vec![
+            ExternalImpulseV1 {
+                body_id: floating,
+                impulse_micronewton_seconds: [horizontal, gravity_impulse, 0],
+                application_point_micrometres: [-2_000_000, 1_000_000, 0],
+                exchange: WaterExchangeTupleV1::water_buoyancy(&context, tick, floating)
+                    .expect("tuple"),
+            },
+            ExternalImpulseV1 {
+                body_id: resting,
+                impulse_micronewton_seconds: [horizontal, 0, 0],
+                application_point_micrometres: [2_000_000, 300_000, 0],
+                exchange: WaterExchangeTupleV1::water_buoyancy(&context, tick, resting)
+                    .expect("tuple"),
+            },
+        ]
+        .into_iter()
+        .filter(|impulse| impulse.impulse_micronewton_seconds != [0; 3])
+        .collect();
+        input
+            .external_impulses
+            .sort_by_key(|impulse| impulse.body_id);
+        world.step(&input).expect("physics step");
+    }
+    let resting_state = box_state(&world, 0xa1);
+    assert_eq!(
+        resting_state.pose.translation_micrometres[0], start_resting[0],
+        "a resting box keeps the push-only rule"
+    );
+    assert_eq!(resting_state.linear_velocity_micrometres_per_second[0], 0);
+    let floating_state = box_state(&world, 0xa2);
+    assert!(
+        floating_state.pose.translation_micrometres[0] > start_floating[0] + 250_000,
+        "an unsupported box drifts: {:?}",
+        floating_state.pose.translation_micrometres
+    );
+    assert!(floating_state.linear_velocity_micrometres_per_second[0] > 0);
+    assert!(
+        (floating_state.pose.translation_micrometres[1] - start_floating[1]).abs() < 200_000,
+        "held at height: {:?}",
+        floating_state.pose.translation_micrometres
+    );
+}
+
+/// SPEC-26 2.9 G3: the horizontal sweep stops at a wall and zeroes the
+/// axis's velocity.
+#[test]
+fn a_drifting_box_stops_at_a_wall() {
+    use next_contracts::physics::{
+        ExternalImpulseV1, WaterExchangeContextV1, WaterExchangeTupleV1,
+    };
+    let source = world(30, 60, [0, 900_000, 0], 0);
+    let material_id = material_id(&source);
+    let mut bodies = source.checkpoint().catalog.bodies.clone();
+    let (floating, descriptor) = box_body(
+        0xa3,
+        PhysicsMotionKindV1::Dynamic,
+        [-3_000_000, 1_000_000, 0],
+        BOX_HALF_EXTENTS,
+        PhysicsParticipationV1::Solid,
+        &material_id,
+    );
+    bodies.insert(floating, descriptor);
+    let (wall, wall_descriptor) = box_body(
+        0xa4,
+        PhysicsMotionKindV1::Static,
+        [-1_000_000, 1_000_000, 0],
+        [100_000, 1_000_000, 1_000_000],
+        PhysicsParticipationV1::Solid,
+        &material_id,
+    );
+    bodies.insert(wall, wall_descriptor);
+    let mut world = rebuild(&source, bodies).expect("world with a wall");
+    let mass = super::fixture::FIXTURE_DYNAMIC_MASS_MICROKILOGRAMS;
+    let gravity_impulse =
+        i64::try_from(u128::from(mass) * 9_810_000 / 1_000_000 / 30).expect("fits");
+    for tick in 0..60 {
+        let mut input = step_input(&world, tick, None);
+        let context = WaterExchangeContextV1 {
+            world_id: input.world_id,
+            source_revision: 0,
+            source_root: input.expected_snapshot_hash,
+            destination_revision: input.expected_world_revision,
+            destination_root: input.expected_snapshot_hash,
+        };
+        input.external_impulses = vec![ExternalImpulseV1 {
+            body_id: floating,
+            impulse_micronewton_seconds: [
+                if tick == 0 { 20_000_000 } else { 0 },
+                gravity_impulse,
+                0,
+            ],
+            application_point_micrometres: [-3_000_000, 1_000_000, 0],
+            exchange: WaterExchangeTupleV1::water_buoyancy(&context, tick, floating)
+                .expect("tuple"),
+        }];
+        world.step(&input).expect("physics step");
+    }
+    let state = box_state(&world, 0xa3);
+    // The wall's near face at x -1.1 m; the box's half extent 0.2 m.
+    assert_eq!(
+        state.pose.translation_micrometres[0],
+        -1_100_000 - BOX_HALF_EXTENTS[0]
+    );
+    assert_eq!(state.linear_velocity_micrometres_per_second[0], 0);
+}
+
+/// Plan `continuum-water/37` G4: a floating box in the source cell of a
+/// flowing two-cell lattice drifts with the current computed by the batch
+/// of ADR-105 1.1, never faster than the current.
+#[test]
+fn a_floating_box_drifts_with_the_lattice_current() {
+    use next_contracts::physics::{
+        WaterBuoyancyBatchV1, WaterBuoyancyProfileV1, WaterExchangeContextV1, WaterLatticeRegionV1,
+        water_currents,
+    };
+    let region = WaterLatticeRegionV1 {
+        region_id: PersistentId::from_bytes([0x4f; 16]),
+        origin_micrometres: [3_000_000, 0, -1_000_000],
+        cell_size_micrometres: [2_000_000, 2_000_000],
+        columns: 2,
+        rows: 1,
+        ceiling_micrometres: 3_000_000,
+        floor_micrometres: vec![0, 0],
+        initial_level_micrometres: vec![1_000_000, 500_000],
+        sill_coefficient_permille: 600,
+        profile_revision: 1,
+    };
+    let (mut volumes, mut network) = region.build(30).expect("lattice");
+    let mut world = world_with_boxes([0, 900_000, 0], &[(0xa5, [4_000_000, 1_090_000, 0])])
+        .expect("free-body world activates");
+    let profile = WaterBuoyancyProfileV1::reference_v1().expect("profile");
+    let start = box_state(&world, 0xa5).pose.translation_micrometres;
+    let mut strongest_current = 0_i64;
+    for tick in 0..60 {
+        let mut input = step_input(&world, tick, None);
+        let context = WaterExchangeContextV1 {
+            world_id: input.world_id,
+            source_revision: 0,
+            source_root: input.expected_snapshot_hash,
+            destination_revision: input.expected_world_revision,
+            destination_root: input.expected_snapshot_hash,
+        };
+        let batch = WaterBuoyancyBatchV1::compute(
+            &profile,
+            &volumes,
+            Some(&network),
+            &world.checkpoint().catalog,
+            world.snapshot(),
+            tick,
+            30,
+            &context,
+        )
+        .expect("batch");
+        input.external_impulses = batch.external_impulses();
+        world.step(&input).expect("physics step");
+        network.step_in_place(&mut volumes).expect("flow step");
+        let currents = water_currents(&volumes, &network, tick + 1, 30).expect("currents");
+        strongest_current = strongest_current.max(
+            currents
+                .values()
+                .map(|current| current[0])
+                .max()
+                .unwrap_or(0),
+        );
+        let state = box_state(&world, 0xa5);
+        assert!(
+            state.linear_velocity_micrometres_per_second[0] <= strongest_current,
+            "tick {tick}: the box never outruns the current ({:?} vs {strongest_current})",
+            state.linear_velocity_micrometres_per_second
+        );
+    }
+    let state = box_state(&world, 0xa5);
+    assert!(strongest_current > 0, "the lattice flows");
+    assert!(
+        state.pose.translation_micrometres[0] > start[0] + 50_000,
+        "the box drifted: {:?} from {:?}, current {strongest_current}",
+        state.pose.translation_micrometres,
+        start
+    );
+    assert!(
+        (state.pose.translation_micrometres[1] - start[1]).abs() < 300_000,
+        "the box floats: {:?}",
+        state.pose.translation_micrometres
+    );
+}

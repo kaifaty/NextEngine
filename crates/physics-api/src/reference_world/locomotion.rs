@@ -465,38 +465,82 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             // ADR-105: an external impulse changes the vertical velocity by
             // `J_y / m` once, before gravity. Horizontal components have no
             // effect in the push-only profile.
-            let impulse_delta = match impulses
+            // SPEC-26 2.9 (plan 37): every impulse component, then gravity
+            // along `y`; the vertical sweep decides support.
+            let mut velocity = state.linear_velocity_micrometres_per_second;
+            if let Some(impulse) = impulses
                 .iter()
                 .find(|impulse| impulse.body_id == binding.body_id)
             {
-                Some(impulse) => velocity_delta_micrometres_per_second(
-                    impulse.impulse_micronewton_seconds[1],
-                    binding.mass_microkilograms,
-                )
-                .map_err(|_| ReferencePhysicsError::NumericOverflow)?,
-                None => 0,
-            };
-            let mut vertical_velocity = state.linear_velocity_micrometres_per_second[1]
-                .checked_add(impulse_delta)
-                .and_then(|velocity| velocity.checked_add(self.gravity_velocity_delta))
+                for (component, impulse_component) in
+                    velocity.iter_mut().zip(impulse.impulse_micronewton_seconds)
+                {
+                    let delta = velocity_delta_micrometres_per_second(
+                        impulse_component,
+                        binding.mass_microkilograms,
+                    )
+                    .map_err(|_| ReferencePhysicsError::NumericOverflow)?;
+                    *component = component
+                        .checked_add(delta)
+                        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                }
+            }
+            velocity[1] = velocity[1]
+                .checked_add(self.gravity_velocity_delta)
                 .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let delta = vertical_velocity
+            let vertical_delta = velocity[1]
                 .checked_div(physics_hz)
                 .ok_or(ReferencePhysicsError::NonIntegralProfile)?;
-            let moving = binding.at_state(&state)?;
+            let mut moving = binding.at_state(&state)?;
             let obstacles = self.box_obstacles(staged, &moving, capsule_centre)?;
-            let applied = sweep_box_axis(&moving, &obstacles, 1, delta)?;
-            if applied != delta {
-                vertical_velocity = 0;
+            let applied = sweep_box_axis(&moving, &obstacles, 1, vertical_delta)?;
+            let mut translation = state.pose.translation_micrometres;
+            translation[1] = translation[1]
+                .checked_add(applied)
+                .ok_or(ReferencePhysicsError::NumericOverflow)?;
+            let supported = applied != vertical_delta && vertical_delta <= 0;
+            if applied != vertical_delta {
+                velocity[1] = 0;
+            }
+            if supported {
+                // A resting box keeps the push-only horizontal rule of WR1.
+                velocity[0] = 0;
+                velocity[2] = 0;
+            } else {
+                moving.minimum[1] = moving.minimum[1]
+                    .checked_add(applied)
+                    .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                moving.maximum[1] = moving.maximum[1]
+                    .checked_add(applied)
+                    .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                for axis in [0_usize, 2] {
+                    let delta = velocity[axis]
+                        .checked_div(physics_hz)
+                        .ok_or(ReferencePhysicsError::NonIntegralProfile)?;
+                    if delta == 0 {
+                        continue;
+                    }
+                    let applied = sweep_box_axis(&moving, &obstacles, axis, delta)?;
+                    if applied != delta {
+                        velocity[axis] = 0;
+                    }
+                    translation[axis] = translation[axis]
+                        .checked_add(applied)
+                        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                    moving.minimum[axis] = moving.minimum[axis]
+                        .checked_add(applied)
+                        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                    moving.maximum[axis] = moving.maximum[axis]
+                        .checked_add(applied)
+                        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+                }
             }
             let state = staged
                 .sorted_body_states
                 .get_mut(&binding.body_id)
                 .ok_or(ReferencePhysicsError::BodyMissing)?;
-            state.pose.translation_micrometres[1] = state.pose.translation_micrometres[1]
-                .checked_add(applied)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            state.linear_velocity_micrometres_per_second[1] = vertical_velocity;
+            state.pose.translation_micrometres = translation;
+            state.linear_velocity_micrometres_per_second = velocity;
         }
         Ok(())
     }
@@ -513,9 +557,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .sorted_body_states
                 .get_mut(&binding.body_id)
                 .ok_or(ReferencePhysicsError::BodyMissing)?;
+            // SPEC-26 2.9: horizontal velocity survives the substep; the
+            // integration zeroes it for a supported box.
             before.insert(binding.body_id, state.clone());
-            state.linear_velocity_micrometres_per_second[0] = 0;
-            state.linear_velocity_micrometres_per_second[2] = 0;
         }
         Ok(before)
     }

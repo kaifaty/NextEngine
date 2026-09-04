@@ -4,10 +4,10 @@
 |---|---|
 | ID | ADR-105 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-09-03 |
 | Proposal date | 2026-09-03 |
-| Last verified | 2026-09-03 |
+| Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](103-authoritative-water-flow-network.md), [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
 | Supersedes | none; narrows the ADR-058 clause "PhysX владеет только private live solver objects" for water by admitting one engine-owned, exact, replayed impulse batch into the canonical physics step input, as ADR-076 required of "a later Accepted ADR narrowing ADR-058" |
 | Superseded by | none |
@@ -77,6 +77,26 @@ player capsule is a later consumer.
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
 | `CONTINUUM-WATER-BUOYANCY-P1` | One `0.5 m` dynamic cube of `50 kg` in the reference basin at level `0.5 m`; step to rest; raise the level by command; save, restore, continue; repeat. | Equilibrium immersion `0.20 +- 0.05 m` within the frozen settling time; the cube follows the raised level; identical roots on `game` and `headless`, live and restored; a body outside every volume gets no record; the batch reads no presentation state; the step input with the batch round-trips byte-exactly. | Absent network and table: no batch, PhysX unchanged. |
+
+### Revision 1.1 (2026-09-04): drag on the relative velocity, currents from the network
+
+Agreed by the user on 2026-09-04 (plan `continuum-water/37`). The drag
+impulse of item 1 acts on the body's velocity relative to the water:
+`-k_damp * rho_water * V * (v - u) * dt` per axis, where `u` is the water
+velocity of the cell holding the largest clipped volume. `u` is zero for
+a cell outside the flow network; for a network node every two-cell edge
+with flux `Q` (cubic millimetres per tick, positive from `a` to `b`)
+contributes to both cells `Q * hz * 10^9 / (depth * width)` micrometres
+per second along the unit plan direction from `a`'s plan centre to
+`b`'s (q15), `depth` the cell's effective level over its floor and
+`width` the cell's plan extent projected across the direction; one-cell
+edges contribute nothing; contributions sum in edge-id order. The batch
+therefore reads the committed network of the same staged state it reads
+the table from; no profile field changes. With this revision the
+canonical world integrates dynamic boxes in three axes (SPEC-26 2.9,
+D-008 amended): a supported box (its downward sweep cut) keeps the
+push-only horizontal rule, an unsupported box drifts and is braked by
+the water. Tilt and rotation remain outside this ADR.
 
 ## Consequences
 

@@ -503,9 +503,10 @@ fn buoyancy_batch_is_exact_and_rides_the_step_input() {
         destination_revision: snapshot.world_revision,
         destination_root: snapshot.snapshot_hash().expect("snapshot hash"),
     };
-    let batch =
-        WaterBuoyancyBatchV1::compute(&profile, &volumes, &catalog, &snapshot, 7, 30, &context)
-            .expect("batch");
+    let batch = WaterBuoyancyBatchV1::compute(
+        &profile, &volumes, None, &catalog, &snapshot, 7, 30, &context,
+    )
+    .expect("batch");
     assert_eq!(batch.records.len(), 1);
     let record = batch.record(crate_id).expect("crate record");
     assert!(batch.record(dry_id).is_none());
@@ -535,7 +536,7 @@ fn buoyancy_batch_is_exact_and_rides_the_step_input() {
         .expect("crate state")
         .linear_velocity_micrometres_per_second = [0, -1_000_000, 0];
     let moving_batch =
-        WaterBuoyancyBatchV1::compute(&profile, &volumes, &catalog, &moving, 7, 30, &context)
+        WaterBuoyancyBatchV1::compute(&profile, &volumes, None, &catalog, &moving, 7, 30, &context)
             .expect("batch");
     assert_eq!(
         moving_batch.records[0].impulse.impulse_micronewton_seconds,
@@ -581,4 +582,164 @@ fn buoyancy_batch_is_exact_and_rides_the_step_input() {
     let mut stale = input.clone();
     stale.external_impulses[0].exchange.destination_revision += 1;
     assert_eq!(stale.validate(), Err(PhysicsContractError::ProfileMismatch));
+}
+
+/// ADR-105 revision 1.1 (plan `continuum-water/37`): the currents of a
+/// flowing two-cell lattice and the drag they exert on a still box.
+#[test]
+fn flowing_lattice_gives_both_cells_a_current_and_a_still_box_drifts_with_it() {
+    use super::buoyancy::{
+        WaterBuoyancyBatchV1, WaterBuoyancyProfileV1, WaterExchangeContextV1, water_currents,
+    };
+    use super::water_lattice::WaterLatticeRegionV1;
+    let region = WaterLatticeRegionV1 {
+        region_id: PersistentId::from_bytes([0x4f; 16]),
+        origin_micrometres: [0; 3],
+        cell_size_micrometres: [2_000_000, 2_000_000],
+        columns: 2,
+        rows: 1,
+        ceiling_micrometres: 3_000_000,
+        floor_micrometres: vec![0, 0],
+        initial_level_micrometres: vec![1_000_000, 500_000],
+        sill_coefficient_permille: 600,
+        profile_revision: 1,
+    };
+    let (mut volumes, mut network) = region.build(30).expect("lattice");
+    let still = water_currents(&volumes, &network, 0, 30).expect("currents");
+    assert!(still.is_empty(), "no flux before the first step");
+    network.step_in_place(&mut volumes).expect("step");
+    let (edge_id, edge) = network.edges.iter().next().expect("the sill edge");
+    let flux = network.edge_flux(*edge_id).expect("flux");
+    assert!(flux > 0, "water flows from the higher cell");
+    let currents = water_currents(&volumes, &network, 1, 30).expect("currents");
+    assert_eq!(currents.len(), 2);
+    let cell_b = edge.cell_b.expect("two cells");
+    for (cell, depth) in [
+        (
+            edge.cell_a,
+            volumes.effective_level(edge.cell_a, 1).expect("level a"),
+        ),
+        (cell_b, volumes.effective_level(cell_b, 1).expect("level b")),
+    ] {
+        let expected = i128::from(flux) * 30 * 1_000_000_000 / (i128::from(depth) * 2_000_000);
+        let current = currents[&cell];
+        assert_eq!(
+            current[0],
+            i64::try_from(expected).expect("fits"),
+            "cell {cell:?}"
+        );
+        assert_eq!(current[1], 0);
+        assert_eq!(current[2], 0);
+    }
+    // A still box in the source cell is dragged along +x by the current.
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: SchemaId::new("nextengine.physics.material.test-zero").expect("material id"),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let crate_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x87; 16]),
+        body_slot: 0,
+    };
+    let crate_shape_id = PhysicsShapeIdV1 {
+        body_id: crate_id,
+        shape_slot: 0,
+    };
+    let crate_body = PhysicsBodyDescriptorV1 {
+        body_id: crate_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Dynamic,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [1_000_000, 300_000, 1_000_000],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms: 50_000_000,
+        shapes: BTreeMap::from([(
+            crate_shape_id,
+            PhysicsShapeDescriptorV1 {
+                shape_id: crate_shape_id,
+                descriptor_revision: 1,
+                local_pose: PhysicsPoseV1::default(),
+                geometry: PhysicsGeometryV1::Box {
+                    half_extents_micrometres: [250_000; 3],
+                },
+                material_id: material.material_id.clone(),
+                collision_layer: 1,
+                collision_mask: u64::MAX,
+                participation: PhysicsParticipationV1::Solid,
+                contact_reporting: PhysicsContactReportingV1::Disabled,
+            },
+        )]),
+    };
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([3; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(crate_id, crate_body)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog");
+    let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, &tick, &numeric, &quantization)
+        .expect("snapshot");
+    let profile = WaterBuoyancyProfileV1::reference_v1().expect("profile");
+    let context = WaterExchangeContextV1 {
+        world_id: snapshot.world_id,
+        source_revision: 0,
+        source_root: volumes.set_hash().expect("water hash"),
+        destination_revision: snapshot.world_revision,
+        destination_root: snapshot.snapshot_hash().expect("snapshot hash"),
+    };
+    let batch = WaterBuoyancyBatchV1::compute(
+        &profile,
+        &volumes,
+        Some(&network),
+        &catalog,
+        &snapshot,
+        1,
+        30,
+        &context,
+    )
+    .expect("batch");
+    let record = batch.record(crate_id).expect("crate record");
+    let volume = i128::from(record.displaced_volume_cubic_millimetres);
+    let expected_drag = i128::from(profile.damping_permille_per_second)
+        * i128::from(profile.water_density_kilograms_per_cubic_metre)
+        * volume
+        * i128::from(currents[&edge.cell_a][0])
+        / (1_000_000_000 * 1_000 * 30);
+    assert_eq!(
+        i128::from(record.impulse.impulse_micronewton_seconds[0]),
+        expected_drag
+    );
+    assert!(record.impulse.impulse_micronewton_seconds[0] > 0);
+    assert_eq!(record.impulse.impulse_micronewton_seconds[2], 0);
+    let still_batch = WaterBuoyancyBatchV1::compute(
+        &profile, &volumes, None, &catalog, &snapshot, 1, 30, &context,
+    )
+    .expect("batch");
+    assert_eq!(
+        still_batch
+            .record(crate_id)
+            .expect("record")
+            .impulse
+            .impulse_micronewton_seconds[0],
+        0
+    );
 }

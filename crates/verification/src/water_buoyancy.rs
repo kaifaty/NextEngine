@@ -472,6 +472,7 @@ fn expected_batch(
     WaterBuoyancyBatchV1::compute(
         profile,
         &checkpoint.water_volumes,
+        Some(&checkpoint.water_flow),
         &checkpoint.catalog,
         &checkpoint.snapshot,
         tick,
@@ -635,6 +636,7 @@ fn batch_cost() -> Result<(u128, u128), WaterBuoyancyCheckErrorV1> {
     WaterBuoyancyBatchV1::compute(
         &profile,
         &volumes,
+        None,
         &catalog,
         &snapshot,
         0,
@@ -649,6 +651,7 @@ fn batch_cost() -> Result<(u128, u128), WaterBuoyancyCheckErrorV1> {
         let batch = WaterBuoyancyBatchV1::compute(
             &profile,
             &volumes,
+            None,
             &catalog,
             &snapshot,
             u64::from(sample),

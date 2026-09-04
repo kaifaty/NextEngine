@@ -21,7 +21,7 @@ pub use buoyancy::{
     WATER_EXCHANGE_DESTINATION_OWNER, WATER_EXCHANGE_SOURCE_OWNER, WaterBuoyancyBatchV1,
     WaterBuoyancyBoundsRuleV1, WaterBuoyancyProfileV1, WaterBuoyancyRecordV1,
     WaterExchangeContextV1, WaterExchangeTupleV1, validate_external_impulses,
-    velocity_delta_micrometres_per_second,
+    velocity_delta_micrometres_per_second, water_currents,
 };
 pub use catalog::{
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,

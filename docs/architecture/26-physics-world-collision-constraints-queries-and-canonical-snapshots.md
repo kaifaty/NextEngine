@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-09-03 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-09-04 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.7; 2.8 records the Proposed ADR-105 buoyancy batch: `PhysicsWorldCheckpointV1` schema version 4 with the batch profile as field 6, `PhysicsStepInputV2` schema version 3 with `external_impulses` (field 10) applied once at the first substep, and the exact buoyancy/drag law. 2.7 recorded the WR1 increment (plan `continuum-water/10`): `mass_microkilograms` as field 9 of `PhysicsBodyDescriptorV1` and exact vertical free-body dynamics for up to `16` dynamic boxes in the bounded capsule profile. 2.6 recorded the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
+| Заменяет | SPEC-26 2.8; 2.9 records ADR-105 revision 1.1 (plan `continuum-water/37`): the drag of the buoyancy batch acts on the velocity relative to the cell's water current from the flow network, and dynamic boxes integrate all three impulse components (a supported box keeps the push-only horizontal rule, an unsupported box drifts). 2.8 records the Proposed ADR-105 buoyancy batch: `PhysicsWorldCheckpointV1` schema version 4 with the batch profile as field 6, `PhysicsStepInputV2` schema version 3 with `external_impulses` (field 10) applied once at the first substep, and the exact buoyancy/drag law. 2.7 recorded the WR1 increment (plan `continuum-water/10`): `mass_microkilograms` as field 9 of `PhysicsBodyDescriptorV1` and exact vertical free-body dynamics for up to `16` dynamic boxes in the bounded capsule profile. 2.6 recorded the Proposed ADR-103 water flow network as field 5 of `PhysicsWorldCheckpointV1` schema version 3, its exact per-tick step and its flux and volume queries |
 | Дополнительные зависимости V2.5 | [ADR-100](adr/100-authoritative-water-volume-and-presentation-only-gpu-water.md) |
 | Дополнительные зависимости V2.6 | [ADR-103](adr/103-authoritative-water-flow-network.md) |
 | Дополнительные зависимости V2.8 | [ADR-105](adr/105-exact-level-buoyancy-reaction-batch.md) |
@@ -330,10 +330,16 @@ capsule's delta), sweeps `v_y / physics_hz` along `y` against the static
 solids, the other dynamic boxes at their current staged poses, the capsule's
 axis-aligned bounds (`centre ± [r, half_segment + r, r]`) and the attached
 carried boxes (all filtered by layer/mask), moves by the applied delta and
-zeroes its vertical velocity when the sweep was cut. Horizontal motion is
-push-only: the capsule push sweeps the box against the static solids and the
-other dynamic boxes (no chain push) and the box's horizontal velocity is the
-applied push times `physics_hz` for that substep. Body revisions bump
+zeroes its vertical velocity when the sweep was cut. Since 2.9 (plan
+`continuum-water/37`) horizontal motion depends on support: when the
+downward sweep was cut the box is supported and its horizontal velocity is
+zeroed for the substep, so the capsule push stays the only horizontal
+motion of a resting box (the push sweeps the box against the static solids
+and the other dynamic boxes, no chain push, and the box's horizontal
+velocity is the applied push times `physics_hz` for that substep); an
+unsupported box sweeps `v_x / physics_hz` along `x` and then
+`v_z / physics_hz` along `z` against the same obstacles and zeroes the cut
+axis's velocity. Body revisions bump
 exactly when pose or velocity change; boxes never sleep; box-to-support
 contacts are not reported through contact continuity. Activation rejects a
 dynamic box that penetrates a static solid or another dynamic box it collides
@@ -1095,8 +1101,12 @@ water volume horizontally and lie below its effective level, the displaced
 volume is the exact integer volume of the bounds clipped by the cell and by
 the level plane (cubic millimetres, the largest cell on a straddle), the
 buoyancy impulse is `rho g V / hz` upward at the clipped centroid and the
-drag impulse is `-k rho V v / (1000 hz)` per axis with `v` the committed
-linear velocity; all in micronewton-seconds and `i128` intermediate
+drag impulse is `-k rho V (v - u) / (1000 hz)` per axis with `v` the
+committed linear velocity and `u` the water velocity of the cell (ADR-105
+1.1: zero outside the flow network; for a node the sum over its two-cell
+edges of `Q hz 10^9 / (depth width)` micrometres per second along the
+unit plan direction from cell `a` to cell `b`, `width` the cell's plan
+extent projected across that direction); all in micronewton-seconds and `i128` intermediate
 arithmetic, truncating toward zero. Records sort by body id, one per body,
 at most `64`; bodies outside every volume receive none.
 
@@ -1113,9 +1123,9 @@ substep `0`, edge profile `nextengine.water-buoyancy.v1`, operation slot
 records, a component beyond `10^15` micronewton-seconds or a tuple that
 binds other roots than the input's; the world rejects an impulse on a
 body it does not integrate. Both backends apply every impulse exactly once
-at the first substep: the dynamic box's vertical velocity changes by
-`J_y / m` (micrometres per second, truncated) before that substep's
-gravity; horizontal components have no effect in the push-only profile.
+at the first substep: the dynamic box's velocity changes by `J / m` per
+axis (micrometres per second, truncated) before that substep's gravity;
+since 2.9 the horizontal components move an unsupported box (above).
 The batch is replayed and hashed with the step input, reads no
 presentation state and never feeds back into the water of the tick it
 was computed from.
