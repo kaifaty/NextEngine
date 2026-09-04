@@ -356,6 +356,33 @@
 - **Reconsider when:** Never retry V3 unchanged. A new experiment requires the
   bounded post-failure research cycle and a distinct falsifiable hypothesis.
 
+### D-015 — Audit walking action reachability before more optimization
+
+- **Observation:** The final GPU policy remains in two-sole contact for all
+  `600/600` recorded ticks. Walking residuals are applied over a standing
+  reference whose ankle target includes absolute root-forward displacement.
+- **Evidence:** The exact GPU trajectory has SHA-256 `ee9bc838…224f`; moving
+  velocity is `0.00620 m/s` and there are zero support-state switches. At the
+  command's approximate `7 m` endpoint the standing reference plus the
+  `+/-0.15 rad` ankle residual leaves only `[0.42, 0.436] rad` after soft ROM.
+  Canonical CPU fixed/random and standing-policy-plus-periodic probes produce
+  no single-sole state. The final V3 CPU policy is already pitching backward
+  before its first non-zero command.
+- **Decision:** Treat the origin-anchored standing action base as the earliest
+  walking blocker. Before any PPO run, test one walking-only,
+  translation-invariant reference with deterministic alternating action tapes
+  on CPU and Isaac. Do not change reward or PPO in that discriminator.
+- **Rejected alternatives:** Another V3-sized run, PPO tuning, declaring the
+  anatomy incapable, adding gait reward simultaneously with the action-base
+  change, or accepting GPU survival as CPU correspondence.
+- **Consequences:** A later gait-reward experiment is conditional on proving
+  left-only and right-only support, a complete alternation, positive forward
+  displacement and zero safety terminal in the action-basis audit. Full
+  training also remains blocked by failed CPU/Isaac correspondence.
+- **Reconsider when:** The translation-invariant action-basis audit either
+  passes its paired reachability criteria or isolates residual scale/body
+  geometry as the next one-variable failure.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -364,7 +391,9 @@
 | H2: ADR-100's bounded standing objective ports without another reward redesign | Final V3 policy completes the GPU and five CPU nominal gates | Perturbation robustness and paired trajectory correspondence remain open | Freeze the standing checkpoint as the walking parent; do not promote it to runtime authority |
 | H3: Isaac can shorten successor iteration without changing candidate admissibility | Descriptor/material/USD closure is exact; the final policy completes both GPU and CPU nominal horizons | `MODEL-MIRROR-P1` fails on joint/root velocity and cannot complete one common action tape | Keep GPU output R&D-only; repair/replace the mirror or explicitly change R&D sequencing |
 | H4: admitted standing initialization plus a dense task signal can acquire forward motion | V1/V2 retain survival and V2 exposes a precise zero-gradient boundary | V3 also remains stationary on GPU and falls backward on CPU | Refuted for the fixed V3 lesson; do not add compute unchanged |
-| H5: velocity tracking lacks the contact-phase incentive needed to discover a biped gait | NVIDIA H1 and Rudin et al. include feet-air-time or single-foot gait signals; V1/V2/V3 all converge to survival without forward travel | No isolated gait-signal counterfactual exists for this body | Research contact/action traces and pre-register the smallest optimizer-free or tiny one-variable discriminator before another full run |
+| H5: velocity tracking lacks the contact-phase incentive needed to discover a biped gait | NVIDIA H1 and Unitree H1 include duration-aware or phase-conditioned foot signals; the exact V3 GPU trace remains double-support for `600/600` ticks | A gait-signal counterfactual must wait until action reachability is proven | After the action-basis audit, replace only the binary support predicate in a bounded successor |
+| H6: the procedural standing reference is a valid walking action base | It preserves an admitted standing policy | Its absolute root-forward term changes ankle action meaning with travelled distance and nearly removes bidirectional authority near `7 m`; no bounded action probe reaches single support | Test a walking-only translation-invariant reference before changing reward or PPO |
+| H7: biomechanics V3 is intrinsically incapable of stepping | It has not produced a learned or hand-authored single-support trace under the current residual profile | Separate anatomical joints, real ROM and non-spherical geometry are present; current probes confound body capability with the standing action base | Require paired CPU/Isaac alternating-support reachability after removing only the position anchor |
 
 ## Required context
 
@@ -392,11 +421,13 @@ Read these sources in precedence order before acting:
    evaluations as immutable external evidence.
 2. Treat V1, compact V2 and dense V3 as three failed remediation cycles; do not
    launch another optimizer run or sweep PPO settings.
-3. Run a bounded research cycle over gait/contact curriculum, action and
-   observation adequacy, and the existing CPU/Isaac divergence. Use successful
-   controls and the smallest discriminating trace/probe before proposing code.
-4. Only a distinct, pre-registered one-variable profile with an explicit
-   rollback/non-regression check may request another compute budget.
+3. Implement no optimizer change. First pre-register and run the walking-only
+   translation-invariant action-basis audit from D-015 on CPU and Isaac.
+4. Change residual range only if reachability still fails; change the binary
+   support reward only after reachability passes. Each remains a separate
+   one-variable discriminator with standing and safety controls.
+5. Only after paired reachability and acceptable correspondence may a tiny
+   overfit run request compute; a full training budget remains blocked.
 
 ## Do not retry
 
@@ -430,8 +461,10 @@ Read these sources in precedence order before acting:
 - **Checks:** V3 closes 250 records and `1,024,000` samples. Final GPU evaluation
   completes `5/5` horizons but travels only `0.104/7.258 m`; canonical CPU
   evaluation falls at tick `156` in `5/5` and travels `-0.822 m`.
-- **Remaining risk:** The missing gait-discovery mechanism is unresolved, and
-  `MODEL-MIRROR-P1` remains failed.
+- **Remaining risk:** The origin-anchored standing reference is incompatible
+  with long translation, the current residual basis has no demonstrated
+  single-support reachability, the binary support reward has no gait duration
+  or alternation credit, and `MODEL-MIRROR-P1` remains failed.
 - **Deferred:** Kimodo remains outside this foundation lineage.
 - **Promotion needed:** None for the priority change. Runtime learned-policy
   promotion still requires its consumer-backed schemas, parity, multi-seed

@@ -101,3 +101,149 @@ three failed command-only walking cycles. No further full optimizer run or PPO
 tuning is authorized until a bounded research cycle discriminates missing
 contact-phase/gait curriculum, action/observation limitations and the already
 failed CPU/Isaac dynamics correspondence using smaller successful controls.
+
+## Post-V3 causal audit
+
+### Exact policy/contact evidence
+
+The final V3 checkpoint was recorded for one `600`-tick Isaac episode in the
+external training store. The NPZ has SHA-256
+`ee9bc8386f0f473fa501afff5d8c70b972404558ed481d015e21c1a5f40e224f`.
+The first non-zero forward command occurs at tick `120`, but both soles remain
+in contact for all `600/600` ticks: there are zero left-only, right-only or
+flight samples and zero contact-state switches. During the moving interval the
+mean forward velocity is `0.00620 m/s`, velocity MAE is `0.47872 m/s`, and
+total forward displacement is only `0.05967 m`.
+
+This also explains the apparently non-zero V3 support component. The reward is
+a binary predicate: exactly one contacting sole while any command is non-zero,
+or exactly two soles while the command is zero. It has no air/contact duration,
+touchdown, clearance or alternation term. The learned rollout receives support
+credit only during the zero-command portions; it never enters the rewarded
+moving support state.
+
+The policy is not globally action-saturated: moving mean absolute action is
+`0.2716` and only `1.80%` of action samples are saturated. One suspicious
+exception is torso yaw, whose mean action is `0.9086` and which is saturated in
+`41.37%` of moving samples despite a zero yaw command. Therefore exploration
+collapse or global output clipping is not the first failure.
+
+### Walking action base conflicts with translation
+
+The walking profile does not act around a neutral/default joint pose. It adds
+small residuals to `procedural-standing.v1`. That standing controller computes
+both ankle-pitch targets from the absolute world-forward displacement from the
+reset position:
+
+`ankle = -0.14 + pitch/2 + pitch_rate/20 + forward_position/10 + forward_velocity/50`.
+
+At an upright `0.5 m/s` target, the walking ankle residual is only
+`+/-0.15 rad`. Ignoring pitch feedback for the discriminator, the reachable
+ankle-pitch target interval therefore changes with travelled distance:
+
+| Forward displacement | Standing reference | Reachable target after residual/soft ROM |
+| ---: | ---: | ---: |
+| `0 m` | `-0.13 rad` | `[-0.28, 0.02] rad` |
+| `1 m` | `-0.03 rad` | `[-0.18, 0.12] rad` |
+| `2 m` | `0.07 rad` | `[-0.08, 0.22] rad` |
+| `3 m` | `0.17 rad` | `[0.02, 0.32] rad` |
+| `5 m` | `0.37 rad` | `[0.22, 0.436] rad` |
+| `7 m` | `0.57 rad` | `[0.42, 0.436] rad` |
+
+The acceptance gate requires at least `3 m`, while the fixed command integrates
+to `7.258 m`. Thus the action meaning drifts as the character moves and nearly
+loses ankle authority by the end of the commanded path. Absolute root position
+is not an explicit policy observation, so the policy must infer this hidden
+controller state indirectly from the previous applied target. This is a
+structural locomotion-contract conflict, not a PPO hyperparameter issue.
+
+The official Isaac Lab velocity environment instead applies joint-position
+actions around the robot's default joint offsets, with a generic `0.5 rad`
+scale. Its H1 profile adds dense velocity tracking, biped feet-air-time and
+feet-slide terms; it does not reuse a world-position-anchored standing
+controller. Unitree's H1 profile is another valid design point: `0.25 rad`
+default-offset actions, an explicit `0.6 s` gait phase, phase-conditioned foot
+gait reward, foot-clearance reward and command curriculum:
+
+- <https://github.com/isaac-sim/IsaacLab/blob/release/3.0.0-beta2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/velocity_env_cfg.py>
+- <https://github.com/isaac-sim/IsaacLab/blob/release/3.0.0-beta2/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/h1/rough_env_cfg.py>
+- <https://github.com/unitreerobotics/unitree_rl_lab/blob/main/source/unitree_rl_lab/unitree_rl_lab/tasks/locomotion/robots/h1/velocity_env_cfg.py>
+
+This does not mean a phase clock is mandatory: the official Isaac Lab H1
+profile learns without one. It means that successful systems provide either a
+translation-invariant direct action basis plus duration-aware contact credit,
+or an explicit gait phase/foot objective. Current V3 provides neither.
+
+### Optimizer-free reachability and CPU split
+
+Two bounded canonical CPU probes were run without optimization:
+
+1. `128` slots received zero action for `30` ticks and then either a fixed
+   full-range leg residual or a deterministic random full-range leg vector
+   through tick `90`. The zero-action control survived. No slot reached
+   single-sole support; `83` survived, `36` ended in self-collision and `9` in
+   joint safety.
+2. `64` slots used the admitted final standing policy as a successful
+   stabilizing control. Eight unchanged controls and `56` deterministic
+   alternating hip-pitch/knee/ankle-pitch/hip-roll overlays were run for `120`
+   ticks. All `64` survived, but none reached single-sole support. The best
+   forward displacement was `0.02499 m`; unchanged controls averaged
+   `0.01245 m`.
+
+These probes do not prove that a time-varying policy can never lift a foot.
+They do refute the assumption that the current narrow residual basis makes an
+alternating support state readily reachable around the standing controller.
+The body itself still has separate anatomical hip, knee and ankle axes, real
+ROM and non-spherical leg/foot geometry, so an incapable body is not the
+leading hypothesis.
+
+A separate one-episode CPU trace of the final V3 policy shows backward drift
+before the walking command begins: pitch is about `-8.22 deg` at tick `30`,
+`-10.43 deg` at `60`, `-12.68 deg` at `90`, and `-19.31 deg` at tick `119`;
+the command begins at tick `120` and the episode falls at tick `156`. Both
+soles remain in contact throughout. This makes the failed CPU/Isaac mirror an
+independent blocker: the CPU failure is already present in the zero-command
+warm-up and cannot be caused by the forward lesson.
+
+### Updated hypotheses
+
+| Hypothesis | Evidence update | Status |
+| --- | --- | --- |
+| H1 — world-position standing feedback is a valid walking action base | The same action maps to progressively dorsiflexed ankles and almost no bidirectional ankle authority near the command's `7 m` endpoint | Strongly refuted |
+| H2 — current action basis readily exposes a step | Learned GPU trace is double-support for `600/600`; `128` fixed/random and `56` periodic CPU probes produce no single support | Disfavoured; absolute impossibility not claimed |
+| H3 — current support reward supplies gait credit | It is a one-tick binary occupancy predicate and the policy collects it only during zero-command intervals | Refuted |
+| H4 — PPO instability/exploration collapse is first | Finite run, stable entropy/noise, improved survival, little global action saturation | Disfavoured |
+| H5 — biomechanics body is intrinsically incapable of walking | Anatomical axes/ROM/geometry are credible; no translation-invariant reachability test has been run | Open, not leading |
+| H6 — CPU failure is caused by the walking command | CPU divergence is already material before tick `120` | Refuted; mirror mismatch remains independent |
+
+The literature is consistent with this split. Periodic Reward Composition
+shows that a generic reference-free "move forward" objective is underspecified
+for reliable biped gait discovery and uses periodic foot force/velocity costs
+instead: <https://arxiv.org/abs/2011.01387>. Residual-RL biped work that starts
+from an analytical controller places RL on top of an analytical **walking**
+planner/controller, not an origin-anchored standing controller:
+<https://arxiv.org/abs/2104.10592>.
+
+## Pre-registered next discriminator
+
+Do not start another PPO run yet. The smallest next experiment is an
+optimizer-free walking action-basis audit:
+
+1. Freeze a walking-only, translation-invariant reference candidate by removing
+   the absolute forward-position term while leaving body, PD/safety, residual
+   scales, command and reward unchanged.
+2. Replay a small deterministic bank of alternating leg targets on CPU and
+   Isaac. Require both left-only and right-only support, at least one complete
+   alternation, positive forward COM displacement and zero declared safety
+   terminal; require the unchanged standing control to remain upright.
+3. If this fails, vary only residual range/direct default-offset action scale.
+   If it passes, replace the binary support predicate in a separate change with
+   a duration/alternation-aware foot objective (or a pre-registered phase
+   objective) before a tiny overfit run.
+4. A full `1,024,000`-sample run remains blocked until the action-basis audit
+   passes and the same action tape has an acceptable CPU/Isaac correspondence
+   result.
+
+This order separates body capability, action authority, gait credit and mirror
+dynamics. It avoids spending another full run on a controller whose action
+semantics change with travelled distance.
