@@ -195,3 +195,17 @@ same pinned Linux `glslang` 15.1.0:
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_under.frag.spv water_under.frag
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
 ```
+
+## Wet band suite (plan `continuum-water/35`)
+
+`water_wet.frag` on the particle pass's fullscreen vertex program forms the
+`water_wet` suite: with the eye above the water, a fullscreen pass inside
+the water pass (after the scene copy, before the rings) darkens and glosses
+every scene pixel inside a ring's widened plan within the band over that
+ring's level, with the normal from the depth's world-space derivatives. The
+water set gains binding 4 (a `272`-byte uniform of up to eight ring plans
+and levels). Compiled with the same pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_wet.frag.spv water_wet.frag
+```

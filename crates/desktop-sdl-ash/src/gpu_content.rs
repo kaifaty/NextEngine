@@ -1282,17 +1282,28 @@ impl B0GpuContent {
     }
 
     /// Plan 33: the level of the water ring the camera is submerged in,
-    /// from the plan's water draws and the eye of the plan's camera.
+    /// from the frame's rings and the eye of the plan's camera.
     pub(super) fn water_submersion_level_metres(
         &self,
         plan: &B0FramePlanV1,
-        frame_slot_index: usize,
+        rings: &[water::WaterRingPlanV1],
     ) -> Result<Option<f32>, B0GpuContentError> {
         let Some(camera) = plan.camera.as_ref() else {
             return Ok(None);
         };
         let eye =
             micrometres_to_metres_f32(camera.current_result_sample.pose.translation_micrometres)?;
+        Ok(water::water_submersion_level(eye, rings))
+    }
+
+    /// Plans 33 and 35: the water rings of the frame (the catalog mesh's
+    /// `x z` bounds plus the draw translation, the level from the
+    /// translation), for the submersion test and the wet band.
+    pub(super) fn water_ring_plans(
+        &self,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+    ) -> Result<Vec<water::WaterRingPlanV1>, B0GpuContentError> {
         let mut rings = Vec::new();
         for draw in &plan.draws {
             let Some(ring) = self.dynamic_surfaces.get(&draw.mesh_revision) else {
@@ -1319,7 +1330,7 @@ impl B0GpuContent {
                 level_metres: translation[1],
             });
         }
-        Ok(water::water_submersion_level(eye, &rings))
+        Ok(rings)
     }
 
     /// Plan 33: the fullscreen water-between pass, inside the water
@@ -1329,6 +1340,46 @@ impl B0GpuContent {
         command_buffer: vk::CommandBuffer,
         frame_slot_index: usize,
         water: &water::WaterPassState,
+        viewport: vk::Viewport,
+        scissor: vk::Rect2D,
+    ) -> Result<(), B0GpuContentError> {
+        self.record_water_fullscreen(
+            command_buffer,
+            frame_slot_index,
+            water,
+            water.under_pipeline(),
+            viewport,
+            scissor,
+        )
+    }
+
+    /// Plan 35: the fullscreen wet band pass, inside the water rendering
+    /// instance before the rings.
+    pub(super) fn record_water_wet(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        frame_slot_index: usize,
+        water: &water::WaterPassState,
+        viewport: vk::Viewport,
+        scissor: vk::Rect2D,
+    ) -> Result<(), B0GpuContentError> {
+        self.record_water_fullscreen(
+            command_buffer,
+            frame_slot_index,
+            water,
+            water.wet_pipeline(),
+            viewport,
+            scissor,
+        )
+    }
+
+    /// One fullscreen triangle with the water pass layout (sets 0 and 3).
+    fn record_water_fullscreen(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        frame_slot_index: usize,
+        water: &water::WaterPassState,
+        pipeline: vk::Pipeline,
         viewport: vk::Viewport,
         scissor: vk::Rect2D,
     ) -> Result<(), B0GpuContentError> {
@@ -1344,7 +1395,7 @@ impl B0GpuContent {
             self.geometry.device.cmd_bind_pipeline(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                water.under_pipeline(),
+                pipeline,
             );
             self.geometry
                 .device

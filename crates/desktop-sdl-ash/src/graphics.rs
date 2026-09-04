@@ -700,8 +700,13 @@ impl GraphicsContext {
         };
         // Plan 33: the eye under a ring's level; the droplet layer belongs
         // to the air side and is skipped while submerged.
+        let water_rings = if self.water.is_some() {
+            b0_content.water_ring_plans(frame_plan, frame_slot_index)?
+        } else {
+            Vec::new()
+        };
         let submerged_level = if self.water.is_some() {
-            b0_content.water_submersion_level_metres(frame_plan, frame_slot_index)?
+            b0_content.water_submersion_level_metres(frame_plan, &water_rings)?
         } else {
             None
         };
@@ -832,6 +837,7 @@ impl GraphicsContext {
                 rendered_frame_index,
                 jitter,
                 submerged_level,
+                &water_rings,
             )?;
             // SAFETY: the opaque world rendering instance ends before the
             // pass copies the swapchain colour and samples the scene depth.
@@ -862,6 +868,15 @@ impl GraphicsContext {
             }
             if submerged_level.is_some() {
                 b0_content.record_water_under(
+                    frame_slot.command_buffer,
+                    frame_slot_index,
+                    water,
+                    viewport,
+                    scissor,
+                )?;
+            } else if !water_rings.is_empty() {
+                // Plan 35: the wet band above the rings' levels.
+                b0_content.record_water_wet(
                     frame_slot.command_buffer,
                     frame_slot_index,
                     water,

@@ -10,6 +10,7 @@
   "water_suite": "water_surface",
   "water_scene_suite": "water_scene",
   "water_under_suite": "water_under",
+  "water_wet_suite": "water_wet",
   "reflection_suite": "b0_reflect",
   "gbuffer_suite": "gbuffer",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
@@ -365,6 +366,13 @@
       "source_sha256": "161032724218742e0e9c402eb27963910b03c800504938ffa403ce47c07048be",
       "module": "water_under.frag.spv",
       "module_sha256": "10c19729fe04b791be6dc63c42b09cd6d98c669509e3450c7370db65cf6fe5a3"
+    },
+    {
+      "stage": "fragment",
+      "source": "water_wet.frag",
+      "source_sha256": "bb6e1146542348114764610541f0d63ac1f0a65bc046714140e4c6133e59fc86",
+      "module": "water_wet.frag.spv",
+      "module_sha256": "cc1ef09bca8ee78c7cb91ee8a9d98169f6ebfb5bb330dbf7bdec5dbf69eeb45f"
     },
     {
       "stage": "fragment",

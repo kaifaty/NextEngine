@@ -20,6 +20,37 @@ use super::{B0GpuContentError, DRAW_PUSH_CONSTANT_SIZE, FRAME_UNIFORM_SIZE, VERT
 /// Bytes of the water uniform block: inverse view-projection, viewport,
 /// absorption and shore constants.
 pub(crate) const WATER_UNIFORM_SIZE: vk::DeviceSize = 128;
+/// Plan 35: the ring plans uniform (binding 4): eight `vec4` plans, eight
+/// `vec4` levels and one `vec4` count.
+pub(crate) const WATER_RINGS_UNIFORM_SIZE: vk::DeviceSize = 272;
+pub(crate) const WATER_RINGS_MAX: usize = 8;
+
+/// Plan 35: packs at most `WATER_RINGS_MAX` ring plans into the uniform's
+/// `std140` layout (`plans[8]`, `levels[8]`, `count`).
+#[must_use]
+pub(crate) fn pack_ring_plans(
+    rings: &[WaterRingPlanV1],
+) -> [u8; WATER_RINGS_UNIFORM_SIZE as usize] {
+    let mut bytes = [0_u8; WATER_RINGS_UNIFORM_SIZE as usize];
+    let count = rings.len().min(WATER_RINGS_MAX);
+    for (index, ring) in rings.iter().take(count).enumerate() {
+        write_f32(
+            &mut bytes[index * 16..index * 16 + 16],
+            &[
+                ring.minimum_metres[0],
+                ring.minimum_metres[1],
+                ring.maximum_metres[0],
+                ring.maximum_metres[1],
+            ],
+        );
+        write_f32(
+            &mut bytes[128 + index * 16..128 + index * 16 + 16],
+            &[ring.level_metres, 0.0, 0.0, 0.0],
+        );
+    }
+    write_f32(&mut bytes[256..272], &[count as f32, 0.0, 0.0, 0.0]);
+    bytes
+}
 /// Plan 13 constants (renderer-local): absorption per metre and the
 /// refraction strength of the ADR-102 particle pass, the shore band.
 pub(crate) const WATER_ABSORPTION_PER_METRE: [f32; 3] = [1.2, 0.5, 0.25];
@@ -64,6 +95,8 @@ struct Target {
 
 struct WaterSlot {
     uniform: BufferAllocation,
+    /// Plan 35: the ring plans of the frame.
+    rings_uniform: BufferAllocation,
     set: vk::DescriptorSet,
     /// Plan 15: the mirrored camera's frame block and its B0 frame set.
     reflection_uniform: BufferAllocation,
@@ -78,6 +111,8 @@ pub(crate) struct WaterPassState {
     pipeline: vk::Pipeline,
     /// Plan 33: the fullscreen water-between pipeline on the same layout.
     under_pipeline: vk::Pipeline,
+    /// Plan 35: the fullscreen wet band pipeline on the same layout.
+    wet_pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
     /// Plan 15: the mirrored reflection pass pipeline (B0 layouts).
     reflection: PipelineState,
@@ -194,6 +229,7 @@ impl WaterPassState {
             pool: vk::DescriptorPool::null(),
             pipeline: None,
             under_pipeline: vk::Pipeline::null(),
+            wet_pipeline: vk::Pipeline::null(),
             views: vec![
                 scene_copy.view,
                 reflection_color.view,
@@ -203,6 +239,7 @@ impl WaterPassState {
         };
         let host = vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
         let mut uniforms = Vec::with_capacity(frame_slot_count);
+        let mut rings_uniforms = Vec::with_capacity(frame_slot_count);
         let mut reflection_uniforms = Vec::with_capacity(frame_slot_count);
         for _ in 0..frame_slot_count {
             uniforms.push(BufferAllocation::new(
@@ -210,6 +247,14 @@ impl WaterPassState {
                 physical_device,
                 device,
                 WATER_UNIFORM_SIZE,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                host,
+            )?);
+            rings_uniforms.push(BufferAllocation::new(
+                instance,
+                physical_device,
+                device,
+                WATER_RINGS_UNIFORM_SIZE,
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
                 host,
             )?);
@@ -242,6 +287,11 @@ impl WaterPassState {
             vk::DescriptorSetLayoutBinding::default()
                 .binding(3)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(4)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::FRAGMENT),
         ];
@@ -278,7 +328,7 @@ impl WaterPassState {
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: slot_count.saturating_mul(2),
+                descriptor_count: slot_count.saturating_mul(3),
             },
         ];
         let pool_info = vk::DescriptorPoolCreateInfo::default()
@@ -296,8 +346,9 @@ impl WaterPassState {
         let sets = unsafe { device.allocate_descriptor_sets(&allocation_info) }?;
         let (water_sets, reflection_sets) = sets.split_at(frame_slot_count);
         let mut slots = Vec::with_capacity(frame_slot_count);
-        for (((uniform, set), reflection_uniform), reflection_set) in uniforms
+        for ((((uniform, rings_uniform), set), reflection_uniform), reflection_set) in uniforms
             .into_iter()
+            .zip(rings_uniforms)
             .zip(water_sets.iter().copied())
             .zip(reflection_uniforms)
             .zip(reflection_sets.iter().copied())
@@ -318,6 +369,10 @@ impl WaterPassState {
                 .buffer(reflection_uniform.buffer)
                 .offset(0)
                 .range(FRAME_UNIFORM_SIZE)];
+            let rings_buffer_info = [vk::DescriptorBufferInfo::default()
+                .buffer(rings_uniform.buffer)
+                .offset(0)
+                .range(WATER_RINGS_UNIFORM_SIZE)];
             let writes = [
                 vk::WriteDescriptorSet::default()
                     .dst_set(set)
@@ -339,11 +394,17 @@ impl WaterPassState {
                     .dst_binding(0)
                     .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                     .buffer_info(&reflection_buffer_info),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(set)
+                    .dst_binding(4)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                    .buffer_info(&rings_buffer_info),
             ];
             // SAFETY: sets, views and buffers are live; descriptors are copied now.
             unsafe { device.update_descriptor_sets(&writes, &[]) };
             slots.push(WaterSlot {
                 uniform,
+                rings_uniform,
                 set,
                 reflection_uniform,
                 reflection_set,
@@ -393,6 +454,17 @@ impl WaterPassState {
             &under_modules.fragment,
         )?;
         guard.under_pipeline = under_pipeline;
+        let wet_modules = super::super::shader_assets::water_wet_shader_modules()
+            .map_err(B0GpuContentError::ShaderAsset)?;
+        let wet_pipeline = create_under_pipeline(
+            device,
+            layout,
+            color_format,
+            depth_format,
+            &wet_modules.vertex,
+            &wet_modules.fragment,
+        )?;
+        guard.wet_pipeline = wet_pipeline;
 
         guard.armed = false;
         Ok(Ok(Self {
@@ -400,6 +472,7 @@ impl WaterPassState {
             extent,
             pipeline,
             under_pipeline,
+            wet_pipeline,
             layout,
             reflection,
             descriptor_pool,
@@ -523,6 +596,11 @@ impl WaterPassState {
         self.under_pipeline
     }
 
+    /// Plan 35: the fullscreen wet band pipeline.
+    pub(crate) const fn wet_pipeline(&self) -> vk::Pipeline {
+        self.wet_pipeline
+    }
+
     pub(crate) const fn pipeline(&self) -> vk::Pipeline {
         self.pipeline
     }
@@ -542,6 +620,10 @@ impl WaterPassState {
 
     /// Writes the slot's uniform for this camera and binds the frame's scene
     /// depth view; returns the raster viewport and scissor of the camera.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the pass inputs of the private adapter boundary stay explicit"
+    )]
     pub(crate) fn prepare(
         &mut self,
         frame_slot_index: usize,
@@ -550,6 +632,7 @@ impl WaterPassState {
         rendered_frame_index: u64,
         jitter: Option<ProjectionJitterV1>,
         submerged_level_metres: Option<f32>,
+        rings: &[WaterRingPlanV1],
     ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
         let slot =
             self.slots
@@ -610,6 +693,7 @@ impl WaterPassState {
             ],
         );
         slot.uniform.write(0, &bytes)?;
+        slot.rings_uniform.write(0, &pack_ring_plans(rings))?;
         let depth_info = [vk::DescriptorImageInfo::default()
             .sampler(self.nearest_sampler)
             .image_view(scene_depth_view)
@@ -796,6 +880,7 @@ impl Drop for WaterPassState {
         // SAFETY: the owner waits for device idle before dropping; children
         // are destroyed before parents.
         unsafe {
+            self.device.destroy_pipeline(self.wet_pipeline, None);
             self.device.destroy_pipeline(self.under_pipeline, None);
             self.device.destroy_pipeline(self.pipeline, None);
             self.device.destroy_pipeline_layout(self.layout, None);
@@ -822,6 +907,7 @@ struct Teardown {
     pool: vk::DescriptorPool,
     pipeline: Option<(vk::Pipeline, vk::PipelineLayout)>,
     under_pipeline: vk::Pipeline,
+    wet_pipeline: vk::Pipeline,
     views: Vec<vk::ImageView>,
     armed: bool,
 }
@@ -834,6 +920,9 @@ impl Drop for Teardown {
         // SAFETY: every handle was recorded right after creation and none
         // has been submitted; children go before parents.
         unsafe {
+            if self.wet_pipeline != vk::Pipeline::null() {
+                self.device.destroy_pipeline(self.wet_pipeline, None);
+            }
             if self.under_pipeline != vk::Pipeline::null() {
                 self.device.destroy_pipeline(self.under_pipeline, None);
             }
@@ -1244,7 +1333,38 @@ fn create_under_pipeline(
 
 #[cfg(test)]
 mod submersion_tests {
-    use super::{WaterRingPlanV1, water_submersion_level};
+    use super::{WATER_RINGS_MAX, WaterRingPlanV1, pack_ring_plans, water_submersion_level};
+
+    fn lane(bytes: &[u8], index: usize) -> f32 {
+        f32::from_le_bytes([
+            bytes[index * 4],
+            bytes[index * 4 + 1],
+            bytes[index * 4 + 2],
+            bytes[index * 4 + 3],
+        ])
+    }
+
+    #[test]
+    fn ring_plans_pack_into_their_lanes_and_cap_at_eight() {
+        let ring = |offset: f32| WaterRingPlanV1 {
+            minimum_metres: [offset, offset + 1.0],
+            maximum_metres: [offset + 2.0, offset + 3.0],
+            level_metres: offset * 0.1,
+        };
+        let empty = pack_ring_plans(&[]);
+        assert_eq!(lane(&empty, 64), 0.0);
+        let two = pack_ring_plans(&[ring(1.0), ring(5.0)]);
+        assert_eq!(lane(&two, 64), 2.0);
+        assert_eq!(
+            [lane(&two, 4), lane(&two, 5), lane(&two, 6), lane(&two, 7)],
+            [5.0, 6.0, 7.0, 8.0]
+        );
+        assert_eq!(lane(&two, 32), 0.1);
+        assert_eq!(lane(&two, 36), 0.5);
+        let many: Vec<_> = (0..12).map(|index| ring(index as f32)).collect();
+        let capped = pack_ring_plans(&many);
+        assert_eq!(lane(&capped, 64), WATER_RINGS_MAX as f32);
+    }
 
     #[test]
     fn eye_inside_the_plan_below_the_level_is_submerged() {

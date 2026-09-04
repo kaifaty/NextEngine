@@ -26,6 +26,7 @@ const WATER_SURFACE_FRAGMENT_SHADER_BYTES: &[u8] =
     include_bytes!("../shaders/water_surface.frag.spv");
 const WATER_SCENE_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_scene.frag.spv");
 const WATER_UNDER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_under.frag.spv");
+const WATER_WET_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_wet.frag.spv");
 const REFLECTION_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/b0_reflect.frag.spv");
 const GBUFFER_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.vert.spv");
 const GBUFFER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.frag.spv");
@@ -153,6 +154,18 @@ pub(super) fn water_under_shader_modules() -> Result<B0ShaderModules, &'static s
     Ok(B0ShaderModules {
         vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
         fragment: decode_spirv(WATER_UNDER_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Plan `continuum-water/35`: the wet band suite (the fullscreen vertex
+/// program with the wet band fragment).
+pub(super) fn water_wet_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"water_wet_suite\": \"water_wet\"") {
+        return Err("embedded wet band shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(WATER_WET_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -293,6 +306,12 @@ mod tests {
         let water_under =
             water_under_shader_modules().expect("checked-in underwater modules decode");
         assert_eq!(water_under.fragment[0], SPIRV_MAGIC);
+        assert_eq!(
+            hex(sha256(WATER_WET_FRAGMENT_SHADER_BYTES)),
+            "cc1ef09bca8ee78c7cb91ee8a9d98169f6ebfb5bb330dbf7bdec5dbf69eeb45f"
+        );
+        let water_wet = water_wet_shader_modules().expect("checked-in wet band modules decode");
+        assert_eq!(water_wet.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(GBUFFER_VERTEX_SHADER_BYTES)),
             "3838e9a335b52ec87c677d86fa314526bc4bcb7ec9f148275a2997160ef4d29a"
