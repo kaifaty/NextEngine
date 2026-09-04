@@ -225,7 +225,7 @@ flowchart LR
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
 | R7. V1 release candidate | `COMPLETE / LINUX_ONLY / V1.0.0_PUBLISHED` | L | Exact code commit `919663ff…` passes the eight-check native gate, physical Vulkan platform path, packaged runtime/desktop smoke and V6 distribution closure. GitHub release `v1.0.0` publishes the exact validated archive/manifest/report assets. Windows does not block or participate. |
-| R8. Post-v1 tracks | `IN_PROGRESS / R8B_FIRST_LEARNED_LOCOMOTION_SELECTED` | отдельные программы | R8a closes the bounded intact-topology condition/capability subset. R8b is the active visibility-first learned-Motor package: stand, then bounded forward start/stop, without reopening R141 or weakening the procedural fallback. Other optional tracks remain independently gated. |
+| R8. Post-v1 tracks | `IN_PROGRESS / R8B_FIRST_LEARNED_LOCOMOTION_SELECTED` | отдельные программы | R8a closes the bounded intact-topology condition/capability subset. R8b standing passes; its first bounded forward start/stop R&D run is complete but rejected for no meaningful travel. Reward/schedule discrimination and mirror repair precede any separately authorized second run. Other optional tracks remain independently gated. |
 
 ## R0 — Walking skeleton
 
@@ -1960,7 +1960,7 @@ are not part of R8a. The current Linux `host-check`, `play`,
 
 **Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /
 FIRST_LEARNED_LOCOMOTION / V3_STANDING_NOMINAL_GATE_PASS /
-R&D_ONLY_WALKING_AUTHORIZED / MODEL_MIRROR_P1_FAILED /
+R&D_ONLY_WALKING_FAILED / NO_SECOND_BUDGET / MODEL_MIRROR_P1_FAILED /
 NO_RUNTIME_AUTHORITY`. Product priority remains the
 smallest player-visible learned-Motor result, but the frozen Stage 0 V1 body is
 now restricted to regression/toy evidence. Exact audit shows 24 sphere
@@ -1975,11 +1975,17 @@ source aggregate mass/inertia. Its fresh 1,024,000-sample run closes on commit
 `b6734160…`; the predeclared final checkpoint reaches one complete contact-
 correct GPU episode and five complete canonical CPU episodes with zero safety
 terminal and continuous two-sole CPU contact. Paired trajectory correspondence
-and bounded forward start/stop remain next.
-ADR-103 permits one separately identified forward start/stop discriminator
-before mirror repair, with model-weights-only standing initialization and
-mandatory CPU evaluation. It grants no runtime authority, broader curriculum
-or second optimizer budget. R8b remains a separately hash-closed lineage, not R142 and not a
+remains failed. The one ADR-103 forward start/stop discriminator completed all
+`1,024,000` samples from exact standing weights, but is rejected: direct GPU
+evaluation reaches only `0.084 m` against `3.944 m` commanded, while canonical
+CPU final evaluation reaches `-0.025 m` on average and terminates every episode.
+The safest CPU checkpoint completes five horizons but also moves slightly
+backward. The result is recorded in
+[the dated R&D report](development/r8b-forward-start-stop-rd-result-2026-09-04.md).
+No second optimizer budget exists. Before a new decision, a no-training
+successor must reject the standing parent and zero action, bind at least `3 m`
+of commanded travel and end with a 180-tick zero-command stop. R8b remains a
+separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
 checkpoints or the motion-reference corpus. Its fixed order is:
 
@@ -2019,7 +2025,7 @@ without changing the completed R8a result.
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned Motor System policy families and full articulation | `R8B SELECTED / STAGE0_V1_BODY_RETIRED`; ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | Execute only visibility-first standing then forward start/stop on an admitted biomechanics successor. Promotion still requires exact observation/action/state replay, runtime/training correspondence, multi-seed quality, target parity and the declared procedural fallback; R8b checkpoints alone do not promote a runtime route. |
-| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067/069/071/100/101/102/103 `Accepted`; biomechanics V3/standing V2 passes its hash-closed nominal GPU/CPU standing gate; paired V3 `MODEL-MIRROR-P1` fails fixed joint/root-velocity bounds | Run exactly one separately identified `R&D_ONLY` forward start/stop discriminator, then evaluate it on GPU and canonical CPU. No second walking budget, broader curriculum or runtime promotion before correspondence is repaired and the full quality matrix passes. |
+| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067/069/071/100/101/102/103 `Accepted`; biomechanics V3/standing V2 passes its nominal GPU/CPU standing gate; the one walking discriminator is complete and rejected for no forward travel; paired V3 `MODEL-MIRROR-P1` fails fixed joint/root-velocity bounds | Freeze a no-training reward/schedule discriminator and repair correspondence. No second walking budget, broader curriculum or runtime promotion exists before a new explicit decision and the full quality matrix passes. |
 | Functional anatomy, treatment and visible character embodiment | ADR-098 `R8A COMPLETE / FURTHER WORK DEFERRED_BEHIND_R8B`: unilateral intact-topology condition/treatment and directional fixed-PD capability are current; full fracture/surface/UI/LOD vertical remains `Proposed` | Preserve the passing R8a fallback and schemas unchanged. Stable lower-leg fracture, retained/detached topology, ordinary adapted locomotion, UI/severity and 16/64/distant workload do not enter the active queue until a later explicit roadmap selection. |
 | Local continuum materials: water, deformable terrain, mud and off-road coupling | `PLANNED / NOT_ACTIVE`; SPEC-38/ADR-076 `Proposed`; water `RESEARCH_ONLY`: original W0B `INVALIDATED_BY_RC1`, W0C/W0D closed, W0E local survivor, W0F geometry/QP roots frozen, W0G impact-energy roots frozen, W0H accelerated-pressure roots frozen, W0I reference-attestation root frozen, W1 `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS`; W2 short scaling `IN_PROGRESS / NO_PRODUCTCHECK_CREDIT`; later ProductChecks `NOT_RUN` | W0F binds shared integer outer/internal geometry, two-layer density support, swept contact and a `32,768` static capacity. W0G retains absolute drift for equilibrium/control scenarios and blocks positive energy excess for named impact cases. Sealed-48k then falsified the globally restarting active-set PCG within its 50-operator budget; W0H keeps the same pressure QP and ceiling, roots fixed-step diagonal-scaled APG, and requires both compression and projected-KKT convergence. W0I rejects the old geometry-violating external trajectories and freezes three twice-reproduced hard-clearance reference hashes without changing W0F/G/H. At clean commit `e00999e`, two complete seven-scenario Linux runs attest all three references, pass every blocking rule and reproduce corpus root `d38d6bc8...e96835`; normalized reports match exactly after excluding only diagnostic wall-clock fields. Windows is outside current scope and not a promotion blocker unless a future ADR reintroduces it. W2 cycle 1 preserves every short-run root while removing duplicate neighbor discovery: reconstruction is `1.801×` and the whole sealed-48k step `1.375×` faster. Cycle 2 adds `64` stable logical partitions; clean serial/worker-`1/2/4/8` short roots and iterations match, while eight workers deliver `3.105×`, `372%` whole-command CPU and a `269.643 ms` mean. That remains `67.41×` above the `4 ms` target, so full trajectory/percentile credit is open and an explicit stop-versus-new-profile decision precedes more long runs or integration. Independent terrain closure remains Package 10T. Main-roadmap activation awaits explicit evidence merge/activation; promotion also requires exact current-target and exchange identity, one composition DAG/PhysX integration, scheduled epochs, worst-case admission, primary-session fault domain and successor combined budget. |
 | Nonlocal R63Y--R63ZP arithmetic research note | `REPORT_ONLY / TWOFOLD_AFFINE_IMAGE_CANDIDATE / BLOCK_OPERATOR_FROZEN / EXPORTED_FACTOR_CONSUMPTION_CANDIDATE / REVIEWED_RECURRENCE_LADDER_REJECTED / REVIEWED_OPERATOR_INPUT_FACTORIAL / REVIEWED_SINGLE_OPERATOR_SCHEDULE / REVIEWED_DENOMINATOR_STEP / REVIEWED_RAW_SIGN_ALIAS / REVIEWED_AFFINE_IMAGE_CENTER_RESIDUAL_SUFFICIENT / REVIEWED_COMMON_SOLUTION_OUTSIDE_VERIFIER_AFFINE_MODEL / CERTIFICATE_REPAIR_STOPPED / ORIGINAL_OPERATOR_TWOFOLD_RECURRENCE_AUTHOR_REJECTED / PRODUCT_PRECISION_LOCALIZATION_INCONCLUSIVE / R63ZK_INCONCLUSIVE / R63ZL_INCONCLUSIVE / R63ZM_REVIEWED_FIXED_BINARY_TRACE_BOUNDARY_CANDIDATE / R63ZN_INCONCLUSIVE / R63ZO_TIGHT_PRODUCT_ENCLOSURE_REJECTED / R63ZP_REV6_SINGLE_REPAIR_FROZEN`; no owner promotion | R63Y selects fixed twofold binary64 verification; R63Z/R63ZA close common-block products and exported-factor consumption. Reviewed R63ZB--R63ZF isolate the ladder loss through operator/input, schedule, denominator/step and unchanged raw signs. Reviewed R63ZG/R63ZH stop certificate repair. R63ZI contains all exact tangent-Gram coefficients/products but all K2 states reject, so dense width-two storage is author-rejected. R63ZJ, R63ZK and R63ZL remain `INCONCLUSIVE` after their review budgets. R63ZM revision 5 received independent `GO` only for the exact fixed-cache tangent boundary. R63ZN is `INCONCLUSIVE` after premature role-2 consumption and then overstated short-circuit checker work exhausted its review budget; it grants no prefix authority. R63ZO reproduces `102/102` compensated updates and contains the direct oracle, but its tight step interval is about `2^106.35` wider than the update-consistency cell because `|H|` amplifies update rounding; it closes before a checker package. R63ZP revision 5 received formal `NO-GO`; revision 6 freezes the sole repair at `6,176/1,176` bytes with body-before-oracle/event-6-before-`x1` staging, verified partial routes and named arithmetic/causal controls. Any further layout change closes R63ZP `INCONCLUSIVE`; no product is admitted before the one remaining re-review. Complete recurrence, certificates, representation-family generalization, dynamic builder, corpus, runtime stop, timing, GPU, Rust integration and production remain blocked and ProductChecks remain `NOT_RUN`. |
@@ -2186,8 +2192,8 @@ retroactively add release ceremony to R7.
 
 The selected post-v1 queue now contains exactly one active package:
 **R8b first learned locomotion (`ACTIVE_R&D /
-V3_STANDING_NOMINAL_GATE_PASS / R&D_ONLY_WALKING_AUTHORIZED /
-MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY`)**. Its durable
+V3_STANDING_NOMINAL_GATE_PASS / R&D_ONLY_WALKING_FAILED /
+NO_SECOND_BUDGET / MODEL_MIRROR_P1_FAILED / NO_RUNTIME_AUTHORITY`)**. Its durable
 resume surface is
 [r8b-first-learned-locomotion.md](development/task-state/r8b-first-learned-locomotion.md).
 The two exact seed-42 standing runs remain immutable numerical/pipeline
@@ -2207,10 +2213,12 @@ biomechanics V3/standing V2 with `45,405 um` clearance and a source-conserving
 carrier projection. Its fresh 1,024,000-sample run closes on clean commit
 `b6734160…`; the predeclared final checkpoint reaches one complete contact-
 correct GPU episode and five complete canonical CPU episodes with zero safety
-terminal and continuous two-sole CPU contact. Paired `MODEL-MIRROR-P1` fails;
-ADR-103 authorizes one distinct forward start/stop R&D run with a fresh
-optimizer and exact standing-weight initialization, followed by GPU and CPU
-evaluation. The ceiling remains `NO_AUTHORITY`. R8a fracture and embodiment
+terminal and continuous two-sole CPU contact. Paired `MODEL-MIRROR-P1` fails.
+The one ADR-103 run then completes, but the final policy travels only
+`0.084/3.944 m` on GPU and makes no forward progress on canonical CPU; the run
+is rejected and no second budget is authorized. The next bounded work is
+no-training reward/schedule discrimination plus mirror repair. The ceiling
+remains `NO_AUTHORITY`. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains
 immutable and outside this queue.
 
