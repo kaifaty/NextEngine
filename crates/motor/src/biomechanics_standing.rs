@@ -37,6 +37,8 @@ pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v5";
 pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6";
+pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7: &str =
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v7";
 pub const BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID: &str =
     "nextengine.motor.observation.humanoid-biomechanics-forward-start-stop.v1";
 pub const BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID: &str =
@@ -634,6 +636,32 @@ pub fn biomechanics_forward_start_stop_environment_manifest_v6()
     Ok(manifest)
 }
 
+pub fn biomechanics_forward_start_stop_environment_manifest_v7()
+-> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    let mut manifest = biomechanics_forward_start_stop_environment_manifest_v6()?;
+    manifest.environment_id = id(BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7);
+    let mut observation = manifest.observation_layout_hash.as_bytes().to_vec();
+    observation.extend_from_slice(b"append:left-right-box-min-world-Y-um;schema-offset-and-half-extents;identity-local-rotation;R-Q30-ties-even;projection-floor;v1");
+    manifest.observation_layout_hash = content_hash_from_bytes(sha256(&observation));
+    let mut reward = manifest.reward_profile_hash.as_bytes().to_vec();
+    reward.extend_from_slice(b"append:left-right-periodic-sole-height-error.v1;cycle=72;start=120;left=6:0,18:60000,30:0;right-offset=36;halves=12;quintic=10u^3-15u^4+6u^5;target-floor-um;each-cost=floor(min(abs(actual-target),60000)*65536/60000);stop=0;each-coefficient=-65536;action-phase-post-step-geometry");
+    manifest.reward_profile_hash = content_hash_from_bytes(sha256(&reward));
+    for component in crate::WALKING_LIFT_RETURN_REWARD_IDS {
+        manifest.reward_components.push(MotorRewardComponentV1 {
+            component_id: id(component),
+            coefficient_q16: -65_536,
+            minimum_raw: 0,
+            maximum_raw: 65_536,
+        });
+    }
+    manifest.correspondence_profile_hash = domain_hash(
+        "nextengine.motor.correspondence.biomechanics-forward-start-stop.v7-canonical-only",
+        manifest.body_schema_hash,
+    );
+    manifest.validate_for_protocol_v2()?;
+    Ok(manifest)
+}
+
 fn biomechanics_forward_start_stop_environment_manifest(
     schema: &next_contracts::body::BodySchemaV2,
     environment_profile_id: &str,
@@ -995,6 +1023,46 @@ pub fn biomechanics_forward_start_stop_canonical_descriptor_json_v6()
     descriptor["backend_admission"] = json!("canonical-cpu-only;Isaac-mirror-not-implemented");
     descriptor["observation_width"] = json!(86);
     descriptor["environment_profiles"] = json!([profile]);
+    let mut output = serde_json::to_string_pretty(&descriptor).expect("engine JSON");
+    output.push('\n');
+    Ok(output)
+}
+
+pub fn biomechanics_forward_start_stop_canonical_descriptor_json_v7()
+-> Result<String, MotorCompileError> {
+    let manifest = biomechanics_forward_start_stop_environment_manifest_v7()?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_forward_start_stop_canonical_descriptor_json_v6()?)
+            .expect("engine-generated descriptor");
+    let profile = &mut descriptor["environment_profiles"][0];
+    profile["profile_id"] = json!(manifest.environment_id.as_str());
+    profile["manifest_hash"] = json!(manifest.manifest_hash()?.to_hex());
+    profile["observation_layout_hash"] = json!(manifest.observation_layout_hash.to_hex());
+    profile["reward_profile_hash"] = json!(manifest.reward_profile_hash.to_hex());
+    profile["correspondence_profile_hash"] = json!(manifest.correspondence_profile_hash.to_hex());
+    profile["observation_layout_id"] =
+        json!("nextengine.motor.observation.humanoid-biomechanics-lift-return.v1");
+    profile["observation"]["channel_count"] = json!(88);
+    profile["observation"]["appended_sole_heights"] = json!({
+        "offset": 86, "width": 2, "order": ["left", "right"],
+        "units": "micrometres", "measurement": "native-box-minimum-world-Y",
+        "rounding": "Q30-rotation-ties-even;projected-height-floor",
+        "normalization_micrometres": 100_000,
+    });
+    profile["sole_height_cost"] = json!({
+        "version": 1, "peak_height_um": crate::WALKING_SWING_HEIGHT_MICROMETRES,
+        "left_phase_knots": [[6,0],[18,60000],[30,0]], "right_offset_ticks": 36,
+        "interpolation": "quintic-smoothstep-per-12-tick-half;floor-um",
+        "phase": "pre-action", "height": "post-step", "zero_command_cost": 0,
+        "normalization_um": 60_000, "per_foot_cost_cap_q16": 65_536,
+    });
+    profile["reward_components"] = json!(manifest.reward_components.iter().map(|value| json!({
+        "component_id": value.component_id.as_str(), "coefficient_q16": value.coefficient_q16,
+        "minimum_raw": value.minimum_raw, "maximum_raw": value.maximum_raw,
+    })).collect::<Vec<_>>());
+    descriptor["training_descriptor_id"] =
+        json!("nextengine.canonical.humanoid-biomechanics-forward-start-stop.v7");
+    descriptor["observation_width"] = json!(88);
     let mut output = serde_json::to_string_pretty(&descriptor).expect("engine JSON");
     output.push('\n');
     Ok(output)

@@ -25,13 +25,16 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
     position = [max(map(abs, joint["soft_limit_microradians"])) for joint in ordered]
     velocity = [joint["maximum_velocity_microradians_per_second"] for joint in ordered]
     clock_scales = []
-    if descriptor.get("observation_width") == 86:
+    if descriptor.get("observation_width") in (86, 88):
         profiles = descriptor["environment_profiles"]
+        version = 6 if descriptor["observation_width"] == 86 else 7
         if len(profiles) != 1 or not profiles[0]["profile_id"].endswith(
-            "forward-start-stop.v6"
+            f"forward-start-stop.v{version}"
         ):
-            raise ValueError("86-channel observations require walking V6")
+            raise ValueError(f"observation width requires walking V{version}")
         clock_scales = [1 << 30] * 2
+        if version == 7:
+            clock_scales += [100_000] * 2
     scales = np.asarray(
         [1 << 30] * 4
         + [2_000_000] * 6
@@ -83,12 +86,16 @@ class CanonicalVecEnv:
             item
             for item in descriptor["environment_profiles"]
             if item["profile_id"].endswith(
-                ("forward-start-stop.v5", "forward-start-stop.v6")
+                (
+                    "forward-start-stop.v5",
+                    "forward-start-stop.v6",
+                    "forward-start-stop.v7",
+                )
             )
         ]
         if len(matches) != 1:
             raise ValueError(
-                "descriptor must contain exactly one walking V5/V6 environment"
+                "descriptor must contain exactly one walking V5/V6/V7 environment"
             )
         expected = matches[0]
         self.max_episode_length = expected["maximum_episode_steps"]

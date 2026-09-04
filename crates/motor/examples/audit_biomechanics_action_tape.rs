@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_motor::{
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
+        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
         BiomechanicsStandingVectorRunner, VectorPolicyStepInput,
     };
     use serde_json::json;
@@ -34,8 +35,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         profile,
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
     ) {
-        return Err("only canonical V5/V6 tapes are supported".into());
+        return Err("only canonical V5/V6/V7 tapes are supported".into());
     }
     let retain_frames = match input.get("retain_frames") {
         None => false,
@@ -97,6 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "tick": step.frame.motor_tick,
                     "command_raw": step.command_raw,
                     "contact_flags": step.frame.contact_flags,
+                    "observation_raw": step.frame.observation_raw,
                     "reward_components_q16": step.reward_components_raw.iter().map(|(_, value)| value).collect::<Vec<_>>(),
                     "links": step.frame.snapshot.links.iter().map(|link| json!({
                         "body_token": link.user_token,

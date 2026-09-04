@@ -49,6 +49,9 @@ BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5 = (
 BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6 = (
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6"
 )
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V7 = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v7"
+)
 
 
 class MotorLabProtocolError(RuntimeError):
@@ -143,7 +146,11 @@ class MotorLabClient:
         self._request_id = 0
         self._closed = False
         try:
-            payload = _pack_text(profile_id) + struct.pack("<I", slots) + _hash_bytes(run_root)
+            payload = (
+                _pack_text(profile_id)
+                + struct.pack("<I", slots)
+                + _hash_bytes(run_root)
+            )
             self.descriptor = self._parse_descriptor(self._request(OP_CREATE, payload))
         except BaseException:
             self._terminate()
@@ -161,7 +168,9 @@ class MotorLabClient:
                 ResetResult(
                     episode_ordinal=reader.u64(),
                     vector_slot=reader.u32(),
-                    observation_raw=reader.i64_vector(self.descriptor.observation_width),
+                    observation_raw=reader.i64_vector(
+                        self.descriptor.observation_width
+                    ),
                     seed_set_hash=reader.take(32),
                     reset_root=reader.take(32),
                 )
@@ -177,7 +186,9 @@ class MotorLabClient:
         episodes = np.asarray(episode_ordinals)
         actions = np.asarray(actions_raw)
         if episodes.dtype.kind not in "iu" or actions.dtype.kind not in "iu":
-            raise TypeError("raw motor-lab step accepts integer episode/action arrays only")
+            raise TypeError(
+                "raw motor-lab step accepts integer episode/action arrays only"
+            )
         if episodes.shape != (self.descriptor.slots,):
             raise ValueError("episode_ordinals must have shape [slots]")
         if actions.shape != (self.descriptor.slots, self.descriptor.action_width):
@@ -185,7 +196,9 @@ class MotorLabClient:
         actions = actions.astype("<i8", copy=False)
         payload = bytearray(struct.pack("<I", self.descriptor.slots))
         for slot in range(self.descriptor.slots):
-            payload.extend(struct.pack("<IQI", slot, int(episodes[slot]), actions.shape[1]))
+            payload.extend(
+                struct.pack("<IQI", slot, int(episodes[slot]), actions.shape[1])
+            )
             payload.extend(actions[slot].tobytes(order="C"))
         return self._parse_steps(self._request(OP_STEP, bytes(payload)))
 
@@ -208,13 +221,16 @@ class MotorLabClient:
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6,
+                    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V7,
                 },
             ),
         )
 
     def checkpoint(self, vector_slot: int, episode_ordinal: int) -> bytes:
         reader = _Reader(
-            self._request(OP_CHECKPOINT, struct.pack("<IQ", vector_slot, episode_ordinal))
+            self._request(
+                OP_CHECKPOINT, struct.pack("<IQ", vector_slot, episode_ordinal)
+            )
         )
         envelope = reader.bytes(5 * 1024 * 1024)
         reader.finish()
@@ -254,7 +270,9 @@ class MotorLabClient:
             self._process.wait(timeout=10)
             if self._process.returncode != 0:
                 stderr = self._process.stderr.read().decode("utf-8", errors="replace")
-                raise RuntimeError(f"motor-lab exited with {self._process.returncode}: {stderr}")
+                raise RuntimeError(
+                    f"motor-lab exited with {self._process.returncode}: {stderr}"
+                )
 
     def __enter__(self) -> Self:
         return self
@@ -268,7 +286,9 @@ class MotorLabClient:
         self._request_id += 1
         request_id = self._request_id
         self._process.stdin.write(
-            REQUEST_HEADER.pack(MAGIC, PROTOCOL_VERSION, opcode, len(payload), request_id)
+            REQUEST_HEADER.pack(
+                MAGIC, PROTOCOL_VERSION, opcode, len(payload), request_id
+            )
         )
         self._process.stdin.write(payload)
         self._process.stdin.flush()
@@ -299,7 +319,9 @@ class MotorLabClient:
         observation_width = reader.u32()
         action_width = reader.u32()
         reward_components = tuple(
-            RewardComponent(reader.text(4_096), reader.i64(), reader.i64(), reader.i64())
+            RewardComponent(
+                reader.text(4_096), reader.i64(), reader.i64(), reader.i64()
+            )
             for _ in range(reader.length(128))
         )
         reader.finish()
@@ -408,7 +430,9 @@ def _hash_bytes(value: bytes | str) -> bytes:
         try:
             decoded = bytes.fromhex(value)
         except ValueError as error:
-            raise ValueError("run_root must be 32 bytes or lowercase sha256 hex") from error
+            raise ValueError(
+                "run_root must be 32 bytes or lowercase sha256 hex"
+            ) from error
         if value != value.lower():
             raise ValueError("run_root hex must be lowercase")
         value = decoded
@@ -446,7 +470,7 @@ class _Reader:
         end = self._offset + length
         if length < 0 or end > len(self._payload):
             raise MotorLabProtocolError("MOTOR_LAB_RESPONSE_TRUNCATED")
-        value = self._payload[self._offset:end].tobytes()
+        value = self._payload[self._offset : end].tobytes()
         self._offset = end
         return value
 

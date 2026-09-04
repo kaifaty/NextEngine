@@ -254,6 +254,26 @@ def evaluate(policy, headless, descriptor, profile, output):
     }
 
 
+def diagnostic_evaluation(policy, headless, descriptor, profile, output, iteration):
+    """Report-only evaluation cannot leave normalization in evaluation mode."""
+    milestone = output / f"diagnostic-{iteration}"
+    milestone.mkdir(exist_ok=False)
+    was_training = policy.training
+    try:
+        result = evaluate(policy, headless, descriptor, profile, milestone)
+        atomic_write_json(milestone / "evaluation.json", result)
+    finally:
+        policy.train(was_training)
+
+
+def artifact_hashes(output):
+    return {
+        str(path.relative_to(output)): sha256_file(path)
+        for path in sorted(output.rglob("*"))
+        if path.is_file() and path != output / "run-manifest.json"
+    }
+
+
 def train(headless, descriptor, profile, output):
     random.seed(profile["seed"])
     np.random.seed(profile["seed"])
@@ -289,6 +309,8 @@ def train(headless, descriptor, profile, output):
             moving_samples = 0
             single_support_samples = np.zeros(2, dtype=np.int64)
             moving_step_credit = 0
+            moving_height_cost = 0
+            moving_clearance_samples = np.zeros(2, dtype=np.int64)
             with torch.inference_mode():
                 for _ in range(profile["steps_per_env"]):
                     actions = algorithm.act(obs)
@@ -298,6 +320,13 @@ def train(headless, descriptor, profile, output):
                         if np.any(result.command_raw):
                             moving_samples += 1
                             moving_step_credit += int(result.reward_components_raw[9])
+                            if len(result.reward_components_raw) == 13:
+                                moving_height_cost += sum(
+                                    map(int, result.reward_components_raw[11:])
+                                )
+                                moving_clearance_samples += (
+                                    np.asarray(result.observation_raw[86:88]) > 30_000
+                                )
                             if int(np.count_nonzero(result.contact_flags)) == 1:
                                 single_support_samples += result.contact_flags
                     totals += reward.cpu().numpy()
@@ -332,6 +361,13 @@ def train(headless, descriptor, profile, output):
                 "moving_step_credit_mean": moving_step_credit / (65536 * moving_samples)
                 if moving_samples
                 else None,
+                "moving_sole_height_cost_mean": moving_height_cost
+                / (65536 * moving_samples)
+                if moving_samples and env.raw.shape[1] == 88
+                else None,
+                "moving_sole_clearance_above_30mm_samples_report_only": moving_clearance_samples.tolist()
+                if env.raw.shape[1] == 88
+                else None,
                 "collection_seconds": collect_end - tick_start,
                 "learning_seconds": time.monotonic() - collect_end,
                 "steps_per_second": env.num_envs
@@ -353,6 +389,12 @@ def train(headless, descriptor, profile, output):
                         "infos": {"resume_supported": False},
                     },
                     checkpoint,
+                )
+            if iteration in profile.get("diagnostic_evaluation_iterations", []):
+                # Predeclared report-only milestones. Never select weights or
+                # stop early based on these; restore policy training mode.
+                diagnostic_evaluation(
+                    policy, headless, descriptor, profile, output, iteration
                 )
         evaluation = evaluate(policy, headless, descriptor, profile, output)
         atomic_write_json(output / "evaluation.json", evaluation)
@@ -379,6 +421,7 @@ def main():
     if profile_path not in (
         PROFILE,
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v2.json",
+        ROOT / "lab/profiles/canonical-rsl-rl-walking.v3.json",
     ):
         raise ValueError("only repository-admitted canonical profiles are supported")
     profile = json.loads(profile_path.read_text())
@@ -448,11 +491,14 @@ def main():
         "dependencies": versions,
         "run_root": seed_root(profile["seed"]),
         "input_checkpoint": None,
-        "generation_id": "r8b-canonical-walking-v2"
-        if profile_path != PROFILE
-        else "r8b-canonical-walking-v1",
+        "generation_id": "r8b-canonical-walking-v"
+        + profile["profile_id"].rsplit(".v", 1)[1],
         "run_id": output.name,
-        "authority": ("ADR-108" if profile_path != PROFILE else "ADR-107")
+        "authority": {
+            "nextengine.canonical-rsl-rl.walking.v1": "ADR-107",
+            "nextengine.canonical-rsl-rl.walking.v2": "ADR-108",
+            "nextengine.canonical-rsl-rl.walking.v3": "ADR-109",
+        }[profile["profile_id"]]
         + " bounded R&D; no mirror or runtime promotion; no resume",
     }
     if generation is not None:
@@ -490,11 +536,7 @@ def main():
         manifest["error"] = f"{type(error).__name__}: {error}"
         raise
     finally:
-        manifest["artifacts"] = {
-            path.name: sha256_file(path)
-            for path in sorted(output.iterdir())
-            if path.is_file() and path.name != "run-manifest.json"
-        }
+        manifest["artifacts"] = artifact_hashes(output)
         manifest["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         atomic_write_json(output / "run-manifest.json", manifest)
 

@@ -41,6 +41,7 @@ mod terminal_v2;
 #[cfg(test)]
 mod terminal_v2_tests;
 mod training;
+mod walking_lift_return;
 
 pub use biomechanics::{
     BIOMECHANICS_HUMANOID_BODY_COUNT, BIOMECHANICS_HUMANOID_COLLIDER_COUNT,
@@ -68,6 +69,7 @@ pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
     BIOMECHANICS_FORWARD_START_STOP_FINAL_ZERO_TICKS_V2,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID,
@@ -86,6 +88,7 @@ pub use biomechanics_standing::{
     BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS, BiomechanicsForwardStartStopRewardFactsV1,
     BiomechanicsStandingRewardFactsV1,
     biomechanics_forward_start_stop_canonical_descriptor_json_v6,
+    biomechanics_forward_start_stop_canonical_descriptor_json_v7,
     biomechanics_forward_start_stop_command_schedule_v2,
     biomechanics_forward_start_stop_environment_manifest_v1,
     biomechanics_forward_start_stop_environment_manifest_v2,
@@ -93,6 +96,7 @@ pub use biomechanics_standing::{
     biomechanics_forward_start_stop_environment_manifest_v4,
     biomechanics_forward_start_stop_environment_manifest_v5,
     biomechanics_forward_start_stop_environment_manifest_v6,
+    biomechanics_forward_start_stop_environment_manifest_v7,
     biomechanics_forward_start_stop_isaac_descriptor_json_v1,
     biomechanics_forward_start_stop_isaac_descriptor_json_v2,
     biomechanics_forward_start_stop_isaac_descriptor_json_v3,
@@ -215,4 +219,8 @@ pub use training::{
     derive_curriculum_locomotion_episode_seed_set, derive_episode_seed_set,
     derive_locomotion_episode_seed_set, flat_locomotion_command_profile_v1,
     flat_locomotion_command_schedule,
+};
+pub use walking_lift_return::{
+    WALKING_LIFT_RETURN_REWARD_IDS, WALKING_SWING_HEIGHT_MICROMETRES, walking_box_minimum_y_um,
+    walking_sole_height_cost_q16, walking_sole_height_costs_q16, walking_sole_height_targets_um,
 };

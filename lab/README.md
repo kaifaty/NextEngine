@@ -425,3 +425,13 @@ accepts `--run`, `--evaluation-trace`, `--reachability-trace` and a fresh extern
 phase-height cost against safe V5 single-lift controls and explicit synthetic
 counterfactuals. It never changes a training profile or launches an optimizer.
 See [the exact experiment](../docs/development/r8b-lift-return-discriminator-2026-09-05.md).
+
+V7 integrates the tested phase-height cost in canonical native physics with
+88 observations and two additional bounded reward components. The
+`canonical-rsl-rl-walking.v3.json` recipe uses the same `check-adapter`, `freeze`
+and `train` entry points, with an explicit `--profile` path. It admits one
+40.96M-transition run, report-only evaluations at 999/3999 and final model
+9999; nested diagnostic artifacts are hash-closed, not checkpoint selection.
+`python -m lab.scripts.verify_walking_lift_return` compares immutable native
+tapes and independent geometric/cost measurements before optimization. See
+[native integration evidence](../docs/development/r8b-native-lift-return-2026-09-05.md).

@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-107](107-canonical-cpu-walking-learner.md) |
 | Supersedes | ADR-107's one-run optimizer restriction for the one diagnosed V6 successor; no frozen V5 semantics, safety or promotion gate |
-| Superseded by | none |
+| Superseded by | [ADR-109](109-observable-sole-lift-and-return.md), only the run restriction for the diagnosed V7 successor |
 
 ## Evidence and scope
 

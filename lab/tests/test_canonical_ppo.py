@@ -110,6 +110,66 @@ class FakeClient:
 
 
 class CanonicalAdapterTests(unittest.TestCase):
+    def test_lift_return_height_scales_preserve_periodic_channels(self):
+        old = descriptor()
+        old["observation_width"] = 86
+        old["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v6"
+        new = descriptor()
+        new["observation_width"] = 88
+        new["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v7"
+        np.testing.assert_array_equal(
+            observation_scales(old), observation_scales(new)[:86]
+        )
+        np.testing.assert_array_equal(observation_scales(new)[86:], [100_000] * 2)
+        new["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v6"
+        with self.assertRaisesRegex(ValueError, "V7"):
+            observation_scales(new)
+
+    def test_lift_return_heights_survive_terminal_observation_before_reset(self):
+        class LiftClient(FakeClient):
+            def __init__(self, *args):
+                super().__init__(*args)
+                self.descriptor.observation_width = 88
+
+            def reset(self, slots):
+                results = super().reset(slots)
+                for result in results:
+                    result.observation_raw = np.concatenate(
+                        (result.observation_raw, [0, 0, 0, 0])
+                    )
+                return results
+
+            def step(self, ordinals, actions):
+                results = super().step(ordinals, actions)
+                for result in results:
+                    result.observation_raw = np.concatenate(
+                        (result.observation_raw, [0, 0, 60_000, -10])
+                    )
+                return results
+
+        data = descriptor()
+        data["observation_width"] = 88
+        data["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v7"
+        env = CanonicalVecEnv(
+            Path("unused"),
+            data,
+            num_envs=2,
+            shards=1,
+            run_root="00" * 32,
+            device="cpu",
+            client_factory=LiftClient,
+        )
+        try:
+            obs, _, _, extras = env.step(torch.zeros(2, 23))
+            np.testing.assert_array_equal(obs["policy"][:, 86:], np.zeros((2, 2)))
+            np.testing.assert_allclose(
+                extras["terminal_observation"]["policy"][:, 86:],
+                [[0.6, -0.0001], [0.6, -0.0001]],
+            )
+            self.assertEqual(extras["time_outs"].tolist(), [False, True])
+        finally:
+            env.close()
+
     def test_periodic_clock_scales_preserve_all_legacy_channels(self):
         old = descriptor()
         new = descriptor()

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V6_WALKING_FAILED / SOLE_DIAGNOSTICS_AND_METHOD_RESEARCH_CLOSED / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / V7_NATIVE_CONTROLS_PASS / PREPARING_FROZEN_RUN / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -21,13 +21,14 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Implement native V7 lift-and-return cost plus two observed
-  sole heights. The report-only discriminator now passes actual-geometry and
-  synthetic phase controls; integrate with unchanged V6 load credit, then test
-  native physics/safety parity before freezing any new run. No unchanged retry.
+- **Next action:** Close final checks and freeze V7 generation-01, then its
+  sole TRAIN-1. ADR-109 admits 40.96M transitions with diagnostic updates
+  999/3999 and final model 9999. Native paired states and costs already pass;
+  this is not walking quality. Do not restart V6 or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
   All final episodes end on contact impact at 382, after only 0.092032 m,
-  without single support. No optimizer is running; no V7 is admitted.
+  without single support. No optimizer is running yet. V7 implementation has
+  88 observations, 13 reward components and unchanged physics/actions/safety.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
@@ -55,6 +56,8 @@
    and [step-credit investigation](../r8b-walking-step-credit-2026-09-05.md).
 7. [Closed V6, sole support and training-method research](../r8b-sole-support-and-training-method-research-2026-09-05.md).
 8. [Executable lift/return discriminator](../r8b-lift-return-discriminator-2026-09-05.md).
+9. [ADR-109](../../architecture/adr/109-observable-sole-lift-and-return.md) and
+   [native integration evidence](../r8b-native-lift-return-2026-09-05.md).
 
 ## Current evidence
 
@@ -170,8 +173,9 @@ D-019 contain the current experiment outcome and next action.
   passes: V6 cost 0.320730 is nearly grounded 0.321152; native left/right lifts
   improve peak-height cost on 41/18 frames; wrong side and persistent lift lose
   synthetic full-cycle comparisons. This is geometric discrimination, not safe
-  return or gait. Integrate native integer geometry/cost plus observed heights,
-  preserving all V6 dynamics/safety, before a separately frozen lesson/budget.
+  return or gait. Native V7 now passes 697 paired physical frames and exact
+  independent cost checks (geometry difference <1 um), plus 5,120 adapter
+  transitions/399 resets. See the integration report for exact identities.
 
 ## Retained safety and mirror hypotheses
 
@@ -222,8 +226,8 @@ has now failed walking quality; do not repeat it or alter safety to hide that.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining implementation: a coordinated lift-and-return lesson, separately
-  identified step-geometry credit, then another admitted learned evaluation.
+- Remaining: finish V7 run preflight and execute its admitted learned evaluation;
+  the lift-and-return environment and geometric observations are implemented.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
 - Generation-02 completed but failed walking quality. Full Linux host-check
