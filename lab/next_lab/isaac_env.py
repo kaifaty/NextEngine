@@ -383,9 +383,10 @@ def validate_biomechanics_training_descriptor(descriptor: dict[str, Any]) -> Non
     training_descriptor_id = descriptor.get("training_descriptor_id")
     if training_descriptor_id == "nextengine.isaac.humanoid-biomechanics-standing.v2":
         validate_biomechanics_standing_descriptor(descriptor)
-    elif training_descriptor_id == (
-        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
-    ):
+    elif training_descriptor_id in {
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
+    }:
         validate_biomechanics_forward_start_stop_descriptor(descriptor)
     else:
         raise ValueError("unsupported biomechanics training descriptor")

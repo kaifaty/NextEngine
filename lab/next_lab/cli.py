@@ -328,9 +328,10 @@ def main() -> int:
         descriptor_bytes = arguments.descriptor.read_bytes()
         descriptor = json.loads(descriptor_bytes)
         if "training_descriptor_id" in descriptor:
-            if descriptor.get("training_descriptor_id") == (
-                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1"
-            ):
+            if descriptor.get("training_descriptor_id") in {
+                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
+                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
+            }:
                 validate_biomechanics_forward_start_stop_descriptor(descriptor)
             else:
                 validate_biomechanics_standing_descriptor(descriptor)
