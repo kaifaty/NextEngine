@@ -8,10 +8,16 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from next_lab.browser_policy_viewer import BrowserPolicyViewer
+from next_lab.browser_policy_viewer import VIEWER_HTML, BrowserPolicyViewer
 
 
 class BrowserPolicyViewerTests(unittest.TestCase):
+    def test_viewer_uses_physical_shapes_and_body_orientations(self) -> None:
+        self.assertIn(b"BoxGeometry", VIEWER_HTML)
+        self.assertIn(b"CylinderGeometry", VIEWER_HTML)
+        self.assertIn(b"SphereGeometry", VIEWER_HTML)
+        self.assertIn(b"body_quaternions_xyzw", VIEWER_HTML)
+
     def test_local_server_exposes_config_module_and_latest_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             assets = Path(temporary)

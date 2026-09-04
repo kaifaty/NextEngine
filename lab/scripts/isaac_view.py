@@ -129,6 +129,7 @@ def main() -> None:
         from next_lab.isaac_env import (
             NextEngineHumanoidDirectEnv,
             NextEngineHumanoidDirectEnvCfg,
+            engine_quaternion_xyzw_from_isaac_wxyz_tensor,
             isaac_prim_name,
         )
         from next_lab.isaac_rl import GuardedOnPolicyRunner, build_agent_cfg
@@ -164,17 +165,25 @@ def main() -> None:
 
         if browser_assets is not None:
             browser_viewer = BrowserPolicyViewer(browser_assets)
+            configuration = browser_configuration(
+                environment,
+                active_checkpoint,
+                checkpoint_history,
+                isaac_prim_name,
+            )
             url = browser_viewer.start(
-                browser_configuration(
-                    environment,
-                    active_checkpoint,
-                    checkpoint_history,
-                    isaac_prim_name,
-                ),
+                configuration,
                 open_browser=not args.no_open_browser,
             )
             browser_viewer.publish(
-                policy_state(environment, 0.0, 0, False, active_checkpoint.name)
+                policy_state(
+                    environment,
+                    0.0,
+                    0,
+                    False,
+                    active_checkpoint.name,
+                    engine_quaternion_xyzw_from_isaac_wxyz_tensor,
+                )
             )
             print(f"3D browser viewer is running at {url}", flush=True)
             print("Close this terminal or press Ctrl+C to stop.", flush=True)
@@ -205,6 +214,7 @@ def main() -> None:
                                 step,
                                 False,
                                 active_checkpoint.name,
+                                engine_quaternion_xyzw_from_isaac_wxyz_tensor,
                             )
                         )
                         print(
@@ -231,6 +241,7 @@ def main() -> None:
                     step,
                     done,
                     active_checkpoint.name,
+                    engine_quaternion_xyzw_from_isaac_wxyz_tensor,
                 )
                 if browser_viewer is not None:
                     browser_viewer.publish(state)
@@ -282,7 +293,15 @@ def browser_configuration(
         body = descriptor_bodies.get(name)
         if body is None:
             raise RuntimeError(f"viewer cannot map Isaac body to descriptor: {name}")
-        parent_id = body["parent_body_id"]
+        if "parent_body_slot" in body:
+            parent_slot = body["parent_body_slot"]
+            parent_id = (
+                None
+                if parent_slot is None
+                else environment.descriptor["bodies"][int(parent_slot)]["body_id"]
+            )
+        else:
+            parent_id = body.get("parent_body_id")
         if parent_id is None:
             parent_index = -1
             root_indices.append(index)
@@ -291,23 +310,57 @@ def browser_configuration(
             if parent_name not in indices:
                 raise RuntimeError(f"viewer cannot map descriptor parent body: {parent_id}")
             parent_index = indices[parent_name]
-        radii = [
-            collider["geometry"]["radius_micrometres"] / 1_000_000.0
-            for collider in body["colliders"]
-            if collider["geometry"]["kind"] == "sphere"
-        ]
-        if not radii:
-            raise RuntimeError(f"viewer body has no supported sphere collider: {body['body_id']}")
         body_id = body["body_id"]
         color = "#60a5fa" if ".left-" in body_id else "#f472b6"
         if ".right-" not in body_id and ".left-" not in body_id:
             color = "#fbbf24"
+        colliders = []
+        for collider in body["colliders"]:
+            geometry = collider["geometry"]
+            kind = geometry["kind"]
+            if kind == "sphere":
+                shape = {
+                    "kind": kind,
+                    "radius_m": geometry["radius_micrometres"] / 1_000_000.0,
+                }
+            elif kind == "box":
+                shape = {
+                    "kind": kind,
+                    "half_extents_m": [
+                        value / 1_000_000.0
+                        for value in geometry["half_extents_micrometres"]
+                    ],
+                }
+            elif kind == "capsule":
+                shape = {
+                    "kind": kind,
+                    "radius_m": geometry["radius_micrometres"] / 1_000_000.0,
+                    "half_segment_m": geometry["half_segment_micrometres"]
+                    / 1_000_000.0,
+                }
+            else:
+                raise RuntimeError(
+                    f"viewer body has unsupported collider geometry: {kind}"
+                )
+            colliders.append(
+                {
+                    "color": "#22d3ee" if collider["contact_role"] == 8 else color,
+                    "geometry": shape,
+                    "local_position_m": [
+                        value / 1_000_000.0
+                        for value in collider["local_translation_micrometres"]
+                    ],
+                    "local_quaternion_xyzw": [
+                        value / float(1 << 30)
+                        for value in collider["local_rotation_q1_30"]
+                    ],
+                }
+            )
         bodies.append(
             {
                 "body_id": body_id,
-                "color": color,
+                "colliders": colliders,
                 "parent_index": parent_index,
-                "radius_m": max(radii),
             }
         )
     if len(root_indices) != 1:
@@ -332,11 +385,12 @@ def policy_state(
     step: int,
     done: bool,
     checkpoint_name: str,
+    quaternion_mapper: Any | None = None,
 ) -> dict[str, Any]:
     command = environment._current_command()[0].detach().cpu().tolist()
     right, forward, yaw = (value / 1_000_000.0 for value in command)
     height = float(environment.robot.data.root_pos_w[0, 2].item())
-    return {
+    state = {
         "body_positions_w": environment.robot.data.body_pos_w[0].detach().cpu().tolist(),
         "checkpoint": checkpoint_name,
         "command": {
@@ -351,6 +405,14 @@ def policy_state(
         "root_height_m": height,
         "viewer_step": step,
     }
+    if quaternion_mapper is not None:
+        state["body_quaternions_xyzw"] = (
+            quaternion_mapper(environment.robot.data.body_quat_w[0])
+            .detach()
+            .cpu()
+            .tolist()
+        )
+    return state
 
 
 def print_status(state: dict[str, Any]) -> None:

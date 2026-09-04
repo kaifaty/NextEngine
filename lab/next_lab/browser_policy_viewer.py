@@ -116,14 +116,55 @@ VIEWER_HTML = b"""<!doctype html>
     grid.position.y = .002;
     scene.add(grid);
 
+    function physicalShape(collider) {
+      const geometry = collider.geometry;
+      const material = new THREE.MeshStandardMaterial({
+        color: collider.color, roughness: .55, metalness: .08
+      });
+      const root = new THREE.Group();
+      if (geometry.kind === 'sphere') {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(geometry.radius_m, 22, 15), material
+        );
+        mesh.castShadow = true;
+        root.add(mesh);
+      } else if (geometry.kind === 'box') {
+        const half = geometry.half_extents_m;
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(2 * half[0], 2 * half[1], 2 * half[2]), material
+        );
+        mesh.castShadow = true;
+        root.add(mesh);
+      } else if (geometry.kind === 'capsule') {
+        const shape = new THREE.Group();
+        const length = 2 * geometry.half_segment_m;
+        const middle = new THREE.Mesh(
+          new THREE.CylinderGeometry(geometry.radius_m, geometry.radius_m, length, 18),
+          material
+        );
+        const capGeometry = new THREE.SphereGeometry(geometry.radius_m, 18, 12);
+        const positive = new THREE.Mesh(capGeometry, material);
+        const negative = new THREE.Mesh(capGeometry, material);
+        positive.position.y = geometry.half_segment_m;
+        negative.position.y = -geometry.half_segment_m;
+        [middle, positive, negative].forEach(mesh => mesh.castShadow = true);
+        shape.add(middle, positive, negative);
+        shape.rotation.z = -Math.PI / 2;
+        root.add(shape);
+      } else {
+        throw new Error(`unsupported collider geometry: ${geometry.kind}`);
+      }
+      const position = collider.local_position_m;
+      const rotation = collider.local_quaternion_xyzw;
+      root.position.set(position[0], position[1], position[2]);
+      root.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
+      return root;
+    }
     const bodyMeshes = config.bodies.map(body => {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(body.radius_m, 18, 12),
-        new THREE.MeshStandardMaterial({color: body.color, roughness: .55, metalness: .08})
-      );
-      mesh.castShadow = true;
-      scene.add(mesh);
-      return mesh;
+      const group = new THREE.Group();
+      body.colliders.forEach(collider => group.add(physicalShape(collider)));
+      scene.add(group);
+      return group;
     });
     const linkGeometry = new THREE.CylinderGeometry(.027, .027, 1, 10);
     const linkMaterial = new THREE.MeshStandardMaterial({color: 0x9fb7d4, roughness: .65});
@@ -166,10 +207,14 @@ VIEWER_HTML = b"""<!doctype html>
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
     }
     function applyState(state) {
-      if (!state.body_positions_w) return;
+      if (!state.body_positions_w || !state.body_quaternions_xyzw) return;
       const positions = state.body_positions_w.map(point);
       positions.forEach((position, index) => {
         bodyMeshes[index].position.copy(position);
+        const rotation = state.body_quaternions_xyzw[index];
+        bodyMeshes[index].quaternion.set(
+          rotation[0], rotation[1], rotation[2], rotation[3]
+        );
         const parent = config.bodies[index].parent_index;
         if (parent >= 0) updateLink(links[index], positions[parent], position);
       });
