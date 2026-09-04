@@ -9,6 +9,7 @@
   "fluid_suite": "fluid_surface",
   "water_suite": "water_surface",
   "water_scene_suite": "water_scene",
+  "water_under_suite": "water_under",
   "reflection_suite": "b0_reflect",
   "gbuffer_suite": "gbuffer",
   "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
@@ -354,9 +355,16 @@
     {
       "stage": "fragment",
       "source": "water_scene.frag",
-      "source_sha256": "79576126fd6296ac948a4fef3c4f713d130b89c6bbaf3b17ee6ba16fc80493bb",
+      "source_sha256": "ab3fe06cbb01a1dd06d496e948837af3ec731a994b8bae1b118f14978f8e20a9",
       "module": "water_scene.frag.spv",
-      "module_sha256": "de91969c2865e1eb7c35658a9a7c9fc3c0dc64e89745c48964ec23dfbb1aabcf"
+      "module_sha256": "1250ae8b199fff010f3615318ce0447f8ef123a6f42d6dfdc59124e8f291c8cc"
+    },
+    {
+      "stage": "fragment",
+      "source": "water_under.frag",
+      "source_sha256": "161032724218742e0e9c402eb27963910b03c800504938ffa403ce47c07048be",
+      "module": "water_under.frag.spv",
+      "module_sha256": "10c19729fe04b791be6dc63c42b09cd6d98c669509e3450c7370db65cf6fe5a3"
     },
     {
       "stage": "fragment",

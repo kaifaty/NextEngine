@@ -205,6 +205,8 @@ pub(super) struct SubmittedB0Frame {
     pub(super) particle_surface_uploads: u64,
     pub(super) particle_surface_upload_bytes: u64,
     pub(super) particle_surface_recorded: bool,
+    /// Plan 33: the eye was under a water ring's level this frame.
+    pub(super) submerged: bool,
 }
 
 impl GraphicsContext {
@@ -696,7 +698,16 @@ impl GraphicsContext {
                 stencil: 0,
             },
         };
-        let particle_pass_this_frame = self.fluid.is_some() && particle_uploads.particle_count > 0;
+        // Plan 33: the eye under a ring's level; the droplet layer belongs
+        // to the air side and is skipped while submerged.
+        let submerged_level = if self.water.is_some() {
+            b0_content.water_submersion_level_metres(frame_plan, frame_slot_index)?
+        } else {
+            None
+        };
+        let particle_pass_this_frame = self.fluid.is_some()
+            && particle_uploads.particle_count > 0
+            && submerged_level.is_none();
         // Plan 13: the water pass draws the water rings after the opaque
         // scene when the pass exists and the plan has a camera.
         let water_pass_this_frame = self.water.is_some() && frame_plan.camera.is_some();
@@ -820,6 +831,7 @@ impl GraphicsContext {
                 depth.view(),
                 rendered_frame_index,
                 jitter,
+                submerged_level,
             )?;
             // SAFETY: the opaque world rendering instance ends before the
             // pass copies the swapchain colour and samples the scene depth.
@@ -847,6 +859,15 @@ impl GraphicsContext {
             unsafe {
                 self.device
                     .cmd_begin_rendering(frame_slot.command_buffer, &water_info);
+            }
+            if submerged_level.is_some() {
+                b0_content.record_water_under(
+                    frame_slot.command_buffer,
+                    frame_slot_index,
+                    water,
+                    viewport,
+                    scissor,
+                )?;
             }
             dynamic_surface_draws = dynamic_surface_draws
                 .checked_add(b0_content.record_water_surfaces(
@@ -1207,6 +1228,7 @@ impl GraphicsContext {
             particle_surface_uploads: particle_uploads.uploads,
             particle_surface_upload_bytes: particle_uploads.bytes,
             particle_surface_recorded,
+            submerged: submerged_level.is_some(),
         };
         self.swapchain
             .as_mut()

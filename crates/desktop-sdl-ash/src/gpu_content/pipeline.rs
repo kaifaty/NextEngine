@@ -1204,7 +1204,7 @@ fn write_f32_values<const N: usize>(destination: &mut [u8], values: [f32; N]) {
     }
 }
 
-fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentError> {
+pub(super) fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentError> {
     let metres = micrometres_to_metres(values);
     let mut converted = [0.0_f32; 3];
     for (target, value) in converted.iter_mut().zip(metres) {

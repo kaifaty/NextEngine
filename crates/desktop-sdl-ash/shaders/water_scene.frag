@@ -30,6 +30,7 @@ layout(set = 3, binding = 2, std140) uniform WaterUniforms {
     vec4 viewport;      // width, height, 1/width, 1/height
     vec4 absorption;    // per-metre rgb, refraction strength
     vec4 shore;         // foam width (m), fade width (m), foam grey, run seconds
+    vec4 under;         // plan 33: level (m), submerged (0/1), unused, unused
 } water;
 
 layout(push_constant, std430) uniform DrawPushConstants {
@@ -46,6 +47,11 @@ const float DETAIL_NORMAL_OFFSET = 0.03;
 const float REFLECTION_DISTORTION = 0.02;
 const float CAUSTIC_STRENGTH = 1.0;
 const float CAUSTIC_ABSORPTION_PER_METRE = 1.0;
+// Plan 33: the surface seen from below.
+const float WATER_INDEX = 1.333;
+const vec3 WATER_UNDER_INSCATTER = vec3(0.05, 0.18, 0.28);
+const vec3 WATER_UNDER_MIRROR = vec3(0.10, 0.28, 0.40);
+const vec3 WATER_UNDER_ABSORPTION_PER_METRE = vec3(0.45, 0.12, 0.06);
 
 vec3 scene_world_position(vec2 uv, float depth) {
     vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
@@ -81,6 +87,35 @@ void main() {
     vec3 view = normalize(frame.camera_world_position.xyz - in_world_position);
     float cos_theta = clamp(dot(normal, view), 0.0, 1.0);
     float fresnel = WATER_F0 + (1.0 - WATER_F0) * pow(1.0 - cos_theta, 5.0);
+
+    // Plan 33: a submerged eye sees the back face. Snell's law for water
+    // to air: beyond the critical angle the surface is a mirror of the
+    // water itself; inside it the scene above shows through the refracted
+    // offset, blended by Schlick's Fresnel of the refracted angle. The path
+    // from the eye to the surface is fogged like the pass before the rings.
+    if (water.under.y > 0.5 && !gl_FrontFacing) {
+        vec2 uv_below = gl_FragCoord.xy * water.viewport.zw;
+        float sin_i = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
+        float sin_t = WATER_INDEX * sin_i;
+        vec3 colour;
+        if (sin_t >= 1.0) {
+            colour = WATER_UNDER_MIRROR;
+        } else {
+            float cos_t = sqrt(1.0 - sin_t * sin_t);
+            float fresnel_below = WATER_F0 + (1.0 - WATER_F0) * pow(1.0 - cos_t, 5.0);
+            vec2 refracted = clamp(
+                uv_below + normal.xz * water.absorption.w,
+                water.viewport.zw,
+                1.0 - water.viewport.zw
+            );
+            vec3 above = texture(scene_color, refracted).rgb;
+            colour = mix(above, WATER_UNDER_MIRROR, fresnel_below);
+        }
+        float path = distance(frame.camera_world_position.xyz, in_world_position);
+        vec3 transmittance = exp(-WATER_UNDER_ABSORPTION_PER_METRE * path);
+        out_color = vec4(mix(WATER_UNDER_INSCATTER, colour, transmittance), 1.0);
+        return;
+    }
 
     vec3 light_direction = normalize(-frame.sun_direction_intensity.xyz);
     float diffuse = max(dot(normal, light_direction), 0.0);

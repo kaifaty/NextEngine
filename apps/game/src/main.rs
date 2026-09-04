@@ -529,9 +529,10 @@ fn run_interactive_session(
         );
     }
     eprintln!(
-        "next_game: desktop session closed: frames={}, particle_frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
+        "next_game: desktop session closed: frames={}, particle_frames={}, submerged_frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
         adapter.rendered_frames,
         adapter.particle_surface_frames,
+        adapter.submerged_frames,
         adapter.normalized_events,
         adapter.control_events,
         adapter.resize_events,

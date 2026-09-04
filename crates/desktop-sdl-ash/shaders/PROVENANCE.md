@@ -177,3 +177,21 @@ unchanged). Compiled with the same pinned Linux `glslang` 15.1.0:
 glslangValidator --quiet -V --target-env vulkan1.2 -S vert -e main -o gbuffer.vert.spv gbuffer.vert
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o gbuffer.frag.spv gbuffer.frag
 ```
+
+## Underwater suite (plan `continuum-water/33`)
+
+`water_under.frag` on the particle pass's fullscreen vertex program
+(`fluid_screen.vert`) forms the `water_under` suite: with the eye below a
+water ring's level, a fullscreen pass inside the water pass (after the scene
+copy, before the rings) attenuates every pixel by the path through the water
+to the scene point behind it (clipped at the level plane) and adds the
+in-scatter colour. It uses the water pass layout (set 0 the B0 frame block,
+set 3 the water set, whose uniform grows by one `under` lane inside the
+`128` bytes). `water_scene.frag` gains the back-face branch of the same plan
+(Snell's window and the mirror beyond the critical angle). Compiled with the
+same pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_under.frag.spv water_under.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
+```

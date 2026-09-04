@@ -27,6 +27,35 @@ pub(crate) const WATER_REFRACTION_STRENGTH: f32 = 0.08;
 pub(crate) const WATER_FOAM_WIDTH_METRES: f32 = 0.12;
 pub(crate) const WATER_FADE_WIDTH_METRES: f32 = 0.04;
 pub(crate) const WATER_FOAM_GREY: f32 = 0.85;
+/// Plan 33: the eye is submerged when it lies inside one ring's plan
+/// (the catalog mesh bounds plus the draw translation) and below that
+/// ring's level; the answer is the level. Pure, presentation-only.
+#[must_use]
+pub(crate) fn water_submersion_level(
+    eye_metres: [f32; 3],
+    rings: &[WaterRingPlanV1],
+) -> Option<f32> {
+    rings
+        .iter()
+        .filter(|ring| {
+            eye_metres[0] >= ring.minimum_metres[0]
+                && eye_metres[0] <= ring.maximum_metres[0]
+                && eye_metres[2] >= ring.minimum_metres[1]
+                && eye_metres[2] <= ring.maximum_metres[1]
+                && eye_metres[1] < ring.level_metres
+        })
+        .map(|ring| ring.level_metres)
+        .reduce(f32::max)
+}
+
+/// One water ring's plan (`x z` bounds in metres) and level for the
+/// submersion test of plan 33.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct WaterRingPlanV1 {
+    pub(crate) minimum_metres: [f32; 2],
+    pub(crate) maximum_metres: [f32; 2],
+    pub(crate) level_metres: f32,
+}
 
 struct Target {
     image: ImageAllocation,
@@ -47,6 +76,8 @@ pub(crate) struct WaterPassState {
     device: ash::Device,
     extent: vk::Extent2D,
     pipeline: vk::Pipeline,
+    /// Plan 33: the fullscreen water-between pipeline on the same layout.
+    under_pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
     /// Plan 15: the mirrored reflection pass pipeline (B0 layouts).
     reflection: PipelineState,
@@ -162,6 +193,7 @@ impl WaterPassState {
             samplers: Vec::new(),
             pool: vk::DescriptorPool::null(),
             pipeline: None,
+            under_pipeline: vk::Pipeline::null(),
             views: vec![
                 scene_copy.view,
                 reflection_color.view,
@@ -350,12 +382,24 @@ impl WaterPassState {
             &modules.fragment,
         )?;
         guard.pipeline = Some((pipeline, layout));
+        let under_modules = super::super::shader_assets::water_under_shader_modules()
+            .map_err(B0GpuContentError::ShaderAsset)?;
+        let under_pipeline = create_under_pipeline(
+            device,
+            layout,
+            color_format,
+            depth_format,
+            &under_modules.vertex,
+            &under_modules.fragment,
+        )?;
+        guard.under_pipeline = under_pipeline;
 
         guard.armed = false;
         Ok(Ok(Self {
             device: device.clone(),
             extent,
             pipeline,
+            under_pipeline,
             layout,
             reflection,
             descriptor_pool,
@@ -474,6 +518,11 @@ impl WaterPassState {
         }
     }
 
+    /// Plan 33: the fullscreen water-between pipeline.
+    pub(crate) const fn under_pipeline(&self) -> vk::Pipeline {
+        self.under_pipeline
+    }
+
     pub(crate) const fn pipeline(&self) -> vk::Pipeline {
         self.pipeline
     }
@@ -500,6 +549,7 @@ impl WaterPassState {
         scene_depth_view: vk::ImageView,
         rendered_frame_index: u64,
         jitter: Option<ProjectionJitterV1>,
+        submerged_level_metres: Option<f32>,
     ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
         let slot =
             self.slots
@@ -542,6 +592,21 @@ impl WaterPassState {
                 WATER_FADE_WIDTH_METRES,
                 WATER_FOAM_GREY,
                 run_seconds,
+            ],
+        );
+        // Plan 33: the level and the submerged flag for the water-between
+        // pass and the ring's back face.
+        write_f32(
+            &mut bytes[112..128],
+            &[
+                submerged_level_metres.unwrap_or(0.0),
+                if submerged_level_metres.is_some() {
+                    1.0
+                } else {
+                    0.0
+                },
+                0.0,
+                0.0,
             ],
         );
         slot.uniform.write(0, &bytes)?;
@@ -731,6 +796,7 @@ impl Drop for WaterPassState {
         // SAFETY: the owner waits for device idle before dropping; children
         // are destroyed before parents.
         unsafe {
+            self.device.destroy_pipeline(self.under_pipeline, None);
             self.device.destroy_pipeline(self.pipeline, None);
             self.device.destroy_pipeline_layout(self.layout, None);
             self.device
@@ -755,6 +821,7 @@ struct Teardown {
     samplers: Vec<vk::Sampler>,
     pool: vk::DescriptorPool,
     pipeline: Option<(vk::Pipeline, vk::PipelineLayout)>,
+    under_pipeline: vk::Pipeline,
     views: Vec<vk::ImageView>,
     armed: bool,
 }
@@ -767,6 +834,9 @@ impl Drop for Teardown {
         // SAFETY: every handle was recorded right after creation and none
         // has been submitted; children go before parents.
         unsafe {
+            if self.under_pipeline != vk::Pipeline::null() {
+                self.device.destroy_pipeline(self.under_pipeline, None);
+            }
             if let Some((pipeline, layout)) = self.pipeline.take() {
                 if pipeline != vk::Pipeline::null() {
                     self.device.destroy_pipeline(pipeline, None);
@@ -1075,5 +1145,128 @@ mod tests {
             assert!((value - expected).abs() < 1e-5, "{index}: {value}");
         }
         assert!(invert(&[0.0; 16]).is_none());
+    }
+}
+
+/// Plan 33: the fullscreen water-between pipeline: no vertex input, no
+/// depth test (every pixel is fogged by its own path), no blending (the
+/// fragment mixes the scene copy itself), the water pass layout.
+fn create_under_pipeline(
+    device: &ash::Device,
+    layout: vk::PipelineLayout,
+    color_format: vk::Format,
+    depth_format: vk::Format,
+    vertex_words: &[u32],
+    fragment_words: &[u32],
+) -> Result<vk::Pipeline, B0GpuContentError> {
+    let vertex_info = vk::ShaderModuleCreateInfo::default().code(vertex_words);
+    let fragment_info = vk::ShaderModuleCreateInfo::default().code(fragment_words);
+    // SAFETY: checked-in SPIR-V passed structural validation.
+    let vertex_module = unsafe { device.create_shader_module(&vertex_info, None) }?;
+    // SAFETY: same conditions as the vertex module.
+    let fragment_module = match unsafe { device.create_shader_module(&fragment_info, None) } {
+        Ok(module) => module,
+        Err(error) => {
+            // SAFETY: the vertex module has no dependants.
+            unsafe { device.destroy_shader_module(vertex_module, None) };
+            return Err(error.into());
+        }
+    };
+    let result = {
+        let stages = [
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::VERTEX)
+                .module(vertex_module)
+                .name(c"main"),
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::FRAGMENT)
+                .module(fragment_module)
+                .name(c"main"),
+        ];
+        let vertex_input = vk::PipelineVertexInputStateCreateInfo::default();
+        let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::default()
+            .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+            .primitive_restart_enable(false);
+        let viewport_state = vk::PipelineViewportStateCreateInfo::default()
+            .viewport_count(1)
+            .scissor_count(1);
+        let rasterization = vk::PipelineRasterizationStateCreateInfo::default()
+            .depth_clamp_enable(false)
+            .rasterizer_discard_enable(false)
+            .polygon_mode(vk::PolygonMode::FILL)
+            .cull_mode(vk::CullModeFlags::NONE)
+            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+            .depth_bias_enable(false)
+            .line_width(1.0);
+        let multisample = vk::PipelineMultisampleStateCreateInfo::default()
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::default()
+            .depth_test_enable(false)
+            .depth_write_enable(false)
+            .depth_bounds_test_enable(false)
+            .stencil_test_enable(false);
+        let blend_attachments = [vk::PipelineColorBlendAttachmentState::default()
+            .blend_enable(false)
+            .color_write_mask(vk::ColorComponentFlags::RGBA)];
+        let color_blend =
+            vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend_attachments);
+        let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+        let dynamic = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
+        let color_formats = [color_format];
+        let mut rendering = vk::PipelineRenderingCreateInfo::default()
+            .color_attachment_formats(&color_formats)
+            .depth_attachment_format(depth_format);
+        let info = vk::GraphicsPipelineCreateInfo::default()
+            .stages(&stages)
+            .vertex_input_state(&vertex_input)
+            .input_assembly_state(&input_assembly)
+            .viewport_state(&viewport_state)
+            .rasterization_state(&rasterization)
+            .multisample_state(&multisample)
+            .depth_stencil_state(&depth_stencil)
+            .color_blend_state(&color_blend)
+            .dynamic_state(&dynamic)
+            .layout(layout)
+            .push_next(&mut rendering);
+        // SAFETY: every referenced create-info structure and module stays
+        // live for the call; dynamic rendering declares the exact formats.
+        unsafe { device.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None) }
+            .map(|pipelines| pipelines[0])
+            .map_err(|(_, error)| B0GpuContentError::from(error))
+    };
+    // SAFETY: pipeline creation copied all module state.
+    unsafe {
+        device.destroy_shader_module(fragment_module, None);
+        device.destroy_shader_module(vertex_module, None);
+    }
+    result
+}
+
+#[cfg(test)]
+mod submersion_tests {
+    use super::{WaterRingPlanV1, water_submersion_level};
+
+    #[test]
+    fn eye_inside_the_plan_below_the_level_is_submerged() {
+        let rings = [
+            WaterRingPlanV1 {
+                minimum_metres: [-9.0, 5.0],
+                maximum_metres: [1.0, 9.5],
+                level_metres: -0.1,
+            },
+            WaterRingPlanV1 {
+                minimum_metres: [4.5, 1.0],
+                maximum_metres: [8.5, 3.0],
+                level_metres: 0.5,
+            },
+        ];
+        assert_eq!(
+            water_submersion_level([-8.5, -0.73, 7.25], &rings),
+            Some(-0.1)
+        );
+        assert_eq!(water_submersion_level([-8.5, 0.1, 7.25], &rings), None);
+        assert_eq!(water_submersion_level([-8.5, -0.73, 4.0], &rings), None);
+        assert_eq!(water_submersion_level([6.0, 0.2, 2.0], &rings), Some(0.5));
+        assert_eq!(water_submersion_level([6.0, 0.2, 2.0], &[]), None);
     }
 }

@@ -69,8 +69,11 @@ the floor mesh's `16` normals) and
 `crates/reference-game/tests/visual_presentation.rs` (scene records
 `16 → 18`, bindings `15 → 17`).
 New roots: `play` authoritative state root `255dec16218c…`,
-`persistence-replay` and `water-present` final state root
-`0abd67692c22…`.
+`water-present` final state root `0abd67692c22…`, `persistence-replay`
+final state root `aba2347c344b…` (correction of 2026-09-04 in plan 33:
+the first record of this plan copied the `water-present` root into the
+`persistence-replay` line; the value above was read on the same tree by
+plan 33's chain, which changes no authority).
 
 Apparatus notes:
 

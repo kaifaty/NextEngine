@@ -265,6 +265,7 @@ struct InteractiveRunCompletion {
     particle_surface_uploads: u64,
     particle_surface_upload_bytes: u64,
     particle_surface_frames: u64,
+    submerged_frames: u64,
 }
 
 impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
@@ -463,6 +464,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let mut particle_surface_uploads = 0_u64;
             let mut particle_surface_upload_bytes = 0_u64;
             let mut particle_surface_frames = 0_u64;
+            let mut submerged_frames = 0_u64;
 
             'application: loop {
                 let frame_started = Instant::now();
@@ -795,6 +797,9 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                     particle_surface_frames = particle_surface_frames
                         .checked_add(u64::from(submitted.particle_surface_recorded))
                         .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    submerged_frames = submerged_frames
+                        .checked_add(u64::from(submitted.submerged))
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
                     pacing_clock
                         .borrow_mut()
                         .observe_frame_submission(Instant::now());
@@ -833,6 +838,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 particle_surface_uploads,
                 particle_surface_upload_bytes,
                 particle_surface_frames,
+                submerged_frames,
             }
         };
         self.completion = Some(completion);
@@ -927,6 +933,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             particle_surface_uploads: completion.particle_surface_uploads,
             particle_surface_upload_bytes: completion.particle_surface_upload_bytes,
             particle_surface_frames: completion.particle_surface_frames,
+            submerged_frames: completion.submerged_frames,
         };
         self.finalizer.finish();
         Ok(report)

@@ -24,7 +24,7 @@ use next_render::B0FramePlanV1;
 
 use self::pipeline::{
     PipelineState, draw_push_constant_bytes, frame_raster_state_jittered, identity_matrix_bytes,
-    mirrored_frame_raster_state, model_matrix,
+    micrometres_to_metres_f32, mirrored_frame_raster_state, model_matrix,
 };
 pub(crate) use self::pipeline::{ProjectionJitterV1, projection_jitter};
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
@@ -129,6 +129,9 @@ struct DynamicSurfaceRing {
     /// The catalog mesh's horizontal extent (`x` times `z`, square
     /// micrometres): plan 15 mirrors about the largest water surface.
     plan_area_square_micrometres: i128,
+    /// Plan 33: the catalog mesh's `x z` bounds (micrometres, relative to
+    /// the draw translation) for the submersion test.
+    plan_bounds_micrometres: ([i64; 2], [i64; 2]),
     slots: Vec<DynamicSurfaceSlot>,
 }
 
@@ -317,6 +320,17 @@ impl B0GpuContent {
                                 let bounds = mesh.bounds();
                                 i128::from(bounds.max()[0] - bounds.min()[0])
                                     * i128::from(bounds.max()[2] - bounds.min()[2])
+                            }),
+                        plan_bounds_micrometres: catalog
+                            .meshes()
+                            .iter()
+                            .find(|mesh| mesh.asset_revision().ok() == Some(profile.mesh_revision))
+                            .map_or(([0; 2], [0; 2]), |mesh| {
+                                let bounds = mesh.bounds();
+                                (
+                                    [bounds.min()[0], bounds.min()[2]],
+                                    [bounds.max()[0], bounds.max()[2]],
+                                )
                             }),
                         slots,
                     },
@@ -1265,6 +1279,98 @@ impl B0GpuContent {
             })
             .max_by_key(|(area, _)| *area)
             .map(|(_, draw)| draw.transform.translation_micrometres[1] as f32 / 1_000_000.0)
+    }
+
+    /// Plan 33: the level of the water ring the camera is submerged in,
+    /// from the plan's water draws and the eye of the plan's camera.
+    pub(super) fn water_submersion_level_metres(
+        &self,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+    ) -> Result<Option<f32>, B0GpuContentError> {
+        let Some(camera) = plan.camera.as_ref() else {
+            return Ok(None);
+        };
+        let eye =
+            micrometres_to_metres_f32(camera.current_result_sample.pose.translation_micrometres)?;
+        let mut rings = Vec::new();
+        for draw in &plan.draws {
+            let Some(ring) = self.dynamic_surfaces.get(&draw.mesh_revision) else {
+                continue;
+            };
+            if ring.profile.shading != DynamicSurfaceShadingV1::WaterSurface
+                || self
+                    .dynamic_draw_binding(draw.mesh_revision, frame_slot_index)
+                    .is_none()
+            {
+                continue;
+            }
+            let translation = micrometres_to_metres_f32(draw.transform.translation_micrometres)?;
+            let (minimum, maximum) = ring.plan_bounds_micrometres;
+            rings.push(water::WaterRingPlanV1 {
+                minimum_metres: [
+                    minimum[0] as f32 / 1_000_000.0 + translation[0],
+                    minimum[1] as f32 / 1_000_000.0 + translation[2],
+                ],
+                maximum_metres: [
+                    maximum[0] as f32 / 1_000_000.0 + translation[0],
+                    maximum[1] as f32 / 1_000_000.0 + translation[2],
+                ],
+                level_metres: translation[1],
+            });
+        }
+        Ok(water::water_submersion_level(eye, &rings))
+    }
+
+    /// Plan 33: the fullscreen water-between pass, inside the water
+    /// rendering instance before the rings.
+    pub(super) fn record_water_under(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        frame_slot_index: usize,
+        water: &water::WaterPassState,
+        viewport: vk::Viewport,
+        scissor: vk::Rect2D,
+    ) -> Result<(), B0GpuContentError> {
+        let frame_set = *self.descriptors.frame_sets.get(frame_slot_index).ok_or(
+            B0GpuContentError::InvalidFramePlan("frame slot index is outside the descriptor ring"),
+        )?;
+        let water_set = water.set(frame_slot_index)?;
+        let viewports = [viewport];
+        let scissors = [scissor];
+        // SAFETY: the pipeline shares the water pass layout; sets 0 and 3
+        // are the only sets the suite reads.
+        unsafe {
+            self.geometry.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.under_pipeline(),
+            );
+            self.geometry
+                .device
+                .cmd_set_viewport(command_buffer, 0, &viewports);
+            self.geometry
+                .device
+                .cmd_set_scissor(command_buffer, 0, &scissors);
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.layout(),
+                0,
+                &[frame_set],
+                &[],
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                water.layout(),
+                3,
+                &[water_set],
+                &[],
+            );
+            self.geometry.device.cmd_draw(command_buffer, 3, 1, 0, 0);
+        }
+        Ok(())
     }
 
     /// Plan 15: records the plan's draws with the mirrored camera into the

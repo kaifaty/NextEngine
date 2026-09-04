@@ -332,6 +332,8 @@ pub struct DesktopRunReport {
     pub particle_surface_upload_bytes: u64,
     /// Frames in which the particle surface pass was recorded.
     pub particle_surface_frames: u64,
+    /// Plan 33: frames rendered with the eye under a water ring's level.
+    pub submerged_frames: u64,
 }
 
 #[derive(Debug, Default)]
