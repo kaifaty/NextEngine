@@ -7,6 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_contracts::ids::ContentHash;
     use next_motor::{
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
         BiomechanicsStandingVectorRunner, VectorPolicyStepInput,
     };
     use serde_json::json;
@@ -25,6 +26,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("action tape exceeds 8 MB".into());
     }
     let input: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let profile = match input.get("profile_id") {
+        None => BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+        Some(value) => value.as_str().ok_or("profile_id must be a string")?,
+    };
+    if !matches!(
+        profile,
+        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
+    ) {
+        return Err("only canonical V5/V6 tapes are supported".into());
+    }
+    let retain_frames = match input.get("retain_frames") {
+        None => false,
+        Some(value) => value.as_bool().ok_or("retain_frames must be boolean")?,
+    };
     let tapes: Vec<Vec<Vec<i64>>> = serde_json::from_value(input["action_q1_30"].clone())?;
     if tapes.is_empty()
         || tapes.len() > 32
@@ -45,9 +61,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut seed_bytes = b"nextengine.canonical-ppo.shard.v1\0".to_vec();
     seed_bytes.extend_from_slice(&[0x32; 32]);
     seed_bytes.extend_from_slice(&0_u32.to_le_bytes());
-    let run_root = ContentHash::from_bytes(sha256(&seed_bytes));
+    let run_root = if let Some(value) = input.get("run_root_bytes") {
+        let root: [u8; 32] = serde_json::from_value(value.clone())?;
+        ContentHash::from_bytes(root)
+    } else {
+        ContentHash::from_bytes(sha256(&seed_bytes))
+    };
     let mut runner = BiomechanicsStandingVectorRunner::create_profile(
-        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
+        profile,
         u32::try_from(tapes.len())?,
         run_root,
     )?;
@@ -57,6 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ordinals[reset.vector_slot as usize] = reset.episode_ordinal;
     }
     let mut reports = vec![None; tapes.len()];
+    let mut frames = vec![Vec::new(); tapes.len()];
     for tick in 0..tapes.iter().map(Vec::len).max().unwrap_or(0) {
         let inputs = tapes
             .iter()
@@ -70,6 +92,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut ended = Vec::new();
         for step in runner.step_actions_lockstep(inputs)? {
             let slot = step.vector_slot as usize;
+            if retain_frames && reports[slot].is_none() {
+                frames[slot].push(json!({
+                    "tick": step.frame.motor_tick,
+                    "command_raw": step.command_raw,
+                    "contact_flags": step.frame.contact_flags,
+                    "reward_components_q16": step.reward_components_raw.iter().map(|(_, value)| value).collect::<Vec<_>>(),
+                    "links": step.frame.snapshot.links.iter().map(|link| json!({
+                        "body_token": link.user_token,
+                        "position_um": link.position_micrometres,
+                        "rotation_q1_30": link.rotation_q1_30,
+                        "linear_velocity_um_s": link.linear_velocity_micrometres_per_second,
+                    })).collect::<Vec<_>>(),
+                    "joint_position_urad": step.frame.snapshot.joints.iter().map(|joint| joint.position_microradians).collect::<Vec<_>>(),
+                    "contacts": step.frame.snapshot.contacts.iter().map(|contact| json!({
+                        "actor_tokens": [contact.actor_a_token, contact.actor_b_token],
+                        "shape_tokens": [contact.shape_a_token, contact.shape_b_token],
+                        "position_um": contact.position_micrometres,
+                        "separation_um": contact.separation_micrometres,
+                        "impulse_uns": contact.impulse_micronewton_seconds,
+                    })).collect::<Vec<_>>(),
+                    "physics_root": step.step_record.physics_root.to_hex(),
+                    "step_root": step.step_record.step_root.to_hex(),
+                }));
+            }
             if reports[slot].is_none()
                 && (step.terminated || step.truncated || tick + 1 == tapes[slot].len())
             {
@@ -106,18 +152,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>()
     };
-    let report = json!({
+    let mut report = json!({
         "schema": "nextengine.native-action-safety-audit.v1",
         "action_tape_sha256": digest(&bytes),
         "executable_sha256": digest(&std::fs::read(std::env::current_exe()?)?),
         "cases": reports,
+        "profile_id": profile,
+        "run_root": run_root.to_hex(),
     });
+    if retain_frames {
+        report["frames"] = json!(frames);
+    }
     let mut output = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&args[1])?;
     output.write_all(&serde_json::to_vec_pretty(&report)?)?;
-    println!("{report}");
+    println!("{}", report["cases"]);
     Ok(())
 }
 

@@ -3,8 +3,8 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-09-04 |
-| Текущая точка | R1–R7 завершены на current Linux product boundary. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP. Biomechanics V3 standing passes one complete contact-correct GPU and five canonical CPU PhysX episodes. [Paired mirror investigation](development/r8b-model-mirror-p1-investigation-2026-09-04.md) records `MODEL-MIRROR-P1 FAILED`. Walking V1/V2/V3 and the direct canonical V5 learner fail walking quality. ADR-106 fixes reference anchoring and leg-proxy clearance; bilateral CPU foot release passes but manual alternation is unsafe. ADR-108 admits one canonical-only V6 periodic load-transfer learner with unchanged body/action/safety and explicit phase observations. Runtime promotion and broader commands remain blocked. ADR-090 keeps Windows outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without authority over R8b. |
+| Последнее обновление | 2026-09-05 |
+| Текущая точка | R1–R7 завершены на current Linux product boundary. R8a condition work is complete; [R8b first learned locomotion](development/task-state/r8b-first-learned-locomotion.md) is the selected post-v1 WIP. Biomechanics V3 standing passes one complete contact-correct GPU and five canonical CPU PhysX episodes. [Paired mirror investigation](development/r8b-model-mirror-p1-investigation-2026-09-04.md) records `MODEL-MIRROR-P1 FAILED`. Walking V1/V2/V3 and the direct canonical V5/V6 learners fail walking quality. ADR-106 fixes reference anchoring and leg-proxy clearance; bilateral CPU foot release passes but manual alternation is unsafe. ADR-108's V6 budget is consumed: 4,096,000 transitions, final contact impact at 382, 0.092032 m and no single support. [Sole/method research](development/r8b-sole-support-and-training-method-research-2026-09-05.md) distinguishes genuine unloading without lift from the misleading old stick diagram; next is a lift-and-return lesson discriminator, not an unchanged retry. Runtime promotion and broader commands remain blocked. ADR-090 keeps Windows outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without authority over R8b. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v4` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. Final R7c V2 evidence closes the R2 hard-performance gap and B-12. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -225,7 +225,7 @@ flowchart LR
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
 | R7. V1 release candidate | `COMPLETE / LINUX_ONLY / V1.0.0_PUBLISHED` | L | Exact code commit `919663ff…` passes the eight-check native gate, physical Vulkan platform path, packaged runtime/desktop smoke and V6 distribution closure. GitHub release `v1.0.0` publishes the exact validated archive/manifest/report assets. Windows does not block or participate. |
-| R8. Post-v1 tracks | `IN_PROGRESS / R8B_FIRST_LEARNED_LOCOMOTION_SELECTED / V6_PERIODIC_CREDIT_RD` | отдельные программы | R8a closes the bounded intact-topology condition/capability subset. R8b standing passes; canonical walking quality remains failed. ADR-108's next run isolates observable periodic load credit on unchanged V5 physics/actions/safety. Isaac correspondence and runtime promotion remain independently blocked. Other optional tracks remain gated. |
+| R8. Post-v1 tracks | `IN_PROGRESS / R8B_FIRST_LEARNED_LOCOMOTION_SELECTED / V6_WALKING_FAILED` | отдельные программы | R8a closes the bounded intact-topology condition/capability subset. R8b standing passes; V6 completed its budget but canonical walking quality failed. Exact sole geometry confirms load transfer without useful foot release. Next isolate a phase-conditioned lift-and-return lesson; no successor run is admitted yet. Isaac correspondence and runtime promotion remain independently blocked. Other optional tracks remain gated. |
 
 ## R0 — Walking skeleton
 
@@ -2269,9 +2269,13 @@ V5 run with CUDA PPO, exact adapter controls and final alternating-gait
 evaluation. This does not turn the failed paired mirror gate green.
 That run is now complete and rejected (five falls at 299, 0.824657 m, no
 single support). The return/stance-ankle failure is now localized to genuine
-power/rate incompatibility. The active queue is ADR-108's separately identified
-V6 periodic load-transfer lesson, exact adapter preflight and its fresh bounded
-canonical run; no gait-quality or runtime claim follows from implementation.
+power/rate incompatibility. ADR-108's V6 run is also complete and rejected:
+4,096,000 transitions, all final episodes end on impact at 382 with 0.092032 m
+and no single support. The [sole/method investigation](development/r8b-sole-support-and-training-method-research-2026-09-05.md)
+corrects the missing-foot visualization and verifies real load transfer without
+whole-sole lift. The active queue is a phase-conditioned lift-and-return
+discriminator with native positive controls; no unchanged retry or successor
+optimizer budget is admitted by this planning update.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains

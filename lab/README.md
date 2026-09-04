@@ -52,6 +52,17 @@ same final five-episode walking gates. V6 is canonical-only: do not route this
 descriptor through Isaac translation/training. The default profile remains the
 frozen V1 recipe, not an implicit upgrade or additional budget.
 
+V6's admitted budget is now also consumed and its final walking evaluation
+failed. For a read-only replay audit, use `PYTHONPATH=lab python -m
+lab.scripts.cpu_walking_contact_audit prepare --run <closed-run> --seed 1001
+--tape <fresh-external-tape>`, replay with the native
+`audit_biomechanics_action_tape` example, then use the module's `analyze` mode
+with the same inputs plus `--trace <native-trace>` and `--output <fresh-dir>`.
+It verifies exact evaluation observations and draws the actual sole boxes and
+contact points. Body-origin lines alone must not be interpreted as foot shape.
+See the [sole/method report](../docs/development/r8b-sole-support-and-training-method-research-2026-09-05.md)
+for measurement limits and unchanged gait gates.
+
 ## Stage 0 mirror workflow
 
 1. Export the engine-owned v2 descriptor to an external training store:

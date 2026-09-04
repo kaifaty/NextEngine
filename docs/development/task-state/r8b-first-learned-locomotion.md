@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V6_PERIODIC_CREDIT_IMPLEMENTED / V5_CPU_WALKING_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / V6_WALKING_FAILED / SOLE_DIAGNOSTICS_AND_METHOD_RESEARCH_CLOSED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -21,12 +21,16 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Finish V6 preflight, freeze its clean-commit generation and
-  execute ADR-108's fresh 4,096,000-sample run and unchanged final gait matrix.
-  Corrected adapter control passes 5,120 exact transitions and 399 resets.
-- **Training:** ADR-107's direct CPU V5/CUDA PPO run completed 1,024,000
-  samples. Final five episodes fall at tick 299 after 0.824657 m, with zero
-  single-support ticks. Walking is FAILED. No optimizer is currently running.
+- **Next action:** Specify and test a phase-conditioned lift-and-return lesson
+  against actual sole geometry and the existing positive single-swing controls.
+  The user asked to investigate toe standing and reconsider training methods;
+  that research is now recorded below. Do not launch another unchanged run.
+- **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
+  All final episodes end on contact impact at 382, after only 0.092032 m,
+  without single support. No optimizer is running; no V7 is admitted.
+- **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
+  learned left heel later rises 10.18 mm, but whole-foot clearance stays
+  below 5 mm on both sides. Visualization is corrected, not the controller.
 - **Do not retry:** Walking V1/V2/V3 unchanged, PPO/noise tuning, CPU PCM
   enablement, tolerance relaxation, standing-weight initialization into V5,
   or shortening the probe until it passes.
@@ -49,6 +53,7 @@
    [direct-CPU investigation](../r8b-canonical-walking-learner-2026-09-04.md).
 6. [ADR-108](../../architecture/adr/108-observable-periodic-walking-credit.md)
    and [step-credit investigation](../r8b-walking-step-credit-2026-09-05.md).
+7. [Closed V6, sole support and training-method research](../r8b-sole-support-and-training-method-research-2026-09-05.md).
 
 ## Current evidence
 
@@ -70,6 +75,9 @@ not clean-commit generation/run manifests.
 | Explicit `0.05` damping counterfactual | Terminal 92; RMSE `0.04889/0.06160/0.16246` | Insufficient fix; not promoted |
 
 ## D-016 — Correct action and geometry, retain the failed paired gate
+
+D-016 through D-018 are historical decision records; the resume summary and
+D-019 contain the current experiment outcome and next action.
 
 - **Observation:** Origin feedback changes ankle action meaning with travel;
   old thigh/shank collision proxies have neutral gaps below the pinned
@@ -140,15 +148,36 @@ not clean-commit generation/run manifests.
   bug). -02/-03 use corrected integer conversion and exactly reproduce case
   outcomes. No second optimizer run is active or admitted.
 
-## Active hypotheses
+## D-019 — Weight transfer is not yet a step
+
+- **Evidence:** V6 final run/model/evaluation hashes and native geometry traces
+  are closed in the [sole/method report](../r8b-sole-support-and-training-method-research-2026-09-05.md).
+  Exact replay matches every recorded pose/joint/command/contact observation.
+  The positive controls lift complete soles 116/150 mm; V6 lifts neither 5 mm.
+- **Conclusion:** The old diagram misrepresented foot shape, not the initial
+  physical contact. Later left toe-edge rocking is real. V6's load formula
+  cannot distinguish grounded unloading from clearance at otherwise equal
+  inputs; a failed 4.096-million-sample run is not physical infeasibility.
+- **Decision:** Correct the diagnostic visualization and complete method
+  research before any next objective. No all-phase flat-foot constraint,
+  tolerance relaxation, unchanged retry, or claim that one height bonus
+  necessarily fixes learning. Separate safe re-contact from mere foot release.
+- **Uncertainty:** Learnability of a coordinated return, useful actuator
+  history/observations and required sample budget remain unmeasured. The
+  zero-residual controller falls at 361; this is not itself proof of an RL bug.
+- **Next/reconsider:** Freeze one lift-and-return discriminator with positive
+  native controls, then a separately admitted lesson/budget only if its reward
+  observables distinguish lift, wrong phase, flight and grounded rocking.
+
+## Retained safety and mirror hypotheses
 
 The [foot-return discriminator](../r8b-walking-step-credit-2026-09-05.md)
 localizes tick 115 to right-ankle-roll power/rate incompatibility: required
 minimum 127.694 N·m exceeds the 120.164 N·m power cap. Zero new-tick work and
 zero physical substeps rule out work exhaustion and a new observed ROM breach.
 The manual tape is unsafe; no evidence justifies a safety-controller change.
-Keep the exact safety code and substep diagnostic. Next change concerns learning
-credit, not limits, noise or a repeated unchanged PPO run.
+Keep the exact safety code and substep diagnostic. V6's learning-credit change
+has now failed walking quality; do not repeat it or alter safety to hide that.
 
 | Hypothesis | Update | Next test |
 | --- | --- | --- |
@@ -182,15 +211,15 @@ credit, not limits, noise or a repeated unchanged PPO run.
 
 ## Verification and remaining work
 
-- Native motor tests (116) and focused Python tests (59) pass. Old standing
-  descriptor is byte-exact. Play/content/reference replay pass; host-check
-  was interrupted (143), and explicit PhysX runtime replay fails on bootstrap
-  profile closure, cause unresolved. Exact scope is in the current report.
+- V6 motor tests (120), five headless tests, and full Linux host-check pass.
+  Current diagnostic work passes 26 focused Python tests, Ruff, formatting
+  and native example clippy. Old V5 descriptor stays byte-exact. The separate
+  optional PhysX runtime replay bootstrap-profile issue remains unresolved.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining implementation: a safe coordinated step/weight-transfer lesson,
-  separately identified gait credit, then another admitted learned evaluation.
+- Remaining implementation: a coordinated lift-and-return lesson, separately
+  identified step-geometry credit, then another admitted learned evaluation.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
 - Generation-02 completed but failed walking quality. Full Linux host-check

@@ -86,3 +86,12 @@ All 120 native motor tests and five headless protocol tests pass. V5 descriptor
 is byte-exact with its previous `0f4610fe…db03` file hash. Focused Python tests
 cover clock scaling, final/pre-reset clocks, timeout masking and V6 Q1.30
 dispatch. Broad host-check will be reported separately before handoff.
+
+## Closed outcome
+
+The clean `88b6a43d` V6 run completed all 4,096,000 transitions but failed the
+final five-episode gait matrix (contact impact at 382, 0.092032 m, no single
+support). Full Linux host-check passes. The exact closed hashes, native
+sole-clearance and toe/heel controls, corrected visualizations and follow-up
+primary-source research are in the [sole support and method report](r8b-sole-support-and-training-method-research-2026-09-05.md).
+No V7 or unchanged retry has been started.
