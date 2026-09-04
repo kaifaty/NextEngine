@@ -134,36 +134,29 @@ impl PhysxWaterDemo {
         let sample = self.fluid.read().map_err(|error| {
             DesktopAdapterError::client("PHYSX_WATER_READ_FAILED", error.to_string())
         })?;
+        // Droplets that left the declared bounds (the pass rejects any
+        // position outside them, exclusive at the maximum) are dropped for
+        // this frame; they are out of the basin's presentation region.
         let micrometres = |value: f32| (value * 1_000_000.0).round() as i64;
-        let clamp =
-            |axis: usize, value: i64| value.clamp(self.bounds.min()[axis], self.bounds.max()[axis]);
-        let positions: Vec<[i64; 3]> = sample
-            .positions
-            .iter()
-            .filter(|position| position.iter().all(|value| value.is_finite()))
-            .map(|position| {
-                [
-                    clamp(0, micrometres(position[0])),
-                    clamp(1, micrometres(position[1])),
-                    clamp(2, micrometres(position[2])),
-                ]
-            })
-            .collect();
-        let velocities: Vec<[i32; 3]> = sample
-            .positions
-            .iter()
-            .zip(&sample.velocities)
-            .filter(|(position, _)| position.iter().all(|value| value.is_finite()))
-            .map(|(_, velocity)| {
-                velocity.map(|value| {
-                    if value.is_finite() {
-                        (value * 1_000_000.0).clamp(-2.0e9, 2.0e9) as i32
-                    } else {
-                        0
-                    }
-                })
-            })
-            .collect();
+        let mut positions = Vec::with_capacity(sample.positions.len());
+        let mut velocities = Vec::with_capacity(sample.positions.len());
+        for (position, velocity) in sample.positions.iter().zip(&sample.velocities) {
+            if !position.iter().all(|value| value.is_finite()) {
+                continue;
+            }
+            let point = position.map(micrometres);
+            if !self.bounds.contains(point) {
+                continue;
+            }
+            positions.push(point);
+            velocities.push(velocity.map(|value| {
+                if value.is_finite() {
+                    (value * 1_000_000.0).clamp(-2.0e9, 2.0e9) as i32
+                } else {
+                    0
+                }
+            }));
+        }
         if positions.is_empty() {
             return Ok(None);
         }
