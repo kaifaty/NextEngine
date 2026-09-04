@@ -1,8 +1,11 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
 from next_lab.correspondence import evaluate_correspondence
+from next_lab.policy_correspondence import write_policy_trajectory
 
 
 def trajectory(offset: float = 0.0) -> dict[str, np.ndarray]:
@@ -68,6 +71,43 @@ class CorrespondenceTests(unittest.TestCase):
         )
         self.assertEqual(report["status"], "failed")
         self.assertFalse(report["gates"]["reward_total"])
+
+    def test_policy_trajectory_writer_preserves_evaluator_shapes(self) -> None:
+        value = trajectory()
+        metadata = {
+            key: value[key]
+            for key in (
+                "profile_id",
+                "manifest_hash",
+                "observation_layout_hash",
+                "action_layout_hash",
+                "command_schedule_profile_hash",
+                "reward_profile_hash",
+                "termination_profile_hash",
+                "rng_derivation_profile_hash",
+                "correspondence_profile_hash",
+                "reward_component_ids",
+            )
+        }
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "trajectory.npz"
+            write_policy_trajectory(
+                path,
+                metadata=metadata,
+                joint_position_rad=value["joint_position_rad"],
+                root_position_m=value["root_position_m"],
+                root_velocity_mps=value["root_velocity_mps"],
+                contact_occupancy=value["contact_occupancy"],
+                done_tick=value["done_tick"],
+                reward_total_q16=value["reward_total_q16"],
+                command_raw=value["command_raw"],
+            )
+            with np.load(path, allow_pickle=False) as archive:
+                loaded = {key: archive[key] for key in value}
+        report = evaluate_correspondence(
+            loaded, loaded, minimum_episodes=2, minimum_motor_steps=3
+        )
+        self.assertEqual(report["status"], "passed")
 
 
 if __name__ == "__main__":
