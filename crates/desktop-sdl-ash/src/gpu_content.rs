@@ -641,8 +641,8 @@ impl B0GpuContent {
                 "indexed draw count does not match ordered draws",
             ));
         }
-        self.prepare_dynamic_vertices(plan, frame_slot_index)?;
-
+        // The skinned vertex stream of this frame slot was prepared by
+        // `prepare_dynamic_vertices` before the first pass of the frame.
         let frame_uniform = self.frame_uniforms.get(frame_slot_index).ok_or(
             B0GpuContentError::InvalidFramePlan(
                 "frame slot index is outside the allocated uniform ring",
@@ -1045,7 +1045,13 @@ impl B0GpuContent {
         Ok(dynamic_surface_draws)
     }
 
-    fn prepare_dynamic_vertices(
+    /// Uploads the plan's skinned vertex streams into this frame slot's
+    /// dynamic vertex ring and records their base offsets. Runs once per
+    /// frame before any pass that draws the plan (the shadow and reflection
+    /// passes draw skinned meshes before the main pass; plan 29 found the
+    /// reflection of the first frame after a device recovery reading the
+    /// offsets of a context that had prepared none).
+    pub(super) fn prepare_dynamic_vertices(
         &mut self,
         plan: &B0FramePlanV1,
         frame_slot_index: usize,

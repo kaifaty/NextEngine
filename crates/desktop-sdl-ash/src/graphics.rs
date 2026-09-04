@@ -601,6 +601,9 @@ impl GraphicsContext {
         cpu_phases.dynamic_surface_upload_microseconds =
             elapsed_microseconds(dynamic_surface_upload_started)?;
         cpu_phases.dynamic_surface_uploads = dynamic_surface_uploads.uploads;
+        // The skinned vertex stream is prepared once per frame, before the
+        // shadow, reflection and main passes that draw it.
+        b0_content.prepare_dynamic_vertices(frame_plan, frame_slot_index)?;
         let particle_uploads = match self.fluid.as_mut() {
             Some(fluid) => fluid.prepare(particles, frame_slot_index)?,
             None => FluidUploadStats::default(),

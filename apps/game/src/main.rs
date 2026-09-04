@@ -132,9 +132,13 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             launch,
             options.maximum_frames,
             capture,
-            options.projection_jitter,
-            options.physx_water,
-            options.physx_water_pour,
+            InteractiveSessionOptions {
+                projection_jitter: options.projection_jitter,
+                physx_water: options.physx_water,
+                physx_water_pour: options.physx_water_pour,
+                physx_water_fail_after: options.physx_water_fail_after,
+                inject_device_loss_after_frames: options.inject_device_loss_after_frames,
+            },
         );
     }
 
@@ -175,15 +179,35 @@ fn begin_or_resume_reference_game_live(
     }
 }
 
+/// The interactive session's switches beyond the launch request.
+#[cfg_attr(
+    not(feature = "desktop-sdl-ash"),
+    allow(dead_code, reason = "read only by the desktop session")
+)]
+struct InteractiveSessionOptions {
+    projection_jitter: bool,
+    physx_water: bool,
+    physx_water_pour: bool,
+    /// Plan 29: inject a fluid failure after this many lane frames.
+    physx_water_fail_after: Option<u64>,
+    /// Plan 29: the adapter's injected device loss.
+    inject_device_loss_after_frames: Option<u64>,
+}
+
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_interactive_session(
     launch: LaunchRequestV1,
     maximum_frames: Option<u64>,
     capture: Option<CaptureOptions>,
-    projection_jitter: bool,
-    physx_water: bool,
-    physx_water_pour: bool,
+    session: InteractiveSessionOptions,
 ) -> Result<RunReportV1, AppFailure> {
+    let InteractiveSessionOptions {
+        projection_jitter,
+        physx_water,
+        physx_water_pour,
+        physx_water_fail_after,
+        inject_device_loss_after_frames,
+    } = session;
     let capture = capture.map(|capture| capture::CaptureRequest {
         rendered_frame_index: capture.rendered_frame_index,
         png: capture.png,
@@ -236,7 +260,11 @@ fn run_interactive_session(
     let mut physx_lane_fallback: Option<String> = None;
     #[cfg(feature = "physx-water")]
     let physx_lane = std::cell::RefCell::new(if physx_water {
-        match physx_water::PhysxWaterLane::new(water_feed.particle_bounds(), physx_water_pour) {
+        match physx_water::PhysxWaterLane::new(
+            water_feed.particle_bounds(),
+            physx_water_pour,
+            physx_water_fail_after,
+        ) {
             Ok(lane) => {
                 eprintln!("next_game: PHYSX_WATER: lane active over the basin");
                 Some(lane)
@@ -251,7 +279,7 @@ fn run_interactive_session(
         None
     });
     #[cfg(not(feature = "physx-water"))]
-    let _ = physx_water_pour;
+    let _ = (physx_water_pour, physx_water_fail_after);
     #[cfg(not(feature = "physx-water"))]
     if physx_water {
         return Err(AppFailure::cli(
@@ -284,6 +312,7 @@ fn run_interactive_session(
                 .map(capture::CaptureRequest::adapter_request),
             scripted_input: Vec::new(),
             projection_jitter,
+            inject_device_loss_after_frames,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed, audio| {
@@ -434,10 +463,12 @@ fn run_interactive_session(
         worker_report.presentation_fluid = Some(match physx_lane.borrow().as_ref() {
             Some(lane) => {
                 let stats = lane.stats();
+                // Plan 29: a demoted lane keeps its statistics up to the
+                // failure and carries the reason.
                 next_application::PresentationFluidReportV1 {
                     lane: "physx-pbd".to_owned(),
-                    active: true,
-                    fallback_reason: None,
+                    active: lane.failure().is_none(),
+                    fallback_reason: lane.failure().map(str::to_owned),
                     frames: stats.frames,
                     peak_particles: stats.peak_particles as u64,
                     emitted: stats.emitted,
@@ -493,8 +524,9 @@ fn run_interactive_session(
         );
     }
     eprintln!(
-        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
+        "next_game: desktop session closed: frames={}, particle_frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
         adapter.rendered_frames,
+        adapter.particle_surface_frames,
         adapter.normalized_events,
         adapter.control_events,
         adapter.resize_events,
@@ -559,9 +591,7 @@ fn run_interactive_session(
     _launch: LaunchRequestV1,
     _maximum_frames: Option<u64>,
     _capture: Option<CaptureOptions>,
-    _projection_jitter: bool,
-    _physx_water: bool,
-    _physx_water_pour: bool,
+    _session: InteractiveSessionOptions,
 ) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",

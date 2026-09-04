@@ -21,6 +21,10 @@ pub(super) struct GameOptions {
     pub(super) physx_water: bool,
     /// Plan 24: the demo block poured onto the basin (needs `--physx-water`).
     pub(super) physx_water_pour: bool,
+    /// Plan 29: inject a fluid failure after this many lane frames.
+    pub(super) physx_water_fail_after: Option<u64>,
+    /// Plan 29: the adapter's injected device loss after this many frames.
+    pub(super) inject_device_loss_after_frames: Option<u64>,
     /// Plan `continuum-water/11` diagnostic: walk to the basin and turn the
     /// camera to it through scripted input at start.
     pub(super) start_at_water: bool,
@@ -100,6 +104,36 @@ impl GameOptions {
                         return Err(AppFailure::argument("--physx-water-pour specified twice"));
                     }
                 }
+                "--physx-water-fail-after" => {
+                    let value = required_value(&mut arguments, "--physx-water-fail-after")?;
+                    let frames = value.parse::<u64>().map_err(|_| {
+                        AppFailure::argument("--physx-water-fail-after requires a positive integer")
+                    })?;
+                    if frames == 0 || options.physx_water_fail_after.replace(frames).is_some() {
+                        return Err(AppFailure::argument(
+                            "--physx-water-fail-after must be one positive integer",
+                        ));
+                    }
+                }
+                "--inject-device-loss-after-frames" => {
+                    let value =
+                        required_value(&mut arguments, "--inject-device-loss-after-frames")?;
+                    let frames = value.parse::<u64>().map_err(|_| {
+                        AppFailure::argument(
+                            "--inject-device-loss-after-frames requires a positive integer",
+                        )
+                    })?;
+                    if frames == 0
+                        || options
+                            .inject_device_loss_after_frames
+                            .replace(frames)
+                            .is_some()
+                    {
+                        return Err(AppFailure::argument(
+                            "--inject-device-loss-after-frames must be one positive integer",
+                        ));
+                    }
+                }
                 "--projection-jitter" => {
                     if std::mem::replace(&mut options.projection_jitter, true) {
                         return Err(AppFailure::argument("--projection-jitter specified twice"));
@@ -157,6 +191,16 @@ impl GameOptions {
         if options.physx_water_pour && !options.physx_water {
             return Err(AppFailure::argument(
                 "--physx-water-pour requires --physx-water",
+            ));
+        }
+        if options.physx_water_fail_after.is_some() && !options.physx_water {
+            return Err(AppFailure::argument(
+                "--physx-water-fail-after requires --physx-water",
+            ));
+        }
+        if options.inject_device_loss_after_frames.is_some() && !options.interactive {
+            return Err(AppFailure::argument(
+                "--inject-device-loss-after-frames requires --interactive",
             ));
         }
         if options.projection_jitter && !options.interactive {

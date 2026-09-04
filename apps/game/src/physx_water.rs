@@ -423,8 +423,20 @@ pub(crate) struct LaneStats {
     pub(crate) spray_fraction_last_permille: u32,
 }
 
+/// One frame's fluid state after the step, absorption and emission.
+struct FluidAdvance {
+    positions: Vec<[f32; 3]>,
+    velocities: Vec<[f32; 3]>,
+    absorbed: usize,
+    emitted: usize,
+}
+
 pub(crate) struct PhysxWaterLane {
-    fluid: NativeFluid,
+    /// `None` after a failure (plan 29): the lane is demoted for the rest
+    /// of the session and the stage's droplets show instead.
+    fluid: Option<NativeFluid>,
+    failure: Option<String>,
+    inject_failure_after: Option<u64>,
     fluid_box: FluidBox,
     level_metres: f32,
     accumulator: Duration,
@@ -440,7 +452,11 @@ pub(crate) struct PhysxWaterLane {
 impl PhysxWaterLane {
     /// Creates the empty fluid over the basin (plus plan 24's block when
     /// `pour` is set); `Err` carries the reason the lane is unavailable.
-    pub(crate) fn new(bounds: AabbI64V1, pour: bool) -> Result<Self, String> {
+    pub(crate) fn new(
+        bounds: AabbI64V1,
+        pour: bool,
+        inject_failure_after: Option<u64>,
+    ) -> Result<Self, String> {
         let fluid_box = basin_fluid_box();
         let level_metres = fluid_box.min[1];
         let centre_x = (fluid_box.min[0] + fluid_box.max[0]) * 0.5;
@@ -477,7 +493,9 @@ impl PhysxWaterLane {
         })
         .map_err(|(error, reason)| format!("PhysX fluid unavailable: {error} ({reason})"))?;
         Ok(Self {
-            fluid,
+            fluid: Some(fluid),
+            failure: None,
+            inject_failure_after,
             fluid_box,
             level_metres,
             accumulator: Duration::ZERO,
@@ -526,15 +544,18 @@ impl PhysxWaterLane {
         // clears its slot. A failed collider update is reported once by the
         // adapter's client error at the next step.
         self.colliders = colliders_for_frame(frame, &self.fluid_box);
+        let Some(fluid) = self.fluid.as_mut() else {
+            return;
+        };
         let used = u32::try_from(self.colliders.len()).unwrap_or(0);
         for (slot, (centre, half)) in self.colliders.iter().enumerate() {
             let slot = u32::try_from(slot).unwrap_or(u32::MAX);
-            if self.fluid.set_box(slot, *centre, *half).is_err() {
+            if fluid.set_box(slot, *centre, *half).is_err() {
                 break;
             }
         }
         for slot in used..self.collider_slots {
-            let _ = self.fluid.clear_box(slot);
+            let _ = fluid.clear_box(slot);
         }
         self.collider_slots = used;
     }
@@ -547,35 +568,28 @@ impl PhysxWaterLane {
         elapsed: Duration,
         sequence: u64,
     ) -> Result<Option<Arc<ParticleSurfaceUpdateV1>>, DesktopAdapterError> {
+        // Plan 29: a demoted lane answers with no update; a failure of the
+        // fluid demotes it and clears the picture once.
+        if self.fluid.is_none() {
+            return Ok(None);
+        }
         let started = Instant::now();
-        self.accumulator = self.accumulator.saturating_add(elapsed);
-        let mut steps = 0;
-        while self.accumulator >= LANE_TIMESTEP && steps < LANE_MAX_STEPS_PER_FRAME {
-            self.accumulator -= LANE_TIMESTEP;
-            self.fluid.step().map_err(|error| {
-                DesktopAdapterError::client("PHYSX_WATER_STEP_FAILED", error.to_string())
-            })?;
-            steps += 1;
+        if self.inject_failure_after == Some(self.stats.frames) {
+            return self.demote(
+                "PHYSX_WATER_INJECTED_FAILURE",
+                &format!("injected after {} lane frames", self.stats.frames),
+                sequence,
+            );
         }
-        if steps == LANE_MAX_STEPS_PER_FRAME {
-            self.accumulator = Duration::ZERO;
-        }
-        let sample = self.fluid.read().map_err(|error| {
-            DesktopAdapterError::client("PHYSX_WATER_READ_FAILED", error.to_string())
-        })?;
-        let (mut positions, mut velocities, absorbed) = absorb(&sample, self.level_metres);
-        let room = (self.fluid.max_particles() as usize).saturating_sub(positions.len());
-        let emitted = self.pending_positions.len().min(room);
-        positions.extend(self.pending_positions.drain(..emitted));
-        velocities.extend(self.pending_velocities.drain(..emitted));
-        self.pending_positions.clear();
-        self.pending_velocities.clear();
-        let changed = absorbed > 0 || emitted > 0;
-        if changed {
-            self.fluid.set(&positions, &velocities).map_err(|error| {
-                DesktopAdapterError::client("PHYSX_WATER_SET_FAILED", error.to_string())
-            })?;
-        }
+        let FluidAdvance {
+            positions,
+            velocities,
+            absorbed,
+            emitted,
+        } = match self.advance_fluid(elapsed) {
+            Ok(result) => result,
+            Err((code, message)) => return self.demote(code, &message, sequence),
+        };
         self.stats.frames += 1;
         self.stats.emitted += emitted as u64;
         self.stats.absorbed += absorbed as u64;
@@ -642,8 +656,82 @@ impl PhysxWaterLane {
         )?)))
     }
 
+    /// Steps, reads and refills the fluid; `Err` carries the failed
+    /// operation's code and message.
+    fn advance_fluid(&mut self, elapsed: Duration) -> Result<FluidAdvance, (&'static str, String)> {
+        let fluid = self
+            .fluid
+            .as_mut()
+            .ok_or(("PHYSX_WATER_DEMOTED", String::new()))?;
+        self.accumulator = self.accumulator.saturating_add(elapsed);
+        let mut steps = 0;
+        while self.accumulator >= LANE_TIMESTEP && steps < LANE_MAX_STEPS_PER_FRAME {
+            self.accumulator -= LANE_TIMESTEP;
+            fluid
+                .step()
+                .map_err(|error| ("PHYSX_WATER_STEP_FAILED", error.to_string()))?;
+            steps += 1;
+        }
+        if steps == LANE_MAX_STEPS_PER_FRAME {
+            self.accumulator = Duration::ZERO;
+        }
+        let sample = fluid
+            .read()
+            .map_err(|error| ("PHYSX_WATER_READ_FAILED", error.to_string()))?;
+        let (mut positions, mut velocities, absorbed) = absorb(&sample, self.level_metres);
+        let room = (fluid.max_particles() as usize).saturating_sub(positions.len());
+        let emitted = self.pending_positions.len().min(room);
+        positions.extend(self.pending_positions.drain(..emitted));
+        velocities.extend(self.pending_velocities.drain(..emitted));
+        self.pending_positions.clear();
+        self.pending_velocities.clear();
+        if absorbed > 0 || emitted > 0 {
+            fluid
+                .set(&positions, &velocities)
+                .map_err(|error| ("PHYSX_WATER_SET_FAILED", error.to_string()))?;
+        }
+        Ok(FluidAdvance {
+            positions,
+            velocities,
+            absorbed,
+            emitted,
+        })
+    }
+
+    /// Plan 29: records the failure, frees the fluid and publishes one
+    /// empty update so the last picture does not freeze on the screen.
+    fn demote(
+        &mut self,
+        code: &str,
+        message: &str,
+        sequence: u64,
+    ) -> Result<Option<Arc<ParticleSurfaceUpdateV1>>, DesktopAdapterError> {
+        let reason = format!("{code}: {message}");
+        eprintln!(
+            "next_game: PHYSX_WATER_DEMOTED after {} frames: {reason}",
+            self.stats.frames
+        );
+        self.failure = Some(reason);
+        self.fluid = None;
+        self.pending_positions.clear();
+        self.pending_velocities.clear();
+        Ok(Some(Arc::new(ParticleSurfaceUpdateV1::new(
+            sequence,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        )?)))
+    }
+
     pub(crate) fn stats(&self) -> &LaneStats {
         &self.stats
+    }
+
+    /// Plan 29: the reason the lane was demoted, if it was.
+    pub(crate) fn failure(&self) -> Option<&str> {
+        self.failure.as_deref()
     }
 }
 
