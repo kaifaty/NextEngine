@@ -93,6 +93,9 @@ pub struct ReferenceGameSession {
     pub movement_stream_id: CommandStreamId,
     pub rpg_stream_id: CommandStreamId,
     pub interaction_stream_id: CommandStreamId,
+    /// Plan 36: the water-gate system principal and its stream.
+    pub water_gate_principal: IssuerPrincipal,
+    pub water_gate_stream_id: CommandStreamId,
     pub source_id: InputSourceId,
     pub controller_id: PersistentId,
     pub body_id: PersistentId,
@@ -258,7 +261,16 @@ pub fn build_reference_game_session_with_options(
     let population_principal = IssuerPrincipal::InternalSystem(SystemId::new(
         next_contracts::world_population::WORLD_POPULATION_SYSTEM_ID,
     )?);
+    let water_gate_principal = IssuerPrincipal::InternalSystem(SystemId::new(
+        crate::water::REFERENCE_WATER_GATE_SYSTEM_ID,
+    )?);
     let mut grants = vec![
+        (
+            water_gate_principal.clone(),
+            vec![CapabilityId::new(
+                next_contracts::physics::WATER_FLOW_CAPABILITY_ID,
+            )?],
+        ),
         (
             principal.clone(),
             vec![
@@ -310,6 +322,9 @@ pub fn build_reference_game_session_with_options(
     let interaction_stream_id = base
         .stream_for(&interaction_principal)
         .expect("neutral fixture allocates the interaction system stream");
+    let water_gate_stream_id = base
+        .stream_for(&water_gate_principal)
+        .expect("neutral fixture allocates the water-gate system stream");
     let agent_stream_id = base
         .stream_for(&agent_principal)
         .expect("neutral fixture allocates the agent planner stream");
@@ -500,6 +515,8 @@ pub fn build_reference_game_session_with_options(
         movement_stream_id,
         rpg_stream_id,
         interaction_stream_id,
+        water_gate_principal,
+        water_gate_stream_id,
         source_id,
         controller_id,
         body_id,
@@ -757,6 +774,27 @@ fn grounded_capsule_checkpoint(
             &crate::water::REFERENCE_WATER_POND_BOXES_MICROMETRES,
         ),
     );
+    // Plan 36: the gate lever, a body posed at the lever (the crate mesh is
+    // authored about its own origin and follows the body pose).
+    {
+        let (translation, half_extents) = crate::water::REFERENCE_WATER_GATE_LEVER_BOX_MICROMETRES;
+        let body_id = crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID;
+        bodies.insert(
+            body_id,
+            static_box_descriptor(
+                body_id,
+                PhysicsShapeIdV1 {
+                    body_id,
+                    shape_slot: 0,
+                },
+                &material_id,
+                translation,
+                half_extents,
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        );
+    }
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {

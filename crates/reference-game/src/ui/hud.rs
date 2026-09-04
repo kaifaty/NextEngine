@@ -26,6 +26,10 @@ pub const HUD_SUBTITLE_ELEMENT_ID: &str = "nextengine.ui.element.hud.subtitle";
 pub const HUD_WATER_ELEMENT_ID: &str = "nextengine.ui.element.hud.water";
 pub const HUD_WATER_WADING_TEXT_ID: &str = "nextengine.ui.text.hud.water.wading";
 pub const HUD_WATER_SWIMMING_TEXT_ID: &str = "nextengine.ui.text.hud.water.swimming";
+/// Plan 36: the gate lever prompt.
+pub const HUD_GATE_ELEMENT_ID: &str = "nextengine.ui.element.hud.gate";
+pub const HUD_GATE_CLOSE_TEXT_ID: &str = "nextengine.ui.text.hud.gate.close";
+pub const HUD_GATE_OPEN_TEXT_ID: &str = "nextengine.ui.text.hud.gate.open";
 pub const HUD_HEALTH_TEXT_ID: &str = "nextengine.ui.text.hud.health";
 pub const HUD_QUEST_TEXT_ID: &str = "nextengine.ui.text.hud.quest-state";
 pub const HUD_ACTION_ACCEPT_TEXT_ID: &str = "nextengine.ui.text.hud.action.accept";

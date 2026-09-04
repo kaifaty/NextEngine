@@ -52,6 +52,10 @@ impl ReferenceGameDriverV2 {
                     self.runtime.next_tick(),
                 )?
                 .class,
+                gate_prompt: self.gate_prompt_for(
+                    self.runtime.physics_snapshot(),
+                    &self.runtime.physics_checkpoint().water_flow,
+                )?,
             },
         )?;
         let skinning_records = fixture_character_skinning_records(

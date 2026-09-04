@@ -154,8 +154,8 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .cooked_meshes()
                 .iter()
                 .any(|mesh| mesh.meshlets().is_empty())
-            || prepared.check.rendered_object_count != 16
-            || prepared.check.indexed_draw_count != 16
+            || prepared.check.rendered_object_count != 17
+            || prepared.check.indexed_draw_count != 17
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
             || skinning_records.len() != 2

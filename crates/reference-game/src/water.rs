@@ -90,6 +90,16 @@ pub const REFERENCE_WATER_POND_BOXES_MICROMETRES: [([i64; 3], [i64; 3]); 6] = [
         [250_000, 125_000, 2_250_000],
     ),
 ];
+/// Plan 36: the gate lever, a static cube south of vessel B in reach of the
+/// vessels' start; its body id and the water-gate system principal.
+pub const REFERENCE_WATER_GATE_LEVER_BODY_ID: PhysicsBodyIdV1 = PhysicsBodyIdV1 {
+    subject_id: PersistentId::from_bytes([0x9f; 16]),
+    body_slot: 0,
+};
+pub const REFERENCE_WATER_GATE_LEVER_BOX_MICROMETRES: ([i64; 3], [i64; 3]) =
+    ([16_400_000, 250_000, -600_000], [250_000, 250_000, 250_000]);
+pub const REFERENCE_WATER_GATE_SYSTEM_ID: &str = "nextengine.reference.water-gate";
+
 /// Plan 32: the ground as four strips around the pond hole (centre, half
 /// extents), solid from the pond floor to the ground.
 pub const REFERENCE_GROUND_STRIPS_MICROMETRES: [([i64; 3], [i64; 3]); 4] = [

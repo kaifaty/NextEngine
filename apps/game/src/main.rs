@@ -127,6 +127,11 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             // Plan 32: on the pond floor, the camera under the level.
             launch.spawn_override = Some(next_reference_game::ReferenceSpawnOverrideV1::in_pond());
         }
+        if options.start_at_vessels {
+            // Plan 36: south of the vessels, in reach of the gate lever.
+            launch.spawn_override =
+                Some(next_reference_game::ReferenceSpawnOverrideV1::at_vessels());
+        }
         if options.physx_water {
             // Plan 24: the PhysX water demo pours into the basin, seen from
             // the water start.

@@ -206,6 +206,25 @@ impl ValidatedReferenceGameAdvance {
 }
 
 impl ReferenceGameDriverV2 {
+    /// Plan 36: the gate lever's prompt when the avatar stands in its reach.
+    pub fn gate_prompt_for(
+        &self,
+        snapshot: &PhysicsCanonicalSnapshotV2,
+        network: &next_contracts::physics::WaterFlowNetworkV1,
+    ) -> Result<Option<crate::water_gate::WaterGatePromptV1>, ReferenceGameError> {
+        if !crate::water_gate::lever_in_reach(
+            snapshot,
+            self.fixture.physics_body_id,
+            crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID,
+        )? {
+            return Ok(None);
+        }
+        Ok(
+            crate::water_gate::gate_state(network, crate::water::REFERENCE_WATER_FLOW_GATE_ID)
+                .map(|state| crate::water_gate::gate_prompt(&state)),
+        )
+    }
+
     /// Presentation-only water frame (plan 09) for the committed physics
     /// checkpoint at the next tick; a pure function of that checkpoint and
     /// the presentation frame index, never read by gameplay.
@@ -637,6 +656,9 @@ impl ReferenceGameDriverV2 {
         let mut ui_suspend_causal_hash = None;
         let mut strip_interaction_movement = false;
         let mut inject_interact = false;
+        // Plan 36: the interact edge for the gate lever, decided against the
+        // committed state before the staged tick.
+        let mut interact_started = false;
         if let Some(resolved) = &input.resolved {
             update_camera_state(
                 &resolved.frame,
@@ -651,12 +673,13 @@ impl ReferenceGameDriverV2 {
             // A committed `interact` press that targets the reference NPC opens
             // the dialogue instead of reaching the runtime: the press and the
             // frame's movement are consumed by the modal (S4, Q2A).
+            interact_started = resolved.frame.actions.iter().any(|action| {
+                action.action_id.as_str() == CORE_INTERACT_ACTION_ID
+                    && action.phase == PlayerActionPhaseV1::Started
+                    && action.value == PlayerActionValueV1::Digital(true)
+            });
             if dialogue == ReferenceDialogueUiV1::Closed
-                && resolved.frame.actions.iter().any(|action| {
-                    action.action_id.as_str() == CORE_INTERACT_ACTION_ID
-                        && action.phase == PlayerActionPhaseV1::Started
-                        && action.value == PlayerActionValueV1::Digital(true)
-                })
+                && interact_started
                 && self
                     .runtime
                     .interaction_availability(
@@ -705,6 +728,29 @@ impl ReferenceGameDriverV2 {
             self.runtime.physics_snapshot(),
         )?;
         let root_motion_command = motor_frame.root_motion_command;
+        // Plan 36: the gate lever's toggle, one flow command on the water-gate
+        // stream when the interact edge fires within reach with no dialogue.
+        let mut tick_commands: Vec<next_contracts::command::WorldCommand> =
+            root_motion_command.into_iter().collect();
+        if interact_started
+            && dialogue == ReferenceDialogueUiV1::Closed
+            && crate::water_gate::lever_in_reach(
+                self.runtime.physics_snapshot(),
+                self.fixture.physics_body_id,
+                crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID,
+            )?
+            && let Some(state) = crate::water_gate::gate_state(
+                &self.runtime.physics_checkpoint().water_flow,
+                crate::water::REFERENCE_WATER_FLOW_GATE_ID,
+            )
+        {
+            tick_commands.push(crate::water_gate::toggle_command(
+                &state,
+                self.fixture.water_gate_stream_id,
+                &self.fixture.water_gate_principal,
+                self.runtime.next_tick(),
+            )?);
+        }
         if let Some(sample) = crate::dialogue::dialogue_runtime_sample(
             input.resolved.as_ref(),
             &self.input,
@@ -717,7 +763,7 @@ impl ReferenceGameDriverV2 {
         }
         let mut prepared_runtime = runtime_preparation
             .prepare_with_world_services_cognition_and_activity(
-                root_motion_command,
+                tick_commands,
                 &self.world_routine,
                 &self.world_population,
                 &self.world_activity,
@@ -781,6 +827,10 @@ impl ReferenceGameDriverV2 {
                     prepared_runtime.next_tick(),
                 )?
                 .class,
+                gate_prompt: self.gate_prompt_for(
+                    prepared_runtime.physics_snapshot(),
+                    &prepared_runtime.physics_checkpoint().water_flow,
+                )?,
             },
         )?;
         let presentation_bindings = fixture_presentation_bindings(

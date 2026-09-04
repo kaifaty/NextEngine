@@ -420,6 +420,22 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
         PresentationBindingV1 {
+            // Plan 36: the gate lever follows its static body.
+            persistent_id: crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: water_crate_mesh,
+            material_revision: floor_material,
+            instance_ordinal: 21,
+            local_bounds: water_crate_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
             persistent_id: fixture.carried_load_id,
             presentation_role: next_contracts::presentation::PresentationRoleV1::Item,
             incarnation: 0,

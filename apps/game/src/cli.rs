@@ -30,6 +30,8 @@ pub(super) struct GameOptions {
     pub(super) start_at_water: bool,
     /// Plan 32: start on the pond floor with the camera under the level.
     pub(super) start_at_pond: bool,
+    /// Plan 36: start south of the vessels, in reach of the gate lever.
+    pub(super) start_at_vessels: bool,
     pub(super) project: Option<PathBuf>,
     pub(super) expected_lock: Option<ContentHash>,
     pub(super) state_root: Option<PathBuf>,
@@ -55,6 +57,11 @@ impl GameOptions {
                         return Err(AppFailure::argument(
                             "--maximum-frames must be one positive integer",
                         ));
+                    }
+                }
+                "--start-at-vessels" => {
+                    if std::mem::replace(&mut options.start_at_vessels, true) {
+                        return Err(AppFailure::argument("--start-at-vessels specified twice"));
                     }
                 }
                 "--start-at-pond" => {
@@ -185,6 +192,11 @@ impl GameOptions {
         if options.maximum_frames.is_some() && !options.interactive {
             return Err(AppFailure::argument(
                 "--maximum-frames requires --interactive",
+            ));
+        }
+        if options.start_at_vessels && !options.interactive {
+            return Err(AppFailure::argument(
+                "--start-at-vessels requires --interactive",
             ));
         }
         if options.start_at_pond && !options.interactive {
