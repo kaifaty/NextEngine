@@ -2283,7 +2283,9 @@ passes paired physics/safety and geometric-cost checks with 88 observations
 and 13 bounded reward components. ADR-109 admits one separately frozen 40.96M
 run with fixed milestones and unchanged final walking gates. Preflight and
 Linux host-check pass; generation-01/TRAIN-1 is now live at clean `f0c15bd4`.
-The active queue is its fixed diagnostics and final evaluation; gait is unproved.
+Diagnostic 999 fails (406 ticks, 0.166 m, no single support, ankle hard ROM).
+The active run continues unchanged toward diagnostic 3999 and final evaluation;
+gait remains unproved and no quality gate is advanced.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains

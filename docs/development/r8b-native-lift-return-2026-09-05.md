@@ -77,3 +77,43 @@ Budget: 10,000 updates (40.96M transitions), 14,400 s ceiling, diagnostic update
 milestone, not launch another run. This remains a learnability experiment, not
 a successful walking model. Keep the original safe horizon, 3 m, alternating
 support and stopping requirements.
+
+## Predeclared diagnostic 999 — failed, not a stopping rule
+
+At 4,096,000 transitions, all five nominal seeds again produce the same
+trajectory: 406 ticks, 0.165737 m forward, velocity MAE 0.311684 m/s, zero
+single-support runs/switches, and `terminal.joint-safety`. No final gate passes.
+These identical nominal resets are not five independent robustness trials.
+The run has continued past this diagnostic as required; no weights, settings,
+budget, training inputs or acceptance conditions were changed.
+
+Exact source artifacts under `generation-01/runs/TRAIN-1`:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `model_999.pt` | `7e358c9e470cfe24588210e924fccb1c7d976197255fa2daf3ef9db145ae8295` |
+| `diagnostic-999/evaluation.json` | `7586a7e6d2296d67f292bba4038181f8b0e9bcc9b48b26378f53e99a13912c9b` |
+| `diagnostic-999/evaluation-1001.npz` | `1ac591d042747c1d9c02f7519d9d1d987b6784f4063d98e5ccfbf2383e20a14f` |
+
+Replay `evidence/diagnostic-999-actions.json` with the existing native example.
+Its input closes the source checkpoint/evaluation/generation hashes. Output
+`evidence/diagnostic-999-native.json` hashes
+`4105346b24a31c611124735b9a269c801965b2d07612f89eca4df3a3ba483224`.
+The existing contact-audit `analyze` function verifies every recorded root
+pose/velocity, ordered joint position, command and contact observation exactly.
+`evidence/diagnostic-999-report.json` records the measurements and source hashes.
+
+The first recorded hard-ROM breach is right ankle pitch at tick 406:
+q=-698,656 urad versus lower limit -698,132 urad, excess 524 urad, above the
+unchanged 10-urad observation tolerance. Native diagnostics report
+`MOTOR_SAFETY_HARD_ROM_VIOLATION`, with four actual physical substeps completed.
+This is an actual physical joint excursion, not action-order or replay mismatch;
+it does not establish why the learned controller chooses the unsafe trajectory.
+Do not infer a safety-envelope defect or relax the limit from this observation.
+
+Complete-box clearance peaks at 6.945 mm left / 9.350 mm right; neither foot
+reaches 20 mm. Small clearance with contact presence is possible within the
+existing contact margin, but does not satisfy the original support/step gates.
+The stochastic training rollout's occasional larger lift is therefore not
+evidence of a learned deterministic gait. Next inspect only the already
+predeclared diagnostic 3999 and final 9999, retaining this fixed negative result.

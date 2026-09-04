@@ -22,7 +22,8 @@
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Monitor existing V7 TRAIN-1 (exec session 50278, PID 2071350),
-  especially predeclared diagnostic updates 999/3999 and final model 9999.
+  especially remaining diagnostic 3999 and final model 9999. Diagnostic 999
+  failed: 406 ticks, 0.166 m, no single support, right-ankle-pitch hard ROM.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
@@ -30,6 +31,9 @@
   without single support. V7 now trains from fresh weights at clean `f0c15bd4`;
   finite PPO updates confirmed. It has 88 observations, 13 reward components,
   unchanged physics/actions/safety, and a 40.96M-transition / 14,400 s budget.
+- **First milestone:** Exact native replay confirms right ankle pitch exceeds
+  its lower limit by 524 urad at 406; complete soles lift only 6.945/9.350 mm.
+  This is not learned walking or a reason to modify the live frozen experiment.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
