@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import os
 from pathlib import Path
 
@@ -32,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--action-tape", type=Path, required=True)
+    parser.add_argument("--action-tape", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=256)
@@ -77,9 +78,6 @@ def main() -> None:
         checkpoint_path, generation.manifest.generation_id
     )
     validate_checkpoint_artifacts(parent, profile, descriptor_path, usd_path)
-    action_tape_path = require_external_path(
-        args.action_tape, REPOSITORY_ROOT, label="canonical CPU action tape"
-    )
     config = ResolvedTrainingConfig.from_profile(
         profile,
         num_envs=args.num_envs,
@@ -102,6 +100,7 @@ def main() -> None:
             NextEngineHumanoidDirectEnvCfg,
             engine_vector_from_isaac_tensor,
         )
+        from next_lab.isaac_rl import GuardedOnPolicyRunner, build_agent_cfg
 
         env_cfg = NextEngineHumanoidDirectEnvCfg()
         env_cfg.scene.num_envs = args.num_envs
@@ -113,9 +112,24 @@ def main() -> None:
         environment = NextEngineHumanoidDirectEnv(
             env_cfg, descriptor_path=str(descriptor_path)
         )
+        print("GPU correspondence environment ready", flush=True)
         if args.motor_steps > environment.max_episode_length:
             raise ValueError("motor-steps exceeds the environment episode bound")
         wrapped = RslRlVecEnvWrapper(environment, clip_actions=1.0)
+        policy = None
+        if args.action_tape is None:
+            runner = GuardedOnPolicyRunner(
+                wrapped,
+                copy.deepcopy(build_agent_cfg(config).to_dict()),
+                log_dir=None,
+                device=config.device,
+            )
+            runner.load(
+                str(checkpoint_path),
+                load_optimizer=False,
+                map_location=config.device,
+            )
+            policy = runner.get_inference_policy(device=config.device)
 
         shape = (args.episodes, args.motor_steps)
         joints = np.empty((*shape, 23), dtype=np.float32)
@@ -132,39 +146,69 @@ def main() -> None:
             training_generation_manifest_hash=generation.manifest.manifest_hash,
             run_root=config.run_root_hex,
         )
-        with np.load(action_tape_path, allow_pickle=False) as tape:
-            action_tape = np.asarray(tape["action_raw"], dtype=np.int64)
-            for key, expected in expected_metadata.items():
-                if not np.array_equal(tape[key], expected):
-                    raise ValueError(f"CPU action tape identity mismatch: {key}")
-        if action_tape.shape != (*shape, 23):
-            raise ValueError(
-                f"CPU action tape shape mismatch: expected {(*shape, 23)}, "
-                f"got {action_tape.shape}"
+        action_tape = np.empty((*shape, 23), dtype=np.int64)
+        if args.action_tape is not None:
+            action_tape_path = require_external_path(
+                args.action_tape,
+                REPOSITORY_ROOT,
+                label="canonical CPU action tape",
             )
+            with np.load(action_tape_path, allow_pickle=False) as tape:
+                action_tape = np.asarray(tape["action_raw"], dtype=np.int64)
+                for key, expected in expected_metadata.items():
+                    if not np.array_equal(tape[key], expected):
+                        raise ValueError(f"CPU action tape identity mismatch: {key}")
+            if action_tape.shape != (*shape, 23):
+                raise ValueError(
+                    f"CPU action tape shape mismatch: expected {(*shape, 23)}, "
+                    f"got {action_tape.shape}"
+                )
+            print("canonical CPU action tape accepted", flush=True)
+        else:
+            print("recording canonical GPU policy action tape", flush=True)
 
         with torch.inference_mode():
             for batch_start in range(0, args.episodes, args.num_envs):
+                print(
+                    f"recording GPU episodes {batch_start}.."
+                    f"{batch_start + args.num_envs - 1}",
+                    flush=True,
+                )
                 batch = slice(batch_start, batch_start + args.num_envs)
                 observations, _ = wrapped.reset()
                 for tick in range(args.motor_steps):
-                    expected_action = torch.from_numpy(action_tape[batch, tick]).to(
-                        config.device
-                    )
-                    actions = expected_action.to(torch.float32) / float(1 << 30)
+                    if policy is None:
+                        expected_action = torch.from_numpy(
+                            action_tape[batch, tick]
+                        ).to(config.device)
+                        actions = expected_action.to(torch.float32) / float(1 << 30)
+                    else:
+                        actions = policy(observations)
                     observations, reward, dones, _ = wrapped.step(actions)
-                    if not torch.equal(environment._action, expected_action):
-                        raise RuntimeError(
-                            "GPU did not consume the canonical action tape exactly"
-                        )
                     if torch.any(dones):
                         ended = (
                             dones.nonzero(as_tuple=False).squeeze(-1).cpu().tolist()
+                        )
+                        print(
+                            f"GPU early done at motor tick {tick + 1}: {ended[:8]}",
+                            flush=True,
                         )
                         raise RuntimeError(
                             f"GPU slots ended before {args.motor_steps} ticks: "
                             f"{ended[:8]}"
                         )
+                    applied_action = environment._action.detach()
+                    if policy is None and not torch.equal(
+                        applied_action, expected_action
+                    ):
+                        print(
+                            f"canonical action mismatch at motor tick {tick + 1}",
+                            flush=True,
+                        )
+                        raise RuntimeError(
+                            "GPU did not consume the canonical action tape exactly"
+                        )
+                    action_tape[batch, tick] = applied_action.cpu().numpy()
                     joints[batch, tick] = (
                         environment.robot.data.joint_pos[
                             :, environment._canonical_joint_ids

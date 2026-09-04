@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--action-tape", type=Path)
     parser.add_argument("--headless", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--episodes", type=int, default=256)
@@ -89,6 +90,12 @@ def main() -> None:
     profile = select_biomechanics_standing_profile(
         descriptor, BIOMECHANICS_STANDING_PROFILE_ID
     )
+    metadata = trajectory_metadata(
+        profile,
+        checkpoint_sha256=sha256_file(checkpoint_path),
+        training_generation_manifest_hash=generation.manifest.manifest_hash,
+        run_root=run_root,
+    )
     actor, mean, std = load_actor(checkpoint_path)
     scales = observation_scales(descriptor)
 
@@ -100,6 +107,21 @@ def main() -> None:
     rewards = np.empty(shape, dtype=np.int64)
     commands = np.empty((*shape, 3), dtype=np.int64)
     action_tape = np.empty((*shape, 23), dtype=np.int64)
+    replay_action_tape = None
+    if args.action_tape is not None:
+        action_tape_path = require_external_path(
+            args.action_tape, REPOSITORY_ROOT, label="canonical GPU action tape"
+        )
+        with np.load(action_tape_path, allow_pickle=False) as tape:
+            replay_action_tape = np.asarray(tape["action_raw"], dtype=np.int64)
+            for key, expected in metadata.items():
+                if not np.array_equal(tape[key], expected):
+                    raise ValueError(f"GPU action tape identity mismatch: {key}")
+        if replay_action_tape.shape != (*shape, 23):
+            raise ValueError(
+                f"GPU action tape shape mismatch: expected {(*shape, 23)}, "
+                f"got {replay_action_tape.shape}"
+            )
     done_ticks = np.full(args.episodes, args.motor_steps, dtype=np.int64)
 
     with MotorLabClient(
@@ -125,12 +147,15 @@ def main() -> None:
                 normalized = (
                     torch.from_numpy(observations) - mean
                 ) / (std + 1.0e-2)
-                actions = (
-                    actor(normalized).numpy()
-                    if args.action_source == "policy"
-                    else np.zeros((args.episodes, 23), dtype=np.float32)
-                )
-                action_raw = normalized_action_to_raw(actions, q1_30=True)
+                if replay_action_tape is not None:
+                    action_raw = replay_action_tape[:, tick]
+                else:
+                    actions = (
+                        actor(normalized).numpy()
+                        if args.action_source == "policy"
+                        else np.zeros((args.episodes, 23), dtype=np.float32)
+                    )
+                    action_raw = normalized_action_to_raw(actions, q1_30=True)
                 steps = client.step(ordinals, action_raw)
                 for step in steps:
                     slot = step.vector_slot
@@ -159,12 +184,7 @@ def main() -> None:
 
     path = write_policy_trajectory(
         output_path,
-        metadata=trajectory_metadata(
-            profile,
-            checkpoint_sha256=sha256_file(checkpoint_path),
-            training_generation_manifest_hash=generation.manifest.manifest_hash,
-            run_root=run_root,
-        ),
+        metadata=metadata,
         joint_position_rad=joints,
         root_position_m=positions,
         root_velocity_mps=velocities,
