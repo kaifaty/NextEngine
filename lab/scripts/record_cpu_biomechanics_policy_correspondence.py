@@ -25,7 +25,11 @@ from next_lab.isaac_training import (
     validate_checkpoint_artifacts,
     validate_closed_checkpoint,
 )
-from next_lab.motor_lab_client import BIOMECHANICS_STANDING_PROFILE_ID, MotorLabClient
+from next_lab.motor_lab_client import (
+    BIOMECHANICS_STANDING_PROFILE_ID,
+    MotorLabClient,
+    normalized_action_to_raw,
+)
 from next_lab.motor_mirror import select_biomechanics_standing_profile
 from next_lab.policy_correspondence import trajectory_metadata, write_policy_trajectory
 
@@ -41,6 +45,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--episodes", type=int, default=256)
     parser.add_argument("--motor-steps", type=int, default=600)
+    parser.add_argument(
+        "--action-source", choices=("policy", "zero"), default="policy"
+    )
     return parser.parse_args()
 
 
@@ -92,6 +99,7 @@ def main() -> None:
     contacts = np.empty((*shape, 2), dtype=np.bool_)
     rewards = np.empty(shape, dtype=np.int64)
     commands = np.empty((*shape, 3), dtype=np.int64)
+    action_tape = np.empty((*shape, 23), dtype=np.int64)
     done_ticks = np.full(args.episodes, args.motor_steps, dtype=np.int64)
 
     with MotorLabClient(
@@ -117,8 +125,13 @@ def main() -> None:
                 normalized = (
                     torch.from_numpy(observations) - mean
                 ) / (std + 1.0e-2)
-                actions = actor(normalized).numpy()
-                steps = client.step_normalized(ordinals, actions)
+                actions = (
+                    actor(normalized).numpy()
+                    if args.action_source == "policy"
+                    else np.zeros((args.episodes, 23), dtype=np.float32)
+                )
+                action_raw = normalized_action_to_raw(actions, q1_30=True)
+                steps = client.step(ordinals, action_raw)
                 for step in steps:
                     slot = step.vector_slot
                     if step.terminated or step.truncated:
@@ -139,13 +152,19 @@ def main() -> None:
                     contacts[slot, tick] = step.contact_flags
                     rewards[slot, tick] = step.reward_total_q16
                     commands[slot, tick] = step.command_raw
+                    action_tape[slot, tick] = action_raw[slot]
                     observations[slot] = policy_observation(
                         step.observation_raw, scales
                     ).numpy()[0]
 
     path = write_policy_trajectory(
         output_path,
-        metadata=trajectory_metadata(profile),
+        metadata=trajectory_metadata(
+            profile,
+            checkpoint_sha256=sha256_file(checkpoint_path),
+            training_generation_manifest_hash=generation.manifest.manifest_hash,
+            run_root=run_root,
+        ),
         joint_position_rad=joints,
         root_position_m=positions,
         root_velocity_mps=velocities,
@@ -153,6 +172,7 @@ def main() -> None:
         done_tick=done_ticks,
         reward_total_q16=rewards,
         command_raw=commands,
+        action_raw=action_tape,
     )
     print(path)
 

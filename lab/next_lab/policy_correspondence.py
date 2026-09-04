@@ -7,13 +7,24 @@ from typing import Any
 import numpy as np
 
 
-CORRESPONDENCE_SCHEMA_VERSION = 2
+CORRESPONDENCE_SCHEMA_VERSION = 3
 
 
-def trajectory_metadata(profile: dict[str, Any]) -> dict[str, np.ndarray[Any, Any]]:
+def trajectory_metadata(
+    profile: dict[str, Any],
+    *,
+    checkpoint_sha256: str,
+    training_generation_manifest_hash: str,
+    run_root: str,
+) -> dict[str, np.ndarray[Any, Any]]:
     """Return the exact identity fields required by MODEL-MIRROR-P1."""
     return {
         "profile_id": np.asarray(profile["profile_id"], dtype=np.str_),
+        "checkpoint_sha256": np.asarray(checkpoint_sha256, dtype=np.str_),
+        "training_generation_manifest_hash": np.asarray(
+            training_generation_manifest_hash, dtype=np.str_
+        ),
+        "run_root": np.asarray(run_root, dtype=np.str_),
         "manifest_hash": np.asarray(profile["manifest_hash"], dtype=np.str_),
         "observation_layout_hash": np.asarray(
             profile["observation_layout_hash"], dtype=np.str_
@@ -54,6 +65,7 @@ def write_policy_trajectory(
     done_tick: np.ndarray[Any, Any],
     reward_total_q16: np.ndarray[Any, Any],
     command_raw: np.ndarray[Any, Any],
+    action_raw: np.ndarray[Any, Any],
 ) -> Path:
     episodes, motor_steps, joints = joint_position_rad.shape
     expected_shapes = {
@@ -63,6 +75,7 @@ def write_policy_trajectory(
         "done_tick": (episodes,),
         "reward_total_q16": (episodes, motor_steps),
         "command_raw": (episodes, motor_steps, 3),
+        "action_raw": (episodes, motor_steps, 23),
     }
     if joints != 23:
         raise ValueError("MODEL-MIRROR trajectory must contain 23 joints")
@@ -73,6 +86,7 @@ def write_policy_trajectory(
         "done_tick": done_tick,
         "reward_total_q16": reward_total_q16,
         "command_raw": command_raw,
+        "action_raw": action_raw,
     }
     for name, shape in expected_shapes.items():
         if values[name].shape != shape:
@@ -95,6 +109,7 @@ def write_policy_trajectory(
         "done_tick": np.asarray(done_tick, dtype=np.int64),
         "reward_total_q16": np.asarray(reward_total_q16, dtype=np.int64),
         "command_raw": np.asarray(command_raw, dtype=np.int64),
+        "action_raw": np.asarray(action_raw, dtype=np.int64),
     }
     try:
         with temporary.open("wb") as output:

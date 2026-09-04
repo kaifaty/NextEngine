@@ -82,7 +82,8 @@ root-local layout. V1 evaluates ten ordered Q16 components; curriculum V2
 evaluates eleven, including command-conditioned support. Quaternion ordering
 and the engine/Isaac frame transform are explicit golden-tested operations.
 
-`MODEL-MIRROR-P1` requires byte-exact commands, profile hashes and reward
+`MODEL-MIRROR-P1` requires one canonical action tape on both planes, byte-exact
+actions, commands, checkpoint/generation identity, profile hashes and reward
 component order, reward-total MAE at most `0.05`, joint RMSE at most `0.02 rad`,
 root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
 at least `98%`, and done-tick agreement at least `95%`. Passing correspondence

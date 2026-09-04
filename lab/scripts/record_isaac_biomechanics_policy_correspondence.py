@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
-import json
 import os
 from pathlib import Path
 
@@ -34,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--action-tape", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=256)
@@ -71,6 +70,9 @@ def main() -> None:
         checkpoint_path, generation.manifest.generation_id
     )
     validate_checkpoint_artifacts(parent, profile, descriptor_path, usd_path)
+    action_tape_path = require_external_path(
+        args.action_tape, REPOSITORY_ROOT, label="canonical CPU action tape"
+    )
     config = ResolvedTrainingConfig.from_profile(
         profile,
         num_envs=args.episodes,
@@ -93,8 +95,6 @@ def main() -> None:
             NextEngineHumanoidDirectEnvCfg,
             engine_vector_from_isaac_tensor,
         )
-        from next_lab.isaac_rl import GuardedOnPolicyRunner, build_agent_cfg
-
         env_cfg = NextEngineHumanoidDirectEnvCfg()
         env_cfg.scene.num_envs = args.episodes
         env_cfg.seed = args.seed
@@ -108,16 +108,6 @@ def main() -> None:
         if args.motor_steps > environment.max_episode_length:
             raise ValueError("motor-steps exceeds the environment episode bound")
         wrapped = RslRlVecEnvWrapper(environment, clip_actions=1.0)
-        runner = GuardedOnPolicyRunner(
-            wrapped,
-            copy.deepcopy(build_agent_cfg(config).to_dict()),
-            log_dir=None,
-            device=config.device,
-        )
-        runner.load(
-            str(checkpoint_path), load_optimizer=False, map_location=config.device
-        )
-        policy = runner.get_inference_policy(device=config.device)
         observations, _ = wrapped.reset()
 
         shape = (args.episodes, args.motor_steps)
@@ -129,10 +119,34 @@ def main() -> None:
         commands = np.empty((*shape, 3), dtype=np.int64)
         done_ticks = np.full(args.episodes, args.motor_steps, dtype=np.int64)
 
+        expected_metadata = trajectory_metadata(
+            environment.profile,
+            checkpoint_sha256=sha256_file(checkpoint_path),
+            training_generation_manifest_hash=generation.manifest.manifest_hash,
+            run_root=config.run_root_hex,
+        )
+        with np.load(action_tape_path, allow_pickle=False) as tape:
+            action_tape = np.asarray(tape["action_raw"], dtype=np.int64)
+            for key, expected in expected_metadata.items():
+                if not np.array_equal(tape[key], expected):
+                    raise ValueError(f"CPU action tape identity mismatch: {key}")
+        if action_tape.shape != (*shape, 23):
+            raise ValueError(
+                f"CPU action tape shape mismatch: expected {(*shape, 23)}, "
+                f"got {action_tape.shape}"
+            )
+
         with torch.inference_mode():
             for tick in range(args.motor_steps):
-                actions = policy(observations)
+                actions = torch.from_numpy(
+                    action_tape[:, tick].astype(np.float32) / float(1 << 30)
+                ).to(config.device)
                 observations, reward, dones, _ = wrapped.step(actions)
+                if not torch.equal(
+                    environment._action,
+                    torch.from_numpy(action_tape[:, tick]).to(config.device),
+                ):
+                    raise RuntimeError("GPU did not consume the canonical action tape exactly")
                 if torch.any(dones):
                     ended = dones.nonzero(as_tuple=False).squeeze(-1).cpu().tolist()
                     raise RuntimeError(
@@ -160,7 +174,7 @@ def main() -> None:
 
         path = write_policy_trajectory(
             output_path,
-            metadata=trajectory_metadata(environment.profile),
+            metadata=expected_metadata,
             joint_position_rad=joints,
             root_position_m=positions,
             root_velocity_mps=velocities,
@@ -168,6 +182,7 @@ def main() -> None:
             done_tick=done_ticks,
             reward_total_q16=rewards,
             command_raw=commands,
+            action_raw=action_tape,
         )
         print(path)
     finally:

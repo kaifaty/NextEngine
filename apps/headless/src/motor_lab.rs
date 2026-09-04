@@ -391,23 +391,19 @@ fn encode_biomechanics_steps(
         push_i64_array(&mut response, root.angular_velocity_microradians_per_second);
         push_i64_values(
             &mut response,
-            &value
+            value
                 .frame
-                .snapshot
-                .joints
-                .iter()
-                .map(|joint| joint.position_microradians)
-                .collect::<Vec<_>>(),
+                .observation_raw
+                .get(10..33)
+                .ok_or(ProtocolFailure::Encoding)?,
         )?;
         push_i64_values(
             &mut response,
-            &value
+            value
                 .frame
-                .snapshot
-                .joints
-                .iter()
-                .map(|joint| joint.velocity_microradians_per_second)
-                .collect::<Vec<_>>(),
+                .observation_raw
+                .get(33..56)
+                .ok_or(ProtocolFailure::Encoding)?,
         )?;
         push_i64_values(&mut response, &value.frame.contact_flags)?;
     }

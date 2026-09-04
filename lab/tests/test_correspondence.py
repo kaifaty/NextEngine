@@ -17,7 +17,11 @@ def trajectory(offset: float = 0.0) -> dict[str, np.ndarray]:
         "done_tick": np.array([3, 3], dtype=np.int64),
         "reward_total_q16": np.zeros((2, 3), dtype=np.int64),
         "command_raw": np.zeros((2, 3, 3), dtype=np.int64),
+        "action_raw": np.zeros((2, 3, 23), dtype=np.int64),
         "profile_id": np.asarray("nextengine.motor.env.humanoid-flat-command.v1"),
+        "checkpoint_sha256": np.asarray("34" * 32),
+        "training_generation_manifest_hash": np.asarray("56" * 32),
+        "run_root": np.asarray("78" * 32),
         "reward_component_ids": np.asarray([f"reward.{index}" for index in range(10)]),
     }
     for key in (
@@ -78,6 +82,9 @@ class CorrespondenceTests(unittest.TestCase):
             key: value[key]
             for key in (
                 "profile_id",
+                "checkpoint_sha256",
+                "training_generation_manifest_hash",
+                "run_root",
                 "manifest_hash",
                 "observation_layout_hash",
                 "action_layout_hash",
@@ -101,6 +108,7 @@ class CorrespondenceTests(unittest.TestCase):
                 done_tick=value["done_tick"],
                 reward_total_q16=value["reward_total_q16"],
                 command_raw=value["command_raw"],
+                action_raw=value["action_raw"],
             )
             with np.load(path, allow_pickle=False) as archive:
                 loaded = {key: archive[key] for key in value}

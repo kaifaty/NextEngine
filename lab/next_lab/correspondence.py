@@ -31,7 +31,11 @@ NUMERIC_KEYS = (
 )
 EXACT_KEYS = (
     "command_raw",
+    "action_raw",
     "profile_id",
+    "checkpoint_sha256",
+    "training_generation_manifest_hash",
+    "run_root",
     "manifest_hash",
     "observation_layout_hash",
     "action_layout_hash",
@@ -98,7 +102,7 @@ def evaluate_correspondence(
         **{f"exact:{key}": matched for key, matched in exact_matches.items()},
     }
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "check": "MODEL-MIRROR-P1",
         "status": "passed" if all(gates.values()) else "failed",
         "episodes": episode_count,
@@ -120,7 +124,7 @@ def evaluate_files(cpu_path: Path, gpu_path: Path, store_root: Path) -> tuple[di
         "cpu_sha256": _file_hash(cpu_path),
         "gpu_sha256": _file_hash(gpu_path),
     }
-    output = store_root.resolve() / "correspondence-v2" / report["inputs"]["cpu_sha256"][:16]
+    output = store_root.resolve() / "correspondence-v3" / report["inputs"]["cpu_sha256"][:16]
     output.mkdir(parents=True, exist_ok=True)
     path = output / "model-mirror-p1-report.json"
     temporary = path.with_suffix(".json.tmp")
