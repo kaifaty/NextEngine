@@ -775,6 +775,7 @@ fn fixture_smoke_report(composition_root: &str) -> next_application::RunReportV1
         command_ledger_hash: "7".repeat(64),
         interactive_host_object_count: 0,
         presentation: None,
+        presentation_fluid: None,
     }
 }
 

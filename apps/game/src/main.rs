@@ -233,6 +233,8 @@ fn run_interactive_session(
     // Plan 25 (ADR-106): the PhysX water lane, optional and fail-closed to
     // the stage's droplets.
     #[cfg(feature = "physx-water")]
+    let mut physx_lane_fallback: Option<String> = None;
+    #[cfg(feature = "physx-water")]
     let physx_lane = std::cell::RefCell::new(if physx_water {
         match physx_water::PhysxWaterLane::new(water_feed.particle_bounds(), physx_water_pour) {
             Ok(lane) => {
@@ -241,6 +243,7 @@ fn run_interactive_session(
             }
             Err(reason) => {
                 eprintln!("next_game: PHYSX_WATER_FALLBACK: {reason}");
+                physx_lane_fallback = Some(reason);
                 None
             }
         }
@@ -425,6 +428,51 @@ fn run_interactive_session(
         );
     }
 
+    // Plan 28: the lane in the run report, absent when not requested.
+    #[cfg(feature = "physx-water")]
+    if physx_water {
+        worker_report.presentation_fluid = Some(match physx_lane.borrow().as_ref() {
+            Some(lane) => {
+                let stats = lane.stats();
+                next_application::PresentationFluidReportV1 {
+                    lane: "physx-pbd".to_owned(),
+                    active: true,
+                    fallback_reason: None,
+                    frames: stats.frames,
+                    peak_particles: stats.peak_particles as u64,
+                    emitted: stats.emitted,
+                    absorbed: stats.absorbed,
+                    last_particles: stats.last_particles as u64,
+                    cost_mean_us: u64::try_from(
+                        stats.cost_total_microseconds / u128::from(stats.frames.max(1)),
+                    )
+                    .unwrap_or(u64::MAX),
+                    cost_max_us: u64::try_from(stats.cost_max_microseconds).unwrap_or(u64::MAX),
+                    analysis_mean_us: u64::try_from(
+                        stats.analysis_total_microseconds / u128::from(stats.frames.max(1)),
+                    )
+                    .unwrap_or(u64::MAX),
+                    inside_colliders_max: stats.inside_colliders_max as u64,
+                    spray_fraction_max_permille: stats.spray_fraction_max_permille,
+                }
+            }
+            None => next_application::PresentationFluidReportV1 {
+                lane: "physx-pbd".to_owned(),
+                active: false,
+                fallback_reason: Some(physx_lane_fallback.clone().unwrap_or_default()),
+                frames: 0,
+                peak_particles: 0,
+                emitted: 0,
+                absorbed: 0,
+                last_particles: 0,
+                cost_mean_us: 0,
+                cost_max_us: 0,
+                analysis_mean_us: 0,
+                inside_colliders_max: 0,
+                spray_fraction_max_permille: 0,
+            },
+        });
+    }
     #[cfg(feature = "physx-water")]
     if let Some(lane) = physx_lane.borrow().as_ref() {
         let stats = lane.stats();

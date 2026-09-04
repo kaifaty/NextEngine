@@ -38,5 +38,5 @@ pub use preferences::{
 };
 pub use report::{
     DiagnosticContextV1, DiagnosticReportV1, OPERATIONAL_REPORT_SCHEMA_VERSION,
-    PresentationReportV1, RunReportV1,
+    PresentationFluidReportV1, PresentationReportV1, RunReportV1,
 };

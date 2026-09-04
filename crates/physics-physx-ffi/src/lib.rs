@@ -416,19 +416,45 @@ pub struct NativeFluid {
     _single_threaded: PhantomData<Rc<()>>,
 }
 
+/// Plan 28: why a fluid could not start, as the bridge reports it.
+#[must_use]
+pub fn fluid_unavailable_reason(code: u32) -> &'static str {
+    match code {
+        0 => "ok",
+        1 => "gpu library or cuda device unavailable",
+        2 => "cuda context invalid",
+        3 => "gpu scene creation failed",
+        4 => "particle system or material creation failed",
+        5 => "particle buffer creation failed",
+        6 => "simulation step failed",
+        _ => "unknown",
+    }
+}
+
 impl NativeFluid {
+    /// Creates the fluid; on an unavailable lane the error carries the
+    /// bridge's reason text.
+    pub fn create_reporting(desc: &FluidDesc) -> Result<Self, (PhysXFfiError, String)> {
+        Self::create_inner(desc)
+    }
+
     pub fn create(desc: &FluidDesc) -> Result<Self, PhysXFfiError> {
-        let version = version()?;
-        validate_version(version)?;
+        Self::create_inner(desc).map_err(|(error, _)| error)
+    }
+
+    fn create_inner(desc: &FluidDesc) -> Result<Self, (PhysXFfiError, String)> {
+        let text = |error: PhysXFfiError| (error, error.to_string());
+        let version = version().map_err(text)?;
+        validate_version(version).map_err(text)?;
         if desc.max_particles == 0 {
-            return Err(PhysXFfiError::InvalidArgument);
+            return Err(text(PhysXFfiError::InvalidArgument));
         }
         let path = desc
             .gpu_library_path
             .as_deref()
             .map(std::ffi::CString::new)
             .transpose()
-            .map_err(|_| PhysXFfiError::InvalidArgument)?;
+            .map_err(|_| text(PhysXFfiError::InvalidArgument))?;
         let raw = FluidDescRaw {
             spacing_bits: desc.spacing_metres.to_bits(),
             box_min_bits: desc.box_min_metres.map(f32::to_bits),
@@ -448,11 +474,14 @@ impl NativeFluid {
         match status_result(status) {
             Ok(()) => {}
             Err(PhysXFfiError::InternalFailure) if reason != 0 => {
-                return Err(PhysXFfiError::Unavailable);
+                return Err((
+                    PhysXFfiError::Unavailable,
+                    fluid_unavailable_reason(reason).to_owned(),
+                ));
             }
-            Err(error) => return Err(error),
+            Err(error) => return Err(text(error)),
         }
-        let handle = NonNull::new(handle).ok_or(PhysXFfiError::InternalFailure)?;
+        let handle = NonNull::new(handle).ok_or_else(|| text(PhysXFfiError::InternalFailure))?;
         Ok(Self {
             handle,
             max_particles: desc.max_particles,

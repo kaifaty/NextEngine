@@ -465,7 +465,7 @@ impl PhysxWaterLane {
             )
         };
         let path = gpu_library_path().ok_or_else(|| "PhysX GPU library not found".to_owned())?;
-        let fluid = NativeFluid::create(&FluidDesc {
+        let fluid = NativeFluid::create_reporting(&FluidDesc {
             spacing_metres: LANE_SPACING_METRES,
             box_min_metres: fluid_box.min,
             box_max_metres: fluid_box.max,
@@ -475,7 +475,7 @@ impl PhysxWaterLane {
             max_particles: LANE_MAX_PARTICLES,
             gpu_library_path: Some(path.display().to_string()),
         })
-        .map_err(|error| format!("PhysX fluid unavailable: {error}"))?;
+        .map_err(|(error, reason)| format!("PhysX fluid unavailable: {error} ({reason})"))?;
         Ok(Self {
             fluid,
             fluid_box,
