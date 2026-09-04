@@ -44,14 +44,21 @@ mod training;
 pub use biomechanics::{
     BIOMECHANICS_HUMANOID_BODY_COUNT, BIOMECHANICS_HUMANOID_COLLIDER_COUNT,
     BIOMECHANICS_HUMANOID_DOF, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
-    BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS, biomechanics_humanoid_body_schema_v2,
+    BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS,
+    BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+    BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS,
+    BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES, biomechanics_humanoid_body_schema_v2,
+    biomechanics_humanoid_body_schema_v3,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_STANDING_ACTION_LAYOUT_ID, BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID,
-    BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS, BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
-    BIOMECHANICS_STANDING_REWARD_COEFFICIENTS_Q16, BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS,
-    BiomechanicsStandingRewardFactsV1, biomechanics_standing_environment_manifest_v1,
-    biomechanics_standing_isaac_descriptor_json_v1, biomechanics_standing_reward_q16_v1,
+    BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID_V1, BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS,
+    BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID, BIOMECHANICS_STANDING_REWARD_COEFFICIENTS_Q16,
+    BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS, BiomechanicsStandingRewardFactsV1,
+    biomechanics_standing_environment_manifest_v1, biomechanics_standing_environment_manifest_v2,
+    biomechanics_standing_isaac_descriptor_json_v1, biomechanics_standing_isaac_descriptor_json_v2,
+    biomechanics_standing_reward_q16_v1,
 };
 pub use biomechanics_standing_runner::{
     BiomechanicsStandingFrameResult, BiomechanicsStandingRunnerError,
@@ -94,6 +101,7 @@ pub use humanoid::{
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use mirror_v2::{
     biomechanics_isaac_mirror_descriptor_json_v1, biomechanics_isaac_mirror_descriptor_json_v2,
+    biomechanics_isaac_mirror_descriptor_json_v3,
 };
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,
@@ -135,6 +143,7 @@ pub use safety_control::{
     ACTUATOR_POWER_CLAMPED, ACTUATOR_TARGET_SLEW_CLAMPED, ACTUATOR_WORK_CLAMPED,
     AppliedJointTargetV1, BiomechanicsSafetyCheckpointV1, BiomechanicsSafetyController,
     JointTargetEnvelopeV1, MotorSafetyError, NORMALIZED_RESIDUAL_ONE_Q1_30,
+    OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND,
 };
 pub use safety_mirror::{SafetyMirrorError, biomechanics_safety_contact_mirror_golden_json_v1};
 #[cfg(feature = "physx-sdk")]

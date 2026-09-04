@@ -22,8 +22,8 @@ use crate::{
     BiomechanicsStandingRewardFactsV1, BiomechanicsTerminalEvaluator, CompiledBodySchemaV2,
     CompiledBodySchemaV3, ContactClassificationError, JointControlStateV1, MotorCompileError,
     MotorSafetyError, ProceduralStandingError, TrainingEnvironmentError, VectorPolicyStepInput,
-    VectorResetOutput, biomechanics_humanoid_body_schema_v2,
-    biomechanics_standing_environment_manifest_v1, biomechanics_standing_reward_q16_v1,
+    VectorResetOutput, biomechanics_humanoid_body_schema_v3,
+    biomechanics_standing_environment_manifest_v2, biomechanics_standing_reward_q16_v1,
     derive_episode_seed_set,
 };
 
@@ -94,10 +94,10 @@ impl BiomechanicsStandingVectorRunner {
             return Err(BiomechanicsStandingRunnerError::SlotCount);
         }
         let compiled = CompiledBodySchemaV3::compile(
-            &biomechanics_humanoid_body_schema_v2(),
+            &biomechanics_humanoid_body_schema_v3(),
             PersistentId::from_bytes([0; 16]),
         )?;
-        let manifest = biomechanics_standing_environment_manifest_v1()?;
+        let manifest = biomechanics_standing_environment_manifest_v2()?;
         let manifest_hash = manifest.manifest_hash()?;
         let (left_foot_actor, right_foot_actor) = foot_actor_tokens(&compiled.base)?;
         let mut slots = Vec::with_capacity(slot_count as usize);
@@ -799,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn saturated_policy_probe_reports_the_exact_self_collision_pair() {
+    fn saturated_policy_prioritizes_joint_safety_over_simultaneous_self_collision() {
         let action = vec![
             153_828_000,
             -385_996_096,
@@ -829,14 +829,22 @@ mod tests {
             BiomechanicsStandingVectorRunner::create(1, ContentHash::from_bytes([7; 32]))
                 .expect("runner");
         runner.reset_slots(&[0]).expect("reset");
-        let step = runner
-            .step_actions_lockstep(vec![VectorPolicyStepInput {
-                vector_slot: 0,
-                episode_ordinal: 1,
-                action_microradians: action,
-            }])
-            .expect("step");
-        let violations = step[0]
+        let mut terminal = None;
+        for _ in 0..60 {
+            let step = runner
+                .step_actions_lockstep(vec![VectorPolicyStepInput {
+                    vector_slot: 0,
+                    episode_ordinal: 1,
+                    action_microradians: action.clone(),
+                }])
+                .expect("step");
+            if step[0].terminated {
+                terminal = step.into_iter().next();
+                break;
+            }
+        }
+        let step = terminal.expect("saturated policy must reach a safety terminal");
+        let violations = step
             .frame
             .contact_frames
             .iter()
@@ -844,8 +852,8 @@ mod tests {
             .filter(|contact| contact.class == BiomechanicsContactClassV1::SelfCollisionViolation)
             .collect::<Vec<_>>();
         assert_eq!(
-            step[0].terminal_reason_id.as_ref().map(SchemaId::as_str),
-            Some("terminal.self-collision")
+            step.terminal_reason_id.as_ref().map(SchemaId::as_str),
+            Some("terminal.joint-safety")
         );
         assert!(!violations.is_empty());
     }

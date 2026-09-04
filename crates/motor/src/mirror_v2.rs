@@ -1,15 +1,22 @@
+use next_contracts::body::BodySchemaV2;
 use next_contracts::ids::PersistentId;
 use next_contracts::physics::PhysicsGeometryV1;
 use serde_json::{Value, json};
 
 use crate::{
     CompiledBodySchemaV2, CompiledBodySchemaV3, MotorCompileError,
-    biomechanics_humanoid_body_schema_v2,
+    biomechanics_humanoid_body_schema_v2, biomechanics_humanoid_body_schema_v3,
 };
 
 pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v2();
-    let compiled = CompiledBodySchemaV2::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    biomechanics_isaac_mirror_descriptor_json_v1_for_schema(&schema)
+}
+
+fn biomechanics_isaac_mirror_descriptor_json_v1_for_schema(
+    schema: &BodySchemaV2,
+) -> Result<String, MotorCompileError> {
+    let compiled = CompiledBodySchemaV2::compile(schema, PersistentId::from_bytes([0; 16]))?;
     let collider_id_by_token = compiled
         .collider_tokens
         .iter()
@@ -165,10 +172,22 @@ pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCom
 
 pub fn biomechanics_isaac_mirror_descriptor_json_v2() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v2();
-    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
-    let mut descriptor: Value =
-        serde_json::from_str(&biomechanics_isaac_mirror_descriptor_json_v1()?)
-            .expect("engine-generated biomechanics mirror V1 is valid JSON");
+    biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)
+}
+
+pub fn biomechanics_isaac_mirror_descriptor_json_v3() -> Result<String, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v3();
+    biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)
+}
+
+fn biomechanics_isaac_mirror_descriptor_json_v2_for_schema(
+    schema: &BodySchemaV2,
+) -> Result<String, MotorCompileError> {
+    let compiled = CompiledBodySchemaV3::compile(schema, PersistentId::from_bytes([0; 16]))?;
+    let mut descriptor: Value = serde_json::from_str(
+        &biomechanics_isaac_mirror_descriptor_json_v1_for_schema(schema)?,
+    )
+    .expect("engine-generated biomechanics mirror V1 is valid JSON");
     descriptor["schema_version"] = json!(2);
     descriptor["translator_id"] = json!("nextengine.isaac.biomechanics-mirror.v2");
     descriptor["compiled_descriptor_schema_version"] = json!(3);

@@ -50,7 +50,7 @@ BOUNDED_STANDING_PROFILE = (
 )
 BIOMECHANICS_STANDING_PROFILE = (
     Path(__file__).parents[1]
-    / "profiles/isaac-rsl-rl-rtx3080-biomechanics-standing.v1.json"
+    / "profiles/isaac-rsl-rl-rtx3080-biomechanics-standing.v2.json"
 )
 
 
@@ -122,7 +122,7 @@ class IsaacTrainingTests(unittest.TestCase):
         config = ResolvedTrainingConfig.from_profile(profile)
         self.assertEqual(
             profile.environment_profile_id,
-            "nextengine.motor.env.humanoid-biomechanics-standing.v1",
+            "nextengine.motor.env.humanoid-biomechanics-standing.v2",
         )
         self.assertEqual(config.num_envs * config.steps_per_env * config.iterations, 1_024_000)
         self.assertEqual(profile.policy["init_noise_std"], 0.35)

@@ -13,6 +13,7 @@ use crate::{CompiledBodySchemaV2, JointControlStateV1};
 
 pub const NORMALIZED_RESIDUAL_ONE_Q1_30: i64 = 1 << 30;
 pub const OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS: i64 = 10;
+pub const OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND: u64 = 1_000;
 pub const ACTUATOR_TARGET_SLEW_CLAMPED: u16 = 1 << 3;
 pub const ACTUATOR_POWER_CLAMPED: u16 = 1 << 4;
 pub const ACTUATOR_WORK_CLAMPED: u16 = 1 << 5;
@@ -420,7 +421,13 @@ fn validate_joint_states(
             return Err(MotorSafetyError::HardRangeViolation);
         }
         if state.velocity_microradians_per_second.unsigned_abs()
-            > channel.joint.base.maximum_velocity_microradians_per_second
+            > channel
+                .joint
+                .base
+                .maximum_velocity_microradians_per_second
+                .saturating_add(
+                    OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND,
+                )
         {
             return Err(MotorSafetyError::VelocityViolation);
         }

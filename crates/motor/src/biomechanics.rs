@@ -15,6 +15,10 @@ pub const BIOMECHANICS_HUMANOID_BODY_COUNT: usize = 24;
 pub const BIOMECHANICS_HUMANOID_COLLIDER_COUNT: usize = 19;
 pub const BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS: u64 = 75_337_000;
 pub const BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES: i64 = 943_500;
+pub const BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES: i64 = 170_000;
+pub const BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES: i64 = 215_000;
+pub const BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS: u64 = 250_000;
+pub const BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED: i64 = 1_000;
 
 mod profile;
 
@@ -22,10 +26,54 @@ use profile::*;
 
 #[must_use]
 pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
-    let bodies = BODY_SPECS.into_iter().map(body_from_spec).collect();
+    biomechanics_humanoid_body_schema(
+        "nextengine.body.humanoid-biomechanics-raja-1700.v2",
+        2,
+        content_hash_from_bytes([
+            0xe6, 0xc5, 0x4e, 0x43, 0xd3, 0x71, 0x3e, 0x4e, 0x9c, 0xc6, 0xa3, 0xb2, 0x73, 0x5a,
+            0x61, 0x33, 0x28, 0xc3, 0xb5, 0x1d, 0x01, 0x00, 0x03, 0x7c, 0xd2, 0xf6, 0x7b, 0x9a,
+            0x0c, 0xca, 0xe1, 0xe4,
+        ]),
+        BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES,
+        1_000,
+        1,
+    )
+}
+
+#[must_use]
+pub fn biomechanics_humanoid_body_schema_v3() -> BodySchemaV2 {
+    biomechanics_humanoid_body_schema(
+        "nextengine.body.humanoid-biomechanics-raja-1700.v3",
+        3,
+        domain_hash(b"nextengine.source.raja-1700.self-clearance-solver-projection.v3"),
+        BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES,
+        BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS,
+        BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+    )
+}
+
+fn biomechanics_humanoid_body_schema(
+    schema_id: &str,
+    schema_revision: u32,
+    source_provenance_hash: ContentHash,
+    shoulder_half_width_micrometres: i64,
+    carrier_mass_microkilograms: u64,
+    carrier_inertia_microkilogram_metre_squared: i64,
+) -> BodySchemaV2 {
+    let bodies = BODY_SPECS
+        .into_iter()
+        .map(|spec| {
+            body_from_spec(
+                spec,
+                shoulder_half_width_micrometres,
+                carrier_mass_microkilograms,
+                carrier_inertia_microkilogram_metre_squared,
+            )
+        })
+        .collect();
     let joints = JOINT_SPECS
         .into_iter()
-        .map(joint_from_spec)
+        .map(|spec| joint_from_spec(spec, shoulder_half_width_micrometres))
         .collect::<Vec<_>>();
     let actuators = JOINT_SPECS.into_iter().map(actuator_from_spec).collect();
     let mut collision_exclusions = JOINT_SPECS
@@ -51,18 +99,16 @@ pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
     }
     let schema = BodySchemaV2 {
         schema_version: BODY_SCHEMA_VERSION_V2,
-        schema_id: id("nextengine.body.humanoid-biomechanics-raja-1700.v2"),
-        schema_revision: 2,
+        schema_id: id(schema_id),
+        schema_revision,
         family_id: id("policy-family.humanoid"),
         coordinate_profile_hash: domain_hash(b"nextengine.coordinate.y-up-x-right-z-forward.v1"),
-        source_provenance_hash: content_hash_from_bytes([
-            0xe6, 0xc5, 0x4e, 0x43, 0xd3, 0x71, 0x3e, 0x4e, 0x9c, 0xc6, 0xa3, 0xb2, 0x73, 0x5a,
-            0x61, 0x33, 0x28, 0xc3, 0xb5, 0x1d, 0x01, 0x00, 0x03, 0x7c, 0xd2, 0xf6, 0x7b, 0x9a,
-            0x0c, 0xca, 0xe1, 0xe4,
-        ]),
-        solver_projection_profile_hash: domain_hash(
-            b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v1",
-        ),
+        source_provenance_hash,
+        solver_projection_profile_hash: domain_hash(if schema_revision == 3 {
+            b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v2"
+        } else {
+            b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v1"
+        }),
         rotation_norm_tolerance_q2_60: 1,
         bodies,
         mass_projection_groups: mass_projection_groups(),
@@ -85,11 +131,21 @@ pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
     schema
 }
 
-fn body_from_spec(spec: BodySpec) -> BodyDefinitionV2 {
+fn body_from_spec(
+    spec: BodySpec,
+    shoulder_half_width_micrometres: i64,
+    carrier_mass_microkilograms: u64,
+    carrier_inertia_microkilogram_metre_squared: i64,
+) -> BodyDefinitionV2 {
+    let spec = projected_body_spec(
+        spec,
+        carrier_mass_microkilograms,
+        carrier_inertia_microkilogram_metre_squared,
+    );
     BodyDefinitionV2 {
         body_id: body_id(spec.name),
         parent_body_id: spec.parent.map(body_id),
-        local_bind_pose: pose(spec.bind),
+        local_bind_pose: pose(body_bind(spec, shoulder_half_width_micrometres)),
         semantic_role: spec.role,
         mapping_group_id: map_id(spec.mapping),
         mass_microkilograms: spec.mass,
@@ -106,6 +162,39 @@ fn body_from_spec(spec: BodySpec) -> BodyDefinitionV2 {
         solver_tensor_error_max_microkilogram_metre_squared: spec.solver_error,
         colliders: colliders_for(spec.name),
     }
+}
+
+fn projected_body_spec(
+    mut spec: BodySpec,
+    carrier_mass_microkilograms: u64,
+    carrier_inertia_microkilogram_metre_squared: i64,
+) -> BodySpec {
+    const V2_CARRIER_MASS: u64 = 1_000;
+    const V2_CARRIER_INERTIA: i64 = 1;
+    if spec.role == BodySemanticRoleV2::NonCollidingCarrier {
+        spec.mass = carrier_mass_microkilograms;
+        spec.inertia = [
+            carrier_inertia_microkilogram_metre_squared,
+            0,
+            0,
+            carrier_inertia_microkilogram_metre_squared,
+            0,
+            carrier_inertia_microkilogram_metre_squared,
+        ];
+        return spec;
+    }
+    if matches!(
+        spec.name,
+        "torso-yaw" | "right-hip-yaw" | "left-hip-yaw" | "right-shoulder-yaw" | "left-shoulder-yaw"
+    ) {
+        let mass_delta = carrier_mass_microkilograms - V2_CARRIER_MASS;
+        spec.mass -= 2 * mass_delta;
+        let inertia_delta = carrier_inertia_microkilogram_metre_squared - V2_CARRIER_INERTIA;
+        for index in [0, 3, 5] {
+            spec.inertia[index] -= 2 * inertia_delta;
+        }
+    }
+    spec
 }
 
 fn colliders_for(body: &str) -> Vec<BodyColliderDefinitionV2> {
@@ -265,18 +354,18 @@ fn colliders_for(body: &str) -> Vec<BodyColliderDefinitionV2> {
         .collect()
 }
 
-fn joint_from_spec(spec: JointSpec) -> BodyJointDefinitionV2 {
+fn joint_from_spec(spec: JointSpec, shoulder_half_width_micrometres: i64) -> BodyJointDefinitionV2 {
     let bind = BODY_SPECS
         .iter()
         .find(|body| body.name == spec.child)
         .expect("joint child row")
-        .bind;
+        .to_owned();
     BodyJointDefinitionV2 {
         joint_id: joint_id(spec.name),
         parent_body_id: body_id(spec.parent),
         child_body_id: body_id(spec.child),
         anatomical_semantic_id: id(&format!("anatomical-joint.{}", spec.semantic)),
-        parent_frame: pose(bind),
+        parent_frame: pose(body_bind(bind, shoulder_half_width_micrometres)),
         child_frame: BodyPoseV2::default(),
         axis_q1_30: spec.axis,
         hard_minimum_microradians: spec.hard[0],
@@ -285,6 +374,14 @@ fn joint_from_spec(spec: JointSpec) -> BodyJointDefinitionV2 {
         soft_maximum_microradians: spec.soft[1],
         neutral_position_microradians: 0,
         maximum_velocity_microradians_per_second: spec.maximum_velocity,
+    }
+}
+
+fn body_bind(spec: BodySpec, shoulder_half_width_micrometres: i64) -> [i64; 3] {
+    match spec.name {
+        "right-shoulder-pitch" => [shoulder_half_width_micrometres, spec.bind[1], spec.bind[2]],
+        "left-shoulder-pitch" => [-shoulder_half_width_micrometres, spec.bind[1], spec.bind[2]],
+        _ => spec.bind,
     }
 }
 
@@ -648,6 +745,86 @@ mod tests {
             (body.semantic_role == BodySemanticRoleV2::NonCollidingCarrier)
                 == body.colliders.is_empty()
         }));
+    }
+
+    #[test]
+    fn v3_preserves_v2_and_adds_robust_neutral_forearm_clearance() {
+        let v2 = biomechanics_humanoid_body_schema_v2();
+        let v3 = biomechanics_humanoid_body_schema_v3();
+        assert_eq!(v2.schema_revision, 2);
+        assert_eq!(v3.schema_revision, 3);
+        let v2_hash = crate::CompiledBodySchemaV2::compile(
+            &v2,
+            next_contracts::ids::PersistentId::from_bytes([0; 16]),
+        )
+        .expect("compile v2")
+        .body_schema_hash;
+        let v3_hash = crate::CompiledBodySchemaV2::compile(
+            &v3,
+            next_contracts::ids::PersistentId::from_bytes([0; 16]),
+        )
+        .expect("compile v3")
+        .body_schema_hash;
+        assert_ne!(v2_hash, v3_hash);
+        assert_eq!(
+            v3.bodies
+                .iter()
+                .map(|body| body.mass_microkilograms)
+                .sum::<u64>(),
+            BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS
+        );
+        assert!(
+            v3.bodies
+                .iter()
+                .filter(|body| body.semantic_role == BodySemanticRoleV2::NonCollidingCarrier)
+                .all(|body| {
+                    body.mass_microkilograms
+                        == BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS
+                        && body.inertia_tensor_microkilogram_metre_squared
+                            == [
+                                BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+                                0,
+                                0,
+                                BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+                                0,
+                                BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+                            ]
+                })
+        );
+
+        for (side, sign) in [("right", 1_i64), ("left", -1_i64)] {
+            let shoulder_id = format!("body.{side}-shoulder-pitch");
+            let old_shoulder = v2
+                .bodies
+                .iter()
+                .find(|body| body.body_id.as_str() == shoulder_id)
+                .expect("v2 shoulder");
+            let new_shoulder = v3
+                .bodies
+                .iter()
+                .find(|body| body.body_id.as_str() == shoulder_id)
+                .expect("v3 shoulder");
+            assert_eq!(
+                old_shoulder.local_bind_pose.translation_micrometres[0],
+                sign * BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES
+            );
+            assert_eq!(
+                new_shoulder.local_bind_pose.translation_micrometres[0],
+                sign * BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES
+            );
+        }
+
+        let pelvis_half_width = 145_000_i64;
+        let forearm_half_width = 35_000_i64;
+        let elbow_bind_inward = 9_595_i64;
+        let forearm_local_outward = 20_000_i64;
+        let clearance = BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES
+            + forearm_local_outward
+            - elbow_bind_inward
+            - forearm_half_width
+            - pelvis_half_width;
+        assert_eq!(clearance, 45_405);
+        assert!(clearance > 40_000);
     }
 
     #[test]

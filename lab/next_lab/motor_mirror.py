@@ -17,7 +17,7 @@ COMMAND_SCHEDULE_DOMAIN = b"nextengine.motor-command-schedule.v1\0"
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 BIOMECHANICS_STANDING_PROFILE_ID = (
-    "nextengine.motor.env.humanoid-biomechanics-standing.v1"
+    "nextengine.motor.env.humanoid-biomechanics-standing.v2"
 )
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
@@ -414,9 +414,9 @@ def validate_biomechanics_standing_profile(profile: dict[str, Any]) -> None:
     if (
         profile.get("profile_id") != BIOMECHANICS_STANDING_PROFILE_ID
         or profile.get("observation_layout_id")
-        != "nextengine.motor.observation.humanoid-biomechanics-standing.v1"
+        != "nextengine.motor.observation.humanoid-biomechanics-standing.v2"
         or profile.get("action_layout_id")
-        != "nextengine.motor.action.humanoid-biomechanics-standing-residual.v1"
+        != "nextengine.motor.action.humanoid-biomechanics-standing-residual.v2"
         or profile.get("maximum_episode_steps") != 3_600
         or profile.get("velocity_frame") != "world"
         or profile.get("ground_half_extent_metres") != 50
@@ -786,7 +786,7 @@ def validate_biomechanics_standing_descriptor(descriptor: dict[str, Any]) -> Non
     if (
         set(descriptor) != set(base) | extras
         or descriptor.get("training_descriptor_id")
-        != "nextengine.isaac.humanoid-biomechanics-standing.v1"
+        != "nextengine.isaac.humanoid-biomechanics-standing.v2"
         or descriptor.get("observation_width") != 84
     ):
         raise ValueError("biomechanics standing descriptor identity mismatch")

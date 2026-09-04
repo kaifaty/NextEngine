@@ -28,7 +28,7 @@ CURRICULUM_LOCOMOTION_PROFILE_ID = (
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 BOUNDED_STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v2"
 BIOMECHANICS_STANDING_PROFILE_ID = (
-    "nextengine.motor.env.humanoid-biomechanics-standing.v1"
+    "nextengine.motor.env.humanoid-biomechanics-standing.v2"
 )
 
 

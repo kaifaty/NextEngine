@@ -39,6 +39,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-root-height-overshoot", type=float, default=0.02)
     parser.add_argument("--skip-forced-fall", action="store_true")
     parser.add_argument("--check-device")
+    parser.add_argument(
+        "--simulation-device",
+        choices=("cpu", "cuda:0"),
+        help="Diagnostic-only simulator override; the hash-bound training device is unchanged.",
+    )
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -78,7 +83,7 @@ def main() -> None:
     wrapped = None
     try:
         os.environ["NEXTENGINE_HUMANOID_USD"] = str(usd)
-        args.device = config.device
+        args.device = args.simulation_device or config.device
         app_launcher = AppLauncher(args)
         simulation_app = app_launcher.app
 
@@ -96,7 +101,7 @@ def main() -> None:
         env_cfg.run_root_hex = config.run_root_hex
         env_cfg.environment_profile_id = profile.environment_profile_id
         env_cfg.episode_ordinal_start = profile.evaluation.get("episode_ordinal_start", 0)
-        env_cfg.sim.device = config.device
+        env_cfg.sim.device = args.device
         environment = NextEngineHumanoidDirectEnv(
             env_cfg,
             descriptor_path=str(descriptor),
@@ -205,6 +210,58 @@ def main() -> None:
                         }
                         for index in pair_mask.detach().cpu().tolist()
                     ]
+                if hasattr(environment, "last_step_joint_safety_mask"):
+                    joint_mask = environment.last_step_joint_safety_mask[0].nonzero(
+                        as_tuple=False
+                    ).squeeze(-1)
+                    diagnostics["joint_safety_facts"] = [
+                        {
+                            "joint_id": environment._actuator_joint_ids[index],
+                            "position_microradians": int(
+                                environment.last_step_joint_position[0, index].item()
+                            ),
+                            "velocity_microradians_per_second": int(
+                                environment.last_step_joint_velocity[0, index].item()
+                            ),
+                            "peak_absolute_velocity_microradians_per_second": int(
+                                environment.last_step_joint_peak_absolute_velocity[
+                                    0, index
+                                ].item()
+                            ),
+                            "hard_limit_microradians": [
+                                int(environment._hard_minimum[index].item()),
+                                int(environment._hard_maximum[index].item()),
+                            ],
+                            "maximum_velocity_microradians_per_second": int(
+                                environment._maximum_velocity[index].item()
+                            ),
+                            "observed_state_violation": bool(
+                                environment.last_step_joint_observed_violation_mask[
+                                    0, index
+                                ].item()
+                            ),
+                            "infeasible_effort_envelope": bool(
+                                environment.last_step_joint_infeasible_mask[
+                                    0, index
+                                ].item()
+                            ),
+                        }
+                        for index in joint_mask.detach().cpu().tolist()
+                    ]
+                    diagnostics["terminal_root_state"] = {
+                        "position_micrometres": environment.last_step_root_position[
+                            0
+                        ].cpu().tolist(),
+                        "quaternion_q1_30_xyzw": environment.last_step_root_quaternion[
+                            0
+                        ].cpu().tolist(),
+                        "linear_velocity_micrometres_per_second": environment.last_step_root_linear_velocity[
+                            0
+                        ].cpu().tolist(),
+                        "angular_velocity_microradians_per_second": environment.last_step_root_angular_velocity[
+                            0
+                        ].cpu().tolist(),
+                    }
                 raise RuntimeError(
                     "zero-action state terminated after reset at survival step "
                     f"{survival_step + 1}: {diagnostics}"
@@ -296,6 +353,7 @@ def main() -> None:
                     "automatic_reset_errors": automatic_reset_errors,
                     "post_reset_zero_action_steps": args.survival_steps,
                     "post_reset_motion": motion,
+                    "post_reset_state": canonical_state(environment),
                     "reward_probe": {
                         **reward_probe,
                         "manifest_minimum_total_q16": reward_minimum_q16,
@@ -348,6 +406,41 @@ def require_below_tolerance(label: str, errors: dict[str, float]) -> None:
     failed = {name: value for name, value in errors.items() if value > tolerance}
     if failed:
         raise RuntimeError(f"{label} state mismatch: {failed}")
+
+
+def canonical_state(environment: Any) -> dict[str, Any]:
+    import torch
+
+    _, quaternion_raw, linear_raw, angular_raw, contacts = (
+        environment._canonical_facts()
+    )
+    from next_lab.isaac_env import engine_vector_from_isaac_tensor
+
+    root_relative = environment.robot.data.root_pos_w - environment.scene.env_origins
+    root_position = torch.round(
+        engine_vector_from_isaac_tensor(root_relative) * 1_000_000
+    ).to(torch.int64)
+    joint_position = torch.round(
+        environment.robot.data.joint_pos[:, environment._canonical_joint_ids]
+        * 1_000_000
+    ).to(torch.int64)
+    joint_velocity = torch.round(
+        environment.robot.data.joint_vel[:, environment._canonical_joint_ids]
+        * 1_000_000
+    ).to(torch.int64)
+    return {
+        "root_position_micrometres": root_position[0].cpu().tolist(),
+        "root_quaternion_q1_30_xyzw": quaternion_raw[0].cpu().tolist(),
+        "root_linear_velocity_micrometres_per_second": linear_raw[0].cpu().tolist(),
+        "root_angular_velocity_microradians_per_second": angular_raw[0].cpu().tolist(),
+        "joint_position_microradians": joint_position[0].cpu().tolist(),
+        "joint_velocity_microradians_per_second": joint_velocity[0].cpu().tolist(),
+        "applied_target_microradians": environment._applied_target[0].cpu().tolist(),
+        "previous_effort_micronewton_metres": environment._previous_effort[0]
+        .cpu()
+        .tolist(),
+        "contact_flags": contacts[0].cpu().tolist(),
+    }
 
 
 def reward_bounds_q16(profile: dict[str, Any]) -> tuple[int, int]:

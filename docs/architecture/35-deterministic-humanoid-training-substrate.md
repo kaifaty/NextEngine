@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 2.6 |
+| Версия | 2.7 |
 | Последняя проверка | 2026-09-04 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md) |
-| Заменяет | SPEC-35 2.5; adds the current-biomechanics command-only standing environment while preserving every frozen V1/reference-tracker identity and evidence boundary |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md) |
+| Заменяет | SPEC-35 2.6; selects the self-clearance biomechanics V3/standing V2 successor while preserving every frozen V1/reference-tracker identity and evidence boundary |
 | Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
@@ -180,15 +180,21 @@ bounded to `[0, 65,536]` Q16 and the weighted per-step total is bounded to
 `[-148,768, 114,688]` Q16. Standing V1 remains byte-for-byte historical input
 and is not an optimizer profile for new R8b runs.
 
-`nextengine.motor.env.humanoid-biomechanics-standing.v1` is the current R8b
-optimizer candidate under ADR-101. It uses the exact biomechanics BodySchema
-V2 through material-complete `CompiledBodySchemaV3`, an 84-channel world-frame
+`nextengine.motor.env.humanoid-biomechanics-standing.v2` is the current R8b
+optimizer candidate under ADR-102. It uses the exact biomechanics BodySchema
+V3 through material-complete `CompiledBodySchemaV3`, an 84-channel world-frame
 observation and a 23-channel normalized residual around the deterministic
 procedural-standing fallback. It consumes no motion corpus or reference
 tracker. Its reward ports the bounded ADR-100 objective to procedural target,
 soft-ROM and actuator normalizers derived from the current descriptor; its
 reset has exact zero sole clearance and its 3,600-tick termination adds the
-current tilt, world, hard-ROM, hard-impact and self-collision safety facts.
+current tilt, world, hard-ROM, hard-impact and self-collision safety facts. V3
+preserves V2 except for widening the shoulder-root half-width from `170,000`
+to `215,000 um`, giving each neutral pelvis/forearm pair `45,405 um` AABB
+clearance, and replaces the `0.001 kg / 0.000001 kg*m^2` serial carriers with
+an exactly source-conserving `0.25 kg / 0.001 kg*m^2` solver projection. The
+former V2/V1 standing identity remains immutable negative evidence and cannot
+initialize this successor.
 
 ## Checkpoint and replay
 

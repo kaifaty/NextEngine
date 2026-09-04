@@ -9,7 +9,7 @@
 | Last verified | 2026-09-04 |
 | Normative dependencies | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-069](069-biomechanics-body-schema-v2-and-explicit-solver-projection.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-100](100-bounded-standing-reward-profile.md) |
 | Supersedes | Narrowly supersedes ADR-100 wherever its frozen Stage 0 V1 body could be treated as the current R8b optimizer candidate, and ADR-070 wherever the corpus-bound reference tracker could be treated as the only current training consumer of biomechanics V2. Historical identities and evidence remain unchanged. |
-| Superseded by | none |
+| Superseded by | [ADR-102](102-biomechanics-neutral-self-clearance-successor.md) for the current R8b body and standing optimizer identity; V2/V1 historical artifacts remain unchanged. |
 
 ## Context
 

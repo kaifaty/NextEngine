@@ -10,15 +10,18 @@ use crate::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
     BIOMECHANICS_WORLD_BOUND_MICROMETRES, CompiledBodySchemaV3, MotorCompileError,
     PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS, PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS,
-    biomechanics_humanoid_body_schema_v2, biomechanics_isaac_mirror_descriptor_json_v2,
+    biomechanics_humanoid_body_schema_v2, biomechanics_humanoid_body_schema_v3,
+    biomechanics_isaac_mirror_descriptor_json_v2, biomechanics_isaac_mirror_descriptor_json_v3,
 };
 
-pub const BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID: &str =
+pub const BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID_V1: &str =
     "nextengine.motor.env.humanoid-biomechanics-standing.v1";
+pub const BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID: &str =
+    "nextengine.motor.env.humanoid-biomechanics-standing.v2";
 pub const BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID: &str =
-    "nextengine.motor.observation.humanoid-biomechanics-standing.v1";
+    "nextengine.motor.observation.humanoid-biomechanics-standing.v2";
 pub const BIOMECHANICS_STANDING_ACTION_LAYOUT_ID: &str =
-    "nextengine.motor.action.humanoid-biomechanics-standing-residual.v1";
+    "nextengine.motor.action.humanoid-biomechanics-standing-residual.v2";
 pub const BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS: u64 = 3_600;
 
 pub const BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS: [&str; 8] = [
@@ -160,10 +163,31 @@ pub fn biomechanics_standing_reward_q16_v1(
 
 pub fn biomechanics_standing_environment_manifest_v1()
 -> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
-    let compiled = CompiledBodySchemaV3::compile(
+    biomechanics_standing_environment_manifest(
         &biomechanics_humanoid_body_schema_v2(),
-        PersistentId::from_bytes([0; 16]),
-    )?;
+        BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID_V1,
+        "nextengine.motor.observation.humanoid-biomechanics-standing.v1",
+        "nextengine.motor.action.humanoid-biomechanics-standing-residual.v1",
+    )
+}
+
+pub fn biomechanics_standing_environment_manifest_v2()
+-> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    biomechanics_standing_environment_manifest(
+        &biomechanics_humanoid_body_schema_v3(),
+        BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID,
+        BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
+        BIOMECHANICS_STANDING_ACTION_LAYOUT_ID,
+    )
+}
+
+fn biomechanics_standing_environment_manifest(
+    schema: &next_contracts::body::BodySchemaV2,
+    environment_profile_id: &str,
+    observation_layout_id: &str,
+    action_layout_id: &str,
+) -> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    let compiled = CompiledBodySchemaV3::compile(schema, PersistentId::from_bytes([0; 16]))?;
     let body_hash = compiled.base.body_schema_hash;
     let reward_components = BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS
         .into_iter()
@@ -177,15 +201,18 @@ pub fn biomechanics_standing_environment_manifest_v1()
         .collect();
     let manifest = MotorTrainingEnvironmentManifestV2 {
         schema_version: MOTOR_TRAINING_ENVIRONMENT_MANIFEST_V2_SCHEMA_VERSION,
-        environment_id: id(BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID),
+        environment_id: id(environment_profile_id),
         body_schema_hash: body_hash,
         body_instance_projection_hash: domain_hash(
             "nextengine.body-instance.biomechanics-neutral.v1",
             body_hash,
         ),
         physics_catalog_hash: compiled.compiled_descriptor_hash,
-        observation_layout_hash: biomechanics_standing_observation_layout_hash(&compiled),
-        action_layout_hash: biomechanics_standing_action_layout_hash(&compiled),
+        observation_layout_hash: biomechanics_standing_observation_layout_hash(
+            &compiled,
+            observation_layout_id,
+        ),
+        action_layout_hash: biomechanics_standing_action_layout_hash(&compiled, action_layout_id),
         physics_build_profile_hash: domain_hash(
             "nextengine.physx.build-profile.locked.v1",
             body_hash,
@@ -203,7 +230,11 @@ pub fn biomechanics_standing_environment_manifest_v1()
         command_schedule_profile_hash: biomechanics_standing_reference_profile_hash(&compiled),
         reward_profile_hash: biomechanics_standing_reward_profile_hash(&compiled),
         termination_profile_hash: domain_hash(
-            "nextengine.motor.termination.biomechanics-standing.v1",
+            if environment_profile_id == BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID {
+                "nextengine.motor.termination.biomechanics-standing.v2"
+            } else {
+                "nextengine.motor.termination.biomechanics-standing.v1"
+            },
             body_hash,
         ),
         rng_derivation_profile_hash: domain_hash(
@@ -234,7 +265,34 @@ pub fn biomechanics_standing_isaac_descriptor_json_v1() -> Result<String, MotorC
     descriptor["training_descriptor_id"] =
         json!("nextengine.isaac.humanoid-biomechanics-standing.v1");
     descriptor["observation_width"] = json!(84);
-    descriptor["environment_profiles"] = Value::Array(vec![profile_json(&manifest, &compiled)]);
+    descriptor["environment_profiles"] = Value::Array(vec![profile_json(
+        &manifest,
+        &compiled,
+        "nextengine.motor.observation.humanoid-biomechanics-standing.v1",
+        "nextengine.motor.action.humanoid-biomechanics-standing-residual.v1",
+    )]);
+    let mut output = serde_json::to_string_pretty(&descriptor)
+        .expect("serde_json::Value serialization cannot fail");
+    output.push('\n');
+    Ok(output)
+}
+
+pub fn biomechanics_standing_isaac_descriptor_json_v2() -> Result<String, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v3();
+    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let manifest = biomechanics_standing_environment_manifest_v2()?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_isaac_mirror_descriptor_json_v3()?)
+            .expect("engine-generated biomechanics descriptor is valid JSON");
+    descriptor["training_descriptor_id"] =
+        json!("nextengine.isaac.humanoid-biomechanics-standing.v2");
+    descriptor["observation_width"] = json!(84);
+    descriptor["environment_profiles"] = Value::Array(vec![profile_json(
+        &manifest,
+        &compiled,
+        BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
+        BIOMECHANICS_STANDING_ACTION_LAYOUT_ID,
+    )]);
     let mut output = serde_json::to_string_pretty(&descriptor)
         .expect("serde_json::Value serialization cannot fail");
     output.push('\n');
@@ -244,15 +302,17 @@ pub fn biomechanics_standing_isaac_descriptor_json_v1() -> Result<String, MotorC
 fn profile_json(
     manifest: &MotorTrainingEnvironmentManifestV2,
     compiled: &CompiledBodySchemaV3,
+    observation_layout_id: &str,
+    action_layout_id: &str,
 ) -> Value {
     let (pose_normalization, effort_normalization, target_rate_normalization) =
         standing_normalizations(compiled);
     json!({
         "profile_id": manifest.environment_id.as_str(),
         "manifest_hash": manifest.manifest_hash().expect("engine manifest is valid").to_hex(),
-        "observation_layout_id": BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
+        "observation_layout_id": observation_layout_id,
         "observation_layout_hash": manifest.observation_layout_hash.to_hex(),
-        "action_layout_id": BIOMECHANICS_STANDING_ACTION_LAYOUT_ID,
+        "action_layout_id": action_layout_id,
         "action_layout_hash": manifest.action_layout_hash.to_hex(),
         "command_schedule_profile_hash": manifest.command_schedule_profile_hash.to_hex(),
         "reward_profile_hash": manifest.reward_profile_hash.to_hex(),
@@ -367,11 +427,11 @@ fn standing_normalizations(compiled: &CompiledBodySchemaV3) -> (i64, u64, u64) {
     )
 }
 
-fn biomechanics_standing_observation_layout_hash(compiled: &CompiledBodySchemaV3) -> ContentHash {
-    let mut bytes = domain_preimage(
-        BIOMECHANICS_STANDING_OBSERVATION_LAYOUT_ID,
-        compiled.base.body_schema_hash,
-    );
+fn biomechanics_standing_observation_layout_hash(
+    compiled: &CompiledBodySchemaV3,
+    observation_layout_id: &str,
+) -> ContentHash {
+    let mut bytes = domain_preimage(observation_layout_id, compiled.base.body_schema_hash);
     bytes.extend_from_slice(&84_u32.to_le_bytes());
     for actuator in &compiled.base.actuator_definitions {
         push_text(&mut bytes, actuator.actuator_id.as_str());
@@ -379,11 +439,11 @@ fn biomechanics_standing_observation_layout_hash(compiled: &CompiledBodySchemaV3
     content_hash_from_bytes(sha256(&bytes))
 }
 
-fn biomechanics_standing_action_layout_hash(compiled: &CompiledBodySchemaV3) -> ContentHash {
-    let mut bytes = domain_preimage(
-        BIOMECHANICS_STANDING_ACTION_LAYOUT_ID,
-        compiled.base.body_schema_hash,
-    );
+fn biomechanics_standing_action_layout_hash(
+    compiled: &CompiledBodySchemaV3,
+    action_layout_id: &str,
+) -> ContentHash {
+    let mut bytes = domain_preimage(action_layout_id, compiled.base.body_schema_hash);
     for actuator in &compiled.base.actuator_definitions {
         push_text(&mut bytes, actuator.actuator_id.as_str());
         bytes.extend_from_slice(&actuator.residual_scale_microradians.to_le_bytes());
@@ -499,7 +559,7 @@ mod tests {
 
     #[test]
     fn standing_manifest_and_training_descriptor_bind_current_biomechanics() {
-        let manifest = biomechanics_standing_environment_manifest_v1().expect("manifest");
+        let manifest = biomechanics_standing_environment_manifest_v2().expect("manifest");
         assert_eq!(
             manifest.environment_id.as_str(),
             BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID
@@ -510,7 +570,7 @@ mod tests {
         assert_eq!(manifest.reward_components[0].maximum_raw, 65_536);
 
         let descriptor: Value = serde_json::from_str(
-            &biomechanics_standing_isaac_descriptor_json_v1().expect("descriptor"),
+            &biomechanics_standing_isaac_descriptor_json_v2().expect("descriptor"),
         )
         .expect("valid JSON");
         assert_eq!(
@@ -559,6 +619,6 @@ mod tests {
     }
 
     fn schema_id() -> &'static str {
-        "nextengine.body.humanoid-biomechanics-raja-1700.v2"
+        "nextengine.body.humanoid-biomechanics-raja-1700.v3"
     }
 }

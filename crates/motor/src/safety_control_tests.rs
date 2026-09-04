@@ -254,6 +254,8 @@ fn hard_rom_and_velocity_faults_publish_no_partial_effort() {
             .maximum_velocity_microradians_per_second,
     )
     .expect("profile velocity fits i64")
+        + i64::try_from(OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND)
+            .expect("velocity tolerance fits i64")
         + 1;
     assert_eq!(
         controller.step_substep(&states),
@@ -278,6 +280,27 @@ fn observed_hard_rom_tolerance_is_exactly_ten_microradians() {
 }
 
 #[test]
+fn observed_velocity_tolerance_is_exactly_one_thousand_microradians_per_second() {
+    let controller = controller();
+    let mut states = neutral_states(&controller);
+    let first = 0;
+    let maximum = i64::try_from(
+        controller.channels[first]
+            .joint
+            .base
+            .maximum_velocity_microradians_per_second,
+    )
+    .expect("profile velocity fits i64");
+    states[first].velocity_microradians_per_second = maximum + 1_000;
+    assert_eq!(controller.validate_observed_joint_states(&states), Ok(()));
+    states[first].velocity_microradians_per_second = maximum + 1_001;
+    assert_eq!(
+        controller.validate_observed_joint_states(&states),
+        Err(MotorSafetyError::VelocityViolation)
+    );
+}
+
+#[test]
 fn post_step_observation_validation_is_read_only() {
     let controller = controller();
     let mut states = neutral_states(&controller);
@@ -291,6 +314,8 @@ fn post_step_observation_validation_is_read_only() {
             .maximum_velocity_microradians_per_second,
     )
     .expect("profile velocity fits i64")
+        + i64::try_from(OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND)
+            .expect("velocity tolerance fits i64")
         + 1;
     assert_eq!(
         controller.validate_observed_joint_states(&states),

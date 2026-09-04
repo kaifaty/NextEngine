@@ -86,6 +86,8 @@ MICRO_SCALE = 1_000_000
 ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS = 50_000
 CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS = 250_000
 LOW_IMPULSE_GRACE_SUBSTEPS = 4
+OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS = 10
+OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND = 1_000
 
 
 def is_locomotion_profile(profile_id: str) -> bool:
@@ -1099,6 +1101,42 @@ if ISAAC_LAB_AVAILABLE:
                 self.last_step_failure_joint_safety = torch.zeros_like(
                     self._hard_impact_violation
                 )
+                self._joint_safety_violation_mask = torch.zeros_like(
+                    self._action, dtype=torch.bool
+                )
+                self._joint_observed_violation_mask = torch.zeros_like(
+                    self._joint_safety_violation_mask
+                )
+                self._joint_infeasible_mask = torch.zeros_like(
+                    self._joint_safety_violation_mask
+                )
+                self._joint_peak_absolute_velocity = torch.zeros_like(self._action)
+                self.last_step_joint_safety_mask = torch.zeros_like(
+                    self._joint_safety_violation_mask
+                )
+                self.last_step_joint_observed_violation_mask = torch.zeros_like(
+                    self._joint_safety_violation_mask
+                )
+                self.last_step_joint_infeasible_mask = torch.zeros_like(
+                    self._joint_safety_violation_mask
+                )
+                self.last_step_joint_position = torch.zeros_like(self._action)
+                self.last_step_joint_velocity = torch.zeros_like(self._action)
+                self.last_step_joint_peak_absolute_velocity = torch.zeros_like(
+                    self._action
+                )
+                self.last_step_root_position = torch.zeros(
+                    (cfg.scene.num_envs, 3), dtype=torch.int64
+                )
+                self.last_step_root_quaternion = torch.zeros(
+                    (cfg.scene.num_envs, 4), dtype=torch.int64
+                )
+                self.last_step_root_linear_velocity = torch.zeros(
+                    (cfg.scene.num_envs, 3), dtype=torch.int64
+                )
+                self.last_step_root_angular_velocity = torch.zeros(
+                    (cfg.scene.num_envs, 3), dtype=torch.int64
+                )
                 self.last_step_failure_hard_impact = torch.zeros_like(
                     self._hard_impact_violation
                 )
@@ -1186,6 +1224,20 @@ if ISAAC_LAB_AVAILABLE:
                     "_self_collision_violation",
                     "_forbidden_contact_violation",
                     "last_step_failure_joint_safety",
+                    "_joint_safety_violation_mask",
+                    "_joint_observed_violation_mask",
+                    "_joint_infeasible_mask",
+                    "_joint_peak_absolute_velocity",
+                    "last_step_joint_safety_mask",
+                    "last_step_joint_observed_violation_mask",
+                    "last_step_joint_infeasible_mask",
+                    "last_step_joint_position",
+                    "last_step_joint_velocity",
+                    "last_step_joint_peak_absolute_velocity",
+                    "last_step_root_position",
+                    "last_step_root_quaternion",
+                    "last_step_root_linear_velocity",
+                    "last_step_root_angular_velocity",
                     "last_step_failure_hard_impact",
                     "last_step_failure_self_collision",
                     "last_step_failure_forbidden_contact",
@@ -1438,6 +1490,10 @@ if ISAAC_LAB_AVAILABLE:
                 self._effort_sum.zero_()
                 self._positive_work.zero_()
                 self._joint_safety_violation.zero_()
+                self._joint_safety_violation_mask.zero_()
+                self._joint_observed_violation_mask.zero_()
+                self._joint_infeasible_mask.zero_()
+                self._joint_peak_absolute_velocity.zero_()
                 self._hard_impact_violation.zero_()
                 self._self_collision_violation.zero_()
                 self._forbidden_contact_violation.zero_()
@@ -1466,11 +1522,22 @@ if ISAAC_LAB_AVAILABLE:
             position = torch.round(joint_position * 1_000_000).to(torch.int64)
             velocity = torch.round(joint_velocity * 1_000_000).to(torch.int64)
             if self._biomechanics_standing:
-                observed_violation = torch.any(
-                    (position < self._hard_minimum)
-                    | (position > self._hard_maximum)
-                    | (torch.abs(velocity) > self._maximum_velocity),
-                    dim=-1,
+                observed_violation = (
+                    (
+                        position
+                        < self._hard_minimum
+                        - OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS
+                    )
+                    | (
+                        position
+                        > self._hard_maximum
+                        + OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS
+                    )
+                    | (
+                        torch.abs(velocity)
+                        > self._maximum_velocity
+                        + OBSERVED_MAXIMUM_VELOCITY_QUANTIZATION_TOLERANCE_MICRORADIANS_PER_SECOND
+                    )
                 )
                 effort, next_work, infeasible = biomechanics_fixed_pd_safety_tensor(
                     target_microradians=self._applied_target,
@@ -1486,8 +1553,18 @@ if ISAAC_LAB_AVAILABLE:
                     maximum_power_microwatts=self._maximum_power,
                     maximum_positive_work_microjoules=self._maximum_positive_work,
                 )
-                violation = observed_violation | torch.any(infeasible, dim=-1)
-                self._joint_safety_violation |= violation
+                self._joint_observed_violation_mask |= observed_violation
+                self._joint_infeasible_mask |= infeasible
+                self._joint_peak_absolute_velocity.copy_(
+                    torch.maximum(
+                        self._joint_peak_absolute_velocity,
+                        torch.abs(velocity),
+                    )
+                )
+                self._joint_safety_violation_mask |= observed_violation | infeasible
+                self._joint_safety_violation |= torch.any(
+                    self._joint_safety_violation_mask, dim=-1
+                )
                 published = torch.where(
                     self._joint_safety_violation[:, None],
                     torch.zeros_like(effort),
@@ -1824,6 +1901,31 @@ if ISAAC_LAB_AVAILABLE:
                 quaternion = engine_quaternion_xyzw_from_isaac_wxyz_tensor(
                     self.robot.data.root_quat_w
                 )
+                root_relative = self.robot.data.root_pos_w - self.scene.env_origins
+                self.last_step_root_position.copy_(
+                    torch.round(
+                        engine_vector_from_isaac_tensor(root_relative) * 1_000_000
+                    ).to(torch.int64)
+                )
+                self.last_step_root_quaternion.copy_(
+                    torch.round(quaternion * Q1_30_ONE).to(torch.int64)
+                )
+                self.last_step_root_linear_velocity.copy_(
+                    torch.round(
+                        engine_vector_from_isaac_tensor(
+                            self.robot.data.root_lin_vel_w
+                        )
+                        * 1_000_000
+                    ).to(torch.int64)
+                )
+                self.last_step_root_angular_velocity.copy_(
+                    torch.round(
+                        engine_vector_from_isaac_tensor(
+                            self.robot.data.root_ang_vel_w
+                        )
+                        * 1_000_000
+                    ).to(torch.int64)
+                )
                 up_y = 1.0 - 2.0 * (
                     quaternion[:, 0] * quaternion[:, 0]
                     + quaternion[:, 2] * quaternion[:, 2]
@@ -1840,6 +1942,30 @@ if ISAAC_LAB_AVAILABLE:
                 )
                 self.last_step_failure_joint_safety.copy_(
                     self._joint_safety_violation
+                )
+                self.last_step_joint_safety_mask.copy_(
+                    self._joint_safety_violation_mask
+                )
+                self.last_step_joint_observed_violation_mask.copy_(
+                    self._joint_observed_violation_mask
+                )
+                self.last_step_joint_infeasible_mask.copy_(
+                    self._joint_infeasible_mask
+                )
+                self.last_step_joint_position.copy_(
+                    torch.round(
+                        self.robot.data.joint_pos[:, self._canonical_joint_ids]
+                        * 1_000_000
+                    ).to(torch.int64)
+                )
+                self.last_step_joint_velocity.copy_(
+                    torch.round(
+                        self.robot.data.joint_vel[:, self._canonical_joint_ids]
+                        * 1_000_000
+                    ).to(torch.int64)
+                )
+                self.last_step_joint_peak_absolute_velocity.copy_(
+                    self._joint_peak_absolute_velocity
                 )
                 self.last_step_failure_hard_impact.copy_(
                     self._hard_impact_violation
@@ -1924,6 +2050,10 @@ if ISAAC_LAB_AVAILABLE:
             self._positive_work[env_ids] = 0
             self._joint_safety_violation[env_ids] = False
             if self._biomechanics_standing:
+                self._joint_safety_violation_mask[env_ids] = False
+                self._joint_observed_violation_mask[env_ids] = False
+                self._joint_infeasible_mask[env_ids] = False
+                self._joint_peak_absolute_velocity[env_ids] = 0
                 self._applied_target[env_ids] = self._neutral_target
                 self._previous_applied_target[env_ids] = self._neutral_target
                 self._reference_target[env_ids] = self._neutral_target
