@@ -5,6 +5,8 @@ description: Maintain bounded, durable task-state for long-running, resumed, han
 
 # Maintain durable task context
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Keep one compact, reviewable resume surface for work whose important context
 must survive chats, agents and compaction. Store task facts in the repository;
 use this skill as the procedure for finding, reading and updating them.
@@ -18,7 +20,8 @@ use this skill as the procedure for finding, reading and updating them.
    vaguely similar filename.
 3. Read the matching task-state file in full before large plans, logs or raw
    experiment output.
-4. Read every item under its `Required context` section. Apply repository
+4. Read the still-applicable items under its `Required context` section; a stale
+   pointer requires verification, not restarting unrelated completed work. Apply repository
    precedence: task-state is working material and never overrides Accepted
    SPEC/ADR, the roadmap for planning facts, tracked profiles/manifests, or
    exact external evidence.

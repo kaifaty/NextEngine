@@ -1,6 +1,6 @@
 ---
 name: stable-baselines3
-description: Production-ready reinforcement learning algorithms (PPO, SAC, DQN, TD3, DDPG, A2C) with scikit-learn-like API. Use for standard RL experiments, quick prototyping, and well-documented algorithm implementations. Best for single-agent RL with Gymnasium environments. For high-performance parallel training, multi-agent systems, or custom vectorized environments, use pufferlib instead.
+description: Production-ready reinforcement learning algorithms (PPO, SAC, DQN, TD3, DDPG, A2C) with scikit-learn-like API. Use for standard RL experiments, quick prototyping, and well-documented algorithm implementations. Best for single-agent RL with Gymnasium environments. Use for SB3-specific work; preserve the project's chosen trainer for other systems.
 license: MIT license
 allowed-tools: Read Write Edit Bash
 metadata:
@@ -10,6 +10,8 @@ metadata:
 ---
 
 # Stable Baselines3
+
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
 
 ## Overview
 
@@ -307,7 +309,7 @@ model.learn(total_timesteps=10000)
 
 - **Memory errors**: Reduce `buffer_size` for off-policy algorithms or use fewer parallel environments
 - **Slow training**: Consider SubprocVecEnv for parallel environments
-- **Unstable training**: Try different algorithms, tune hyperparameters, or check reward scaling
+- **Unstable training**: Inspect environment, data and optimization evidence; select one bounded discriminator before changing algorithms or hyperparameters
 - **Import errors**: Ensure `stable_baselines3` is installed: `uv pip install 'stable-baselines3[extra]>=2.8'`
 
 ## Resources

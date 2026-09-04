@@ -5,6 +5,8 @@ description: "Investigate uncertain causes with falsifiable competing hypotheses
 
 # Investigate with hypotheses
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Turn unresolved uncertainty into the smallest safe experiment that can change
 the next decision. Apply the prediction checkpoint before uncertainty-reducing,
 expensive or hard-to-reverse actions, not before every routine tool call.
@@ -32,7 +34,8 @@ expensive or hard-to-reverse actions, not before every routine tool call.
 - Include an adjacent-layer or non-local explanation after repeated variants
   only move the symptom.
 - Route every explicit unknown to exactly one state: `TEST`, `IRRELEVANT` with a
-  reason, or `UNRESOLVED` with its consequence. Never silently continue past it.
+  reason, or `UNRESOLVED` with its consequence. An unresolved item blocks only
+  actions whose correctness depends on it; continue independent work.
 
 Use a compact working table when more than one hypothesis remains:
 

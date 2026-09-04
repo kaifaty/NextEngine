@@ -20,6 +20,10 @@ metadata:
 
 # MLflow
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
+Use MLflow for the requested tracking or registry operation. Resolve the existing tracking URI, storage and environment before using a recipe below; installation, remote servers, registration and serving are separate actions, not mandatory setup. For NextEngine, immutable run manifests remain lineage authority and dashboards remain derived views. Preserve existing authorization for the exact external action.
+
 ## Installation
 
 ```bash

@@ -5,6 +5,8 @@ description: "Route cross-cutting NextEngine architecture/roadmap via SPEC/ADRs;
 
 # Next Engine architecture workflow
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 All doc paths below are relative to the NextEngine workspace root — the
 directory containing `docs/architecture/`. Resolve them against the current
 workspace; never assume a fixed absolute path, drive letter or checkout
@@ -21,10 +23,10 @@ location.
 3. On semantic conflict apply precedence from the README: newer superseding
    Accepted ADR → ADR-030 (workflow and product checks) → profile technical
    ADR → subsystem SPEC → SPEC-00 → glossary.
-4. Treat `Proposed` documents (SPEC-16/ADR-017, PhysX backend ADR-033) as not
-   shipped: state the fallback and bounded evaluation path. Treat the
-   historical-only list in the routing file (ADR-004/006/007/010/012/015/023/
-   024, evidence register, review packets) as context, never as authority.
+4. Read document status from the current routed sources. Treat `Proposed`
+   decisions as experiments: state the fallback and bounded evaluation path.
+   Use the routing file's historical-only list as context, never as authority;
+   do not infer current status from examples embedded in a skill.
 5. Before planning, implementing, optimizing or reviewing a solution, apply
    the selection rules below.
 6. Implement through production paths only: gameplay state changes via

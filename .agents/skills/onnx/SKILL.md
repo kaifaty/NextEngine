@@ -20,6 +20,10 @@ metadata:
 
 # ONNX
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
+Export or inspect the requested model using the project-pinned exporter, opset and runtime. Installation, quantization, optimization and deployment examples are independent recipes. Verify the changed model with representative inputs and the declared numerical tolerance; do not claim runtime parity from graph validation alone or launch unrelated training and benchmark campaigns.
+
 ## Installation
 
 ```bash
