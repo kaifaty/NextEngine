@@ -130,8 +130,26 @@ impl BiomechanicsSafetyController {
         normalized_residuals_q1_30: &[i64],
         skill_envelopes: &[JointTargetEnvelopeV1],
     ) -> Result<Vec<AppliedJointTargetV1>, MotorSafetyError> {
+        self.begin_motor_tick_with_residual_scale_multiplier(
+            reference_targets_microradians,
+            normalized_residuals_q1_30,
+            skill_envelopes,
+            65_536,
+        )
+    }
+
+    pub fn begin_motor_tick_with_residual_scale_multiplier(
+        &mut self,
+        reference_targets_microradians: &[i64],
+        normalized_residuals_q1_30: &[i64],
+        skill_envelopes: &[JointTargetEnvelopeV1],
+        residual_scale_multiplier_q16: i64,
+    ) -> Result<Vec<AppliedJointTargetV1>, MotorSafetyError> {
         if self.motor_tick_prepared && self.completed_substeps != PHYSICS_SUBSTEPS_PER_MOTOR_TICK {
             return Err(MotorSafetyError::TickInProgress);
+        }
+        if !(1..=4 * 65_536).contains(&residual_scale_multiplier_q16) {
+            return Err(MotorSafetyError::InvalidNormalizedResidual);
         }
         if reference_targets_microradians.len() != self.channels.len()
             || normalized_residuals_q1_30.len() != self.channels.len()
@@ -163,6 +181,12 @@ impl BiomechanicsSafetyController {
                     .checked_mul(i128::from(channel.actuator.residual_scale_microradians))
                     .ok_or(MotorSafetyError::NumericOverflow)?,
                 i128::from(NORMALIZED_RESIDUAL_ONE_Q1_30),
+            );
+            let scaled_residual = round_div_ties_even(
+                scaled_residual
+                    .checked_mul(i128::from(residual_scale_multiplier_q16))
+                    .ok_or(MotorSafetyError::NumericOverflow)?,
+                65_536,
             );
             let candidate = i128::from(*reference)
                 .checked_add(scaled_residual)

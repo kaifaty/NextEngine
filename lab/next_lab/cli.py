@@ -332,6 +332,8 @@ def main() -> int:
                 "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
                 "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
                 "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v3",
+                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v4",
+                "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v5",
             }:
                 validate_biomechanics_forward_start_stop_descriptor(descriptor)
             else:

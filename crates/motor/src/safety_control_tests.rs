@@ -91,6 +91,52 @@ fn residual_target_intersects_soft_skill_and_slew_envelopes() {
 }
 
 #[test]
+fn walking_action_multiplier_widens_residual_before_the_same_safety_envelope() {
+    let mut baseline = controller();
+    let mut widened = controller();
+    let (reference, envelopes) = neutral_tick(&mut baseline);
+    let mut residuals = vec![0; baseline.channel_count()];
+    residuals[0] = NORMALIZED_RESIDUAL_ONE_Q1_30 / 4;
+
+    let baseline_targets = baseline
+        .begin_motor_tick(&reference, &residuals, &envelopes)
+        .expect("baseline action");
+    let widened_targets = widened
+        .begin_motor_tick_with_residual_scale_multiplier(
+            &reference,
+            &residuals,
+            &envelopes,
+            2 * 65_536,
+        )
+        .expect("widened walking action");
+    assert_eq!(
+        baseline_targets[0].target_microradians - reference[0],
+        37_500
+    );
+    assert_eq!(
+        widened_targets[0].target_microradians - reference[0],
+        75_000
+    );
+}
+
+#[test]
+fn walking_multiplier_rejects_out_of_range_values_without_mutation() {
+    for multiplier in [-1, 0, 4 * 65_536 + 1, i64::MAX] {
+        let mut controller = controller();
+        let (reference, envelopes) = neutral_tick(&mut controller);
+        let before = controller.checkpoint();
+        let residuals = vec![NORMALIZED_RESIDUAL_ONE_Q1_30; controller.channel_count()];
+        assert_eq!(
+            controller.begin_motor_tick_with_residual_scale_multiplier(
+                &reference, &residuals, &envelopes, multiplier,
+            ),
+            Err(MotorSafetyError::InvalidNormalizedResidual)
+        );
+        assert_eq!(controller.checkpoint(), before);
+    }
+}
+
+#[test]
 fn action_rejection_is_atomic_for_late_invalid_channel() {
     let mut controller = controller();
     let (reference, mut envelopes) = neutral_tick(&mut controller);

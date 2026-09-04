@@ -18,7 +18,10 @@ use crate::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
+    BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V2,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3,
@@ -34,11 +37,14 @@ use crate::{
     biomechanics_forward_start_stop_environment_manifest_v1,
     biomechanics_forward_start_stop_environment_manifest_v2,
     biomechanics_forward_start_stop_environment_manifest_v3,
+    biomechanics_forward_start_stop_environment_manifest_v4,
+    biomechanics_forward_start_stop_environment_manifest_v5,
     biomechanics_forward_start_stop_reward_q16_v1, biomechanics_forward_start_stop_reward_q16_v2,
     biomechanics_forward_start_stop_reward_q16_v3, biomechanics_humanoid_body_schema_v3,
-    biomechanics_standing_environment_manifest_v2, biomechanics_standing_reward_q16_v1,
-    curriculum_locomotion_command_schedule, derive_curriculum_locomotion_episode_seed_set,
-    derive_episode_seed_set, rotate_world_to_root_local_q1_30,
+    biomechanics_humanoid_body_schema_v4, biomechanics_standing_environment_manifest_v2,
+    biomechanics_standing_reward_q16_v1, curriculum_locomotion_command_schedule,
+    derive_curriculum_locomotion_episode_seed_set, derive_episode_seed_set,
+    rotate_world_to_root_local_q1_30,
 };
 
 const OBSERVATION_WIDTH: usize = 84;
@@ -100,6 +106,8 @@ pub struct BiomechanicsStandingVectorRunner {
     forward_start_stop: bool,
     forward_start_stop_v2: bool,
     forward_start_stop_v3: bool,
+    forward_start_stop_v4: bool,
+    residual_scale_multiplier_q16: i64,
     slots: Vec<BiomechanicsStandingSlot>,
 }
 
@@ -123,18 +131,42 @@ impl BiomechanicsStandingVectorRunner {
         if slot_count == 0 || slot_count > crate::training::MAX_CPU_VECTOR_SLOTS {
             return Err(BiomechanicsStandingRunnerError::SlotCount);
         }
-        let (forward_start_stop, forward_start_stop_v2, forward_start_stop_v3) = match profile_id {
-            BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID => (false, false, false),
-            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID => (true, false, false),
-            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2 => (true, true, false),
-            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3 => (true, true, true),
+        let (
+            forward_start_stop,
+            forward_start_stop_v2,
+            forward_start_stop_v3,
+            forward_start_stop_v4,
+            forward_start_stop_v5,
+        ) = match profile_id {
+            BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID => (false, false, false, false, false),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID => {
+                (true, false, false, false, false)
+            }
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2 => {
+                (true, true, false, false, false)
+            }
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3 => {
+                (true, true, true, false, false)
+            }
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4 => {
+                (true, true, true, true, false)
+            }
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5 => {
+                (true, true, true, true, true)
+            }
             _ => return Err(BiomechanicsStandingRunnerError::ProfileMismatch),
         };
-        let compiled = CompiledBodySchemaV3::compile(
-            &biomechanics_humanoid_body_schema_v3(),
-            PersistentId::from_bytes([0; 16]),
-        )?;
-        let manifest = if forward_start_stop_v3 {
+        let schema = if forward_start_stop_v5 {
+            biomechanics_humanoid_body_schema_v4()
+        } else {
+            biomechanics_humanoid_body_schema_v3()
+        };
+        let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+        let manifest = if forward_start_stop_v5 {
+            biomechanics_forward_start_stop_environment_manifest_v5()?
+        } else if forward_start_stop_v4 {
+            biomechanics_forward_start_stop_environment_manifest_v4()?
+        } else if forward_start_stop_v3 {
             biomechanics_forward_start_stop_environment_manifest_v3()?
         } else if forward_start_stop_v2 {
             biomechanics_forward_start_stop_environment_manifest_v2()?
@@ -144,10 +176,22 @@ impl BiomechanicsStandingVectorRunner {
             biomechanics_standing_environment_manifest_v2()?
         };
         let manifest_hash = manifest.manifest_hash()?;
+        let residual_scale_multiplier_q16 = if forward_start_stop_v5 {
+            BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5
+        } else {
+            65_536
+        };
         let (left_foot_actor, right_foot_actor) = foot_actor_tokens(&compiled.base)?;
         let mut slots = Vec::with_capacity(slot_count as usize);
         for _ in 0..slot_count {
-            slots.push(fresh_slot(&compiled, 0, false, forward_start_stop, None)?);
+            slots.push(fresh_slot(
+                &compiled,
+                0,
+                false,
+                forward_start_stop,
+                forward_start_stop_v4,
+                None,
+            )?);
         }
         Ok(Self {
             run_root,
@@ -159,6 +203,8 @@ impl BiomechanicsStandingVectorRunner {
             forward_start_stop,
             forward_start_stop_v2,
             forward_start_stop_v3,
+            forward_start_stop_v4,
+            residual_scale_multiplier_q16,
             slots,
         })
     }
@@ -226,6 +272,7 @@ impl BiomechanicsStandingVectorRunner {
                 episode_ordinal,
                 true,
                 self.forward_start_stop,
+                self.forward_start_stop_v4,
                 command_schedule,
             )?;
             let observation_raw = slot_observation(
@@ -336,6 +383,7 @@ impl BiomechanicsStandingVectorRunner {
                 self.forward_start_stop,
                 self.forward_start_stop_v2,
                 self.forward_start_stop_v3,
+                self.residual_scale_multiplier_q16,
             )?);
         }
         output.sort_by_key(|value| (value.episode_ordinal, value.vector_slot));
@@ -348,6 +396,7 @@ fn fresh_slot(
     episode_ordinal: u64,
     active: bool,
     forward_start_stop: bool,
+    translation_invariant_reference: bool,
     command_schedule: Option<Vec<[i64; 3]>>,
 ) -> Result<BiomechanicsStandingSlot, BiomechanicsStandingRunnerError> {
     let mut world = PhysXArticulationWorldV3::create(
@@ -366,7 +415,14 @@ fn fresh_slot(
             BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS
         },
     )?;
-    let standing = BiomechanicsProceduralStandingControllerV1::new(&compiled.base, &snapshot)?;
+    let standing = if translation_invariant_reference {
+        BiomechanicsProceduralStandingControllerV1::new_walking_translation_invariant(
+            &compiled.base,
+            &snapshot,
+        )?
+    } else {
+        BiomechanicsProceduralStandingControllerV1::new(&compiled.base, &snapshot)?
+    };
     let envelopes = safety.default_skill_envelopes();
     Ok(BiomechanicsStandingSlot {
         episode_ordinal,
@@ -399,6 +455,7 @@ fn step_slot(
     forward_start_stop: bool,
     forward_start_stop_v2: bool,
     forward_start_stop_v3: bool,
+    residual_scale_multiplier_q16: i64,
 ) -> Result<BiomechanicsStandingVectorStepOutput, BiomechanicsStandingRunnerError> {
     let next_tick = slot
         .motor_tick
@@ -419,17 +476,18 @@ fn step_slot(
     let reference_targets = slot.standing.reference_targets(&slot.snapshot)?;
     let previous_applied_targets = slot.safety.checkpoint().applied_targets_microradians;
     let mut joint_safety_error = None;
-    let applied =
-        match slot
-            .safety
-            .begin_motor_tick(&reference_targets, action_q1_30, &slot.envelopes)
-        {
-            Ok(targets) => targets,
-            Err(error) => {
-                joint_safety_error = Some(error);
-                Vec::new()
-            }
-        };
+    let applied = match slot.safety.begin_motor_tick_with_residual_scale_multiplier(
+        &reference_targets,
+        action_q1_30,
+        &slot.envelopes,
+        residual_scale_multiplier_q16,
+    ) {
+        Ok(targets) => targets,
+        Err(error) => {
+            joint_safety_error = Some(error);
+            Vec::new()
+        }
+    };
     let applied_targets = if applied.is_empty() {
         slot.safety.checkpoint().applied_targets_microradians
     } else {
@@ -1004,6 +1062,34 @@ mod tests {
             .expect("walking step");
         assert_eq!(step[0].reward_components_raw.len(), 11);
         assert_eq!(step[0].command_raw, [0; 3]);
+    }
+
+    #[test]
+    fn forward_start_stop_v4_uses_translation_invariant_reference_identity() {
+        let mut v3 = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
+            1,
+            ContentHash::from_bytes([11; 32]),
+        )
+        .expect("v3 runner");
+        let mut v4 = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
+            1,
+            ContentHash::from_bytes([11; 32]),
+        )
+        .expect("v4 runner");
+        let v3_reset = v3.reset_slots(&[0]).expect("v3 reset");
+        let v4_reset = v4.reset_slots(&[0]).expect("v4 reset");
+        assert_eq!(v3_reset[0].observation_raw, v4_reset[0].observation_raw);
+        assert_ne!(
+            v3_reset[0].reset_record.motor_root,
+            v4_reset[0].reset_record.motor_root
+        );
+        assert_ne!(v3.manifest_hash(), v4.manifest_hash());
+        assert_ne!(
+            v3.manifest().action_layout_hash,
+            v4.manifest().action_layout_hash
+        );
     }
 
     #[test]

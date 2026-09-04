@@ -12,6 +12,14 @@ use crate::{
 pub const PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS: u64 = 1_800;
 pub const PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS: i64 = 100_000;
 pub const PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS: i64 = -140_000;
+pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
+    "nextengine.motor.procedural-walking-reference.v1";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ProceduralReferenceProfileV1 {
+    Standing,
+    WalkingTranslationInvariant,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum StandingChannelKind {
@@ -31,12 +39,36 @@ pub struct BiomechanicsProceduralStandingControllerV1 {
     root_actor_token: u64,
     root_target_z_micrometres: i64,
     channels: Vec<StandingChannel>,
+    reference_profile: ProceduralReferenceProfileV1,
 }
 
 impl BiomechanicsProceduralStandingControllerV1 {
     pub fn new(
         compiled: &CompiledBodySchemaV2,
         reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Self::new_with_profile(
+            compiled,
+            reset_snapshot,
+            ProceduralReferenceProfileV1::Standing,
+        )
+    }
+
+    pub fn new_walking_translation_invariant(
+        compiled: &CompiledBodySchemaV2,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Self::new_with_profile(
+            compiled,
+            reset_snapshot,
+            ProceduralReferenceProfileV1::WalkingTranslationInvariant,
+        )
+    }
+
+    fn new_with_profile(
+        compiled: &CompiledBodySchemaV2,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+        reference_profile: ProceduralReferenceProfileV1,
     ) -> Result<Self, ProceduralStandingError> {
         let root_id = compiled
             .construction_order
@@ -85,6 +117,7 @@ impl BiomechanicsProceduralStandingControllerV1 {
             root_actor_token,
             root_target_z_micrometres: root.position_micrometres[2],
             channels,
+            reference_profile,
         })
     }
 
@@ -107,9 +140,12 @@ impl BiomechanicsProceduralStandingControllerV1 {
                 .ok_or(ProceduralStandingError::NumericOverflow)?,
             i128::from(NORMALIZED_RESIDUAL_ONE_Q1_30),
         );
-        let z_error = root.position_micrometres[2]
-            .checked_sub(self.root_target_z_micrometres)
-            .ok_or(ProceduralStandingError::NumericOverflow)?;
+        let z_error = match self.reference_profile {
+            ProceduralReferenceProfileV1::Standing => root.position_micrometres[2]
+                .checked_sub(self.root_target_z_micrometres)
+                .ok_or(ProceduralStandingError::NumericOverflow)?,
+            ProceduralReferenceProfileV1::WalkingTranslationInvariant => 0,
+        };
         let ankle_pitch = i128::from(PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS)
             .checked_add(round_div_ties_even(pitch_proxy, 2))
             .and_then(|value| {
@@ -142,10 +178,19 @@ impl BiomechanicsProceduralStandingControllerV1 {
     #[must_use]
     pub fn state_root(&self) -> ContentHash {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"nextengine.humanoid-procedural-standing.v1\0");
+        bytes.extend_from_slice(match self.reference_profile {
+            ProceduralReferenceProfileV1::Standing => {
+                b"nextengine.humanoid-procedural-standing.v1\0".as_slice()
+            }
+            ProceduralReferenceProfileV1::WalkingTranslationInvariant => {
+                b"nextengine.humanoid-procedural-walking-reference.v1\0".as_slice()
+            }
+        });
         bytes.extend_from_slice(&HUMANOID_SAFETY_CONTACT_PROFILE_SHA256);
         bytes.extend_from_slice(&self.root_actor_token.to_le_bytes());
-        bytes.extend_from_slice(&self.root_target_z_micrometres.to_le_bytes());
+        if self.reference_profile == ProceduralReferenceProfileV1::Standing {
+            bytes.extend_from_slice(&self.root_target_z_micrometres.to_le_bytes());
+        }
         bytes.extend_from_slice(&(self.channels.len() as u64).to_le_bytes());
         content_hash_from_bytes(sha256(&bytes))
     }

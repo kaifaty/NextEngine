@@ -19,10 +19,35 @@ pub const BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES: i64 = 170_00
 pub const BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES: i64 = 215_000;
 pub const BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS: u64 = 250_000;
 pub const BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED: i64 = 1_000;
+pub const BIOMECHANICS_HUMANOID_V3_THIGH_HALF_WIDTH_MICROMETRES: i64 = 75_000;
+pub const BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES: i64 = 55_000;
+pub const BIOMECHANICS_HUMANOID_V3_SHANK_HALF_WIDTH_MICROMETRES: i64 = 55_000;
+pub const BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES: i64 = 45_000;
+pub const BIOMECHANICS_HUMANOID_V3_KNEE_RADIUS_MICROMETRES: i64 = 65_000;
+pub const BIOMECHANICS_HUMANOID_V4_KNEE_RADIUS_MICROMETRES: i64 = 50_000;
 
 mod profile;
 
 use profile::*;
+
+#[derive(Clone, Copy)]
+struct LegCollisionProjection {
+    thigh_half_width_micrometres: i64,
+    shank_half_extent_micrometres: i64,
+    knee_radius_micrometres: i64,
+}
+
+const LEG_COLLISIONS_V3: LegCollisionProjection = LegCollisionProjection {
+    thigh_half_width_micrometres: BIOMECHANICS_HUMANOID_V3_THIGH_HALF_WIDTH_MICROMETRES,
+    shank_half_extent_micrometres: BIOMECHANICS_HUMANOID_V3_SHANK_HALF_WIDTH_MICROMETRES,
+    knee_radius_micrometres: BIOMECHANICS_HUMANOID_V3_KNEE_RADIUS_MICROMETRES,
+};
+
+const LEG_COLLISIONS_V4: LegCollisionProjection = LegCollisionProjection {
+    thigh_half_width_micrometres: BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES,
+    shank_half_extent_micrometres: BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES,
+    knee_radius_micrometres: BIOMECHANICS_HUMANOID_V4_KNEE_RADIUS_MICROMETRES,
+};
 
 #[must_use]
 pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
@@ -37,6 +62,7 @@ pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
         BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES,
         1_000,
         1,
+        LEG_COLLISIONS_V3,
     )
 }
 
@@ -49,6 +75,20 @@ pub fn biomechanics_humanoid_body_schema_v3() -> BodySchemaV2 {
         BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES,
         BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS,
         BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+        LEG_COLLISIONS_V3,
+    )
+}
+
+#[must_use]
+pub fn biomechanics_humanoid_body_schema_v4() -> BodySchemaV2 {
+    biomechanics_humanoid_body_schema(
+        "nextengine.body.humanoid-biomechanics-raja-1700.v4",
+        4,
+        domain_hash(b"nextengine.source.raja-1700.gait-clearance-collider-projection.v4"),
+        BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES,
+        BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS,
+        BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
+        LEG_COLLISIONS_V4,
     )
 }
 
@@ -59,6 +99,7 @@ fn biomechanics_humanoid_body_schema(
     shoulder_half_width_micrometres: i64,
     carrier_mass_microkilograms: u64,
     carrier_inertia_microkilogram_metre_squared: i64,
+    leg_collisions: LegCollisionProjection,
 ) -> BodySchemaV2 {
     let bodies = BODY_SPECS
         .into_iter()
@@ -68,6 +109,9 @@ fn biomechanics_humanoid_body_schema(
                 shoulder_half_width_micrometres,
                 carrier_mass_microkilograms,
                 carrier_inertia_microkilogram_metre_squared,
+                leg_collisions.thigh_half_width_micrometres,
+                leg_collisions.shank_half_extent_micrometres,
+                leg_collisions.knee_radius_micrometres,
             )
         })
         .collect();
@@ -104,7 +148,7 @@ fn biomechanics_humanoid_body_schema(
         family_id: id("policy-family.humanoid"),
         coordinate_profile_hash: domain_hash(b"nextengine.coordinate.y-up-x-right-z-forward.v1"),
         source_provenance_hash,
-        solver_projection_profile_hash: domain_hash(if schema_revision == 3 {
+        solver_projection_profile_hash: domain_hash(if schema_revision >= 3 {
             b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v2"
         } else {
             b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v1"
@@ -136,6 +180,9 @@ fn body_from_spec(
     shoulder_half_width_micrometres: i64,
     carrier_mass_microkilograms: u64,
     carrier_inertia_microkilogram_metre_squared: i64,
+    thigh_half_width_micrometres: i64,
+    shank_half_width_micrometres: i64,
+    knee_radius_micrometres: i64,
 ) -> BodyDefinitionV2 {
     let spec = projected_body_spec(
         spec,
@@ -160,7 +207,12 @@ fn body_from_spec(
         ],
         solver_principal_frame: BodyPoseV2::default(),
         solver_tensor_error_max_microkilogram_metre_squared: spec.solver_error,
-        colliders: colliders_for(spec.name),
+        colliders: colliders_for(
+            spec.name,
+            thigh_half_width_micrometres,
+            shank_half_width_micrometres,
+            knee_radius_micrometres,
+        ),
     }
 }
 
@@ -197,7 +249,12 @@ fn projected_body_spec(
     spec
 }
 
-fn colliders_for(body: &str) -> Vec<BodyColliderDefinitionV2> {
+fn colliders_for(
+    body: &str,
+    thigh_half_width_micrometres: i64,
+    shank_half_width_micrometres: i64,
+    knee_radius_micrometres: i64,
+) -> Vec<BodyColliderDefinitionV2> {
     let rows: &[(&str, PhysicsGeometryV1, [i64; 3], BodyContactRoleV2)] = match body {
         "pelvis" => &[(
             "pelvis",
@@ -223,27 +280,31 @@ fn colliders_for(body: &str) -> Vec<BodyColliderDefinitionV2> {
         ],
         "right-hip-yaw" => &[(
             "right-thigh",
-            box_geometry([75000, 190000, 75000]),
+            box_geometry([thigh_half_width_micrometres, 190000, 75000]),
             [0, -195000, 0],
             BodyContactRoleV2::ThighGround,
         )],
         "left-hip-yaw" => &[(
             "left-thigh",
-            box_geometry([75000, 190000, 75000]),
+            box_geometry([thigh_half_width_micrometres, 190000, 75000]),
             [0, -195000, 0],
             BodyContactRoleV2::ThighGround,
         )],
         "right-knee" => &[
             (
                 "right-shank",
-                box_geometry([55000, 185000, 55000]),
+                box_geometry([
+                    shank_half_width_micrometres,
+                    185000,
+                    shank_half_width_micrometres,
+                ]),
                 [0, -190000, 0],
                 BodyContactRoleV2::ShankGround,
             ),
             (
                 "right-knee",
                 PhysicsGeometryV1::Sphere {
-                    radius_micrometres: 65000,
+                    radius_micrometres: knee_radius_micrometres,
                 },
                 [0, 0, 20000],
                 BodyContactRoleV2::KneeGround,
@@ -252,14 +313,18 @@ fn colliders_for(body: &str) -> Vec<BodyColliderDefinitionV2> {
         "left-knee" => &[
             (
                 "left-shank",
-                box_geometry([55000, 185000, 55000]),
+                box_geometry([
+                    shank_half_width_micrometres,
+                    185000,
+                    shank_half_width_micrometres,
+                ]),
                 [0, -190000, 0],
                 BodyContactRoleV2::ShankGround,
             ),
             (
                 "left-knee",
                 PhysicsGeometryV1::Sphere {
-                    radius_micrometres: 65000,
+                    radius_micrometres: knee_radius_micrometres,
                 },
                 [0, 0, 20000],
                 BodyContactRoleV2::KneeGround,
@@ -825,6 +890,57 @@ mod tests {
             - pelvis_half_width;
         assert_eq!(clearance, 45_405);
         assert!(clearance > 40_000);
+    }
+
+    #[test]
+    fn v4_preserves_v3_dynamics_and_adds_leg_collision_proxy_clearance() {
+        let v3 = biomechanics_humanoid_body_schema_v3();
+        let v4 = biomechanics_humanoid_body_schema_v4();
+        assert_eq!(v3.schema_revision, 3);
+        assert_eq!(v4.schema_revision, 4);
+        assert_eq!(v3.joints, v4.joints);
+        assert_eq!(v3.actuators, v4.actuators);
+        assert_eq!(v3.collision_exclusions, v4.collision_exclusions);
+        assert_eq!(v3.mass_projection_groups, v4.mass_projection_groups);
+        assert_eq!(v3.effectors, v4.effectors);
+        assert_eq!(v3.symmetry_pairs, v4.symmetry_pairs);
+        assert_eq!(v3.capability_ids, v4.capability_ids);
+        for (old, new) in v3.bodies.iter().zip(&v4.bodies) {
+            assert_eq!(old.body_id, new.body_id);
+            assert_eq!(old.local_bind_pose, new.local_bind_pose);
+            assert_eq!(old.mass_microkilograms, new.mass_microkilograms);
+            assert_eq!(
+                old.center_of_mass_micrometres,
+                new.center_of_mass_micrometres
+            );
+            assert_eq!(
+                old.inertia_tensor_microkilogram_metre_squared,
+                new.inertia_tensor_microkilogram_metre_squared
+            );
+            if old.body_id.as_str().ends_with("hip-yaw") || old.body_id.as_str().ends_with("knee") {
+                assert_ne!(old.colliders, new.colliders);
+            } else {
+                assert_eq!(old.colliders, new.colliders);
+            }
+            let mut restored_colliders = new.clone();
+            restored_colliders.colliders.clone_from(&old.colliders);
+            assert_eq!(old, &restored_colliders);
+        }
+
+        let hip_half_spacing = 77_260_i64;
+        let clearance =
+            2 * (hip_half_spacing - BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES);
+        assert_eq!(clearance, 44_520);
+        assert!(clearance > 40_000);
+        let knee_half_spacing = 77_260_i64 - 2_750;
+        let shank_clearance =
+            2 * (knee_half_spacing - BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES);
+        let knee_clearance =
+            2 * (knee_half_spacing - BIOMECHANICS_HUMANOID_V4_KNEE_RADIUS_MICROMETRES);
+        assert_eq!(shank_clearance, 59_020);
+        assert_eq!(knee_clearance, 49_020);
+        assert!(shank_clearance > 40_000);
+        assert!(knee_clearance > 40_000);
     }
 
     #[test]

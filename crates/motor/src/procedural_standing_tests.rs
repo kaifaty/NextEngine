@@ -88,3 +88,50 @@ fn standing_reset_state_is_hash_bound_and_requires_one_root() {
         Err(ProceduralStandingError::RootState)
     );
 }
+
+#[test]
+fn walking_reference_is_translation_invariant_without_changing_standing() {
+    let compiled = compiled();
+    let root_actor = compiled.body_tokens[&compiled.construction_order[0]];
+    let reset = snapshot(root_actor, 0);
+    let standing = BiomechanicsProceduralStandingControllerV1::new(&compiled, &reset)
+        .expect("standing controller");
+    let walking = BiomechanicsProceduralStandingControllerV1::new_walking_translation_invariant(
+        &compiled, &reset,
+    )
+    .expect("walking reference controller");
+    let mut translated = reset.clone();
+    translated.links[0].position_micrometres[2] = 1_000_000;
+
+    let standing_reset = standing.reference_targets(&reset).expect("standing reset");
+    let standing_translated = standing
+        .reference_targets(&translated)
+        .expect("standing translated");
+    let walking_reset = walking.reference_targets(&reset).expect("walking reset");
+    let walking_translated = walking
+        .reference_targets(&translated)
+        .expect("walking translated");
+
+    assert_eq!(walking_reset, walking_translated);
+    assert_ne!(standing_reset, standing_translated);
+    for ((reset_target, translated_target), actuator) in standing_reset
+        .iter()
+        .zip(&standing_translated)
+        .zip(&compiled.physics_descriptors.actuators)
+    {
+        if actuator.base.joint_id.as_str().ends_with("-ankle-pitch") {
+            assert_eq!(*translated_target - *reset_target, 100_000);
+        } else {
+            assert_eq!(translated_target, reset_target);
+        }
+    }
+    assert_ne!(standing.state_root(), walking.state_root());
+
+    let translated_walking =
+        BiomechanicsProceduralStandingControllerV1::new_walking_translation_invariant(
+            &compiled,
+            &translated,
+        )
+        .expect("translated walking reference controller");
+    assert_eq!(walking.state_root(), translated_walking.state_root());
+}

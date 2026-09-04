@@ -18,6 +18,8 @@ from next_lab.motor_mirror import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     validate_biomechanics_forward_start_stop_descriptor,
     validate_biomechanics_standing_descriptor,
     validate_descriptor,
@@ -61,6 +63,8 @@ def main() -> None:
             BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
             BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
             BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
         }:
             validate_biomechanics_forward_start_stop_descriptor(descriptor)
         else:

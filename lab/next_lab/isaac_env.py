@@ -13,6 +13,8 @@ from next_lab.motor_mirror import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     BIOMECHANICS_STANDING_PROFILE_ID,
     BOUNDED_STANDING_PROFILE_ID,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
@@ -118,6 +120,8 @@ def is_locomotion_profile(profile_id: str) -> bool:
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     }
 
 
@@ -139,6 +143,8 @@ def is_biomechanics_profile(profile_id: str) -> bool:
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     }
 
 
@@ -393,6 +399,8 @@ def validate_biomechanics_training_descriptor(descriptor: dict[str, Any]) -> Non
         "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v1",
         "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v2",
         "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v3",
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v4",
+        "nextengine.isaac.humanoid-biomechanics-forward-start-stop.v5",
     }:
         validate_biomechanics_forward_start_stop_descriptor(descriptor)
     else:
@@ -586,6 +594,7 @@ def biomechanics_procedural_standing_targets_tensor(
     root_forward_micrometres: torch.Tensor,
     root_angular_velocity_microradians_per_second: torch.Tensor,
     root_forward_velocity_micrometres_per_second: torch.Tensor,
+    include_root_forward_position_feedback: bool = True,
 ) -> torch.Tensor:
     if (
         neutral_targets_microradians.dtype != torch.int64
@@ -603,7 +612,11 @@ def biomechanics_procedural_standing_targets_tensor(
         + round_div_ties_even_tensor(
             root_angular_velocity_microradians_per_second[:, 0], 20
         )
-        + round_div_ties_even_tensor(root_forward_micrometres, 10)
+        + (
+            round_div_ties_even_tensor(root_forward_micrometres, 10)
+            if include_root_forward_position_feedback
+            else 0
+        )
         + round_div_ties_even_tensor(root_forward_velocity_micrometres_per_second, 50)
     )
     targets = neutral_targets_microradians[None].expand(
@@ -852,6 +865,8 @@ def precompute_command_schedules(
     if profile_id in {
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     }:
         schedule = biomechanics_forward_start_stop_command_schedule_v2()
         return torch.tensor(
@@ -898,15 +913,24 @@ def locomotion_reward_q16_tensor(
     forward_start_stop_v2 = profile_id in {
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     }
     forward_start_stop_v3 = (
-        profile_id == BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3
+        profile_id
+        in {
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
+        }
     )
     curriculum = profile_id in {
         CURRICULUM_LOCOMOTION_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
         BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+        BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     }
     if not is_locomotion_profile(profile_id):
         raise ValueError(f"unsupported locomotion reward profile: {profile_id}")
@@ -1395,6 +1419,9 @@ if ISAAC_LAB_AVAILABLE:
             self._residual_scale = tensor(
                 [record["residual_scale_microradians"] for record in records]
             )
+            self._residual_scale_multiplier_q16 = int(
+                self.profile["action"].get("residual_scale_multiplier_q16", 65_536)
+            )
             self._target_delta = tensor(
                 [
                     max(
@@ -1588,6 +1615,13 @@ if ISAAC_LAB_AVAILABLE:
                     root_forward_micrometres=root_forward,
                     root_angular_velocity_microradians_per_second=root_angular_world_raw,
                     root_forward_velocity_micrometres_per_second=root_linear_world_raw[:, 2],
+                    include_root_forward_position_feedback=(
+                        self.cfg.environment_profile_id
+                        not in {
+                            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+                            BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
+                        }
+                    ),
                 )
                 self._previous_action.copy_(self._action)
                 self._action.copy_(
@@ -1597,6 +1631,9 @@ if ISAAC_LAB_AVAILABLE:
                 )
                 residual = round_div_ties_even_tensor(
                     self._action * self._residual_scale, Q1_30_ONE
+                )
+                residual = round_div_ties_even_tensor(
+                    residual * self._residual_scale_multiplier_q16, 65_536
                 )
                 candidate = torch.minimum(
                     torch.maximum(reference + residual, self._soft_minimum),

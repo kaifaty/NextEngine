@@ -48,18 +48,29 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_V2_SHOULDER_HALF_WIDTH_MICROMETRES,
     BIOMECHANICS_HUMANOID_V3_CARRIER_INERTIA_MICROKILOGRAM_METRE_SQUARED,
     BIOMECHANICS_HUMANOID_V3_CARRIER_MASS_MICROKILOGRAMS,
-    BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES, biomechanics_humanoid_body_schema_v2,
-    biomechanics_humanoid_body_schema_v3,
+    BIOMECHANICS_HUMANOID_V3_KNEE_RADIUS_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V3_SHANK_HALF_WIDTH_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V3_SHOULDER_HALF_WIDTH_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V3_THIGH_HALF_WIDTH_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V4_KNEE_RADIUS_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES,
+    BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES, biomechanics_humanoid_body_schema_v2,
+    biomechanics_humanoid_body_schema_v3, biomechanics_humanoid_body_schema_v4,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID,
+    BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID_V2,
+    BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID_V3,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V3,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V4,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
     BIOMECHANICS_FORWARD_START_STOP_FINAL_ZERO_TICKS_V2,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID,
     BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V2,
+    BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V2,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COEFFICIENTS_Q16_V3,
@@ -75,9 +86,13 @@ pub use biomechanics_standing::{
     biomechanics_forward_start_stop_environment_manifest_v1,
     biomechanics_forward_start_stop_environment_manifest_v2,
     biomechanics_forward_start_stop_environment_manifest_v3,
+    biomechanics_forward_start_stop_environment_manifest_v4,
+    biomechanics_forward_start_stop_environment_manifest_v5,
     biomechanics_forward_start_stop_isaac_descriptor_json_v1,
     biomechanics_forward_start_stop_isaac_descriptor_json_v2,
     biomechanics_forward_start_stop_isaac_descriptor_json_v3,
+    biomechanics_forward_start_stop_isaac_descriptor_json_v4,
+    biomechanics_forward_start_stop_isaac_descriptor_json_v5,
     biomechanics_forward_start_stop_reward_q16_v1, biomechanics_forward_start_stop_reward_q16_v2,
     biomechanics_forward_start_stop_reward_q16_v3, biomechanics_standing_environment_manifest_v1,
     biomechanics_standing_environment_manifest_v2, biomechanics_standing_isaac_descriptor_json_v1,
@@ -124,7 +139,7 @@ pub use humanoid::{
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use mirror_v2::{
     biomechanics_isaac_mirror_descriptor_json_v1, biomechanics_isaac_mirror_descriptor_json_v2,
-    biomechanics_isaac_mirror_descriptor_json_v3,
+    biomechanics_isaac_mirror_descriptor_json_v3, biomechanics_isaac_mirror_descriptor_json_v4,
 };
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,
@@ -146,7 +161,7 @@ pub use physical_animation::{
 pub use procedural_standing::{
     BiomechanicsProceduralStandingControllerV1, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
     PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
-    ProceduralStandingError,
+    PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1, ProceduralStandingError,
 };
 pub use reference_baseline::{ReferenceBaselineError, biomechanics_reference_baseline_json_v1};
 pub use reference_pose_audit::{

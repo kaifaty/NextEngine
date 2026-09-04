@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.72 |
+| Версия | 2.73 |
 | Последняя проверка | 2026-09-04 |
-| Заменяет | INDEX-001 2.71; indexes the bounded R8b V2 walking discriminator without changing learned-policy authority |
+| Заменяет | INDEX-001 2.72; adds diagnostic walking reference and leg-clearance successors under ADR-106 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -312,6 +312,7 @@ traceability — навигационная карта, не admission authority
 | ADR-103 | [R8b R&D-only walking discriminator before mirror repair](adr/103-r8b-rd-only-walking-discriminator.md) | Accepted one-run forward start/stop experiment; CPU evaluation and unchanged mirror gate prohibit automatic promotion |
 | ADR-104 | [Discriminating R8b walking objective and one bounded successor run](adr/104-r8b-discriminating-walking-objective.md) | Accepted one V2 successor run with compact tracking, fixed start/stop lesson and unchanged promotion gates |
 | ADR-105 | [Dense-tracking R8b walking counterfactual](adr/105-r8b-dense-tracking-walking-counterfactual.md) | Accepted one V3 counterfactual after V2 exposed a zero-gradient compact-tracking boundary; all other training and promotion boundaries remain unchanged |
+| ADR-106 | [Walking reference and leg-clearance audit](adr/106-walking-reference-and-leg-clearance-audit.md) | Accepted V4/V5 diagnostics and BodySchema V4 proxy correction; CPU bilateral reachability passes, paired Isaac safety/correspondence remains open; no optimizer budget |
 
 ## Proposed tracks
 

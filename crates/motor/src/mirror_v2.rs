@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::{
     CompiledBodySchemaV2, CompiledBodySchemaV3, MotorCompileError,
     biomechanics_humanoid_body_schema_v2, biomechanics_humanoid_body_schema_v3,
+    biomechanics_humanoid_body_schema_v4,
 };
 
 pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
@@ -177,6 +178,11 @@ pub fn biomechanics_isaac_mirror_descriptor_json_v2() -> Result<String, MotorCom
 
 pub fn biomechanics_isaac_mirror_descriptor_json_v3() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v3();
+    biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)
+}
+
+pub fn biomechanics_isaac_mirror_descriptor_json_v4() -> Result<String, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v4();
     biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)
 }
 

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 3.0 |
+| Версия | 3.1 |
 | Последняя проверка | 2026-09-04 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md), [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
-| Заменяет | SPEC-35 2.9; records failed compact-tracking V2 and admits one dense-tracking V3 counterfactual without weakening correspondence or runtime-promotion gates |
+| Заменяет | SPEC-35 3.0; adds walking V4/V5 diagnostic identities without granting optimizer or runtime authority |
+| Дополнительные зависимости V3.1 | [ADR-106](adr/106-walking-reference-and-leg-clearance-audit.md) |
 | Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
@@ -220,6 +221,17 @@ ADR-105, `nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v3`
 changes only compact planar/yaw tracking to the exact dense bounded Q16 kernel
 `square(1 / (1 + (error / 0.5)^2))`; schedule, coefficients, body, controller,
 PPO and admission gates remain V2-identical.
+
+[ADR-106](adr/106-walking-reference-and-leg-clearance-audit.md) adds walking V4
+as a translation-invariant reference diagnostic on BodySchema V3. Walking V5
+adds BodySchema V4 leg collision proxies and a bounded `4x` residual multiplier
+before the unchanged safety intersection. All old identities remain exact.
+V5 preserves source dynamics and anatomy; only bilateral thigh/shank/knee
+collision geometry changes. The Proposed V5 training recipe has fresh weights.
+Its bilateral 105-tick CPU reachability probe passes, but Isaac joint-safety
+and trajectory differences keep paired alternation/correspondence and training
+blocked. `WALKING-ACTION-REACHABILITY-P0` is not MODEL-MIRROR-P1 or learned gait
+admission. Terminal recording must retain the pre-reset committed facts.
 
 ## Checkpoint and replay
 

@@ -32,6 +32,8 @@ from next_lab.isaac_env import (
 from next_lab.motor_mirror import (
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V2,
     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V3,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
     CURRICULUM_LOCOMOTION_PROFILE_ID,
     biomechanics_forward_start_stop_command_schedule_v2,
     curriculum_locomotion_command_schedule,
@@ -245,6 +247,38 @@ class MotorMirrorTests(unittest.TestCase):
         )
         self.assertEqual(targets.tolist(), [[100_000, -140_000, 0]])
 
+        translated_standing = biomechanics_procedural_standing_targets_tensor(
+            actuator_joint_ids=joints,
+            neutral_targets_microradians=torch.zeros(3, dtype=torch.int64),
+            root_quaternion_xyzw_q1_30=torch.tensor(
+                [[0, 0, 0, 1 << 30]], dtype=torch.int64
+            ),
+            root_forward_micrometres=torch.tensor([1_000_000], dtype=torch.int64),
+            root_angular_velocity_microradians_per_second=torch.zeros(
+                (1, 3), dtype=torch.int64
+            ),
+            root_forward_velocity_micrometres_per_second=torch.zeros(
+                1, dtype=torch.int64
+            ),
+        )
+        translated_walking = biomechanics_procedural_standing_targets_tensor(
+            actuator_joint_ids=joints,
+            neutral_targets_microradians=torch.zeros(3, dtype=torch.int64),
+            root_quaternion_xyzw_q1_30=torch.tensor(
+                [[0, 0, 0, 1 << 30]], dtype=torch.int64
+            ),
+            root_forward_micrometres=torch.tensor([1_000_000], dtype=torch.int64),
+            root_angular_velocity_microradians_per_second=torch.zeros(
+                (1, 3), dtype=torch.int64
+            ),
+            root_forward_velocity_micrometres_per_second=torch.zeros(
+                1, dtype=torch.int64
+            ),
+            include_root_forward_position_feedback=False,
+        )
+        self.assertEqual(translated_standing.tolist(), [[100_000, -40_000, 0]])
+        self.assertEqual(translated_walking.tolist(), targets.tolist())
+
         shape = (1, 1)
         zero = torch.zeros(shape, dtype=torch.int64)
         effort, work, infeasible = biomechanics_fixed_pd_safety_tensor(
@@ -403,6 +437,27 @@ class MotorMirrorTests(unittest.TestCase):
         self.assertLess(halfway[0, 0].item(), tracking[0, 0].item())
         self.assertEqual(tracking[0, 0].item(), 65_536)
         self.assertEqual(tracking_total.item(), 163_840)
+
+        v4_components, v4_total = locomotion_reward_q16_tensor(
+            local_linear_velocity_raw=tracking_velocity,
+            contacting_foot_count=torch.tensor([1], dtype=torch.int64),
+            **{
+                **common,
+                "profile_id": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V4,
+            },
+        )
+        torch.testing.assert_close(v4_components, tracking)
+        torch.testing.assert_close(v4_total, tracking_total)
+        v5_components, v5_total = locomotion_reward_q16_tensor(
+            local_linear_velocity_raw=tracking_velocity,
+            contacting_foot_count=torch.tensor([1], dtype=torch.int64),
+            **{
+                **common,
+                "profile_id": BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
+            },
+        )
+        torch.testing.assert_close(v5_components, tracking)
+        torch.testing.assert_close(v5_total, tracking_total)
 
     def test_curriculum_reward_sharpens_tracking_and_binds_support(self) -> None:
         quaternion = torch.tensor([[0, 0, 0, 1 << 30]], dtype=torch.int64)
