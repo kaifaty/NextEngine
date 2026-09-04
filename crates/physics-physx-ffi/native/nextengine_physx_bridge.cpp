@@ -1381,6 +1381,8 @@ struct GpuFluid {
     physx::PxVec4* host_positions = nullptr;
     physx::PxVec4* host_velocities = nullptr;
     std::uint32_t count = 0;
+    std::uint32_t capacity = 0;
+    float inverse_mass = 1.0F;
     float timestep = 0.0F;
     char device_name[64] = {};
 };
@@ -1442,6 +1444,7 @@ GpuFluid* create_gpu_fluid(
     float timestep,
     const physx::PxVec4* seed,
     std::uint32_t count,
+    std::uint32_t capacity,
     std::uint32_t* reason) {
     *reason = 0;
     auto* fluid = new (std::nothrow) GpuFluid{};
@@ -1533,9 +1536,14 @@ GpuFluid* create_gpu_fluid(
         physx::PxParticlePhaseFlags(
             physx::PxParticlePhaseFlag::eParticlePhaseFluid
             | physx::PxParticlePhaseFlag::eParticlePhaseSelfCollide));
-    fluid->host_positions = new (std::nothrow) physx::PxVec4[count];
-    fluid->host_velocities = new (std::nothrow) physx::PxVec4[count];
-    auto* phases = new (std::nothrow) physx::PxU32[count];
+    if (capacity < count || capacity == 0) {
+        *reason = 5;
+        destroy_gpu_fluid(fluid);
+        return nullptr;
+    }
+    fluid->host_positions = new (std::nothrow) physx::PxVec4[capacity];
+    fluid->host_velocities = new (std::nothrow) physx::PxVec4[capacity];
+    auto* phases = new (std::nothrow) physx::PxU32[capacity];
     if (fluid->host_positions == nullptr || fluid->host_velocities == nullptr
         || phases == nullptr) {
         delete[] phases;
@@ -1543,17 +1551,23 @@ GpuFluid* create_gpu_fluid(
         destroy_gpu_fluid(fluid);
         return nullptr;
     }
-    for (std::uint32_t index = 0; index < count; ++index) {
-        fluid->host_positions[index] = seed[index];
+    const float rest_inverse_mass =
+        count > 0 ? seed[0].w : 1.0F / (1000.0F * 1.333F * 3.14159F * fluid_rest_offset
+                                          * fluid_rest_offset * fluid_rest_offset);
+    for (std::uint32_t index = 0; index < capacity; ++index) {
+        fluid->host_positions[index] = index < count
+            ? seed[index]
+            : physx::PxVec4(box_min[0], box_min[1], box_min[2], rest_inverse_mass);
         fluid->host_velocities[index] = physx::PxVec4(0.0F);
         phases[index] = phase;
     }
+    fluid->inverse_mass = rest_inverse_mass;
     physx::ExtGpu::PxParticleBufferDesc buffer_desc;
     buffer_desc.positions = fluid->host_positions;
     buffer_desc.velocities = fluid->host_velocities;
     buffer_desc.phases = phases;
     buffer_desc.numActiveParticles = count;
-    buffer_desc.maxParticles = count;
+    buffer_desc.maxParticles = capacity;
     fluid->buffer = physx::ExtGpu::PxCreateAndPopulateParticleBuffer(buffer_desc, fluid->cuda);
     delete[] phases;
     if (fluid->buffer == nullptr) {
@@ -1563,8 +1577,49 @@ GpuFluid* create_gpu_fluid(
     }
     fluid->particles->addParticleBuffer(fluid->buffer);
     fluid->count = count;
+    fluid->capacity = capacity;
     fluid->timestep = timestep;
     return fluid;
+}
+
+/// Replaces the active particle set (`count <= capacity`) from host arrays
+/// of positions and velocities (metres, metres per second).
+bool gpu_fluid_set(GpuFluid& fluid, const float* positions, const float* velocities,
+                   std::uint32_t count) {
+    if (count > fluid.capacity) {
+        return false;
+    }
+    for (std::uint32_t index = 0; index < count; ++index) {
+        fluid.host_positions[index] = physx::PxVec4(
+            positions[index * 3], positions[index * 3 + 1], positions[index * 3 + 2],
+            fluid.inverse_mass);
+        fluid.host_velocities[index] = physx::PxVec4(
+            velocities[index * 3], velocities[index * 3 + 1], velocities[index * 3 + 2], 0.0F);
+    }
+    fluid.cuda->acquireContext();
+    physx::PxCudaContext* context = fluid.cuda->getCudaContext();
+    physx::PxCUresult copied = 0;
+    if (count > 0) {
+        copied = context->memcpyHtoD(
+            reinterpret_cast<CUdeviceptr>(fluid.buffer->getPositionInvMasses()),
+            fluid.host_positions,
+            static_cast<std::size_t>(count) * sizeof(physx::PxVec4));
+        if (copied == 0) {
+            copied = context->memcpyHtoD(
+                reinterpret_cast<CUdeviceptr>(fluid.buffer->getVelocities()),
+                fluid.host_velocities,
+                static_cast<std::size_t>(count) * sizeof(physx::PxVec4));
+        }
+    }
+    fluid.cuda->releaseContext();
+    if (copied != 0) {
+        return false;
+    }
+    fluid.buffer->setNbActiveParticles(count);
+    fluid.buffer->raiseFlags(physx::PxParticleBufferFlag::eUPDATE_POSITION);
+    fluid.buffer->raiseFlags(physx::PxParticleBufferFlag::eUPDATE_VELOCITY);
+    fluid.count = count;
+    return true;
 }
 
 bool gpu_fluid_step(GpuFluid& fluid) {
@@ -1640,7 +1695,7 @@ std::int32_t ne_physx_pbd_probe(
     const float box_max[3] = {box_half, box_half, box_half};
     std::uint32_t reason = 0;
     GpuFluid* fluid = create_gpu_fluid(
-        desc->gpu_library_path, spacing, box_min, box_max, timestep, seed, count, &reason);
+        desc->gpu_library_path, spacing, box_min, box_max, timestep, seed, count, count, &reason);
     delete[] seed;
     if (fluid == nullptr) {
         report->reason = reason;
@@ -1751,12 +1806,16 @@ std::int32_t ne_physx_fluid_create(
             }
         }
     }
-    if (count == 0) {
-        delete[] seed;
-        return kInvalidArgument;
-    }
     GpuFluid* fluid = create_gpu_fluid(
-        desc->gpu_library_path, spacing, box_min, box_max, timestep, seed, count, reason);
+        desc->gpu_library_path,
+        spacing,
+        box_min,
+        box_max,
+        timestep,
+        seed,
+        count,
+        desc->max_particles,
+        reason);
     delete[] seed;
     if (fluid == nullptr) {
         return kInternalFailure;
@@ -1799,6 +1858,21 @@ std::int32_t ne_physx_fluid_read(
     }
     *count = fluid->count;
     return kOk;
+}
+
+std::int32_t ne_physx_fluid_set(
+    void* opaque_fluid,
+    const float* positions,
+    const float* velocities,
+    std::uint32_t count) noexcept {
+    auto* fluid = static_cast<GpuFluid*>(opaque_fluid);
+    if (fluid == nullptr || (count > 0 && (positions == nullptr || velocities == nullptr))) {
+        return kInvalidArgument;
+    }
+    if (count > fluid->capacity) {
+        return kCapacityExceeded;
+    }
+    return gpu_fluid_set(*fluid, positions, velocities, count) ? kOk : kInternalFailure;
 }
 
 void ne_physx_fluid_destroy(void* opaque_fluid) noexcept {

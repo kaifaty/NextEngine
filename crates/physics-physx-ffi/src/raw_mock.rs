@@ -78,6 +78,15 @@ pub unsafe fn fluid_read(
     STATUS_INVALID_ARGUMENT
 }
 
+pub unsafe fn fluid_set(
+    _fluid: *mut c_void,
+    _positions: *const f32,
+    _velocities: *const f32,
+    _count: u32,
+) -> i32 {
+    STATUS_INVALID_ARGUMENT
+}
+
 pub unsafe fn fluid_destroy(_fluid: *mut c_void) {}
 
 pub unsafe fn version() -> PhysXVersion {

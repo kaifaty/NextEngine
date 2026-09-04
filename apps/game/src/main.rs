@@ -134,6 +134,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             capture,
             options.projection_jitter,
             options.physx_water,
+            options.physx_water_pour,
         );
     }
 
@@ -181,6 +182,7 @@ fn run_interactive_session(
     capture: Option<CaptureOptions>,
     projection_jitter: bool,
     physx_water: bool,
+    physx_water_pour: bool,
 ) -> Result<RunReportV1, AppFailure> {
     let capture = capture.map(|capture| capture::CaptureRequest {
         rendered_frame_index: capture.rendered_frame_index,
@@ -228,14 +230,14 @@ fn run_interactive_session(
     let mut water_feed =
         water_presentation::WaterPresentationFeed::new(&ready.render_content_catalog)
             .map_err(|message| AppFailure::cli("GAME_WATER_PRESENTATION_INVALID", message))?;
-    // Plan 24 (ADR-106): the PhysX water demo, optional and fail-closed to
+    // Plan 25 (ADR-106): the PhysX water lane, optional and fail-closed to
     // the stage's droplets.
     #[cfg(feature = "physx-water")]
-    let mut physx_demo = if physx_water {
-        match physx_water::PhysxWaterDemo::new(water_feed.particle_bounds()) {
-            Ok(demo) => {
-                eprintln!("next_game: PHYSX_WATER: demo active over the basin");
-                Some(demo)
+    let physx_lane = std::cell::RefCell::new(if physx_water {
+        match physx_water::PhysxWaterLane::new(water_feed.particle_bounds(), physx_water_pour) {
+            Ok(lane) => {
+                eprintln!("next_game: PHYSX_WATER: lane active over the basin");
+                Some(lane)
             }
             Err(reason) => {
                 eprintln!("next_game: PHYSX_WATER_FALLBACK: {reason}");
@@ -244,7 +246,9 @@ fn run_interactive_session(
         }
     } else {
         None
-    };
+    });
+    #[cfg(not(feature = "physx-water"))]
+    let _ = physx_water_pour;
     #[cfg(not(feature = "physx-water"))]
     if physx_water {
         return Err(AppFailure::cli(
@@ -253,9 +257,9 @@ fn run_interactive_session(
         ));
     }
     #[cfg(feature = "physx-water")]
-    let particle_profile = physx_demo.as_ref().map_or_else(
+    let particle_profile = physx_lane.borrow().as_ref().map_or_else(
         || water_feed.particle_surface_profile(),
-        physx_water::PhysxWaterDemo::particle_surface_profile,
+        physx_water::PhysxWaterLane::particle_surface_profile,
     );
     #[cfg(not(feature = "physx-water"))]
     let particle_profile = water_feed.particle_surface_profile();
@@ -329,8 +333,15 @@ fn run_interactive_session(
             // Plan 24: the PhysX fluid publishes every frame, replacing the
             // stage's droplets while the demo runs.
             #[cfg(feature = "physx-water")]
-            let demo_particles = match physx_demo.as_mut() {
-                Some(demo) => demo.advance(elapsed, water_feed.next_sequence())?,
+            let demo_particles = match physx_lane.borrow_mut().as_mut() {
+                Some(lane) => {
+                    if generation != last_rendered_generation
+                        && let Some(frame) = read.water.as_deref()
+                    {
+                        lane.observe_frame(frame);
+                    }
+                    lane.advance(elapsed, water_feed.next_sequence())?
+                }
                 None => None,
             };
             #[cfg(not(feature = "physx-water"))]
@@ -414,6 +425,20 @@ fn run_interactive_session(
         );
     }
 
+    #[cfg(feature = "physx-water")]
+    if let Some(lane) = physx_lane.borrow().as_ref() {
+        let stats = lane.stats();
+        eprintln!(
+            "next_game: PHYSX_WATER: frames={}, peak_particles={}, emitted={}, absorbed={}, last_particles={}, cost_mean_us={}, cost_max_us={}",
+            stats.frames,
+            stats.peak_particles,
+            stats.emitted,
+            stats.absorbed,
+            stats.last_particles,
+            stats.cost_total_microseconds / u128::from(stats.frames.max(1)),
+            stats.cost_max_microseconds
+        );
+    }
     eprintln!(
         "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}, device_allocation_bytes={}",
         adapter.rendered_frames,
@@ -483,6 +508,7 @@ fn run_interactive_session(
     _capture: Option<CaptureOptions>,
     _projection_jitter: bool,
     _physx_water: bool,
+    _physx_water_pour: bool,
 ) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",

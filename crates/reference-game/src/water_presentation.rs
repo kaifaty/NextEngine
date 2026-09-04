@@ -211,6 +211,9 @@ pub struct WaterPresentationFrameV1 {
     /// Plan 21 (SPEC-38 practice 3): one record per edge that moved water
     /// in the published tick, in edge id order; nothing per cell.
     pub edges: Vec<WaterEdgePresentationV1>,
+    /// Plan 25: the committed floating boxes the stage read (the PhysX lane
+    /// emits from the same exact inputs as the splash).
+    pub boxes: Vec<WaterFloatingBoxV1>,
 }
 
 /// Plan 21: an open sill whose sink level lies this far below the sill
@@ -432,6 +435,7 @@ pub fn compute_water_presentation_frame(
         surfaces,
         jet,
         edges,
+        boxes: boxes.to_vec(),
     }
 }
 

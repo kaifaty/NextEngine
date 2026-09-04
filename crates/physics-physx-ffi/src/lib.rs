@@ -465,6 +465,40 @@ impl NativeFluid {
         status_result(unsafe { raw::fluid_step(self.handle.as_ptr()) })
     }
 
+    /// Plan 25: replaces the active particle set (metres and metres per
+    /// second); at most `max_particles` entries.
+    pub fn set(
+        &mut self,
+        positions: &[[f32; 3]],
+        velocities: &[[f32; 3]],
+    ) -> Result<(), PhysXFfiError> {
+        if positions.len() != velocities.len() {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        if positions.len() > self.max_particles as usize {
+            return Err(PhysXFfiError::CapacityExceeded);
+        }
+        let flat_positions: Vec<f32> = positions.iter().flatten().copied().collect();
+        let flat_velocities: Vec<f32> = velocities.iter().flatten().copied().collect();
+        let count = u32::try_from(positions.len()).map_err(|_| PhysXFfiError::InvalidArgument)?;
+        // SAFETY: both slices hold `3 * count` floats that outlive the call;
+        // the bridge copies them and retains no pointer.
+        let status = unsafe {
+            raw::fluid_set(
+                self.handle.as_ptr(),
+                flat_positions.as_ptr(),
+                flat_velocities.as_ptr(),
+                count,
+            )
+        };
+        status_result(status)
+    }
+
+    #[must_use]
+    pub const fn max_particles(&self) -> u32 {
+        self.max_particles
+    }
+
     pub fn read(&mut self) -> Result<FluidSample, PhysXFfiError> {
         let capacity = self.max_particles as usize;
         let mut positions = vec![0.0_f32; capacity * 3];
@@ -1009,6 +1043,13 @@ mod raw {
             capacity: u32,
             count: *mut u32,
         ) -> i32;
+        #[link_name = "ne_physx_fluid_set"]
+        pub fn fluid_set(
+            fluid: *mut c_void,
+            positions: *const f32,
+            velocities: *const f32,
+            count: u32,
+        ) -> i32;
         #[link_name = "ne_physx_fluid_destroy"]
         pub fn fluid_destroy(fluid: *mut c_void);
         #[link_name = "ne_physx_world_create"]
@@ -1142,6 +1183,15 @@ mod raw {
         _velocities: *mut f32,
         _capacity: u32,
         _count: *mut u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn fluid_set(
+        _fluid: *mut c_void,
+        _positions: *const f32,
+        _velocities: *const f32,
+        _count: u32,
     ) -> i32 {
         STATUS_UNAVAILABLE
     }
