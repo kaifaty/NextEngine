@@ -123,6 +123,9 @@ def main() -> None:
     final_backward_leans_degrees: list[float] = []
     contact_occupancies: list[float] = []
     action_absolute_maxima: list[float] = []
+    commanded_forward_distances: list[float] = []
+    achieved_forward_distances: list[float] = []
+    forward_velocity_mae: list[float] = []
 
     with MotorLabClient(headless_path, profile.environment_profile_id, 1, run_root) as client:
         if client.descriptor.maximum_episode_steps != args.max_steps:
@@ -138,6 +141,9 @@ def main() -> None:
             maximum_tilt = 0.0
             contact_samples = 0
             action_absolute_maximum = 0.0
+            commanded_forward_distance = 0.0
+            achieved_forward_distance = 0.0
+            forward_error_sum = 0.0
             final_pitch = 0.0
             final_step = None
             with torch.inference_mode():
@@ -163,6 +169,11 @@ def main() -> None:
                     action_absolute_maximum = max(
                         action_absolute_maximum, float(np.max(np.abs(action)))
                     )
+                    commanded_forward = result.command_raw[1] / 1_000_000.0
+                    achieved_forward = result.observation_raw[6] / 1_000_000.0
+                    commanded_forward_distance += commanded_forward / 60.0
+                    achieved_forward_distance += achieved_forward / 60.0
+                    forward_error_sum += abs(achieved_forward - commanded_forward)
                     final_step = result
                     observation = policy_observation(result.observation_raw, scales)
                     if result.terminated or result.truncated:
@@ -183,6 +194,9 @@ def main() -> None:
                 contact_samples / (2.0 * final_step.motor_tick)
             )
             action_absolute_maxima.append(action_absolute_maximum)
+            commanded_forward_distances.append(commanded_forward_distance)
+            achieved_forward_distances.append(achieved_forward_distance)
+            forward_velocity_mae.append(forward_error_sum / final_step.motor_tick)
 
         result: dict[str, Any] = {
             "schema": "nextengine.motor.cpu-policy-evaluation.v1",
@@ -214,6 +228,15 @@ def main() -> None:
             "final_signed_pitch_degrees": summary(final_backward_leans_degrees),
             "two_sole_contact_occupancy": summary(contact_occupancies),
             "policy_action_absolute_maximum": summary(action_absolute_maxima),
+            "commanded_forward_distance_metres": summary(
+                commanded_forward_distances
+            ),
+            "achieved_root_local_forward_distance_metres": summary(
+                achieved_forward_distances
+            ),
+            "root_local_forward_velocity_mae_metres_per_second": summary(
+                forward_velocity_mae
+            ),
         }
         atomic_write_json(manifest_path, result)
         print(json.dumps(result, indent=2, sort_keys=True), flush=True)

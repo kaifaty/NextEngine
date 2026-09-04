@@ -163,6 +163,7 @@ def main() -> None:
         from next_lab.isaac_env import (
             NextEngineHumanoidDirectEnv,
             NextEngineHumanoidDirectEnvCfg,
+            rotate_world_to_root_local_q1_30_tensor,
         )
         from next_lab.isaac_rl import GuardedOnPolicyRunner, build_agent_cfg
 
@@ -199,9 +200,21 @@ def main() -> None:
         current_components = torch.zeros(
             (num_envs, component_count), device=config.device
         )
+        current_commanded_forward_distance = torch.zeros(
+            num_envs, device=config.device
+        )
+        current_achieved_forward_distance = torch.zeros(
+            num_envs, device=config.device
+        )
+        current_forward_velocity_error = torch.zeros(
+            num_envs, device=config.device
+        )
         episode_returns: list[float] = []
         episode_lengths: list[int] = []
         episode_component_means: list[list[float]] = []
+        episode_commanded_forward_distances: list[float] = []
+        episode_achieved_forward_distances: list[float] = []
+        episode_forward_velocity_mae: list[float] = []
         slot_returns: list[list[float]] = [[] for _ in range(num_envs)]
         slot_lengths: list[list[int]] = [[] for _ in range(num_envs)]
         completed_per_slot = torch.zeros(
@@ -221,6 +234,9 @@ def main() -> None:
 
         with torch.inference_mode():
             for _ in range(step_budget):
+                applied_command = torch.round(
+                    observations["policy"][:, 79:82] * 1_000_000.0
+                ).to(torch.int64)
                 actions = policy(observations)
                 require_finite("evaluation action", actions)
                 observations, rewards, dones, _ = wrapped.step(actions)
@@ -233,6 +249,22 @@ def main() -> None:
                 current_returns.add_(rewards)
                 current_lengths.add_(1)
                 current_components.add_(component_values)
+                if hasattr(environment, "last_step_root_linear_velocity"):
+                    local_linear_velocity = rotate_world_to_root_local_q1_30_tensor(
+                        environment.last_step_root_quaternion,
+                        environment.last_step_root_linear_velocity,
+                    )
+                    current_commanded_forward_distance.add_(
+                        applied_command[:, 1].to(torch.float32) / 60_000_000.0
+                    )
+                    current_achieved_forward_distance.add_(
+                        local_linear_velocity[:, 2].to(torch.float32) / 60_000_000.0
+                    )
+                    current_forward_velocity_error.add_(
+                        torch.abs(local_linear_velocity[:, 2] - applied_command[:, 1])
+                        .to(torch.float32)
+                        / 1_000_000.0
+                    )
 
                 done_ids = dones.nonzero(as_tuple=False).squeeze(-1)
                 if len(done_ids) == 0:
@@ -246,6 +278,15 @@ def main() -> None:
                     episode_lengths.append(length)
                     episode_component_means.append(
                         (current_components[env_id] / length).cpu().tolist()
+                    )
+                    episode_commanded_forward_distances.append(
+                        float(current_commanded_forward_distance[env_id].item())
+                    )
+                    episode_achieved_forward_distances.append(
+                        float(current_achieved_forward_distance[env_id].item())
+                    )
+                    episode_forward_velocity_mae.append(
+                        float(current_forward_velocity_error[env_id].item()) / length
                     )
                     slot_returns[env_id].append(episode_return)
                     slot_lengths[env_id].append(length)
@@ -294,6 +335,9 @@ def main() -> None:
                 current_returns[done_ids] = 0.0
                 current_lengths[done_ids] = 0
                 current_components[done_ids] = 0.0
+                current_commanded_forward_distance[done_ids] = 0.0
+                current_achieved_forward_distance[done_ids] = 0.0
+                current_forward_velocity_error[done_ids] = 0.0
                 if torch.all(completed_per_slot >= episodes_per_slot):
                     break
 
@@ -307,6 +351,19 @@ def main() -> None:
         for index, component in enumerate(environment.profile["reward_components"]):
             values = [episode[index] for episode in episode_component_means]
             component_metrics[component["component_id"]] = summary(values)
+        movement_metrics = {}
+        if episode_commanded_forward_distances:
+            movement_metrics = {
+                "commanded_forward_distance_metres": summary(
+                    episode_commanded_forward_distances
+                ),
+                "achieved_root_local_forward_distance_metres": summary(
+                    episode_achieved_forward_distances
+                ),
+                "root_local_forward_velocity_mae_metres_per_second": summary(
+                    episode_forward_velocity_mae
+                ),
+            }
         manifest.update(
             {
                 "status": "completed",
@@ -331,6 +388,7 @@ def main() -> None:
                     ),
                 },
                 "reward_component_mean_per_step": component_metrics,
+                **movement_metrics,
                 "gpu_postflight": query_gpu(config.device),
             }
         )
