@@ -102,7 +102,8 @@
 - **Rotational presentation done (2026-09-03, plan 22, SPEC-38 3.4 practice 4, authored vortex):** `vortices_of` / `vortex_height` in the stage: a whirlpool over vessel B's sink in its ring (dip from the exact flux, two-arm spiral), inside the cap; `water-present` PASS with roots identical (`85 us` mean). The human look at vessel B (G3) is open. The shallow-water grid variant stays planned.
 - **ADR-106 Accepted 1.0 (user, 2026-09-04)** on the plan 23 probe and the plan 24 demo; the lane continues with plan 25 (emission from exact data and absorption at the level).
 - **Decided 2026-09-04 (D-011):** the water authority stays the exact CPU model (table, flow network, buoyancy batch); NVIDIA PhysX becomes the water *presentation* lane (PBD particle fluids) behind the existing PhysX boundary, optional and vendor-specific, with the current ring-and-droplet presentation as the fallback; no gameplay read, no root change. Research note `docs/development/water-physx-presentation-research-2026-09-04.md`, ADR-106 (Proposed) and plan `continuum-water/23` (the probe: GPU SDK profile, bridge probe, `xtask physx pbd-probe`) written 2026-09-04; ADR-106 is accepted on the probe's evidence, the lane in the game is plan 24.
-- **Roadmap (2026-09-04):** plan `continuum-water/31` orders the remaining water work by the player's impression (the player in the water first, the camera under the surface, sound, the player's wake, wetness, gates and pumps, tilting floats, event waves, big water, the lane's finish, the ground, far water); each item becomes its own frozen plan when picked.
+- **Roadmap (2026-09-04):** plan `continuum-water/31` orders the remaining water work by the player's impression (the camera under the surface, sound, wetness, gates and pumps, tilting floats, event waves, big water, the lane's finish, the ground, far water, then the player in the water and the player's wake); each item becomes its own frozen plan when picked.
+- **Decided 2026-09-04 (D-013):** the player's own interaction with the water (buoyancy, swimming, wading, the player's wake) goes to the bottom of the roadmap; swimming will be a separately trained model on PD controllers over the SPEC-37 motors, and the water's forces on the body are built as that model's environment when the project asks.
 - **Decided 2026-09-04 (D-012):** no player preference (SPEC-18) for the PhysX water lane for now; the run option stays the request until the lane's retention is decided.
 - **Plan 23 run (2026-09-04):** `xtask physx setup` profile v2 builds `libPhysXGpu_64.so` from the pinned 5.9 sources with the host CUDA 13.3 (three recorded source patches for the 12.8-to-13 gap: architecture list, `cuCtxCreate`, nvcc-13 host stubs in the kernel wrangler); `xtask physx pbd-probe` (`PHYSX-WATER-PRESENT-R1`): RTX 3080, `16,384` fluid particles, `120` frames, step `1.5-1.8 ms` mean / `3.9-4.4 ms` max, readback `70-80 us`, fail-closed without the library, run-to-run positions differ; G4 FAIL by reading (`3` particles beyond the `0.1 m` margin at the worst frame). `physics-backend-parity` and the `physx-sdk` tests PASS on the v2 SDK; the bridge ABI stays `4` (the motor closure pins it). ADR-106 stays Proposed until the user reads the probe.
 - **Plan 24 first cut (2026-09-04, developer demo):** a persistent GPU fluid in the bridge (`NativeFluid`) and the game feature `physx-water` with `--physx-water`: a block of PhysX water drops onto the basin's exact level inside the rim and splashes through the ADR-102 particle pass every frame; fail-closed to the stage's droplets without the GPU library. Run: `cargo run --release -p next_game --features physx-water -- --interactive --physx-water`. The lane's real increments (emission at edges, absorption at the surface, body boundaries, kernels, run option, statistics) are listed in plan 24 to be frozen.
@@ -295,6 +296,20 @@
   own plan when that decision is made.
 - **Reconsider when:** the lane is retained for players (then SPEC-18
   gains the toggle, default off, with the schema bump).
+
+### D-013 — The player's interaction with the water goes last (deferred)
+
+- **Observation:** plan 31's first draft put the player in the water at
+  the top (buoyancy and drag on the capsule, swimming as a SPEC-37
+  locomotion mode, wading, climbing out) with the player's wake next.
+- **Decision (user, 2026-09-04):** the player's interaction with the
+  water is the lowest priority. Swimming will be a separately trained
+  model driving the motors through PD controllers; the water supplies
+  that model's environment (exact forces on the body, the immersion
+  record) when the project needs it, and the roadmap's other items do
+  not wait for it.
+- **Reconsider when:** the swimming-model project starts and asks for
+  the water's forces; then item 11 of plan 31 is frozen as its own plan.
 
 ### D-003 — Verification issues the level command as a `Tool` principal
 
