@@ -416,3 +416,12 @@ closes the evaluator Git revision and records every slot's episode count and
 lengths. A completed training run proves that the pipeline works; only held-out
 multi-seed evaluation can support a policy-quality claim. Checkpoints,
 evaluation manifests, and logs remain outside Git.
+
+## Walking lift/return candidate diagnostic
+
+`PYTHONPATH=lab python -m lab.scripts.walking_lift_return_discriminator`
+accepts `--run`, `--evaluation-trace`, `--reachability-trace` and a fresh external
+`--output`. It verifies the closed V6 native evaluation and compares a proposed
+phase-height cost against safe V5 single-lift controls and explicit synthetic
+counterfactuals. It never changes a training profile or launches an optimizer.
+See [the exact experiment](../docs/development/r8b-lift-return-discriminator-2026-09-05.md).

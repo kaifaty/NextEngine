@@ -21,10 +21,10 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Specify and test a phase-conditioned lift-and-return lesson
-  against actual sole geometry and the existing positive single-swing controls.
-  The user asked to investigate toe standing and reconsider training methods;
-  that research is now recorded below. Do not launch another unchanged run.
+- **Next action:** Implement native V7 lift-and-return cost plus two observed
+  sole heights. The report-only discriminator now passes actual-geometry and
+  synthetic phase controls; integrate with unchanged V6 load credit, then test
+  native physics/safety parity before freezing any new run. No unchanged retry.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
   All final episodes end on contact impact at 382, after only 0.092032 m,
   without single support. No optimizer is running; no V7 is admitted.
@@ -54,6 +54,7 @@
 6. [ADR-108](../../architecture/adr/108-observable-periodic-walking-credit.md)
    and [step-credit investigation](../r8b-walking-step-credit-2026-09-05.md).
 7. [Closed V6, sole support and training-method research](../r8b-sole-support-and-training-method-research-2026-09-05.md).
+8. [Executable lift/return discriminator](../r8b-lift-return-discriminator-2026-09-05.md).
 
 ## Current evidence
 
@@ -165,9 +166,12 @@ D-019 contain the current experiment outcome and next action.
 - **Uncertainty:** Learnability of a coordinated return, useful actuator
   history/observations and required sample budget remain unmeasured. The
   zero-residual controller falls at 361; this is not itself proof of an RL bug.
-- **Next/reconsider:** Freeze one lift-and-return discriminator with positive
-  native controls, then a separately admitted lesson/budget only if its reward
-  observables distinguish lift, wrong phase, flight and grounded rocking.
+- **Next/reconsider:** The [fixed discriminator](../r8b-lift-return-discriminator-2026-09-05.md)
+  passes: V6 cost 0.320730 is nearly grounded 0.321152; native left/right lifts
+  improve peak-height cost on 41/18 frames; wrong side and persistent lift lose
+  synthetic full-cycle comparisons. This is geometric discrimination, not safe
+  return or gait. Integrate native integer geometry/cost plus observed heights,
+  preserving all V6 dynamics/safety, before a separately frozen lesson/budget.
 
 ## Retained safety and mirror hypotheses
 

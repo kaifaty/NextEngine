@@ -2012,8 +2012,10 @@ lesson and isolated gait credit, not an unchanged optimizer retry.
 The [foot-return safety diagnosis](development/r8b-walking-step-credit-2026-09-05.md)
 confirms genuine ankle power/rate incompatibility in the manual tape; it does
 not justify changing safety limits. ADR-108 implements V6 periodic load credit
-and two observable engine clocks, with unchanged physical dynamics. Its next
-single fresh CPU/CUDA run admits 4,096,000 samples and the same final gait gates.
+and two observable engine clocks, with unchanged physical dynamics. Its single
+CPU/CUDA run completed 4,096,000 samples but failed all final gait episodes.
+The report-only lift/return discriminator now passes geometric controls;
+native integration and a separately frozen successor run remain next.
 R8b remains a
 separately hash-closed lineage, not R142 and not a
 continuation, repair or relabeling of R123–R141, the rejected TRAIN-5
@@ -2273,9 +2275,12 @@ power/rate incompatibility. ADR-108's V6 run is also complete and rejected:
 4,096,000 transitions, all final episodes end on impact at 382 with 0.092032 m
 and no single support. The [sole/method investigation](development/r8b-sole-support-and-training-method-research-2026-09-05.md)
 corrects the missing-foot visualization and verifies real load transfer without
-whole-sole lift. The active queue is a phase-conditioned lift-and-return
-discriminator with native positive controls; no unchanged retry or successor
-optimizer budget is admitted by this planning update.
+whole-sole lift. The [lift/return discriminator](development/r8b-lift-return-discriminator-2026-09-05.md)
+now distinguishes actual native lifts from grounded rocking and rejects wrong
+side/persistent lift in synthetic phase controls. The active queue is native
+integer geometry and phase-cost integration with observed sole heights, then
+unchanged physics/safety checks and a separately frozen training recipe. This
+is not learned gait; no successor optimizer budget is admitted by this update.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains
