@@ -2,20 +2,21 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ROADMAP_V46_ACTIVE / B0_COMPLETE / NO_USEFUL_TEACHER / E0_V0_NEXT / M0_BLOCKED / 71_REAL_ACOUSTIC_SUPPORTED / DEFICIT_34 / REAL_FIT_BLOCKED / RESEARCH_ONLY / FALLBACK_REQUIRED` |
-| Updated | `2026-09-03` |
+| Status | `REPORT_ONLY_AUDIBLE_PILOT_COMPLETE / ROADMAP_V46_ACTIVE / M0_ADMISSION_BLOCKED / RESEARCH_ONLY / FALLBACK_REQUIRED` |
+| Updated | `2026-09-04` |
 | Task key | `physical-sound-synthesis` |
 | Scope | External internet-evidence physical-impact learning, independent automatic validation and deterministic clip cooking |
 | Definition of done | One evidence-selected bounded-neural material/archetype pack, independently qualified validator and deterministic cooker process untouched holdout/shadow roles exactly once and supply one fallback-safe demo prop; the same pipeline can then start fresh Steel, Glass and Wood packs without per-sound human approval |
 | Primary deliverable | A playable ML-produced impact WAV and fallback-safe demo, with honest experimental/admission status |
-| Last primary artifact | DiffSound `09-step150-ridge-amplitude-transient.wav` and its deterministic Q30 transfer; no newer listenable ML candidate |
-| Supporting-only checkpoints | `2+ / OUTCOME_DEBT`: stop new roadmap/protocol work; the next development checkpoint must produce a report-only WAV or expose a concrete execution blocker |
+| Last primary artifact | Three neural reconstruction WAVs and `comparison.wav` in external `audible-glass-first-2026-09-04`; see result below. DiffSound `09` remains the earlier user-selected reference. |
+| Supporting-only checkpoints | `0`: the audible reconstruction pilot produced new neural WAVs; no admission or generalization claim. |
 | Authority | Working context only; Accepted SPEC/ADR, roadmap and exact evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) is `COMPLETE / REPEAT_EXACT / NO_USEFUL_TEACHER`: it reproduces global/ridge/retrieval on 24 supported C0R development parents, retains global median `1.312187716`, performs zero cross-contract comparisons and finds zero independently scoreable non-real teachers.
-- **Outcome guard:** the program accumulated supporting infrastructure without a post-DiffSound listenable ML artifact. Do not create V47 or another protocol-only checkpoint. Admission remains closed, but a clearly labelled report-only candidate WAV is the next primary artifact.
+- **Current conclusion:** the user-authorized audible pilot completed in `99.53 s` on CPU: three disclosed Freesound wine-glass training crops -> 32-mode direct fits -> MLP encoder -> new WAVs. Neural/direct spectral-error ratios are `1.00264`, `0.99909`, `0.96758`; all meet the pilot's `<=1.10` criterion, and checkpoint reload reproduces PCM exactly. This is in-sample reconstruction, not new-object generation or physical identification.
+- **Exact result:** [result.json](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/result.json), [comparison.wav](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav). Comparison order for each of `761160/761161/761162`: original, direct fit, neural, with 0.5-second pauses and one common gain per triplet. The same folder contains weights, parameters, initial renders and the exact executed pre-format script matching the report hash. The tracked script subsequently received formatting, explicit closure bindings and partial-run status handling; final-code inference was checked against these saved artifacts.
+- **Outcome guard:** new neural WAVs now exist. Inspect actual reconstruction errors before expanding representation or source acquisition; experimental metrics do not certify naturalness. Existing [B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md) admission evidence and `NoUsefulTeacher` result remain unchanged.
 - **Planning authority:** [Roadmap V46](../../plans/physical-sound-synthesis-roadmap-v46.md) is the long-lived execution roadmap. M0 is blocked; E0 second-project/parent power and V0 independent-validator source growth are the parallel next packages.
 - **P0/P1 result:** the [causal contract](../physical-sound-v31-p0-causal-baseline-result-2026-09-02.md) and [modal owner](../physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md) pass twice exactly: nine remesh pairs, seven interventions, energy bounds and six typed fallbacks close with zero signal/model/network access.
 - **V32 truth result:** the [truth/mutation release](../physical-sound-v32-t0-truth-mutation-result-2026-09-02.md) passes twice exactly: 35 files, nine clean P1 renders and seven corruptions preserve the frozen decision/reason matrix with zero real/model/network access.
@@ -23,11 +24,11 @@
 - **C0/C0R result:** the old [C0 corpus](../physical-sound-v41-c0-disclosed-corpus-result-2026-09-03.md) remains immutable historical evidence, while [C0R](../physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md) supersedes its role projections with a 65-parent disjoint corpus and grants only corrected B0R/R0R and C1 authority.
 - **B0/R0/B0R/R0R result:** old B0/R0 are historical after repair. Corrected [B0R/R0R](../physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md) freezes global median `1.312187716`, project balanced accuracy `0.783333333`, material improvement `-0.098113339` with bootstrap 95% `[-0.162685572, -0.028345252]`, and a `49`-parent deficit. Exact Steel remains absent from train.
 - **External controls:** Clatter is a frozen empirical-modal baseline with 36 value-identical groups. B0 proves it and V31 analytic P1 lack independent compatible truth; D0 closes current NISR/VibraVerse revisions and structural rows remain zero. IETeasy is train-only under a different NDAC-75 contract.
-- **Next artifact:** use already disclosed inputs in one bounded report-only ML lab and render its prediction to a playable WAV, or expose the exact execution blocker. This grants no admission or runtime authority. E0/V0 source growth remains the later evidence path, but no new protocol or roadmap may precede the audible checkpoint.
+- **Next action:** inspect the published original/direct/neural triplets and localize the largest remaining acoustic mismatch (currently recording `761162` has the largest spectral error). Do not treat memorizing three training crops as generalization, change corpus roles or infer geometry/force metadata from these recordings. E0/V0 remains the later independent admission-evidence path.
 - **Spend rule:** object `41` is permanent acquisition OOD; do not lower force coverage, select contacts or open microphone/development/holdout/validator/shadow roles.
 - **Object-92 rule:** do not drop contact `35`, reduce roles or fetch `12 GiB`; the next-object header proves the missing member is not later in the archive.
 - **Deployment rule:** accepted research output bakes ordinary clips offline; runtime inference remains unauthorized and every query has an authored clip fallback.
-- **Product boundary:** SPEC-45 remains `Proposed`; no public schema, model, dataset, WAV, checkpoint, validator release or runtime promotion exists.
+- **Product boundary:** SPEC-45 remains `Proposed`; the new WAVs and checkpoint are external report-only artifacts, with no public schema, validator release or runtime promotion.
 
 ## Current program state
 
