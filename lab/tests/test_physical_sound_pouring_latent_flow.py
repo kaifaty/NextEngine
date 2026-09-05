@@ -136,6 +136,96 @@ class LatentFlowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             f.integrate(Constant(), x, None, 65)
 
+    def test_single_crop_scope_preserves_original_cache(self):
+        data = {
+            "mean": torch.randn(3, 64, 88),
+            "std": torch.ones(3, 64, 88),
+            "controls": torch.zeros(3, 11),
+        }
+        rows = [
+            {"phase": "first", "item_id": "one"},
+            {"phase": "middle", "item_id": "one"},
+            {"phase": "first", "item_id": "two"},
+        ]
+        selected, fitted = f.training_view(data, rows, True)
+        self.assertEqual(len(selected["mean"]), 1)
+        self.assertEqual(fitted, rows[:1])
+        self.assertEqual(len(data["mean"]), 3)
+        unchanged, full = f.training_view(data, rows, False)
+        self.assertIs(unchanged, data)
+        self.assertIs(full, rows)
+        with self.assertRaises(ValueError):
+            f.training_view(data, rows[1:], True)
+
+    def test_training_phase_bounds_and_parent_output_guard(self):
+        for steps in (0, -1, 20001, 1.5):
+            with self.assertRaisesRegex(ValueError, "20000 steps"):
+                f.fit(Path("absent"), Path("unused"), steps=steps)
+        with self.assertRaisesRegex(ValueError, "preserve parent"):
+            f.fit(
+                Path("absent"), Path("unused"), parent=Path("parent"), zero_output=True
+            )
+
+    def test_warm_start_rejects_scope_and_normalization_before_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "posterior.safetensors"
+            f.save_file(
+                {
+                    "mean": torch.zeros(1, 64, 88),
+                    "std": torch.ones(1, 64, 88),
+                    "controls": torch.tensor(f.c.v.phase.d.controls_for()[None]),
+                },
+                path,
+            )
+            cache_path = root / "cache.json"
+            cache_path.write_text(
+                json.dumps(
+                    {
+                        "format": "pour-oobleck-cache-v1",
+                        "codec_sha256": f.c.CODEC_SHA,
+                        "posterior_sha256": hashlib.sha256(
+                            path.read_bytes()
+                        ).hexdigest(),
+                        "train_ids": ["one"],
+                        "rows": [
+                            {
+                                "item_id": "one",
+                                "container_id": "train",
+                                "phase": "first",
+                            }
+                        ],
+                    }
+                )
+            )
+            for defect in ("cache", "ids", "scope", "center", "scale", "mode"):
+                with self.subTest(defect=defect):
+                    model = f.LatentFlow(gaussian_skip=defect == "mode")
+                    meta = {
+                        "cache_sha256": hashlib.sha256(
+                            cache_path.read_bytes()
+                        ).hexdigest(),
+                        "train_ids": ["one"],
+                        "single_crop_control": False,
+                    }
+                    if defect == "cache":
+                        meta["cache_sha256"] = "wrong"
+                    elif defect == "ids":
+                        meta["train_ids"] = ["other"]
+                    elif defect == "scope":
+                        meta["single_crop_control"] = True
+                    elif defect == "center":
+                        model.center.fill_(1)
+                    elif defect == "scale":
+                        model.scale.fill_(2)
+                    output = root / "must-not-exist"
+                    with (
+                        patch.object(f, "load", return_value=(model, meta)),
+                        self.assertRaisesRegex(ValueError, "parent/cache/scope"),
+                    ):
+                        f.fit(root, output, device="cpu", parent=root / "parent")
+                    self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

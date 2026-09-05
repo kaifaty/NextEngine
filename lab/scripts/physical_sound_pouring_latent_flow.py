@@ -170,7 +170,28 @@ def cache(source, output, device="cuda"):
     )
 
 
-def fit(cache_root, output, device="cuda", gaussian_skip=False, zero_output=False):
+def training_view(data, rows, single_crop):
+    if single_crop:
+        if not rows or rows[0]["phase"] != "first":
+            raise ValueError("single-crop control requires the first training crop")
+        return {k: x[:1] for k, x in data.items()}, rows[:1]
+    return data, rows
+
+
+def fit(
+    cache_root,
+    output,
+    device="cuda",
+    gaussian_skip=False,
+    zero_output=False,
+    single_crop=False,
+    steps=STEPS,
+    parent=None,
+):
+    if not isinstance(steps, int) or not 1 <= steps <= 20000:
+        raise ValueError("training phase must contain 1 to 20000 steps")
+    if parent is not None and zero_output:
+        raise ValueError("warm-start must preserve parent output weights")
     torch.set_num_threads(4)
     meta = json.loads((cache_root / "cache.json").read_text())
     path = cache_root / "posterior.safetensors"
@@ -194,7 +215,7 @@ def fit(cache_root, output, device="cuda", gaussian_skip=False, zero_output=Fals
         or not torch.isfinite(data["controls"]).all()
     ):
         raise ValueError("invalid training controls")
-    output = c.v.phase.d.fresh_output(output)
+    data, fit_rows = training_view(data, meta["rows"], single_crop)
     torch.manual_seed(53)
     model = LatentFlow(gaussian_skip=gaussian_skip).to(device)
     if zero_output:
@@ -202,9 +223,27 @@ def fit(cache_root, output, device="cuda", gaussian_skip=False, zero_output=Fals
         nn.init.zeros_(model.output.bias)
     model.center.copy_(center)
     model.scale.copy_(scale)
+    parent_meta = None
+    if parent is not None:
+        model, parent_meta = load(parent, device)
+        if (
+            model.gaussian_skip != gaussian_skip
+            or parent_meta["cache_sha256"]
+            != hashlib.sha256((cache_root / "cache.json").read_bytes()).hexdigest()
+            or parent_meta["train_ids"]
+            != list(dict.fromkeys(r["item_id"] for r in fit_rows))
+            or bool(parent_meta.get("single_crop_control", False)) != single_crop
+            or not torch.equal(model.center, center)
+            or not torch.equal(model.scale, scale)
+        ):
+            raise ValueError("warm-start parent/cache/scope mismatch")
+        model.train()
+        # A disclosed new Adam phase, not an exact optimizer/RNG resume.
+        torch.manual_seed(53)
+    output = c.v.phase.d.fresh_output(output)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)
     losses = []
-    for step in range(STEPS):
+    for step in range(steps):
         index = torch.randint(len(data["mean"]), (16,), device=device)
         mean, std = data["mean"][index], data["std"][index]
         target = (mean + std * torch.randn_like(mean) - center) / scale
@@ -244,16 +283,37 @@ def fit(cache_root, output, device="cuda", gaussian_skip=False, zero_output=Fals
                 (cache_root / "cache.json").read_bytes()
             ).hexdigest(),
             "source_sha256": meta["source_sha256"],
-            "train_ids": meta["train_ids"],
+            "train_ids": list(dict.fromkeys(r["item_id"] for r in fit_rows)),
+            "normalization_train_ids": meta["train_ids"],
+            "fit_crops": len(fit_rows),
+            "single_crop_control": single_crop,
             "terms": meta["terms"],
-            "steps": STEPS,
+            "steps": steps,
+            "total_steps": steps
+            + (
+                parent_meta.get("total_steps", parent_meta["steps"])
+                if parent_meta
+                else 0
+            ),
+            "parent_checkpoint_sha256": parent_meta["checkpoint_sha256"]
+            if parent_meta
+            else None,
+            "optimizer_reset": parent is not None,
             "seed": 53,
             "parameters": sum(p.numel() for p in model.parameters()),
             "mean200_loss": float(np.mean(losses[-200:])),
-            "scope": "frozen waveform codec, controls-to-latent flow; no physical calibration claim",
+            "loss_windows_200": [
+                float(np.mean(losses[i : i + 200])) for i in range(0, len(losses), 200)
+            ],
+            "scope": "single-crop memorization diagnostic; NOT new-object generation"
+            if single_crop
+            else "frozen waveform codec, controls-to-latent flow; no physical calibration claim",
         },
     )
-    render(output, output / "first-audition", c.v.phase.d.controls_for(), device=device)
+    controls = (
+        data["controls"][0].cpu().numpy() if single_crop else c.v.phase.d.controls_for()
+    )
+    render(output, output / "first-audition", controls, device=device)
 
 
 def load(directory, device="cuda"):
@@ -532,6 +592,96 @@ def trajectory_probe(source, directory, output, device="cuda"):
     )
 
 
+@torch.inference_mode()
+def single_crop_probe(source, cache_root, directory, output, device="cuda"):
+    torch.set_num_threads(4)
+    rows, _ = c.v.p.load_source(source)
+    model, meta = load(directory, device)
+    cache_meta = json.loads((cache_root / "cache.json").read_text())
+    path = cache_root / "posterior.safetensors"
+    if (
+        not meta.get("single_crop_control")
+        or meta.get("fit_crops") != 1
+        or meta["cache_sha256"]
+        != hashlib.sha256((cache_root / "cache.json").read_bytes()).hexdigest()
+        or meta["source_sha256"]
+        != hashlib.sha256((source / "source.json").read_bytes()).hexdigest()
+        or cache_meta["posterior_sha256"]
+        != hashlib.sha256(path.read_bytes()).hexdigest()
+        or meta["train_ids"] != [cache_meta["rows"][0]["item_id"]]
+    ):
+        raise ValueError("single-crop model/source/cache mismatch")
+    data = load_file(path, device=device)
+    row = next(r for r in rows if r["item_id"] == meta["train_ids"][0])
+    _, controls, real, _ = c.compare.phase_crop(row, "first")
+    np.testing.assert_array_equal(controls, data["controls"][0].cpu().numpy())
+    codec, _ = c.load_codec(device)
+    output = c.v.phase.d.fresh_output(output)
+    records, preview = [], []
+    pending = [("real", None, real, None)]
+    mu, std = data["mean"][:1], data["std"][:1]
+    for seed in (314, 2718, 1618):
+        noise = torch.randn(
+            mu.shape,
+            generator=torch.Generator(device=device).manual_seed(seed),
+            device=device,
+        )
+        oracle = mu + std * noise
+        generated = sample(model, controls, seed)
+        for kind, latent in [("oracle", oracle), ("learned", generated)]:
+            wave = c.mono_wave(codec.decode(latent).sample[0].cpu().numpy())
+            pending.append(
+                (
+                    kind,
+                    seed,
+                    wave,
+                    float(((latent - oracle) / model.scale).square().mean()),
+                )
+            )
+    for kind, seed, wave, error in pending:
+        records.append(
+            {
+                "kind": kind,
+                "seed": seed,
+                "reference_audio_input": kind == "oracle",
+                "normalized_latent_mse_to_affine_oracle": error,
+                **c.v.h.save_wav(output / f"{kind}-{seed}.wav", wave),
+                **c.v.p.metrics(wave, real),
+            }
+        )
+        if seed in (None, 2718):
+            preview.extend([wave, np.zeros(c.v.p.RATE // 2)])
+    c.v.p.save_json(
+        output / "result.json",
+        {
+            "status": "complete",
+            "scope": "one training crop memorization; oracle explicitly stores its target distribution; neither establishes new-object generation",
+            "item_id": row["item_id"],
+            "controls": controls.tolist(),
+            "model_sha256": meta["checkpoint_sha256"],
+            "codec_sha256": c.CODEC_SHA,
+            "rows": records,
+            "comparison": {
+                **c.v.h.save_wav(output / "comparison.wav", np.concatenate(preview)),
+                "order": "real/exact-posterior-oracle/learned; seed2718; gain1",
+            },
+        },
+    )
+    c.v.p.save_json(
+        output / "tag-input.json",
+        {
+            "status": "complete",
+            "seconds": 4.08,
+            "cases": [
+                {"id": f"{i}-{r['kind']}", "diagnostic_id": "water-pour"}
+                for i, r in enumerate(records)
+            ],
+            "rows": [{**r, "case": i} for i, r in enumerate(records)],
+            "controls": [],
+        },
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
@@ -541,6 +691,7 @@ if __name__ == "__main__":
         ("render", ("model",)),
         ("evaluate", ("source", "model", "base")),
         ("probe", ("source", "model")),
+        ("single-probe", ("source", "cache", "model")),
     ]:
         command = sub.add_parser(mode)
         for name in paths + ("output",):
@@ -549,6 +700,9 @@ if __name__ == "__main__":
         if mode == "train":
             command.add_argument("--gaussian-skip", action="store_true")
             command.add_argument("--zero-output", action="store_true")
+            command.add_argument("--single-crop", action="store_true")
+            command.add_argument("--steps", type=int, default=STEPS)
+            command.add_argument("--parent", type=Path)
         if mode == "render":
             command.add_argument("--controls", type=float, nargs=11, required=True)
             command.add_argument("--seed", type=int, default=2718)
@@ -556,11 +710,22 @@ if __name__ == "__main__":
     if args.mode == "cache":
         cache(args.source, args.output, args.device)
     elif args.mode == "train":
-        fit(args.cache, args.output, args.device, args.gaussian_skip, args.zero_output)
+        fit(
+            args.cache,
+            args.output,
+            args.device,
+            args.gaussian_skip,
+            args.zero_output,
+            args.single_crop,
+            args.steps,
+            args.parent,
+        )
     elif args.mode == "evaluate":
         evaluate(args.source, args.model, args.base, args.output, args.device)
     elif args.mode == "probe":
         trajectory_probe(args.source, args.model, args.output, args.device)
+    elif args.mode == "single-probe":
+        single_crop_probe(args.source, args.cache, args.model, args.output, args.device)
     else:
         render(
             args.model,

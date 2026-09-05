@@ -2783,3 +2783,117 @@ hashes,PCM16/16k mono,finite/headroom checks. New-format CLI exactly reproduces
 its first-audition. Tests cover the analytic field's endpoints/midpoint and
 format-aware checkpoint reload. All jobs terminal; no source download, codec
 training, runtime/default/roadmap or ProductCheck promotion.
+
+### Single-crop learnability, longer fit and evaluator-confound check
+
+[Single-crop comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-single-crop-evaluation-2026-09-05/comparison.wav>)
+contains real / exact posterior / learned audio, seed2718, gain1,13.74s.
+The learned generator needs no reference recording, but explicitly memorizes
+one TRAIN crop; this is a learnability control, NOT new-object generation.
+`train --single-crop --gaussian-skip --zero-output` uses cache row0, first phase
+of `VID_20240116_230040_2.1_16.7`,2000steps, unchanged optimizer/seed53.
+Normalization still uses all93 TRAIN recordings; fitted IDs contain only one.
+`single-probe --source --cache --model --output` compares seeds314/2718/1618
+against decoder samples from that crop's exact Gaussian posterior. Full-source
+evaluation cannot silently treat this model as a full-corpus fit.
+
+`pouring-latent-single-crop-2026-09-05` checkpoint SHA256
+`1341e6ddf4d4b235ec72d6c1039bf8d0b228e9aa510f7d7eb2cbf55afe1b759b`.
+Real1/1, exact posterior3/3 and learned3/3 pass both unchanged AST levels and
+the original CLAP comparison. Spectrum RMSE oracle3.036, learned3.964dB.
+First/last200 loss1.204/0.585. This falsifies inability to learn even one crop,
+not multi-example failure. The evaluation's `analytic-field.json` compares
+768 draws (three seeds ×256) against the exact single-posterior field. For
+normalized mean mu/std s, S²=(1-t)²+t²s², that field is
+`mu + (t*s²-(1-t))/S² * (x-t*mu)`. Its uniform-time irreducible sampled-target
+MSE is pi/2*mean(s)=0.24954. Empirical model/analytic-target MSE0.56450/0.24642;
+model-versus-analytic-field error0.31822 remains. No convergence claim.
+
+The positive control and still-decreasing loss justified ONE longer full fit,
+reconsidering the previous blanket no-epoch-extension instruction. This was
+not an epoch/lr/capacity sweep. `train --gaussian-skip --steps 8000 --parent
+GAUSSIAN_SKIP_MODEL --cache CACHE --output NEW_MODEL` warm-starts the existing
+2000-step model on the same279 TRAIN crops: total10000updates. **AdamW and RNG
+reset**, not exact optimizer resume; lr3e-4,wd1e-4,batch16,clip1,seed53 unchanged.
+Cache, fitted IDs, scope, model mode and exact normalization must match before
+creating output. Codec is frozen. `pouring-latent-gaussian-long-2026-09-05`
+checkpoint SHA256
+`1ddab4d6298d8b93e0f58f8e6c8367afd9dbf7bb47d7904ed1c36d1f09c9da49`.
+Phase first/last200 loss1.39094/1.31266; all40 windows retained in model.json.
+
+[Long-fit comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-gaussian-long-evaluation-2026-09-05/comparison.wav>)
+is36.64s: retained base/new latent, glass10/glass16/PET10/glass10fast,
+seed2718, gain1. All66 individual outputs remain available; no unsafe outputs.
+Same disclosed training/development and hypothetical profiles, not clean test.
+
+| Long latent subset | Spectrum RMSE,dB | CV absolute error | AST raw/normalized | Original CLAP |
+|---|---:|---:|---:|---:|
+| Train6 | 5.152 | 0.162 | 2/2 | 6/6 |
+| Development12 | 7.305 | 0.180 | 0/0 | 10/12 |
+| Hypothetical12 | no paired target | no paired target | 1/1 | 12/12 |
+
+Relative to the2000-step skip, development spectrum8.860->7.305 and CVerror
+0.378->0.180 improve. Neither improvement nor CLAP12/12 establishes quality.
+AST mostly predicts Scrape/Crunch/Tearing, not alternative water tags.
+The [AudioSet ontology](https://github.com/audioset/ontology) is hierarchical;
+[Drip](https://research.google.com/audioset/ontology/drip.html) describes liquid
+drops, but this taxonomy ambiguity does not explain these dominant negatives.
+No existing AST tag set or threshold was broadened.
+
+The long evaluation's `clap-hard-negatives.json` retains all six original
+prompts and adds seven AST-motivated alternatives: scraping, tearing, crushing,
+chewing, toothbrushing, cutlery/dishes and rattling. **Post-hoc diagnostic**, not
+a calibrated quality gate or independent test. Same frozen FP32 CPU CLAP and
+all73 long/single evaluation rows, no retraining. Original versus expanded water
+margin positives: long hypothetical12/12->2/12; long paired16/18->2/18.
+Real6/6, retained base30/30, single oracle3/3 and learned3/3 remain positive.
+Thus weak negatives explain much of the apparent CLAP/AST disagreement;
+neither evaluator proves naturalness or both interacting materials.
+
+### Numeric solver counterfactual: no rescue, generation default unchanged
+
+[Solver comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-solver-probe-2026-09-05/comparison.wav>)
+is13.74s: Euler64 / midpoint128 / midpoint256, glass10,seed2718,gain1.
+[Flow Matching's official solver documentation](https://facebookresearch.github.io/flow_matching/generated/flow_matching.solver.ODESolver.html)
+identifies solver choice/step size as separate inference controls. The prior
+STFT256-step failure did not test this new latent field. Hypothesis: coarse
+integration rather than learned-field error might explain its scratchy audio.
+
+The external `pouring-latent-solver-probe-2026-09-05` applies all three methods
+to the same12 hypothetical conditions/seeds and three single-crop controls:
+45 individual WAVs, no source/cache/model updates. Explicit midpoint uses
+`k=v(x,t,c); x += h*v(x+h*k/2,t+h/2,c)`, h=1/N, t=i/N; two field evaluations
+per step. Analytic x'=x control at256steps differs from exp(1) by<1e-5;
+input is not mutated. Euler64 replays all15 existing WAV hashes exactly.
+Mean normalized endpoint RMSE Euler64->midpoint256 is0.02213 full/0.01421
+single; midpoint128->256 is0.0000551/0.0000619. This is strong local numerical
+convergence evidence, not proof of globally accurate learned dynamics.
+
+All methods give raw AST1/12 full and3/3 single; original CLAP12/12 and3/3.
+Expanded CLAP full2/12->1/12->1/12, single3/3 throughout. Refinement does not
+rescue semantics. No solver-default change, further step sweep or threshold
+relaxation. Normalized AST was not rerun for this solver-only diagnostic;
+both levels remain stored for the original long/single evaluations.
+
+Next bounded change targets multi-example learning, not sampling: compare a
+per-crop Gaussian affine transport path against the frozen matched zero-output
+plain2000-step control. [Lipman et al.,v2,2023-02-08,section4](https://arxiv.org/html/2210.02747v2)
+construct analytic Gaussian paths and explain conditional flow matching.
+Our proposed diagonal-posterior extension is `x=t*mu+(1-t+t*s)*noise`, target
+`mu+(s-1)*noise`: same initial Gaussian and cached posterior endpoints, with
+no second independently sampled posterior noise. This is an inference from
+the Gaussian construction, not a published audio-quality guarantee. Preserve
+conditioning/noise/time draws, cache, plain architecture, zero output,2000steps
+and seed53 to isolate path choice; do not repeat the old control fit. Compare
+actual new WAVs, unchanged AST and the now-disclosed harder CLAP diagnostic.
+The change has NOT been implemented or trained yet; no corpus/new-object or
+physical-calibration claim is admitted by any of the above controls.
+
+109 focused tests, Ruff formatting/static checks and diff pass; warm-start
+negative tests cover mode/cache/IDs/scope/center/scale before output creation.
+124 new WAVs pass writer SHA256,PCM16/16k mono and finite/headroom checks.
+Long-model standalone CLI replay is byte-exact, SHA256
+`02c5aea472e223a4a16a798d7845ac9b369d352851b68bb143ddb1bb56497b5e`.
+Notices/checkpoint identities verified; artifacts remain external/local research.
+All jobs terminal. No runtime/default/roadmap change or ProductCheck promotion;
+the full multi-event, new-condition neural-sound goal remains active.
