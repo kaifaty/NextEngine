@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V6_FULL_INERTIA_IMPLEMENTED / UPRIGHT_BALANCE_AND_FEET_OPEN` |
+| Status | `BODY_V6_IMPLEMENTED / TGS_VELOCITY_BIAS_ISOLATED / BALANCE_AND_FEET_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -37,8 +37,14 @@
   posture. The unchanged reference drives only knees/ankles (unchanged axes),
   so it is usable for this neutral control; old learned weights remain
   incompatible. No new training environment is selected.
-- Next: upright reference/balance and foot mechanics, then a separately
-  identified learning environment. Do not repeat the finished mass audit,
+- New discriminator: existing native TGS reports mean root omega +0.7604 rad/s
+  during nearly stationary stance. Per-iteration external-force scheduling
+  reduces this mean discrepancy nearly to zero with unchanged body/control.
+  Both runs last 30 s; experimental final torso tilt 0.6503°, but last-10-s
+  maximum 8.5946° means oscillation remains. Flag was reverted; NO adoption.
+- Next: explicitly identified opt-in TGS force scheduling, then damping /
+  balance and foot mechanics, then a separately identified learning
+  environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
 
@@ -56,6 +62,7 @@
 5. [ADR-114](../../architecture/adr/114-anatomical-axes-and-sagittal-body-proxies.md).
 6. [V6 implementation and standing discriminator](../r8b-principal-inertia-and-standing-2026-09-05.md)
    and [ADR-115](../../architecture/adr/115-full-principal-inertia-body-successor.md).
+7. [Reference failures and isolated TGS mechanism](../r8b-upright-reference-research-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -85,6 +92,13 @@
 - Success oracle for physical successor: loaded flat support, controlled
   heel rise, release/re-contact and bilateral symmetry, original safety;
   later learned quality needs a new compatible generation.
+- Constant ankle +/-70 mrad and hip +130 mrad all fall. Hip feedback k=2
+  survives at 5.47° pelvis tilt, k=4 falls. Do not tune against the old biased
+  velocity or reuse these as selected profiles. Ordinary gravity deflection
+  alone is no longer an adequate explanation. The one-flag TGS experiment
+  changes root/joint velocity semantics and needs a new profile identity,
+  preserved old replay/descriptor bytes, native controls and subsequent
+  balance validation. No global bridge flag or fake measured velocity fix.
 
 ## Handoff
 
@@ -93,16 +107,16 @@
 - Motor native library tests: 132 passed, including old profile regression,
   V5/V6 axis directions, V2–V6 neutral geometry and full tensor reconstruction.
 - `play`, `persistence-replay`, `content-package`, format and links pass.
-  Full host-check is still running (tool session `71889`, own xtask PID
-  `2571258`, verification child `2587405` at last check). Workspace clippy
-  passed; do not call the full check passed until its actual completion.
-  Another host-check in `/home/kaifaty/Documents/NextEngine` is unrelated;
-  do not stop or restart it. Resume the existing own handle, not a new check.
+  Full host-check for `ba84b9a0` completed PASS, session 71889 is closed.
+  Current diagnostic example passes focused clippy and CLI failure checks.
 - External descriptor and comparison image are in
   `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
-- V6 descriptor and both 30-second standing outputs are in sibling
-  `body-v6-01`; exact hashes are in the V6 report. Probe records link poses
-  each tick, not joint targets; extend telemetry when diagnosing the controller.
+- V6 descriptor and both original standing outputs are in `body-v6-01`.
+  New `upright-reference-01` includes every-step joints, effort, raw contacts
+  and root pose/velocities, failed references, one-flag TGS experiment and
+  `standing-tgs-comparison.png`. Full zero-offset JSON repeats byte-exactly
+  after the temporary flag is reverted. Exact hashes / reproducible temporary
+  patch are in the new report. No altered backend remains in the worktree.
 - Build with `NEXTENGINE_PHYSX_SDK_DIR=/home/kaifaty/.cache/nextengine/physx/sdk/f259d3da157cc6120b378b53ee14c10805be89698242b03d7417f699ca711c3b`.
   Global active SDK has a different build profile and is correctly rejected;
   do not change global active locator or weaken manifest validation.

@@ -1968,7 +1968,11 @@ adds V6 full principal inertia and fixes the quantized mass-frame descriptor
 boundary. Native reconstruction/direction/neutral-geometry tests pass. V5/V6
 both complete 30-second procedural standing, but final torso tilt is still
 7.365°/8.078°: inertia repair does not fix upright posture. No optimizer is
-active. Keep the old candidate as control; next work is upright reference /
+active. A [bounded TGS force-scheduling experiment](development/r8b-upright-reference-research-2026-09-05.md)
+isolates substantial native steady-state velocity bias with unchanged body /
+control. The experimental flag nearly removes mean root velocity discrepancy,
+but posture still oscillates; no scene-profile adoption occurred. Keep the old
+candidate as control; next work is identified opt-in force scheduling, upright
 balance and foot mechanics, then a separately identified training environment.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.

@@ -100,6 +100,6 @@ balance and a new compatible standing/walking learning environment remain.
   result above, not upright quality.
 - PASS: `play`, `persistence-replay`, `content-package`, formatting, diff
   whitespace and local ADR/report/task-state links.
-- `host-check`: workspace clippy passed; the workspace test phase is still
-  running at this checkpoint. It is not yet a passed full host-check.
+- PASS: the previously running full `host-check` completed with overall PASS
+  on implementation `ba84b9a0` (Linux x86_64, Rust 1.97.1).
 - NOT_RUN: separate performance benchmark and training/mirror evaluation.
