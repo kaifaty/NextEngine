@@ -71,7 +71,9 @@ class Block(nn.Module):
         self.second = nn.Conv1d(64, 64, 3, padding=1)
 
     def forward(self, x, context):
-        scale, shift = self.affine(context)[:, :, None].chunk(2, 1)
+        affine = self.affine(context)
+        affine = affine[:, :, None] if context.ndim == 2 else affine.transpose(1, 2)
+        scale, shift = affine.chunk(2, 1)
         value = F.silu(self.norm(x) * (1 + scale) + shift)
         return x + 0.25 * self.second(F.silu(self.first(value)))
 
@@ -90,9 +92,21 @@ class TextureFlow(nn.Module):
 
     def forward(self, x, t, physical):
         angle = t[:, None] * torch.tensor([1, 2, 4, 8], device=x.device) * (2 * np.pi)
-        context = self.context(
-            torch.cat((physical, t[:, None], angle.sin(), angle.cos()), dim=1)
-        )
+        if physical.ndim == 3:
+            time = torch.cat((t[:, None], angle.sin(), angle.cos()), dim=1)
+            context = self.context(
+                torch.cat(
+                    (
+                        physical.transpose(1, 2),
+                        time[:, None].expand(-1, x.shape[-1], -1),
+                    ),
+                    dim=2,
+                )
+            )
+        else:
+            context = self.context(
+                torch.cat((physical, t[:, None], angle.sin(), angle.cos()), dim=1)
+            )
         value = self.input(x)
         for block in self.blocks:
             value = block(value, context)
@@ -131,10 +145,18 @@ def validate_controls(controls):
 
 
 @torch.inference_mode()
-def sample(model, controls, seed):
+def sample(model, controls, seed, frames=FRAMES):
     """No recording, source path, posterior or retrieval input is accepted."""
     controls = np.asarray(controls, np.float32)
     validate_controls(controls)
+    return sample_features(model, controls, seed, frames)
+
+
+@torch.inference_mode()
+def sample_features(model, controls, seed, frames):
+    """Shared integrator; callers validate constant or time-varying features."""
+    if not isinstance(frames, int) or not FRAMES <= frames <= 256:
+        raise ValueError("invalid bounded sequence length")
     if not isinstance(seed, int) or not 0 <= seed < 2**32:
         raise ValueError("invalid seed")
     device = next(model.parameters()).device
@@ -142,7 +164,7 @@ def sample(model, controls, seed):
     # Common random numbers isolate condition changes; batches are not diverse
     # seeds. Different seed314/2718 runs provide the disclosed stochastic control.
     noise = torch.randn(
-        (1, 64, FRAMES),
+        (1, 64, frames),
         generator=torch.Generator(device=device).manual_seed(seed),
         device=device,
     )
@@ -158,13 +180,13 @@ def sample(model, controls, seed):
     return latent
 
 
-def load_model(directory, device="cuda"):
+def load_model(directory, device="cuda", expected_format=FORMAT):
     mp, wp = directory / "model.json", directory / "model.safetensors"
     if mp.stat().st_size > 100000 or wp.stat().st_size > 4_000_000:
         raise ValueError("oversized model")
     meta = json.loads(mp.read_text())
     if (
-        meta["format"] != FORMAT
+        meta["format"] != expected_format
         or meta["codec_sha256"] != CODEC_SHA
         or meta["input_gain"] != GAIN
         or meta["checkpoint_sha256"] != codec.sha(wp)

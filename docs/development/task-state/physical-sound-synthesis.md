@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / CONDITIONAL_FRICTION_GENERATED / COMPLETE_EVENT_NEXT.
+Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,18 +17,21 @@ Status: ACTIVE_GOAL / CONDITIONAL_FRICTION_GENERATED / COMPLETE_EVENT_NEXT.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest learned friction:** [real/flow/rank4/interpolation/codec](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-flow-legacy-roles-2026-09-05/comparison.wav),29.791s;
-  [standalone rubber/glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-flow-glass-standalone-2026-09-05/generated.wav),.743s,40mm/s,.5N,seed314,NO reference input.
-  162432params,2000updates,24TRAIN,seed23,frozenOobleck32frames/16core/8context.
-  Inputgain17.374337221633088,commonplayback5.755615234375. Full decodes retained.
-- **Friction result:**40mm/s spectrum flow2.415/old2.337dB;repeat1 2.207/2.164.
-  Correct material/speed beat wrong72/72dev×seed;load61/72,but old spectrum wins47/72.
-  `bandmatched-analysis.json` is decisive:22.05kHz level MAE40mm/s .490vsold1.033;
-  envelope ACF.282vs.297 (small),CV worse. Native4dB/temporal wins confound bandwidth.
-  Shared-band repeat1 speed slope MAE.570vsold.442,load.402vs.365. No overall win.
-- **Friction guards:** oldrank4 lacks heldout field; validate original60-row roles.
-  First preflight failed before training; keep it. CLI/batch PCM not bit-exact:
-  maxdiff.000256,RMS.0000495. No epoch/width/seed sweep from mixed scores.
+- **Latest learned event:** [rubber/glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-glass-standalone-2026-09-05/generated.wav),3.15s,40mm/s,.5N,90mm,start.3/stop2.65s,
+  NO audio/sensor input. Same162432param flow,parent+2000updates,same24TRAIN.
+  Timed100ms displacement-speed/force features; nominal source clock,NO fittedlags.
+  Inputgain17.374337221633088,commonplayback2.8778076171875,full decodes retained.
+- **Decisive countercheck:** [real/timed/gate/gate+background](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-noise-floor-2026-09-05/comparison.wav).
+  At40mm/s envelope error timed1.492 vsconstant2.273,silentgate7.803,butgate+TRAINnoise
+  1.328dB;timed wins only1/24. Repeat1 other speeds29/48wins. No overall superiority.
+  Timed onset.010s/offset.063s are detector errors,not physical clock calibration.
+- **Event recovery:** model `texture-full-event-2026-09-05` trained; JSON bool failure
+  leaves stale running report. `failure.json`/terminal process decisive. Corrected
+  `texture-full-event-evaluation-2026-09-05` has0newupdates,19 overlapping WAVs exact.
+  Original inherited context_frames unused; full output,not old central crop.
+- **Prior friction:** stationary flow core.743s; spectrum mixed, no overall win.
+  Shared22.05kHz metrics mandatory; native bandwidth confounds large level wins.
+  Oldrank4 lacks heldout field: verify recorded60-row roles. Details in pilot note.
 - **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV retained.
   Attack/body improve,tail worsens: silence-learning contradicted,no weight sweep.
   FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision-training rescue.
@@ -42,17 +45,14 @@ Status: ACTIVE_GOAL / CONDITIONAL_FRICTION_GENERATED / COMPLETE_EVENT_NEXT.
   Heldwood/glass worsens7.028456→7.080724,ranks4,2,4,1. No reliable material control.
   Raw AST remains Breaking/Smash(seed314),Door(2718),including base. No replacement.
   After two bridge cycles: NO next data-size/capacity/epoch/seed sweep.
-- **Impact reproducibility:** `physical_sound_epic_pair_bridge.py --model PATH
-  --pair 'wood / glass collision' --seed 314 --output NEW` defaults to full/event;
-  `--event-matrix` evaluates all14 without fitting. Guards/PCM identities in note;
-  old prefix evaluations superseded. Never score codec-noise prefixes.
+- **Impact reproducibility:** CLI defaults full/event; `--event-matrix` evaluates
+  all14 without fitting. Commands/guards/PCM identities in note; no noise-prefix scoring.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Earlier impacts:** generic LoRA1/14; fixed-text bridge-OFF shape7.694,rank1 3/14,
   wood/glass0/4wins. No LoRA/prompt sweeps; unmatched kitchen spectra≠quality truth.
-- **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
-  1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
+- **Friction:** Figshare29438288v5/CC-BY4,60records;PSD neural/interpolation1.815/1.758dB,11/36wins,no sweep.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
   Stationary model loses temporal structure, AST fails real wet. No MLP sweep.
 - **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al., local research
@@ -83,12 +83,12 @@ Status: ACTIVE_GOAL / CONDITIONAL_FRICTION_GENERATED / COMPLETE_EVENT_NEXT.
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** complete start/slide/stop friction event, not another stationary fit.
-  Verify source clock alignment and speed/load-onset/offset relation on existing
-  TRAIN full audio/position/force. If supported, extend SAME generator with timed
-  physical conditions and publish full event; don't invent synchronization.
-  Retain shared-band and wrong-condition checks. No new plan package or PSD/EPIC
-  sweeps. See latest flow section in pilot note; full multi-event goal stays open.
+- **Next:** surface transfer: inspect cached texture_list.xlsx/published friction
+  coefficients for real physical descriptors replacing3surface one-hot IDs; then
+  one bounded new-surface generator trial with WAVs. No invented geometry/material
+  values or new protected roles. Earlier XLSX font `&quot` repaired in memory only;
+  see source section in note. Keep shared-band/timing/background checks, not a new
+  epoch/width/loss sweep fitting apparatus noise. Full multi-event goal stays open.
 
 ## Preserve these constraints
 

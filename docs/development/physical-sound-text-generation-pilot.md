@@ -4044,3 +4044,103 @@ Do not respond to the mixed spectrum scores with an epoch/width/seed sweep or
 erase the shared-band countercheck. Other probe materials, shape/size, impacts,
 rolling/destruction,water/rain and engine integration remain separate missing
 parts of the original full goal, not removed success criteria.
+
+## Complete friction event and background counterexample (2026-09-05)
+
+[Source-free rubber/glass event](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-glass-standalone-2026-09-05/generated.wav>)
+is3.15seconds: requested start.3s,90mm travel at40mm/s,.5N,.1s ramps,
+stop2.65s,then.5s tail. No recording or sensor file is read by generation.
+Shared-band median levels are-52.21dBFS before motion,-42.71 during sliding,
+-50.13 after stopping. These show modulation, not verified perceptual realism.
+[Glass source/timed/constant/gated/codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-evaluation-2026-09-05/glass-comparison.wav>)
+is14.277seconds. The full six-condition comparison is85.707seconds.
+
+The [source paper v4,6November2025](https://arxiv.org/html/2407.16206v4)
+describes PC timestamps, an audio-start timestamp and subsequent synchronization.
+It does not establish microsecond acoustic timing. Its stated80mm path conflicts
+with90mm displacement in all24 inspected TRAIN CSVs; actual CSV trajectories are
+used. The inspected pinned repository exposes noise processing, not acquisition/
+clock-alignment code. No downloaded code is executed and no per-recording time
+shift is fitted. Source audio/position endpoint differences on TRAIN range
+-.01424 to+.00696s, not a complete latency measurement.
+
+`physical_sound_texture_event.py` extends the SAME162432-parameter flow: the
+existing conditioning projection and residual blocks accept physical features
+per latent frame, and the existing integrator accepts bounded sequence lengths.
+Constant-feature broadcasting has a focused equivalence check; existing
+stationary inference remains unchanged. No new foundation or codec weights.
+Input speed is a100ms centered displacement average from position, not literal
+instantaneous velocity; force is interpolated from its recorded timestamps.
+The32..256-frame domain allows0..80mm/s transitions and0..1.5N sensor values;
+steady commands remain20..60mm/s and.5/1N. These bounds are not evidence for
+new steady operating points, arbitrary materials or changing probe geometry.
+
+At zero lag, shared-band20ms log-RMS correlates with the speed proxy at mean.848
+over24 TRAIN records. Diagnostic best lags on a±.2s/20ms grid fall within±40ms;
+all applied shifts remain zero. A preliminary full-band/Savitzky–Golay probe
+placed quiet glass20mm/s at the+.2s search edge: the lag estimator depends on
+signal representation and is not a synchronization calibration.
+
+Starting from the previous stationary checkpoint,2000 additional updates cycle
+first/random/last32 valid frames of each original TRAIN recording. Explicitly
+padded frames are excluded; encoder boundary receptive fields still exist.
+Parent TRAIN normalization is retained.40mm/s and repeat1 remain excluded from
+training.22.30seconds training+preparation,loss1.51005→1.29508; checkpoint SHA256
+`b31611a2dd0ec55c2a160b077cb1014ac23138601ad2e56e5786c8ee92e8cb56`.
+No source-free output is amplitude-gated after decoding in the **timed** branch.
+One playback gain2.8778076171875 after inputgain17.374337221633088 equals50times
+original amplitude, reduced globally to retain full-recording transient headroom.
+
+Training completed in `texture-full-event-2026-09-05`; evaluation JSON failed
+on a NumPy boolean. Its original result remains stale/running, but the process
+is terminal and `failure.json` records the failure after training. Saved weights
+and19 first-evaluation WAVs are intact. `--evaluate-model` reruns evaluation only
+in `texture-full-event-evaluation-2026-09-05`, with zero training updates; all19
+overlapping WAVs replay exactly. The inherited original metadata `context_frames`
+field is unused by full-event rendering; the corrected evaluator names effective
+full output and future metadata records context0 explicitly.
+
+|40mm/s development,12 records×2seeds | Timed model | Constant parent | Velocity gate | Gate + TRAIN background |
+|---|---:|---:|---:|---:|
+|Shared-band log-envelope MAE,dB |1.49235 |2.2730 |7.80295 |1.32827 |
+|Source half-rise onset error,s |.0100 |.2283 |.0108 |not scored |
+|Uncensored source offset error,s |.0633 |.0783 |.0208 |not scored |
+
+Timing uses one source-defined half-rise detector and three consecutive20ms
+bins; weak rises and truncated offsets remain unavailable. These errors are
+not physical clock accuracy. Repeat1 other-speed timed envelope error is1.44410;
+onset.00375s,offset.14105s on38/48 uncensored cases. A five-frame delayed-input
+control is worse than correct timing in all72 development envelope comparisons,
+as is the constant parent. Neither fact is sufficient quality admission.
+
+The silent gate has exact zeros before movement, so a log-level metric heavily
+penalizes it against a noisy recording. The decisive **posthoc** countercheck
+adds one TRAIN-only background scalar, RMS.0029587963 in published22.05kHz mono
+units, estimated from the first100ms of all24 TRAIN recordings. The same Gaussian
+noise rule (seed+17) and gain apply to every condition; no individual fitting,
+generator update or seed selection. It uses fixed existing PCM. See
+[real/timed/silent-gate/gate-plus-background](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-noise-floor-2026-09-05/comparison.wav>).
+Timed beats this stronger baseline only1/24 at40mm/s and29/48 at other repeat1
+speeds. The earlier72/72 wins over silence-gating do NOT prove superiority.
+Background resemblance is not necessarily desirable physical source synthesis;
+do not promote the noise-added baseline merely because it wins this metric.
+
+Reproduce training with `physical_sound_texture_event.py --corpus GRID/result.json
+--parent STATIONARY_FLOW --output NEW_EXTERNAL`; evaluation only adds
+`--evaluate-model EVENT_MODEL`. Source-free inference uses `--model EVENT_MODEL
+--texture 74 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+`noise_floor_countercheck(EVALUATION/result.json, NEW_EXTERNAL)` reproduces the
+fixed-PCM counterexample without ML inference.36 focused tests,Ruff/diff/local
+links and1284 WAV checks pass, including19 preserved originals. All jobs terminal;
+no engine audition,Cargo/ProductCheck, runtime/demo/roadmap changes or promotion.
+
+Decision: time-conditioned generation is implemented and audible, but not
+admitted as better than the stronger control. Do not spend another epoch/width/
+loss sweep on matching this apparatus background. The next physical capability
+is transfer across surfaces rather than more examples of the same three IDs:
+inspect the already-downloaded texture table and published friction coefficients,
+identify which genuine descriptors could replace surface one-hot labels, and
+run one bounded new-surface generator trial with playable output. Keep the
+shared-band, timing and background controls. Do not invent material composition,
+geometry or coefficients from names, relabel new surfaces as pristine protected
+evidence, or drop other required event families from the full goal.
