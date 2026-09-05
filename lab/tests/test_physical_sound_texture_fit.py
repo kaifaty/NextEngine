@@ -106,6 +106,20 @@ class TextureFitTests(unittest.TestCase):
             ):
                 fit.render(root, 74, 40, 0.5, 1, 314, root / "generated")
             self.assertTrue((root / "generated/generated.wav").exists())
+            with patch.object(
+                fit.sf, "read", side_effect=AssertionError("no reference audio allowed")
+            ):
+                controls = fit.render_controls(root, root / "controls")
+            self.assertFalse(controls["reference_audio_input"])
+            self.assertEqual(len(controls["rows"]), 15)
+            self.assertTrue(
+                all(row["playback_gain"] == 100 for row in controls["rows"])
+            )
+            self.assertEqual(set(controls["comparisons"]), {"speed", "load"})
+            for row in controls["comparisons"].values():
+                pcm, rate = fit.sf.read(row["wav"])
+                self.assertEqual(rate, fit.RATE)
+                self.assertAlmostEqual(len(pcm) / rate, 20.25, places=3)
             meta["checkpoint_sha256"] = "0" * 64
             (root / "model.json").write_text(json.dumps(meta))
             with self.assertRaises(ValueError):

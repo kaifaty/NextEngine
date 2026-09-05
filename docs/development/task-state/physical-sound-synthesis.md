@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
+Status: ACTIVE_GOAL / FRICTION_CODEC_FEASIBLE / CONDITIONAL_LATENT_GENERATOR_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,11 +17,15 @@ Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest source-free control:** [fixed material-text matrix](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/comparison.wav),
-  71.552s,real/generic-base/material-text/wrong-text for six pairs,seed2718. Bridge
-  OFF; six already-frozen prompts, no new training/wording/seed search. Shape7.694
-  vs bridge5.946, wins1/14, all-pair top1 3/14. AST metal/glass leads Glass/Clink,
-  others inconsistent. Spectrum to unmatched objects is NOT sole quality truth.
+- **Latest audible friction:** [codec real/mean/sample](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-codec-controls-2026-09-05/comparison.wav),36s,
+  reference-AIDED,24 original TRAIN,clean/main/machine. Sharedgain17.374337221633088
+  from full TRAIN peaks improves clean mean level MAE.924→.251dB,shape2.647→1.943.
+  Speed direction16/18mean,17/18sample;load12/12both. Machine responses survive too,
+  not a quality judge. Codec feasible, not new generation. Full decodes retained.
+- **Source-free controls:** [speed](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/speed-comparison.wav)/[load](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/load-comparison.wav),20.25s each,
+  existing rank4 weights,15two-second WAVs;knownwood/steel/glass,fixedrubberprobe.
+  25/40/55mm/s at.75N or.5/.75/1N at40mm/s,seed314,gain100,no audio input/newtraining.
+  Unrecorded25/55/.75 illustrations are not verified physical generalization.
 - **Signal audit:** `epic-impact-signal-summary-2026-09-05` corrects preview assembly
   only; original477-case report/100WAVs retained.154TRAIN×3sigma FP32 plus15 BF16
   controls. Attack/body improve.000525/.000507; padded tail worsens.00000674.
@@ -30,11 +34,9 @@ Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
   rank1 counts2/15 attack,3/15 body: no precision rescue or precision-training sweep.
   Source-aided one-step preview is diagnosis, NOT source-free generation.
 - **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
-  six unordered pairs,fixedseed2718. Expanded source154TRAIN/19participants,
-  same10240-parameter bridge/200updates,113 distinct sampled rows. All wood/glass
-  remains excluded from generator training; same7dev/P04/P07. Data frequencies
-  and centering change; not isolated proof of participant-count or compute effect.
-  All14 cases retain prefix/full29.9537s/onset3s; windows are bounded, not full events.
+  source154TRAIN/19participants,10240params/200updates,113distinctexposures;
+  wood/glass excluded,same7dev/P04/P07. Not isolated data-count effect. All14 cases
+  retain prefix/full29.9537s/onset3s; windows bounded, not full events. See note.
 - **Impact result:** shape new5.945757 vs previous5.962152/base5.975546dB;
   wins8/14 vs previous,7/14 vs base/wrong. All-pair top1 only3/14 vs previous2/14.
   Heldwood/glass worsens7.028456→7.080724,ranks4,2,4,1. No reliable material control.
@@ -42,14 +44,13 @@ Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
   After two bridge cycles: NO next data-size/capacity/epoch/seed sweep.
 - **Impact reproducibility:** `physical_sound_epic_pair_bridge.py --model PATH
   --pair 'wood / glass collision' --seed 314 --output NEW` defaults to full/event;
-  `--event-matrix` evaluates all14 without fitting. Zero/upstream-loss/full-model/
-  water+rain/old-base guards and CLI PCM exact; identities/checks in pilot note.
-  Old prefix evaluations are superseded; never score their codec-noise prefixes.
+  `--event-matrix` evaluates all14 without fitting. Guards/PCM identities in note;
+  old prefix evaluations superseded. Never score codec-noise prefixes.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
-  13.74s,glass10/seed2718,published PCM. Centered frozen-generator bridge retains
-  water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
+  13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Earlier impacts:** generic LoRA improves1/14 matched crops; no LoRA sweep.
+- **Earlier impacts:** generic LoRA1/14; fixed-text bridge-OFF shape7.694,rank1 3/14,
+  wood/glass0/4wins. No LoRA/prompt sweeps; unmatched kitchen spectra≠quality truth.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
@@ -82,13 +83,12 @@ Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** controlled friction grid codec feasibility: does frozen Oobleck preserve
-  paired speed/load response? Use known commanded/measured fields separately,
-  clean/main/machine controls and ONE disclosed shared gain. No new source needed.
-  Publish audible codec comparison plus reference-free controlled examples. Do not
-  repeat stationary-PSD/PCA/crossed-speed/epoch variants or EPIC bridge/prompt sweeps.
-  See the focused friction sections in the pilot note before implementing.
-- **Verification:** tests/Ruff/PCM checks in note; all jobs terminal, no promotion.
+- **Next:** one small physical-conditioned latent sequence generator with frozen
+  Oobleck,same24TRAIN/sharedgain17.3743,source-free WAVs in same checkpoint. Evaluate
+  already-open40mm/s/repeat1 development against spectrum/interpolation and codec
+  ceiling; temporal/paired-response/wrong-condition checks, all failures retained.
+  No new source/plan package, stationary-PSD/PCA or EPIC bridge/prompt sweeps.
+  See latest codec section in pilot note; preserve commanded/measured distinction.
 
 ## Preserve these constraints
 
@@ -97,7 +97,7 @@ Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint adds learned impact WAVs;
+  not replace the audible deliverable. Latest checkpoint adds codec/control WAVs;
   supporting-only debt is zero. Keep the full multi-event goal.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)

@@ -3852,3 +3852,86 @@ and already-open development honestly; do not repeat the rejected stationary-PSD
 network/PCA/epoch/width or crossed-velocity family. The next checkpoint must include
 an audible codec comparison and reference-free controlled examples, not a new
 source inventory. This addresses a missing physical axis, not a smaller goal.
+
+## Controlled friction survives a frozen codec (2026-09-05)
+
+[Codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-codec-controls-2026-09-05/comparison.wav>)
+is36seconds: wood/steel/glass,20/60mm/s,.5/1N; each condition plays
+real -> posterior mean -> posterior sample314. This is reference-aided
+reconstruction, NOT a new generator. Full native decodes are retained separately.
+
+`physical_sound_texture_codec.py` uses the existing verified Figshare v5 grid.
+The existing loader reads the already-disclosed60 records, but codec execution
+uses only the original24 TRAIN scans: repeat0,20/30/50/60mm/s,three surfaces,
+two commanded loads, fixed urethane-rubber probe and direction0. Commanded
+conditions and sensor-derived force/speed remain separate report fields.
+All three channels are checked: published clean mono, raw main microphone0,
+raw machine-reference microphone1. The latter two are not scene stereo.
+
+Two fixed arms use input gain1 and17.374337221633088. The latter is
+`min(100,.5/max_full_TRAIN_peak)` across all24 records and allthree channels;
+peak.028778076171875. No per-recording/channel normalization or output gain.
+The full recording is dual-mono encoded in FP32, right-padded to stride2048.
+Published PCM24 metrics use the exact original central position-aligned.75s,
+without onset selection, time shifts or loudness matching. Native full outputs
+are FLOAT WAVs. The36s playlist uses only clean/shared-gain cases. A separate
+three-second zero-input control checks codec noise, not acoustic quality.
+
+Frozen Oobleck weight SHA256 is
+`d73619a1d1e1dc48e606632931ffce440b4959ce2a4ed5a3522c3bb573b103be`, from the
+existing pinned TangoFlux snapshot. No full text generator, optimizer, new
+weights or external downloads. Source/model attribution and license notices
+are copied into the external result. Runtime Torch2.13.0+cu130,31.66seconds.
+
+Paired deltas hold surface/load fixed for18 adjacent-speed comparisons, and
+surface/speed fixed for12 load comparisons. These overlapping pairs are not
+independent samples or a calibrated acceptance test.
+
+| Channel / input arm / posterior | Speed direction preserved | Load direction preserved | Speed delta MAE,dB | Load delta MAE,dB |
+|---|---:|---:|---:|---:|
+| Clean / native / mean | 15/18 | 10/12 | .675 | .365 |
+| Clean / native / sample314 | 14/18 | 9/12 | 1.077 | .724 |
+| Clean / shared / mean | 16/18 | 12/12 | .327 | .101 |
+| Clean / shared / sample314 | 17/18 | 12/12 | .348 | .184 |
+| Main / shared / mean | 18/18 | 12/12 | .091 | .096 |
+| Machine / shared / mean | 18/18 | 12/12 | .095 | .094 |
+
+Clean mean absolute level error decreases.924 -> .251dB; centered-spectrum
+RMSE2.647 ->1.943dB. The two remaining mean speed-sign errors are steel1N,
+50->60mm/s (real+.102,decoded-.114dB), and glass1N (+.552,-.029dB).
+Sample314 fixes the latter, not the former. These failures remain; no threshold
+or seed is chosen to erase them. Zero-input mean/sample levels are-99.958/
+-99.862dBFS, below clean source levels. The native-level failure is not complete
+erasure into codec noise. Shared input calibration improves amplitude-response
+preservation; it is not proof of perceptual realism or machinery removal.
+Indeed, machine-reference responses survive equally well. No material-quality
+judge or physical-ground-truth claim is obtained from channel discrimination.
+
+Separately, existing rank4 neural weights now have a source-free `--control-demo`
+path. [Speed comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/speed-comparison.wav>)
+and [load comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/load-comparison.wav>)
+are20.25seconds each: wood/steel/glass, then25/40/55mm/s at.75N, or.5/.75/1N
+at40mm/s. Fifteen standalone two-second WAVs use seed314 and one playbackgain100.
+No source audio is loaded. Their levels increase along both requested controls
+for allthree known surfaces.25/55mm/s and.75N are unrecorded grid conditions,
+so this illustrates interpolation, NOT verified realism there. No new training,
+no evidence of arbitrary second materials/geometry, no claim this uses Oobleck.
+
+Reproduce with `physical_sound_texture_codec.py --corpus GRID/result.json
+--output NEW_EXTERNAL`, or `physical_sound_texture_fit.py --render-model
+texture-conditional-rank4-2026-09-05 --control-demo --output NEW_EXTERNAL`.
+20 focused tests pass, including exact TRAIN pairs, aligned crops, shared gain,
+PCM/headroom, signed response deltas and source-free controls with audio reads
+forbidden.743 WAVs pass SHA/layout/rate/finiteness/headroom checks (FLOAT full
+decodes are not PCM-normalized). Ruff/diff/local links pass; both jobs terminal.
+No Cargo/ProductCheck/engine audition, runtime/demo/roadmap changes or promotion.
+
+Decision: codec representation is feasible for a bounded conditional-generator
+trial; it is not the current main blocker. Next implement one small physical-
+conditioned latent sequence generator using this frozen codec and the same24
+TRAIN scans/shared gain. Compare actual source-free PCM on the already-open
+40mm/s/repeat1 development against the existing spectrum/interpolation baselines
+and the reference-aided codec ceiling. Keep temporal and paired-response errors,
+wrong-condition controls and all failures. Do not resume stationary-PSD/PCA,
+EPIC prompt/bridge or precision/attack-weight sweeps. A new latent model must
+produce playable WAVs in the same checkpoint; no separate planning package.

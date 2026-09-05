@@ -350,15 +350,7 @@ def fit(manifest: Path, output: Path, rank: int = 0, heldout_speed: int = 40):
     print(json.dumps({"status": "complete", "comparison": report["comparison"]}))
 
 
-def render(
-    directory: Path,
-    texture: int,
-    speed: float,
-    force: float,
-    seconds: float,
-    seed: int,
-    output: Path,
-):
+def load_model(directory: Path):
     # This path deliberately never reads the dataset or any reference recording.
     metadata = directory / "model.json"
     checkpoint = directory / "model.safetensors"
@@ -376,6 +368,19 @@ def render(
     if not all(torch.isfinite(value).all() for value in state.values()):
         raise ValueError("nonfinite weights")
     model.load_state_dict(state, strict=True)
+    return model.eval(), meta
+
+
+def render(
+    directory: Path,
+    texture: int,
+    speed: float,
+    force: float,
+    seconds: float,
+    seed: int,
+    output: Path,
+):
+    model, meta = load_model(directory)
     with torch.no_grad():
         db = model(torch.from_numpy(features(texture, speed, force))).numpy()
     wave = synthesize(db, seconds, seed)
@@ -403,6 +408,73 @@ def render(
     print(json.dumps(result))
 
 
+def render_controls(directory: Path, output: Path):
+    """Audible parameter sweeps, not a fit or proof of novel-case accuracy."""
+    output = output.resolve()
+    if output.exists() or output.is_relative_to(Path(__file__).resolve().parents[2]):
+        raise ValueError("new external directory required")
+    model, meta = load_model(directory)
+    output.mkdir(parents=True)
+    waves, rows = {}, []
+    # 25/55mm/s and.75N were not source-grid training conditions.40mm/s was
+    # disclosed development. No source is read, and no accuracy is inferred.
+    conditions = [(speed, 0.75) for speed in (25, 40, 55)] + [
+        (40, force) for force in (0.5, 1.0)
+    ]
+    with torch.no_grad():
+        for texture in TEXTURES:
+            for speed, force in conditions:
+                db = model(torch.from_numpy(features(texture, speed, force))).numpy()
+                wave = synthesize(db, 2, 314)
+                if np.max(np.abs(wave * 100)) > 0.98:
+                    raise ValueError("shared playback gain exceeds headroom")
+                waves[texture, speed, force] = wave
+                rows.append(
+                    {
+                        "texture": texture,
+                        "speed_mm_s": speed,
+                        "normal_force_N": force,
+                        **publish(
+                            output / f"surface{texture}-speed{speed}-load{force}.wav",
+                            wave,
+                            100,
+                        ),
+                    }
+                )
+    comparisons = {}
+    for axis in ("speed", "load"):
+        selected = []
+        for texture in TEXTURES:
+            for speed, force in (
+                conditions[:3]
+                if axis == "speed"
+                else [(40, f) for f in (0.5, 0.75, 1.0)]
+            ):
+                selected.extend(
+                    (waves[texture, speed, force], np.zeros(round(0.25 * RATE)))
+                )
+        comparisons[axis] = publish(
+            output / f"{axis}-comparison.wav", np.concatenate(selected), 100
+        )
+    report = {
+        "status": "complete",
+        "reference_audio_input": False,
+        "new_training_steps": 0,
+        "model": meta,
+        "seed": 314,
+        "playback_gain": 100,
+        "scope": "existing stationary neural baseline, novel parameter illustrations, NOT verified novel-case realism or codec generation",
+        "input": "known wood/steel/glass surface, fixed urethane-rubber probe, commanded speed and load",
+        "comparison_order": "wood/steel/glass; speed25/40/55mm/s at.75N, or load.5/.75/1N at40mm/s",
+        "rows": rows,
+        "comparisons": comparisons,
+    }
+    (output / "result.json").write_text(
+        json.dumps(report, indent=2, allow_nan=False) + "\n"
+    )
+    return report
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -416,12 +488,21 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=314)
     parser.add_argument("--rank", type=int, choices=(0, 4), default=0)
     parser.add_argument("--heldout-speed", type=int, choices=(30, 40, 50), default=40)
+    parser.add_argument(
+        "--control-demo",
+        action="store_true",
+        help="render fixed source-free physical-control comparisons with --render-model",
+    )
     args = parser.parse_args()
     out = args.output.resolve()
     if out.is_relative_to(Path(__file__).resolve().parents[2]):
         raise ValueError("generated artifacts must stay outside the repository")
     if args.corpus:
+        if args.control_demo:
+            parser.error("--control-demo requires --render-model")
         fit(args.corpus, out, args.rank, args.heldout_speed)
+    elif args.control_demo:
+        print(json.dumps(render_controls(args.render_model, out)["comparisons"]))
     else:
         render(
             args.render_model,
