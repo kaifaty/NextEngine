@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT.
+Status: ACTIVE_GOAL / WINDOWED_INFERENCE_REJECTED / GENERATOR_ACOUSTIC_ERROR_CONFIRMED.
 
 ## Resume in 60 seconds
 
@@ -17,16 +17,24 @@ Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest source-free WAV:** [neural/hybrid glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s,40mm/s,.5N,90mm;NO audio/sensor/surfaceID input.
+- **Latest experiment:** [global/windowed glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/requested-comparison.wav),3.15s each,source-free,same weights/seed. Windowed inference REJECTED:
+  24records×2seeds,shape2.350→2.352,envelope1.651→1.656dB;steel0/8wins.
+  GroupNorm remote dependence exists(.13458→0),but removing it did not fix audio.
+- **DC/repeat diagnostics:** DC already increases in reference-aided codec;
+  removing event mean leaves neural envelope1.593→1.591dB. DC-only explanation fails.
+  Real-repeat moving-level error.191 vs neural1.087dB;shape1.292 vs2.350;
+  envelope-distribution W1 .234 vs1.135. Natural randomness alone is insufficient.
+  24repeat pairs,not48independent recordings;750ms diagnostics do NOT replace
+  full-event timing/perceptual validation. All3jobs terminal,227WAV/62tests pass.
+- **Retained source-free baseline:** [neural/hybrid glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s,40mm/s,.5N,90mm;NO audio/sensor/surfaceID input.
   Neural+48TRAIN spectrum bank,513tap motion-gated FIR,unitDC(v2);0newweights.
   Full decode+256sample filtertail retained;fixed latency compensation,not clockfit.
 - **Hybrid result:** `texture-hybrid-dc-2026-09-05`,complete,576cases.
   Shape neural→hybrid oak2.185→1.774,steel2.544→2.273,glass2.619→2.329dB;
   wins118/120 newcases,72/72 oldanchors. Level/onset/offset nearly retained;
   envelope small regressions,glassoffset.2344s unsolved. NOT quality admission.
-- **DC bug:** Welch removes means; old FIR boosted DC2.2766,standalone+2.2565dBRMS.
-  UnitDC correction reduces drift to-.0919dB. V1 global/motion artifacts preserved.
-  55tests/3780WAV checks pass;all jobs terminal. Exact reproduction/history in note.
+- **Fixed FIR/DC bug:** old gain2.2766;unitDC reduces level drift+2.2565→-.0919dB.
+  V1 global/motion artifacts preserved;55tests/3780WAV passed. History in note.
 - **Surface lineage:** `texture-surface-transfer-2026-09-05`,162560params,48TRAIN
   0/2/65/67/74/77,repeat0,20/30/50/60;all4/66/76 held development,not pristine.
   Weights6d36e47c…/c259a9bc…;bank5c440edd…;no runtime/demo/model replacement.
@@ -37,21 +45,14 @@ Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT
 - **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV;attack/body improve,tail worsens,silence-learning contradicted.
   FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision/weight sweep.
   Source-aided one-step preview is NOT source-free generation; details in note.
-- **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
-  source154TRAIN/19participants,10240params/200updates,113distinctexposures;
-  wood/glass excluded,same7dev/P04/P07. Not isolated data-count effect. All14 cases
-  retain prefix/full29.9537s/onset3s; windows bounded, not full events. See note.
-- **Impact result:** shape new5.945757 vs previous5.962152/base5.975546dB;
-  wins8/14 vs previous,7/14 vs base/wrong. All-pair top1 only3/14 vs previous2/14.
-  Heldwood/glass worsens7.028456→7.080724,ranks4,2,4,1. No reliable material control.
-  Raw AST remains Breaking/Smash(seed314),Door(2718),including base. No replacement.
-  After two bridge cycles: NO next data-size/capacity/epoch/seed sweep.
+- **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),154TRAIN/19participants;all14 full29.9537s decodes retained.
+  Top1 only3/14;heldwood/glass shape7.028→7.081dB. No reliable material control.
+  No replacement or next data-size/capacity/epoch/seed sweep; exact evidence in note.
 - **Impact reproducibility:** CLI full/event;`--event-matrix` all14 without fit;commands/PCM in note,no noise-prefix scoring.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Earlier impacts:** generic LoRA1/14; fixed-text bridge-OFF shape7.694,rank1 3/14,
-  wood/glass0/4wins. No LoRA/prompt sweeps; unmatched kitchen spectra≠quality truth.
+- **Earlier impacts:** LoRA1/14,bridge-OFF3/14;no LoRA/prompt sweeps or kitchen-spectrum quality claims.
 - **Friction:** Figshare29438288v5/CC-BY4,60records;PSD neural/interpolation1.815/1.758dB,11/36wins,no sweep.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
   Stationary model loses temporal structure, AST fails real wet. No MLP sweep.
@@ -63,13 +64,11 @@ Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT
   Full279TRAIN audit gives scratch AST11/hardCLAP6/both2; target injection is not
   source-free. Native645x64 Tango posteriors differ from old normalized88 cache.
   Keep the harder13-prompt diagnostic and raw/RMS0.005 AST; don't tune thresholds.
-- **Retained water bridge:** posthoc TRAIN-mean centering removes98.397% common
-  correction and restores AST/raw/RMS/hardCLAP8/8, but material swap still fails.
-  Differentiable centering, audio-AdaLN modulation and separate setting branch
-  did not improve transfer. No13-container capacity/epoch/layer/setting/seed sweeps.
+- **Retained water bridge:** TRAIN-centering removes98.397% common correction,
+  restores AST/raw/RMS/hardCLAP8/8;material swap still fails. Centering/AdaLN/setting
+  branches did not transfer;no13-container capacity/epoch/layer/setting/seed sweeps.
   Water CLI/profile/weight identities and failed output receipts are in the note.
-- **Water information:** ridge fails new-object transfer; setting association is
-  not measured room causality. No physical/level calibration; details in note.
+- **Water information:** ridge fails transfer;setting association≠room causality. No physical/level calibration.
 - **Preserved guards:** publish exact PCM, never weaken.98 headroom.
   `requires_grad=False` is required for exact frozen-generator replay despite
   no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
@@ -86,10 +85,12 @@ Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT
   wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
   Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
-- **Next:** no more EQ/tap/smoothing/gating sweeps. Audit DC/AC in existing real/
-  reference-aided codec/generated WAVs before another neural fit; distinguish
-  decoder-conditioned bias,learned latent drift and time-dependent energy loss.
-  Start `texture-codec-controls-2026-09-05`;silence controls alone don't isolate it.
+- **Next:** no more EQ/tap/smoothing/gating/window-length sweeps. Inspect the
+  generator's latent-only training objective against the decoded acoustic errors.
+  Next bounded experiment should test a TRAIN-only acoustic training correction
+  with a source-free WAV and unchanged reference/repeat controls, not a metric
+  threshold change or another duration-normalization variant. A training-case
+  success alone cannot establish new-condition transfer. See latest pilot section.
 
 ## Preserve these constraints
 

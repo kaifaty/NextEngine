@@ -4450,3 +4450,99 @@ energy errors; silence controls alone do not isolate those hypotheses. Use the
 cached codec audit first, not new protocols/data acquisition. This is a validator/
 generator causal check, not permission to redefine quality around an easier metric.
 The full multi-event, both-materials, geometry and natural-process goal stays open.
+
+## DC, training-window inference and real-repeat counterchecks (2026-09-05)
+
+Three completed external diagnostics preserve the full physical-sound goal and
+report-only boundary. No new training, data acquisition, runtime/demo replacement
+or quality admission occurred. The primary new source-free artifact is
+[global / windowed glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/requested-comparison.wav>):
+3.15s per arm,40mm/s,.5N,90mm,seed314,frosted-glass coefficients, no source audio
+or sensor trace at inference. Full decodes are retained. Windowed PCM SHA256:
+`cc9cd259a354161c028e4d4f337aad19db05816d4a5d44b31c7a1e2435f79e40`.
+
+### Competing explanations and outcomes
+
+1. **DC bias accounts for the remaining envelope error.** The
+   [cached audit](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-dc-causal-audit-2026-09-05/result.json>)
+   checks432 codec entries plus36 old-surface development recordings×2 neural
+   seeds×5 arms. Real and codec314 repeat across seeds, not independent evidence.
+   Mean central DC power fractions are real.01050,reference-aided codec.04688,
+   timed generator.04506,current generator.05483,hybrid.05518. Codec alone already
+   introduces extra DC. Removing one whole-event mean changes current-generator
+   envelope MAE only1.59325→1.59136dB; codec.76240→.65647dB. Per20ms block-mean
+   removal gives1.44672 versus.43805dB, but also removes slow physical components:
+   it is a diagnostic, not an improved acceptance metric or published filter.
+   **DC-only explanation rejected; exact origin of codec-conditioned DC unproven.**
+2. **Training32-frame crops versus full-length inference is the dominant cause.**
+   The trained network's GroupNorm couples time positions. A fixed perturbation
+   outside the21-frame convolutional receptive field changes the remote global
+   vector field by RMS.1345775; the windowed wrapper changes it by0. This is direct
+   local Torch2.13 evidence, not proof of audio-quality causation. The wrapper
+   evaluates32-frame windows with10-frame convolutional halos at every midpoint
+   solver stage, averaging overlapping valid velocity fields. Initial full noise,
+   weights,64 solver steps and one full codec decode remain unchanged; no audio
+   chunks are stitched or postfiltered. At32frames it is exactly the old sampler.
+   [Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/result.json>)
+   covers24 records:20/60mm/s,.5/1N,new4/66/76 repeat0 and old0/65/74 repeat1,
+   two seeds, two arms. All48 global PCM controls reproduce previous outputs
+   byte-exactly. **No useful improvement; retain old generator, no window sweep.**
+3. **Paired metrics mostly penalize natural randomness between valid sounds.**
+   The [repeat check](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-moving-repeat-diagnostic-2026-09-05/result.json>)
+   compares the24 source cases above with their other real repeat at the same
+   surface/speed/force, and both generated variants. It uses each recording's
+   existing source-defined750ms moving crop, common22.05kHz,37 complete20ms bins.
+   Sorted log-envelope absolute differences measure empirical1D distribution
+   distance, deliberately ignoring order; a permutation test verifies that this
+   cannot validate event timing. Real repeat appears twice for neural seed pairing:
+   there are24 condition pairs,not48 independent real pairs. Real-repeat variation
+   is substantially smaller than neural error, even when envelope order is ignored.
+   **Randomness alone does not explain the generator gap.** Two repeats cannot
+   establish a universal lower bound, perceptual judge or admission threshold.
+
+| Scope | Full-envelope MAE global→windowed,dB | Moving-shape RMSE global→windowed,dB | Envelope wins |
+|---|---|---|---:|
+| Old anchors |1.48754→1.48119 |2.24960→2.24225 |13/24 |
+| Oak |1.64559→1.65114 |2.08520→2.07550 |4/8 |
+| Steel |1.96781→2.00937 |2.63721→2.66162 |0/8 |
+| Frosted glass |1.82781→1.83340 |2.62664→2.65086 |4/8 |
+| All |1.65064→1.65624 |2.34964→2.35245 |21/48 |
+
+Moving-level absolute error is1.08678→1.08674dB overall. Onset error worsens
+.01167→.01458s; uncensored offset is.17889→.17833s on36 paired cases. The glass
+offset remains.43333s on this duration-extreme subset; this does not contradict
+the earlier.2344s mean over the broader glass evaluation. No fitted time shifts,
+per-output gain matching or censored-as-zero errors were introduced.
+
+| Moving-window diagnostic | Real repeat | Global generator | Windowed generator |
+|---|---:|---:|---:|
+| Ordered envelope MAE,dB |.47625 |1.35737 |1.36618 |
+| Envelope-distribution W1,dB |.23440 |1.13471 |1.13627 |
+| Absolute level error,dB |.19106 |1.08678 |1.08674 |
+| Shape RMSE,dB |1.29155 |2.34964 |2.35245 |
+| Envelope standard deviation,dB |.52560 |.82598 |.83422 |
+
+Target envelope standard deviation is.52930dB. Global beats real-repeat shape
+in0/48 seed-paired comparisons,level4/48,and either envelope diagnostic1/48.
+These750ms figures do not explain the entire full-event/timing error. The
+[full-event repeat montage](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-moving-repeat-diagnostic-2026-09-05/comparison.wav>)
+plays frosted glass20 then60mm/s,.5N: real / repeated real / global / windowed.
+Each recording retains its own full duration; no acoustic clock fitting. The
+source-free requested comparison above, not this source-aided montage, proves
+the inference interface requires no target sound.
+
+Reproduce using `lab/.venv/bin/python lab/scripts/physical_sound_texture_dc_audit.py
+--lab-root ROOT --output NEW_EXTERNAL`, then
+`lab/.venv/bin/python lab/scripts/physical_sound_texture_windowed.py --lab-root ROOT
+--output NEW_EXTERNAL`; `physical_sound_texture_dc_audit.py --repeat-check` uses
+the completed canonical windowed report. Outputs must be fresh external paths.
+The three canonical roots are the links above.227 generated WAVs pass receipt
+SHA,frames,stereo44100,finite/subtype/headroom checks;62 focused tests and Ruff
+pass. No Cargo/host-check/ProductCheck or perceptual acceptance was run.
+
+Decision: close DC-only,window-normalization and randomness-only explanations as
+sufficient remedies. Preserve the existing hybrid baseline. Next inspect the
+latent-only objective versus decoded acoustic errors and run one bounded
+TRAIN-only acoustic training correction with a source-free output and unchanged
+controls. Do not substitute sorted-envelope scores for timing/perceptual quality,
+launch another EQ/window sweep, or interpret training-case recovery as transfer.
