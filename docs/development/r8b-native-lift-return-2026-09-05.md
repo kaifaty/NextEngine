@@ -58,7 +58,8 @@ applied targets, safety checkpoints and terminal through the actual terminal.
   phase/geometry controls, 88-channel timeout/reset and diagnostic-mode restore.
 - PASS: native adapter and paired controls above; Linux host-check, Rust fmt,
   feature-enabled native clippy, Ruff and changed-document local links.
-- NOT RUN: V7 learned walking evaluation, Isaac correspondence and export/runtime.
+- FAILED: the two predeclared V7 diagnostic matrices; final evaluation is pending.
+- NOT RUN: renewed Isaac correspondence and export/runtime.
 
 ## Launched run
 
@@ -117,3 +118,72 @@ existing contact margin, but does not satisfy the original support/step gates.
 The stochastic training rollout's occasional larger lift is therefore not
 evidence of a learned deterministic gait. Next inspect only the already
 predeclared diagnostic 3999 and final 9999, retaining this fixed negative result.
+
+## Predeclared diagnostic 3999 — geometric progress, failed matrix
+
+All five nominal resets again reproduce one trajectory: 1,200 safe ticks,
+6.135033 m forward, velocity MAE 0.10568467 m/s, final-window planar speed MAE
+0.080391342 m/s. Contact-presence-based longest single support remains 15/3
+ticks with zero qualified switches. Final-zero-command, bilateral support and
+alternation gates fail. This is a report-only checkpoint, not final acceptance
+or five independent robustness trials.
+
+Source artifacts relative to the same external root:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `generation-01/runs/TRAIN-1/model_3999.pt` | `606cc8101f1cc299d0be1ff3b952c751ac16953592116e19022f497db53e90c3` |
+| `generation-01/runs/TRAIN-1/diagnostic-3999/evaluation.json` | `850bbf29b1fc49ba4d27f2f864cd043db4040c84701e11388e051cb01a6597f5` |
+| `generation-01/runs/TRAIN-1/diagnostic-3999/evaluation-1001.npz` | `fa106d6d714ac54a2ae89d1c8e80846c07f68dcd496c86edbfa99efdf5f2cf50` |
+| `evidence/diagnostic-3999-actions.json` | `1cd5905140c5087de504e477daeb8f438c90c3a280b180415577afa5d798087a` |
+| `evidence/diagnostic-3999-native.json` | `6dd04b3dc9a92c07103609d11d5b032552b5d4fbc7e9a7b2a7d0e9680a752708` |
+| `evidence/diagnostic-3999-contact-audit/report.json` | `4c7fe6a6a85e7dd89b85da02f6ae515fedc8748ced13e4d989b3a6ddb2150f72` |
+
+The retained tape is replayed with the existing native executable, without
+rebuilding or modifying the live learner. The independent contact audit passes
+exact root pose/velocity, ordered joints, command and contact equality on all
+1,200 frames. The tape's running-manifest hash is a snapshot, not final output
+closure. Derived figures are in `evidence/diagnostic-3999-contact-audit/`.
+
+### Actual feet versus contact-presence qualification
+
+Unlike V6 and diagnostic 999, complete feet repeatedly lift and return, reaching
+41.632 / 76.827 mm. There are 139/152 moving frames above 20 mm. This falsifies
+the explanation that this checkpoint only unloads grounded feet. It does not
+establish acceptable style, full-tick loaded support or final quality.
+The same frames include 257/174 cases of contact presence with zero vertical
+impulse in the last physical substep; 214/120 also combine contact presence
+with clearance above 5 mm. These are separate counts, not their intersection.
+
+`biomechanics_standing_runner.rs::contact_flags` checks existence of the
+foot/ground pair without an impulse threshold; the evaluator qualifies support
+from those bits. Therefore zero qualified switches cannot be interpreted as
+zero physical alternating lifts. PhysX explicitly generates contact points
+before touching and without necessarily applying an impulse; see its
+[5.4.1 collision documentation](https://nvidia-omniverse.github.io/PhysX/physx/5.4.1/docs/AdvancedCollisionDetection.html),
+rechecked 2026-09-05. A full-tick force/support discriminator is still needed;
+do not substitute last-substep forces or new thresholds into the frozen gate.
+
+### Independent command-schedule defect
+
+The episode applies schedule indices 0..1199. The last nonzero command is at
+1020: `[0,20,0]` um/s, followed by only 179 zeros (1021..1199). The function
+`biomechanics_forward_start_stop_command_schedule_v2` uses integer increment
+`1_000_000/60 = 16_666`; thirty reductions from 500,000 leave 20 um/s. Its
+1,201-entry vector has 180 zero entries at 1021..1200, but entry 1200 is the
+next observation's command and receives no action in this horizon. The old
+test explicitly accepts this vector while the descriptor advertises 180.
+
+This is an Environment schedule/indexing mismatch, not a learned failure to
+stop. The evaluator correctly rejects the actual 180-action tail. No policy
+can pass that gate with the current fixed schedule. Retain the old failed
+identity; do not weaken the requirement to 179 or silently relabel V7.
+
+Decision: finish the already frozen run unchanged as a learning experiment,
+then diagnose its predeclared final model. Before any successor run, correct
+the schedule in a separately identified successor and test applied action
+indices, ramp-rate bounds and 180 exact zeros. Independently resolve full-tick
+support semantics against geometry and load controls before changing gait
+assessment. No new optimizer run, reward edit or safety relaxation is performed
+by this investigation. PASS: native exact replay and five contact-audit tests;
+the earlier V6 geometry result was independently reproduced again.

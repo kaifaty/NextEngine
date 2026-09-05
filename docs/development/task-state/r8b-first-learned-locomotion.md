@@ -21,9 +21,9 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Monitor existing V7 TRAIN-1 (exec session 50278, PID 2071350),
-  especially remaining diagnostic 3999 and final model 9999. Diagnostic 999
-  failed: 406 ticks, 0.166 m, no single support, right-ankle-pitch hard ROM.
+- **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
+  final model 9999. Both diagnostics are complete. Before a successor, fix the
+  applied-command schedule and discriminate contact presence from loaded support.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
@@ -31,9 +31,15 @@
   without single support. V7 now trains from fresh weights at clean `f0c15bd4`;
   finite PPO updates confirmed. It has 88 observations, 13 reward components,
   unchanged physics/actions/safety, and a 40.96M-transition / 14,400 s budget.
-- **First milestone:** Exact native replay confirms right ankle pitch exceeds
-  its lower limit by 524 urad at 406; complete soles lift only 6.945/9.350 mm.
-  This is not learned walking or a reason to modify the live frozen experiment.
+- **Milestones:** 999 fails on ankle ROM at 406. Exact replay of 3999 survives
+  1,200 ticks, travels 6.135 m and repeatedly lifts whole feet 41.6/76.8 mm.
+  Its contact-presence support gate still fails (15/3 ticks, zero switches).
+- **New defect:** Applied indices 0..1199 contain only 179 final zero commands;
+  index 1020 retains 20 um/s. No V7 policy can pass the exact 180-zero gate.
+  Preserve the failed identity; no gate weakening or live-run modification.
+- **Support uncertainty:** Contact presence persists on many lifted/unloaded
+  frames. Do not equate zero qualified switches with zero physical foot lifts;
+  measure full-tick load before revising semantics. See native integration report.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
