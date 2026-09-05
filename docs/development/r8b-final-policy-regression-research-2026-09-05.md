@@ -169,6 +169,34 @@ optimizer state: see [SB3 EvalCallback and stopping callbacks](https://stable-ba
 A future selection protocol may use that approach if frozen before its run;
 it does not retrospectively admit model 3999 or weaken physical quality gates.
 
+## Fixed-buffer gradient discriminator — predeclared
+
+`canonical-ppo-gradient-diagnostic.v1.json` binds the exact final checkpoint,
+source manifest and isolated headless executable. This is a disposable numerical
+experiment on copied model/Adam state, not a successor training run, resume,
+learned evaluation or checkpoint selection. Updated copies are never saved or
+applied to any native environment; old ADR-109/111 runs remain unchanged.
+
+Collect 1,200 roll-in steps with 128 slots/eight shards and unchanged final
+weights, then one ordinary 32-step buffer. Fresh environment seed is 44;
+action RNG is 44001 after loading. Preserve explicit post-step normalization,
+canonical rewards, terminal observations and timeout bootstrap. Retain raw
+buffer/return inputs and independently check reverse GAE. Record phase coverage;
+do not claim the buffer represents phases it does not actually contain.
+
+Two copies receive that same buffer and checkpoint Adam state, with actual
+loaded Adam learning rate restored to the scheduler. Both use update RNG 55001
+and exactly one PPO update (20 Adam minibatches). In the control only the
+effective optimizer-step learning rate is zero; in the other the source
+adaptive algorithm is unchanged. Wall ceiling is 180 s. Stop after these two
+arms, with no candidate weights, native post-update rollout or parameter sweep.
+
+Prediction: if gradient updates cause a large local policy jump, the active
+arm's post-update KL/clipping should rise while zero-LR keeps exact policy
+state and pre/post distribution metrics. If both stay small, this specific
+local-update explanation is weakened; cumulative degradation and reward/task
+mismatch remain. A large gradient norm alone is not proof of harmful updates.
+
 ## Exact external evidence and verification
 
 Source root: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3`.

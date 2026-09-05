@@ -1,0 +1,22 @@
+{
+  "schema": "nextengine.ppo-gradient-diagnostic.v1",
+  "profile_id": "nextengine.ppo-gradient-diagnostic.v1",
+  "status": "ReportOnly",
+  "source_checkpoint_sha256": "108e372cd45e7d7ca30eae6bfaafb1116a549c10a131c1b6a2582fb719d928de",
+  "source_manifest_sha256": "3bcd5ee7a6cd6cd5582454da40c951c143e642bceec4b5f25d721d11f9d76e9e",
+  "headless_sha256": "431b9c22ab6b2185f9fb8446ec1403e79bf8ef9e0c0ec59374dd5f89b8f63624",
+  "initialization": "disposable checkpoint model and Adam copy; fresh scenes and RNG; not resume",
+  "environment_seed": 44,
+  "action_noise_seed_after_loading": 44001,
+  "update_rng_seed": 55001,
+  "num_envs": 128,
+  "shards": 8,
+  "roll_in_steps": 1200,
+  "buffer_steps": 32,
+  "arms": ["zero-effective-lr", "source-adaptive-lr"],
+  "ppo_updates_per_arm": 1,
+  "adam_steps_per_arm": 20,
+  "wall_seconds": 180,
+  "save_candidate_weights": false,
+  "apply_updated_policy_to_environment": false
+}
