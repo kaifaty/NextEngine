@@ -1630,11 +1630,11 @@
     {
       "kind": "texture-rgba8",
       "asset_id": "88888888888888888888888888888888",
-      "record_revision": 1,
+      "record_revision": 2,
       "extent": [4, 4, 1],
       "color_space": "srgb",
       "alpha": "opaque",
-      "texels": [118,126,112,255,104,116,104,255,126,132,114,255,108,120,109,255,98,111,101,255,121,128,110,255,102,115,104,255,130,135,116,255,125,131,113,255,107,119,106,255,117,125,109,255,100,113,103,255,105,117,105,255,128,134,115,255,110,121,108,255,120,127,111,255],
+      "texels": [147,156,139,255,130,144,130,255,156,164,142,255,134,149,136,255,122,138,126,255,150,159,137,255,127,143,130,255,161,167,144,255,155,162,140,255,133,148,132,255,145,155,136,255,125,140,128,255,131,145,131,255,159,166,143,255,137,150,134,255,149,158,138,255],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
     {
@@ -1660,11 +1660,11 @@
     {
       "kind": "texture-rgba8",
       "asset_id": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
-      "record_revision": 1,
+      "record_revision": 2,
       "extent": [4, 4, 1],
       "color_space": "srgb",
       "alpha": "opaque",
-      "texels": [126,137,151,255,110,121,136,255,130,141,156,255,112,123,138,255,105,116,132,255,132,143,158,255,108,119,134,255,136,147,162,255,128,139,154,255,109,120,135,255,124,135,150,255,106,117,133,255,113,124,139,255,134,145,160,255,115,126,141,255,129,140,155,255],
+      "texels": [156,170,187,255,137,150,168,255,161,175,193,255,139,153,171,255,131,144,164,255,164,177,195,255,134,148,166,255,168,182,200,255,159,172,190,255,136,149,167,255,154,167,185,255,132,145,165,255,140,154,172,255,166,179,198,255,143,156,175,255,160,173,192,255],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
     {
@@ -1680,11 +1680,11 @@
     {
       "kind": "material",
       "asset_id": "85858585858585858585858585858585",
-      "record_revision": 2,
+      "record_revision": 3,
       "texture_asset_id": "88888888888888888888888888888888",
-      "base_color_rgba_u16": [10000, 14000, 18000, 65535],
+      "base_color_rgba_u16": [62258, 65535, 58982, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 58982,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1704,11 +1704,11 @@
     {
       "kind": "material",
       "asset_id": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
-      "base_color_rgba_u16": [10000, 42000, 58000, 65535],
+      "base_color_rgba_u16": [22937, 52428, 65535, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 36044,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1716,11 +1716,11 @@
     {
       "kind": "material",
       "asset_id": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
-      "base_color_rgba_u16": [58000, 9000, 7000, 65535],
+      "base_color_rgba_u16": [65535, 10486, 7864, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 36044,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1728,11 +1728,11 @@
     {
       "kind": "material",
       "asset_id": "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
-      "base_color_rgba_u16": [60000, 39000, 7000, 65535],
+      "base_color_rgba_u16": [65535, 40632, 7864, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 36044,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1740,11 +1740,11 @@
     {
       "kind": "material",
       "asset_id": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
       "base_color_rgba_u16": [50000, 56000, 62000, 65535],
-      "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "metallic_u16": 58982,
+      "roughness_u16": 22937,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1752,11 +1752,11 @@
     {
       "kind": "material",
       "asset_id": "d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
-      "base_color_rgba_u16": [7000, 18000, 30000, 65535],
+      "base_color_rgba_u16": [13107, 29491, 58982, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 39321,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1764,11 +1764,11 @@
     {
       "kind": "material",
       "asset_id": "d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
       "base_color_rgba_u16": [6000, 50000, 65000, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 26214,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1788,11 +1788,11 @@
     {
       "kind": "material",
       "asset_id": "d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "83838383838383838383838383838383",
       "base_color_rgba_u16": [65535, 51000, 7000, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 32768,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1800,11 +1800,11 @@
     {
       "kind": "material",
       "asset_id": "d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "88888888888888888888888888888888",
-      "base_color_rgba_u16": [30000, 32000, 33000, 65535],
+      "base_color_rgba_u16": [65535, 63569, 60292, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 52428,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1812,11 +1812,11 @@
     {
       "kind": "material",
       "asset_id": "d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9",
-      "record_revision": 1,
+      "record_revision": 2,
       "texture_asset_id": "89898989898989898989898989898989",
-      "base_color_rgba_u16": [34000, 35000, 37000, 65535],
+      "base_color_rgba_u16": [65535, 65535, 65535, 65535],
       "metallic_u16": 0,
-      "roughness_u16": 65535,
+      "roughness_u16": 45874,
       "emissive_rgb_u16": [0, 0, 0],
       "double_sided": false,
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }

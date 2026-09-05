@@ -20,6 +20,10 @@
   the interface contract at `b0.v3`. Gates G2-G6 pass; G1 fails as frozen: the contract hash rides the render content profile into the project lock, so every root moved (re-pinned, creator-smoke scenario refreshed); GPU frame time
   `1.10 x`. Finding: the reference materials' albedos are `0.08..0.12`,
   so the calibrated scene reads dark until item 5 relights the content.
+- **Plan 01a done (2026-09-05, user: a content pass before item 2):** the
+  reference materials' albedos raised to `0.2..0.5` (two textures scaled
+  `1.6x`, the factors and roughness per material, the blade metallic); the
+  B0 profile now admits metallic and roughness. Roots re-pinned in the plan.
 - **Next:** item 2 (`look/02`, cascaded shadows with PCF), then 3 (GTAO)
   and 4 (TAA).
 - **Invariants.** Presentation only: no state root, checkpoint or

@@ -470,13 +470,6 @@ fn b0_admission_rejects_semantics_the_backend_does_not_represent() {
         b0_material(
             texture_ref,
             B0MaterialOverrides {
-                metallic_unorm16: 1,
-                ..B0MaterialOverrides::default()
-            },
-        ),
-        b0_material(
-            texture_ref,
-            B0MaterialOverrides {
                 double_sided: true,
                 ..B0MaterialOverrides::default()
             },

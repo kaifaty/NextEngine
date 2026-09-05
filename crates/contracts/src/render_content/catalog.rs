@@ -511,8 +511,8 @@ impl RenderContentCatalogV1 {
         for material in &self.materials {
             if material.alpha_mode() != MaterialAlphaModeV1::Opaque
                 || material.base_color_space() != MaterialColorSpaceV1::Linear
-                || material.metallic_unorm16() != 0
-                || material.roughness_unorm16() != u16::MAX
+                // Scene look L1 (plan `look/01`): the B0 shading reads
+                // metallic and roughness, so the profile admits any value.
                 || material.emissive_rgb_unorm16() != [0; 3]
                 || material.emissive_color_space() != MaterialColorSpaceV1::Linear
                 || material.emissive_intensity_q16_16() != 0
