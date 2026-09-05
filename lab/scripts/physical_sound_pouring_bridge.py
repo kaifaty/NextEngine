@@ -25,6 +25,8 @@ PREVIEW_SETTING = "ws-kitchen"
 
 
 class Bridge(nn.Module):
+    input_width = 11
+
     def __init__(self):
         super().__init__()
         self.network = nn.Sequential(
@@ -36,8 +38,11 @@ class Bridge(nn.Module):
         self.register_buffer("center_controls", None, persistent=False)
 
     def condition(self, controls, hidden, pooled, cfg=False):
-        if controls.shape != (1, 11) or not torch.isfinite(controls).all():
-            raise ValueError("one finite eleven-control vector required")
+        if (
+            controls.shape != (1, self.input_width)
+            or not torch.isfinite(controls).all()
+        ):
+            raise ValueError(f"one finite {self.input_width}-control vector required")
         batch = 2 if cfg else 1
         if (
             hidden.ndim != 3

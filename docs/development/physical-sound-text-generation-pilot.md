@@ -3502,3 +3502,117 @@ material-conditioned impact candidate and playable controls. Expand TRAIN suppor
 as needed within the stated metadata limits, preserve missing axes, and do not
 equate participant separation with proven new-object identity or CLAP scores with
 physical calibration. The full multi-event goal remains open.
+
+## EPIC factorized material bridge and corrected event evaluation — 2026-09-05
+
+New learned, reference-free impact WAVs are available. This is a bounded research
+candidate, not a reliable material simulator or replacement for the liked glass
+demo. Source terms remain EPIC-SOUNDS CC-BY-NC4, noncommercial research only;
+TangoFlux attribution: Powered by Stability AI. No runtime/default/roadmap change.
+
+`physical_sound_epic_pair_bridge.py` reuses the frozen TangoFlux bridge hook but
+encodes the two unordered materials as five compositional factors (metal, glass,
+wood, plastic, ceramic). A zero-initialized 5x2048 linear map has10240 trainable
+parameters; differentiable TRAIN-mean centering excludes a common style offset.
+Only positive text/pooled conditioning changes, not duration or negative CFG.
+The learned material corrections compose algebraically; that construction alone
+does NOT prove perceptually correct composition. The shared pouring bridge gains
+only a configurable input width; its default eleven-control behavior is unchanged.
+
+Training uses45 unique annotations: first three non-overlapping0.25–3s TRAIN
+clips per participant P01/P02/P03 for each of five classes. All wood/glass clips
+are excluded. Thirty additional intervals were acquired with the existing TLS
+partial-video decoder; previous clips were reused after exact identity checks.
+Development uses all seven original source-slice clips from P04/P07, including
+two wood/glass clips. No author validation/test data, target audio at inference,
+or assumed object identities/striker/force/geometry. Participant separation does
+not establish new physical objects or foundation-pretraining independence.
+
+`epic-pair-bridge-2026-09-05` completed200 AdamW steps,1e-4,weight decay.01,
+gradient norm1,BF16 training, native45x645x64 posterior mean/std. The unchanged
+full-horizon flow objective uses the fixed generic prompt “The sound of two
+objects colliding.” Native source gains were retained. First/last20 mean losses
+are1.721769/1.651011, not quality scores. Posterior SHA256:
+`97d61ef478ffa34784f4bafdbc1aa8eb19e86d1e31962d7cf1514cac6644095f`.
+Bridge plus frozen centering-offset SHA256:
+`c20a4b1216d95e24fb97f428962a7e27b74136375ad5b85abda93ee96d13a348`.
+Full generator tensor digest before/after:
+`23ee7758b8b637389e8d0378484b79c326a362f1069d760c3344df641224b258`.
+Zero bridge exactly reproduces base PCM; cached loss exactly matches upstream
+(.3487389684); adapter-off water/rain PCM remains byte-exact. These are integrity
+checks, not physical-quality admission.
+
+**Evaluation correction:** the first run accidentally restored prefix-only
+rendering, repeating the previously documented late-event failure. All seed314
+prefixes were about -99.64dBFS codec noise, while seed2718 was audible. Neither
+nonzero PCM, relative waveform change nor the gain-invariant spectral metric
+qualifies such prefixes as impacts. Original reports and WAVs remain untouched,
+but their5/14 baseline wins and any material-improvement interpretation are
+superseded. No new training, prompt/seed/duration/solver sweep or amplification
+was performed to repair this evaluation.
+
+`epic-pair-event-matched-2026-09-05` rerenders the saved weights: base plus all six
+material pairs at seeds314/2718,3s duration condition,50 Euler steps,CFG4.5,FP32.
+Each retains the raw3s prefix, the complete29.9537415s decode and a3s onset window.
+The existing `tango.event_window` rule is identical for base and candidates:
+10ms RMS blocks, threshold max(-50dBFS,.1 peak RMS),50ms preroll. It operates on
+the published full-horizon PCM; gains never increase. Seed314 starts at11.12s
+(plastic/wood11.28s), seed2718 at1.47s. All windows contain active audio; all also
+flag activity after the window, so these are bounded attack windows, NOT entire
+isolated-event recordings. Full horizons remain available for inspection.
+No-event output explicitly fails while retaining its raw evidence. Single-render
+CLI now defaults to this policy; `--prefix-diagnostic` is explicitly not quality
+evidence. Continuous water/rain diagnostics retain their separate window policy.
+
+[Listen: six pairs, real/base/learned/wrong pair](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/comparison.wav>),
+71.552s, fixedseed2718. Pair order: metal/glass,metal/wood,wood/glass,metal/plastic,
+metal/ceramic,plastic/wood. Each group is real recording, frozen base, learned
+matched pair, next-pair control; published gains, no listening-based selection.
+[Separate learned wood/glass, seed314](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/pair2-314.wav>)
+also demonstrates generation of the pair withheld from this bridge's training;
+it does not establish that it sounds physically correct.
+
+Gain-invariant relative-power spectral shape compares each full3s generated
+window with the entire original development clip, never a reference-dependent
+prefix crop. Across14 comparisons: base5.975546,matched5.962152,next-pair5.964974dB.
+Matched beats base8/14 and next-pair5/14. The four wood/glass comparisons improve
+over both (7.028456 vs base7.122528,next-pair7.130032), but this weak control does
+not survive a strong interpretation: `all-material-ranking.json` compares all
+six generated material conditions against every reference. Correct pair ranks
+first only2/14; held wood/glass ranks1,2,2,3. These correlated small-sample spectral
+diagnostics do not demonstrate reliable material control or perceptual quality.
+
+`tags-raw-cpu.json` retains raw frozen AST scores for14 generated and7 real clips,
+plus silence/noise/tone controls. Seed314 generations lead with Breaking;
+seed2718 leads with Door, including the unadapted baseline. Real recordings have
+diverse kitchen/impact/background tags. AST is a coarse event diagnostic, not
+a pair validator; no expected material pass threshold is introduced. Its known
+mel-filter warning persists. The earlier real-positive CLAP4/24 failure remains
+binding: do not use it as the sole material reward or select prompts from this set.
+
+Reproduce from the saved checkpoint, without source recordings at generation:
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_epic_pair_bridge.py \
+  --model /home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-bridge-2026-09-05 \
+  --pair 'wood / glass collision' --seed 314 --output NEW_EXTERNAL_DIRECTORY
+```
+
+`--event-matrix` instead of `--pair/--seed` re-evaluates all14 cases and compares
+the saved seven development references, without fitting. The separate
+`epic-pair-event-cli-2026-09-05` command byte-replays event, prefix and full horizon
+in both PCM formats.98 corrected-evaluation/CLI WAVs pass SHA/layout/rate/headroom
+checks. The earlier108 training/prefix WAVs, two prefix CLI WAVs and60 acquired
+decoded/published source WAVs remain external and unchanged.
+
+53 focused tests pass; Ruff lint/format and diff checks pass. Tests cover
+compositional controls, zero/centered gradients, source
+roles/overlaps/PCM identity, checkpoint validation, retained late-event recovery,
+noise rejection and identical event policy across all14 matrix cases. No Cargo
+or ProductCheck is required for this external Python lab path. The learned-media
+checkpoint clears the preceding source-only outcome debt; the full goal remains
+active. Next, discriminate insufficient material information in these kitchen
+labels from weak conditioning transfer using broader TRAIN participant coverage
+and a participant-separated real-positive/wrong-label control. Do not repeat a
+bridge capacity/epoch/seed sweep or treat tiny spectral gains as physical learning.
+The next learned trial must retain a playable comparison and the all-pair control.

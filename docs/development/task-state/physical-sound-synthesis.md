@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
+Status: ACTIVE_GOAL / EPIC_LEARNED_WAVS / MATERIAL_CONTROL_UNPROVEN.
 
 ## Resume in 60 seconds
 
@@ -12,6 +12,29 @@ Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
+- **Discrete-impact rule:** retain the FULL Tango decode and apply the existing
+  matched `event_window` to base/candidates. Never revert to prefix-only scoring
+  or amplify codec noise. Seed314 can start after11s despite a3s request. This
+  known bug was repeated when absent from compact state; corrected without fit.
+  Event detection is not quality acceptance; continuous water/rain differ.
+- **Latest learned impacts:** [real/base/learned/wrong pair](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/comparison.wav),
+  71.552s, six unordered pairs,fixedseed2718. [Wood/glass seed314](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/pair2-314.wav)
+  uses a pair excluded from bridge training; NOT proven physical generalization.
+ 45TRAIN clips/P01–03,7dev/P04/P07,10240-factorized parameters,200updates.
+  All14 cases retain prefix/full29.9537s/onset3s WAVs. Later activity exists in
+  every full horizon; crops are bounded attack windows, not complete events.
+- **Impact result:** shape base5.975546/matched5.962152/wrong5.964974dB;
+  wins8/14 vsbase,5/14 vsnext pair. Heldwood/glass4/4 wins against those controls,
+  but ALL-six-material ranking gives correcttop1 only2/14 (heldranks1,2,2,3).
+  No reliable material control. Raw AST leads Breaking(seed314)/Door(2718),
+  including base; not a qualified pair judge. No bridge capacity/epoch/seed sweep.
+- **Impact reproducibility:** `physical_sound_epic_pair_bridge.py --model PATH
+  --pair 'wood / glass collision' --seed 314 --output NEW` defaults to full/event;
+  `--event-matrix` evaluates all14 without fitting. Zero/upstream-loss/full-model/
+  water+rain guards exact; CLI event/prefix/full byte-exact in both formats.
+ 98 corrected WAVs verified; bridge/hash/source identities in pilot note.
+  Original `epic-pair-bridge-2026-09-05` prefix evaluations are superseded,
+  preserved unchanged; do not reuse their quiet-seed metrics for quality claims.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718,published PCM. Centered frozen-generator bridge retains
   water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
@@ -20,7 +43,7 @@ Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
 - **Latest trial rejected:** [real/old/new/swapped/style-only](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-setting-development-2026-09-05/comparison.wav),
   45.8s,glass18/PET30,middle,seed2718. Separate recording-setting branch retains
   water but shape8.025 versus old7.692/style-only7.817dB. No replacement.
-- **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
+- **Earlier impacts:** generic LoRA improves1/14 matched crops; no LoRA sweep.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
@@ -32,71 +55,22 @@ Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
   water selection. Author Test I/II/III and YouTube not used; no foreign code run.
   93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
   Approximate constant flow is not measured ml/s or exact liquid level.
-- **STFT base:** retained, not promoted; wrong glass material wins13/13.
-- **STFT failures:** splices/envelope/relative level/static timbre/EQ; no phase/
-  gain/EQ/envelope/step sweep or guard weakening. Exact configurations in note.
-- **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
-  warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
-  ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
-- **Pitch/head:** teacher falling-tone error1382cents, same corpus; moving-band,
-  144param and temporal-noise paths fail. No head/filter/noise/phase sweeps.
-- **CVAE:** posterior/prior and rec/critic continuations fail; phase2/32 no rescue.
-  No CVAE/critic/capacity/epoch/phase sweeps; exact evidence in pilot note.
-- **Old codec cache:** `pouring-oobleck-cache-2026-09-05`,279TRAIN posteriors64x88,
-  normalization includes variance. Original/plain/skip2000 dev AST0/12; no repeat.
-  Target-injected trajectories are not source-free. Codec identity in pilot note.
-- **Scratch flow rejected:** single-crop control learns water but full279 TRAIN
-  coverage of10000-step model gives AST11/harder CLAP6/both2. Affine2000 coupling
-  gives AST/harder CLAP0/30. Solver Euler64/midpoint128/256 does not rescue it.
-  No mostly-unused-channel/PCA/mean-mode, epoch/seed/coupling/step sweeps; see note.
-- **Evaluator confound:** six-prompt CLAP hides scratch/crunch. Keep the disclosed
-  harder13-prompt diagnostic and raw/RMS0.005 AST; no threshold/prompt retuning.
-- **All-TRAIN audit:** `pouring-training-codec-audit-2026-09-05`,279 real/posterior
-  pairs. Raw AST252/216; harder CLAP267/232. Codec loses35 source positives,
-  especially late phases, but most targets retain water. No filtering/codec fit.
-- **Bridge:** `pouring-tango-bridge-2026-09-05`,265728params,200steps,seed53,
-  unchanged TangoFlux367005e9/T5/codec. Native645x64 TRAIN posteriors, NOT old
-  normalized88 cache. Exact bridge/offset hashes in pilot note and result.
-  Full bridge rejected: raw AST4/8,RMS-controlled3/8,harder CLAP1/8.
-- **Centering:**98.397% of correction energy is common TRAIN mean. Subtracting
-  that fixed mean (all279controls, no refit/sweep) restores all three8/8 checks.
-  CLI `physical_sound_pouring_bridge.py render --model BRIDGE --offset CENTERED
-  --controls <11 floats> --output NEW` byte-replays both formats; source-free.
-- **Development:** first source-order18/30,first/middle,seeds314/2718. Retained
-  centered model has marginal gains only; joint control swap does not isolate
-  material. Correlated evidence, no physical/level/generalization claim.
-- **Preserved export failures:** use exact published PCM, never loosen .98 guard.
-  Generator requires_grad=False is needed for exact replay despite no_grad;
-  no kernel-cause claim. Failed reports/WAVs retained; see note.
-- **Signal:** `pouring-tango-bridge-signal-2026-09-05`,first TRAIN recording per13
-  objects,middle,sigmas.2/.5/.8,paired posterior/noise. Common-only explains98.35%
-  of active improvement; tail worsens. Silence-dominated learning falsified here.
-- **Training centering:** `pouring-tango-bridge-center-trained-2026-09-05`,same
-  200steps/cache/draws, differentiable mean across279controls. Larger conditional
-  TRAIN signal but worse dev8.106 vs7.687dB; rejected. No centering/epoch sweep.
-- **Audio modulation:** `pouring-tango-audio-modulation-2026-09-05`,264696params,
-  six audio AdaLN mixers,200steps. Zero/bypass/full-model exact; waveform transfer
-  worse0/8 versus old. PAVAS-inspired placement, not its full-backbone training.
-  No layer/width/seed/epoch sweep. CLI auto-detects kind; hashes in pilot note.
-- **Comparison:** runnable `physical_sound_pouring_bridge_compare.py`, fixed
-  excluded-object/crop/seed roles, previous/base/new/swapped plus playable WAV.
-- **Metric confound:** old fixed-floor shape metric varies under pure gain.
-  New `relative_power_shape_rmse_db` passes gain control; rejection survives.
-  Historical fields/reports unchanged, no audio/EQ/gain adjustment.
-- **Data audit:** `pouring-control-information-2026-09-05`,all279TRAIN crops,
-  absolute profiles, ridge0.01. Leave-record ridge/global3.630/4.390dB; leave-object
-  5.351/4.601. Useful same-object signal, no transfer for this simple baseline;
-  not proof nonlinear prediction is impossible. No fit/selection from dev.
-- **Setting audit:** `pouring-setting-nuisance-2026-09-05`,TRAIN7/31/40.
-  Same-object cross-setting distance5.743 vs within3.731dB; correlated observations,
-  NOT measured room/mic causality. Setting-only beats controls in leave-object
-  ridge4.062/5.351. Details/source preview in note; no author tests reopened.
-- **Setting bridge:** `pouring-tango-setting-bridge-2026-09-05`,273920params,
-  same200steps/posteriors/draws; centered physical branch +4 learned setting rows.
-  Target setting FIXED during wrong-physical controls; physical-disabled ablation.
-  Matched beats old2/8 and style-only2/8. Glass slightly better, PET worse.
-  Raw/RMS AST/hard CLAP8/8 for each variant. ws-room only1 TRAIN record/update.
-  No setting/centering/capacity/seed/epoch sweep. Exact identities in pilot note.
+- **Closed pouring families:** STFT/envelope/EQ, pitch heads, CVAE/critic,
+  scratch flow/affine coupling and solver/noise/phase retries do not transfer.
+  Full279TRAIN audit gives scratch AST11/hardCLAP6/both2; target injection is not
+  source-free. Native645x64 Tango posteriors differ from old normalized88 cache.
+  Keep the harder13-prompt diagnostic and raw/RMS0.005 AST; don't tune thresholds.
+- **Retained water bridge:** posthoc TRAIN-mean centering removes98.397% common
+  correction and restores AST/raw/RMS/hardCLAP8/8, but material swap still fails.
+  Differentiable centering, audio-AdaLN modulation and separate setting branch
+  did not improve transfer. No13-container capacity/epoch/layer/setting/seed sweeps.
+  Water CLI/profile/weight identities and failed output receipts are in the note.
+- **Water information:** within-object ridge3.630 vs global4.390dB; leave-object
+  5.351 vs4.601. Setting-only4.062, correlated not measured room/mic causality.
+  No precise physical/level calibration, evaluator acceptance or new-object claim.
+- **Preserved guards:** publish exact PCM, never weaken.98 headroom.
+  `requires_grad=False` is required for exact frozen-generator replay despite
+  no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
 - **New source:** [EPIC real-pair preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-pairs-source-fixed-2026-09-05/comparison.wav),
   37.297s,24 real TRAIN clips,6 unordered material pairs,19 videos/5 participants.
   Four clips each: metal/glass,metal/wood,wood/glass,metal/plastic,metal/ceramic,
@@ -108,11 +82,12 @@ Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** learned material-conditioned impact candidate + playable controls,
-  expanding TRAIN support as necessary. One supporting-only checkpoint owed;
-  no further report-only checkpoint. Stop the13-container adapter family.
-- **Verification:**3 new source tests, Ruff;49 source WAVs verified + one alignment
-  prefix. Failed string/int version matcher preserved; fixed run complete.
+- **Next:** discriminate poor transferable material information in kitchen labels
+  from weak bridge transfer: broaden TRAIN participant coverage and test a
+  participant-separated real-positive/wrong-label control before another fit.
+  Next learned trial retains playable/all-pair comparisons. No tuning on current
+  dev, no material-validator claims from CLAP. Stop13-container adapter family.
+- **Verification:** focused Python tests/Ruff and exact replay; details in note.
   All jobs terminal. No runtime/default/ProductCheck promotion; full goal open.
 
 ## Preserve these constraints
@@ -122,8 +97,8 @@ Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint adds real source WAVs,
-  not neural audio; supporting-only debt is one. Keep the full multi-event goal.
+  not replace the audible deliverable. Latest checkpoint adds learned impact WAVs;
+  supporting-only debt is zero. Keep the full multi-event goal.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
   is Proposed; report-only waveform generation/authored-asset research is
