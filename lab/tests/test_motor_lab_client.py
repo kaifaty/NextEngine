@@ -23,14 +23,18 @@ from next_lab.trajectory_recorder import (
 
 class MotorLabClientTests(unittest.TestCase):
     def test_periodic_walking_actions_are_q1_30_not_microradians(self):
-        client = object.__new__(MotorLabClient)
-        client.descriptor = SimpleNamespace(
-            profile_id="nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6",
-            action_width=23,
-        )
-        client.step = Mock(return_value=[])
-        client.step_normalized([1], np.full((1, 23), 0.5))
-        np.testing.assert_array_equal(client.step.call_args.args[1], np.full((1, 23), 1 << 29))
+        for version in (6, 7, 8):
+            with self.subTest(version=version):
+                client = object.__new__(MotorLabClient)
+                client.descriptor = SimpleNamespace(
+                    profile_id=f"nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v{version}",
+                    action_width=23,
+                )
+                client.step = Mock(return_value=[])
+                client.step_normalized([1], np.full((1, 23), 0.5))
+                np.testing.assert_array_equal(
+                    client.step.call_args.args[1], np.full((1, 23), 1 << 29)
+                )
 
     def test_normalized_adapter_clamps_and_uses_ties_to_even(self) -> None:
         values = np.asarray([[0.0000005, 0.0000015, -2.0]], dtype=np.float64)
@@ -39,7 +43,9 @@ class MotorLabClientTests(unittest.TestCase):
             [[0, 2, -1_000_000]],
         )
         self.assertEqual(
-            normalized_action_to_raw([[0.5, -2.0]], action_width=2, q1_30=True).tolist(),
+            normalized_action_to_raw(
+                [[0.5, -2.0]], action_width=2, q1_30=True
+            ).tolist(),
             [[1 << 29, -(1 << 30)]],
         )
         with self.assertRaisesRegex(ValueError, "finite"):

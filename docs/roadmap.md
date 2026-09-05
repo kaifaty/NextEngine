@@ -2299,9 +2299,10 @@ results in 1,515 frames. Focused motor/headless tests and full Linux host-check 
 ADR-111 now predeclares a separate corrected matrix using only the closed V7
 final model 9999, with no optimizer. Full-tick load plus actual free-foot release
 retains the 24 switches in the existing control; exact integer geometry and
-grounded/partial/short-run negatives pass. The evaluation executor and final
-weight compatibility checks remain to implement before inference; no learned
-V8 evaluation has run.
+grounded/partial/short-run negatives pass. The [evaluation executor](development/r8b-corrected-walking-evaluator-2026-09-05.md)
+now verifies final-source closure and exact descriptor compatibility; 51 Python
+tests, 5,120 multi-slot and 1,200 full-tape V8 adapter controls pass. It waits
+for completed V7 final weights; no learned V8 evaluation has run.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

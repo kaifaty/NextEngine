@@ -126,6 +126,11 @@ class CanonicalAdapterTests(unittest.TestCase):
             observation_scales(new)
 
     def test_lift_return_heights_survive_terminal_observation_before_reset(self):
+        for version in (7, 8):
+            with self.subTest(version=version):
+                self.check_lift_return_terminal_observation(version)
+
+    def check_lift_return_terminal_observation(self, version):
         class LiftClient(FakeClient):
             def __init__(self, *args):
                 super().__init__(*args)
@@ -149,7 +154,9 @@ class CanonicalAdapterTests(unittest.TestCase):
 
         data = descriptor()
         data["observation_width"] = 88
-        data["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v7"
+        data["environment_profiles"][0]["profile_id"] = (
+            f"test.forward-start-stop.v{version}"
+        )
         env = CanonicalVecEnv(
             Path("unused"),
             data,

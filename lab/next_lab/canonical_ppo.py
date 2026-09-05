@@ -27,13 +27,13 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
     clock_scales = []
     if descriptor.get("observation_width") in (86, 88):
         profiles = descriptor["environment_profiles"]
-        version = 6 if descriptor["observation_width"] == 86 else 7
+        versions = (6,) if descriptor["observation_width"] == 86 else (7, 8)
         if len(profiles) != 1 or not profiles[0]["profile_id"].endswith(
-            f"forward-start-stop.v{version}"
+            tuple(f"forward-start-stop.v{version}" for version in versions)
         ):
-            raise ValueError(f"observation width requires walking V{version}")
+            raise ValueError(f"observation width requires walking V{versions[0]}")
         clock_scales = [1 << 30] * 2
-        if version == 7:
+        if descriptor["observation_width"] == 88:
             clock_scales += [100_000] * 2
     scales = np.asarray(
         [1 << 30] * 4
@@ -90,12 +90,13 @@ class CanonicalVecEnv:
                     "forward-start-stop.v5",
                     "forward-start-stop.v6",
                     "forward-start-stop.v7",
+                    "forward-start-stop.v8",
                 )
             )
         ]
         if len(matches) != 1:
             raise ValueError(
-                "descriptor must contain exactly one walking V5/V6/V7 environment"
+                "descriptor must contain exactly one walking V5/V6/V7/V8 environment"
             )
         expected = matches[0]
         self.max_episode_length = expected["maximum_episode_steps"]

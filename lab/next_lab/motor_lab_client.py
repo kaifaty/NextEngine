@@ -52,6 +52,9 @@ BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6 = (
 BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V7 = (
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v7"
 )
+BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V8 = (
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v8"
+)
 
 
 class MotorLabProtocolError(RuntimeError):
@@ -222,6 +225,7 @@ class MotorLabClient:
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V5,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V6,
                     BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V7,
+                    BIOMECHANICS_FORWARD_START_STOP_PROFILE_ID_V8,
                 },
             ),
         )

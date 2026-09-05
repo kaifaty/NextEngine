@@ -23,8 +23,8 @@
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
   final model 9999. V8's schedule repair passes native controls and host-check.
-  ADR-111/profile predeclare corrected support and final-only source. Next
-  implement/test its closed-source compatibility and V8 inference executor.
+  ADR-111 final-only executor is implemented; 51 tests, 5,120 multi-slot and
+  1,200 full-tape V8 adapter controls pass. Run it only after source closure.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
@@ -41,7 +41,7 @@
 - **Support measured:** Existing classified contacts show 24 >=8-tick switches
   with exclusive load over all four substeps; raw flags hide 419 such ticks.
   Actual free-foot release preserves all 24 switches; 3,030 V7/V8 frames have
-  exact integer height verification. New matrix is not implemented or run yet.
+  exact integer height verification. New matrix is implemented, not run yet.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
@@ -72,7 +72,8 @@
 9. [ADR-109](../../architecture/adr/109-observable-sole-lift-and-return.md) and
    [native integration evidence](../r8b-native-lift-return-2026-09-05.md).
 10. [V8 schedule correction](../r8b-applied-stop-window-2026-09-05.md), ADR-110 and
-    [ADR-111 final evaluation](../../architecture/adr/111-final-weight-corrected-walking-evaluation.md).
+    [ADR-111 final evaluation](../../architecture/adr/111-final-weight-corrected-walking-evaluation.md)
+    and [executor paths/controls](../r8b-corrected-walking-evaluator-2026-09-05.md).
 
 ## Current evidence
 
