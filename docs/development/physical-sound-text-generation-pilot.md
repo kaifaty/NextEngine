@@ -2596,3 +2596,114 @@ existing CVAE `evaluate` with the retained flow base. The same new script with
 Source mismatch, critic/decoder gradient isolation and frozen representation
 are tested. No runtime/default/roadmap change, Cargo or ProductCheck run.
 All jobs terminal; full multi-event goal remains active.
+
+### Frozen waveform codec and conditional latent flow (2026-09-05)
+
+[Source-free four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-flow-evaluation-2026-09-05/comparison.wav>)
+is36.64s: glass10/glass16/PET10/glass10fast, each retained STFT base then new
+latent flow, seed2718/gain1. [Standalone generated sound](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-flow-2026-09-05/first-audition/generated.wav>)
+needs only eleven object/event controls and randomness, not a reference/cache.
+This candidate remains rejected: partial gains do not establish water quality.
+
+`physical_sound_pouring_wave_codec.py` reuses cached TangoFlux revision
+`367005e963cb3a9fb2e03a46104d7de23e34ceea`,624490208-byte Oobleck weights SHA256
+`d73619a1d1e1dc48e606632931ffce440b4959ce2a4ed5a3522c3bb573b103be`.
+No download or codec training. Strict state load, eval/frozen weights; notices
+travel with external artifacts. Powered by Stability AI; TangoFlux/Hung et al.,
+local research only. Sound of Water dataset redistribution remains unspecified.
+Current4.08s16kHz crops are resampled44.1kHz and duplicated to two channels,
+padded from179928 to180224 samples; this does not restore original high bands.
+Codec latent is64x88; output trimmed back to4.08s. Native44.1k stereo and16k mono
+diagnostics are retained without gain/clipping. This is not spatial calibration.
+
+`pouring-wave-codec-2026-09-05` uses first/middle of the same first training
+record and disclosed objects18/30:6 real,6 posterior means,18 posterior samples,
+seeds314/2718/1618. AST raw AND normalized accepts5/6 means and15/18 samples;
+CLAP6/6 and18/18. All real controls pass. Glass18 middle fails AST for every
+codec variant (Drip is near the top, but fixed Water/Pour criteria are unchanged).
+Mean/sample spectrum RMSE3.579/3.630dB, CV error0.02971/0.02965. Thus useful
+water detail survives most of these codec controls, unlike the rejected CVAE;
+not a universal codec-quality pass. [Reconstruction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-wave-codec-2026-09-05/comparison.wav>)
+is41.22s: train/glass18/PET30 middle, each real/mean/sample2718. It is NOT
+reference-free generation or success on the user's physical-control goal.
+
+`physical_sound_pouring_latent_flow.py` caches279 fixed first/middle/last crops
+of93 training recordings/13 objects in `pouring-oobleck-cache-2026-09-05`.
+Only those training targets supply channel center and scale, including posterior
+variance; std floor0.1. No excluded-object audio enters fitting/statistics.
+The892992-parameter1D conditional U-Net uses residual64/128/192/128/64 blocks,
+GroupNorm, time and eleven controls through128-dimensional affine context,
+two stride2 reductions and skip-connected interpolation. It predicts velocity
+from noise/data interpolants in the normalized64x88 waveform-codec latent.
+Targets sample cached posteriors. One2000-step fit uses seed53,batch16,AdamW
+lr3e-4,wd1e-4,clip1; first/last200 mean loss1.898/1.530.64 Euler steps generate
+a latent, then the frozen decoder produces audio. This is not converged by fiat.
+Checkpoint `pouring-latent-flow-2026-09-05` SHA256
+`72045123754eb5b47edae56aaf1a281e2ca9ece4f35f869b096714cf514f2bb4`;
+cache metadata SHA256 `743e1f2ea8e327e02469c905ac4f3d8faa32e068fc0b836d148ccfdf7f6a4307`.
+
+Evaluation retains66 individual rows:6 real,18 paired base/generated for first/
+middle train/objects18/30, plus12 paired base/generated hypothetical profiles.
+Zero unsafe outputs. All three seeds remain. Same AST raw/RMS0.005 and frozen
+six-prompt FP32 CLAP; they are not losses or complete naturalness/physics judges.
+
+| Development12 clips | Retained STFT base | Waveform latent flow |
+|---|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 7.819 |
+| Centered spectrum,dB | 5.990 | 6.724 |
+| CV absolute error | 0.441 | 0.290 |
+| AST raw/normalized | 10/12,12/12 | 0/12,0/12 |
+| CLAP positive water margin | 12/12 | 9/12 |
+| Novel AST/CLAP,out of12 | 12/12 | 0/8 |
+
+Training6: latent spectrum6.114 vs base6.339,CVerror0.236 vs0.315; AST0/6,
+CLAP2/6 versus base6/6. This improves an envelope statistic and some CLAP scores
+over CVAE, not overall quality or correct material/geometry transfer. Only two
+opened development objects are represented. Runtime/base/default stays unchanged.
+
+Bounded causal probe: [Flow Matching,v2,2023-02-08,sections3–4](https://arxiv.org/html/2210.02747v2)
+defines conditional probability paths and regression of their vector fields.
+Here the straight interpolant is x(t)=(1-t)noise+t target, target velocity is
+target-noise. To discriminate decoder failure from imperfect learned transport,
+`probe` starts at fixed steps0/32/56/64 of the SAME64-step grid, using encoded
+target information only for nonzero starts. No training or solver-step sweep.
+`pouring-latent-trajectory-probe-2026-09-05` retains72 WAVs and a54.96s preview;
+posterior seed=seed+1000, noise seed314/2718/1618. Start1 is codec control;
+only start0 is source-free. Other starts cannot be promoted as the solution.
+
+| Start t | Train AST raw/normalized,out of6 | Dev AST both levels,out of12 | Dev CLAP,out of12 |
+|---|---|---|---|
+| 0 | 0/0 | 0 | 9 |
+| .5 | 1/0 | 1 | 9 |
+| .875 | 6/6 | 9 | 12 |
+| 1 | 6/6 | 9 | 12 |
+
+Late privileged paths preserve recognition, unlike paths beginning far from
+the target. This localizes a learned-transport deficit; it does not prove an
+exact failing timestep, insufficient capacity or a particular loss fix.
+`field-diagnostic.json` uses all279TRAIN cached crops, three seeds, times
+0/.25/.5/.75/.875/.984375,batches32. For each seed, draw posterior target, then
+noise, then a single random condition permutation, reusing these across times.
+Compare learned correct/shuffled controls against k(t)x, with
+k(t)=(2t-1)/((1-t)^2+t^2), the unit-diagonal-Gaussian marginal field.
+This is a control, NOT a true data lower bound. Correct conditions beat shuffled
+on764–815/837 pairs per time, so the model does not wholly ignore controls.
+Its velocity MSE is nevertheless worse than the Gaussian control at t0
+(1.349>1.000),t.875(1.487>1.280),t.984375(1.448>1.032), while better at t.5
+(1.631<1.998). Conditioning use does not certify physical correctness.
+
+Next bounded implementation: Gaussian skip k(t)x plus a learned residual,
+against a matched plain-velocity control; same cached data,2000steps/seed53,
+both zero-initialized output layers. This targets the measured endpoint-field
+deficit, not an unsupported epoch/capacity increase. Judge new source-free WAVs
+and endpoint errors together; retain decoder/base and all failed seeds. No
+epoch/lr/capacity or seed/threshold sweep. No additional fit launched yet.
+
+CLI paths: waveform codec `--source --output`; latent flow `cache --source
+--output`, `train --cache --output`, `render --model --controls ELEVEN_VALUES
+--output`, `evaluate --source --model --base --output`, `probe --source --model
+--output`. Render never opens source/cache. CLI replay before/after shared ODE
+helper extraction reproduces first-audition hash exactly:
+`22c73aef2ee7a04b9ef0019ce61f6cf19f77dcdaec523e788e100f59473c0180`.
+105 focused tests, Ruff and198 new WAV hash/format/finite/headroom checks pass.
+All jobs terminal; no new download, runtime/roadmap/ProductCheck promotion.
