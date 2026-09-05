@@ -1327,3 +1327,113 @@ are checked; source units, selected training membership and standalone no-audio
 input are verified.48kHz synthesis is opt-in; friction's22.05kHz default is
 unchanged. The fit's script hash precedes whitespace-only Ruff formatting.
 No Cargo/ProductCheck, engine audition, demo replacement or production promotion.
+
+## Geometry-conditioned temporal pouring flow (2026-09-05)
+
+[Neural pouring audition](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-audition-2026-09-05/generated.wav>)
+is4.08s of independently sampled audio: glass cylinder, height10cm,
+top/bottom diameter7cm,15s pouring event at elapsed fraction0.2, seed2718.
+Audition gain10 is explicitly recorded; it is not calibrated acoustic loudness.
+The [unamplified standalone output](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-standalone-2026-09-05/generated.wav>)
+uses the same conditions. Inference reads only weights, metadata and controls,
+not a source WAV or an audio-derived embedding. This new combination is a
+generation example, not a physically validated new case.
+
+### Source and model
+
+[Sound of Water](https://huggingface.co/datasets/bpiyush/sound-of-water),
+by Piyush Bagad, Makarand Tapaswi, Cees G. M. Snoek and Andrew Zisserman,
+provides full pouring recordings with container measurements and material/shape
+annotations. We pin revision `12575460ee39d6adaebbe5aff531a5f4a24a627b`.
+Its dataset card/root inventory does not specify redistribution terms; the
+separate GitHub software/model MIT license is NOT inherited by the recordings.
+Data, weights and generated audio remain local research artifacts, excluded from
+distribution. No YouTube samples or publisher Test I/II/III recordings are used.
+
+From the195 publisher-training rows, annotation-only filters select123:
+`clean=yes`, `flow_rate_appx=constant`, `liquid=water_normal`, supported materials
+glass/plastic/plastic_pet/plastic_pp and cylindrical/semiconical shapes.
+`sound-of-water-source-2026-09-05` contains123 original48kHz mono PCM16 WAVs
+(110,261,540bytes), README and original training CSV. All125 files pass their
+publisher Git-blob SHA1 or LFS SHA256 plus local size/SHA256 checks. Every
+recording's length agrees with its annotated trim duration within0.05s.
+The source's numeric dimensions are used; approximate constant flow is NOT
+converted into measured ml/s, nor elapsed fraction into an exact liquid height.
+
+Entire containers18(glass,13 recordings) and30(PET,17) are excluded before
+optimization. Remaining93 recordings from13 objects train the model. This is
+a disclosed new-container development experiment inside the publisher training
+split; repeated recordings of TWO excluded objects are not30 independent objects.
+All30 are evaluated in source order, without selecting favourable examples.
+
+`physical_sound_pouring_pilot.py` implements a245,985-parameter conditional
+2D U-Net with FiLM blocks, frequency/time coordinates and11 physical/event
+inputs:3 dimensions, duration, elapsed fraction,4 material indicators and2
+shape indicators. It learns rectified-flow velocity on256×256 log-magnitude
+STFT patches, not a constant average spectrum. Audio is resampled to16kHz;
+FFT512/hop256, fixed floor-100dB and fixed scale `(dB+50)/25`. No evaluation
+statistics set normalization. Seed53,1,500 AdamW updates, batch6,lr0.0003,
+weight decay0.01, gradient norm cap1; random patches from training files only.
+Final inference uses64 Euler steps and32 phase-reconstruction iterations.
+Training loss first/last100 averages0.78788/0.36540; no quality claim follows
+from that training-loss decrease. The decoder/source checks preceded fitting.
+
+The [paper](https://arxiv.org/html/2411.11222v2) discusses changing resonances
+during pouring and a reference-conditioned DDSP simulator. This experiment
+instead learns a spectrogram distribution conditioned on numeric/object inputs;
+it neither downloads the authors' model nor executes their repository. Their
+inverse-property results do not establish this generator's physical accuracy.
+
+### New-container results and automatic checks
+
+Each withheld recording supplies its FIRST4.08s only. Baseline retrieval chooses
+a training recording by distance in the same normalized metadata, then decodes
+its first patch. The oracle decodes the exact target spectrogram. Neither
+baseline nor oracle is presented as learned generation. Shared playback gain1
+preserves level differences. All120 WAVs, exact controls and selected baseline
+IDs are in `pouring-flow-2026-09-05/result.json`.
+
+| Excluded object | Neural spectrum RMSE,dB | Nearest training example | Reference decoder |
+|---|---:|---:|---:|
+| Glass18,13 recordings | 13.6119 | 16.9067 | 0.1810 |
+| PET30,17 recordings | 8.8309 | 7.0877 | 0.1581 |
+| All30 | 10.9027 | 11.3426 | 0.1680 |
+
+Neural wins16/30, but loses the PET group; this is not robust material transfer.
+Median neural level error is-8.995dB. Mean10ms envelope CV is0.599 versus
+real1.179 and oracle1.106. The oracle has median level error-0.104dB.
+Thus the existing representation/decoder can preserve these measurements much
+better than the first learned model: the next discriminator belongs in learned
+level/envelope prediction and conditioning, not another data-source search.
+The comparison contains the first source-order example of EACH held-out object,
+real -> neural -> oracle,27.48s, rather than selected classifier winners.
+
+Frozen AST, with the unchanged `Water`/`Pour` diagnostic labels, places at least
+one expected tag in its top5 for30/30 real,30/30 oracle and29/30 neural clips.
+Silence/noise/tone controls also retain their expected tags. Unlike the rain
+pilot, these relevant positive controls pass. This supports coarse water-event
+recognizability, NOT naturalness, correct vessel material, dimensions or flow.
+The same NumPy mel-filter warning persists; pretraining disjointness is not
+asserted. Raw scores/revision/provenance are in `tags.json`; no thresholds were
+changed, no AST score trained the generator, and no result is promoted.
+
+Reproduce with fresh external outputs:
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_pouring_pilot.py \
+  --source /home/kaifaty/.codex/experiments/nextengine/physical-sound/sound-of-water-source-2026-09-05 \
+  --output /absolute/external/new-pouring-fit
+lab/.venv/bin/python lab/scripts/physical_sound_pouring_pilot.py \
+  --render-model /absolute/external/new-pouring-fit --height 10 \
+  --diameter-top 7 --diameter-bottom 7 --material glass --shape cylindrical \
+  --duration 15 --progress 0.2 --seed 2718 --playback-gain 10 \
+  --output /absolute/external/new-pouring-audition
+```
+
+`--acquire --output /absolute/external/new-source` reproduces bounded acquisition.
+`--device cpu` is available for standalone inference; fitting currently uses
+CUDA. Timing/geometry CLI bounds are numerical guardrails, NOT an empirical
+generalization envelope. Do not promise unsupported extrapolation.40 focused
+tests pass, including reference-free inference, checkpoint identity, whole-object
+exclusion, bounded annotation parsing, phase-transform controls and neural
+conditioning gradients. Ruff passes. No runtime/demo or product-roadmap changes.

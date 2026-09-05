@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / RAIN_WAVEFORM_BASELINE / TEMPORAL_STRUCTURE_MISSING.
+Status: ACTIVE_GOAL / TEMPORAL_POURING_GENERATOR / LEVEL_AND_ENVELOPE_MISMATCH.
 
 ## Resume in 60 seconds
 
@@ -12,30 +12,24 @@ Status: ACTIVE_GOAL / RAIN_WAVEFORM_BASELINE / TEMPORAL_STRUCTURE_MISSING.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [neural rain](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2mm-2026-09-05/generated.wav),
-  8s/48kHz,2mm accumulated over5min/seed2718; no recording at inference.
-  Stationary forest soundscape, not isolated rain or unseen-intensity evidence.
-  [Rain comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/rain-short-comparison.wav):
-  real -> neural -> reference-spectrum control at0.4, then6.2mm/5min,51s.
-  Shared gain0.980778, no individual matching. Friction/demo/base unchanged.
+- **Latest primary artifact:** [neural pouring audition](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-audition-2026-09-05/generated.wav),
+  4.08s/16kHz, glass cylinder10cm high/7cm diameter,15s pour at fraction0.2,
+  seed2718, explicit audition gain10. No recording at inference; not calibrated.
+  [New-container comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-2026-09-05/comparison.wav):
+  first source-order glass/PET cases, real -> neural -> oracle,27.48s, gain1.
+  Coarse water event recognized; exact material/geometry response unproven.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest roots: `amazon-rain-neural{,-2mm}-2026-09-05`, under
+  Latest roots: `pouring-flow{,-standalone,-audition}-2026-09-05`, under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-- **Matched impact result:** prior improves only1/14 event crops, all seven
-  class means decline. Retain base; no LoRA sweep. Positive striker margins
-  after cropping revise earlier window-confounded failures, not material proof.
-- **Extraction boundary:** first10ms RMS crossing max(-50dBFS,0.1peak),50ms
-  pre-roll, same policy for empties; no amplification/stretch. Uncalibrated,
-  discrete-event policy, not continuous rain/water. Old unmatched-empty
-  `tangoflux-fracture-event-window` evidence is superseded; do not reuse it.
+- **Impacts:** prior improves only1/14 matched event crops; retain base, no LoRA
+  sweep. Prefix/old unmatched-empty failures are superseded; exact extraction
+  boundary and evidence in pilot note. Striker margins are not material proof.
 - **Physical-control source:** `cluster-texture-training-grid-2026-09-05`,
   Figshare29438288v5, CC-BY4.0,60 records/242 files/86.69MB: wood0/steel65/glass74,
-  urethane probe,20/30/40/50/60mm/s ×0.5/1N, direction0/repeats0/1. Hash checked.
-  Train24 repeat0 at20/30/50/60;12 scans40mm/s and24 repeat1 development.
-  Same surfaces, not new objects. Keep measured and commanded controls separate.
-  Mini has no raw audio; full ZIP range reader must resolve canonical Figshare
-  URL per request (signed redirect expires after10s). No full-archive MD5 check.
+  Urethane probe,20–60mm/s ×0.5/1N. Same surfaces, not new objects. Keep
+  measured/commanded controls separate. Range reader resolves canonical URL
+  per request (10s redirect expiry); mini lacks raw audio. Details in pilot note.
 - **Crossed-velocity result:** fixed rank4/4,804params/1500steps. Neural versus
   interpolation spectrum RMSE30:1.904/1.759;40:1.690/1.729;50:1.850/1.788dB.
   Pooled1.815/1.758,11/36 wins. Stop this three-surface capacity/epoch/basis
@@ -46,36 +40,43 @@ Status: ACTIVE_GOAL / RAIN_WAVEFORM_BASELINE / TEMPORAL_STRUCTURE_MISSING.
   spectra. That score is not independent quality validation. It does not prove
   the generator uses only noise. Upstream noncausal NLMS inspected, not executed;
   no exact archive-preprocessing replay. Audit JSON in speed50 root.
-- **Rain source:** `amazon-rain-source-probe-2026-09-05`, DataSuds DOI
-  10.23708/I0QYNM V2, CC-BY4.0. Three60s/48kHz WAVs match0/.4/6.2mm/5min;
-  original CSV43944 `?format=original`,381270141bytes, MD5d91a06cecf3af48a205bdf43c48abee1.
-  Converted TSV exceeded publisher size; incomplete `.part` is rejected/unused.
-  48,208 rows,513 linear rawPCM16²/Hz bins; divide32768², then10log10.
-  Welch1024 matches all three WAVs within0.000020dB.33 filenames start seconds
-  after their valid table minute, not sample-level gauge alignment. No class
-  relabeling. Cross-site43958/43957 unfetched; only three full WAVs published.
-- **Rain fit:**1,384params/rank8,seed41/2000steps,948wet+948dry selected train.
-  Day split and adjacent-day guards; May10 development. Wet364 development
-  rows/19days: neural/interpolation7.469/7.580dB,191 wins. Small spectral gain,
-  not quality or unseen-intensity proof. Rows/model/results external, note below.
-- **Rain discriminator:** AST misses BOTH real wet clips; not an acceptance
-  validator here. Exact8s stationary-spectrum control loses10ms envelope
-  variation (light0.301 versus real0.854); temporal reference restores0.845.
-  [Representation comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/light-rain-temporal-comparison.wav),25.5s,
-  real -> stationary -> temporal. Reference-dependent reconstruction, NOT neural
-  generation/quality acceptance; heavy temporal crest overshoots9.10 versus3.78.
+- **Rain baseline:** source DataSuds10.23708/I0QYNM V2/CC-BY4.0, exact
+  original-CSV units/timestamps verified; rejected converted TSV remains unused.
+  Only three full WAVs; cross-site43958/43957 unfetched. Small wet-day spectral
+  gain7.469/7.580dB is not waveform quality. Stationary spectrum loses temporal
+  structure; AST fails real wet controls. No further rain-spectrum MLP sweep.
+  Artifacts/units/controls in pilot note and `amazon-rain-neural-2026-09-05`.
+- **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al.,
+  HF `bpiyush/sound-of-water` revision12575460ee39d6adaebbe5aff531a5f4a24a627b.
+  Dataset redistribution unspecified; do NOT inherit separate software MIT.
+  Local research only.123 full48kHz WAVs/110261540bytes plus README/train CSV,
+  125 files publisher/local hash verified. Annotation-only clean/constant/water
+  selection. Author Test I/II/III and YouTube files not used. No foreign code run.
+  93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
+  Approximate constant flow is not measured ml/s or exact liquid level.
+- **Pouring fit:**245985params conditional STFT flow U-Net, seed53/1500updates,
+  batch6/lr3e-4,64 Euler/32 phase-reconstruction steps. Fixed16k/FFT512/hop256,
+  256×256 patches; material, shape, dimensions, duration, elapsed fraction inputs.
+  All30 excluded-object recordings get fixed FIRST4.08s/seed314 evaluation.
+  Neural/nearest/oracle spectrum RMSE10.903/11.343/0.168dB;16/30 neural wins,
+  but PET group loses8.831/7.088dB. Median neural level-8.995dB; envelope CV
+  0.599 versus real1.179/oracle1.106. Not robust physical generalization.
+- **Pouring validator:** unchanged AST Water/Pour top5 real30/30,oracle30/30,
+  neural29/30; simple negative controls pass. Useful coarse-event check, not
+  material/naturalness acceptance. NumPy mel-filter warning remains. No tuning
+  to these scores. Exact model/results/raw tags in pouring root and pilot note.
 - **Prior controls:** codec checks reject gross corruption. No posterior-mean,
   duration/CFG or caption-bank threshold retries; exact evidence in pilot note.
   ESC-50 physical attributes are null; no material-identity validation for steel.
-- **Next action:** acquire a broader FULL-WAVEFORM source with trustworthy
-  physical controls and train temporal/event structure; produce new playable
-  neural audio, not only a validator. Three rain WAVs/spectral tables cannot
-  establish this. No rain spectrum MLP width/epoch sweep or AST threshold tuning.
-  Preserve reference-dependent controls as controls. Keep cross-site tables out
-  of tuning; group temporal evidence by storm/day, not adjacent random rows.
+- **Next action:** improve this temporal generator, not another source search.
+  Discriminate conditioning error versus flow integration/level-loss bias with
+  swapped controls and step refinement; keep the original checkpoint. If the
+  integrator is not causal, test a focused level/envelope-aware training loss
+  with a new playable output and unchanged full development comparison. No
+  physical-accuracy claim from AST or reconstruction; no generic epoch sweep.
   No repeated generic-caption/glass SFT sweeps, modal-MLP restart, invented labels,
   protected reuse or new stack. Demo/base unchanged; no product admission.
-- **Verification:** rain fit/inference/AST/temporal probe terminal;34 focused
+- **Verification:** pouring fit/inference/AST terminal;40 focused
   tests and Ruff pass. Source units/hashes, no-reference inference and WAV
   checks verified; exact evidence in pilot note. No Cargo/ProductCheck
   or engine audition: external Python lab only.
