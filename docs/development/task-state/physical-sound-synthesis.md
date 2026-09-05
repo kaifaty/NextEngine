@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FIRST_SOURCE_FREE_3D_CONTACT_PAIR / EXACT_REPLAY_FAILS / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / 3D_CONDITIONING_DIAGNOSED / CACHED_DECODER_REPEAT_EXACT / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -10,7 +10,18 @@ Status: ACTIVE_GOAL / FIRST_SOURCE_FREE_3D_CONTACT_PAIR / EXACT_REPLAY_FAILS / N
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [3D neural contact A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-pair-2026-09-06/comparison.wav),6.444s.
+- **Latest primary:** [original→changed point layout](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/layout-comparison.wav),6.444s;
+  samefolder contact/appearance pairs +6casegallery.9cases,exactinitialnoiseall,
+  full131072stereosamples/gain1/noEQ/crop. Geometry-layout/SHappearance interventions
+  testDEPENDENCY,notcalibratedrealshape/material. No fit/newdata/sourceaudioinput.
+  Geometry/appearance affectwave.7420/.9077relativeRMS;contactB.07055;zeropos.08278.
+  CachedA/fullA/cachedArepeatEXACT throughdecoder+PCM;reencodingAfirstdiffers at
+  Gaussianfeatures(.0019566)→PCM(.0037788). Driftlocalizedtoencoderpath,notexactkernel.
+  Actualfusion hasONEpositionkey:Q/K/Vgradnorm0/0/.05807;zeroqueriesleavesattention
+  unchanged. CannotselectspatialGStokensinTHISattention;residual/decoderstillcan
+  learnposition. Do NOT inferwholemodelignoresgeometry/position or blindlyamplify.
+  Report/probe roots`sonicgauss-conditioning-{report,probe}-2026-09-06`;14testsPASS.
+- **Previous primary:** [3D neural contact A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-pair-2026-09-06/comparison.wav),6.444s.
   [Recorded A→neural A→recorded B→neural B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-assessment-2026-09-06/reference-generated-comparison.wav),13.944s.
   Published shared SonicGauss, NO new training. ObjectFolderReal6 glass bowl,
   disclosed canonical TRAIN parent realimpact-6-bowl--objectfolder-real-object-6.
@@ -44,11 +55,13 @@ Status: ACTIVE_GOAL / FIRST_SOURCE_FREE_3D_CONTACT_PAIR / EXACT_REPLAY_FAILS / N
   `sonicgauss-contact-pair-2026-09-06` and `sonicgauss-contact-replay-2026-09-06`.
   Duplicate voxels observed but NOTproven driftcause. No retry-to-green.
   Warm.61–.65s excludesstartup,notruntimeperformance. All jobs terminal.
-- **Next:** discriminate whether actual geometry/contact differences survive
-  shared3Dencoder and frozen decoder, with geometry/appearance and cached-
-  conditioning controls BEFORE training. Do not start per-objectfits/seed/EQ
-  sweeps or more2Dloss tuning. KnownTRAINbowldemo is NOTnew-object evidence.
-  SonicGauss as-is lacks absolute size/force/striker controls (collisionbelow).
+- **Next primary:** same-model multi-object audible baseline, then shared contact-
+  awarefit with object-disjoint fine-tuning development; no per-bowl gain/seed/EQ/
+  geometry sweep. Metadata-only correcteddisclosedTRAIN∩authorTRAIN candidates:
+  2/6/12/14/24/66/75/94/95/97 (counts28/39/30/26/33/26/46/40/42/36). No newpayload yet.
+  36/70NOTauthorTRAIN;don'topenauthorval toinclude;80quarantinedUnknown;41/92guarded.
+  All arepretrainedTRAIN,so localobjectsplit≠pristineunseenobject. Trainingpath
+  usesnormalcontact+flowMSE;force/strikerabsent. Sonicstilllackssize/force/striker.
 - Reproduce via `lab/scripts/physical_sound_sonicgauss_pilot.py`:
   `--source SOURCE --assets ASSETS --input RANGE --output NEW_EXTERNAL`.
   Above2PYTHONPATHoverlays,HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,

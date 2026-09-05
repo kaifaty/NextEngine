@@ -6076,3 +6076,85 @@ conditioning controls before retraining. The two real reference sounds differ
 substantially while generated pair remains close. Do not jump to per-object fits,
 seed sweeps, globalEQ or more2Dloss tuning. This source still lacks explicit size,
 striker material and force; those full-goal requirements remain open.
+
+## 3D conditioning survives; contact fusion has a singleton-key limit — 2026-09-06
+
+Playable counterfactuals, each6.444s baseline→intervention:
+[contact A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/contact-comparison.wav),
+[original→contracted point layout](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/layout-comparison.wav),
+[original→neutral SH appearance](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/appearance-comparison.wav).
+These test model dependency, NOT calibrated changes of real shape/material.
+Contract only normalized Gaussian center x-coordinates by0.6 around contactA;
+ellipsoid scales/orientations and contact encoder input stay fixed. Appearance
+intervention zeros SH DC/rest, not opacity/geometry and not physical composition.
+
+[Probe](../../lab/scripts/physical_sound_sonicgauss_condition_probe.py) reuses the
+same hash-verified frozen model/source/input and original50step/seed0/noCFG path.
+It captures Gaussian features, position encoding, fusion output, pooled projection,
+first diffusion noise, final latent and FULL decoded PCM. Cached Gaussian features
+restore the captured post-encoder CPU/CUDA RNG state: all nine cases have EXACT
+same initial diffusion noise. No audio/reference input, new payload, fit or changes
+to learned weights. All samples remain external.
+
+The original full pipeline A, cachedA and cachedA-repeat have EXACT equal features,
+fusion, pooled projection, final latent and PCM in the report run. Recomputing the
+Gaussian encoder for fullA-repeat first differs at its output (relativeRMS.0019566)
+and leads to waveform.0037788 drift. Thus the measured repeat drift is localized
+to the geometry encoder path; it is NOT diffusion noise or an unavoidable decoder
+repeat failure for cached inputs. The exact sparse-kernel/duplicate-voxel cause
+remains unproven; no deduplication/backend sweep or global determinism claim.
+
+| Intervention vs A | Gaussian feature relativeRMS | Fused relativeRMS | Final latent relativeRMS | Waveform relativeRMS |
+|---|---:|---:|---:|---:|
+| Contact B, identical cached geometry |0|.061013|.009535|.070553|
+| Contract center layout x |1.156886|1.148402|.248235|.742004|
+| Neutral SH appearance |.309383|.309067|.116604|.907684|
+| Zero position embedding |0|.143039|.013538|.082785|
+| Zero fused conditioning |0|1|.248686|.732952|
+
+ContactA/B position encodings themselves differ by relativeRMS1.03215. The model
+does not ignore geometry, appearance or conditioning globally; replacing its
+geometry encoder on that premise is unsupported. Contact variation is weaker in
+the fused signal and final latent for this pair. Relative changes at different
+stages are descriptive, not a theorem about lost information, perceptual distances
+or proof that increasing a conditioning gain improves physical accuracy. Zero
+fused conditioning still leaves duration and the learned pooling-layer bias.
+
+Read the pinned training path: contact uses the same normalization as inference;
+the sampled VAE latent is trained with flow-matching MSE. No explicit force or
+striker descriptors are supplied. No training script was executed. Reference
+amplitude differences alone cannot therefore isolate a contact-model error from
+unobserved excitation differences.
+
+A private copy of the actual published FeatureFusion gives Q/K/V projection
+gradient norms0/0/.0580734 on the cachedA inputs. Zeroing all geometry queries
+leaves its attention output EXACT equal. The reason is structural: the attention
+key/value sequence consists of just ONE position embedding, so softmax weights
+are constant. This attention operation cannot select among spatial Gaussian
+tokens. The residual Gaussian features, FFN and downstream transformer STILL can
+learn geometry/position dependence; do not claim the whole model ignores position
+or that this finding alone proves the quality cause. Source is the already-pinned
+`stage3/common.py`; no code/weight repair or query/key reversal was applied.
+
+External roots: initial `sonicgauss-conditioning-probe-2026-09-06` retained;
+final instrumented `sonicgauss-conditioning-report-2026-09-06` includes9NPZ,
+9individualWAV, three pair comparisons and a six-case20.833s gallery. Sharedgain1,
+131072stereo samples per generation at44100Hz, no EQ/crop/normalization/gates.
+The initial run also localized encoder drift and cached equality; the final run
+adds structural measurement/pair files, not model/seed/quality selection. Runner
+arguments/environment match the prior pilot, substituting the probe script.
+
+Next end-to-end work should establish the SAME-model multi-object baseline and
+then a shared contact-aware fit with object-disjoint fine-tuning development,
+not per-object/shape/appearance/gain sweeps on this bowl. Metadata-only
+intersection of corrected disclosed TRAIN and author TRAIN yields objects
+2/6/12/14/24/66/75/94/95/97; source counts28/39/30/26/33/26/46/40/42/36.
+Objects36/70 are absent from author TRAIN: do not search its validation payload
+to include them. Object80 remains Unknown/quarantined, and41/92 guards remain.
+All ten are generator-pretraining TRAIN, so a new local object split would measure
+fine-tuning transfer only, NOT pristine unseen-object generalization.
+
+Focused tests14/14 (five new probe, five pilot, four scale-probe), Ruff and full
+media layout/shared-gain/headroom checks PASS. Full geometry re-encoding still
+FAILS bitwise replay; cached-condition replay PASSES within this measured run.
+No runtime/demo/roadmap promotion; Cargo/host-check/ProductChecks NOT_RUN.
