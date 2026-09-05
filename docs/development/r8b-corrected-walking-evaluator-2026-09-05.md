@@ -81,3 +81,31 @@ with these exact paths:
 Verify all five final episodes, their closed hashes and visual motion before
 claiming learned walking. Retain the original V7 failed-gate identity. No extra
 intermediate evaluations or restarts are justified while that source is live.
+
+## Full-episode video preparation
+
+`lab/scripts/render_native_walking_video.py` consumes only a completed corrected
+evaluation and its hash-verified native/support artifacts. It does not initialize
+a simulator or policy, select a checkpoint, interpolate or discard frames.
+It renders all native samples at 60 fps, with side/front body-origin connections
+and actual sole boxes plus separate foot close-ups. Captions explicitly label
+the geometry as body origins rather than a surface mesh, and retain failed
+episodes as failures. Output must be fresh and outside the closed evaluation.
+
+Three focused tests cover geometry, complete-body token identity and closed
+artifact/seed validation. Synthetic encoding preserves exactly 12 frames / 0.2 s.
+The existing fixed open-loop control renders exactly 1,200 frames / 20 s at
+1200 × 800, verified by ffprobe; inspected middle/end images show the lifted
+right sole and final bilateral ground contact without clipped labels. This is
+visualization validation, not another learned checkpoint evaluation.
+
+External root's `video-control-01/control-manifest.json` SHA-256 is
+`0ced95921b4636f147c9f0eb0ee6c2de46d07be7d49ffb08b050edf3a24d9718`;
+its `walking.mp4` is
+`78b4acd95b02db902b5eb2e3b899893c336fda5ca9c6d62c4488813deb73dc4f`.
+The control is explicitly captioned **not final policy**. Final video remains
+NOT RUN until the completed final evaluation exists. After that, invoke
+`python -m lab.scripts.render_native_walking_video` with `--evaluation` pointing
+to external `final-evaluation-01`, `--output` to fresh `final-video-01`, and
+default seed 1001; inspect the resulting whole video and retained preview frames.
+PASS: 54 combined focused evaluator/adapter/contact/video tests, Ruff and format.

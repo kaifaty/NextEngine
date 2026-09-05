@@ -23,8 +23,9 @@
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
   final model 9999. V8's schedule repair passes native controls and host-check.
-  ADR-111 final-only executor is implemented; 51 tests, 5,120 multi-slot and
+  ADR-111 final-only executor is implemented; 54 tests, 5,120 multi-slot and
   1,200 full-tape V8 adapter controls pass. Run it only after source closure.
+  Full-episode 60-fps video output is prepared; paths are in the executor report.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
