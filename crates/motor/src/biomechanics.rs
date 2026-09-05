@@ -133,6 +133,71 @@ pub fn biomechanics_humanoid_body_schema_v5() -> BodySchemaV2 {
     schema
 }
 
+/// V5 anatomy with full-tensor, source-preserving principal inertia in PhysX.
+#[must_use]
+pub fn biomechanics_humanoid_body_schema_v6() -> BodySchemaV2 {
+    let mut schema = biomechanics_humanoid_body_schema_v5();
+    schema.schema_id = id("nextengine.body.humanoid-biomechanics-raja-1700.v6");
+    schema.schema_revision = 6;
+    schema.source_provenance_hash =
+        domain_hash(b"nextengine.source.raja-1700.full-principal-inertia.v6");
+    schema.solver_projection_profile_hash =
+        domain_hash(b"nextengine.solver-projection.humanoid-biomechanics-raja-1700.v3");
+    // Q30 encoding tolerance, not a joint/contact safety tolerance. Unit
+    // eigenframes cannot generally be encoded with squared-norm error <= 1.
+    schema.rotation_norm_tolerance_q2_60 = 1_u64 << 31;
+    for (name, principal, rotation) in PRINCIPAL_INERTIA_V6 {
+        let body = schema
+            .bodies
+            .iter_mut()
+            .find(|body| body.body_id == body_id(name))
+            .expect("frozen principal-inertia body");
+        body.solver_principal_inertia_microkilogram_metre_squared = principal;
+        body.solver_principal_frame.rotation_q1_30 = rotation;
+        body.solver_tensor_error_max_microkilogram_metre_squared = 1;
+    }
+    schema
+        .validate()
+        .expect("full-tensor principal projection reconstructs source inertia");
+    schema
+}
+
+// Offline symmetric eigendecomposition of the six non-diagonal source tensors.
+// Eigenvalues rounded to micro kg m², eigenvectors encoded as canonical xyzw
+// Q30 quaternions. Runtime does no eigensolve; BodySchema validates R D Rᵀ.
+const PRINCIPAL_INERTIA_V6: [(&str, [u64; 3], [i32; 4]); 6] = [
+    (
+        "left-knee",
+        [5_117, 54_103, 54_816],
+        [536_047_538, 536_984_162, 536_476_620, 537_973_409],
+    ),
+    (
+        "right-knee",
+        [5_117, 54_103, 54_816],
+        [536_047_538, -536_984_162, -536_476_620, 537_973_409],
+    ),
+    (
+        "left-ankle-roll",
+        [1_594, 6_583, 7_621],
+        [58_491_016, -736_314_450, -26_429_896, 778_872_773],
+    ),
+    (
+        "right-ankle-roll",
+        [1_594, 6_583, 7_621],
+        [58_491_016, 736_314_450, 26_429_896, 778_872_773],
+    ),
+    (
+        "left-elbow",
+        [2_072, 19_326, 20_055],
+        [493_837_049, -518_182_404, -604_699_294, 524_282_589],
+    ),
+    (
+        "right-elbow",
+        [2_072, 19_326, 20_055],
+        [493_837_049, 518_182_404, 604_699_294, 524_282_589],
+    ),
+];
+
 fn biomechanics_humanoid_body_schema(
     schema_id: &str,
     schema_revision: u32,
@@ -985,6 +1050,121 @@ mod tests {
     }
 
     #[test]
+    fn v6_only_changes_solver_principal_projection_and_identity() {
+        let v5 = biomechanics_humanoid_body_schema_v5();
+        let mut restored = biomechanics_humanoid_body_schema_v6();
+        assert_ne!(v5.schema_hash(), restored.schema_hash());
+        restored.schema_id = v5.schema_id.clone();
+        restored.schema_revision = v5.schema_revision;
+        restored.source_provenance_hash = v5.source_provenance_hash;
+        restored.solver_projection_profile_hash = v5.solver_projection_profile_hash;
+        restored.rotation_norm_tolerance_q2_60 = v5.rotation_norm_tolerance_q2_60;
+        let mut changed = 0;
+        for (old, new) in v5.bodies.iter().zip(&mut restored.bodies) {
+            if old.solver_principal_frame != new.solver_principal_frame {
+                changed += 1;
+                assert_eq!(new.solver_tensor_error_max_microkilogram_metre_squared, 1);
+            }
+            new.solver_principal_inertia_microkilogram_metre_squared =
+                old.solver_principal_inertia_microkilogram_metre_squared;
+            new.solver_principal_frame = old.solver_principal_frame;
+            new.solver_tensor_error_max_microkilogram_metre_squared =
+                old.solver_tensor_error_max_microkilogram_metre_squared;
+        }
+        assert_eq!(changed, 6);
+        assert_eq!(restored, v5);
+    }
+
+    #[test]
+    fn v6_compiled_float32_mass_frames_reconstruct_full_source_tensors() {
+        use next_contracts::ids::PersistentId;
+        let schema = biomechanics_humanoid_body_schema_v6();
+        let compiled =
+            crate::CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))
+                .expect("compile");
+        for (slot, name) in compiled.base.construction_order.iter().enumerate() {
+            let body = schema
+                .bodies
+                .iter()
+                .find(|b| &b.body_id == name)
+                .expect("body");
+            let link = &compiled.physx_catalog.base.links[slot];
+            let q = link
+                .centre_of_mass_rotation_bits
+                .map(|b| f64::from(f32::from_bits(b)));
+            let moments = link
+                .inertia_bits
+                .map(|b| f64::from(f32::from_bits(b)) * 1e6);
+            // Independent float quaternion-vector products applied to the three
+            // basis vectors; the production validator uses rounded integer RDRᵀ.
+            let [x, y, z, w] = q;
+            let mut columns = [[0.0; 3]; 3];
+            for (axis, column) in columns.iter_mut().enumerate() {
+                let mut v = [0.0; 3];
+                v[axis] = 1.0;
+                let t = [
+                    2.0 * (y * v[2] - z * v[1]),
+                    2.0 * (z * v[0] - x * v[2]),
+                    2.0 * (x * v[1] - y * v[0]),
+                ];
+                let cross = [
+                    y * t[2] - z * t[1],
+                    z * t[0] - x * t[2],
+                    x * t[1] - y * t[0],
+                ];
+                *column = std::array::from_fn(|i| v[i] + w * t[i] + cross[i]);
+            }
+            for ((row, col), expected) in [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
+                .into_iter()
+                .zip(body.inertia_tensor_microkilogram_metre_squared)
+            {
+                let reconstructed: f64 = (0..3)
+                    .map(|i| moments[i] * columns[i][row] * columns[i][col])
+                    .sum();
+                assert!(
+                    (reconstructed - expected as f64).abs() <= 1.0,
+                    "{} ({row},{col}): {reconstructed} versus {expected}",
+                    name.as_str()
+                );
+            }
+            // Physical realizability of the solver's sorted principal moments.
+            let mut sorted = moments;
+            sorted.sort_by(f64::total_cmp);
+            assert!(sorted[0] > 0.0 && sorted[0] + sorted[1] >= sorted[2]);
+        }
+        // A missing mass-frame rotation is rejected, not silently approximated.
+        let projected = compiled
+            .physics_descriptors
+            .base
+            .bodies
+            .values()
+            .find(|b| b.base.semantic_body_id == body_id("right-ankle-roll"))
+            .expect("physical foot descriptor");
+        assert!(projected.validate().is_ok());
+        let mut malformed = projected.clone();
+        malformed.solver_principal_frame.rotation_q1_30 = [0; 4];
+        assert!(malformed.validate().is_err());
+        malformed = projected.clone();
+        malformed.solver_principal_frame.rotation_q1_30[0] += 100;
+        assert!(malformed.validate().is_err());
+        malformed = projected.clone();
+        malformed.base.base.initial_pose.rotation_q1_30 =
+            projected.solver_principal_frame.rotation_q1_30;
+        assert!(
+            malformed.validate().is_err(),
+            "legacy initial-pose rule must stay exact"
+        );
+        let mut invalid = schema;
+        let foot = invalid
+            .bodies
+            .iter_mut()
+            .find(|b| b.body_id == body_id("right-ankle-roll"))
+            .expect("foot");
+        foot.solver_principal_frame = BodyPoseV2::default();
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
     fn v5_changes_only_eight_anatomical_axes_and_two_sagittal_proxies() {
         let v4 = biomechanics_humanoid_body_schema_v4();
         let v5 = biomechanics_humanoid_body_schema_v5();
@@ -1055,6 +1235,7 @@ mod tests {
         for (schema, flexion_sign) in [
             (biomechanics_humanoid_body_schema_v4(), -1_i64),
             (biomechanics_humanoid_body_schema_v5(), 1_i64),
+            (biomechanics_humanoid_body_schema_v6(), 1_i64),
         ] {
             let compiled =
                 CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))
@@ -1229,6 +1410,7 @@ mod tests {
             biomechanics_humanoid_body_schema_v3(),
             biomechanics_humanoid_body_schema_v4(),
             biomechanics_humanoid_body_schema_v5(),
+            biomechanics_humanoid_body_schema_v6(),
         ] {
             assert_neutral_geometry(schema);
         }

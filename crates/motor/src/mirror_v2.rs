@@ -12,8 +12,19 @@ use crate::{
 /// Inspection of the canonical compiled body; not a training or mirror admission.
 pub fn biomechanics_body_diagnostic_descriptor_json_v5() -> Result<String, MotorCompileError> {
     let schema = crate::biomechanics_humanoid_body_schema_v5();
+    biomechanics_body_diagnostic_descriptor_json(&schema)
+}
+
+pub fn biomechanics_body_diagnostic_descriptor_json_v6() -> Result<String, MotorCompileError> {
+    let schema = crate::biomechanics_humanoid_body_schema_v6();
+    biomechanics_body_diagnostic_descriptor_json(&schema)
+}
+
+fn biomechanics_body_diagnostic_descriptor_json(
+    schema: &BodySchemaV2,
+) -> Result<String, MotorCompileError> {
     let mut descriptor: Value = serde_json::from_str(
-        &biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)?,
+        &biomechanics_isaac_mirror_descriptor_json_v2_for_schema(schema)?,
     )
     .expect("engine descriptor JSON");
     descriptor["translator_id"] = json!("nextengine.canonical-body-inspection.v1");
@@ -310,6 +321,14 @@ mod tests {
 
     #[test]
     fn v5_body_inspection_has_new_identity_and_no_environment_admission() {
+        let v5_text = biomechanics_body_diagnostic_descriptor_json_v5().expect("V5 diagnostic");
+        assert_eq!(
+            next_contracts::ids::content_hash_from_bytes(next_contracts::canonical::sha256(
+                v5_text.as_bytes()
+            ))
+            .to_hex(),
+            "1e3c0cefaa92cda91e1c1ae893126df0da4beee852d69a509efae597bbe86a54"
+        );
         let value: Value = serde_json::from_str(
             &biomechanics_body_diagnostic_descriptor_json_v5().expect("body inspection"),
         )
@@ -334,6 +353,18 @@ mod tests {
             old["compiled_descriptor_hash"]
         );
         assert_eq!(value["material_lineage_hash"], old["material_lineage_hash"]);
+        let v6: Value = serde_json::from_str(
+            &biomechanics_body_diagnostic_descriptor_json_v6().expect("V6 inspection"),
+        )
+        .expect("JSON");
+        assert_eq!(v6["body_schema_revision"], 6);
+        assert_eq!(v6["backend_admission"], "native-body-diagnostic-only");
+        assert!(v6.get("environment_profiles").is_none());
+        assert_ne!(
+            v6["compiled_descriptor_hash"],
+            value["compiled_descriptor_hash"]
+        );
+        assert_eq!(v6["material_lineage_hash"], value["material_lineage_hash"]);
     }
 
     #[test]

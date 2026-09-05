@@ -81,7 +81,7 @@ impl PhysicsBodyDescriptorV3 {
         {
             return Err(PhysicsContractError::InvalidDescriptor);
         }
-        self.solver_principal_frame.validate()?;
+        validate_solver_principal_frame(self.solver_principal_frame)?;
         self.base.base.initial_pose.validate()?;
         for (id, shape) in &self.base.base.shapes {
             if id != &shape.shape_id || shape.shape_id.body_id != self.base.base.body_id {
@@ -91,6 +91,30 @@ impl PhysicsBodyDescriptorV3 {
         }
         Ok(())
     }
+}
+
+// ADR-115: a principal mass frame is quantized, unlike legacy V1 scene poses.
+// This fixed band is only for the mass-frame projection; do not relax initial
+// poses, shape poses, joint limits or contact tolerances along with it.
+fn validate_solver_principal_frame(
+    frame: super::PhysicsPoseV1,
+) -> Result<(), PhysicsContractError> {
+    let norm: i128 = frame
+        .rotation_q1_30
+        .iter()
+        .map(|&v| i128::from(v) * i128::from(v))
+        .sum();
+    if frame.translation_micrometres != [0; 3]
+        || (norm - (1_i128 << 60)).unsigned_abs() > (1_u128 << 31)
+        || frame
+            .rotation_q1_30
+            .iter()
+            .find(|&&v| v != 0)
+            .is_none_or(|&v| v < 0)
+    {
+        return Err(PhysicsContractError::InvalidRotation);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]

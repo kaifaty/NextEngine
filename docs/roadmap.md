@@ -1963,11 +1963,14 @@ are not part of R8a. The current Linux `host-check`, `play`,
 passes the nominal V8 physical matrix, without robustness/runtime promotion.
 [ADR-114](architecture/adr/114-anatomical-axes-and-sagittal-body-proxies.md) now
 adds an opt-in BodySchema V5 diagnostic: eight corrected anatomical axes and
-two sagittal collider centres. Native direction and neutral-clearance tests
-pass; mass/inertia/foot and learned posture improvements remain open. No
-optimizer is active. Keep the old candidate as control; next work is a
-source-consistent inertia/foot successor and compatible standing controller,
-then a separately identified training environment. Historical run results
+two sagittal collider centres. [ADR-115](architecture/adr/115-full-principal-inertia-body-successor.md)
+adds V6 full principal inertia and fixes the quantized mass-frame descriptor
+boundary. Native reconstruction/direction/neutral-geometry tests pass. V5/V6
+both complete 30-second procedural standing, but final torso tilt is still
+7.365°/8.078°: inertia repair does not fix upright posture. No optimizer is
+active. Keep the old candidate as control; next work is upright reference /
+balance and foot mechanics, then a separately identified training environment.
+Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
 **Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /

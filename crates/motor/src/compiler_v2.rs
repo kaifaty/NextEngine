@@ -222,7 +222,14 @@ impl CompiledBodySchemaV2 {
                     non_colliding_carrier: body.colliders.is_empty(),
                     authoritative_inertia_tensor_microkilogram_metre_squared: body
                         .inertia_tensor_microkilogram_metre_squared,
-                    solver_principal_frame: physics_pose(body.solver_principal_frame)?,
+                    // Checked by BodySchema and the completed V3 descriptor's
+                    // mass-frame validator, not the legacy V1 exact-norm pose.
+                    solver_principal_frame: PhysicsPoseV1 {
+                        translation_micrometres: body
+                            .solver_principal_frame
+                            .translation_micrometres,
+                        rotation_q1_30: body.solver_principal_frame.rotation_q1_30,
+                    },
                     solver_tensor_error_max_microkilogram_metre_squared: body
                         .solver_tensor_error_max_microkilogram_metre_squared,
                 },

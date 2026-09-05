@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.53 |
+| Версия | 2.54 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -39,6 +39,14 @@ For the opt-in anatomical BodySchema V5 successor, additionally read
 motor format/lint/tests, bilateral native anatomical-direction and exact
 body-delta checks, and diagnostic descriptor export. Existing training
 environment/checkpoint compatibility is not inherited by this body.
+
+For full principal inertia / BodySchema V6, additionally read
+[SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md),
+[SPEC-35](35-deterministic-humanoid-training-substrate.md) and
+[ADR-115](adr/115-full-principal-inertia-body-successor.md). Verify source tensor
+reconstruction, exact body deltas, malformed mass frames and preserved legacy
+pose validation; run native motor tests and host/content/play/replay checks.
+The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
 

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.3; records the bounded R5j compound carried-load consumer on existing V1 descriptor/checkpoint bytes |
+| Заменяет | SPEC-26 2.4; closes the quantized principal mass-frame descriptor boundary |
+| Дополнительная зависимость V2.5 | [ADR-115](adr/115-full-principal-inertia-body-successor.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -135,6 +136,14 @@ contain no `f32` or `f64`. A private adapter source may be IEEE binary32 or
 binary64 only when an exact SPEC-21 rule decodes it as a rational, normalizes
 negative zero, rejects NaN/infinity and applies one
 `NearestTiesToEven` conversion with checked `i128` intermediates.
+
+Under [ADR-115](adr/115-full-principal-inertia-body-successor.md), the principal
+mass-frame field of `PhysicsBodyDescriptorV3` uses a dedicated Q1.30 rule:
+zero translation, first nonzero quaternion component positive, and exact
+Q2.60 squared-norm error at most `2^31`. The BodySchema independently validates
+its stricter numeric profile and tensor reconstruction. Legacy V1 initial and
+shape pose validation remains exact; this mass-frame exception does not relax
+joint/contact safety or change serialized/FFI layouts.
 
 An importer, cooker or adapter starting in another handedness, axis or unit
 MUST convert before constructing a public descriptor and bind the conversion
