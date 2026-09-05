@@ -13,7 +13,7 @@ fn offset(tick: u64, sine: bool) -> i64 {
 }
 
 fn input_offset(tick: u64, case: u32, dof: u32) -> i64 {
-    let sign = if case == 27 && matches!(dof, 1 | 8) {
+    let sign = if matches!(case, 27 | 28) && matches!(dof, 1 | 8) {
         -1
     } else {
         1
@@ -21,11 +21,42 @@ fn input_offset(tick: u64, case: u32, dof: u32) -> i64 {
     sign * offset(tick, case == 26)
 }
 
-fn parse_args(args: &[String]) -> Result<(u32, bool), &'static str> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Probe {
+    Census,
+    Combined,
+    Settling,
+}
+
+impl Probe {
+    fn cases(self) -> std::ops::Range<u32> {
+        match self {
+            Self::Census => 0..27,
+            Self::Combined => 27..28,
+            Self::Settling => 28..29,
+        }
+    }
+    fn height(self) -> f32 {
+        if self == Self::Settling { 200.0 } else { 100.0 }
+    }
+    fn ticks(self) -> u64 {
+        if self == Self::Settling { 300 } else { 240 }
+    }
+    fn id(self) -> &'static str {
+        match self {
+            Self::Census => "BODY-BANDWIDTH-01.r2",
+            Self::Combined => "BODY-COMBINED-01.r1",
+            Self::Settling => "BODY-COMBINED-01.r2",
+        }
+    }
+}
+
+fn parse_args(args: &[String]) -> Result<(u32, Probe), &'static str> {
     let (version, combined) = match args {
-        [v] => (v, false),
-        [v, mode] if mode == "abduction-step" => (v, true),
-        _ => return Err("expected 8|11 [abduction-step]"),
+        [v] => (v, Probe::Census),
+        [v, mode] if mode == "abduction-step" => (v, Probe::Combined),
+        [v, mode] if mode == "abduction-tail" => (v, Probe::Settling),
+        _ => return Err("expected 8|11 [abduction-step|abduction-tail]"),
     };
     match version.as_str() {
         "8" => Ok((8, combined)),
@@ -46,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::{BufWriter, Write};
 
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let (version, combined) = parse_args(&args)?;
+    let (version, probe) = parse_args(&args)?;
     let body = match version {
         8 => next_motor::biomechanics_humanoid_body_schema_v8(),
         11 => next_motor::biomechanics_humanoid_body_schema_v11(),
@@ -86,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = compiled.create_world()?;
     let mut reset = fixture.raw_checkpoint();
     reset.links[0].position_bits[1] =
-        (f32::from_bits(reset.links[0].position_bits[1]) + 100.0).to_bits();
+        (f32::from_bits(reset.links[0].position_bits[1]) + probe.height()).to_bits();
     for (joint, dof) in &base.joint_dof_ordinals {
         if joint.as_str().ends_with("-knee") || joint.as_str().ends_with("-elbow") {
             reset.joints[*dof as usize].position_bits = 0.1_f32.to_bits();
@@ -98,11 +129,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|s| s.position_microradians)
         .collect::<Vec<_>>();
     let mut output = BufWriter::new(std::io::stdout().lock());
-    let cases = if combined { 27..28_u32 } else { 0..27_u32 };
+    let cases = probe.cases();
     writeln!(
         output,
         "{}",
-        json!({"kind":"header","probe":if combined {"BODY-COMBINED-01.r1"} else {"BODY-BANDWIDTH-01.r2"},
+        json!({"kind":"header","probe":probe.id(),
         "body_revision":body.schema_revision,"body_schema_hash":body.schema_hash()?.to_hex(),
         "compiled_descriptor_hash":compiled.compiled_descriptor_hash.to_hex(),"physics_hz":240,
         "position_iterations":base.physx_scene_profile.position_iterations,"trial_count":cases.len(),
@@ -124,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut ticks = Vec::new();
         let mut frames = Vec::new();
         let mut reason = "horizon".to_owned();
-        'trial: for tick in 1..=240_u64 {
+        'trial: for tick in 1..=probe.ticks() {
             let reference = reset_reference
                 .iter()
                 .zip(&base.actuator_dof_ordinals)
@@ -204,6 +235,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     let _ = input_offset(0, 0, 0);
     let _ = parse_args(&[]);
+    let _ = (
+        Probe::Census.cases(),
+        Probe::Census.height(),
+        Probe::Census.ticks(),
+        Probe::Census.id(),
+    );
     panic!("requires --features physx-sdk");
 }
 
@@ -220,18 +257,27 @@ mod tests {
                     );
                 }
                 let sign = if matches!(dof, 1 | 8) { -1 } else { 1 };
-                assert_eq!(
-                    super::input_offset(tick, 27, dof),
-                    sign * super::offset(tick, false)
-                );
+                for case in [27, 28] {
+                    assert_eq!(
+                        super::input_offset(tick, case, dof),
+                        sign * super::offset(tick, false)
+                    );
+                }
             }
         }
         for version in ["8", "11"] {
             let v = version.parse::<u32>().unwrap();
-            assert_eq!(super::parse_args(&[version.into()]), Ok((v, false)));
+            assert_eq!(
+                super::parse_args(&[version.into()]),
+                Ok((v, super::Probe::Census))
+            );
             assert_eq!(
                 super::parse_args(&[version.into(), "abduction-step".into()]),
-                Ok((v, true))
+                Ok((v, super::Probe::Combined))
+            );
+            assert_eq!(
+                super::parse_args(&[version.into(), "abduction-tail".into()]),
+                Ok((v, super::Probe::Settling))
             );
         }
         for args in [
@@ -241,6 +287,40 @@ mod tests {
             vec!["11".into(), "abduction-step".into(), "extra".into()],
         ] {
             assert!(super::parse_args(&args).is_err());
+        }
+    }
+
+    #[test]
+    fn settling_has_two_return_seconds_and_preserves_original_profiles() {
+        use super::Probe;
+        assert_eq!(
+            (
+                Probe::Census.cases(),
+                Probe::Census.height(),
+                Probe::Census.ticks()
+            ),
+            (0..27, 100.0, 240)
+        );
+        assert_eq!(
+            (
+                Probe::Combined.cases(),
+                Probe::Combined.height(),
+                Probe::Combined.ticks()
+            ),
+            (27..28, 100.0, 240)
+        );
+        assert_eq!(
+            (
+                Probe::Settling.cases(),
+                Probe::Settling.height(),
+                Probe::Settling.ticks()
+            ),
+            (28..29, 200.0, 300)
+        );
+        for tick in 181..=300 {
+            for dof in 0..25 {
+                assert_eq!(super::input_offset(tick, 28, dof), 0);
+            }
         }
     }
 

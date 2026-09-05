@@ -20,6 +20,8 @@ pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4: &str =
     "nextengine.motor.procedural-standing-reference.v4";
 pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5: &str =
     "nextengine.motor.procedural-standing-reference.v5";
+pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V6: &str =
+    "nextengine.motor.procedural-standing-reference.v6";
 pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
     "nextengine.motor.procedural-walking-reference.v1";
 
@@ -307,6 +309,7 @@ enum ArticulatedStandingProfile {
     Original,
     SampledDamping,
     ScreenedDamping,
+    Bandwidth,
 }
 
 /// Exact-body-bound diagnostic standing: retained upright law, neutral MTP targets.
@@ -356,6 +359,7 @@ impl BiomechanicsProceduralStandingControllerV3 {
             ArticulatedStandingProfile::ScreenedDamping => {
                 PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5
             }
+            ArticulatedStandingProfile::Bandwidth => PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V6,
         }
     }
 
@@ -374,6 +378,21 @@ impl BiomechanicsProceduralStandingControllerV3 {
         })
     }
 
+    /// Exact V11 diagnostic; unchanged upright equations, distinct identity.
+    pub fn new_bandwidth(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Ok(Self {
+            base: BiomechanicsProceduralStandingControllerV2::new_with_schema(
+                compiled,
+                reset_snapshot,
+                &crate::biomechanics_humanoid_body_schema_v11(),
+            )?,
+            profile: ArticulatedStandingProfile::Bandwidth,
+        })
+    }
+
     #[must_use]
     pub fn contact_profile_hash(&self) -> ContentHash {
         match self.profile {
@@ -384,6 +403,7 @@ impl BiomechanicsProceduralStandingControllerV3 {
             ArticulatedStandingProfile::ScreenedDamping => {
                 crate::screened_damping_contact_profile_hash()
             }
+            ArticulatedStandingProfile::Bandwidth => crate::bandwidth_contact_profile_hash(),
         }
     }
 
@@ -405,6 +425,9 @@ impl BiomechanicsProceduralStandingControllerV3 {
             }
             ArticulatedStandingProfile::ScreenedDamping => {
                 b"nextengine.humanoid-procedural-standing.v5\0".to_vec()
+            }
+            ArticulatedStandingProfile::Bandwidth => {
+                b"nextengine.humanoid-procedural-standing.v6\0".to_vec()
             }
         };
         bytes.extend_from_slice(self.profile_id().as_bytes());

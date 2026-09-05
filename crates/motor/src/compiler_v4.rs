@@ -31,6 +31,10 @@ impl CompiledBodySchemaV4 {
         self.subject_for_schema(&crate::biomechanics_humanoid_body_schema_v10())
     }
 
+    pub(crate) fn bandwidth_subject(&self) -> Result<PersistentId, MotorCompileError> {
+        self.subject_for_schema(&crate::biomechanics_humanoid_body_schema_v11())
+    }
+
     fn subject_for_schema(&self, schema: &BodySchemaV2) -> Result<PersistentId, MotorCompileError> {
         let subject = self
             .base

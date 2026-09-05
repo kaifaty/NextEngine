@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `V11_COMBINED_CONTACT_FIXED / RETURN_SETTLING_FAILED / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
+| Status | `V11_TWO_SECOND_RESPONSE_PASS / LOADED_STANDING_FAILED / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -26,7 +26,8 @@
 - [Whole-body screen](../r8b-whole-body-gain-calibration-2026-09-06.md):100 individual plus4 matched-origin combined implicit-drive traces; eight D candidates improve the tested channels. Fixed pelvis/no ground only. General-pose tuner inertia suspect; no auto-ratio1 for all joints.
 - [Native V10 test](../r8b-native-gain-calibration-2026-09-06.md), ADR-121: eight-D transfer fails at22/240s, left MTP9.533921rad/s>8.001; fresh review matches550/180000 efforts and first failure. Exact repeat/V8 control. D-only transfer is insufficient; no loaded-prefix reruns.
 - [V11 native bandwidth test](../r8b-native-bandwidth-calibration-2026-09-06.md), ADR-122: joint K+D correction passes25 isolated steps plus simultaneous sine; all-positive simultaneous step fails foot-foot contact at268. Fresh review confirms1,138,350 efforts/flags,54 failure boundaries and exact-target foot overlap. V8 passes0/27;156 native tests pass. Keep r2 failure and fixed V11 gains.
-- [Combined-input successor](../r8b-combined-input-calibration-2026-09-06.md), ADR-123: only hip-roll signs reversed. All177 collider pairs clear1001 sampled poses; both bodies finish960 native steps. V11 tracking passes but left-elbow final RMS speed0.055038>0.05; r1 FAIL. Exact repeat/old census; fresh review confirms177177 geometry pairs and48000 efforts/flags. Next discriminate two-second return settling without changing gains/threshold or erasing r1. Initial step shows low-frequency decay; second return second unobserved. Loaded support/poses/disturbances remain open; no V11 standing/training admission.
+- [Combined-input successor](../r8b-combined-input-calibration-2026-09-06.md), ADR-123: paired abduction clears177 collider pairs over1001 poses; V11 completes960 substeps but one-second-return elbow RMS0.055038>0.05 fails. Preserve r1, exact repeat and independently checked geometry/48000 efforts; no gain retuning.
+- [Symmetric settling and loaded test](../r8b-symmetric-settling-and-load-2026-09-06.md), ADR-124: fixed V11 passes1200-substep/two-second-return response, worst RMS speed0.00835923. Old-window failure remains;200m fixture prefix is not native-bit-invariant (max q2urad), explicitly reported. Fresh response review passes. Exact new V11 standing consumers then fail bilateral ankle ROM at346/240s, q525995/526003 versus523609 inclusive. Fresh standing review reconstructs8650/180000 efforts; repeat/oldV8 exact.157 native tests/scoped checks pass. Next load-compensation/control-authority discriminator, not another gain-only sweep or failed-prefix transfer/disturbance trial. Exploratory COM drift precedes ROM; unique cause unresolved. All loaded/full-calibration/training gates remain open.
 - Old origin-line plot omitted torso/head. V4:170cm stature,86.5cm hip,
   139.65cm shoulder,40.8cm thigh,39.6cm shank. Do not shorten legs from that plot.
 - Opt-in physical BodySchema V5/V6/V7 is implemented under ADR-114/115/117. Existing
@@ -164,6 +165,7 @@
 23. [Native V10 rejection and full-calibration requirements](../r8b-native-gain-calibration-2026-09-06.md), [ADR-121](../../architecture/adr/121-screened-damping-native-diagnostic.md).
 24. [Native V11 joint bandwidth/combined-input result](../r8b-native-bandwidth-calibration-2026-09-06.md), [ADR-122](../../architecture/adr/122-native-bandwidth-calibration-diagnostic.md).
 25. [Combined-input successor and settling boundary](../r8b-combined-input-calibration-2026-09-06.md), [ADR-123](../../architecture/adr/123-separated-combined-response-input.md).
+26. [Two-second response PASS / loaded standing FAIL and next discriminator](../r8b-symmetric-settling-and-load-2026-09-06.md), [ADR-124](../../architecture/adr/124-bandwidth-settling-and-standing-diagnostics.md).
 
 ## Decision and remaining uncertainty
 

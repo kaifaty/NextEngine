@@ -145,8 +145,8 @@ pub use contact_classifier::{
     ClassifiedBiomechanicsContactV1, ContactClassificationError, ContactPairKeyV1,
     HUMANOID_GROUND_ACTOR_TOKEN, HUMANOID_GROUND_SHAPE_TOKEN,
     HUMANOID_SAFETY_CONTACT_PROFILE_SHA256, LOW_IMPULSE_GRACE_SUBSTEPS,
-    articulated_foot_contact_profile_hash, sampled_damping_contact_profile_hash,
-    screened_damping_contact_profile_hash,
+    articulated_foot_contact_profile_hash, bandwidth_contact_profile_hash,
+    sampled_damping_contact_profile_hash, screened_damping_contact_profile_hash,
 };
 pub use control::{
     ACTUATOR_CAPABILITY_CLAMPED, ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED,
@@ -196,8 +196,9 @@ pub use procedural_standing::{
     BiomechanicsProceduralStandingControllerV3, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
     PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2,
     PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3, PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4,
-    PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
-    PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1, ProceduralStandingError,
+    PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5, PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V6,
+    PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS, PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1,
+    ProceduralStandingError,
 };
 pub use reference_baseline::{ReferenceBaselineError, biomechanics_reference_baseline_json_v1};
 pub use reference_pose_audit::{

@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let revision = std::env::args()
         .nth(1)
-        .ok_or("expected body revision 5, 6, 7, 8 or 9")?;
+        .ok_or("expected body revision 5, 6, 7, 8, 9, 10 or 11")?;
     let ankle_offset: i64 = std::env::args().nth(2).map_or(Ok(0), |s| s.parse())?;
     let hip_offset: i64 = std::env::args().nth(3).map_or(Ok(0), |s| s.parse())?;
     let reference_mode = std::env::args()
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
         "baseline" | "neutral-targets" | "upright-v2" | "articulated-v3" | "sampled-v4"
-        | "screened-v5" => 0,
+        | "screened-v5" | "bandwidth-v6" => 0,
         "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
@@ -60,6 +60,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let startup_ramp = response_mode.as_deref() == Some("startup-ramp");
     if startup_ramp && !matches!(revision.as_str(), "8" | "9") {
         return Err("startup-ramp requires the exact V8 or V9 standing diagnostic".into());
+    }
+    if (revision == "11" || reference_mode == "bandwidth-v6")
+        && (revision != "11"
+            || reference_mode != "bandwidth-v6"
+            || !per_iteration
+            || actuator_probe != "unchanged"
+            || ankle_offset != 0
+            || hip_offset != 0
+            || response_mode.is_some())
+    {
+        return Err(
+            "V11 requires bandwidth-v6, per-iteration, unchanged, no offsets or response mode"
+                .into(),
+        );
     }
     if (revision == "10" || reference_mode == "screened-v5")
         && (revision != "10"
@@ -168,7 +182,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "8" => next_motor::biomechanics_humanoid_body_schema_v8(),
         "9" => next_motor::biomechanics_humanoid_body_schema_v9(),
         "10" => next_motor::biomechanics_humanoid_body_schema_v10(),
-        _ => return Err("expected body revision 5, 6, 7, 8, 9 or 10".into()),
+        "11" => next_motor::biomechanics_humanoid_body_schema_v11(),
+        _ => return Err("expected body revision 5, 6, 7, 8, 9, 10 or 11".into()),
     };
     let schema = if actuator_probe == "coupled-damping-4" {
         coupled_damping_discriminator(shoulder_yaw_discriminator(schema, "shoulder-yaw-gain-16")?)?
@@ -195,7 +210,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut snapshot = world.capture()?;
     let mut safety = BiomechanicsSafetyController::new(base)?;
     let mut classifier = BiomechanicsContactClassifier::new(base)?;
-    let mut articulated_classifier = if revision == "10" {
+    let mut articulated_classifier = if revision == "11" {
+        Some(next_motor::BiomechanicsContactClassifierV2::new_bandwidth(
+            &successor,
+        )?)
+    } else if revision == "10" {
         Some(next_motor::BiomechanicsContactClassifierV2::new_screened_damping(&successor)?)
     } else if revision == "9" {
         Some(next_motor::BiomechanicsContactClassifierV2::new_sampled_damping(&successor)?)
@@ -206,7 +225,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    let mut terminal = if revision == "10" {
+    let mut terminal = if revision == "11" {
+        BiomechanicsTerminalEvaluator::new_bandwidth(
+            &successor,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_800,
+        )?
+    } else if revision == "10" {
         BiomechanicsTerminalEvaluator::new_screened_damping(
             &successor,
             BiomechanicsSkillContactProfileV1::Locomotion,
@@ -242,7 +267,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    let articulated = if revision == "10" {
+    let articulated = if revision == "11" {
+        Some(
+            next_motor::BiomechanicsProceduralStandingControllerV3::new_bandwidth(
+                &successor, &snapshot,
+            )?,
+        )
+    } else if revision == "10" {
         Some(
             next_motor::BiomechanicsProceduralStandingControllerV3::new_screened_damping(
                 &successor, &snapshot,

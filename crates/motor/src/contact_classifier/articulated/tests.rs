@@ -1,6 +1,138 @@
 use super::*;
 
 #[test]
+fn bandwidth_consumers_preserve_laws_and_reject_mixed_or_tampered_profiles() {
+    let old = compiled(0);
+    let current = CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v11(),
+        PersistentId::from_bytes([0; 16]),
+    )
+    .unwrap();
+    let other = CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v11(),
+        PersistentId::from_bytes([1; 16]),
+    )
+    .unwrap();
+    let skill = BiomechanicsSkillContactProfileV1::Locomotion;
+    let reset = snapshot(vec![]);
+    let old_reference = BiomechanicsProceduralStandingControllerV3::new(&old, &reset).unwrap();
+    let reference =
+        BiomechanicsProceduralStandingControllerV3::new_bandwidth(&current, &reset).unwrap();
+    assert_eq!(
+        reference.profile_id(),
+        crate::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V6
+    );
+    assert_eq!(
+        reference.contact_profile_hash(),
+        crate::bandwidth_contact_profile_hash()
+    );
+    assert_ne!(
+        reference.contact_profile_hash(),
+        crate::screened_damping_contact_profile_hash()
+    );
+    assert_ne!(reference.state_root(), old_reference.state_root());
+    assert_ne!(
+        reference.state_root(),
+        BiomechanicsProceduralStandingControllerV3::new_bandwidth(&other, &reset)
+            .unwrap()
+            .state_root()
+    );
+    let mut shifted = reset.clone();
+    shifted.links[0].position_micrometres[2] += 1;
+    assert_ne!(
+        reference.state_root(),
+        BiomechanicsProceduralStandingControllerV3::new_bandwidth(&current, &shifted)
+            .unwrap()
+            .state_root()
+    );
+    for qx in [-50_000_000, 0, 50_000_000] {
+        shifted.links[0].rotation_q1_30[0] = qx;
+        assert_eq!(
+            reference.reference_targets(&shifted),
+            old_reference.reference_targets(&shifted)
+        );
+    }
+    let mut classifier = BiomechanicsContactClassifierV2::new_bandwidth(&current).unwrap();
+    let initial = classifier.clone();
+    assert_ne!(
+        classifier.continuity_root(),
+        BiomechanicsContactClassifierV2::new_bandwidth(&other)
+            .unwrap()
+            .continuity_root()
+    );
+    let mut terminal = BiomechanicsTerminalEvaluator::new_bandwidth(&current, skill, 1800).unwrap();
+    let old_frame = classify(
+        &mut BiomechanicsContactClassifierV2::new(&old).unwrap(),
+        vec![],
+    );
+    let before = terminal.clone();
+    assert!(
+        terminal
+            .evaluate_motor_tick(1, &reset, &vec![old_frame; 4], false, None)
+            .is_err()
+    );
+    assert_eq!(terminal, before);
+    for (rear, toe, violation) in [
+        (3_000_000, 3_000_000, false),
+        (3_000_000, 3_000_001, true),
+        (5_990_000, 20_000, true),
+        (6_000_001, -1_000_000, true),
+    ] {
+        classifier.reset();
+        assert_eq!(classifier, initial);
+        let inputs = vec![
+            contact(&current, "left", "ankle-roll", rear),
+            contact(&current, "left", "mtp", toe),
+        ];
+        let a = classify(&mut classifier, inputs.clone());
+        let b = classify(
+            &mut BiomechanicsContactClassifierV2::new(&old).unwrap(),
+            inputs,
+        );
+        assert_eq!(a.contacts, b.contacts);
+        assert_ne!(a.classification_root, b.classification_root);
+        assert_eq!(
+            a.contacts.iter().any(|c| c.hard_impact_violation),
+            violation
+        );
+        terminal.reset();
+        let decision = terminal
+            .evaluate_motor_tick(1, &reset, &vec![a; 4], false, None)
+            .unwrap();
+        assert_eq!(
+            decision.reason,
+            violation.then_some(crate::BiomechanicsTerminalReasonV1::ContactImpact)
+        );
+    }
+    let mut bad = current.clone();
+    bad.base.base.actuator_definitions[0].damping_q16 += 1;
+    for input in [&old, &bad] {
+        assert!(BiomechanicsContactClassifierV2::new_bandwidth(input).is_err());
+        assert!(BiomechanicsProceduralStandingControllerV3::new_bandwidth(input, &reset).is_err());
+        assert!(BiomechanicsTerminalEvaluator::new_bandwidth(input, skill, 1800).is_err());
+    }
+    assert!(BiomechanicsContactClassifierV2::new(&current).is_err());
+    assert!(BiomechanicsProceduralStandingControllerV3::new(&current, &reset).is_err());
+    assert!(BiomechanicsTerminalEvaluator::new_articulated(&current, skill, 1800).is_err());
+    assert!(BiomechanicsTerminalEvaluator::new_bandwidth(&current, skill, 0).is_err());
+    assert!(BiomechanicsContactClassifierV2::new_screened_damping(&current).is_err());
+    assert!(
+        BiomechanicsProceduralStandingControllerV3::new_screened_damping(&current, &reset).is_err()
+    );
+    assert!(BiomechanicsTerminalEvaluator::new_screened_damping(&current, skill, 1800).is_err());
+    for schema in [
+        crate::biomechanics_humanoid_body_schema_v9(),
+        crate::biomechanics_humanoid_body_schema_v10(),
+    ] {
+        let other =
+            CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16])).unwrap();
+        assert!(BiomechanicsContactClassifierV2::new_bandwidth(&other).is_err());
+        assert!(BiomechanicsProceduralStandingControllerV3::new_bandwidth(&other, &reset).is_err());
+        assert!(BiomechanicsTerminalEvaluator::new_bandwidth(&other, skill, 1800).is_err());
+    }
+}
+
+#[test]
 fn screened_damping_consumers_preserve_laws_and_reject_mixed_or_tampered_profiles() {
     let old = compiled(0);
     let current = CompiledBodySchemaV4::compile(

@@ -8,7 +8,7 @@
 | Decision date | 2026-09-06 |
 | Dependencies | SPEC-35, ADR-122 |
 | Supersedes | ADR-122 diagnostic CLI input set only, additively; original census unchanged |
-| Superseded by | none |
+| Superseded by | ADR-124 additive two-second-return input; original case27 unchanged |
 
 Add explicit `abduction-step` mode to `probe_native_joint_bandwidth` for exact
 body8 or11. It emits BODY-COMBINED-01.r1 case27 as one separate world, with both

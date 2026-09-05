@@ -2033,22 +2033,29 @@ is implemented as opt-in [V10](architecture/adr/121-screened-damping-native-diag
 but its [native standing test](development/r8b-native-gain-calibration-2026-09-06.md)
 fails at substep22 on left MTP velocity9.533921rad/s (limit8.001). Repeat and V8
 historical control are exact;155 native motor tests and scoped checks pass.
-The full-calibration goal remains open. Next address native K+D bandwidth and
+The full-calibration goal remains open. This motivates native K+D bandwidth and
 actual multi-channel response before loaded transfer/disturbances; do not infer
 native readiness from the Isaac screen or retry an unchanged damping-only route.
 The [V11 native bandwidth diagnostic](development/r8b-native-bandwidth-calibration-2026-09-06.md)
 now passes25 isolated joint steps and simultaneous sine (V8 passes0/27), but
 all-positive simultaneous step fails foot-foot contact at substep268. Its target
-geometry is itself intersecting. Preserve that failure and verify a feasible
-combined input next, without retuning V11 or disabling collisions. Loaded
-support/poses/disturbances and full calibration remain open; no standing or
-training consumer is admitted.156 native tests and scoped checks pass.
+geometry is itself intersecting. That motivates the feasible combined-input
+successor below, without retuning V11 or disabling collisions. Loaded
+support/poses/disturbances and full calibration remain open; at this boundary
+no standing/training consumer was admitted.156 native tests/scoped checks pass.
 The [separated combined-input successor](development/r8b-combined-input-calibration-2026-09-06.md)
 now clears177 collider pairs over1001 target samples and completes4s with V11;
 tracking passes but left-elbow return RMS speed0.055038rad/s exceeds0.05.
-Preserve that failure. Next test equal two-second settling windows without
-retuning gains; loaded support/recontact/disturbances remain open. No training
-or standing admission follows from this unloaded result.
+Preserve that failure. The [two-second-settling successor](development/r8b-symmetric-settling-and-load-2026-09-06.md)
+now passes1200 substeps with worst final RMS speed0.00835923rad/s; fresh review
+passes, while the old window still fails and elevation-prefix differences are
+reported. ADR-124 then admits exact V11 diagnostic standing consumers, but
+the unchanged law fails bilateral ankle ROM at substep346 (1.441667s).
+Independent review reconstructs8650/180000 V11/V8 efforts; repeats and old V8
+are exact.157 native tests and scoped checks pass. Next discriminate loaded
+control authority/compensation, not another unloaded gain sweep. Loaded
+transfer/recontact/disturbance and full calibration remain open; no training
+or selected controller follows from the response result.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

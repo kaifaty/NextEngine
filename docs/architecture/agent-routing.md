@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.62 |
+| Версия | 2.63 |
 | Последняя проверка | 2026-09-06 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For two-second settling or exact V11 standing consumers also read
+[ADR-124](adr/124-bandwidth-settling-and-standing-diagnostics.md), ADR-119/121
+and the V11 rows below. Check strict input identity, unchanged old cases,
+complete compiled/subject/reset admission, profile rejection, native motor/
+example tests, all-target Clippy/format, boundary/content/play/replay and exact
+controls/repeats. Independently review response before conditional standing;
+loaded transfer/disturbances and training are not credited by either result.
 
 For the separated combined-response input also read
 [ADR-123](adr/123-separated-combined-response-input.md) and the V11 row below.

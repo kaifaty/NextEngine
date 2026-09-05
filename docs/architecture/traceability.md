@@ -4,7 +4,7 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 9.29 |
+| Версия | 9.30 |
 | Последняя проверка | 2026-09-06 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V7.0 | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
@@ -45,6 +45,7 @@
 | Дополнительные зависимости V9.27 | [ADR-121](adr/121-screened-damping-native-diagnostic.md) |
 | Дополнительные зависимости V9.28 | [ADR-122](adr/122-native-bandwidth-calibration-diagnostic.md) |
 | Дополнительные зависимости V9.29 | [ADR-123](adr/123-separated-combined-response-input.md) |
+| Дополнительные зависимости V9.30 | [ADR-124](adr/124-bandwidth-settling-and-standing-diagnostics.md) |
 | Заменяет | TRACE-001 9.22; adds V7/upright-V2 correspondence and identity checks |
 
 ## Назначение
@@ -239,6 +240,10 @@ unchanged old contact/reference roots. Check native standing and conditional
 loaded-transfer/servo results against BODY-GAIN-NATIVE-01, preserving V8 output.
 An Isaac screen is not native calibration or full-body balance evidence.
 
+ADR-124 adds two-second return and exact-V11 standing admission. Check complete
+compiled/subject/reset binding and profile rejection, native motor/examples,
+all-target Clippy/format, boundary/content/play/replay and old exact outputs;
+independent response/conditional standing review, no training selection.
 ADR-123 adds a separate combined abduction input: exact two-sign/CLI tests,
 sampled all-pair clearance, native repeat/control and old census byte regression;
 example Clippy/tests and boundary/content. No standing/training admission.

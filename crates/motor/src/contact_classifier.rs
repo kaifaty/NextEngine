@@ -12,7 +12,8 @@ use crate::CompiledBodySchemaV2;
 mod articulated;
 pub use articulated::{
     BiomechanicsContactClassifierV2, articulated_foot_contact_profile_hash,
-    sampled_damping_contact_profile_hash, screened_damping_contact_profile_hash,
+    bandwidth_contact_profile_hash, sampled_damping_contact_profile_hash,
+    screened_damping_contact_profile_hash,
 };
 
 pub const HUMANOID_SAFETY_CONTACT_PROFILE_SHA256: [u8; 32] = [

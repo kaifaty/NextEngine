@@ -25,6 +25,14 @@ pub fn screened_damping_contact_profile_hash() -> ContentHash {
     content_hash_from_bytes(sha256(&bytes))
 }
 
+/// Same contact law, explicitly bound to the V11 diagnostic body.
+#[must_use]
+pub fn bandwidth_contact_profile_hash() -> ContentHash {
+    let mut bytes = b"nextengine.articulated-foot-contact.v4\0body=v11\0".to_vec();
+    bytes.extend_from_slice(articulated_foot_contact_profile_hash().as_bytes());
+    content_hash_from_bytes(sha256(&bytes))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsContactClassifierV2 {
     base: BiomechanicsContactClassifier,
@@ -59,6 +67,15 @@ impl BiomechanicsContactClassifierV2 {
             .screened_damping_subject()
             .map_err(|_| ContactClassificationError::ProfileMismatch)?;
         Self::new_bound(compiled, subject, screened_damping_contact_profile_hash())
+    }
+
+    pub fn new_bandwidth(
+        compiled: &crate::CompiledBodySchemaV4,
+    ) -> Result<Self, ContactClassificationError> {
+        let subject = compiled
+            .bandwidth_subject()
+            .map_err(|_| ContactClassificationError::ProfileMismatch)?;
+        Self::new_bound(compiled, subject, bandwidth_contact_profile_hash())
     }
 
     fn new_bound(
