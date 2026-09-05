@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
-Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SYNCFUSION_LEARNED_SOURCE_FREE_ADAPTER / MIXED_TRANSFER.
+Updated: 2026-09-06. Working context, not architecture authority.
+Status: ACTIVE_GOAL / FULL_SCENE_VISUAL_RESIDUAL_REJECTED / SOURCE_FREE_ADAPTER_RETAINED.
 
 ## Resume in 60 seconds
 
@@ -17,7 +17,14 @@ Status: ACTIVE_GOAL / SYNCFUSION_LEARNED_SOURCE_FREE_ADAPTER / MIXED_TRANSFER.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
+- **Latest visual discriminator:**`syncfusion-visual-audition-2026-09-06`,3comparisons
+  held reference→descriptor→correct scene frame→wrong frame.9WAV,36/36attacks,0extras;
+  all3descriptor PCM controls exact. DINOv2-S frozen,ridge.01,196608newcoefficients.
+  Held68 cosine .15514→.15838(worse);spectrum correct image improves only1/3cases,
+  wrong image beats correct onwood. NOT promoted;no ridge/feature/crop/encoder sweep.
+  39tests,all jobs terminal. Frames are whole scenes,not isolated contact objects;
+  no geometry/force claim. Exact frames/data/hashes/results/primary sources in note.
+- **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
   `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
   TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
   Material(glass/wood/metal)+motion(static/rigid)+times;NO reference at inference.
@@ -96,11 +103,12 @@ Status: ACTIVE_GOAL / SYNCFUSION_LEARNED_SOURCE_FREE_ADAPTER / MIXED_TRANSFER.
   input limitations AND generator loss;not proof all nonlinearmu mappings fail.
 - **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
   align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** bounded object/visual-condition discriminator from sameTRAIN frames;
-  verify frame timing/identity,keep recording exclusions,compare mismatched frames
-  and descriptor-only controls;source-free WAV required. No inferred dimensions/
-  force or categorical adapter width/epoch/seed/prompt/guidance sweep. Static-glass
-  transfer failure motivates richer input. Empty-schedule failure remains open.
+- **Next:** bounded research before another fit: distinguish ambiguous struck-object
+  identity, missing local contact/motion and absent geometry/force labels. Inspect
+  contact localization/local-temporal inputs on openedTRAIN clips with identity
+  control;inspectable frames AND source-free WAV required. Keep recording exclusions;
+  no inferred dimensions/force,regularization/feature/crop/encoder/adapter-size or
+  prompt/guidance sweeps. Empty-schedule failure remains open.
 
 ## Preserve these constraints
 

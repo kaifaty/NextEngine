@@ -5273,3 +5273,96 @@ Inspect frame timing/identity before fitting; do not invent physical dimensions
 or force from images. Keep the current recording exclusions. No adapter epoch/
 width/seed or prompt/guidance sweep, and no mandatory human approval per sound.
 Empty-schedule failure remains open; no post-generation gate is added to hide it.
+
+## SyncFusion full-scene visual-conditioning discriminator — 2026-09-06
+
+Audible comparisons: [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/glass-rigid-motion-comparison.wav).
+Order: one held reference→previous categorical adapter→correct visual frame→wrong
+frame. Nine generated WAVs, no audio reference input,36/36 detected attacks,0extras.
+The three categorical PCM controls exactly reproduce the previous adapter WAVs.
+This excludes a changed decoder/baseline as the cause of the comparison outcome.
+Raw FLOAT hashes differ for repeated controls because WAV metadata differs;
+published PCM identities are exact. Shared.5gain,full5.46s,FP32,seed42,150steps,
+guidance2,unchanged .6/1.5/2.7/4.0s schedule;no crop/muting/gating of generated audio.
+
+Bounded external addition: `physical_sound_syncfusion_visual.py` and tests.
+Frozen [DINOv2 model card](https://github.com/facebookresearch/dinov2/blob/main/MODEL_CARD.md)
+describes general image features, not measured physical properties. Its DINOv2-S
+backbone is Apache-2.0;this does not clear the entire sound pipeline for production.
+Used [facebook/dinov2-small](https://huggingface.co/facebook/dinov2-small/tree/ed25f3a31f01632728cabb09d1542f84ab7b0056),
+revision ed25f3a31f01632728cabb09d1542f84ab7b0056; downloaded model/config/processor/card,
+safetensors88,249,960bytes,SHAae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1
+matches publisher LFS. Existing Transformers4.44.2,no dependency/model upgrades.
+No remote model code; frozen normalized384-dimensional CLS features.
+
+Reuse all307 events and exact239TRAIN/50recording-dev/18combination-dev roles;
+no new author val/test data or loosened recording exclusions. Same verified2.1GB
+TRAIN archive. Source preprocessing code and actual metadata agree on15fps and
+320×240 images. Select nominal pre-impact frame
+`floor((onset_seconds-.1)*15)+1`, matching one-based image names; timestamps have
+frame/extraction uncertainty and are not calibrated contact measurements. No
+frame-selection, crop, encoder-size or regularization sweep.
+
+Inspection of the three preselected cases before fit found full scenes, not
+isolated objects: shelf with several items, bin in front of wooden cabinetry,
+door/panel assembly. Correct frame indices354/163/92 for source rows138/7/127.
+Post-generation inspection of contact-adjacent frames356/165/94 shows the same
+ambiguity/context; exact extracted JPEGs in `syncfusion-contact-frame-inspection-2026-09-06`.
+The model sees a processed scene image, not identified geometry, contact point,
+material of both bodies, physical dimensions or force. Author resize also changes
+1920×1080 source aspect ratio to320×240; do not infer physical shape ratios.
+
+Fit one group-balanced ridge residual on frozen DINO features and the prior
+categorical adapter prediction. TRAIN-weighted image mean only, regularization.01,
+float64 solve then float32 inference,384×512=196,608 new coefficients; normalize
+the corrected acoustic embedding. No DINO, categorical-adapter, CLAP or diffusion
+weight updates. Perturbing development images/targets cannot change mean/mapping
+(exact test). Wrong-frame control chooses first different recording with the same
+material/motion, without audio-based selection. Mismatched image–target pairs never
+enter fitting; the selected other image may itself be a TRAIN example, which is
+disclosed in its frame receipt and does not make this an independent object test.
+
+Assets/features `syncfusion-visual-features-2026-09-05`; fitted
+`syncfusion-visual-fit-2026-09-05/visual-adapter.pt` SHA256
+52be7dd4219336a1ffa9daccd38e6811d561519f6f0069d10161c5c0d858a2e5.
+Preparation/fit began before local midnight; audible output is dated09-06.
+Inference re-encodes the saved correct/wrong JPEGs and consumes learned weights;
+it does not read target embeddings, training WAVs or instantiate an audio encoder.
+
+Event-weighted cosine error, descriptor→visual→wrong frame:
+TRAIN239: .159423→.104938→.174565;
+recording-dev50: .143037→.147608→.155263;
+combination-dev18: .188744→.188290→.210971.
+Overall68held events: .155136→.158377→.170010; visual addition worsens the mean.
+The glass+rigid-motion group specifically worsens .198932→.222295.
+Training fit improvement is not generalized physical understanding.
+
+Fixed200ms/32-band log-spectrum distance to the **individual held event associated
+with each input frame**, not the previous multi-reference category average:
+
+| Case | Descriptor(dB) | Correct frame | Wrong frame |
+|---|---:|---:|---:|
+| Glass static |6.6756|6.4414|7.4953|
+| Wood static |5.0819|5.9383|5.0055|
+| Glass rigid-motion |3.7236|3.8226|4.6425|
+
+Correct frame improves only1/3preselected cases over descriptor-only. On wood the
+wrong frame beats both the correct frame and baseline. This is a negative control,
+not a candidate to cherry-pick. No global visual/material/quality improvement or
+promotion. Comparisons19.66/18.94/19.16s include0.5s gaps; all raw/PCM hashes,
+finite/layout/headroom and gain/quantization checks pass. CUDA peak2.3816GiB,
+generation~22.6–24.3s per case after setup.39focused tests(4new+35existing),Ruff,
+diff/link checks pass;all jobs terminal. AST deliberately not reused as judge.
+No Cargo/host-check/ProductCheck,runtime/demo or roadmap changes.
+
+Next: bounded research/discriminator before another fit. Competing explanations:
+full-scene features miss which object is struck; pooled features lack contact/
+motion information; available labels omit dominant geometry/force variables.
+Inspect contact localization and localized/temporal inputs on the already opened
+TRAIN clips with a successful identity control before any larger model. Do not
+re-run ridge/feature/crop/encoder-size sweeps from these opened outcomes. Require
+inspectable frame/contact evidence and source-free audio; no inferred dimensions,
+protected-role reuse or mandatory human validation. Existing empty-schedule and
+broader physical-control gaps remain open; prior source-free adapter retained.
