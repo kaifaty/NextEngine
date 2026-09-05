@@ -4844,3 +4844,72 @@ and motion supply useful conditions missing from coarse material/coefficient
 inputs. Inspect primary-source capabilities,terms,resources and available scene
 data before downloads or fitting. This is a lab hypothesis,not a new architecture,
 physical-calibration claim or narrower replacement of the full goal.
+
+## MMAudio visual-conditioning audition — 2026-09-05
+
+Primary artifacts: [water with generated audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-water-audition-2026-09-05/water-generated-full.mp4)
+and [text / moving video / static frame comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-water-audition-2026-09-05/comparison.wav).
+Each arm8.010884s,mono44.1kHz;0.5s gaps. Frozen pretrained model, **zero training
+updates**, not our trained physical model or engine integration. Full goal open.
+
+Counterfactual fixes prompt,seed42,25Euler steps,CFG4.5,BF16 and compares absent,
+moving,and repeated first frames. Prompt:`Water is being poured into a glass
+container.` Negative empty. Three different source-free outputs establish a
+conditioning response,not improved physical fidelity or synchronization.
+
+Inspected [official code](https://github.com/hkchengrex/MMAudio/tree/974010a026c731054592d8f777218bd9d85a6c24),
+including generation,frame decoding and weight loading. Code MIT;
+[MMAudio weights](https://huggingface.co/hkchengrex/MMAudio/blob/eb13a1a98fdbec91753775c57b074ccdfc60587c/README.md)
+CC-BY-NC4.0. The
+[Apple CLIP encoder](https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-384/blob/01b771ed0d1395ca5ffdd279897d665ebe00dfd2/LICENSE)
+is research-only and excludes product development. This scientific comparison
+does not authorize these weights/derivatives for the engine.
+[BigVGAN](https://huggingface.co/nvidia/bigvgan_v2_44khz_128band_512x) MIT does not
+change other components' terms. Paper page403;full paper not read this checkpoint.
+
+All assets are revision-pinned in `physical_sound_mmaudio_pilot.py`;weight SHA256
+checked against publisher LFS metadata before safe weight-only loading. Model
+a6bf693424fbd4ce0244fff8c412347714d5ac586e28dbeffadfa0f2b647af74.
+`mmaudio-assets-2026-09-05/assets.json` records identities;about10GiB assets,
+21GiB disk free after acquisition. Upstream974010a026c731054592d8f777218bd9d85a6c24
+unmodified. External dependency overlay `mmaudio-python-2026-09-05` preserves
+existing lab Torch2.13.0+cu130;torchvision.28,open-clip3.3,timm1.0.29,librosa.11,
+av18.1,einops.8.2,torchdiffeq.2.5,omegaconf2.3;no torchaudio/Torch replacement.
+
+Source:first qualifying already-opened publisher TRAIN glass row,
+`VID_20240131_200305_6.6_28.6`,container17,Sound of Water revision
+12575460ee39d6adaebbe5aff531a5f4a24a627b. Excludes18/30;no author test. Dataset
+redistribution unspecified;local research only. Inspected frame shows a stream
+entering a transparent vessel. Inference receives a separately encoded first8s
+video with exactly one video stream and **no audio stream**. Real audio is
+extracted only by the later `assess` command. Pretraining overlap unknown;
+not clean test evidence. Continuous pouring cannot establish onset timing.
+
+Initial `mmaudio-water-counterfactual-2026-09-05` exited1 at finite/headroom guard
+before publication;raw signal not retained. Receipt corrected to terminal failed.
+Same-seed rerender in `mmaudio-water-audition-2026-09-05` retains raw FLOAT and
+uses explicit shared0.5 playback gain,no timbre/synthesis change or weaker.98
+output guard. Raw peak text/video1.0,static.941406;exact1.0 samples1/3/0.
+Attenuation does not undo possible vocoder saturation. Original composite's
+`-shortest` dropped3reordered frames;preserved it and remuxed
+`water-generated-full.mp4` without that flag:239frames8.011173s,audio8.010998s.
+GPU peak allocation4.956GiB;post-load generation2.59/4.15/4.14s on RTX3080.
+These are run measurements,not end-to-end/product performance claims.
+
+Reproduce: `PYTHONPATH` external dependency overlay plus upstream source,
+`HF_HUB_OFFLINE=1`,then `lab/.venv/bin/python
+lab/scripts/physical_sound_mmaudio_pilot.py render --root ASSETS --source UPSTREAM
+--output NEW_EXTERNAL`. `prepare --root NEW_ASSETS --water EXISTING_WATER_SOURCE`
+downloads only explicit inference assets;`assess --root ASSETS --output GENERATED`
+uses existing frozen CPU AST with real-recording/silence/noise/tone controls.
+
+AST Water top5 all3generated+real at raw and diagnostic RMS.005. Water ranks
+text/video/static/real:raw3/3/2/2;RMS4/4/2/2. Video raw top tags Sink/faucet/Water;
+real Drip/Water/Fill. No quality winner,material judge or calibration follows.
+Negative controls retain their expected coarse tags. No threshold/prompt tuning.
+
+Checks:16tests(5new plus11existing text-pilot),Ruff,finite/layout/PCM gain and
+identity checks,silent-input/full-composite streams. No Cargo,host-check,
+ProductCheck,roadmap/demo promotion. All jobs terminal. Next:sparse visible
+impacts with measured event times and moving/static/time-shift controls. Do not
+start water seed/prompt sweeps or assume this research encoder is deployable.
