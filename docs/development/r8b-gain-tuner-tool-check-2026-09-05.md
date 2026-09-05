@@ -6,6 +6,12 @@ changed. No optimizer started. This is not MODEL-MIRROR-P1/P2 or V8 Isaac admiss
 
 ## Current outcome (continued from `a1b0887f`)
 
+Subsequent [one-DOF oracle](r8b-gain-tuner-one-dof-research-2026-09-05.md)
+independently refutes the installed inertia and angular gain calculation paths.
+The schema/unit fixes below remain useful, but do not enable auto-calibration.
+That oracle supersedes the next-action text below; check a supported upstream
+successor before another full-body auto-gain trial.
+
 Process-local Robot Schema compatibility now discovers 26 links and 25 actuated
 joints; all 26 real PhysX mass queries finish and match the descriptor within
 2 micro kg per body. The tool's unchanged inertia routine returns 25 values.
