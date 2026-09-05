@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V7_AND_V8_FINAL_QUALITY_FAILED / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / FRESH_V8_V4_TRAINING / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -19,11 +19,11 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Freeze and launch ADR-112's fresh V8/fixed-1e-5 run after
-  native validation/adapter controls. Every 100 updates, test all five episodes;
-  retain the first full pass and stop. Old runs remain failed, not reselected.
+- **Next action:** Follow live session **23866**, PID **2309530**, fresh V8/v4
+  [run](../r8b-prospective-walking-run-2026-09-05.md) at clean `11ecd99f`; first validation is update 99.
+  Test all five every 100 updates; first full pass stops. Never restart on timeout.
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
-  `f0c15bd4`; no optimizer is active. All five final model 9999 episodes fail
+  `f0c15bd4`; the distinct V8/v4 optimizer is now active. All V7 final episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
   final-only evaluation also fails, with exact V7/V8 physical arrays.
 - **Controls:** Zeroing only arm residuals still fails at 170, now shank/shank

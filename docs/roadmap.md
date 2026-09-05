@@ -2307,7 +2307,7 @@ V8 matrices: all five episodes terminate at 152 ticks on forearm/head collision,
 with -0.176714 m travel. Exact physical trajectories agree. The [final regression
 investigation](development/r8b-final-policy-regression-research-2026-09-05.md)
 also rejects arm masking and stochastic inference as sufficient fixes. No
-optimizer is active. Passive update telemetry now passes exact CPU/CUDA and
+old optimizer is active. Passive update telemetry now passes exact CPU/CUDA and
 full-size network controls; a 4,096-transition no-optimizer probe finds tiny
 local normalization drift (KL 1.11e-7). Closed fixed-buffer controls show that
 holding the source LR at 1e-5 reduces peak minibatch mean KL from 0.02339 to
@@ -2316,8 +2316,10 @@ numerical evidence, not a repaired walking policy. Next: specify a bounded
 schedule intervention with prospective physical validation/checkpoint retention.
 [ADR-112](architecture/adr/112-prospective-validated-walking-training.md) now
 admits one fresh V8 run, fixed 1e-5 learning rate, 100-update native validation
-and first full five-episode pass retention/stop. Implementation/preflight must
-pass before launch; this is not an unchanged retry or an old checkpoint choice.
+and first full five-episode pass retention/stop. The [new run](development/r8b-prospective-walking-run-2026-09-05.md)
+is now active at clean `11ecd99f`, after 65 focused tests and exact 5,120-transition/
+399-reset native control. No new learned-quality result is available yet;
+this is not an unchanged retry or an old checkpoint choice.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

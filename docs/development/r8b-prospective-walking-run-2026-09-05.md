@@ -1,6 +1,6 @@
 # R8b prospective validated walking run
 
-Status: `IMPLEMENTED / PREFLIGHT_PENDING / NO_LEARNED_QUALITY_CLAIM`.
+Status: `TRAINING_ACTIVE / PREFLIGHT_PASSED / NO_LEARNED_QUALITY_CLAIM`.
 Authority: [ADR-112](../architecture/adr/112-prospective-validated-walking-training.md).
 
 ## Decision
@@ -36,7 +36,11 @@ only in the new profile; old profile execution remains unchanged.
   at tick 152. This is a no-optimizer negative non-regression control, not a new
   trained candidate. Evidence is outside Git under
   `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v4/evidence/validation-control-01`.
-- NOT RUN yet: new generation freeze/native multi-slot control and optimizer.
+- PASS: clean-commit generation freeze at `11ecd99f`; native multi-slot
+  control matches 5,120 transitions, including 399 terminals/autoresets.
+- RUNNING: fresh optimizer has emitted finite metric rows through update 12
+  (53,248 transitions) at initial observation; fixed LR is exactly 1e-5.
+  First complete native checkpoint validation is scheduled at update 99.
 - No new Rust/public/physics contract: retain ADR-110's prior passing native
   routing and Linux host-check; broad host-check is not repeated for private
   Python callbacks.
@@ -47,8 +51,18 @@ Profile: `lab/profiles/canonical-rsl-rl-walking.v4.json`.
 Descriptor: `/home/kaifaty/NextEngine-training/r8b-walking-stop-window-v8/evidence/descriptor-v8.json`.
 Executables: the immutable `evaluation-tools-01/next_headless` and
 `evaluation-tools-01/audit_biomechanics_action_tape` beneath that V8 root.
-The profile closes all three hashes. Freeze the new clean-commit generation at
-`/home/kaifaty/NextEngine-training/r8b-canonical-walking-v4/generation-01`, then
-launch its sole `runs/TRAIN-1`. Preserve the process handle and inspect it rather
-than restarting on an observation timeout. No runtime activation or held-out
-robustness claim follows from this nominal lesson.
+The profile closes all three hashes. The clean-commit generation is frozen at
+`/home/kaifaty/NextEngine-training/r8b-canonical-walking-v4/generation-01`;
+its manifest SHA-256 is
+`c35e5b31678a19ae2434834ea81a3b9b5415f840fe582eb9474e15135e9c442b`.
+Its sole live run is `runs/TRAIN-1`, unified exec session **23866**, PID
+**2309530** at launch. Revalidate this handle/process before reporting state;
+never restart because observation timed out. Source code is `11ecd99f`, even
+if later documentation-only commits advance HEAD. No runtime activation or
+held-out robustness claim follows from this nominal lesson.
+
+Initial update KL includes changing fresh normalizers: the first update has
+mean-minibatch KL up to 0.1568, while by update 11 it is 0.00125. The earlier
+late-policy normalization probe did not cover initialization. Retain this
+observation without falsely attributing it entirely to gradients or stopping
+a finite new run before the predeclared physical validation.
