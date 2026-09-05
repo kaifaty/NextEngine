@@ -1716,3 +1716,82 @@ pass SHA256,16kHz mono PCM16, finite-sample and headroom checks; all four
 checkpoints and inherited/fine-tuning exposure match their metadata. Local
 links resolve. All experiment jobs completed. No Cargo/ProductCheck or engine
 audition: isolated Python research, no runtime/content-contract changes.
+
+### Flow-time localization and separate envelope experiment
+
+[Stage-splice comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-stage-ablation-2026-09-05/comparison.wav>)
+uses the first glass recording, first then middle; real/base/matched/base-early/
+base-late, generator2718 and fixed decoder314, gain1. Frozen-field splices are
+counterfactuals, not samples certified to follow either trained distribution.
+`physical_sound_pouring_stages.py` keeps64 Euler steps and switches at t0.25;
+endpoint switches0/1 exactly reproduce the original pure-model sampler.
+
+On the first source-order recording from each of13 TRAINING objects, both
+phases, per-time velocity MSE is lower for matched than base at all eight
+times0/.01/.05/.1/.25/.5/.75/.95. At t0, base/matched0.28109/0.24462; swapped-
+phase penalties0.001929/0.000957. At t0.95,0.89196/0.84584. The exact-endpoint
+oracle has maximum MSE9.4e-13. High late-time MSE alone is not proof of the
+failure's cause; data/noise ambiguity also changes with flow time.
+
+On first source-order glass/PET, both phases and three generator seeds, fixed
+decoder314: AST normalized base12/12, matched9/12, base-early11/12 and
+base-late9/12. At generator2718 alone:4/4,1/4,3/4,2/4 respectively. Early base
+partially helps, but neither splice cleanly restores the baseline. Spectrum
+RMSE7.655/6.461/7.124/6.551dB. Root `pouring-flow-stage-ablation-2026-09-05`
+contains56 WAVs plus comparison and312 per-time/phase-ablation records.
+
+The next reversible experiment separated a frozen texture model from a learned
+32-bin amplitude envelope (127.5ms bins). A primary-source check of the
+[DDSP paper abstract,2020-01-14](https://arxiv.org/abs/2001.04643) supports modular
+neural/signal-processing controls as prior art, NOT this water model's accuracy.
+No DDSP code/dependency was imported; this is a separate small experiment.
+
+`physical_sound_pouring_envelope.py` trains27424-parameter MLP flows on the same
+93 recordings' first/middle envelopes: two1500-step fits, matched versus randomly
+permuted phase only, seed53, batch32, AdamW3e-4/wd0.01. Encode is
+`log(max(RMS,1e-5))/3+2`; sampling64 Euler steps; decoder bounds[-2,1.5] are
+numerical guards, not physical calibration. Interpolated predicted/base coarse
+RMS ratios modulate the frozen base waveform; no target recording at inference.
+
+Evaluation initially stopped at the strict0.98 peak guard AFTER both fits
+completed. No training was restarted. Evaluation resumed from those exact
+checkpoints and retained raw failures. For report-only listening, ALL660 clips
+(including real/base controls) receive the SAME gain0.63339858, with no waveform
+clipping. Raw metrics/peak failures remain in `result.json`; scaled auditions
+do not constitute passing level validation. Base first/middle values differ
+slightly from old reports because decoder314 is now fixed for every generator.
+
+[Envelope experiment comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-envelope-flow-2026-09-05/comparison.wav>)
+plays first glass then PET; first/middle; real/base/matched/shuffled, seed314,
+shared audition gain above. This is a FAILED candidate, not an improvement.
+
+| All30 disclosed recordings ×3 seeds | Base | Matched envelope | Shuffled phase |
+|---|---:|---:|---:|
+| First spectrum RMSE,dB | 10.532 | 12.572 | 13.057 |
+| Middle spectrum RMSE,dB | 9.315 | 15.077 | 15.113 |
+| First absolute CV error | 0.504 | 0.506 | 0.669 |
+| Middle absolute CV error | 0.225 | 0.766 | 0.713 |
+| Mean middle-first level,dB | -2.583 | -0.034 | +0.176 |
+| Mean middle-first CV | +0.0076 | +0.1432 | -0.0577 |
+| Raw headroom failures | 0/180 | 60/180 | 60/180 |
+| Normalized AST Water/Pour top5 | 180/180 | 88/180 | 89/180 |
+
+Real mean changes remain-5.390dB/-0.2969 CV. The envelope identity control
+reproduces real with mean spectral error~2.1e-6dB; real/identity AST60/60 each.
+Raw AST at the shared audition level gives120/180 for all three generated
+groups; retain alongside normalized scores, not evidence of semantic parity.
+Root `pouring-envelope-flow-2026-09-05` has660 WAVs plus comparison, two completed
+checkpoints and both classifier reports. No base/demo replacement or promotion.
+
+Next: before another flow fit, test whether a simple condition-to-relative-level
+predictor on93 training recordings transfers to the disclosed containers better
+than zero-phase/shuffled controls. Compare per-record normalized and absolute
+targets. Missing recording gain/listener information is a hypothesis, not an
+established cause. Do not repeat absolute-envelope capacity/epoch sweeps or
+weaken peak guards; the broad realistic physical-sound goal is still open.
+
+Verification:61 focused tests, Ruff check/format, local links and
+`git diff --check` pass. All718 written WAVs pass SHA256,16kHz mono PCM16,
+finite/headroom checks; the120 raw generation-level failures remain failures.
+Checkpoint hashes and common audition gain verified. All jobs terminal;
+Cargo/ProductCheck and engine audition not run (isolated Python lab only).

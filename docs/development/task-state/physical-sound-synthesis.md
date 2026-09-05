@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / PHASE_SIGNAL_LEARNABLE / PAIRED_RECORD_PROMOTION_REJECTED.
+Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
 
 ## Resume in 60 seconds
 
@@ -12,11 +12,11 @@ Status: ACTIVE_GOAL / PHASE_SIGNAL_LEARNABLE / PAIRED_RECORD_PROMOTION_REJECTED.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifacts:** [two-phase learning comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-two-phase-probe-2026-09-05/comparison.wav),
-  36.64s, one TRAINING recording, first/middle real/parent/matched/shuffled.
-  [Paired-record candidate](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-paired-records-audition-2026-09-05/generated.wav)
-  is source-free glass10cm/7cm,15s/fraction0.2/seed2718/gain10. Retained FAILURE
-  candidate, not promoted. Full comparisons/other seeds in pilot note.
+- **Latest primary artifacts:** [stage-splice comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-stage-ablation-2026-09-05/comparison.wav),
+  glass first/middle, real/base/matched/base-early/base-late, generator2718.
+  [Separate-envelope comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-envelope-flow-2026-09-05/comparison.wav)
+  is a FAILED candidate. Shared audition gain0.63339858 on real/base/candidates;
+  raw level failures preserved. No target recording enters neural inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves only1/14 matched event crops; retain base, no LoRA
   sweep. Prefix/old unmatched-empty failures are superseded; exact extraction
@@ -53,42 +53,41 @@ Status: ACTIVE_GOAL / PHASE_SIGNAL_LEARNABLE / PAIRED_RECORD_PROMOTION_REJECTED.
 - **Prior phase controls:** power wins151/180 spectrum pairs, but middle CV
   error0.224->0.230. Both base/power miss phase CV change on new AND13 training
   objects; oracle preserves most. Prior broad AST positives are not quality proof.
-- **Two-patch probe:** `pouring-flow-two-phase-probe-2026-09-05`, first training
-  recording/container1/plastic, two fixed phases. Matched/shuffled600-step fits
-  from identical parent, same noise/time draws. Correct template matched6/6,
-  parent/shuffled3/6 across3 seeds. Phase input is learnable on this example.
-  Gaussian two-endpoint calculation: noisy target alone permits >95% phase
-  identification for98% of uniform flow times; possible shortcut, not proof.
-- **Paired extension:** `pouring-flow-paired-records-2026-09-05`, same93 train
-  recordings,3 paired records/batch, matched/shuffled600 extra updates. All30
-  disclosed development recordings ×2 phases ×3 seeds. Spectrum matched wins
-  158/180 vs parent; mean level change-3.050dB vs parent-2.585/shuffled-0.486,
-  real-5.390. CV errors worsen; phase CV change-0.017 vs real-0.297.
-  Normalized AST matched120/180 vs parent180/180; seed2718 fails all60 cases.
-- **Adjacent-layer/independent checks:** crossed generator/decoder seeds on
-  first glass/PET, both phases: matched generator2718 passes AST1/12 across
-  decoders, base36/36 total. Not solely decoder randomness. CLAP32-clip check:
-  real/oracle8/8 and base12/12 water, matched10/12; PET2718 both phases favour
-  birds, margins worsen11/12 paired cases. Glass2718 remains water in CLAP;
-  judges disagree, not calibrated naturalness/material acceptance.
+- **Two-patch probe:** first training record/container1, matched/shuffled600-step
+  fits; correct template6/6 versus parent/shuffled3/6. Phase is learnable here.
+  Noisy target identifies phase for98% of uniform times in exact two-endpoint
+  toy; possible shortcut, not a measurement of what the network learned.
+- **Paired extension:** same93 train records,600 extra updates, all30 disclosed
+  development recordings ×2 phases ×3 seeds. Spectrum wins158/180 but CV worsens;
+  normalized AST120/180 vs parent180/180. Seed2718 fails all60; reject promotion.
+- **Independent checks:** crossed decoder seeds do not explain the full failure.
+  CLAP real/oracle8/8, base12/12 water, paired10/12; PET2718 favours birds,
+  glass2718 remains water. Judges disagree; neither is naturalness authority.
+- **Stage localization:** `pouring-flow-stage-ablation-2026-09-05`,13 training
+  objects ×8 flow times: paired MSE lower everywhere, phase penalty small.
+  Exact-endpoint oracle MSE<1e-12. Frozen stage splice at0.25 gives normalized
+  AST base/paired/base-early/base-late12/9/11/9 of12; no clean restoration.
+- **Envelope branch:** `pouring-envelope-flow-2026-09-05`,27424param/32-bin
+  RMS MLP flows, matched/shuffled1500 steps, same93 train records, frozen base.
+  Evaluation stopped at peak guard AFTER fitting, resumed exact checkpoints.
+  120/360 generated signals fail raw headroom; common gain only enables audition.
+  Matched spectrum first/middle12.572/15.077 vs base10.532/9.315dB; CV worsens,
+  phase level change-0.034 vs real-5.390dB. Normalized AST88/180 vs base180/180.
+  Reject; no absolute-envelope capacity/epoch sweeps or weakening peak guards.
 - **AST controls:** `--ast-rms .005` optional; raw preserved. CUDA matches CPU
   top10/flags on180 raw+120 normalized WAVs, delta2.24e-6. CPU default, CLAP
   unchanged; mel warning remains. Do not tune thresholds or blacklist seeds.
 - **Prior controls:** codec checks reject gross corruption; ESC-50 physical
   attributes are null. No posterior-mean, duration/CFG or caption-threshold retries.
-- **Next action:** inspect per-flow-time training error/phase ablation near pure
-  noise, with two-endpoint oracle control, before another full fit. Preserve
-  parent/power; paired-record candidate is not an all-round improvement. No
-  generic capacity/epoch/loss sweep, new source/stack, invented labels or protected
-  reuse. Broad realism/control goal remains unchanged; keep playable artifacts.
-- **Verification:** four600-step fits, generation, GPU AST and CLAP complete.
-  Inherited93-record exposure stays in `train_ids`; `finetune_ids` distinguishes
-  one-record and93-record probes. Metadata clarified, weights/WAVs unchanged.
-  54 focused tests, Ruff and773 WAV/hash checks pass; no jobs left running.
+- **Next action:** test a simple condition-to-relative-level predictor on93
+  training records versus zero-phase/shuffled controls; compare absolute and
+  per-record normalized targets on disclosed containers before another flow fit.
+  Recording-gain/listener confounding is unproven. No new source/stack, invented
+  labels or protected reuse. Preserve base/power; broad goal unchanged.
+- **Verification:** two envelope fits, resumed evaluation and AST complete;
+  61 focused tests, Ruff and718 written-WAV/hash checks pass; no jobs running.
   No Cargo/ProductCheck or engine audition: external Python lab only.
-- **All goal requirements remain open beyond this baseline:** independent
-  robust validation, robust audible gains from learning, broader physical
-  controls, demonstrated new-condition generalization and engine integration.
+- **Full goal remains open:** robust quality/control, generalization and integration.
 
 ## Preserve these constraints
 
