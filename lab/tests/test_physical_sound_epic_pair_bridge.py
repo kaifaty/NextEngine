@@ -201,6 +201,74 @@ class PairTests(unittest.TestCase):
             self.assertFalse(report["training_performed"])
             self.assertEqual({r["seed"] for r in report["rows"]}, {314, 2718})
 
+    def test_expanded_data_keeps_pair_and_participant_exclusions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expanded = root / "expanded"
+            expanded.mkdir()
+            records = []
+
+            def record(label, part):
+                i = len(records)
+                row = {
+                    "annotation_id": f"{part}_01_{i}",
+                    "participant_id": part,
+                    "video_id": part + "_01",
+                    "class": label,
+                    "start_sample": i * 48000,
+                    "stop_sample": i * 48000 + 12000,
+                }
+                records.append(row)
+                path = root / (row["annotation_id"] + ".wav")
+                wavfile.write(path, 24000, np.ones(12000, np.int16))
+                return {
+                    **row,
+                    "wav": str(path),
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+
+            train = [
+                record(label, "P01")
+                for label in e.source.CLASSES
+                if label != e.HELD_PAIR
+                for _ in range(12)
+            ]
+            held = record(e.HELD_PAIR, "P02")
+            dev = [record(label, "P04") for label in e.source.CLASSES] + [
+                record(e.HELD_PAIR, "P07")
+            ]
+            pd.DataFrame(records).to_csv(root / "train.csv", index=False)
+            original = {
+                "status": "complete",
+                "annotation_revision": e.source.ANNOTATIONS,
+                "files": [
+                    {
+                        "path": "train.csv",
+                        "sha256": hashlib.sha256(
+                            (root / "train.csv").read_bytes()
+                        ).hexdigest(),
+                    }
+                ],
+                "rows": dev,
+            }
+            e.source.save(root / "result.json", original)
+            manifest = {
+                "status": "complete",
+                "annotation_revision": e.source.ANNOTATIONS,
+                "source_result_sha256": hashlib.sha256(
+                    (root / "result.json").read_bytes()
+                ).hexdigest(),
+                "rows": train + [held],
+            }
+            e.source.save(expanded / "result.json", manifest)
+            actual, actual_dev = e.expanded_data(root, expanded)
+            self.assertEqual(actual, train)
+            self.assertEqual(actual_dev, dev)
+            manifest["rows"][0] = dev[0]
+            e.source.save(expanded / "result.json", manifest)
+            with self.assertRaisesRegex(ValueError, "roles"):
+                e.expanded_data(root, expanded)
+
 
 if __name__ == "__main__":
     unittest.main()

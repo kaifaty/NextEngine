@@ -3616,3 +3616,126 @@ labels from weak conditioning transfer using broader TRAIN participant coverage
 and a participant-separated real-positive/wrong-label control. Do not repeat a
 bridge capacity/epoch/seed sweep or treat tiny spectral gains as physical learning.
 The next learned trial must retain a playable comparison and the all-pair control.
+
+## Broader EPIC information discriminator and learned data counterfactual — 2026-09-05
+
+`physical_sound_epic_information.py` tests two competing explanations for the
+weak material bridge: insufficient transferable information in the source labels
+versus failure to transfer available information into generation. The
+[EPIC-SOUNDS paper v2](https://arxiv.org/html/2302.00646v2),§V-C, documents that
+recognizing both materials from audio can be ambiguous; this motivates a local
+discriminator, not a conclusion that material learning is impossible.
+
+`epic-information-2026-09-05` selects from the same pinned publisher TRAIN CSV,
+excluding P04/P07 and intervals overlapping ANY other TRAIN annotation. A sorted
+prefix-maximum interval check matches the earlier census, including nested
+overlaps. Duration remains0.25–3s. First12 source-order participants per class,
+first3 eligible clips each; no audio-score selection. Eligible totals are
+metal/glass144,metal/wood225,wood/glass7,metal/plastic306,metal/ceramic401,
+plastic/wood35. The actual selected counts are30/34/7/35/33/22:161 clips,19
+participants,84 videos. Rare wood/glass cannot be represented as broad support.
+
+114 additional intervals were acquired through the existing verified-TLS partial
+decoder;47 cached intervals were identity-checked and reused. All161 retain source
+gain1.0; no normalization of published audio.230 newly written WAVs and324 total
+referenced decoded/published/audition WAVs pass SHA/rate/layout/sample-bound checks.
+Whole remote MP4 MD5 remains unverified. CC-BY-NC4 local research only; missing
+striker roles, object IDs, dimensions and force remain unknown. No author val/test
+access, claim of new-object independence or dataset/model distribution promotion.
+
+[Source preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/preview.wav>),
+12.443s: first two clips per pair outside P01/P02/P03, fixed source order, not
+necessarily two distinct participants. [All161 sources](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/all-sources.wav>)
+are237.350125s including0.5s separators. These previews are real audio, not neural.
+
+Four fixed representations are evaluated with leave-one-participant-out linear
+logistic probes: frozen AST pooled768 features, the same at diagnostic RMS.005,
+gain-invariant256-bin spectral shape, and duration/logRMS/logpeak only. Each fold
+fits scaling on TRAIN rows only; C1,balanced class weights,max1000 iterations,
+no hyperparameter or feature selection. All folds retain all six TRAIN classes.
+AST/Tango pretraining overlap is unknown; AudioSet features are not independent
+physical ground truth. Source labels enter the probe, not the AST encoder.
+
+| Representation | Macro recall | Overall accuracy | Wood/glass recall |
+| --- | ---: | ---: | ---: |
+| Frozen AST, raw |24.30%|27.95%|0/7|
+| Frozen AST, RMS.005 |20.11%|23.60%|0/7|
+| Relative spectrum |25.47%|26.71%|1/7|
+| Duration/gain only |21.45%|18.63%|3/7|
+
+Thirty-two fixed within-participant label permutations preserve context/class
+frequency associations. Raw AST null macro recall averages16.53%,maximum21.72%,
+versus observed24.30%; exploratory Monte Carlo p1/33. This is modest evidence of
+some transferable class association, NOT qualified pair recognition. The raw AST
+per-class recalls are16.67/26.47/0/31.43/39.39/31.82%. Duration/gain cues and weak
+rare-class recall prohibit using this probe as the sole material validator/reward.
+Do not tune the probe from these predictions or claim all kitchen labels useless.
+
+Feature cache SHA256:
+`b28749db56f41cdd2318aaa1eaa062e309330f4053466d3c5ec234cda4ae4089`.
+Versions: NumPy2.5.2,SciPy1.18.0,scikit-learn1.9.0,Torch2.13.0+cu130,
+Transformers4.44.2; existing local environment, no package installation. AST uses
+the existing pinned revision, CUDA FP32, raw and level-controlled inputs; known
+mel-filter warning retained. The new command requires those lab dependencies and
+cached AST weights. The source acquisition and probe complete in one command:
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_epic_information.py \
+  --source SOURCE_SLICE --bridge ORIGINAL_PAIR_RUN --output NEW_EXTERNAL_DIRECTORY
+```
+
+The next primary artifact was produced in the same checkpoint, not deferred to
+another support-only turn. `epic-expanded-pair-bridge-2026-09-05` trains the same
+10240-parameter bridge on154 rows from19 participants, excluding ALL seven
+wood/glass examples and retaining the original seven P04/P07 development clips.
+`physical_sound_epic_pair_bridge.py --source SOURCE_SLICE --expanded INFORMATION_RUN
+--output NEW` verifies source identity, annotation correspondence, overlaps,
+participant/pair roles and PCM before fitting. No source redownload is needed.
+
+Architecture, generic prompt,200 updates, optimizer/learning rate, clipping,
+BF16 training, sampling seed and frozen generator are unchanged. Data frequency
+and the corresponding TRAIN centering distribution change with the corpus:
+this is not isolated proof of a participant-count effect. At the fixed compute
+budget113/154 rows are sampled, so the larger set has fewer repeated exposures;
+do not conclude that more data can never help. First/last20 loss1.725786/1.657109
+is not a sound-quality measure. No force/geometry values are invented.
+Posterior SHA256:
+`b9b5e1539c2ccd7e01b96b76845e78ee445e27eb94373afe8434c35ac52d4f46`.
+Bridge plus offset SHA256:
+`f78ecf30dbb949fcfbe24255257133bbf7878ddad4373f5bb8d45767547289bd`.
+Frozen generator digest remains23ee7758…1224b258; exact full digest is above.
+Zero, upstream-loss, full-model and adapter-off water/rain checks pass exactly.
+
+All14 generated cases use the retained-full-horizon/matched-onset policy.
+Frozen-base PCM is byte-exact to the earlier event matrix. New mean shape
+error5.945757 vs previous5.962152/base5.975546dB; wins8/14 vs previous,7/14 vs
+base and7/14 vs next-pair control. All-six-material ranking improves only2/14
+to3/14. Held wood/glass worsens7.028456 to7.080724dB; beats previous2/4, with ranks
+4,2,4,1. Neither the small mean gain nor increased data coverage establishes
+reliable material control. Do not replace the liked demo or claim physical learning.
+
+[Listen: real/previous/expanded model](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav>),
+50.552s, all six pairs in source order, fixedseed2718 and published gains. The full
+[real/base/new/wrong-pair comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-bridge-2026-09-05/comparison.wav>)
+and every full horizon remain available. The source-free standalone command with
+`--model .../epic-expanded-pair-bridge-2026-09-05 --pair 'wood / glass collision'
+--seed 314 --output NEW` retains event, prefix and full horizon independently.
+
+Standalone event/prefix/full PCM is byte-exact in both formats.117 learned,
+comparison and CLI WAVs pass identity/rate/layout/headroom checks. A first audit
+flagged missing preview receipts, not changed audio; exact regeneration from the
+declared source verified those seven WAVs, and future comparison reports now
+retain their receipts explicitly. Old completed reports remain unchanged.
+Raw AST diagnostics retain Breaking/Smash forseed314 and Door for2718, including
+base; no qualified material acceptance.69 focused tests, Ruff lint/format and
+diff/link checks pass. All jobs terminal; generated media/data/weights stay external.
+
+Next: two coherent material-bridge cycles leave the main failure unresolved.
+Do not run a third data-size/capacity/epoch/seed variant. Use a bounded research
+and counterfactual cycle: measure matched/wrong/disabled conditioning on paired
+TRAIN posterior/noise, separating attack, decay and silent tail. Test whether
+the optimization signal rewards material-dependent active audio or mostly another
+part of the horizon. The earlier water signal audit is not evidence for impacts.
+Keep these WAVs as inspectable controls; the next learned change needs a causal
+discriminator and playable same-policy comparison, not another protocol package.
+Full goal active; no runtime, roadmap or ProductCheck promotion.

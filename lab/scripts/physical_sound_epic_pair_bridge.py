@@ -260,6 +260,7 @@ def compare_development(output, report, dev):
     preview = []
     metrics = []
     rankings = []
+    report["reference_previews"] = []
     generated_profiles = {}
     for row in report["rows"]:
         rate, pcm = wavfile.read(row["wav"])
@@ -275,6 +276,9 @@ def compare_development(output, report, dev):
         target_profile = profile(wave, 16000)
         original = b.train.pilot.write_audio(
             output / (real["annotation_id"] + "-preview.wav"), wave
+        )
+        report["reference_previews"].append(
+            {**original, "annotation_id": real["annotation_id"]}
         )
         if show:
             preview.append({**original, "seed": 2718})
@@ -355,7 +359,69 @@ def compare_development(output, report, dev):
     }
 
 
-def run(root, output):
+def expanded_data(root, expanded):
+    original = json.loads((root / "result.json").read_text())
+    if (
+        original["status"] != "complete"
+        or original["annotation_revision"] != source.ANNOTATIONS
+    ):
+        raise ValueError("original source status/revision mismatch")
+    path = expanded / "result.json"
+    if not 0 < path.stat().st_size <= 2_000_000:
+        raise ValueError("bounded expanded source required")
+    manifest = json.loads(path.read_text())
+    if (
+        manifest["status"],
+        manifest["annotation_revision"],
+        manifest["source_result_sha256"],
+    ) != (
+        "complete",
+        source.ANNOTATIONS,
+        hashlib.sha256((root / "result.json").read_bytes()).hexdigest(),
+    ):
+        raise ValueError("expanded source identity mismatch")
+    for row in original["files"]:
+        if (
+            hashlib.sha256((root / row["path"]).read_bytes()).hexdigest()
+            != row["sha256"]
+        ):
+            raise ValueError("source metadata changed")
+    frame = pd.read_csv(root / "train.csv")
+    train = [r for r in manifest["rows"] if r["class"] != HELD_PAIR]
+    if not 45 < len(train) <= 216 or len({r["annotation_id"] for r in train}) != len(
+        train
+    ):
+        raise ValueError("bounded unique expanded training rows required")
+    if {r["class"] for r in train} != set(source.CLASSES) - {HELD_PAIR} or any(
+        r["participant_id"] in ("P04", "P07") for r in train
+    ):
+        raise ValueError("expanded training roles changed")
+    for row in train:
+        matches = frame[frame.annotation_id == row["annotation_id"]]
+        if len(matches) != 1 or any(
+            row[k] != matches.iloc[0][k] for k in frame.columns
+        ):
+            raise ValueError("expanded annotation mismatch")
+        overlaps = frame[
+            (frame.video_id == row["video_id"])
+            & (frame.start_sample < row["stop_sample"])
+            & (frame.stop_sample > row["start_sample"])
+            & (frame.annotation_id != row["annotation_id"])
+        ]
+        if len(overlaps):
+            raise ValueError("expanded annotation overlaps another event")
+        checked_wave(row)
+    dev = [
+        r for r in original["rows"] if r["participant_id"] not in ("P01", "P02", "P03")
+    ]
+    if len(dev) != 7 or {r["class"] for r in dev} != set(source.CLASSES):
+        raise ValueError("development coverage changed")
+    for row in dev:
+        checked_wave(row)
+    return train, dev
+
+
+def run(root, output, expanded=None):
     output = b.flow.c.v.phase.d.fresh_output(output)
     report = {
         "format": FORMAT,
@@ -374,7 +440,14 @@ def run(root, output):
     save = lambda: source.save(output / "result.json", report)
     save()
     try:
-        train, dev = data(root, output)
+        train, dev = (
+            data(root, output) if expanded is None else expanded_data(root, expanded)
+        )
+        if expanded is not None:
+            report["expanded_source_result"] = str(expanded / "result.json")
+            report["expanded_source_sha256"] = hashlib.sha256(
+                (expanded / "result.json").read_bytes()
+            ).hexdigest()
         report.update(train_rows=train, development_rows=dev)
         save()
         print({"train": len(train), "development": len(dev)}, flush=True)
@@ -401,7 +474,8 @@ def run(root, output):
         torch.cuda.empty_cache()
         means, stds = torch.cat(means), torch.cat(stds)
         if (
-            means.shape != (45, 645, 64)
+            means.shape != (len(train), 645, 64)
+            or stds.shape != means.shape
             or not torch.isfinite(means).all()
             or not torch.isfinite(stds).all()
         ):
@@ -458,7 +532,7 @@ def run(root, output):
         optimizer = torch.optim.AdamW(bridge.parameters(), lr=1e-4, weight_decay=0.01)
         rng = torch.Generator().manual_seed(2026)
         for step in range(200):
-            i = int(torch.randint(45, (1,), generator=rng))
+            i = int(torch.randint(len(train), (1,), generator=rng))
             target = (
                 means[i : i + 1]
                 + stds[i : i + 1] * torch.randn(means[:1].shape, generator=rng)
@@ -626,6 +700,11 @@ if __name__ == "__main__":
     p.add_argument("--pair", choices=source.CLASSES)
     p.add_argument("--seed", type=int, default=2718)
     p.add_argument("--event-matrix", action="store_true")
+    p.add_argument(
+        "--expanded",
+        type=Path,
+        help="completed broader TRAIN source; excludes held pair and P04/P07",
+    )
     modes = p.add_mutually_exclusive_group()
     modes.add_argument(
         "--event-window",
@@ -638,10 +717,12 @@ if __name__ == "__main__":
         help="save first seconds only; not impact-quality evidence",
     )
     a = p.parse_args()
+    if a.expanded is not None and a.source is None:
+        raise ValueError("expanded data requires --source training")
     if a.source and (a.event_matrix or a.event_window or a.prefix_diagnostic):
         raise ValueError("event options require saved --model")
     if a.source:
-        run(a.source, a.output)
+        run(a.source, a.output, a.expanded)
     elif a.event_matrix:
         if a.pair is not None or a.event_window or a.prefix_diagnostic:
             raise ValueError("matrix fixes all pairs and applies event extraction")

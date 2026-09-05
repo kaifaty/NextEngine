@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / EPIC_LEARNED_WAVS / MATERIAL_CONTROL_UNPROVEN.
+Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,32 +17,27 @@ Status: ACTIVE_GOAL / EPIC_LEARNED_WAVS / MATERIAL_CONTROL_UNPROVEN.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest learned impacts:** [real/base/learned/wrong pair](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/comparison.wav),
-  71.552s, six unordered pairs,fixedseed2718. [Wood/glass seed314](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/pair2-314.wav)
-  uses a pair excluded from bridge training; NOT proven physical generalization.
- 45TRAIN clips/P01–03,7dev/P04/P07,10240-factorized parameters,200updates.
-  All14 cases retain prefix/full29.9537s/onset3s WAVs. Later activity exists in
-  every full horizon; crops are bounded attack windows, not complete events.
-- **Impact result:** shape base5.975546/matched5.962152/wrong5.964974dB;
-  wins8/14 vsbase,5/14 vsnext pair. Heldwood/glass4/4 wins against those controls,
-  but ALL-six-material ranking gives correcttop1 only2/14 (heldranks1,2,2,3).
-  No reliable material control. Raw AST leads Breaking(seed314)/Door(2718),
-  including base; not a qualified pair judge. No bridge capacity/epoch/seed sweep.
+- **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
+  six unordered pairs,fixedseed2718. Expanded source154TRAIN/19participants,
+  same10240-parameter bridge/200updates,113 distinct sampled rows. All wood/glass
+  remains excluded from generator training; same7dev/P04/P07. Data frequencies
+  and centering change; not isolated proof of participant-count or compute effect.
+  All14 cases retain prefix/full29.9537s/onset3s; windows are bounded, not full events.
+- **Impact result:** shape new5.945757 vs previous5.962152/base5.975546dB;
+  wins8/14 vs previous,7/14 vs base/wrong. All-pair top1 only3/14 vs previous2/14.
+  Heldwood/glass worsens7.028456→7.080724,ranks4,2,4,1. No reliable material control.
+  Raw AST remains Breaking/Smash(seed314),Door(2718),including base. No replacement.
+  After two bridge cycles: NO next data-size/capacity/epoch/seed sweep.
 - **Impact reproducibility:** `physical_sound_epic_pair_bridge.py --model PATH
   --pair 'wood / glass collision' --seed 314 --output NEW` defaults to full/event;
   `--event-matrix` evaluates all14 without fitting. Zero/upstream-loss/full-model/
-  water+rain guards exact; CLI event/prefix/full byte-exact in both formats.
- 98 corrected WAVs verified; bridge/hash/source identities in pilot note.
+  water+rain/old-base guards and CLI PCM exact; identities/checks in pilot note.
   Original `epic-pair-bridge-2026-09-05` prefix evaluations are superseded,
   preserved unchanged; do not reuse their quiet-seed metrics for quality claims.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718,published PCM. Centered frozen-generator bridge retains
   water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
-  References enter metrics only. No promotion or source/cache at generation.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Latest trial rejected:** [real/old/new/swapped/style-only](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-setting-development-2026-09-05/comparison.wav),
-  45.8s,glass18/PET30,middle,seed2718. Separate recording-setting branch retains
-  water but shape8.025 versus old7.692/style-only7.817dB. No replacement.
 - **Earlier impacts:** generic LoRA improves1/14 matched crops; no LoRA sweep.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
@@ -71,22 +66,27 @@ Status: ACTIVE_GOAL / EPIC_LEARNED_WAVS / MATERIAL_CONTROL_UNPROVEN.
 - **Preserved guards:** publish exact PCM, never weaken.98 headroom.
   `requires_grad=False` is required for exact frozen-generator replay despite
   no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
-- **New source:** [EPIC real-pair preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-pairs-source-fixed-2026-09-05/comparison.wav),
-  37.297s,24 real TRAIN clips,6 unordered material pairs,19 videos/5 participants.
-  Four clips each: metal/glass,metal/wood,wood/glass,metal/plastic,metal/ceramic,
-  plastic/wood. NOT neural generation. Metadata revision57a922f0; full identities,
-  fixed source-order/no-overlap selection and runnable acquisition in pilot note.
-  CC-BY-NC4, noncommercial research only. No validation/test acquisition.
-  Object IDs/striker/geometry/force/velocity unknown; don't invent them.
+- **New source:** `epic-information-2026-09-05`,161TRAIN clips/19participants/84videos,
+  counts30/34/7/35/33/22 for metal/glass,metal/wood,wood/glass,metal/plastic,
+  metal/ceramic,plastic/wood. First12 participants/pair,first3 eligible clips each,
+  no overlap,0.25–3s,P04/P07 excluded.114new acquisitions,324 referenced WAVs verified.
+  [Real preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/preview.wav),12.443s;
+  all-source237.350125s. CC-BY-NC4/local research, same57a922f0 revision, no author
+  val/test. Object IDs/striker/geometry/force/velocity unknown; don't invent them.
+- **Supervised probe:** TRAIN leave-participant-out,fold-only scaling,C1 logistic,
+  fixed raw AST768/RMS.005/spectrum256/duration+gain3 features. Macro recalls
+ 24.30/20.11/25.47/21.45%; rawAST wood/glass0/7.32within-participant label
+  permutations mean16.53%,max21.72%,exploratoryp1/33. Some association, NOT a
+  qualified material judge/reward. No tuning from these predictions; see note.
 - **Pair validator:** frozen CLAP4/24 on six fixed prompts (chance expectation4).
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** discriminate poor transferable material information in kitchen labels
-  from weak bridge transfer: broaden TRAIN participant coverage and test a
-  participant-separated real-positive/wrong-label control before another fit.
-  Next learned trial retains playable/all-pair comparisons. No tuning on current
-  dev, no material-validator claims from CLAP. Stop13-container adapter family.
+- **Next:** bounded research/counterfactual on matched/wrong/disabled conditioning,
+  paired TRAIN posterior/noise, separating attack/decay/silent-tail signal. Does
+  the optimization improve material-dependent ACTIVE audio? Water signal audit
+  is not evidence for impacts. No third similar run; keep playable/all-pair controls.
+  No material-validator claim from CLAP/probe. Stop13-container adapter family.
 - **Verification:** focused Python tests/Ruff and exact replay; details in note.
   All jobs terminal. No runtime/default/ProductCheck promotion; full goal open.
 
