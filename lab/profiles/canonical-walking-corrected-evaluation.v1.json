@@ -1,0 +1,24 @@
+{
+  "schema": "nextengine.canonical-walking-corrected-evaluation.v1",
+  "profile_id": "nextengine.canonical-walking-corrected-evaluation.v1",
+  "status": "AcceptedBoundedRD",
+  "mode": "final-weights-only-inference-transfer",
+  "source_generation_sha256": "0c7d54ff302ab0fd7cb31be98ae8a5b37e7e286ceeae5ed77f074e1224a1dfa1",
+  "source_training_profile_sha256": "4d39a4e07694f34900d93c5d81008dab55606a91ded802aaca4f605c053f5c37",
+  "source_descriptor_sha256": "6d0e9f4b3e2a6d27831d965632d50af5033d4b94e62032d3c2eeb4a3023ee083",
+  "source_checkpoint_name": "model_9999.pt",
+  "source_checkpoint_iteration": 9999,
+  "target_descriptor_sha256": "d4e43b3e4ad0d08fc69a0327cd086d133375926de1eb4d9c296ef7987e6c560e",
+  "target_environment_profile_id": "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v8",
+  "support_measurement": "canonical-four-substep-exclusive-load-and-post-step-whole-foot-release.v1",
+  "evaluation": {
+    "seeds": [1001, 1002, 1003, 1004, 1005],
+    "max_steps": 1200,
+    "minimum_forward_displacement_m": 3,
+    "maximum_forward_velocity_mae_mps": 0.2,
+    "stop_ticks": 180,
+    "maximum_stop_speed_mae_mps": 0.1,
+    "minimum_single_support_run_ticks": 8,
+    "minimum_support_switches": 2
+  }
+}

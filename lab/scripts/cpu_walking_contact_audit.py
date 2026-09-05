@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -232,6 +233,151 @@ def foot_box(body, link):
         ]
     )
     return center + (signs * half) @ rotation.T, center, rotation, half
+
+
+def lifted_support_report(frames, descriptor):
+    """Diagnostic candidate, NOT a replacement for any frozen walking gate.
+
+    Require exclusive classified vertical load over four actual substeps and
+    positive canonical post-step minimum height of the other complete foot.
+    The latter is a post-step geometric sample, not four substep poses.
+    Keep both load-only and lift-qualified counts so unloading cannot be
+    mistaken for release. Eight ticks is the existing duration requirement.
+    """
+    profiles = descriptor["environment_profiles"]
+    allowed = {
+        f"nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v{v}"
+        for v in (7, 8)
+    }
+    if (
+        descriptor["observation_width"] != 88
+        or len(profiles) != 1
+        or profiles[0]["profile_id"] not in allowed
+    ):
+        raise ValueError("lifted support requires the V7/V8 sole-height layout")
+    if not frames:
+        raise ValueError("support report requires nonempty frames")
+    rows = classified_support(frames, descriptor)
+    heights = []
+    for index, frame in enumerate(frames):
+        if type(frame["tick"]) is not int or frame["tick"] != index + 1:
+            raise ValueError("support report requires contiguous ticks from one")
+        raw = frame["observation_raw"]
+        if len(raw) != 88 or any(type(value) is not int for value in raw[86:88]):
+            raise ValueError("sole heights must be two raw integer micrometre values")
+        heights.append(raw[86:88])
+    clearance, _ = foot_measurements(frames, descriptor)
+    if not np.isfinite(clearance).all():
+        raise ValueError("non-finite independent sole geometry")
+    # Normalized floating rendering and canonical Q30 projection differ slightly.
+    # Report that difference, but verify raw heights with exact integer arithmetic
+    # rather than accepting a tuned floating tolerance around the ground plane.
+    error_um = np.abs(clearance * 1e6 - np.asarray(heights))
+    for frame, height in zip(frames, heights, strict=True):
+        links = {link["body_token"]: link for link in frame["links"]}
+        for side, name in enumerate(("left", "right")):
+            body = next(
+                b
+                for b in descriptor["bodies"]
+                if b["body_id"] == f"body.{name}-ankle-roll"
+            )
+            if canonical_box_height_um(body, links[body["body_token"]]) != height[side]:
+                raise ValueError("native sole height disagrees with exact box geometry")
+    for row, height in zip(rows, heights, strict=True):
+        side = row["exclusive_positive_load_side_all_four_substeps_report_only"]
+        row["post_step_whole_foot_minimum_y_um"] = height
+        row["lift_qualified_stance_side_report_only"] = (
+            side if side is not None and height[1 - side] > 0 else None
+        )
+
+    def summarize(key):
+        counts, longest = [0, 0], [0, 0]
+        current, length, previous_qualified, switches = None, 0, None, 0
+        segments = []
+        for row in rows:
+            side = row[key]
+            if side is None:
+                current, length = None, 0
+                continue
+            counts[side] += 1
+            if side != current:
+                segments.append({"side": side, "first_tick": row["tick"], "ticks": 0})
+            length = length + 1 if side == current else 1
+            current = side
+            segments[-1]["ticks"] = length
+            longest[side] = max(longest[side], length)
+            if length == 8:
+                if previous_qualified is not None and side != previous_qualified:
+                    switches += 1
+                previous_qualified = side
+        return {
+            "ticks_by_stance_side": counts,
+            "longest_continuous_ticks_by_stance_side": longest,
+            "switches_between_runs_of_at_least_eight_ticks": switches,
+            "segments": segments,
+        }
+
+    return {
+        "status": "report_only",
+        "claim": "four-substep exclusive load plus post-step whole-foot release; no gate promotion",
+        "ticks": len(frames),
+        "maximum_independent_geometry_error_um": float(error_um.max()),
+        "exact_canonical_geometry": True,
+        "load_only": summarize(
+            "exclusive_positive_load_side_all_four_substeps_report_only"
+        ),
+        "load_and_lift": summarize("lift_qualified_stance_side_report_only"),
+        "frames": rows,
+    }
+
+
+def canonical_box_height_um(body, link):
+    """Exact oracle for walking_box_minimum_y_um, including ties-even then floor.
+
+    Do not normalize the stored Q30 quaternion: the canonical rotation helper
+    projects its quantized coefficients directly. Floating plots normalize it.
+    """
+    one = 1 << 30
+    if len(body["colliders"]) != 1:
+        raise ValueError("canonical sole height requires one box")
+    collider = body["colliders"][0]
+    if collider["geometry"]["kind"] != "box" or collider["local_rotation_q1_30"] != [
+        0,
+        0,
+        0,
+        one,
+    ]:
+        raise ValueError("canonical sole height requires identity-local-rotation box")
+    q = link["rotation_q1_30"]
+    if len(q) != 4 or any(type(v) is not int or abs(v) > one for v in q):
+        raise ValueError("invalid Q30 quaternion")
+    x, y, z, w = q
+    row = (
+        round(Fraction(2 * (x * y + z * w), one)),
+        one - round(Fraction(2 * (x * x + z * z), one)),
+        round(Fraction(2 * (y * z - x * w), one)),
+    )
+    offset = collider["local_translation_micrometres"]
+    half = collider["geometry"]["half_extents_micrometres"]
+    position = link["position_um"]
+    if (
+        any(len(v) != 3 for v in (offset, half, position))
+        or any(
+            type(v) is not int or not -(1 << 63) <= v < (1 << 63)
+            for values in (offset, half, position)
+            for v in values
+        )
+        or any(v <= 0 for v in half)
+    ):
+        raise ValueError("invalid integer box geometry")
+    value = (
+        position[1]
+        + sum(r * o - abs(r) * h for r, o, h in zip(row, offset, half, strict=True))
+        // one
+    )
+    if not -(1 << 63) <= value < (1 << 63):
+        raise ValueError("canonical box height overflow")
+    return value
 
 
 def sole_support(frames, descriptor):

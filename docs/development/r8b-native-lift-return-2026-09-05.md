@@ -242,3 +242,44 @@ Next: finish final 9999, retain its original gate result, and use these proven
 observables when defining the smallest schedule/evaluation correction. A fresh
 optimizer is not automatically needed if final weights pass an explicitly
 compatible, separately admitted corrected-command evaluation.
+
+## Lift-qualified support and final evaluation predeclaration
+
+`lifted_support_report` now combines four-actual-substep exclusive classified
+vertical load with positive post-step canonical whole-box height of the free
+foot. It remains report-only, not an edit to the frozen V7 gates. Full raw
+height verification uses a separate exact Python rational/integer oracle for
+Q30 coefficients, ties-even rounding and floor-to-um projection. The floating
+renderer normalizes quaternions; its maximum difference is 1.003365 um in the
+1,200-tick tape (two frames exceed 1 um). The initial proposed 1-um float check
+correctly failed; it was replaced with exact integer equality, not a relaxed
+tolerance. Earlier <1-um statements apply only to their earlier bounded corpus.
+
+All 3,030 frames across V7/V8 diagnostic and zero/left/right control tapes pass
+exact raw-height reconstruction. V7/V8 support reports agree exactly and the
+V7 native trajectory still equals its saved evaluation. Requiring actual lift
+retains the previous counts: diagnostic 258/256 ticks, longest 32/23 and 24
+qualified switches; zero none, left-lift stance-right 40, right-lift stance-left
+44. Synthetic grounded unloading, penetration, partial ticks, bilateral load
+and seven-tick runs fail qualification. Post-step clearance is not a claim of
+four-substep geometric clearance, and no final checkpoint has been selected.
+
+External evidence:
+`/home/kaifaty/NextEngine-training/r8b-walking-stop-window-v8/evidence/lift-qualified-support-comparison.json`
+SHA-256 `4fd30480b1c676fb978835b8b1aa2aeda21f682c0c47287f3a09529d3ffc6723`.
+It closes all six source descriptors/traces, the exact source NPZ and analyzer.
+Reproduce by invoking `lifted_support_report` for each trace case with its
+matching descriptor, comparing old/new reports, and `analyze` on the V7 NPZ.
+
+[ADR-111](../architecture/adr/111-final-weight-corrected-walking-evaluation.md)
+predeclares the separate corrected matrix and final-only source generation
+before completion of V7. The JSON matrix retains every original numeric task
+criterion. No corrected learned evaluation or new optimizer has run. Next
+implement the fail-closed source/compatibility/evaluation executor, verify its
+boundary controls, then use only completed model 9999. Do not repeat diagnostic
+3999 as a new policy selection or spend another unchanged PPO budget.
+
+PASS: 20 focused Python tests, Ruff and formatting; exact replay and geometry
+controls above. NOT RUN: new learned matrix and runtime/export. Broad host-check
+is not repeated for these isolated Python diagnostics and a future-evaluation
+profile; no Rust or active training input changed.

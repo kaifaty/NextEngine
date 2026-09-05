@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.77 |
+| Версия | 2.78 |
 | Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.76; admits ADR-110's separately identified applied-command repair |
+| Заменяет | INDEX-001 2.77; predeclares ADR-111's separate final-weight evaluation |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -316,7 +316,8 @@ traceability — навигационная карта, не admission authority
 | ADR-107 | [Direct canonical CPU walking learner](adr/107-canonical-cpu-walking-learner.md) | Accepted one bounded fresh V5 CPU PhysX/CUDA PPO run after exact adapter control; no mirror or runtime promotion |
 | ADR-108 | [Observable periodic walking credit](adr/108-observable-periodic-walking-credit.md) | Accepted one diagnosed V6 canonical-only successor with observable phase and graded load transfer; unchanged plant/safety and walking-quality gates |
 | ADR-109 | [Observable sole lift and return](adr/109-observable-sole-lift-and-return.md) | Accepted one diagnosed V7 canonical successor with observed sole geometry, phase-height costs and predeclared longer run; unchanged physical and final quality gates |
-| ADR-110 | [Applied-command stop window](adr/110-applied-command-stop-window.md) | Accepted V8 schedule repair and native controls only; V7 stays frozen, no optimizer or corrected learned evaluation admitted |
+| ADR-110 | [Applied-command stop window](adr/110-applied-command-stop-window.md) | Accepted V8 schedule repair; evaluation restriction narrowly superseded by ADR-111; V7 stays frozen |
+| ADR-111 | [Final-weight corrected walking evaluation](adr/111-final-weight-corrected-walking-evaluation.md) | Accepted separate V8 matrix using only closed V7 final weights; exact loaded support plus free-foot release, no optimizer or runtime admission |
 
 ## Proposed tracks
 

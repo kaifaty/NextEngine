@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 
 from lab.scripts.cpu_walking_contact_audit import (
     analyze,
+    canonical_box_height_um,
     classified_support,
     foot_box,
+    lifted_support_report,
     sole_support,
 )
 
@@ -77,6 +81,130 @@ def fixture():
 
 
 class ContactAuditTests(unittest.TestCase):
+    def test_corrected_matrix_preserves_original_task_and_final_selection(self):
+        profiles = Path(__file__).resolve().parents[1] / "profiles"
+        training = json.loads(
+            (profiles / "canonical-rsl-rl-walking.v3.json").read_text()
+        )
+        corrected = json.loads(
+            (profiles / "canonical-walking-corrected-evaluation.v1.json").read_text()
+        )
+        self.assertEqual(corrected["evaluation"], training["evaluation"])
+        self.assertEqual(
+            corrected["source_checkpoint_iteration"], training["iterations"] - 1
+        )
+        self.assertEqual(corrected["source_checkpoint_name"], "model_9999.pt")
+        self.assertEqual(corrected["mode"], "final-weights-only-inference-transfer")
+
+    def test_canonical_height_rounds_q30_ties_even_then_floors_negative_height(self):
+        trace, descriptor, _ = fixture()
+        body = descriptor["bodies"][1]
+        link = trace["frames"][0][0]["links"][1]
+        # Synthetic bounded coefficients isolate rounding; no physical-pose claim.
+        for x, expected in ((1, 0), (3, -1), (-1, 0), (-3, -1)):
+            link["rotation_q1_30"] = [x, 0, 0, 1 << 28]
+            with self.subTest(x=x):
+                self.assertEqual(canonical_box_height_um(body, link), expected)
+
+    def test_canonical_height_rejects_rotated_or_invalid_boxes_and_overflow(self):
+        for invalid in ("rotation", "extent", "quaternion", "overflow"):
+            trace, descriptor, _ = fixture()
+            body = descriptor["bodies"][1]
+            link = trace["frames"][0][0]["links"][1]
+            if invalid == "rotation":
+                body["colliders"][0]["local_rotation_q1_30"] = [1, 0, 0, 1 << 30]
+            elif invalid == "extent":
+                body["colliders"][0]["geometry"]["half_extents_micrometres"][0] = 0
+            elif invalid == "quaternion":
+                link["rotation_q1_30"][3] += 1
+            else:
+                link["position_um"][1] = -(1 << 63)
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                canonical_box_height_um(body, link)
+
+    def test_penetrating_free_foot_cannot_qualify(self):
+        frames, descriptor = self.lifted_fixture([(0, -1)] * 8)
+        self.assertEqual(
+            lifted_support_report(frames, descriptor)["load_and_lift"][
+                "ticks_by_stance_side"
+            ],
+            [0, 0],
+        )
+
+    def lifted_fixture(self, sequence):
+        frames = []
+        for index, (side, height) in enumerate(sequence):
+            loads = [100, 0] if side == 0 else [0, 100]
+            row, descriptor = self.substep_fixture([loads] * 4)
+            frame = row[0]
+            frame["tick"] = index + 1
+            frame["observation_raw"] = [0] * 88
+            frame["observation_raw"][86 + (1 - side)] = height
+            frame["links"][1 + (1 - side)]["position_um"][1] += height
+            frames.append(frame)
+        descriptor.update(
+            observation_width=88,
+            environment_profiles=[
+                {
+                    "profile_id": "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v7"
+                }
+            ],
+        )
+        return frames, descriptor
+
+    def test_grounded_unloading_cannot_qualify_as_lift(self):
+        frames, descriptor = self.lifted_fixture([(0, 0)] * 8)
+        report = lifted_support_report(frames, descriptor)
+        self.assertEqual(report["load_only"]["ticks_by_stance_side"], [8, 0])
+        self.assertEqual(report["load_and_lift"]["ticks_by_stance_side"], [0, 0])
+        self.assertEqual(report["status"], "report_only")
+
+    def test_exact_positive_height_and_existing_duration_count_switches(self):
+        frames, descriptor = self.lifted_fixture(
+            [(0, 1)] * 8 + [(1, 20_000)] * 8 + [(0, 60_000)] * 8
+        )
+        report = lifted_support_report(frames, descriptor)["load_and_lift"]
+        self.assertEqual(report["ticks_by_stance_side"], [16, 8])
+        self.assertEqual(report["longest_continuous_ticks_by_stance_side"], [8, 8])
+        self.assertEqual(report["switches_between_runs_of_at_least_eight_ticks"], 2)
+
+    def test_grounded_gap_breaks_run_and_short_opposite_run_does_not_switch(self):
+        frames, descriptor = self.lifted_fixture(
+            [(0, 100)] * 7 + [(0, 0)] + [(0, 100)] * 7 + [(1, 100)] * 7
+        )
+        report = lifted_support_report(frames, descriptor)["load_and_lift"]
+        self.assertEqual(report["longest_continuous_ticks_by_stance_side"], [7, 7])
+        self.assertEqual(report["switches_between_runs_of_at_least_eight_ticks"], 0)
+        self.assertEqual([s["ticks"] for s in report["segments"]], [7, 7, 7])
+
+    def test_lift_does_not_override_partial_or_bilateral_loaded_substeps(self):
+        frames, descriptor = self.lifted_fixture([(0, 10_000)] * 2)
+        frames[0]["completed_physics_substeps"] = 3
+        frames[0]["classified_contact_substeps"].pop()
+        frames[1]["classified_contact_substeps"][0]["contacts"][1]["impulse_uns"][1] = 1
+        self.assertEqual(
+            lifted_support_report(frames, descriptor)["load_and_lift"][
+                "ticks_by_stance_side"
+            ],
+            [0, 0],
+        )
+
+    def test_lift_report_rejects_layout_height_geometry_and_tick_corruption(self):
+        for corruption in ("layout", "height", "geometry", "tick", "width"):
+            frames, descriptor = self.lifted_fixture([(0, 10_000)])
+            if corruption == "layout":
+                descriptor["environment_profiles"][0]["profile_id"] = "unknown.v7"
+            elif corruption == "height":
+                frames[0]["observation_raw"][87] = True
+            elif corruption == "geometry":
+                frames[0]["observation_raw"][87] += 2
+            elif corruption == "tick":
+                frames[0]["tick"] = 2
+            else:
+                frames[0]["observation_raw"].pop()
+            with self.subTest(corruption=corruption), self.assertRaises(ValueError):
+                lifted_support_report(frames, descriptor)
+
     def substep_fixture(self, loads):
         trace, descriptor, _ = fixture()
         frame = trace["frames"][0][0]
