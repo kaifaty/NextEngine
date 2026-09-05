@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / REFERENCE_FREE_RESONANCE_HEAD / FIXED_BAND_RENDERER_REJECTED.
+Status: ACTIVE_GOAL / REFERENCE_FREE_PITCH_ADAPTER / NO_QUALITY_GAIN.
 
 ## Resume in 60 seconds
 
@@ -12,10 +12,10 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_RESONANCE_HEAD / FIXED_BAND_RENDERER_REJECT
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free sound:** [neural pouring](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/glass10-2718/neural.wav),
+- **Latest reference-free sound:** [neural pouring](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/matched-first-audition/adapter.wav),
   H10cm/diameter7cm/duration15s/start0.1, seed2718/decoder314, gain1.
-  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/comparison.wav):
-  glass10/glass16/PET10/glass10fast; base/neural/simple,54.96s. Experimental,
+  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/comparison.wav):
+  glass10/glass16/PET10/glass10fast; base/matched/shuffled,54.96s. Experimental,
   NOT a new best/default model. No recording or teacher needed at inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
@@ -40,8 +40,7 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_RESONANCE_HEAD / FIXED_BAND_RENDERER_REJECT
   batch6/lr3e-4,64 Euler/32 reconstruction,16k/FFT512/hop256/256² patches.
   Material/shape/dimensions/duration/elapsed fraction inputs. Prior power and
   onset variants retained; no default change or runtime promotion.
-- **Prior causal checks:**64/256 Euler does not fix deficit; wrong glass material
-  wins13/13, PET correct17/17. Endpoint penalty is not proven cause; see note.
+- **Prior checks:**256 Euler does not fix deficit; wrong glass material wins13/13.
 - **Prior phase fits:** learnable two-patch control, but paired93-record
   extension loses semantic stability (AST120/180; seed2718 fails60/60).
   Crossed decoder seeds do not explain it; CLAP partially corroborates.
@@ -60,29 +59,31 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_RESONANCE_HEAD / FIXED_BAND_RENDERER_REJECT
   Frozen Sound of Water model improves inspected real tracks but falling-tone
   median error1382 cents; direction/context dependent. Same corpus exposure,
   NOT independent-data validation. Full provenance/code in pilot note.
-- **Teacher artifacts:** `sound-of-water-pitch-model-2026-09-05` stores checked
-  MIT model weights/configs; `pouring-sow-pitch-probe-2026-09-05` has54 predictions
-  plus52 crop-context checks. Median context difference~52–92 cents but first
-  container23 differs2561 cents. Preserve full-sequence pseudo-targets; short
-  crops/softmax confidence cannot certify correctness. No automatic admission.
-- **Resonance head:**4993params,13 full-record pseudo-trajectories ×64 points,
-  1000 updates. OOF head error277.5 vs simple357.0/mean438.8 cents,6/13 wins
-  versus simple. Teacher overlap means NOT independent-data generalization.
-  `pouring-resonance-head-evaluation-2026-09-05` reuses original full-fit weights
-  after gain10 audition failure; gain1 safe. Do not retrain the completed head.
-- **Rendered result:** fixed150-cent/boost3 band, RMS preserved. Spectrum
-  9.918->11.101dB, CV error0.364->0.328, AST normalized180->170 of180.
-  Novel profiles AST11/12, CLAP12/12: disagreement, not full quality approval.
-- **Privileged control:** real full-record teacher curve still worsens spectrum
-  9.238->9.873 on13 training objects/two phases. Predictor-only explanation
-  weakened; fixed band emphasis insufficient. Teacher is not true pitch.
-- **Next action:** trajectory-conditioned, reconstruction-trained decoder
-  adapter around retained texture, exact zero-adapter control and new reference-
-  free WAVs. No fixed-band/head-capacity sweep or another detector stack first.
-- **Verification:**76 tests, Ruff,532 written WAVs checked. All jobs terminal;
+- **Teacher/head reuse:** `sound-of-water-pitch-model-2026-09-05` has checked
+  MIT weights/configs; `pouring-sow-pitch-probe-2026-09-05` has54 predictions and
+  52 crop-context checks. Preserve full-sequence pseudo-targets, not confidence.
+  `pouring-resonance-head-2026-09-05`:4993params/13 records/1000 updates,
+  OOF277.5 vs simple357.0 cents,6/13 wins. Reuse completed weights at gain1;
+  do not retrain. Teacher overlap prevents independent-data claims.
+- **Fixed output band rejected:** spectrum9.918->11.101dB; privileged teacher
+  also worsens9.238->9.873. Predictor-only explanation insufficient; see note.
+- **New input adapter rejected:** `pouring-pitch-adapter-2026-09-05`,144 trainable
+  parameters, frozen base, matched/shuffled curves,600 steps each. Both fits
+  complete; do not retrain. Two development objects ×two phases ×three seeds:
+  base/matched/shuffled spectrum7.655/8.026/8.086dB, both0/12 wins vs base.
+  AST normalized12/12 for all variants; NOT proof of naturalness/control.
+- **Guide discriminator:** `pouring-pitch-adapter-guide-check-2026-09-05`,13
+  training objects ×two phases. Base/predicted/teacher/scrambled spectrum
+  9.238/9.306/9.308/9.280. Teacher-input mismatch alone does not explain failure;
+  capacity and loss mismatch remain hypotheses. No tiny-adapter/epoch sweep.
+- **Next action:** a directly reconstruction-trained temporal audio decoder,
+  learning time-varying resonance/noise rather than modifying frozen flow input.
+  Use condition-only inference, multiscale audio loss, synthetic positive control
+  and reference-free real-domain WAVs. Preserve base/head as controls; no new
+  detector stack first. DDSP/Sound of Water support this experiment, not success.
+- **Verification:**81 tests, Ruff,214 WAVs checked for this adapter checkpoint.
+  Source-free CLI reproduced both audition WAV hashes. All jobs terminal;
   no Cargo/ProductCheck/engine audition or default/runtime promotion.
-- **Full goal remains open:** robust quality/control, generalization and integration.
-
 ## Preserve these constraints
 
 - The user will not record impacts, hit glass or supply force-sensor data.

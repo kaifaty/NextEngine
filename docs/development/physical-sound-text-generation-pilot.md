@@ -2112,3 +2112,103 @@ finite/headroom checks.531 have original writer hashes; the partial base has an
 explicit observed hash and matches gain1 base within PCM16 quantization bounds.
 76 focused tests, Ruff, local links and `git diff --check` pass. All evaluations
 terminal; no Cargo/ProductCheck/engine audition, runtime or roadmap promotion.
+
+### Trajectory-conditioned input adapter: audible, no demonstrated quality gain
+
+[New source-free WAV](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/matched-first-audition/adapter.wav>)
+uses the same glass H10cm/diameter7cm/event15s/start0.1 profile, generator2718,
+decoder314, gain1. [Four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/comparison.wav>)
+is54.96s: glass10/glass16/PET10/glass10fast, each base/matched/shuffled. No source
+recording or teacher is needed at inference. These are experimental candidates,
+not a better default. Dataset redistribution remains unspecified/local-only.
+
+`lab/scripts/physical_sound_pouring_pitch_adapter.py` adds a zero-initialized,
+bias-free1->16 Conv2d3x3 at the frozen PourFlow input:144 trainable parameters.
+The input is a150-cent Gaussian plane around the supplied frequency trajectory,
+not a fixed output filter. Every original parent tensor remains exactly frozen;
+a zero adapter exactly reproduces the parent sampler. The4993-parameter head
+and parent245985-parameter model are reused without retraining.
+
+Two600-step AdamW fits use the same13 first source-order training recordings,
+first/middle crops, six patches per batch, seed53, lr1e-3/wd0.01/gradient clip1.
+The matched fit receives full-record teacher curves at the correct crop offsets;
+the shuffled fit permutes only curves, keeping audio, controls, time and noise
+draws identical. Loss is flow velocity MSE plus0.25 times the time-squared-weighted
+one-step endpoint L1, averaged across pooling scales1/4/16. Final100-step mean
+losses0.343387/0.343618 do not establish a quality advantage. Teacher curves are
+uncertain and corpus-overlapping; they are not independent physical truth.
+
+The first source-order recording of each disclosed excluded object18/30, two
+phases and three seeds were evaluated. This is12 generated clips per model,
+not12 independent objects. No expansion to all30 recordings after this failure.
+
+| Development mean | Base | Matched guide training | Shuffled guide training |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 8.026 | 8.086 |
+| Centered spectrum RMSE,dB | 5.990 | 6.034 | 6.137 |
+| CV absolute error | 0.441 | 0.431 | 0.425 |
+| Raw AST water top5 | 10/12 | 11/12 | 9/12 |
+| RMS0.005 AST water top5 | 12/12 | 12/12 | 12/12 |
+
+Both adapters win0/12 spectral comparisons against base; CV wins9/12 and12/12.
+All four reference clips pass both AST levels. Four hypothetical profiles ×three
+seeds give12/12 AST water detections for every variant at both levels. These
+coarse semantic checks do not demonstrate realistic water, physical parameter
+accuracy or independent generalization. Spectrum error against one stochastic
+recording is also not a complete perceptual metric; the observed result supports
+withholding an improvement claim, not a universal impossibility theorem.
+
+Bounded research asks whether teacher-to-predicted-guide mismatch is responsible,
+whether the frozen decoder/input-only adapter cannot express the correction, or
+whether the one-step training objective fails to improve free-running audio.
+[ControlNet,v3,section3](https://arxiv.org/html/2302.05543v3) trains copies of deep
+encoding blocks joined through zero convolutions; it does not justify treating
+one144-parameter input convolution as an equivalent architecture. This is an
+image-model analogy, not proof of our audio capacity bottleneck.
+[DDSP](https://arxiv.org/abs/2001.04643) motivates jointly learned signal-processing
+components. More directly, [Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1)
+trains a pitch/loudness/residual decoder with multiscale spectrogram reconstruction.
+Its published generator draws loudness/residual from a real conditioning sample;
+that interface does NOT itself meet our no-reference-input goal. No new upstream
+code, weights or datasets were imported for this research cycle.
+
+The executable discriminator reused the completed matched adapter on13 TRAINING
+objects ×first/middle, generator2718/decoder314. Compare predicted head curves
+against privileged full-real-record teacher curves and frame-permuted teacher
+curves (NumPy53), with all other inputs fixed. This is an intentionally
+source-dependent diagnostic, not the source-free generation path.
+`pouring-pitch-adapter-guide-check-2026-09-05/result.json` and its
+[comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-guide-check-2026-09-05/comparison.wav>)
+retain all130 clips; comparison includes the first two training objects, each
+first/middle, in real/base/predicted/teacher/scrambled-teacher order.
+
+| Training-side diagnostic,26 clips | Base | Predicted | Teacher | Scrambled teacher |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 9.238 | 9.306 | 9.308 | 9.280 |
+| Centered spectrum RMSE,dB | 5.754 | 5.790 | 5.793 | 5.758 |
+| CV absolute error | 0.309 | 0.305 | 0.304 | 0.305 |
+
+Privileged guidance does not rescue the result. This weakens train/deployment
+guide mismatch as the sole cause, but does not distinguish capacity from loss
+mismatch or establish correct teacher pitch. Do not run more tiny-adapter/epoch
+sweeps. Next experiment: train a temporal resonance/noise decoder directly with
+multiscale audio reconstruction, learning time-varying signal components rather
+than nudging frozen flow features. It must generate from object/event conditions
+and randomness alone. Include a synthetic learnability control and new source-free
+real-domain WAVs; reconstruction-only diagnostics cannot become the endpoint.
+Preserve base/head and reject promotion on semantic tags or training loss alone.
+
+Training CLI takes `--source --teacher-probe --parent --head --output`.
+Source-free CLI uses `--parent PARENT --head HEAD --render-adapter ADAPTER
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --output FRESH_OUTPUT`, with optional
+`--seed` and `--device`; it explicitly excludes source/teacher arguments.
+The controls encode normalized height/top-bottom diameters, duration, phase,
+material and shape. `pouring-pitch-adapter-cli-2026-09-05` reran the real CLI and
+reproduced both first-audition WAV hashes. Weights are integrity-checked at load;
+oversized metadata, bad parent/head identity and invalid sampling bounds fail.
+
+Verification:81 focused tests, Ruff and `git diff --check` pass;81 experiment,
+131 guide-check and two CLI WAVs pass hash/PCM16/16kHz/finite/headroom checks.
+Both fits and all evaluations are terminal. No CLAP rerun for this rejected
+candidate, no Cargo/ProductCheck/engine audition, no runtime/default/roadmap
+promotion. The full multi-event physical-sound goal remains open.
