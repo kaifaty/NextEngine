@@ -5366,3 +5366,118 @@ re-run ridge/feature/crop/encoder-size sweeps from these opened outcomes. Requir
 inspectable frame/contact evidence and source-free audio; no inferred dimensions,
 protected-role reuse or mandatory human validation. Existing empty-schedule and
 broader physical-control gaps remain open; prior source-free adapter retained.
+
+## Contact/FOV discriminator — 2026-09-06
+
+Bounded research after mixed categorical/full-scene results considered three
+explanations: the visual input omits the struck object; pooled generic features
+confuse object/striker/background; categories and this small dataset omit dominant
+physical variation. No additional material-specific model or parameter sweep.
+
+The [original paper](https://arxiv.org/html/1512.08512), v2 2016-04-30,
+sections3/A2, reports impact-site pixel annotations on approximately62% of actions
+and two hickory drumsticks. These are not force/geometry measurements. Its image
+representation section reports difficulties with fast/nonrigid optical flow;
+the appendix also notes that image similarity can follow the arm rather than the
+interaction. This supports checking input locality, not assuming motion=contact.
+
+Acquisition checks: the [author page](https://andrewowens.com/vis/) links the
+CC-BY4 dataset. The HTTPS Umich archive timed out in bounded HEAD/Range checks;
+guessed author-host ZIP mirrors returned404. No TLS bypass, huge archive download,
+or author val/test opening. The public author directory index lists977recordings,
+each with videos/audio, `_times.txt` and `_sf.mat`/`_sf.pk`; no coordinate file is
+listed. For the already-opened2015-03-20-02-27-12record, `_times.txt` contains only
+time/material/action/reaction, and safely parsed MATLAB contains only`sfs`80×45×42.
+No pickle was deserialized. Thus public coordinates were **not recovered**;
+do not claim that our CSV conversion lost them or that they do not exist elsewhere.
+
+Implemented one image-only residual-motion window in
+`lab/scripts/physical_sound_contact_localization.py`: seven15fps frames centered
+on nominal audio-derived onset, integer phase-correlation global translation,
+mean absolute aligned differences, one fixed80×60max-energy window. Large shifts
+and zero residual abstain. No learned weights, audio input, crop/threshold search
+or physical/contact admission. Synthetic moving-patch+camera-translation control
+localizes the patch; pure camera translation yields zero residual. Four tests pass.
+
+Three diagnostic videos in`syncfusion-contact-localization-2026-09-06` contain
+ORIGINAL recorded audio(.5gain), not generated audio, and three repeated0.8s clips
+with0.4s gaps; AAC/container duration3.643s. All decode,48kmono/640×480; rendered
+frames inspected. Cases remain source rows138/7/127 and their existing roles.
+Candidate boxes(x,y,w,h): glassstatic(0,159,80,60),wood(85,0,80,60),glassrigid
+(0,140,80,60); motion fractions.5474/.2296/.4011, NOT confidence scores. Visual
+inspection: wood window follows the shaft and excludes the visible tip; glass
+windows include boundary motion but do not establish object/point identity.
+Rejected as automatic contact labels. No training on these crops.
+
+A separate, executable input-loss control confirms the cached DINO processor
+resizes320×240→341×256 and center-crops224×224, discarding about17% of original
+width on EACH side. A left-edge synthetic marker disappears completely. The
+observed interactions lie near this vulnerable edge; exact physical contact
+coordinates remain unknown. This newly established preprocessing loss justifies
+one full-FOV counterfactual, not an unbounded crop sweep.
+
+`prepare-full-frame` fits the entire processed frame into224×224 with bicubic
+letterboxing and ImageNet-mean padding, disables additional resize/center-crop,
+and preserves existing channel normalization. Test proves marker retention and
+unchanged legacy default processing. Both training and inference use the same
+recorded preprocessing mode. This also changes effective spatial resolution and
+padding; it is not an isolated measurement of contact causality or metric shape.
+Same307rows/239TRAIN/68held, exact recording exclusions, fixedridge.01, same
+196608coefficient residual, frozen DINO/categorical/CLAP/diffusion, seed42,
+150steps/CFG2/.5gain/full262144samples. Wrong-frame and descriptor controls remain.
+
+Initial offline preparation terminated before features because the hub cache did
+not contain files previously saved with`local_dir`. Its external failure receipt
+is retained. Recovery reused byte-identical existing local DINO files, not a new
+download/model/version. Features`syncfusion-full-frame-features-local-2026-09-06`;
+fit`syncfusion-full-frame-fit-2026-09-06/visual-adapter.pt`,SHA
+8e8cfc8a08c17a10040c7bcd8e52fccaa9358c0c0efc2227453ba0c173134f71.
+
+Event-weighted cosine descriptor→stock crop→full frame:
+TRAIN239 .159423→.104938→.106116;
+recording-dev50 .143037→.147608→.145964;
+combination-dev18 .188744→.188290→.186215;
+all68held .155136→.158377→.156619.
+Full frame partially recovers the visual loss but still loses to descriptor-only.
+Glassrigid4events .198932→.222295→.207959, also still worse. Retaining visible
+content is not sufficient evidence of useful physical generalization.
+
+Audible [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/glass-rigid-motion-comparison.wav).
+Order: held real event→descriptor-only→full-frame image→wrong full-frame image.
+No reference audio at generation; real event is added only during assessment.
+All9generated WAVs publish,36/36attacks,0extras; all3descriptor PCM controls exact.
+Fixed200ms/32-band shape distance to the same individual held events:
+
+| Case | Descriptor | Stock crop | Full frame | Wrong full frame |
+|---|---:|---:|---:|---:|
+| Glass static |6.675625|6.441358|6.544969|7.484830|
+| Wood static |5.081906|5.938341|5.691372|5.529345|
+| Glass rigid-motion |3.723624|3.822596|4.116011|4.855202|
+
+Full frame beats descriptor on only1/3cases; wrong frame again beats correct on
+wood. It improves over stock crop on only wood, despite improved aggregate
+embedding distance. **No promotion, no global audio-quality improvement.** This
+counterexample also warns against using embedding error alone as acceptance.
+Raw/PCM hashes,full length,finite/headroom,.5gain/quantization and comparison
+identities pass. Comparison durations19.660958/18.944479/19.157146s. CUDA2.3816GiB,
+23.4–24.0s/gen aftersetup. DINO4files and all307frame/role/identity records exactly
+match prior inputs. Six actual network-input previews, normalization inverted for
+inspection, reside alongside localization videos; glass/wood pairs inspected.
+25focused tests(21SyncFusion+4localization),Ruff,diff/link checks pass;all jobs
+terminal. No Cargo/host-check/ProductCheck, runtime/demo, roadmap or license
+promotion. Existing categorical source-free adapter remains the retained baseline.
+
+Next discriminator, before another visual/decoder fit: on the existing307real
+events, measure material separability across the fixed recording exclusions using
+TRAIN-only audio templates/features, with confusion and recording-level support.
+Compare acoustic-shape and frozen-embedding evidence on REAL positive controls
+before using either to accept generated sound. This distinguishes insufficient
+label/data support from an unusable acceptance representation; neither hypothesis
+is proved by this FOV failure. Then apply any supported check to the existing
+source-free WAVs with an inspectable audition, not a new validator-framework
+project. No DINO size/feature/crop/ridge or prompt/seed/epoch sweeps; reopen only
+with new discriminating evidence. Automatic realism validation, unseen-object
+transfer, physical controls, empty-schedule silence and the other process families
+remain unresolved; this is not a narrowing of the full goal.

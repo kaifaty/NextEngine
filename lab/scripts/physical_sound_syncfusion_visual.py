@@ -3,6 +3,7 @@
 import argparse
 import collections
 import json
+import shutil
 import tarfile
 import time
 from pathlib import Path
@@ -12,7 +13,7 @@ import physical_sound_syncfusion_adapter as categorical
 import physical_sound_syncfusion_pilot as pilot
 import soundfile as sf
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from torch.nn import functional as F
 
 DINO = "facebook/dinov2-small"
@@ -26,7 +27,29 @@ def frame_index(start, fps):
     return int((start - 0.1) * fps) + 1
 
 
-def prepare(data, archive_path, output):
+def image_inputs(processor, image, preprocessing="author-center-crop"):
+    if preprocessing == "author-center-crop":
+        return processor(images=image.convert("RGB"), return_tensors="pt")
+    if preprocessing != "full-frame-letterbox-224":
+        raise ValueError("Unknown visual preprocessing")
+    # One causal counterfactual: preserve boundary interactions discarded by the
+    # stock center crop. Not contact localization or calibrated physical shape.
+    contained = ImageOps.contain(
+        image.convert("RGB"), (224, 224), Image.Resampling.BICUBIC
+    )
+    fill = tuple(round(255 * v) for v in processor.image_mean)
+    canvas = Image.new("RGB", (224, 224), fill)
+    canvas.paste(
+        contained, ((224 - contained.width) // 2, (224 - contained.height) // 2)
+    )
+    return processor(
+        images=canvas, return_tensors="pt", do_resize=False, do_center_crop=False
+    )
+
+
+def prepare(
+    data, archive_path, output, preprocessing="author-center-crop", backbone=None
+):
     from huggingface_hub import hf_hub_download
     from transformers import AutoImageProcessor, Dinov2Model
 
@@ -43,7 +66,11 @@ def prepare(data, archive_path, output):
         "preprocessor_config.json",
         "model.safetensors",
     ):
-        hf_hub_download(DINO, name, revision=REVISION, local_dir=output / "dino")
+        if backbone is None:
+            hf_hub_download(DINO, name, revision=REVISION, local_dir=output / "dino")
+        else:
+            (output / "dino").mkdir(exist_ok=True)
+            shutil.copyfile(backbone / name, output / "dino" / name)
     if pilot.sha(output / "dino/model.safetensors") != DINO_SHA:
         raise ValueError("Visual backbone identity mismatch")
     torch.set_num_threads(4)
@@ -66,6 +93,7 @@ def prepare(data, archive_path, output):
         "dino_revision": REVISION,
         "dino_sha256": DINO_SHA,
         "dino_license": "Apache-2.0",
+        "preprocessing": preprocessing,
         "frame_rule": "one-based floor((onset-.1)*processed_fps)+1; metadata15fps; pre-impact nominal frame,not calibrated contact timestamp",
         "rows": rows,
     }
@@ -89,7 +117,7 @@ def prepare(data, archive_path, output):
             with Image.open(path) as image:
                 if image.size != (320, 240):
                     raise ValueError("Unexpected processed image layout")
-                inputs = processor(images=image.convert("RGB"), return_tensors="pt")
+                inputs = image_inputs(processor, image, preprocessing)
             with torch.inference_mode():
                 vector = F.normalize(
                     model(**inputs.to("cuda")).last_hidden_state[:, 0], dim=-1
@@ -258,6 +286,7 @@ def fit(data, frames, base, output):
             "base_sha256": base_report["adapter_sha256"],
             "checkpoint_sha256": base_report["checkpoint_sha256"],
             "dino_sha256": DINO_SHA,
+            "preprocessing": image_report.get("preprocessing", "author-center-crop"),
             "ridge": 0.01,
             "new_parameters": mapping.numel(),
             "validation": validation,
@@ -308,7 +337,9 @@ def render(assets, frames, fitted, output):
             if pilot.sha(path) != reference["sha256"]:
                 raise ValueError("Changed input image")
             with Image.open(path) as image:
-                inputs = processor(images=image.convert("RGB"), return_tensors="pt")
+                inputs = image_inputs(
+                    processor, image, report.get("preprocessing", "author-center-crop")
+                )
             with torch.inference_mode():
                 vector = F.normalize(
                     image_model(**inputs.to("cuda")).last_hidden_state[:, 0], dim=-1
@@ -333,6 +364,7 @@ def render(assets, frames, fitted, output):
         "status": "running",
         "reference_audio_input": False,
         "image_input": True,
+        "preprocessing": report.get("preprocessing", "author-center-crop"),
         "audio_encoder_instantiated": False,
         "weights_sha256": report["weights_sha256"],
         "events_seconds": categorical.oracle.TIMES,
@@ -506,21 +538,33 @@ def assess(data, fitted, previous, output):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("prepare", "fit", "render", "assess"))
+    parser.add_argument(
+        "mode", choices=("prepare", "prepare-full-frame", "fit", "render", "assess")
+    )
     for name in ("data", "archive", "frames", "base", "assets", "fitted", "previous"):
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--backbone", type=Path)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
         parser.error("Artifacts must remain external")
     required = {
         "prepare": (args.data, args.archive),
+        "prepare-full-frame": (args.data, args.archive),
         "fit": (args.data, args.frames, args.base),
         "render": (args.assets, args.frames, args.fitted),
         "assess": (args.data, args.fitted, args.previous),
     }[args.mode]
     if any(p is None for p in required):
         parser.error("Missing mode-specific input")
-    {"prepare": prepare, "fit": fit, "render": render, "assess": assess}[args.mode](
-        *required, args.output
-    )
+    if args.mode == "prepare-full-frame":
+        prepare(
+            *required,
+            args.output,
+            preprocessing="full-frame-letterbox-224",
+            backbone=args.backbone,
+        )
+    else:
+        {"prepare": prepare, "fit": fit, "render": render, "assess": assess}[args.mode](
+            *required, args.output
+        )

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FULL_SCENE_VISUAL_RESIDUAL_REJECTED / SOURCE_FREE_ADAPTER_RETAINED.
+Status: ACTIVE_GOAL / FULL_FOV_NOT_SUFFICIENT / SOURCE_FREE_ADAPTER_RETAINED.
 
 ## Resume in 60 seconds
 
@@ -17,13 +17,26 @@ Status: ACTIVE_GOAL / FULL_SCENE_VISUAL_RESIDUAL_REJECTED / SOURCE_FREE_ADAPTER_
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest visual discriminator:**`syncfusion-visual-audition-2026-09-06`,3comparisons
-  held reference→descriptor→correct scene frame→wrong frame.9WAV,36/36attacks,0extras;
-  all3descriptor PCM controls exact. DINOv2-S frozen,ridge.01,196608newcoefficients.
-  Held68 cosine .15514→.15838(worse);spectrum correct image improves only1/3cases,
-  wrong image beats correct onwood. NOT promoted;no ridge/feature/crop/encoder sweep.
-  39tests,all jobs terminal. Frames are whole scenes,not isolated contact objects;
-  no geometry/force claim. Exact frames/data/hashes/results/primary sources in note.
+- **Latest audible:**`syncfusion-full-frame-audition-2026-09-06`,3comparisons
+  real→descriptor→full-frame→wrong-frame;9WAV,36/36attacks,0extras,3PCMcontrols exact.
+  Stock DINO preprocessing discards~17%width EACH edge(marker test);fixed224square
+  letterbox retains content. Same307rows/roles,DINO/ridge.01/196608coefficients.
+  Held68 cosine descriptor.155136/stock.158377/full.156619;still loses to descriptor.
+  Spectrum full improves only1/3cases vsdescriptor,wrongwood again beatscorrect.
+  NOT promoted;25focusedtests,Ruff/media/diff checks;all jobs terminal. Fit
+  `syncfusion-full-frame-fit-2026-09-06`,SHA8e8cfc8a…;features`...features-local...`.
+- **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3videos with
+  ORIGINAL recorded audio,NOT generation. One phase-corrected motion-window test
+  passes synthetic movingpatch/camera controls but followswoodstickshaft,not tip.
+  No crop training. Author paper reports pixel labels;public times/MAT/index did
+  not expose them,Umich archive timeout. Not proof CSV lost coordinates. No TLS
+  bypass/pickle/val/test. Six actual DINO input previews demonstrate FOV loss.
+- **Next:** real-audio material separability on existing307events,TRAIN-only
+  templates/features vsrecording-held controls;compare spectrum/embedding before
+  using either as acceptance. Report confusion+recording support;apply supported
+  check to existing generated auditions. No new validator framework or DINO/
+  crop/ridge/epoch/prompt sweep. Full-FOV loss is real but not sufficient cause;
+  exact evidence/primary sources/CLI semantics in the pilot note.
 - **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
   `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
   TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
