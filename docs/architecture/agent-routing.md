@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.60 |
+| Версия | 2.61 |
 | Последняя проверка | 2026-09-06 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,13 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For BodySchema V11 joint-bandwidth diagnostics read
+[ADR-122](adr/122-native-bandwidth-calibration-diagnostic.md), SPEC-35 and
+ADR-069/115/116/118/119/120/121. Check exact K/D-only delta, unchanged full safety,
+four-sole exact admission, frozen27-world census, old native V8 control,
+native motor/example tests, Clippy/format and boundary/content. Unloaded
+response does not admit standing, loaded recovery, training or full calibration.
 
 For screened-eight BodySchema V10 diagnostics, additionally read
 [ADR-121](adr/121-screened-damping-native-diagnostic.md), SPEC-35 and

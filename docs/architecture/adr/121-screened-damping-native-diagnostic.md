@@ -8,7 +8,7 @@
 | Decision date | 2026-09-06 |
 | Dependencies | SPEC-35, ADR-069/115/116/117/118/119/120 |
 | Supersedes | ADR-118/120 four-sole and ADR-119/120 consumer admission only through explicit exact-V10 constructors; all previous profiles remain unchanged |
-| Superseded by | none |
+| Superseded by | [ADR-122](122-native-bandwidth-calibration-diagnostic.md), exact V11 four-sole diagnostic admission only; V10 remains unchanged |
 
 ## Decision
 

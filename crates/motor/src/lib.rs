@@ -62,6 +62,7 @@ pub use biomechanics::{
     biomechanics_humanoid_body_schema_v5, biomechanics_humanoid_body_schema_v6,
     biomechanics_humanoid_body_schema_v7, biomechanics_humanoid_body_schema_v8,
     biomechanics_humanoid_body_schema_v9, biomechanics_humanoid_body_schema_v10,
+    biomechanics_humanoid_body_schema_v11,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID,
@@ -164,7 +165,8 @@ pub use mirror_v2::{
     biomechanics_body_diagnostic_descriptor_json_v7,
     biomechanics_body_diagnostic_descriptor_json_v8,
     biomechanics_body_diagnostic_descriptor_json_v9,
-    biomechanics_body_diagnostic_descriptor_json_v10, biomechanics_isaac_mirror_descriptor_json_v1,
+    biomechanics_body_diagnostic_descriptor_json_v10,
+    biomechanics_body_diagnostic_descriptor_json_v11, biomechanics_isaac_mirror_descriptor_json_v1,
     biomechanics_isaac_mirror_descriptor_json_v2, biomechanics_isaac_mirror_descriptor_json_v3,
     biomechanics_isaac_mirror_descriptor_json_v4,
 };

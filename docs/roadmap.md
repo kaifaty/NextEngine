@@ -2036,6 +2036,13 @@ historical control are exact;155 native motor tests and scoped checks pass.
 The full-calibration goal remains open. Next address native K+D bandwidth and
 actual multi-channel response before loaded transfer/disturbances; do not infer
 native readiness from the Isaac screen or retry an unchanged damping-only route.
+The [V11 native bandwidth diagnostic](development/r8b-native-bandwidth-calibration-2026-09-06.md)
+now passes25 isolated joint steps and simultaneous sine (V8 passes0/27), but
+all-positive simultaneous step fails foot-foot contact at substep268. Its target
+geometry is itself intersecting. Preserve that failure and verify a feasible
+combined input next, without retuning V11 or disabling collisions. Loaded
+support/poses/disturbances and full calibration remain open; no standing or
+training consumer is admitted.156 native tests and scoped checks pass.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

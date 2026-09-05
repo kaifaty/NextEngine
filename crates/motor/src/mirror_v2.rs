@@ -35,6 +35,10 @@ pub fn biomechanics_body_diagnostic_descriptor_json_v10() -> Result<String, Moto
     biomechanics_body_diagnostic_descriptor_json(&crate::biomechanics_humanoid_body_schema_v10())
 }
 
+pub fn biomechanics_body_diagnostic_descriptor_json_v11() -> Result<String, MotorCompileError> {
+    biomechanics_body_diagnostic_descriptor_json(&crate::biomechanics_humanoid_body_schema_v11())
+}
+
 fn biomechanics_body_diagnostic_descriptor_json(
     schema: &BodySchemaV2,
 ) -> Result<String, MotorCompileError> {
