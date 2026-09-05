@@ -1,4 +1,4 @@
-"""Render a complete closed ADR-111 native trajectory; never run a policy."""
+"""Render a complete closed final or explicit known-candidate native trajectory."""
 
 from __future__ import annotations
 
@@ -75,20 +75,49 @@ def frame_geometry(frame, descriptor):
 def load_closed_evaluation(evaluation, seed):
     manifest_path = evaluation / "run-manifest.json"
     manifest = json.loads(manifest_path.read_text())
+    known = manifest.get("schema") == "nextengine.known-walking-candidate-run.v1"
+    if known:
+        if manifest.get("status") != "completed":
+            raise ValueError("video requires a completed known-candidate evaluation")
+        cfg = manifest["profile"]
+        if (
+            cfg["source_checkpoint_name"] != "model_3999.pt"
+            or cfg["source_checkpoint_iteration"] != 3999
+        ):
+            raise ValueError("video requires the declared known candidate")
+        # Read-only projection for shared rendering; never rewrite source manifest.
+        manifest = {
+            **manifest,
+            "matrix": cfg,
+            "target_descriptor_path": manifest["target_descriptor"],
+            "inputs": {
+                "target_descriptor_sha256": cfg["target_descriptor_sha256"],
+                "source_checkpoint_sha256": cfg["source_checkpoint_sha256"],
+            },
+        }
     if (
-        manifest.get("schema") != "nextengine.corrected-walking-evaluation-run.v1"
+        not known
+        and manifest.get("schema") != "nextengine.corrected-walking-evaluation-run.v1"
         or manifest.get("status") != "completed"
     ):
         raise ValueError("video requires a completed corrected evaluation")
-    if manifest["matrix"]["source_checkpoint_name"] != "model_9999.pt":
+    if not known and manifest["matrix"]["source_checkpoint_name"] != "model_9999.pt":
         raise ValueError("video requires the declared final checkpoint")
     if seed not in manifest["matrix"]["evaluation"]["seeds"]:
         raise ValueError("seed outside declared evaluation matrix")
-    paths = [
-        evaluation / f"native-{seed}.json",
-        evaluation / f"support-{seed}/report.json",
-        evaluation / "evaluation.json",
-    ]
+    paths = (
+        [
+            evaluation / "evaluation" / f"native-{seed}.json",
+            evaluation / "evaluation" / f"support-{seed}.json",
+            evaluation / "evaluation.json",
+        ]
+        if known
+        else [
+            evaluation / f"native-{seed}.json",
+            evaluation / f"support-{seed}/report.json",
+            evaluation / "evaluation.json",
+        ]
+    )
     for path in paths:
         if (
             sha256_file(path)

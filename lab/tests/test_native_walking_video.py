@@ -78,6 +78,57 @@ class NativeVideoTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
                 load_closed_evaluation(path, 1001)
 
+    def test_known_candidate_loader_keeps_identity_and_rejects_missing_frames(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)
+            dp = path / "descriptor.json"
+            atomic_write_json(dp, self.descriptor)
+            atomic_write_json(
+                path / "evaluation/native-1001.json",
+                {"profile_id": "v8", "frames": [[self.frame]]},
+            )
+            atomic_write_json(
+                path / "evaluation/support-1001.json",
+                {"lifted_support": {"frames": [{"tick": 1}]}},
+            )
+            atomic_write_json(
+                path / "evaluation.json",
+                {"episodes": [{"seed": 1001, "ticks": 1, "passed": True}]},
+            )
+            manifest = {
+                "schema": "nextengine.known-walking-candidate-run.v1",
+                "status": "completed",
+                "target_descriptor": str(dp),
+                "profile": {
+                    "source_checkpoint_name": "model_3999.pt",
+                    "source_checkpoint_iteration": 3999,
+                    "source_checkpoint_sha256": "ab" * 32,
+                    "target_descriptor_sha256": sha256_file(dp),
+                    "target_environment_profile_id": "v8",
+                    "evaluation": {"seeds": [1001]},
+                },
+                "artifacts": {
+                    str(p.relative_to(path)): sha256_file(p)
+                    for p in path.rglob("*")
+                    if p.is_file()
+                },
+            }
+            atomic_write_json(path / "run-manifest.json", manifest)
+            record = load_closed_evaluation(path, 1001)[-1]
+            self.assertEqual(record["checkpoint_label"], "model_3999.pt")
+            self.assertTrue(record["passed"])
+            # Even a self-consistently rehashed short trace must reject count drift.
+            atomic_write_json(
+                path / "evaluation/native-1001.json",
+                {"profile_id": "v8", "frames": [[]]},
+            )
+            manifest["artifacts"]["evaluation/native-1001.json"] = sha256_file(
+                path / "evaluation/native-1001.json"
+            )
+            atomic_write_json(path / "run-manifest.json", manifest)
+            with self.assertRaisesRegex(ValueError, "frame count"):
+                load_closed_evaluation(path, 1001)
+
 
 if __name__ == "__main__":
     unittest.main()
