@@ -1,6 +1,6 @@
 # R8b V8 applied stop-window correction
 
-Status: `IMPLEMENTED / NATIVE_CONTROLS_PASS / HOST_CHECK_RUNNING`.
+Status: `IMPLEMENTED / NATIVE_CONTROLS_PASS / HOST_CHECK_PASS / NO_LEARNED_EVALUATION`.
 Authority: [ADR-110](../architecture/adr/110-applied-command-stop-window.md).
 Cause: [V7 exact diagnosis](r8b-native-lift-return-2026-09-05.md).
 
@@ -59,7 +59,9 @@ Compare all physical/contact fields exactly, not tolerances or visual similarity
 - PASS: six native headless protocol tests, including V8 create/reset/step/close.
 - PASS: feature-enabled motor/headless all-target clippy, Rust formatting,
   exact native controls above and diff/link checks.
-- RUNNING: Linux host-check; external `host-check.log` retains output.
+- PASS: full Linux host-check for implementation `f7efceb5`; external
+  `host-check.log` SHA-256 is
+  `bcaaf499a6614793689f66b5cbf00268d9032d1187a295c8f8b3bc45e70058e1`.
 - NOT RUN: V8 policy inference, corrected learned acceptance, new optimization,
   Isaac correspondence or runtime/export promotion.
 

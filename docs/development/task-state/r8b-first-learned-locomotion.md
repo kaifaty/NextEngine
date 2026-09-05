@@ -22,7 +22,7 @@
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
-  final model 9999. V8's schedule repair passes native controls; host-check runs.
+  final model 9999. V8's schedule repair passes native controls and host-check.
   Next predeclare corrected support evaluation and final-weight compatibility.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
