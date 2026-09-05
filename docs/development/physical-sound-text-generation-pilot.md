@@ -1610,3 +1610,109 @@ an OOD-only explanation. Test a small known-object first/middle conditional fit
 against shuffled-phase and exact-spectrogram controls, retaining playable WAVs.
 Do not resume generic capacity/epoch/loss sweeps, promote power on AST alone,
 or replace the broad user objective with matching these summary statistics.
+
+### Phase conditioning: learnable in a small probe, unstable at broader scale
+
+[Two-phase learning comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-two-phase-probe-2026-09-05/comparison.wav>):
+first then middle; real/parent/matched-label/shuffled-label, seed314,36.64s,
+gain1. This is SAME-recording training evidence, not generalization.
+[Paired-record standalone candidate](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-paired-records-audition-2026-09-05/generated.wav>)
+uses the usual glass10cm/7cm,15s event, fraction0.2, seed2718, audition gain10,
+no audio input. Retained as an experimental candidate, NOT accepted as an
+all-round improvement. No demo or previous artifact was overwritten.
+
+Bounded research read [Guided Flows,v2,2023-12-07](https://arxiv.org/html/2311.13443v2)
+§3/Algorithm1 and [Flow Matching,v2](https://arxiv.org/html/2210.02747v2).
+Guidance combines conditional and unconditional fields; training includes
+null conditions. Our model was not trained that way, so inserting an arbitrary
+guidance coefficient is not a supported fix. No foreign code executed.
+
+`physical_sound_pouring_phase_probe.py` first selected the FIRST training row,
+`VID_20240116_230040_2.1_16.7`, plastic container1, duration14.65359s. Its fixed
+patches start at sample0/84480, elapsed fraction0/0.360321. Both600-step fits
+start from identical base weights, retain245985 parameters, AdamW3e-4/wd0.01,
+batch6, seed53 and velocity loss. Targets/noise/times/RNG consumption match;
+the negative control permutes only phase labels. No holdout enters training.
+
+Root `pouring-flow-two-phase-probe-2026-09-05`:22 WAVs plus comparison, matched/
+shuffled checkpoints, result and normalized AST. Matching the correct target
+spectrogram beats the other phase for matched6/6, parent3/6, shuffled3/6 noise/
+phase cases. Mean spectrum error parent6.338, matched3.823, shuffled6.443dB.
+CV change real-0.3279, oracle-0.2471, matched approximately-0.086; the temporal
+variation is still underfit. This falsifies completely disconnected conditioning
+on this example, not an architectural sufficiency/generalization claim.
+
+`path-identifiability.json` computes an exact balanced two-endpoint Gaussian-path
+control: encoded endpoint distance158.171, optimal phase accuracy from noisy
+target alone `Phi(t*D/(2*(1-t)))` exceeds95% for `t>0.020375`. Thus approximately
+98% of uniform flow times allow phase inference without its label in this toy.
+This makes weak incentive to use labels a plausible mechanism; it is NOT a
+measurement proving that the network adopted that mechanism.
+
+The evidence-backed `--all-training` extension selects the SAME93 training IDs.
+Each batch samples3 recordings, pairing each recording's first and middle patch;
+its matched600-step and shuffled600-step fits share all random draws and parent
+weights. Shuffling changes only elapsed fraction, not geometry/material/duration.
+Root `pouring-flow-paired-records-2026-09-05`: all30 disclosed excluded recordings,
+two phases, three seeds, parent/matched/shuffled plus real/oracle:660 WAVs and
+one73.28s comparison. These remain TWO objects, not180 independent objects.
+
+| Across three seeds | Parent | Matched pairs | Shuffled phase |
+|---|---:|---:|---:|
+| First spectrum RMSE,dB | 10.533 | 8.442 | 13.512 |
+| Middle spectrum RMSE,dB | 9.316 | 7.862 | 10.365 |
+| Mean middle-first level,dB | -2.585 | -3.050 | -0.486 |
+| Mean middle-first CV | +0.0073 | -0.0174 | -0.0013 |
+| First CV absolute error | 0.501 | 0.526 | 0.509 |
+| Middle CV absolute error | 0.224 | 0.252 | 0.236 |
+| Raw AST Water/Pour top5 | 162/180 | 96/180 | 111/180 |
+| RMS0.005 AST Water/Pour top5 | 180/180 | 120/180 | 146/180 |
+
+Real mean level change-5.390dB, CV change-0.2969. Matched improves spectrum
+on158/180 pairs versus parent, but CV errors worsen and seed2718 fails normalized
+AST on ALL60 cases;314/1618 pass. No seed blacklisting or relabelling this as a
+general improvement. Correct-phase level change improves both objects: glass
+parent/matched/shuffled-2.968/-3.391/-0.499dB versus real-6.551; PET
+-2.293/-2.789/-0.476 versus real-4.503. Physical response remains underestimated.
+
+An adjacent-layer discriminator, `pouring-flow-crossed-decoder-seeds-2026-09-05`,
+crosses generator seeds314/2718/1618 with independent phase-decoder seeds on the
+first source-order glass/PET recordings, both phases.88 WAVs, no training.
+Base AST36/36; matched generator2718 passes only1/12 across decoder seeds, while
+314 passes11/12 and1618 passes12/12. Real4/4, oracle10/12. The failure cannot
+be explained solely by shared decoder randomness, though decoder effects are
+not zero. Keep learned-magnitude and reconstruction hypotheses distinct.
+
+Reproduce the two fits with `physical_sound_pouring_phase_probe.py --source
+SOURCE --parent BASE --output NEW_EXTERNAL_ROOT`; add `--all-training` for the
+paired-record extension. Both classifier levels use the existing AST CLI on
+`tag-input.json`, separate output paths and `--device cuda`. Stored checkpoints
+remain compatible with source-free `physical_sound_pouring_pilot.py --render-model`.
+
+An independent frozen CLAP check (`clap-semantic-cross-check.json`, same crossed-
+decoder root) compares32 raw-level clips using the existing six fixed water/
+tap/bird/whistle/metal/static prompts and decoder seed314. Real/oracle8/8 and
+base12/12 favour a water prompt; matched10/12 does. Both PET phases at generator
+2718 favour birds. Water-versus-nonwater margin worsens in11/12 matched versus
+base pairs. This partially corroborates the regression, not every AST failure:
+glass2718 still favours water. Neither embedding margin is calibrated naturalness
+or material authority. Preserve the disagreement; no threshold/seed retries.
+
+All four fine-tunes retain parent exposure to93 training recordings; metadata
+separates `finetune_ids` (one or93) from inherited `train_ids`, with parent hash
+and1500 parent updates versus600 additional updates. Fine-tuning never makes
+other parent training objects unseen. Metadata was clarified without altering
+weights or WAVs. This experiment does not change redistribution restrictions.
+
+Next: keep parent/power artifacts and reject paired-record promotion. Inspect
+training-side per-flow-time error and phase ablations, especially near pure
+noise, before another full fit; use the two-endpoint oracle as a successful
+control. The candidate demonstrates partial controllability but sacrifices
+semantic stability and still underfits temporal variation. Do not hide this by
+choosing only seed1618, tuning AST thresholds or claiming a decoder-only fix.
+
+Verification:54 focused tests, Ruff and `git diff --check` pass. All773 new WAVs
+pass SHA256,16kHz mono PCM16, finite-sample and headroom checks; all four
+checkpoints and inherited/fine-tuning exposure match their metadata. Local
+links resolve. All experiment jobs completed. No Cargo/ProductCheck or engine
+audition: isolated Python research, no runtime/content-contract changes.

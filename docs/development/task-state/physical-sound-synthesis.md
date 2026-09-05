@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / POURING_PHASE_CONTROL_NOT_LEARNED.
+Status: ACTIVE_GOAL / PHASE_SIGNAL_LEARNABLE / PAIRED_RECORD_PROMOTION_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -12,10 +12,11 @@ Status: ACTIVE_GOAL / POURING_PHASE_CONTROL_NOT_LEARNED.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [middle-pour real/base/power comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed314.wav),
-  27.48s/16kHz, first source-order glass then PET, gain1. Same-root seeds2718/1618
-  comparisons also retained. No recording enters neural inference. Full30 cases
-  ×2 phases ×3 seeds ×2 models, real/oracle controls; not physical admission.
+- **Latest primary artifacts:** [two-phase learning comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-two-phase-probe-2026-09-05/comparison.wav),
+  36.64s, one TRAINING recording, first/middle real/parent/matched/shuffled.
+  [Paired-record candidate](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-paired-records-audition-2026-09-05/generated.wav)
+  is source-free glass10cm/7cm,15s/fraction0.2/seed2718/gain10. Retained FAILURE
+  candidate, not promoted. Full comparisons/other seeds in pilot note.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves only1/14 matched event crops; retain base, no LoRA
   sweep. Prefix/old unmatched-empty failures are superseded; exact extraction
@@ -24,20 +25,16 @@ Status: ACTIVE_GOAL / POURING_PHASE_CONTROL_NOT_LEARNED.
   Figshare29438288v5, CC-BY4.0,60 records/242 files/86.69MB: wood0/steel65/glass74,
   Urethane probe,20–60mm/s ×0.5/1N. Same surfaces, not new objects. Keep
   measured/commanded controls separate. Acquisition details in pilot note.
-- **Crossed-velocity result:** fixed rank4/4,804params/1500steps. Neural versus
-  interpolation spectrum RMSE30:1.904/1.759;40:1.690/1.729;50:1.850/1.788dB.
-  Pooled1.815/1.758,11/36 wins. Stop this three-surface capacity/epoch/basis
-  tuning; the apparent40mm/s gain is not robust. All folds disclosed development.
-  No pretraining; physical inputs -> stationary Gaussian texture, not impacts.
+- **Crossed velocity:** rank4/4804params, pooled neural/interpolation spectrum
+  1.815/1.758dB,11/36 wins. Stop three-surface capacity/epoch/basis tuning;
+  40mm/s gain was not robust. Disclosed development; stationary texture, not impact.
 - **Friction countercheck:** clean AND machine-mic surface retrieval30/30;
   not independent quality validation, nor proof of a noise-only generator.
   No exact NLMS preprocessing replay; audit JSON in speed50 root.
-- **Rain baseline:** source DataSuds10.23708/I0QYNM V2/CC-BY4.0, exact
-  original-CSV units/timestamps verified; rejected converted TSV remains unused.
-  Only three full WAVs; cross-site43958/43957 unfetched. Small wet-day spectral
-  gain7.469/7.580dB is not waveform quality. Stationary spectrum loses temporal
-  structure; AST fails real wet controls. No further rain-spectrum MLP sweep.
-  Artifacts/units/controls in pilot note and `amazon-rain-neural-2026-09-05`.
+- **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; original CSV verified,
+  converted TSV rejected. Three full WAVs; cross-site43958/43957 unfetched.
+  Spectral gain7.469/7.580dB is not quality; stationary model loses temporal
+  structure, AST fails real wet controls. No rain-spectrum MLP sweep; see note.
 - **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al.,
   HF `bpiyush/sound-of-water` revision12575460ee39d6adaebbe5aff531a5f4a24a627b.
   Dataset redistribution unspecified; do NOT inherit separate software MIT.
@@ -46,43 +43,48 @@ Status: ACTIVE_GOAL / POURING_PHASE_CONTROL_NOT_LEARNED.
   selection. Author Test I/II/III and YouTube files not used. No foreign code run.
   93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
   Approximate constant flow is not measured ml/s or exact liquid level.
-- **Pouring fits:**245985params conditional STFT flow U-Net, seed53/1500updates,
-  batch6/lr3e-4,64 Euler/32 phase-reconstruction steps. Fixed16k/FFT512/hop256,
-  256×256 patches; material, shape, dimensions, duration, elapsed fraction inputs.
-  Original first4.08s/seed314 evaluation now extended to2 phases and3 seeds.
-  Base spectrum10.903dB; power/envelope9.581,28/30 gains; onset-balanced8.195.
-  Power candidate median level-7.441dB versus base-8.995; CV error0.327 versus
-  0.579. Extra0.25*t² endpoint statistic; no default change or runtime promotion.
-- **Causal checks:** base64/256 integration steps do not fix its deficit.
-  Material-only swaps favour wrong glass label13/13, including power-candidate
-  centered spectra; PET correct17/17. No reliable material-identity claim.
-  Toy endpoint penalty changes flow optimum, not proven cause of audible error.
-- **Phase/seed check:** `pouring-flow-phase-seeds-2026-09-05`, all30 recordings,
-  first/middle ×314/2718/1618. Power spectrum improves all6 groups,151/180 wins;
-  centered shape improves only1618. Middle CV error slightly worsens0.224->0.230.
-  Mean middle-minus-first CV: real-0.297,oracle-0.268,base+0.007,power+0.014.
-- **Training-side control:** `pouring-flow-training-phase-control-2026-09-05`,
-  first source-order recording from13 training objects, same phases/seeds.
-  Mean CV change real-0.573,oracle-0.523,base+0.021,power+0.029. The temporal
-  failure is NOT solely unseen-object transfer; representation preserves most
-  of the change. No unique cause established; full values in pilot note.
-- **AST:** normalized Water/Pour top5 succeeds for all360 development and156
-  training-generated clips despite that failure. Real/oracle development60/58
-  of60, training26/23 of26. Coarse identity is not naturalness/physical control.
-  `--ast-rms .005` remains optional, logs gain; raw scores retained. `--device
-  cuda` matches CPU top10 order/flags on180 raw+120 normalized identical WAVs,
-  max score delta2.24e-6. CPU default, CLAP unchanged; mel warning remains.
+- **Pouring base:**245985param conditional STFT flow U-Net,53/1500updates,
+  batch6/lr3e-4,64 Euler/32 reconstruction,16k/FFT512/hop256/256² patches.
+  Material/shape/dimensions/duration/elapsed fraction inputs. Prior power and
+  onset variants retained; no default change or runtime promotion.
+- **Prior causal checks:**64/256 Euler does not fix deficit; wrong glass material
+  wins13/13, PET correct17/17. No material claim. Endpoint penalty changes flow
+  optimum, not proven cause of audible error; details in pilot note.
+- **Prior phase controls:** power wins151/180 spectrum pairs, but middle CV
+  error0.224->0.230. Both base/power miss phase CV change on new AND13 training
+  objects; oracle preserves most. Prior broad AST positives are not quality proof.
+- **Two-patch probe:** `pouring-flow-two-phase-probe-2026-09-05`, first training
+  recording/container1/plastic, two fixed phases. Matched/shuffled600-step fits
+  from identical parent, same noise/time draws. Correct template matched6/6,
+  parent/shuffled3/6 across3 seeds. Phase input is learnable on this example.
+  Gaussian two-endpoint calculation: noisy target alone permits >95% phase
+  identification for98% of uniform flow times; possible shortcut, not proof.
+- **Paired extension:** `pouring-flow-paired-records-2026-09-05`, same93 train
+  recordings,3 paired records/batch, matched/shuffled600 extra updates. All30
+  disclosed development recordings ×2 phases ×3 seeds. Spectrum matched wins
+  158/180 vs parent; mean level change-3.050dB vs parent-2.585/shuffled-0.486,
+  real-5.390. CV errors worsen; phase CV change-0.017 vs real-0.297.
+  Normalized AST matched120/180 vs parent180/180; seed2718 fails all60 cases.
+- **Adjacent-layer/independent checks:** crossed generator/decoder seeds on
+  first glass/PET, both phases: matched generator2718 passes AST1/12 across
+  decoders, base36/36 total. Not solely decoder randomness. CLAP32-clip check:
+  real/oracle8/8 and base12/12 water, matched10/12; PET2718 both phases favour
+  birds, margins worsen11/12 paired cases. Glass2718 remains water in CLAP;
+  judges disagree, not calibrated naturalness/material acceptance.
+- **AST controls:** `--ast-rms .005` optional; raw preserved. CUDA matches CPU
+  top10/flags on180 raw+120 normalized WAVs, delta2.24e-6. CPU default, CLAP
+  unchanged; mel warning remains. Do not tune thresholds or blacklist seeds.
 - **Prior controls:** codec checks reject gross corruption; ESC-50 physical
   attributes are null. No posterior-mean, duration/CFG or caption-threshold retries.
-- **Next action:** bounded research, then small known-object first/middle
-  conditional-fit discriminator versus shuffled phase and exact-spectrogram
-  controls. Distinguish weak learned conditioning/optimization from insufficient
-  phase information; oracle and training checks constrain the hypotheses.
-  No generic capacity/epoch/loss sweep, source/stack search, AST threshold tuning,
-  modal-MLP restart, invented labels or protected reuse. Keep playable outputs.
-- **Verification:** phase/seed and training-control generation plus GPU tags
-  complete;51 focused tests, Ruff and694 WAV checks pass. Slow duplicate CPU
-  jobs deliberately terminated after CPU/GPU parity check; no jobs left running.
+- **Next action:** inspect per-flow-time training error/phase ablation near pure
+  noise, with two-endpoint oracle control, before another full fit. Preserve
+  parent/power; paired-record candidate is not an all-round improvement. No
+  generic capacity/epoch/loss sweep, new source/stack, invented labels or protected
+  reuse. Broad realism/control goal remains unchanged; keep playable artifacts.
+- **Verification:** four600-step fits, generation, GPU AST and CLAP complete.
+  Inherited93-record exposure stays in `train_ids`; `finetune_ids` distinguishes
+  one-record and93-record probes. Metadata clarified, weights/WAVs unchanged.
+  54 focused tests, Ruff and773 WAV/hash checks pass; no jobs left running.
   No Cargo/ProductCheck or engine audition: external Python lab only.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, robust audible gains from learning, broader physical
