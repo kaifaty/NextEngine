@@ -4,14 +4,15 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 3.16 |
+| Версия | 3.17 |
 | Последняя проверка | 2026-09-06 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md), [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
-| Заменяет | SPEC-35 3.15; adds exact V11 bandwidth native diagnostic |
+| Заменяет | SPEC-35 3.16; adds separate combined-response input only |
 | Дополнительные зависимости V3.13 | [ADR-119](adr/119-articulated-foot-standing-diagnostics.md) |
 | Дополнительные зависимости V3.14 | [ADR-120](adr/120-stiffness-proportional-damping-diagnostic.md) |
 | Дополнительные зависимости V3.15 | [ADR-121](adr/121-screened-damping-native-diagnostic.md) |
 | Дополнительные зависимости V3.16 | [ADR-122](adr/122-native-bandwidth-calibration-diagnostic.md) |
+| Дополнительные зависимости V3.17 | [ADR-123](adr/123-separated-combined-response-input.md) |
 | Дополнительные зависимости V3.12 | [ADR-118](adr/118-articulated-volumetric-foot-body.md) |
 | Дополнительные зависимости V3.9 | [ADR-115](adr/115-full-principal-inertia-body-successor.md) |
 | Дополнительные зависимости V3.10 | [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md) |
@@ -362,6 +363,9 @@ consumers. All anatomy/K/safety and old identities remain. New standing-V5 and
 contact roots bind the candidate; no implicit-drive-to-explicit-PD, robust
 balance, calibration-completion or training claim follows from admission.
 
+[ADR-123](adr/123-separated-combined-response-input.md) adds an explicit separate
+combined abduction-step diagnostic input; original census/body/safety unchanged.
+It admits neither standing nor training.
 [ADR-122](adr/122-native-bandwidth-calibration-diagnostic.md) adds exact V11
 with jointly limited K/D and a27-world native unloaded response diagnostic.
 Only gains/identity differ from V8. Full material admission and motor safety

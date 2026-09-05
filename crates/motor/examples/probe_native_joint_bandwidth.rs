@@ -1,4 +1,4 @@
-//! BODY-BANDWIDTH-01 r2: all-joint native responses, not a balance/training run.
+//! BODY-BANDWIDTH-01 r2 / BODY-COMBINED-01 r1, not a balance/training run.
 
 fn offset(tick: u64, sine: bool) -> i64 {
     if !(61..=180).contains(&tick) {
@@ -9,6 +9,28 @@ fn offset(tick: u64, sine: bool) -> i64 {
         (25_000.0 * phase.sin()).round_ties_even() as i64
     } else {
         50_000
+    }
+}
+
+fn input_offset(tick: u64, case: u32, dof: u32) -> i64 {
+    let sign = if case == 27 && matches!(dof, 1 | 8) {
+        -1
+    } else {
+        1
+    };
+    sign * offset(tick, case == 26)
+}
+
+fn parse_args(args: &[String]) -> Result<(u32, bool), &'static str> {
+    let (version, combined) = match args {
+        [v] => (v, false),
+        [v, mode] if mode == "abduction-step" => (v, true),
+        _ => return Err("expected 8|11 [abduction-step]"),
+    };
+    match version.as_str() {
+        "8" => Ok((8, combined)),
+        "11" => Ok((11, combined)),
+        _ => Err("expected exact body revision 8 or 11"),
     }
 }
 
@@ -24,10 +46,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::{BufWriter, Write};
 
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let body = match args.as_slice() {
-        [v] if v == "8" => next_motor::biomechanics_humanoid_body_schema_v8(),
-        [v] if v == "11" => next_motor::biomechanics_humanoid_body_schema_v11(),
-        _ => return Err("expected exact body revision 8 or 11".into()),
+    let (version, combined) = parse_args(&args)?;
+    let body = match version {
+        8 => next_motor::biomechanics_humanoid_body_schema_v8(),
+        11 => next_motor::biomechanics_humanoid_body_schema_v11(),
+        _ => unreachable!("validated revision"),
     };
     let compiled = CompiledBodySchemaV4::compile(&body, PersistentId::from_bytes([0; 16]))?;
     let base = &compiled.base.base;
@@ -75,17 +98,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|s| s.position_microradians)
         .collect::<Vec<_>>();
     let mut output = BufWriter::new(std::io::stdout().lock());
+    let cases = if combined { 27..28_u32 } else { 0..27_u32 };
     writeln!(
         output,
         "{}",
-        json!({"kind":"header","probe":"BODY-BANDWIDTH-01.r2",
+        json!({"kind":"header","probe":if combined {"BODY-COMBINED-01.r1"} else {"BODY-BANDWIDTH-01.r2"},
         "body_revision":body.schema_revision,"body_schema_hash":body.schema_hash()?.to_hex(),
         "compiled_descriptor_hash":compiled.compiled_descriptor_hash.to_hex(),"physics_hz":240,
-        "position_iterations":base.physx_scene_profile.position_iterations,"trial_count":27,
+        "position_iterations":base.physx_scene_profile.position_iterations,"trial_count":cases.len(),
         "ordered_actuator_ids":base.actuator_definitions.iter().map(|a|a.actuator_id.as_str()).collect::<Vec<_>>(),
         "actuator_dof_ordinals":base.actuator_dof_ordinals,"initial":encode(&initial)})
     )?;
-    for case in 0..27_u32 {
+    for case in cases {
         let selected_dof = (case < 25).then_some(case);
         let sine = case == 26;
         let mut world = compiled.create_world()?;
@@ -106,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .zip(&base.actuator_dof_ordinals)
                 .map(|(q, dof)| {
                     q + if selected_dof.is_none_or(|selected| selected == *dof) {
-                        offset(tick, sine)
+                        input_offset(tick, case, *dof)
                     } else {
                         0
                     }
@@ -178,12 +202,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(not(feature = "physx-sdk"))]
 fn main() {
-    let _ = offset(0, false);
+    let _ = input_offset(0, 0, 0);
+    let _ = parse_args(&[]);
     panic!("requires --features physx-sdk");
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn combined_mode_is_explicit_and_changes_only_two_step_signs() {
+        for tick in 0..=241 {
+            for dof in 0..25 {
+                for case in 0..27 {
+                    assert_eq!(
+                        super::input_offset(tick, case, dof),
+                        super::offset(tick, case == 26)
+                    );
+                }
+                let sign = if matches!(dof, 1 | 8) { -1 } else { 1 };
+                assert_eq!(
+                    super::input_offset(tick, 27, dof),
+                    sign * super::offset(tick, false)
+                );
+            }
+        }
+        for version in ["8", "11"] {
+            let v = version.parse::<u32>().unwrap();
+            assert_eq!(super::parse_args(&[version.into()]), Ok((v, false)));
+            assert_eq!(
+                super::parse_args(&[version.into(), "abduction-step".into()]),
+                Ok((v, true))
+            );
+        }
+        for args in [
+            vec![],
+            vec!["9".into()],
+            vec!["11".into(), "unknown".into()],
+            vec!["11".into(), "abduction-step".into(), "extra".into()],
+        ] {
+            assert!(super::parse_args(&args).is_err());
+        }
+    }
+
     #[test]
     fn frozen_pulses_have_exact_windows_and_bounded_slew() {
         for tick in 0..=241 {

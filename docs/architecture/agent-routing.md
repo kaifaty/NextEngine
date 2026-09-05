@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.61 |
+| Версия | 2.62 |
 | Последняя проверка | 2026-09-06 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,13 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For the separated combined-response input also read
+[ADR-123](adr/123-separated-combined-response-input.md) and the V11 row below.
+Check exact two-sign/CLI mapping, sampled all-collider input clearance, native
+control/repeat and old no-flag byte regression; native example tests/Clippy,
+format/diff, boundary/content and independent review. No library/standing/game
+consumer changes; ancestor native library evidence remains exact-base only.
 
 For BodySchema V11 joint-bandwidth diagnostics read
 [ADR-122](adr/122-native-bandwidth-calibration-diagnostic.md), SPEC-35 and

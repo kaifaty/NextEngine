@@ -2043,6 +2043,12 @@ geometry is itself intersecting. Preserve that failure and verify a feasible
 combined input next, without retuning V11 or disabling collisions. Loaded
 support/poses/disturbances and full calibration remain open; no standing or
 training consumer is admitted.156 native tests and scoped checks pass.
+The [separated combined-input successor](development/r8b-combined-input-calibration-2026-09-06.md)
+now clears177 collider pairs over1001 target samples and completes4s with V11;
+tracking passes but left-elbow return RMS speed0.055038rad/s exceeds0.05.
+Preserve that failure. Next test equal two-second settling windows without
+retuning gains; loaded support/recontact/disturbances remain open. No training
+or standing admission follows from this unloaded result.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

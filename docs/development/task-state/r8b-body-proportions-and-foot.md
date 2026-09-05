@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `V11_25_JOINT_RESPONSES_PASS / COMBINED_STEP_FAILED / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
+| Status | `V11_COMBINED_CONTACT_FIXED / RETURN_SETTLING_FAILED / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -25,7 +25,8 @@
   [Isaac6 angular-unit patch](../r8b-gain-tuner6-one-dof-research-2026-09-06.md):13 tests/24 force traces pass; acceleration motion criterion fails. Stock preserved.
 - [Whole-body screen](../r8b-whole-body-gain-calibration-2026-09-06.md):100 individual plus4 matched-origin combined implicit-drive traces; eight D candidates improve the tested channels. Fixed pelvis/no ground only. General-pose tuner inertia suspect; no auto-ratio1 for all joints.
 - [Native V10 test](../r8b-native-gain-calibration-2026-09-06.md), ADR-121: eight-D transfer fails at22/240s, left MTP9.533921rad/s>8.001; fresh review matches550/180000 efforts and first failure. Exact repeat/V8 control. D-only transfer is insufficient; no loaded-prefix reruns.
-- [Latest V11 native bandwidth test](../r8b-native-bandwidth-calibration-2026-09-06.md), ADR-122: joint K+D correction passes25 isolated steps plus simultaneous sine; all-positive simultaneous step fails foot-foot contact at268. V8 passes0/27. Exact repeat/control;156 native tests pass. Fresh review confirms1,138,350 efforts/flags,54 failure boundaries and exact-target foot overlap (not the whole RMSE tolerance region). Next verify a collision-free combined input, not another gain/geometry change. Keep r2 failure, fixed V11 gains, old V8 nominal control. Full loaded support/poses/disturbances remain open; V11 has no standing/training admission.
+- [V11 native bandwidth test](../r8b-native-bandwidth-calibration-2026-09-06.md), ADR-122: joint K+D correction passes25 isolated steps plus simultaneous sine; all-positive simultaneous step fails foot-foot contact at268. Fresh review confirms1,138,350 efforts/flags,54 failure boundaries and exact-target foot overlap. V8 passes0/27;156 native tests pass. Keep r2 failure and fixed V11 gains.
+- [Combined-input successor](../r8b-combined-input-calibration-2026-09-06.md), ADR-123: only hip-roll signs reversed. All177 collider pairs clear1001 sampled poses; both bodies finish960 native steps. V11 tracking passes but left-elbow final RMS speed0.055038>0.05; r1 FAIL. Exact repeat/old census; fresh review confirms177177 geometry pairs and48000 efforts/flags. Next discriminate two-second return settling without changing gains/threshold or erasing r1. Initial step shows low-frequency decay; second return second unobserved. Loaded support/poses/disturbances remain open; no V11 standing/training admission.
 - Old origin-line plot omitted torso/head. V4:170cm stature,86.5cm hip,
   139.65cm shoulder,40.8cm thigh,39.6cm shank. Do not shorten legs from that plot.
 - Opt-in physical BodySchema V5/V6/V7 is implemented under ADR-114/115/117. Existing
@@ -162,6 +163,7 @@
 22. [Cold reference startup comparison](../r8b-standing-startup-ramp-research-2026-09-05.md).
 23. [Native V10 rejection and full-calibration requirements](../r8b-native-gain-calibration-2026-09-06.md), [ADR-121](../../architecture/adr/121-screened-damping-native-diagnostic.md).
 24. [Native V11 joint bandwidth/combined-input result](../r8b-native-bandwidth-calibration-2026-09-06.md), [ADR-122](../../architecture/adr/122-native-bandwidth-calibration-diagnostic.md).
+25. [Combined-input successor and settling boundary](../r8b-combined-input-calibration-2026-09-06.md), [ADR-123](../../architecture/adr/123-separated-combined-response-input.md).
 
 ## Decision and remaining uncertainty
 
