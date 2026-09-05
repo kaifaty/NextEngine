@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SINGLE_CROP_LEARNS / FULL_FIT_SCRATCHY / AFFINE_PATH_NEXT.
+Status: ACTIVE_GOAL / SCRATCH_FLOW_REJECTED / FROZEN_PRIOR_CONDITIONING_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,10 +12,10 @@ Status: ACTIVE_GOAL / SINGLE_CROP_LEARNS / FULL_FIT_SCRATCHY / AFFINE_PATH_NEXT.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free fit:** [base/long-model comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-gaussian-long-evaluation-2026-09-05/comparison.wav),
-  36.64s, four hypothetical profiles/seed2718/gain1. Long Gaussian-skip model
-  total10000steps improves spectra but novel AST1/12; harder CLAP2/12.
-  Scratch/crunch confound persists. No source/cache at inference; no promotion.
+- **Latest reference-free fit:** [base/plain/affine comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-affine-evaluation-2026-09-05/ablation-comparison.wav),
+  13.74s,glass10/seed2718/gain1. Affine2000-step coupling does not rescue water:
+  AST and harder CLAP0/30. Full TRAIN coverage of strongest10000-step model
+  also fails broadly (harder CLAP6/279). No source/cache at inference/promotion.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
@@ -32,57 +32,57 @@ Status: ACTIVE_GOAL / SINGLE_CROP_LEARNS / FULL_FIT_SCRATCHY / AFFINE_PATH_NEXT.
 - **Pouring base:**245985param conditional STFT flow,53/1500updates,64 Euler/
   32 reconstruction,16k/FFT512/hop256/256² patches. Retained, no promotion.
 - **Prior checks:** STFT256 Euler no rescue; wrong glass material wins13/13.
-- **Prior phase/envelope fits:** paired extension AST120/180; seed2718 fails60/60,
-  not explained by decoder seed. Envelope120/360 headroom failures; splices fail.
-  No retries/absolute-envelope sweep/guard weakening; exact runs in pilot note.
-- **Prior relative controls:** gain confounding unproven; relative level/static
-  timbre/EQ fail absolute spectrum or shape/CV. No gain/static-EQ sweeps.
+- **Prior STFT paths:** paired extension AST120/180; envelope120/360 unsafe;
+  splices,relative level/static timbre/EQ fail. No phase/gain/EQ/envelope sweep
+  or guard weakening; exact experiments and confounds in pilot note.
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
 - **Pitch diagnostic:** classical ridge tracks noise; frozen Sound of Water
   teacher falling-tone error1382 cents/same corpus, not independent validation.
-- **Head:** `pouring-resonance-head-2026-09-05`,4993params, OOF277.5 vs357.0
-  cents,6/13 wins. Do not retrain. Moving-band/144param adapters worsen spectra
-  even with teacher; temporal-noise decoder fails full/single/phase controls.
-  No head/adapter/filter/noise/phase sweeps; exact runs/provenance in note.
+- **Head:** `pouring-resonance-head-2026-09-05`, OOF277.5 vs357cents,6/13 wins.
+  Moving-band/144param adapters and temporal-noise decoder fail. No retraining/
+  head/adapter/filter/noise/phase sweeps; exact teacher/provenance in note.
 - **Phase oracle:** exact magnitude AST0->6/6 after consistency; CLAP6/6 both. See note.
 - **CVAE:** posterior/prior and rec/critic continuations fail; phase2/32 no rescue.
   No CVAE/critic/capacity/epoch/phase sweeps; exact evidence in pilot note.
-- **Frozen waveform codec:** `pouring-wave-codec-2026-09-05`,cached TangoFlux
-  revision367005e9, Oobleck SHA d73619a1. Six disclosed4.08s crops: mean AST5/6,
-  posterior15/18,both levels; CLAP6/6+18/18. Glass18 middle fails AST throughout.
-  Input16k resampled44.1k/dual mono,64x88 latent. Reconstruction is NOT the goal.
-- **Latent cache:** `pouring-oobleck-cache-2026-09-05`,93train/13objects ×three
-  phases=279 posteriors. Normalization includes posterior variance;64Euler.
-  Earlier original/plain/skip2000 fits all dev AST0/12; don't repeat. Gaussian
-  skip fixes endpoint error, not quality. Target-injected late trajectory works
-  but is NOT source-free. Exact results/SHAs/reproduction in pilot note.
+- **Codec:** cached TangoFlux rev367005e9/Oobleck SHA d73619a1;16k resampled
+  44.1k dual mono,64x88 latent. Initial six controls mostly pass; all-TRAIN below.
+- **Cache:** `pouring-oobleck-cache-2026-09-05`,279TRAIN posteriors; normalization
+  includes posterior variance. Earlier original/plain/skip2000 dev AST0/12;
+  don't repeat. Target-injected late trajectories are NOT source-free; see note.
 - **Variance:** all64 channels >90% mean-signal fraction, average95.18%,rank54/61.
   No mostly-unused-channel/PCA/mean-mode explanation or training from this.
 - **Single-crop control PASSES:** `pouring-latent-single-crop-2026-09-05`, row0,
   2000steps, same normalization. Oracle and learned AST/CLAP3/3; memorization,
   NOT novel conditions. Analytic irreducible MSE0.2495 vs learned0.5645, excess
   field error0.3182; not converged. Evaluation stores comparison/analytic-field.
-- **Long full fit:** `pouring-latent-gaussian-long-2026-09-05`,8000 new steps
-  from skip, total10000; fresh AdamW/RNG, not exact resume. Positive one-crop
-  control/falling loss justified this one extension, not an epoch/capacity sweep.
-  Phase loss1.391->1.313; dev spectrum7.305/CVerror0.180, AST0/12. Novel AST1/12.
+- **Long:** `pouring-latent-gaussian-long-2026-09-05`,8000 new steps,total10000,
+  fresh AdamW/RNG; not exact resume. Dev spectrum7.305/CVerror0.180,AST0/12.
 - **Evaluator confound:** original CLAP novel12/12 is misleading. Adding seven
   AST-motivated scratch/crunch/etc prompts gives2/12, paired2/18; real6/6,
   retained base30/30 and single oracle/learned3/3 remain positive. Post-hoc
   diagnostic in long-evaluation/clap-hard-negatives.json, NOT a retuned gate.
-- **Solver rejected:** `pouring-latent-solver-probe-2026-09-05`,45 WAVs plus
-  comparison. Euler64/midpoint128/256: novel AST1/12 throughout, harder CLAP
-  2/1/1 of12; single controls3/3 throughout. Refinement endpoint RMSE0.000055.
-  No solver-step sweep/default change; all15 Euler replays exact.
-- **Next action:** one Gaussian affine-posterior training-path counterfactual:
-  x=t*mu+(1-t+t*s)*noise, velocity=mu+(s-1)*noise. Same posterior endpoints,
-  no second independent posterior noise. Compare to existing zero-output plain
-  2000-step control; preserve RNG draws/cache/architecture/seed53/steps. Do not
-  refit control. Derivation/source and decision in pilot note. Judge new WAVs
-  with unchanged AST and disclosed harder CLAP, not loss alone. Not yet run.
-- **Verification:**109 tests, Ruff,124 new WAVs, CLI exact replay; all jobs terminal.
+- **Solver:** `pouring-latent-solver-probe-2026-09-05`,Euler64/midpoint128/256
+  no rescue (novel AST1/12 throughout). No step sweep/default change; see note.
+- **Affine path rejected:** `pouring-latent-affine-2026-09-05`, same279cache/
+  plain/zero output/2000steps/seed53/RNG draws, posterior affine coupling only.
+  No AST/harder-CLAP gains; no further coupling/epoch/seed sweep. Details in note.
+- **All-TRAIN audit:** `pouring-training-codec-audit-2026-09-05`,279 real/posterior
+  pairs. Raw AST252/216; harder CLAP267/232. Codec loses35 source positives,
+  especially late phases, but most targets retain water. No filtering/codec fit.
+- **Coverage:** `pouring-long-training-coverage-2026-09-05`, all279 controls,
+  seed2718,frozen10000-step model: AST11,harder CLAP6,both2. Not just unseen
+  conditions or one unrepresentative record; small scratch flow remains unusable.
+- **Next action:** zero-initialized numerical conditioning bridge to cached,
+  frozen TangoFlux GENERATOR, not only its codec. Keep q/v/backbone/T5/codec
+  frozen; no generic-caption LoRA repeat/video input. Verify zero/bypass exact
+  baseline then train and emit matched WAVs in one checkpoint. Reconcile upstream
+  duration/latent coordinates: normalized88-frame cache is not automatically
+  compatible. Same11 published controls/TRAIN-only roles; condition-swap and
+  audio quality checks, old glass/wood/rain regression paths unchanged. Prior
+  art/limits and implementation entry points in pilot note. Bridge not yet built.
+- **Verification:**110 tests, Ruff, affine CLI exact replay; all jobs terminal.
   No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
 
 ## Preserve these constraints

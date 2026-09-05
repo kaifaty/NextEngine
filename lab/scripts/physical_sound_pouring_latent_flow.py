@@ -178,6 +178,22 @@ def training_view(data, rows, single_crop):
     return data, rows
 
 
+def posterior_path(mean, std, center, scale, posterior_noise, noise, t, path):
+    """Two couplings with identical conditional Gaussian endpoints.
+
+    Draws are supplied by the caller, including the unused posterior_noise in
+    affine mode, so the matched experiment preserves index/noise/time RNG draws.
+    """
+    time = t[:, None, None]
+    if path == "independent":
+        target = (mean + std * posterior_noise - center) / scale
+        return noise * (1 - time) + target * time, target - noise
+    if path == "affine":
+        mu, sigma = (mean - center) / scale, std / scale
+        return time * mu + (1 - time + time * sigma) * noise, mu + (sigma - 1) * noise
+    raise ValueError("unknown posterior training path")
+
+
 def fit(
     cache_root,
     output,
@@ -187,7 +203,10 @@ def fit(
     single_crop=False,
     steps=STEPS,
     parent=None,
+    training_path="independent",
 ):
+    if training_path not in ("independent", "affine"):
+        raise ValueError("unknown posterior training path")
     if not isinstance(steps, int) or not 1 <= steps <= 20000:
         raise ValueError("training phase must contain 1 to 20000 steps")
     if parent is not None and zero_output:
@@ -233,6 +252,7 @@ def fit(
             or parent_meta["train_ids"]
             != list(dict.fromkeys(r["item_id"] for r in fit_rows))
             or bool(parent_meta.get("single_crop_control", False)) != single_crop
+            or parent_meta.get("training_path", "independent") != training_path
             or not torch.equal(model.center, center)
             or not torch.equal(model.scale, scale)
         ):
@@ -246,11 +266,13 @@ def fit(
     for step in range(steps):
         index = torch.randint(len(data["mean"]), (16,), device=device)
         mean, std = data["mean"][index], data["std"][index]
-        target = (mean + std * torch.randn_like(mean) - center) / scale
-        noise = torch.randn_like(target)
-        t = torch.rand(len(target), device=device)
-        x = noise * (1 - t[:, None, None]) + target * t[:, None, None]
-        loss = F.mse_loss(model(x, t, data["controls"][index]), target - noise)
+        posterior_noise = torch.randn_like(mean)
+        noise = torch.randn_like(mean)
+        t = torch.rand(len(mean), device=device)
+        x, velocity = posterior_path(
+            mean, std, center, scale, posterior_noise, noise, t, training_path
+        )
+        loss = F.mse_loss(model(x, t, data["controls"][index]), velocity)
         if not torch.isfinite(loss):
             raise ValueError("nonfinite flow loss")
         optimizer.zero_grad(set_to_none=True)
@@ -277,6 +299,7 @@ def fit(
             if gaussian_skip
             else "pour-latent-flow-v1",
             "zero_initialized_output": zero_output,
+            "training_path": training_path,
             "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
             "codec_sha256": c.CODEC_SHA,
             "cache_sha256": hashlib.sha256(
@@ -703,6 +726,11 @@ if __name__ == "__main__":
             command.add_argument("--single-crop", action="store_true")
             command.add_argument("--steps", type=int, default=STEPS)
             command.add_argument("--parent", type=Path)
+            command.add_argument(
+                "--posterior-path",
+                choices=("independent", "affine"),
+                default="independent",
+            )
         if mode == "render":
             command.add_argument("--controls", type=float, nargs=11, required=True)
             command.add_argument("--seed", type=int, default=2718)
@@ -719,6 +747,7 @@ if __name__ == "__main__":
             args.single_crop,
             args.steps,
             args.parent,
+            args.posterior_path,
         )
     elif args.mode == "evaluate":
         evaluate(args.source, args.model, args.base, args.output, args.device)

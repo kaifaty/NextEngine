@@ -2897,3 +2897,116 @@ Long-model standalone CLI replay is byte-exact, SHA256
 Notices/checkpoint identities verified; artifacts remain external/local research.
 All jobs terminal. No runtime/default/roadmap change or ProductCheck promotion;
 the full multi-event, new-condition neural-sound goal remains active.
+
+### Affine posterior path: no semantic rescue; full training coverage checked
+
+[Matched source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-affine-evaluation-2026-09-05/ablation-comparison.wav>)
+is13.74s: retained STFT base / independent plain flow / affine plain flow,
+glass10,seed2718,gain1. The new affine candidate is rejected, not promoted.
+`physical_sound_pouring_latent_flow.py train --zero-output --posterior-path
+affine --cache CACHE --output NEW_MODEL` implements the preceding Gaussian
+coupling experiment. The independent default retains the exact old arithmetic.
+Both branches consume posterior noise, initial noise and time in the same order,
+even though affine ignores the first draw. Same279TRAIN cache,892992parameters,
+plain architecture,zero output,seed53,2000steps,batch16,AdamW3e-4/wd1e-4/clip1.
+The frozen matched plain control was reused, not retrained. No skip/capacity/
+learning-rate change. Metadata records the training path; warm-start rejects a
+different path. Inference remains the same source-free64Euler/frozen decoder.
+
+`pouring-latent-affine-2026-09-05` checkpoint SHA256
+`1b6e08132f26e2b244a2447360d66d371e06b78cbec8fe125363e72c5d852c3b`.
+First/last200 loss1.50577/1.24655. Loss values across different couplings have
+different irreducible components and must not be presented as audio improvement.
+All66 evaluation rows plus the36.64s four-profile comparison remain available.
+Both AST raw and RMS0.005 give zero positives for train6/dev12/hypothetical12,
+as does the same harder13-prompt CLAP diagnostic for all30 latent outputs.
+The frozen matched plain also has harder CLAP0/30. Real6/6 and base30/30 pass
+harder CLAP; existing base/source hashes are unchanged.
+
+| Paired metric | Independent plain | Affine plain |
+|---|---:|---:|
+| Train6 spectrum / shape,dB | 6.875 / 5.540 | 6.111 / 5.272 |
+| Train6 CV absolute error | 0.248 | 0.275 |
+| Development12 spectrum / shape,dB | 8.512 / 6.751 | 8.129 / 6.830 |
+| Development12 CV absolute error | 0.241 | 0.263 |
+
+Original easy CLAP train/dev/hypothetical plain5/9/10 versus affine6/9/11;
+hard negatives again expose the misleading impression. No affine-strength,
+epoch/seed or additional coupling sweep follows this negative result.
+
+The next bounded discriminator questioned an adjacent assumption: only six
+source/codec controls had previously been checked, so poor training targets
+or an unrepresentative training evaluation could explain the apparent failure.
+The [publisher's dataset](https://huggingface.co/datasets/bpiyush/sound-of-water)
+has separate `clean` and `bg-noise` columns; `clean=yes` does not imply the
+other column is `no`. No new source/download/role or classifier threshold.
+
+`pouring-training-codec-audit-2026-09-05` audits ALL279 cached TRAIN crops,
+93 recordings/13 containers, paired original and frozen posterior decode with
+seed2718:558 individual WAVs, no output failures. Exact cache/source/codec
+hashes and per-row controls checked before use; no recoding or filtering.
+[Source/codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-training-codec-audit-2026-09-05/comparison.wav>)
+is27.48s, first middle crop of the first three training containers in cache
+order, each real/posterior,gain1; it is NOT a reference-free generation.
+
+| All279 TRAIN crops | Original | Posterior decode |
+|---|---:|---:|
+| Raw AST Water/Pour top5 | 252 | 216 |
+| Original six-prompt CLAP | 278 | 276 |
+| Harder13-prompt CLAP | 267 | 232 |
+| Both raw AST and harder CLAP | 252 | 206 |
+
+`group-summary.json` retains all groups and paired changes. Harder CLAP loses
+35 source-positive cases after the codec, with no opposite flip. By phase,
+source first/middle/last93/92/82 of93; codec83/82/67. Raw AST source90/89/73,
+codec86/75/55. Nine crops have publisher background-noise=yes;66 need zero
+padding, at most9984samples/0.624s. Padding, recording conditions and phase are
+correlated; this does NOT prove a single cause or justify deleting failures.
+Codec limitations are real, but the useful majority contradicts a wholly
+non-water target corpus. No codec training or classifier-driven dataset purge.
+Normalized AST was not run for these all-corpus diagnostics.
+
+Then `pouring-long-training-coverage-2026-09-05` generates from ALL279 TRAIN
+control vectors, fixed seed2718, using the frozen10000-step Gaussian model
+(SHA1ddab4d6 above). It reads no target waveform or cache tensor at inference.
+279 individual WAVs plus a13.74s preview, no unsafe outputs. This is training
+coverage, not independent test/new-condition proof. Raw AST11/279, easy CLAP
+223/279, harder CLAP6/279, both2/279. Synthetic validator controls are excluded
+from these denominators. Thus the earlier small evaluation was NOT hiding
+broad success on familiar conditions. No material passes reliably: harder
+CLAP glass4/117,plastic2/18,PET0/87,PP0/57. This does not prove that every
+possible larger/longer scratch model fails, but rules out treating this model
+as useful and the current deficit as only unseen-condition generalization.
+
+Decision: stop similar small scratch-flow variants; use a pretrained GENERATOR
+prior, not only its codec, for the next physical-conditioning experiment.
+[FoleyCrafter,v1,2024-07-01,sections3.2–3.3](https://arxiv.org/html/2407.01494v1)
+trains added conditioning components with a frozen audio generator; its inputs
+are video, not our physical measurements. Its substantial training scale is
+not evidence that a tiny adapter will solve our problem cheaply.
+[Audio ControlNet's project page](https://audio-controlnet.github.io/), inspected
+2026-09-05 and labelled under peer review, describes frozen-backbone control of
+pitch/loudness/events. This is supporting prior art, not a verified dependency
+or a physical-parameter calibration result; no model/code was downloaded.
+
+Next implementation: a zero-initialized numerical conditioning bridge to the
+already cached frozen TangoFlux generator, using the eleven published controls.
+Keep its text encoder, codec, transformer and existing q/v weights frozen;
+do not repeat generic-caption LoRA or introduce video input. Verify adapter-off
+and zero-adapter exact baseline output, then produce an actual trained candidate
+and matched source-free WAVs in the same checkpoint. Preserve unconditioned
+glass/wood/rain regression paths. Use TRAIN-only data and disclosed development
+roles, no audio input at generation. First reconcile upstream duration/latent
+coordinates: tiny-flow normalization and its88-frame cache are NOT automatically
+valid inputs to pretrained TangoFlux. Judge generated audio and condition swaps,
+not flow loss alone. This bridge has not yet been implemented; full physical
+response, new-condition validation and multi-event goal remain unachieved.
+
+110 focused tests pass; path endpoints/finite-difference derivative, exact old
+formula/RNG preservation and warm-start path rejection covered. Ruff and diff
+pass. Affine standalone CLI byte-replays its first-audition, SHA256
+`7a4ff98f25901107f7e8de7ce6a03e06721affe20159db6f45429a3a429c9052`.
+909 new WAVs pass writer hashes,PCM16/16k mono and finite/headroom checks.
+Full-training coverage exactly replays the earlier first/middle training clips.
+All jobs terminal. All artifacts remain external local research; no runtime/
+default/roadmap changes. Cargo/ProductChecks NOT_RUN: external Python lab only.

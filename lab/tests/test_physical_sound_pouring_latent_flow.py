@@ -158,6 +158,8 @@ class LatentFlowTests(unittest.TestCase):
             f.training_view(data, rows[1:], True)
 
     def test_training_phase_bounds_and_parent_output_guard(self):
+        with self.assertRaisesRegex(ValueError, "unknown posterior"):
+            f.fit(Path("absent"), Path("unused"), training_path="wrong")
         for steps in (0, -1, 20001, 1.5):
             with self.assertRaisesRegex(ValueError, "20000 steps"):
                 f.fit(Path("absent"), Path("unused"), steps=steps)
@@ -198,7 +200,7 @@ class LatentFlowTests(unittest.TestCase):
                     }
                 )
             )
-            for defect in ("cache", "ids", "scope", "center", "scale", "mode"):
+            for defect in ("cache", "ids", "scope", "center", "scale", "mode", "path"):
                 with self.subTest(defect=defect):
                     model = f.LatentFlow(gaussian_skip=defect == "mode")
                     meta = {
@@ -218,6 +220,8 @@ class LatentFlowTests(unittest.TestCase):
                         model.center.fill_(1)
                     elif defect == "scale":
                         model.scale.fill_(2)
+                    elif defect == "path":
+                        meta["training_path"] = "affine"
                     output = root / "must-not-exist"
                     with (
                         patch.object(f, "load", return_value=(model, meta)),
@@ -225,6 +229,38 @@ class LatentFlowTests(unittest.TestCase):
                     ):
                         f.fit(root, output, device="cpu", parent=root / "parent")
                     self.assertFalse(output.exists())
+
+    def test_posterior_paths_endpoints_derivative_and_legacy_exactness(self):
+        mean = torch.randn(3, 64, 88, dtype=torch.float64)
+        std = torch.rand_like(mean)
+        center, scale = f.normalization(mean, std)
+        posterior_noise, noise = torch.randn_like(mean), torch.randn_like(mean)
+        t = torch.tensor([0.0, 0.37, 1.0], dtype=torch.float64)
+        before = torch.get_rng_state()
+        x, velocity = f.posterior_path(
+            mean, std, center, scale, posterior_noise, noise, t, "independent"
+        )
+        target = (mean + std * posterior_noise - center) / scale
+        self.assertTrue(
+            torch.equal(x, noise * (1 - t[:, None, None]) + target * t[:, None, None])
+        )
+        self.assertTrue(torch.equal(velocity, target - noise))
+        affine, derivative = f.posterior_path(
+            mean, std, center, scale, posterior_noise, noise, t, "affine"
+        )
+        torch.testing.assert_close(affine[0], noise[0])
+        torch.testing.assert_close(
+            affine[2], ((mean - center + std * noise) / scale)[2]
+        )
+        later, _ = f.posterior_path(
+            mean, std, center, scale, posterior_noise, noise, t + 1e-5, "affine"
+        )
+        torch.testing.assert_close((later - affine) / 1e-5, derivative)
+        self.assertTrue(torch.equal(before, torch.get_rng_state()))
+        with self.assertRaisesRegex(ValueError, "unknown posterior"):
+            f.posterior_path(
+                mean, std, center, scale, posterior_noise, noise, t, "wrong"
+            )
 
 
 if __name__ == "__main__":
