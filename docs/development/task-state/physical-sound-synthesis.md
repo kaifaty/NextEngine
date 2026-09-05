@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FULL_FOV_NOT_SUFFICIENT / SOURCE_FREE_ADAPTER_RETAINED.
+Status: ACTIVE_GOAL / REAL_MATERIAL_CONTROLS_FAIL / SHARED_ADAPTER_METAL_AUDIBLE.
 
 ## Resume in 60 seconds
 
@@ -17,7 +17,17 @@ Status: ACTIVE_GOAL / FULL_FOV_NOT_SUFFICIENT / SOURCE_FREE_ADAPTER_RETAINED.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest audible:**`syncfusion-full-frame-audition-2026-09-06`,3comparisons
+- **Latest audible:** [metal, same shared adapter](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav).
+  No newweights/referenceinput;knownTRAIN material,NOT zero-shot material.4/4,0extra,
+  5.461333s,48kmono,.5gain,seed42/150steps;adapterSHA863459fb…unchanged.26tests,
+  all jobs terminal. `syncfusion-material-controls-2026-09-06` has12REAL-control
+  auditions and40generated attack classifications;no realism acceptance.
+- **Real controls fail:**307events,239TRAIN/68held;glass support5TRAIN/3heldrecords,
+  wood43/14,metal51/14;recording-dev has NOglass. Shape/material labels7/8REALglass
+  events metal. Record-balanced macro shape mean/record.4802/.4405,embedding
+  mean/record.4881/.3803. Nearest record prototypes do not fixglass. TRAIN-only
+  banks/recordLOO,not object IDs. No judge/reward/threshold/method winner.
+- **Previous audible:**`syncfusion-full-frame-audition-2026-09-06`,3comparisons
   real→descriptor→full-frame→wrong-frame;9WAV,36/36attacks,0extras,3PCMcontrols exact.
   Stock DINO preprocessing discards~17%width EACH edge(marker test);fixed224square
   letterbox retains content. Same307rows/roles,DINO/ridge.01/196608coefficients.
@@ -31,12 +41,11 @@ Status: ACTIVE_GOAL / FULL_FOV_NOT_SUFFICIENT / SOURCE_FREE_ADAPTER_RETAINED.
   No crop training. Author paper reports pixel labels;public times/MAT/index did
   not expose them,Umich archive timeout. Not proof CSV lost coordinates. No TLS
   bypass/pickle/val/test. Six actual DINO input previews demonstrate FOV loss.
-- **Next:** real-audio material separability on existing307events,TRAIN-only
-  templates/features vsrecording-held controls;compare spectrum/embedding before
-  using either as acceptance. Report confusion+recording support;apply supported
-  check to existing generated auditions. No new validator framework or DINO/
-  crop/ridge/epoch/prompt sweep. Full-FOV loss is real but not sufficient cause;
-  exact evidence/primary sources/CLI semantics in the pilot note.
+- **Next:** inspect remaining authorTRAIN shard metadata/material recordingcounts
+  to address only5TRAINglassrecordings;preserve existing held keys/protectedroles.
+  If useful diversity,one shared-data fit+source-free WAVs+realcontrols,not per-
+  material networks. No inventory-only endpoint or metric/k/threshold/DINO/crop/
+  ridge/epoch/prompt sweeps. Exact evidence and restrictions in pilot note.
 - **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
   `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
   TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
@@ -61,67 +70,40 @@ Status: ACTIVE_GOAL / FULL_FOV_NOT_SUFFICIENT / SOURCE_FREE_ADAPTER_RETAINED.
   CLIP research-only excludes product development;NOT engine candidate weights.
 - **Earlier MMAudio water:** coarse Water top5,not quality win;CLI/results in note.
   Initial headroom failure terminal;use`water-generated-full.mp4`,not short mux.
-- **Friction corrections closed:** endpoint/fullsampler/level-shape all lose to
-  ordinary FM overall. Latest48TRAIN,200updates/arm,72tests/481WAV. Envelope
-  FM1.600/new1.605dB,shape2.386/2.406,level1.041/1.112. No loss/weight/epoch sweeps.
-  Standalone PCM exact;FLOAT samples exact,PEAK metadata differs.
-- **Window/DC/repeat closed:** windowed inference did not improve audio;DC-only
-  removal barely changes envelope1.593→1.591;real-repeat level.191 vs neural1.087.
-  24real pairs,not48independent records;no window/normalization/randomness sweep.
+- **Friction corrections closed:** endpoint/fullsampler/level-shape lose toFM;
+  window/DC changes don't fixtiming.24real-repeat pairs,not48independent records.
+  No loss/weight/epoch/window/normalization/randomness/EQ/tap/gating sweeps.
 - **Retained source-free baseline:** [neural/hybrid glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s,40mm/s,.5N,90mm;NO audio/sensor/surfaceID input.
-  Neural+48TRAIN spectrum bank,513tap motion-gated FIR,unitDC(v2);0newweights.
-- **Hybrid:** unitDC FIR improved shape118/120new,72/72old;glass offset.2344s
-  unresolved. Not quality admission;no EQ/tap/gating sweeps. Details in note.
+  Neural+48TRAIN bank,513tap unitDC FIR(v2);shape improves,glass offset.2344s remains.
 - **Surface lineage:** `texture-surface-transfer-2026-09-05`,162560params,48TRAIN
   0/2/65/67/74/77,repeat0,20/30/50/60;all4/66/76 held development,not pristine.
-  Weights6d36e47c…/c259a9bc…;bank5c440edd…;no runtime/demo/model replacement.
   Coefficients10mm/min≠audio20–60mm/s;no geometry. Glass category-mean still wins.
-- **Timed countercheck:**`texture-full-event-2026-09-05` stale running JSON TERMINAL;
-  corrected`texture-full-event-evaluation-2026-09-05`,19overlapping WAVs exact.
-- **Impact diagnostics:** silence-learning/precision remedies contradicted;
-  source-aided one-step previews are NOT source-free generation. Details in note.
 - **Learned EPIC impacts:**154TRAIN/19participants,Top1 only3/14,heldwood/glass
   shape7.028→7.081dB. No replacement/data-size/capacity/epoch/seed sweep;see note.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Earlier impacts:** LoRA1/14,bridge-OFF3/14;no LoRA/prompt sweeps or kitchen-spectrum quality claims.
+- **Earlier impacts:** no LoRA/prompt/precision/silence-learning retries;source-aided previews are not source-free.
 - **Friction:** Figshare29438288v5/CC-BY4,60records;PSD neural/interpolation1.815/1.758dB,11/36wins,no sweep.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
   Stationary model loses temporal structure, AST fails real wet. No MLP sweep.
 - **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al., local research
   only; dataset terms unspecified, NOT software MIT. Author tests unopened;
   containers18/30 excluded. Approximate flow is not measured ml/s/level. See note.
-- **Closed pouring families:** STFT/envelope/EQ, pitch heads, CVAE/critic,
-  scratch flow/affine coupling and solver/noise/phase retries do not transfer.
-  Full279TRAIN audit gives scratch AST11/hardCLAP6/both2; target injection is not
-  source-free. Native645x64 Tango posteriors differ from old normalized88 cache.
-  Keep the harder13-prompt diagnostic and raw/RMS0.005 AST; don't tune thresholds.
-- **Retained water bridge:** TRAIN-centering removes98.397% common correction,
-  restores AST/raw/RMS/hardCLAP8/8;material swap still fails. Centering/AdaLN/setting
-  branches did not transfer;no13-container capacity/epoch/layer/setting/seed sweeps.
-  Water CLI/profile/weight identities and failed output receipts are in the note.
+- **Pouring closed:** STFT/envelope/EQ/pitch/CVAE/critic/scratchflow/affinecoupling/
+  solver/noise/phase/centering/AdaLN/setting retries failtransfer. No13-container
+  capacity/epoch/layer/seed/threshold sweeps. Retained centeredbridge8/8coarsewater,
+  materialswap fails. Native645x64 Tango≠old normalized88cache;targetinjection≠sourcefree.
+  Keep13-prompt/raw/RMS0.005 controls;exact CLI/weights/failure receipts in note.
 - **Preserved guards:** publish exact PCM, never weaken.98 headroom.
   `requires_grad=False` is required for exact frozen-generator replay despite
   no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
-- **EPIC probe:**`epic-information-2026-09-05`,161TRAIN/19participants/84videos,
-  CC-BY-NC4 local research;P04/P07 excluded,no author val/test. Only7wood/glass;
-  no object IDs/striker/geometry/force/velocity. AST macro24.30%,glass pair0/7;
-  NOT qualified judge/reward,no threshold/prompt tuning. Full C1 controls in note.
-- **Pair validator:** CLAP4/24 on6prompts(chance4),not qualified material judge/reward.
-  Sequential/seek4one-LSB differences;remoteMP4 partialMD5 unverified,localWAV SHA passes.
-- **Friction discriminator:**`texture-coefficient-discriminator-2026-09-05`,784WAV;
-  TRAINmu interpolation wins shape119/120,levels worse onsteel/glass. Last2arms
-  TARGET-AIDED. Glassmu loses equal mixing;best2-spectrum oracle limited. Both
-  input limitations AND generator loss;not proof all nonlinearmu mappings fail.
-- **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
-  align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** bounded research before another fit: distinguish ambiguous struck-object
-  identity, missing local contact/motion and absent geometry/force labels. Inspect
-  contact localization/local-temporal inputs on openedTRAIN clips with identity
-  control;inspectable frames AND source-free WAV required. Keep recording exclusions;
-  no inferred dimensions/force,regularization/feature/crop/encoder/adapter-size or
-  prompt/guidance sweeps. Empty-schedule failure remains open.
+- **EPIC:**161TRAIN/19participants,CC-BY-NC4;P04/P07 excluded,noauthorval/test.
+  No objectIDs/striker/geometry/force/velocity. AST24.30%,glass0/7,CLAP4/24chance4;
+  NOT judge/reward;no threshold/prompt tuning. RemoteMP4 partialMD5 unverified.
+- **Frictionmu:**shape improves butlevels failsteel/glass;glassmu losesmixing,
+  last2arms TARGET-AIDED. Bothinput andlosslimits,not proof allnonlinear maps fail.
+  Gain-only insufficient;12TRAIN gradientsalign,no PCGrad/gradient/weight sweeps.
 
 ## Preserve these constraints
 

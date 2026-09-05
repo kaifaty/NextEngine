@@ -5481,3 +5481,79 @@ project. No DINO size/feature/crop/ridge or prompt/seed/epoch sweeps; reopen onl
 with new discriminating evidence. Automatic realism validation, unseen-object
 transfer, physical controls, empty-schedule silence and the other process families
 remain unresolved; this is not a narrowing of the full goal.
+
+## Real material controls and shared-model metal — 2026-09-06
+
+New source-free [metal impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav):
+the SAME17,088parameter categorical adapter, SHA863459fb1cd2587474d6e8528da3f3c65d667cb47aad5551525fad5effe334f6,
+with`metal/static`and times.6/1.5/2.7/4.0. Zero new neural training updates;
+neither reference data nor audio/text encoder required at generation. Metal was
+already in its TRAIN set; this is NOT unseen-material generalization. Frozen
+SyncFusion,FP32,seed42,150steps,CFG2,full262144samples/48kmono,.5playback gain.
+4/4attacks,0extras;rawpeak1.18311,23.94s sampling,CUDA2.3817GiB. PCM SHA
+20786d4f3ff70bfcec57641890b7eaa0701c49faefcc159a87f12c81aa5fcdb1.
+
+`physical_sound_material_controls.py` performs one bounded diagnostic on the
+existing307real events, not a new validator framework. Retain239TRAIN/68held,
+86TRAIN/24held unique recordings and all previous exclusions. Material support
+TRAIN→held(recordings):glass5→3,wood43→14,metal51→14; records can contain multiple
+materials. TRAIN glass9events,held8; held wood28,metal32. Recording-dev contains
+NO glass; all held glass belongs to combination-dev. Recording IDs are not object
+IDs and generator pretraining overlaps author TRAIN: no clean new-object claim.
+
+Compare the existing32-band200ms log-PSD/L1 and frozen512D CLAP/cosine with two
+fixed aggregation hypotheses: equally weight each recording within a material,
+or retain each recording/material mean and select the nearest. No learned
+classifier/hyperparameter sweep, threshold or method selected after held scores.
+Record-level nearest templates have unequal class-bank sizes; this is disclosed,
+not fixed using development labels. TRAIN leave-one-recording-out excludes the
+entire recording from every material bank. Held labels/features cannot change
+the bank(exact tests). Event counts and per-material per-recording recall are
+reported separately, not conflated with independent sample counts.
+
+Held **recording-balanced recall**, percent; macro treats three materials equally:
+
+| Representation / bank | Glass | Wood | Metal | Macro |
+|---|---:|---:|---:|---:|
+| Shape / material mean |33.33|67.86|42.86|48.02|
+| Shape / recording means |0.00|67.86|64.29|44.05|
+| Embedding / material mean |25.00|71.43|50.00|48.81|
+| Embedding / recording means |11.11|51.19|51.79|38.03|
+
+TRAIN leave-record-out macro40.16/44.42/56.46/39.46%,respectively. Balanced
+chance33.33% is only a baseline, not a realism admission threshold. Shape/material
+labels7/8REAL glass events asmetal(event accuracy12.5%,different from33.33%
+recording-weighted recall). Keeping individual recording prototypes does not
+resolve glass confusion. These results falsify reliable material-check claims for
+these implementations on this support; they do NOT prove that material is
+universally unidentifiable or that paired spectral distance is useless.
+
+Twelve audible real-control files and exact row/prediction order are in
+`syncfusion-material-controls-2026-09-06/result.json`. Each selects first correct
+then first incorrect held event per material/method, if available; no subjective
+selection. Example [real glass controls](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-material-controls-2026-09-06/shape-material-glass-real-controls.wav)
+contains rows127(correct),138(incorrectlymetal),3.050104s,original recorded audio.
+These are diagnosis examples, not new generated sounds or mandatory user ratings.
+
+After real controls, all36attacks from the previous full-FOV experiment and4new
+metal attacks were classified report-only. Generated embeddings use raw FLOAT,
+the same frozen audio tower/projection and author PCM16-quantized repeatpad path;
+real cached embeddings also use whole variable-duration events, while shape uses
+fixed200ms. Thus this is a test of our existing metrics, not equal-duration encoder
+benchmarking. Mean-bank methods call all4metal attacks metal and all4baseline wood
+attacks wood; their failed REAL controls prevent acceptance from these predictions.
+Glass predictions vary across methods; no reward, winner, promotion or re-fit.
+
+All12real-control WAVs and new metal raw/PCM pass hash/layout/finite/headroom and
+metal.5gain/quantization checks.26focused tests(5new+21SyncFusion),Ruff,diff/links
+pass;all jobs terminal. No Cargo/host-check/ProductCheck, demo/runtime/roadmap
+changes. Preserve broad goal, including other processes and physical descriptors.
+
+Next: address support before another metric/adapter tuning cycle. Inspect the
+remaining author TRAIN shard metadata and per-material recording counts; existing
+glass support is only5TRAIN recordings. Preserve current development recording
+keys and protected roles. If the additional TRAIN sources add useful diversity,
+run one shared-data fit with the same source-free audible path and real controls;
+do not train a separate network for every material. Acquisition/inventory alone
+must not become another endpoint. No nearest-neighbor/k/metric/feature/threshold
+sweep on these now-opened control failures, and no automatic realism authority.
