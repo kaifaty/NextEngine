@@ -2289,7 +2289,10 @@ feet 41.6/76.8 mm, but the frozen support/stop matrix fails. Exact replay expose
 contact presence without loaded support and an independent schedule defect:
 only 179 final applied zero commands, not 180. The active run continues unchanged
 to its final checkpoint as a learning experiment; before any successor, repair
-the schedule under a new identity and discriminate full-tick loaded support.
+the schedule under a new identity and correct the evaluation observables.
+The full-tick classified-load discriminator now observes 24 >=8-tick switches
+on the same diagnostic tape; zero/left/right controls and 1,515-frame exact
+non-regression pass. It does not replace the frozen gate or select a checkpoint.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

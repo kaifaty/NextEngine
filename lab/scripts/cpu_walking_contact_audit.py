@@ -141,6 +141,68 @@ def foot_measurements(frames, descriptor):
     return clearance, impulses
 
 
+def classified_support(frames, descriptor):
+    """Report existing classified load over actual substeps, never a gait gate.
+
+    Positive vertical impulse is an exact measurement, not a newly selected
+    minimum support force. Partial/zero-step terminal ticks cannot establish
+    full-tick support. Recorded classifier-padding is forbidden here.
+    """
+    tokens = [
+        next(
+            b["body_token"]
+            for b in descriptor["bodies"]
+            if b["body_id"] == f"body.{side}-ankle-roll"
+        )
+        for side in ("left", "right")
+    ]
+    result = []
+    for frame in frames:
+        count = frame["completed_physics_substeps"]
+        substeps = frame["classified_contact_substeps"]
+        if type(count) is not int or not 0 <= count <= 4 or len(substeps) != count:
+            raise ValueError("actual substep count mismatch")
+        impulses = []
+        active = []
+        for ordinal, substep in enumerate(substeps):
+            if substep["ordinal"] != ordinal:
+                raise ValueError("substep order mismatch")
+            loads = [0, 0]
+            present = [False, False]
+            for contact in substep["contacts"]:
+                if contact["class"] != "SoleSupport":
+                    continue
+                for side, token in enumerate(tokens):
+                    if set(contact["actor_tokens"]) == {1, token}:
+                        vertical = contact["impulse_uns"][1]
+                        if type(vertical) is not int:
+                            raise ValueError("vertical impulse must be integer")
+                        present[side] = True
+                        loads[side] += abs(vertical)
+            impulses.append(loads)
+            active.append(present)
+        exclusive = [
+            (0 if load[0] > 0 else 1) if (load[0] > 0) != (load[1] > 0) else None
+            for load in impulses
+        ]
+        result.append(
+            {
+                "tick": frame["tick"],
+                "actual_substeps": count,
+                "active_sole_contacts_by_substep": active,
+                "vertical_impulse_uns_by_substep": impulses,
+                "exclusive_positive_load_side_all_four_substeps_report_only": exclusive[
+                    0
+                ]
+                if count == 4
+                and exclusive[0] is not None
+                and all(side == exclusive[0] for side in exclusive)
+                else None,
+            }
+        )
+    return result
+
+
 def foot_box(body, link):
     """World-space eight box corners: first four are the sole, heel then toe."""
     if len(body["colliders"]) != 1:

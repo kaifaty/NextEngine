@@ -23,7 +23,7 @@
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
   final model 9999. Both diagnostics are complete. Before a successor, fix the
-  applied-command schedule and discriminate contact presence from loaded support.
+  applied-command schedule and use the measured full-tick support discriminator.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
@@ -37,9 +37,9 @@
 - **New defect:** Applied indices 0..1199 contain only 179 final zero commands;
   index 1020 retains 20 um/s. No V7 policy can pass the exact 180-zero gate.
   Preserve the failed identity; no gate weakening or live-run modification.
-- **Support uncertainty:** Contact presence persists on many lifted/unloaded
-  frames. Do not equate zero qualified switches with zero physical foot lifts;
-  measure full-tick load before revising semantics. See native integration report.
+- **Support measured:** Existing classified contacts show 24 >=8-tick switches
+  with exclusive load over all four substeps; raw flags hide 419 such ticks.
+  Controls pass, 1,515 legacy frames exact. This is report-only, not a new gate.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.

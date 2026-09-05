@@ -99,6 +99,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "tick": step.frame.motor_tick,
                     "command_raw": step.command_raw,
                     "contact_flags": step.frame.contact_flags,
+                    "completed_physics_substeps": step.frame.completed_physics_substeps,
+                    "classified_contact_substeps": step.frame.contact_frames.iter()
+                        .take(step.frame.completed_physics_substeps)
+                        .enumerate().map(|(ordinal, frame)| json!({
+                            "ordinal": ordinal,
+                            "classification_root": frame.classification_root.to_hex(),
+                            "contacts": frame.contacts.iter().map(|contact| json!({
+                                "actor_tokens": [contact.pair.actor_a_token, contact.pair.actor_b_token],
+                                "shape_tokens": [contact.pair.shape_a_token, contact.pair.shape_b_token],
+                                "class": format!("{:?}", contact.class),
+                                "impulse_uns": contact.impulse_micronewton_seconds,
+                                "minimum_separation_um": contact.minimum_separation_micrometres,
+                            })).collect::<Vec<_>>(),
+                        })).collect::<Vec<_>>(),
                     "observation_raw": step.frame.observation_raw,
                     "reward_components_q16": step.reward_components_raw.iter().map(|(_, value)| value).collect::<Vec<_>>(),
                     "links": step.frame.snapshot.links.iter().map(|link| json!({

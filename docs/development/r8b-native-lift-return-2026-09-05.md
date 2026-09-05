@@ -187,3 +187,58 @@ support semantics against geometry and load controls before changing gait
 assessment. No new optimizer run, reward edit or safety relaxation is performed
 by this investigation. PASS: native exact replay and five contact-audit tests;
 the earlier V6 geometry result was independently reproduced again.
+
+## Full-tick classified-load discriminator
+
+The next bounded discriminator resolves the last-substep uncertainty above.
+The runner already exposes `contact_frames` for all physical substeps. Its
+production classifier rejects speculative zero-impulse/nonpenetrating pairs;
+raw `contact_flags` bypass this classification. Extend only the diagnostic
+example to serialize those immutable classified frames and the actual substep
+count. Exclude repeated padding after terminal failure with `.take(completed)`.
+No runner, physics, observation, reward or learner code changes.
+
+`cpu_walking_contact_audit.classified_support(frames, descriptor)` reports
+classified sole contacts and absolute vertical impulse per foot/substep. An
+exclusive-load tick here requires positive vertical impulse on exactly the
+same one foot in **all four actual substeps**. Zero/partial ticks never qualify.
+This is report-only, with no newly tuned force threshold or replacement gate.
+Classified contact without vertical load remains distinct from loaded support.
+
+| Exact tape | Exclusive-load ticks L/R | Longest continuous L/R | Switches after >=8 ticks, report-only |
+| --- | --- | --- | --- |
+| diagnostic 3999, 1,200 ticks | 258 / 256 | 32 / 23 | 24 |
+| zero control, 105 ticks | 0 / 0 | 0 / 0 | 0 |
+| left-foot lift control, 105 ticks | 0 / 40 | 0 / 40 | 0 |
+| right-foot lift control, 105 ticks | 44 / 0 | 44 / 0 | 0 |
+
+At diagnostic 3999, 419 exclusive-loaded ticks still carry both raw presence
+bits. All legacy frame fields and case outcomes match the old native reports
+exactly across 1,515 frames; the stored evaluation also matches exactly. This
+supports an Evaluation observability defect, not absence of alternating foot
+release. It does not make diagnostic 3999 a final selected checkpoint or prove
+robustness/style. Do not launch another reward/noise tuning run on the basis
+of the old zero-switch result.
+
+External artifacts under `evidence/`:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `diagnostic-3999-substeps-native.json` | `b4b59179e67ff6c5fea6bbef6a80ab4b92929e7f30b0c503ce67c4aa996f6059` |
+| `reachability-substeps-native.json` | `1323d3ce31787e7f24ec5082d48014a92ec0bc9e2947d201a79c47377b333cb7` |
+| `classified-substeps-comparison.json` | `dc9146d2bff320c6ec33704a58b7b52006fe6c252439d1947764fbf984e28bda` |
+
+The comparison binds exact exporter/analyzer source hashes and source traces.
+Reproduce by replaying existing `diagnostic-3999-actions.json` and
+`reachability-actions.json` into fresh outputs with the updated example, compare
+all old keys, then call `classified_support` on each case's frames. Do not use
+the closed-run CLI to pretend the live overall manifest is complete.
+
+PASS: 11 Python contact-audit tests (six new full-tick/partial/order/type
+controls), Ruff, Rust formatting, feature-enabled example build/clippy and
+native non-regression above. Broad host-check is not repeated for this isolated
+diagnostic projection. The active `next_headless` hash remains `ec788736…20e`.
+Next: finish final 9999, retain its original gate result, and use these proven
+observables when defining the smallest schedule/evaluation correction. A fresh
+optimizer is not automatically needed if final weights pass an explicitly
+compatible, separately admitted corrected-command evaluation.

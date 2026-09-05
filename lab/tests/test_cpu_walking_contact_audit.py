@@ -5,7 +5,12 @@ import unittest
 
 import numpy as np
 
-from lab.scripts.cpu_walking_contact_audit import analyze, foot_box, sole_support
+from lab.scripts.cpu_walking_contact_audit import (
+    analyze,
+    classified_support,
+    foot_box,
+    sole_support,
+)
 
 
 def fixture():
@@ -72,6 +77,83 @@ def fixture():
 
 
 class ContactAuditTests(unittest.TestCase):
+    def substep_fixture(self, loads):
+        trace, descriptor, _ = fixture()
+        frame = trace["frames"][0][0]
+        frame["completed_physics_substeps"] = len(loads)
+        frame["classified_contact_substeps"] = [
+            {
+                "ordinal": ordinal,
+                "contacts": [
+                    {
+                        "actor_tokens": [1, token],
+                        "class": "SoleSupport",
+                        "impulse_uns": [0, impulse, 0],
+                    }
+                    for token, impulse in zip((1006, 1012), pair, strict=True)
+                ],
+            }
+            for ordinal, pair in enumerate(loads)
+        ]
+        return [frame], descriptor
+
+    def test_full_tick_load_does_not_use_raw_presence_bits(self):
+        frames, descriptor = self.substep_fixture([[100, 0]] * 4)
+        result = classified_support(frames, descriptor)[0]
+        self.assertEqual(frames[0]["contact_flags"], [1, 1])
+        self.assertEqual(
+            result["exclusive_positive_load_side_all_four_substeps_report_only"], 0
+        )
+        self.assertEqual(result["vertical_impulse_uns_by_substep"], [[100, 0]] * 4)
+
+    def test_last_substep_cannot_hide_earlier_bilateral_load(self):
+        frames, descriptor = self.substep_fixture([[100, 50]] + [[100, 0]] * 3)
+        result = classified_support(frames, descriptor)[0]
+        self.assertIsNone(
+            result["exclusive_positive_load_side_all_four_substeps_report_only"]
+        )
+
+    def test_partial_and_zero_substeps_cannot_qualify(self):
+        for count in range(4):
+            frames, descriptor = self.substep_fixture([[0, -100]] * count)
+            result = classified_support(frames, descriptor)[0]
+            self.assertEqual(result["actual_substeps"], count)
+            self.assertIsNone(
+                result["exclusive_positive_load_side_all_four_substeps_report_only"]
+            )
+
+    def test_padding_and_reordered_substeps_reject(self):
+        frames, descriptor = self.substep_fixture([[100, 0]] * 4)
+        frames[0]["completed_physics_substeps"] = 3
+        with self.assertRaisesRegex(ValueError, "count mismatch"):
+            classified_support(frames, descriptor)
+        frames[0]["completed_physics_substeps"] = 4
+        frames[0]["classified_contact_substeps"][1]["ordinal"] = 0
+        with self.assertRaisesRegex(ValueError, "order mismatch"):
+            classified_support(frames, descriptor)
+
+    def test_classified_contact_without_vertical_load_is_not_loaded_support(self):
+        frames, descriptor = self.substep_fixture([[0, 0]] * 4)
+        result = classified_support(frames, descriptor)[0]
+        self.assertEqual(result["active_sole_contacts_by_substep"], [[True, True]] * 4)
+        self.assertIsNone(
+            result["exclusive_positive_load_side_all_four_substeps_report_only"]
+        )
+
+    def test_only_sole_class_and_integer_load_are_accepted(self):
+        frames, descriptor = self.substep_fixture([[100, 0]] * 4)
+        for substep in frames[0]["classified_contact_substeps"]:
+            substep["contacts"][0]["class"] = "ForbiddenLocomotion"
+        self.assertIsNone(
+            classified_support(frames, descriptor)[0][
+                "exclusive_positive_load_side_all_four_substeps_report_only"
+            ]
+        )
+        contact = frames[0]["classified_contact_substeps"][0]["contacts"][1]
+        contact["impulse_uns"][1] = 1.5
+        with self.assertRaisesRegex(ValueError, "integer"):
+            classified_support(frames, descriptor)
+
     def test_flat_sole_does_not_mean_body_origin_at_ground(self):
         trace, descriptor, evaluation = fixture()
         report, heights, _ = analyze(trace, descriptor, evaluation)
