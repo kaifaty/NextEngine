@@ -2056,6 +2056,13 @@ are exact.157 native tests and scoped checks pass. Next discriminate loaded
 control authority/compensation, not another unloaded gain sweep. Loaded
 transfer/recontact/disturbance and full calibration remain open; no training
 or selected controller follows from the response result.
+The [static load-authority calculation](development/r8b-loaded-control-authority-2026-09-06.md)
+finds V11 target-box deficits18.577/3.395Nm at two fixed poses, while V8/physical
+boxes admit the same frictionless equilibrium relaxation. Native passive joint
+friction is omitted: this is not a native-impossibility proof. Third-pose solver
+status4 remains INCONCLUSIVE. Next formulate contact-aware support effort before
+the unchanged safety intersection; no constant-bias or contact-free gravity
+shortcut, no native/controller/training admission from the static calculation.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
