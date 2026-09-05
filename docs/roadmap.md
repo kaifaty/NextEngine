@@ -2319,7 +2319,11 @@ admits one fresh V8 run, fixed 1e-5 learning rate, 100-update native validation
 and first full five-episode pass retention/stop. The [new run](development/r8b-prospective-walking-run-2026-09-05.md)
 is now active at clean `11ecd99f`, after 65 focused tests and exact 5,120-transition/
 399-reset native control. No new learned-quality result is available yet;
-this is not an unchanged retry or an old checkpoint choice.
+this is not an unchanged retry or an old checkpoint choice within that run.
+[ADR-113](architecture/adr/113-explicit-known-walking-candidate-reuse.md) also
+admits a separate, explicitly known-result-selected evaluation of model 3999
+on the same complete V8 physical matrix. This pragmatic reuse cannot relabel
+the old failed final-only result or establish held-out/runtime quality.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

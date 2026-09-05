@@ -19,9 +19,9 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Follow live session **23866**, PID **2309530**, fresh V8/v4
-  [run](../r8b-prospective-walking-run-2026-09-05.md) at clean `11ecd99f`; first validation is update 99.
-  Test all five every 100 updates; first full pass stops. Never restart on timeout.
+- **Next action:** ADR-113 permits [explicit known-candidate reuse](../r8b-known-candidate-reuse-2026-09-05.md)
+  of closed model 3999 on the unchanged V8 matrix. First validate it closed-loop.
+  Fresh run/session **23866**, PID **2309530**, continues; never restart on timeout.
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
   `f0c15bd4`; the distinct V8/v4 optimizer is now active. All V7 final episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
@@ -182,8 +182,8 @@ not clean-commit generation/run manifests.
 - **Evidence:** Closed final model `108e372c…28de`, source manifest
   `3bcd5ee7…6e9e`, corrected matrix `f21a9e6b…bc0`; exact paths, complete hashes
   and the two report-only interventions are in the final regression report.
-- **Decision:** Retain V7/V8 failures. No unchanged restart, retrospective
-  model-3999 selection, arm freeze, stochastic deployment or safety relaxation.
+- **Decision:** Retain V7/V8 failures. No unchanged restart or retrospective
+  old-run pass. ADR-113 allows separately labeled reuse, not safety relaxation.
 - **Measured:** Final-policy 128 × 32 no-optimizer rollout gives normalization
   KL 1.11e-7 versus target 0.008, zero ratio clipping; local drift is too small.
 - **Gradient control:** Adaptive LR peaks at 5.0625e-5; minibatch mean KL

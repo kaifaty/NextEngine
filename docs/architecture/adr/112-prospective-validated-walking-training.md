@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-109](109-observable-sole-lift-and-return.md), [ADR-111](111-final-weight-corrected-walking-evaluation.md) |
 | Supersedes | ADR-109/110/111's exclusion of a successor optimizer and checkpoint selection only for the new run below; all old experiments and results remain frozen |
-| Superseded by | none |
+| Superseded by | [ADR-113](113-explicit-known-walking-candidate-reuse.md), blanket exclusion of separate known-candidate reuse only; this fresh run remains frozen |
 
 ## Evidence and decision
 

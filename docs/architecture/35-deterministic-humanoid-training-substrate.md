@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 3.6 |
+| Версия | 3.7 |
 | Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md), [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
-| Заменяет | SPEC-35 3.5; admits a separate prospectively validated V8 optimizer run |
+| Заменяет | SPEC-35 3.6; admits explicit known-candidate reuse without relabeling old results |
+| Дополнительные зависимости V3.7 | [ADR-113](adr/113-explicit-known-walking-candidate-reuse.md) |
 | Дополнительные зависимости V3.6 | [ADR-112](adr/112-prospective-validated-walking-training.md) |
 | Дополнительные зависимости V3.5 | [ADR-110](adr/110-applied-command-stop-window.md), [ADR-111](adr/111-final-weight-corrected-walking-evaluation.md) |
 | Дополнительные зависимости V3.3 | [ADR-109](adr/109-observable-sole-lift-and-return.md) |
@@ -279,6 +280,12 @@ one fresh V8 canonical run with fixed 1e-5 PPO learning rate and prospective
 100-update native validation. Select the first full five-episode pass and stop;
 otherwise the budget ends in failed quality. ADR-111 physical gates, all old
 results, and the no-robustness/no-runtime boundary remain unchanged.
+
+[ADR-113](adr/113-explicit-known-walking-candidate-reuse.md) separately admits
+closed-loop V8 evaluation of the explicitly known-result-selected model 3999.
+Keep the same complete physical matrix and exact native replay. Its nominal
+artifact claim does not relabel old failed final-only results or establish
+held-out statistics, robustness or runtime promotion.
 
 ## Checkpoint and replay
 
