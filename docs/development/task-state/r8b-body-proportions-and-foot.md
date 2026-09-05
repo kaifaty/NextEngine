@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `V8_NOMINAL / V9_DAMPING_REJECTED / COLD_RESET_BOUNDARY_OPEN` |
+| Status | `APPROACH_RESEARCH_COMPLETE / V8_NOMINAL / V9_REJECTED / NO_NEW_RUN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -17,9 +17,10 @@
 - Separate60-tick startup ramp on V8/V9 gives identical first-step knee ROM
   violations (-14/-13urad; allowed minimum0 with10urad observed tolerance).
   This rules out the ramp as sufficient, not all smooth reference schemes.
-  Next: a separately bounded initial-stance test with knees inside ROM and
-  measured sole placement; no tolerance weakening, gain sweep, extra joints
-  or training. Source reset at exact knee hard minimum is the next boundary.
+  User-requested [prior-art research](../r8b-locomotion-prior-art-research-2026-09-05.md)
+  pauses that next reset experiment. Proposal: reproduce an upstream human
+  imitation baseline before more local tuning; compatibility and assets untested.
+  No safety/admission change, new joints, simulator run or training authorized here.
 
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.

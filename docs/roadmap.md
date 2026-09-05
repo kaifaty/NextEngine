@@ -2022,9 +2022,11 @@ proportional [V9 diagnostic](development/r8b-body-sampled-damping-candidate-2026
 passes that local model but fails native standing at substep18, before transfer;
 4275 effort channels and original V8 controls independently match. V9 remains
 unselected. A separate [startup ramp](development/r8b-standing-startup-ramp-research-2026-09-05.md)
-fails both V8/V9 at the identical first-step knee-ROM boundary. Next investigate
-initial stance inside ROM with measured sole placement, not another damping
-sweep or loosened safety. No new mass/geometry, training or default selection.
+fails both V8/V9 at the identical first-step knee-ROM boundary. User-requested
+[prior-art research](development/r8b-locomotion-prior-art-research-2026-09-05.md)
+now pauses the next reset experiment and recommends an upstream human-imitation
+control before further tuning. This is a proposal, not a selected framework or
+changed admission criterion. No new mass/geometry, safety, training or default selection.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
