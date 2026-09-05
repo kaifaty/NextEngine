@@ -5884,3 +5884,89 @@ exclusive cause. Do not train per material or launch loss/seed/epoch sweeps from
 these opened cases. Keep the full real-object, both-material,3D/size/force/speed,
 water/rain/friction/rolling/destruction objective intact; this reference check
 does not close those requirements.
+
+## One shared last-layer improvement — 2026-09-06
+
+[Reference→published base→fine-tuned network](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav),
+[case that worsens](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-061-comparison.wav).
+All16comparisons4.5s, including final.5s gap, retained. These are actual newly
+fine-tuned neural outputs, not phase-swapped references or per-material models.
+
+Before fitting, on the previous12opened cases, replacing neural FFT magnitude
+with reference magnitude while retaining neural phase worsens mean2ms-envelope
+relativeL1 .30362→.68270; replacing phase alone gives.65669. These hybrids do not
+preserve causal filter structure or aligned modal peaks, so they **do not isolate
+one causal source** of the error. They reject that naive substitution as a repair;
+no target-aided hybrid is presented as source-free generation. The executed fit
+instead jointly measures magnitude and temporal envelope against the known teacher.
+
+[Experiment runner](../../lab/scripts/physical_sound_neuralresonator_finetune.py)
+has`prepare`, `fit`, `evaluate` stages. Use the previous solver/MMAudio PYTHONPATH
+overlays, OPENBLAS_NUM_THREADS=4,OMP_NUM_THREADS=4,HF_HUB_OFFLINE=1:
+
+```text
+prepare --assets ASSETS --output DATA
+fit --assets ASSETS --data DATA --output FIT
+evaluate --assets ASSETS --data DATA --fit FIT --output EVALUATION
+```
+
+Own polygons fixed by NumPy seed20260906: regular5–8vertex polygons with varied
+elliptical axes/rotation,12distinct64×64masks. First8shapes×3numeric materials×2
+contacts=48TRAIN. Last4shapes×2different numeric material tuples×2contacts=16local
+development. Both mask hashes and exact material tuples are disjoint. The shapes
+remain in the same convex parametric family; this is not unseen topology, unknown
+real-material recognition or an independent pretrained-model holdout. Both stages
+use quadratic2D FEM/refinement4/worldscale2 teacher, not internet real recordings.
+No source datasets or protected roles opened. External`neuralresonator-finetune-data-2026-09-06`.
+
+One fixed run: frozen published EfficientNetB0 and earlier dense layers; only
+`fc.network.7.weight/bias` (328000parameters) train.100Adamsteps,lr1e-5,batch4,
+seed42, gradient normclip1, no schedule/earlyselection/epoch/seed/weight sweep.
+Loss is the equally weighted sum of mean relative FFT-magnitudeL1 and relative
+2msRMS-envelopeL1. These dimensionless diagnostics are not realism metrics.
+Differentiable IIR response uses a double-length64000FFT and retains the declared
+full32000sample response; final assessment uses the existing causal SciPySOS path.
+Preflight12previous banks: finite gradients, maximum FFT/SOS relativeRMS.000200.
+On new16DEV, maximum over base/candidate is.001457 (larger than the old.001probe
+bound); report this numerical limitation rather than silently changing precision.
+The reported before/after scores below are measured on causal SOS WAVs.
+
+Fit`neuralresonator-finetune-fit-2026-09-06/model.pt`,SHA
+fed24c81c33485543b68eaf9949397493aa2673b6117f761d4ad9d24f36a113a.
+fit.json binds data.npz and rows.json hashes, recipe and all100loss records. Exactly
+the two last-layer tensors differ from the published checkpoint; no encoder change.
+Development was assessed only after the fixed100steps; no checkpoint selection.
+
+| Local development metric | Published | Fine-tuned | Cases improving |
+|---|---:|---:|---:|
+| Relative FFT-magnitudeL1 |.329381|.271476|12/16|
+| Relative2ms-envelopeL1 |.295927|.265752|15/16|
+
+Mean reductions17.58%/10.20%; both mean metrics improve on each of the four
+development shapes. Case061 regresses in both (.15030→.15823 spectral,
+.16171→.21370 temporal); three other cases regress spectrally. No blanket quality
+admission or replacement of liked demos. Old numeric controls retain density/
+stiffness peak ordering and damping direction, but maximum undamped-ratio error
+worsens from.191%to.586%. Improvement is therefore measured with a tradeoff.
+
+Evaluation`neuralresonator-finetune-evaluation-2026-09-06`:48individualWAVs plus
+16comparisonWAVs, sharedgain.8894268511100489, full1s per signal, no per-case
+normalization,EQ,gates,tailcrop or sampled transient. FirstcomparisonSHA
+579394b7e085264cc81c9aa98e206747fa5c950eb008879bc2e5a41a70a9a7dd.
+[Standalone neural result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-standalone-2026-09-06/neural.wav)
+recomputes the shape encoder from case048polygon/contact/material descriptors,
+loads weights, and reads neither data.npz nor target audio. Its coefficients/raw
+response are EXACTLY equal to the evaluated candidate, with independent fixed.5
+playback gain; WAVSHAfd42e4026a19016091e07685612a7a27a94159f1a2c1f17b4a89b6f75f93002b.
+No claim of subjective listening approval.13focused tests, Ruff, all64evaluation
+WAV finite/full-layout/headroom/shared-gain checks, split checks and standalone
+equality pass. All jobs terminal. No runtime/demo/roadmap changes; Cargo/host-check/
+ProductChecks not run for this bounded external experiment.
+
+This demonstrates one shared training→numerical-validation→audible-output cycle
+on2Dsynthetic objects. Stop optimizing only this easier proxy: next primary work
+should bridge to3D source-free geometry/contact sound. SonicGauss may be tested
+for relative shape/contact with eligible TRAIN/disclosed3DGS input and published
+weights, while retaining the proven lack of explicit size/force/striker controls.
+Do not reopen protectedObjectFolder roles/defaultvalidation inputs, claim broad
+realism, or treat these2D improvements as completion of the multi-process goal.

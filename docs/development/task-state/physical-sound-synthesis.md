@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / NEURAL_RESONATOR_REFERENCE_MIXED_CONTACT_AND_DECAY_ERRORS / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / SHARED_2D_FINETUNE_IMPROVES_LOCAL_TRANSFER_WITH_REGRESSIONS / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -17,7 +17,18 @@ Status: ACTIVE_GOAL / NEURAL_RESONATOR_REFERENCE_MIXED_CONTACT_AND_DECAY_ERRORS 
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest pairs:**`neuralresonator-reference-report-fixed-2026-09-06`,12cases
+- **Latest learned:**[reference→base→fine-tuned](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav),4.5s.
+  One328000parameterlastlayer fit,100Adamsteps/lr1e-5/batch4/seed42/clip1;
+  frozenencoder+earlierMLPlayersexact.48TRAIN(8shapes×3materials×2contacts),16DEV
+  (4othermasks×2othernumerictuples×2contacts),sameconvexpolygonfamily,notrealobjects.
+  DEVrelative spectralL1 .32938→.27148(12/16wins),2msenvL1 .29593→.26575(15/16).
+  All4shapeaveragesimproveboth;case061worsensboth,retained.13tests/64WAVchecks pass.
+  `neuralresonator-finetune-fit-2026-09-06/model.pt`SHAfed24c81…;dataroot`...finetune-data...`.
+  Standalone`...finetune-standalone.../neural.wav`fromdescriptors+weights;no data.npz/
+  targetaudio;raw+coeffsEXACTcase048. Fixed.5gain. Directionsdensity/stiffness/damping
+  retained,butratioaccuracyworse(.191%→.586%). No blanketreplacement/realismclaim.
+  CausalSOSusedforassessment;FFTtrainingapproxmaxDEVrelativeRMS.001457(recorded).
+- **Previous pairs:**`neuralresonator-reference-report-fixed-2026-09-06`,12cases
   (3ownpolygons×2numericmaterials×2contacts),each2.5s numerical→neural.
   10/12dominantpeakswithin1.60%,other2errors7.44%/35.58%;not generalpitcherror.
   Rectanglecombinedoffcenter reference1900Hz vsneural1224. ALL12neuralenergy
@@ -70,13 +81,15 @@ Status: ACTIVE_GOAL / NEURAL_RESONATOR_REFERENCE_MIXED_CONTACT_AND_DECAY_ERRORS 
 - **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3 ORIGINAL
   recorded-audio videos,not generation. Motion tracks shaft,not tip;no croptraining.
   Public contact pixel labels not located;not proof lost. No TLS bypass/val/test.
-- **Next primary artifact:** one shared improvement experiment targeting modal
-  gain/temporal mismatch, notper-materialfits. First discriminate magnitude vs
-  phase/time-envelope error (upstreamtrainingusesmagnitude-onlyloss),then one
-  bounded fit with ownnewshape-disjoint checks and before/after/reference WAVs.
-  Current12cases are OPENEDdevelopment,not pristineholdout. No seed/epoch/loss
-  sweep,realismjudge or runtimepromotion. Clamped2Ddisplacementproxy≠3Dradiation;
-  this syntheticteacher pilot is notthefullreal-object/multi-processgoal.
+- **Next primary artifact:** bridge to3D geometry-conditioned source-free audio,
+  notanother2Dloss/epoch/seed sweep. SonicGauss remains a candidate for RELATIVE
+  shape/contact only,not size/force/striker (inputcollision remains). Inspect/load
+  publishedweights+one eligible TRAIN/disclosed3DGS object (neverdefaultval or
+  protectedObjectFolderaliases),then contact-pair WAVs. Sourcepins in previous
+  probe/pilotnote. Do not claim2Dsuccesssolves3Drealism or unifiedwater/rain/etc.
+  Current12reference+16DEVcases OPENEDdevelopment,notpristineholdout. No runtime
+  promotion. Phase/magnitudeFFTswaps worsenedall12temporalerrors and are noncausal
+  hybrids,not evidenceisolatingonecause;no manualphase/gaincorrection sweep.
   Repo`rodrigodzf/neuralresonator`,revceab3770d88caae1c9ee208bea127ec0d0a1e763;
   source/model/dsp/utilities/modal/data/shape/resultnotebook read;assets external.
   CLI`physical_sound_neuralresonator_pilot.py --assets ... --output NEW` usesexisting
