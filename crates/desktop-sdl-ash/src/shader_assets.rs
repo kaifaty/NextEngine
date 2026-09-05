@@ -31,6 +31,8 @@ const REFLECTION_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/b0_re
 const GBUFFER_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.vert.spv");
 const GBUFFER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.frag.spv");
 const TONEMAP_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/tonemap.frag.spv");
+const AO_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao.frag.spv");
+const AO_BLUR_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao_blur.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -92,6 +94,29 @@ pub(super) fn tonemap_shader_modules() -> Result<B0ShaderModules, &'static str> 
     Ok(B0ShaderModules {
         vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
         fragment: decode_spirv(TONEMAP_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L3 (plan `look/03`): the occlusion suite (the fullscreen
+/// vertex program of the fluid suite with the GTAO fragment).
+pub(super) fn ambient_occlusion_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"ao_suite\": \"ambient_occlusion\"") {
+        return Err("embedded occlusion shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(AO_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L3: the depth-aware blur of the occlusion suite.
+pub(super) fn ambient_occlusion_blur_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"ao_suite\": \"ambient_occlusion\"") {
+        return Err("embedded occlusion shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(AO_BLUR_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -233,11 +258,11 @@ mod tests {
         assert_eq!(modules.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(B0_VERTEX_SHADER_BYTES)),
-            "c0fb4c8395fcab8c7233f433eed0aaf93b3dcdb09dd16818c51179694673650f"
+            "48a69bf6b528e2dda1413116bd12970b493346fac9a0dd65f612a7a214e2612c"
         );
         assert_eq!(
             hex(sha256(B0_FRAGMENT_SHADER_BYTES)),
-            "d95940f1bd1933a77dccdb9e291471c0333b19c3596ba1a7f1d29b2770448b8a"
+            "c84f3a46c5e127d27677e316ba84a9250a530a41437ca7a4ab5eb2f9f40f1e5b"
         );
         assert_eq!(
             hex(sha256(B0_NO_SHADOW_FRAGMENT_SHADER_BYTES)),
@@ -337,6 +362,19 @@ mod tests {
             hex(sha256(TONEMAP_FRAGMENT_SHADER_BYTES)),
             "92adca13b3013e18015c36bf4cf7dc9b8040528ffaebfc4444674117398128a7"
         );
+        assert_eq!(
+            hex(sha256(AO_FRAGMENT_SHADER_BYTES)),
+            "15b9856b7f42e3f299235a249e9810fc0ea4eaa938aeb60a6ca9abfc5d710a5e"
+        );
+        assert_eq!(
+            hex(sha256(AO_BLUR_FRAGMENT_SHADER_BYTES)),
+            "1c103c73fc335cbce62a1203fa35bee94d1df11b7fb5eb30300e04a00f1f930a"
+        );
+        let occlusion =
+            ambient_occlusion_shader_modules().expect("checked-in occlusion modules decode");
+        assert_eq!(occlusion.fragment[0], SPIRV_MAGIC);
+        let blur = ambient_occlusion_blur_shader_modules().expect("checked-in blur modules decode");
+        assert_eq!(blur.fragment[0], SPIRV_MAGIC);
         let tonemap = tonemap_shader_modules().expect("checked-in tonemap modules decode");
         assert_eq!(tonemap.fragment[0], SPIRV_MAGIC);
         let gbuffer = gbuffer_shader_modules().expect("checked-in G-buffer modules decode");
@@ -348,7 +386,7 @@ mod tests {
         assert!(B0_SHADER_MANIFEST.contains("\"schema_version\": 1"));
         assert!(B0_SHADER_MANIFEST.contains(
             "\"interface_contract_sha256\": \
-             \"dd4b71e3cd9e6a4f034c17fc63b8fbeb8169140d3002da33600472f29460d6dc\""
+             \"a269a93095e5c1d1440e0b29af98d9d9f0b9ea317ae59273263f73c905c3e24f\""
         ));
         assert!(!B0_SHADER_MANIFEST.contains("\"runtime_compilation\""));
     }

@@ -32,6 +32,7 @@ pub(crate) fn parse_capture_source(
         "normal" => Source::NormalRoughness,
         "motion" => Source::Motion,
         "depth" => Source::LinearDepth,
+        "ao" => Source::AmbientOcclusion,
         _ => return None,
     })
 }

@@ -862,6 +862,152 @@ pub(super) fn upload_content(
     result
 }
 
+/// Scene look L3 (plan `look/03`): a `1 x 1` white `R8` image, the
+/// occlusion binding's placeholder.
+pub(super) struct WhiteTexture {
+    device: ash::Device,
+    image: ImageAllocation,
+    view: vk::ImageView,
+}
+
+impl WhiteTexture {
+    pub(super) fn new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+    ) -> Result<Self, B0GpuContentError> {
+        let image = ImageAllocation::new(
+            instance,
+            physical_device,
+            device,
+            vk::Extent3D {
+                width: 1,
+                height: 1,
+                depth: 1,
+            },
+            vk::Format::R8_UNORM,
+            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+        )?;
+        let view_info = vk::ImageViewCreateInfo::default()
+            .image(image.image())
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8_UNORM)
+            .subresource_range(
+                vk::ImageSubresourceRange::default()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .base_mip_level(0)
+                    .level_count(1)
+                    .base_array_layer(0)
+                    .layer_count(1),
+            );
+        // SAFETY: the image is live and uses this exact format.
+        let view = unsafe { device.create_image_view(&view_info, None) }?;
+        Ok(Self {
+            device: device.clone(),
+            image,
+            view,
+        })
+    }
+
+    pub(super) const fn image(&self) -> vk::Image {
+        self.image.image()
+    }
+
+    pub(super) const fn view(&self) -> vk::ImageView {
+        self.view
+    }
+}
+
+impl Drop for WhiteTexture {
+    fn drop(&mut self) {
+        // SAFETY: the owner waits for device idle before dropping.
+        unsafe { self.device.destroy_image_view(self.view, None) };
+    }
+}
+
+/// Clears the white texture to one and leaves it in shader-read layout.
+pub(super) fn initialize_white_texture(
+    device: &ash::Device,
+    queue: vk::Queue,
+    queue_family_index: u32,
+    white: &WhiteTexture,
+) -> Result<(), B0GpuContentError> {
+    let pool_info = vk::CommandPoolCreateInfo::default()
+        .queue_family_index(queue_family_index)
+        .flags(vk::CommandPoolCreateFlags::TRANSIENT);
+    // SAFETY: a transient pool on the live device for one submission.
+    let pool = unsafe { device.create_command_pool(&pool_info, None) }?;
+    let result = (|| {
+        let allocation_info = vk::CommandBufferAllocateInfo::default()
+            .command_pool(pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+        // SAFETY: the pool is live; one primary buffer is recorded and
+        // submitted once.
+        let command = unsafe { device.allocate_command_buffers(&allocation_info) }?[0];
+        let begin = vk::CommandBufferBeginInfo::default()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        let subresource = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let to_clear = [vk::ImageMemoryBarrier2::default()
+            .src_stage_mask(vk::PipelineStageFlags2::NONE)
+            .src_access_mask(vk::AccessFlags2::NONE)
+            .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            .dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+            .old_layout(vk::ImageLayout::UNDEFINED)
+            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+            .image(white.image())
+            .subresource_range(subresource)];
+        let to_sampled = [vk::ImageMemoryBarrier2::default()
+            .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+            .dst_stage_mask(vk::PipelineStageFlags2::FRAGMENT_SHADER)
+            .dst_access_mask(vk::AccessFlags2::SHADER_SAMPLED_READ)
+            .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image(white.image())
+            .subresource_range(subresource)];
+        let white_value = vk::ClearColorValue {
+            float32: [1.0, 1.0, 1.0, 1.0],
+        };
+        let ranges = [subresource];
+        // SAFETY: the buffer records one clear between two barriers on a
+        // live image and is submitted once, waited on, then freed with its
+        // pool.
+        unsafe {
+            device.begin_command_buffer(command, &begin)?;
+            device.cmd_pipeline_barrier2(
+                command,
+                &vk::DependencyInfo::default().image_memory_barriers(&to_clear),
+            );
+            device.cmd_clear_color_image(
+                command,
+                white.image(),
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &white_value,
+                &ranges,
+            );
+            device.cmd_pipeline_barrier2(
+                command,
+                &vk::DependencyInfo::default().image_memory_barriers(&to_sampled),
+            );
+            device.end_command_buffer(command)?;
+            let commands = [command];
+            let submits = [vk::SubmitInfo::default().command_buffers(&commands)];
+            device.queue_submit(queue, &submits, vk::Fence::null())?;
+            device.queue_wait_idle(queue)?;
+        }
+        Ok(())
+    })();
+    // SAFETY: the queue idled; the pool and its buffer have no users.
+    unsafe { device.destroy_command_pool(pool, None) };
+    result
+}
+
 pub(super) struct DescriptorState {
     device: ash::Device,
     pool: vk::DescriptorPool,
@@ -875,12 +1021,38 @@ pub(super) struct DescriptorState {
 }
 
 impl DescriptorState {
+    /// Scene look L3: the plain texture sampler (nearest, repeat).
+    pub(super) const fn sampler(&self) -> vk::Sampler {
+        self.sampler
+    }
+
+    /// Scene look L3: rewrites set 2 binding 1 (the occlusion target); a
+    /// no-op without a shadow set. The device must be idle.
+    pub(super) fn write_ambient_occlusion(&self, view: vk::ImageView, sampler: vk::Sampler) {
+        let Some(shadow_set) = self.shadow_set else {
+            return;
+        };
+        let info = [vk::DescriptorImageInfo::default()
+            .sampler(sampler)
+            .image_view(view)
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let writes = [vk::WriteDescriptorSet::default()
+            .dst_set(shadow_set)
+            .dst_binding(1)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&info)];
+        // SAFETY: the set, view and sampler are live and no recorded frame
+        // references the set (the caller idled the device).
+        unsafe { self.device.update_descriptor_sets(&writes, &[]) };
+    }
+
     pub(super) fn new(
         device: &ash::Device,
         frame_uniforms: &[BufferAllocation],
         lighting_uniforms: &[BufferAllocation],
         textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
         shadow: Option<&ShadowMap>,
+        white: &WhiteTexture,
     ) -> Result<Self, B0GpuContentError> {
         if lighting_uniforms.len() != frame_uniforms.len() {
             return Err(B0GpuContentError::InvalidCatalog(
@@ -916,8 +1088,21 @@ impl DescriptorState {
             vk::DescriptorSetLayoutCreateInfo::default().bindings(&frame_bindings);
         let texture_layout_info =
             vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
+        // Scene look L3: binding 1 of the shadow set is the occlusion target.
+        let shadow_bindings = [
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(1)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT),
+        ];
         let shadow_layout_info =
-            vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
+            vk::DescriptorSetLayoutCreateInfo::default().bindings(&shadow_bindings);
         // SAFETY: bindings are closed B0 values and no pointer is retained.
         let frame_layout =
             unsafe { device.create_descriptor_set_layout(&frame_layout_info, None) }?;
@@ -980,7 +1165,7 @@ impl DescriptorState {
             pool_sizes.push(vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 descriptor_count: texture_count
-                    .checked_add(shadow_count)
+                    .checked_add(shadow_count * 2)
                     .ok_or(B0GpuContentError::CountOverflow)?,
             });
         }
@@ -1095,11 +1280,22 @@ impl DescriptorState {
                 .sampler(shadow.sampler())
                 .image_view(shadow.view())
                 .image_layout(vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL)];
-            let writes = [vk::WriteDescriptorSet::default()
-                .dst_set(descriptor_set)
-                .dst_binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .image_info(&image_info)];
+            let white_info = [vk::DescriptorImageInfo::default()
+                .sampler(sampler)
+                .image_view(white.view())
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+            let writes = [
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_set)
+                    .dst_binding(1)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(&white_info),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_set)
+                    .dst_binding(0)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(&image_info),
+            ];
             // SAFETY: the sampled depth image, compare sampler and set remain
             // live for the complete descriptor-state lifetime.
             unsafe { device.update_descriptor_sets(&writes, &[]) };

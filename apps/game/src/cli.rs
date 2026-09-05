@@ -101,10 +101,10 @@ impl GameOptions {
                     let value = required_value(&mut arguments, "--capture-buffer")?;
                     if !matches!(
                         value.as_str(),
-                        "color" | "scene" | "albedo" | "normal" | "motion" | "depth"
+                        "color" | "scene" | "albedo" | "normal" | "motion" | "depth" | "ao"
                     ) {
                         return Err(AppFailure::argument(
-                            "--capture-buffer must be one of color, scene, albedo, normal, motion, depth",
+                            "--capture-buffer must be one of color, scene, albedo, normal, motion, depth, ao",
                         ));
                     }
                     if options.capture_buffer.replace(value).is_some() {

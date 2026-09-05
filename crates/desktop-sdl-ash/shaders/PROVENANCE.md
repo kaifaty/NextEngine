@@ -269,3 +269,18 @@ taps). Every module was recompiled with the same pinned Linux `glslang`
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>
 ```
+
+## Ambient occlusion suite (plan `look/03`, scene look L3)
+
+`ambient_occlusion` is two fragment programs over the `fluid_screen` vertex
+program: `ao.frag` (GTAO over the G-buffer prepass's linear depth and
+normals, three slices with five steps per side inside a one-metre radius)
+and `ao_blur.frag` (a depth-aware separable five-tap blur). The B0 interface
+moves to `b0.v5`: set 2 binding 1 is the occlusion sampler `b0_textured`
+multiplies into its sky irradiance. Compiled with the same pinned Linux
+`glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o ao.frag.spv ao.frag
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o ao_blur.frag.spv ao_blur.frag
+```

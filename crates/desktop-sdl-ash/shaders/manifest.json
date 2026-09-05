@@ -14,7 +14,7 @@
   "reflection_suite": "b0_reflect",
   "gbuffer_suite": "gbuffer",
   "tonemap_suite": "tonemap",
-  "interface_contract_sha256": "dd4b71e3cd9e6a4f034c17fc63b8fbeb8169140d3002da33600472f29460d6dc",
+  "interface_contract_sha256": "a269a93095e5c1d1440e0b29af98d9d9f0b9ea317ae59273263f73c905c3e24f",
   "source_language": {
     "name": "GLSL",
     "version": "450"
@@ -215,16 +215,16 @@
     {
       "stage": "vertex",
       "source": "b0_textured.vert",
-      "source_sha256": "05400b6427699f08887d31b5a16f0eb326dbd6bfbca68262c5f8f27157e8d5ca",
+      "source_sha256": "a1272dbfc290084a3baecc508b3783159b98f46edcde3104d82c984f6ee163de",
       "module": "b0_textured.vert.spv",
-      "module_sha256": "c0fb4c8395fcab8c7233f433eed0aaf93b3dcdb09dd16818c51179694673650f"
+      "module_sha256": "48a69bf6b528e2dda1413116bd12970b493346fac9a0dd65f612a7a214e2612c"
     },
     {
       "stage": "fragment",
       "source": "b0_textured.frag",
-      "source_sha256": "dbbb7213adb858eb6b37e899116749ed1f765ef76d848aea4a38461276875bdd",
+      "source_sha256": "0c3cc36be2709edcc2e234b7c65fb811877595c4cd67add8a58d2740c8b8a470",
       "module": "b0_textured.frag.spv",
-      "module_sha256": "d95940f1bd1933a77dccdb9e291471c0333b19c3596ba1a7f1d29b2770448b8a"
+      "module_sha256": "c84f3a46c5e127d27677e316ba84a9250a530a41437ca7a4ab5eb2f9f40f1e5b"
     },
     {
       "stage": "fragment",
@@ -402,6 +402,21 @@
       "source_sha256": "16298a32f77452f1612570accf34a8fda4dc57d53d2a52d6efdcf640cb6278d6",
       "module": "tonemap.frag.spv",
       "module_sha256": "92adca13b3013e18015c36bf4cf7dc9b8040528ffaebfc4444674117398128a7"
+    },
+    {
+      "stage": "fragment",
+      "source": "ao.frag",
+      "source_sha256": "646331283b715a55ab87a92ff7f45c8221040a9a79fb3778369774f3e3d9aa25",
+      "module": "ao.frag.spv",
+      "module_sha256": "15b9856b7f42e3f299235a249e9810fc0ea4eaa938aeb60a6ca9abfc5d710a5e"
+    },
+    {
+      "stage": "fragment",
+      "source": "ao_blur.frag",
+      "source_sha256": "7d9f0386c6950d9d48e10dda0edec7e8430ae120368a2b6e9d72d4f927c8e28c",
+      "module": "ao_blur.frag.spv",
+      "module_sha256": "1c103c73fc335cbce62a1203fa35bee94d1df11b7fb5eb30300e04a00f1f930a"
     }
-  ]
+  ],
+  "ao_suite": "ambient_occlusion"
 }

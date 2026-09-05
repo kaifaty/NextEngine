@@ -7,6 +7,8 @@ layout(location = 2) in vec4 in_normal_snorm;
 layout(location = 0) out vec2 out_uv;
 layout(location = 1) out vec3 out_world_position;
 layout(location = 2) out vec3 out_world_normal;
+// Scene look L3 (plan look/03): the clip position, for screen-space lookups.
+layout(location = 3) out vec4 out_clip;
 
 layout(set = 0, binding = 0, std140) uniform FrameUniforms {
     mat4 view_projection;
@@ -26,6 +28,7 @@ layout(push_constant, std430) uniform DrawPushConstants {
 void main() {
     vec4 world_position = draw.model * vec4(in_position, 1.0);
     gl_Position = frame.view_projection * world_position;
+    out_clip = gl_Position;
     out_uv = in_uv;
     out_world_position = world_position.xyz;
     if (dot(in_normal_snorm.xyz, in_normal_snorm.xyz) > 0.0001) {

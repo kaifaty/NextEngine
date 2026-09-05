@@ -1,3 +1,4 @@
+pub(crate) mod ao;
 pub(crate) mod fluid;
 pub(crate) mod gbuffer;
 mod pipeline;
@@ -29,7 +30,7 @@ use self::pipeline::{
 };
 pub(crate) use self::pipeline::{ProjectionJitterV1, projection_jitter};
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
-use self::resources::{DescriptorState, ShadowMap, TextureResource, upload_content};
+use self::resources::{DescriptorState, ShadowMap, TextureResource, WhiteTexture, upload_content};
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
 use crate::dynamic_surface::DynamicSurfaceShadingV1;
@@ -126,6 +127,9 @@ pub(super) struct B0GpuContent {
     /// Scene look L1: metallic, roughness and emissive intensity per
     /// material revision, read from the catalog's material records.
     materials: BTreeMap<AssetRevisionRefV1, [f32; 4]>,
+    /// Scene look L3: the `1 x 1` white image bound at set 2 binding 1
+    /// until the occlusion pass binds its target.
+    white: WhiteTexture,
     dynamic_vertices: Vec<BufferAllocation>,
     geometry: BufferAllocation,
     index_buffer_offset: vk::DeviceSize,
@@ -426,12 +430,16 @@ impl B0GpuContent {
                 "next_game: SHADOW_MAP_FALLBACK: sampled depth format or 2048x2048 allocation unavailable"
             );
         }
+        // Scene look L3: the white placeholder of the occlusion binding.
+        let white = WhiteTexture::new(instance, physical_device, device)?;
+        resources::initialize_white_texture(device, queue, queue_family_index, &white)?;
         let descriptors = DescriptorState::new(
             device,
             &frame_uniforms,
             &lighting_uniforms,
             &textures,
             shadow_map.as_ref(),
+            &white,
         )?;
         // Scene look L1: the sky for the B0 sun; the lighting block is
         // written per frame from it.
@@ -476,6 +484,7 @@ impl B0GpuContent {
             lighting_uniforms,
             sky,
             materials: prepared.materials,
+            white,
             dynamic_vertices,
             geometry,
             index_buffer_offset: prepared.index_buffer_offset,
@@ -1208,6 +1217,38 @@ impl B0GpuContent {
     /// Scene look L1: the exposure the tone map applies (the sky model's).
     pub(super) fn exposure(&self) -> f32 {
         self.sky.exposure()
+    }
+
+    /// Scene look L3: the B0 frame set of a slot (set 0), for passes that
+    /// read the frame and lighting blocks (the occlusion pass).
+    pub(super) fn frame_set(
+        &self,
+        frame_slot_index: usize,
+    ) -> Result<vk::DescriptorSet, B0GpuContentError> {
+        self.descriptors
+            .frame_sets
+            .get(frame_slot_index)
+            .copied()
+            .ok_or(B0GpuContentError::InvalidFramePlan(
+                "frame slot index is outside the descriptor ring",
+            ))
+    }
+
+    pub(super) fn frame_layout(&self) -> vk::DescriptorSetLayout {
+        self.descriptors.frame_layout
+    }
+
+    /// Scene look L3: binds the occlusion target at set 2 binding 1 (the
+    /// device must be idle: no recorded frame may reference the old view).
+    pub(super) fn bind_ambient_occlusion(&self, view: vk::ImageView, sampler: vk::Sampler) {
+        self.descriptors.write_ambient_occlusion(view, sampler);
+    }
+
+    /// Scene look L3: the white placeholder back at set 2 binding 1, before
+    /// an occlusion pass is dropped.
+    pub(super) fn bind_ambient_occlusion_placeholder(&self) {
+        self.descriptors
+            .write_ambient_occlusion(self.white.view(), self.descriptors.sampler());
     }
 
     /// Scene look L1: the lighting block buffer of every frame slot, for

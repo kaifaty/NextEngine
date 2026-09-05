@@ -117,6 +117,8 @@ pub enum DesktopCaptureSourceV1 {
     Motion,
     /// View-space depth in metres (`R32_SFLOAT`, raw bytes).
     LinearDepth,
+    /// Scene look L3: the final ambient occlusion (`R8`, expanded to grey).
+    AmbientOcclusion,
 }
 
 /// A developer-scripted key for [`DesktopScriptedActionV1`] (the movement

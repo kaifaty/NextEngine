@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_01A_02_DONE / PLAN_03_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_01A_02_03_DONE / PLAN_04_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -28,7 +28,14 @@
   in a `2048²` depth array with linear compare taps, a normal-offset
   receiver and a shared `sun_visibility`; the contract at `b0.v4`; GPU
   frame time `1.20 x`. Roots re-pinned in the plan.
-- **Next:** item 3 (`look/03`, GTAO from the G-buffer), then 4 (TAA)
+- **Plan 03 done (2026-09-05, revision 1):** GTAO at half resolution over
+  the G-buffer prepass (now before every scene pass), a depth-aware blur,
+  the world material scaling its sky irradiance by it; the contract at
+  `b0.v5`; GPU frame time `1.30 x` after the half-resolution revision
+  (full resolution read `1.7 x`, recorded); the frozen contact-band metric
+  at the pad's base read `4.9 %` (fail as frozen), the avatars' contact
+  `33 %`.
+- **Next:** item 4 (`look/04`, TAA on the plan 18 motion vectors)
   and 4 (TAA).
 - **Invariants.** Presentation only: no state root, checkpoint or
   command changes; captures from fixed cameras, the frame cost at

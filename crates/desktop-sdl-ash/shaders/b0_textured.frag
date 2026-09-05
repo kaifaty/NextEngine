@@ -6,6 +6,7 @@
 layout(location = 0) in vec2 in_uv;
 layout(location = 1) in vec3 in_world_position;
 layout(location = 2) in vec3 in_world_normal;
+layout(location = 3) in vec4 in_clip;
 layout(location = 0) out vec4 out_color;
 
 layout(set = 0, binding = 0, std140) uniform FrameUniforms {
@@ -97,6 +98,8 @@ vec3 sky_radiance(vec3 direction) {
 
 layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
 layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadow_map;
+// Scene look L3 (plan look/03): the ambient occlusion of the pixel.
+layout(set = 2, binding = 1) uniform sampler2D ambient_occlusion;
 
 // Scene look L2 (plan look/02): the sun's visibility from the cascaded
 // shadow map: the first cascade holding the receiver (moved along its
@@ -179,7 +182,10 @@ void main() {
     vec3 specular = distribution * visibility * fresnel;
     vec3 diffuse_colour = base_color.rgb * (1.0 - metallic);
     vec3 sun = lighting.sun_radiance.rgb * n_dot_l * shadow_visibility;
-    vec3 lit_color = diffuse_colour / LIGHTING_PI * (sh_irradiance(normal) + sun)
+    // Revision 1: the occlusion target is half the scene; the clip position
+    // gives the screen position at any target size.
+    float occlusion = texture(ambient_occlusion, in_clip.xy / in_clip.w * 0.5 + 0.5).r;
+    vec3 lit_color = diffuse_colour / LIGHTING_PI * (sh_irradiance(normal) * occlusion + sun)
         + specular * sun
         + base_color.rgb * draw.material_params.z;
 

@@ -315,8 +315,11 @@ impl GBufferPassState {
                 | vk::ImageUsageFlags::SAMPLED,
             &mut guard,
         )?;
-        let gbuffer_usage =
-            vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_SRC;
+        // Scene look L3: the normal and linear-depth targets feed the
+        // occlusion pass.
+        let gbuffer_usage = vk::ImageUsageFlags::COLOR_ATTACHMENT
+            | vk::ImageUsageFlags::TRANSFER_SRC
+            | vk::ImageUsageFlags::SAMPLED;
         let albedo_mask = target(GBUFFER_ALBEDO_MASK_FORMAT, gbuffer_usage, &mut guard)?;
         let normal_roughness = target(GBUFFER_NORMAL_ROUGHNESS_FORMAT, gbuffer_usage, &mut guard)?;
         let motion = target(GBUFFER_MOTION_FORMAT, gbuffer_usage, &mut guard)?;
@@ -471,6 +474,14 @@ impl GBufferPassState {
 
     pub(crate) fn linear_depth_view(&self) -> vk::ImageView {
         self.linear_depth.view
+    }
+
+    pub(crate) fn linear_depth_image(&self) -> vk::Image {
+        self.linear_depth.image.image()
+    }
+
+    pub(crate) fn normal_roughness_image(&self) -> vk::Image {
+        self.normal_roughness.image.image()
     }
 
     pub(crate) fn pipeline(&self) -> vk::Pipeline {
@@ -982,7 +993,7 @@ fn create_tonemap_pass(
     // SAFETY: the set layout is live.
     let layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None) }?;
     guard.pipeline_layouts.push(layout);
-    let pipeline = create_tonemap_pipeline(
+    let pipeline = create_fullscreen_pipeline(
         device,
         layout,
         swapchain_format,
@@ -1002,7 +1013,7 @@ fn create_tonemap_pass(
 
 /// The fullscreen tone-map pipeline over the swapchain colour format: no
 /// vertex input, no depth, no blending, dynamic viewport and scissor.
-fn create_tonemap_pipeline(
+pub(super) fn create_fullscreen_pipeline(
     device: &ash::Device,
     layout: vk::PipelineLayout,
     color_format: vk::Format,

@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
+use crate::gpu_content::ao::AmbientOcclusionPassState;
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
 use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState, HDR_SCENE_FORMAT};
 use crate::gpu_content::water::WaterPassState;
@@ -56,6 +57,9 @@ pub(super) struct GraphicsContext {
     /// Plan 18: the DLSS-ready outputs (HUD-less scene colour target and
     /// the G-buffer pass); `None` renders straight into the swapchain.
     gbuffer: Option<GBufferPassState>,
+    /// Scene look L3 (plan `look/03`): the ambient occlusion pass over the
+    /// G-buffer prepass; `None` leaves the white placeholder bound.
+    ambient_occlusion: Option<Box<AmbientOcclusionPassState>>,
     /// Scene look L1 (plan `look/01`): the format of the scene target the
     /// scene passes render into; the swapchain's on the fallback path.
     scene_format: vk::Format,
@@ -444,6 +448,14 @@ impl GraphicsContext {
                 "the HDR scene format needs the offscreen scene target".to_owned(),
             ));
         }
+        let ambient_occlusion = create_ambient_occlusion_pass(
+            &instance,
+            physical_device,
+            &device,
+            b0_content.as_ref(),
+            gbuffer.as_ref(),
+            initialization.swapchain.as_ref(),
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -484,6 +496,7 @@ impl GraphicsContext {
             fluid,
             water,
             gbuffer,
+            ambient_occlusion,
             scene_format,
             scene_exposure: HDR_EXPOSURE_FALLBACK,
             projection_jitter: options.projection_jitter,
@@ -790,6 +803,72 @@ impl GraphicsContext {
             .layer_count(1)
             .color_attachments(&color_attachments)
             .depth_attachment(&depth_attachment);
+        // Scene look L3 (plan look/03): the G-buffer prepass (plan 18) and
+        // the occlusion over it come before every scene pass.
+        if gbuffer_this_frame && let Some(gbuffer) = self.gbuffer.as_mut() {
+            gbuffer.record_gbuffer_begin(frame_slot.command_buffer);
+            let gbuffer_clear = vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 0.0],
+                },
+            };
+            let gbuffer_colors = [
+                gbuffer.albedo_mask_view(),
+                gbuffer.normal_roughness_view(),
+                gbuffer.motion_view(),
+                gbuffer.linear_depth_view(),
+            ]
+            .map(|view| {
+                vk::RenderingAttachmentInfo::default()
+                    .image_view(view)
+                    .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .store_op(vk::AttachmentStoreOp::STORE)
+                    .clear_value(gbuffer_clear)
+            });
+            // Scene look L3: the prepass clears its own depth; the world
+            // pass clears and redraws it afterwards.
+            let gbuffer_depth = vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.depth_attachments[image_usize].view())
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .clear_value(depth_clear);
+            let gbuffer_info = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .color_attachments(&gbuffer_colors)
+                .depth_attachment(&gbuffer_depth);
+            // SAFETY: the four targets are in attachment layout and the
+            // depth attachment is cleared by this instance.
+            unsafe {
+                self.device
+                    .cmd_begin_rendering(frame_slot.command_buffer, &gbuffer_info);
+            }
+            b0_content.record_gbuffer(
+                frame_slot.command_buffer,
+                frame_plan,
+                swapchain.extent,
+                frame_slot_index,
+                gbuffer,
+                jitter,
+            )?;
+            // SAFETY: the G-buffer rendering instance is ended exactly once.
+            unsafe {
+                self.device.cmd_end_rendering(frame_slot.command_buffer);
+            }
+            gbuffer.record_gbuffer_end(frame_slot.command_buffer);
+            // Scene look L3: the occlusion over the prepass, before the
+            // scene passes that read it.
+            if let Some(ambient_occlusion) = self.ambient_occlusion.as_ref() {
+                ambient_occlusion.record(
+                    frame_slot.command_buffer,
+                    b0_content.frame_set(frame_slot_index)?,
+                    gbuffer.linear_depth_image(),
+                    gbuffer.normal_roughness_image(),
+                );
+            }
+        }
         // Plan 15: the mirrored reflection pass renders the plan into the
         // water pass's targets before the world pass.
         if water_pass_this_frame
@@ -1015,63 +1094,15 @@ impl GraphicsContext {
             unsafe {
                 self.device.cmd_end_rendering(frame_slot.command_buffer);
             }
-            if gbuffer_this_frame {
-                gbuffer.record_gbuffer_begin(frame_slot.command_buffer);
-                let gbuffer_clear = vk::ClearValue {
-                    color: vk::ClearColorValue {
-                        float32: [0.0, 0.0, 0.0, 0.0],
-                    },
-                };
-                let gbuffer_colors = [
-                    gbuffer.albedo_mask_view(),
-                    gbuffer.normal_roughness_view(),
-                    gbuffer.motion_view(),
-                    gbuffer.linear_depth_view(),
-                ]
-                .map(|view| {
-                    vk::RenderingAttachmentInfo::default()
-                        .image_view(view)
-                        .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                        .load_op(vk::AttachmentLoadOp::CLEAR)
-                        .store_op(vk::AttachmentStoreOp::STORE)
-                        .clear_value(gbuffer_clear)
-                });
-                let gbuffer_depth = vk::RenderingAttachmentInfo::default()
-                    .image_view(swapchain.depth_attachments[image_usize].view())
-                    .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
-                    .load_op(vk::AttachmentLoadOp::LOAD)
-                    .store_op(vk::AttachmentStoreOp::DONT_CARE);
-                let gbuffer_info = vk::RenderingInfo::default()
-                    .render_area(render_area)
-                    .layer_count(1)
-                    .color_attachments(&gbuffer_colors)
-                    .depth_attachment(&gbuffer_depth);
-                // SAFETY: the four targets are in attachment layout and the
-                // depth attachment holds the scene depth.
-                unsafe {
-                    self.device
-                        .cmd_begin_rendering(frame_slot.command_buffer, &gbuffer_info);
-                }
-                b0_content.record_gbuffer(
-                    frame_slot.command_buffer,
-                    frame_plan,
-                    swapchain.extent,
-                    frame_slot_index,
-                    gbuffer,
-                    jitter,
-                )?;
-                // SAFETY: the G-buffer rendering instance is ended exactly once.
-                unsafe {
-                    self.device.cmd_end_rendering(frame_slot.command_buffer);
-                }
-                gbuffer.record_gbuffer_end(frame_slot.command_buffer);
-            }
             gbuffer.record_scene_to_swapchain(
                 frame_slot.command_buffer,
                 swapchain.images[image_usize],
                 swapchain.image_views[image_usize],
                 self.scene_exposure,
             );
+            if gbuffer_this_frame && let Some(ambient_occlusion) = self.ambient_occlusion.as_ref() {
+                ambient_occlusion.record_capture_ready(frame_slot.command_buffer);
+            }
             let hud_colors = [vk::RenderingAttachmentInfo::default()
                 .image_view(swapchain.image_views[image_usize])
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
@@ -1117,9 +1148,15 @@ impl GraphicsContext {
             });
         let gbuffer_capture = match (capture_source, self.gbuffer.as_ref()) {
             (DesktopCaptureSourceV1::Color, _) | (_, None) => None,
+            (DesktopCaptureSourceV1::AmbientOcclusion, Some(_)) if gbuffer_this_frame => self
+                .ambient_occlusion
+                .as_ref()
+                .map(|pass| pass.capture_image()),
             (source, Some(gbuffer)) if gbuffer_this_frame => {
                 let image = match source {
-                    DesktopCaptureSourceV1::Color => unreachable!("handled above"),
+                    DesktopCaptureSourceV1::Color | DesktopCaptureSourceV1::AmbientOcclusion => {
+                        unreachable!("handled above")
+                    }
                     DesktopCaptureSourceV1::Scene => GBufferCaptureImageV1::Scene,
                     DesktopCaptureSourceV1::AlbedoMask => GBufferCaptureImageV1::AlbedoMask,
                     DesktopCaptureSourceV1::NormalRoughness => {
@@ -1128,15 +1165,19 @@ impl GraphicsContext {
                     DesktopCaptureSourceV1::Motion => GBufferCaptureImageV1::Motion,
                     DesktopCaptureSourceV1::LinearDepth => GBufferCaptureImageV1::LinearDepth,
                 };
-                Some(gbuffer.capture_image(image))
+                let (image, format) = gbuffer.capture_image(image);
+                Some((image, format, swapchain.extent))
             }
             _ => None,
         };
         if capture_this_frame {
-            let (capture_image, capture_format) =
-                gbuffer_capture.unwrap_or((swapchain.images[image_usize], swapchain.format));
-            let byte_count = u64::from(swapchain.extent.width)
-                .checked_mul(u64::from(swapchain.extent.height))
+            let (capture_image, capture_format, capture_extent) = gbuffer_capture.unwrap_or((
+                swapchain.images[image_usize],
+                swapchain.format,
+                swapchain.extent,
+            ));
+            let byte_count = u64::from(capture_extent.width)
+                .checked_mul(u64::from(capture_extent.height))
                 .and_then(|pixels| pixels.checked_mul(capture_bytes_per_pixel(capture_format)))
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
             let buffer = BufferAllocation::new(
@@ -1171,8 +1212,8 @@ impl GraphicsContext {
                 )
                 .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
                 .image_extent(vk::Extent3D {
-                    width: swapchain.extent.width,
-                    height: swapchain.extent.height,
+                    width: capture_extent.width,
+                    height: capture_extent.height,
                     depth: 1,
                 })];
             // SAFETY: the swapchain was created with transfer-source usage for
@@ -1198,7 +1239,7 @@ impl GraphicsContext {
                 capture.pending.push((
                     PendingFrameCapture {
                         rendered_frame_index,
-                        extent: [swapchain.extent.width, swapchain.extent.height],
+                        extent: [capture_extent.width, capture_extent.height],
                         format: capture_format,
                     },
                     buffer,
@@ -1362,6 +1403,10 @@ impl GraphicsContext {
             }
         })?;
         // Screen-sized pass targets follow the swapchain extent and format.
+        if let Some(content) = self.b0_content.as_ref() {
+            content.bind_ambient_occlusion_placeholder();
+        }
+        drop(self.ambient_occlusion.take());
         drop(self.fluid.take());
         drop(self.water.take());
         drop(self.gbuffer.take());
@@ -1399,6 +1444,14 @@ impl GraphicsContext {
                 "the HDR scene format needs the offscreen scene target".to_owned(),
             ));
         }
+        self.ambient_occlusion = create_ambient_occlusion_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.b0_content.as_ref(),
+            self.gbuffer.as_ref(),
+            replacement.as_ref(),
+        )?;
         self.particle_surface_available =
             self.particle_surface_available || particle_surface_available;
         let replacement_formats = replacement
@@ -1481,6 +1534,13 @@ impl GraphicsContext {
             .map_err(|_| DesktopAdapterError::CounterOverflow)?;
             let mut rgba8 = vec![0_u8; byte_count];
             buffer.read(0, &mut rgba8)?;
+            if pending.format == vk::Format::R8_UNORM {
+                // Scene look L3: the occlusion target as opaque grey.
+                rgba8 = rgba8
+                    .iter()
+                    .flat_map(|value| [*value, *value, *value, 255])
+                    .collect();
+            }
             if pending.format == HDR_SCENE_FORMAT {
                 // Scene look L1: the linear scene target through the same
                 // exposure and curve as the tone-map suite.
@@ -1556,6 +1616,14 @@ impl GraphicsContext {
                 .checked_add(1)
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
         }
+        if let Some(ambient_occlusion) = self.ambient_occlusion.as_ref() {
+            bytes = bytes
+                .checked_add(ambient_occlusion.allocation_bytes())
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(1)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         if let Some(fluid) = self.fluid.as_ref() {
             let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
             bytes = bytes
@@ -1584,6 +1652,9 @@ impl Drop for GraphicsContext {
         unsafe {
             let _ = self.device.device_wait_idle();
             drop(self.frame_profiler.take());
+            // Scene look L3: the occlusion pass before the passes and the
+            // content it reads.
+            drop(self.ambient_occlusion.take());
             self.ui_overlay.teardown();
             drop(self.fluid.take());
             drop(self.water.take());
@@ -1762,10 +1833,54 @@ pub(super) const fn hdr_chain_fallback_reason(
 
 /// Bytes per pixel of a capture read of `format`.
 const fn capture_bytes_per_pixel(format: vk::Format) -> u64 {
-    if matches!(format, vk::Format::R16G16B16A16_SFLOAT) {
-        8
-    } else {
-        4
+    match format {
+        vk::Format::R16G16B16A16_SFLOAT => 8,
+        vk::Format::R8_UNORM => 1,
+        _ => 4,
+    }
+}
+
+/// Scene look L3: builds the occlusion pass over the G-buffer prepass when
+/// the content, the prepass and the swapchain exist; the declared fallback
+/// prints `AMBIENT_OCCLUSION_FALLBACK` and leaves the white placeholder.
+fn create_ambient_occlusion_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    b0_content: Option<&B0GpuContent>,
+    gbuffer: Option<&GBufferPassState>,
+    swapchain: Option<&SwapchainState>,
+) -> Result<Option<Box<AmbientOcclusionPassState>>, DesktopAdapterError> {
+    let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
+        return Ok(None);
+    };
+    let Some(gbuffer) = gbuffer else {
+        eprintln!("next_game: AMBIENT_OCCLUSION_FALLBACK: no G-buffer prepass");
+        return Ok(None);
+    };
+    match AmbientOcclusionPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        swapchain.extent,
+        content.frame_layout(),
+        gbuffer.linear_depth_view(),
+        gbuffer.normal_roughness_view(),
+    )? {
+        Ok(pass) => {
+            content.bind_ambient_occlusion(pass.final_view(), pass.sampler());
+            eprintln!(
+                "next_game: AMBIENT_OCCLUSION active radius={:.1}m slices={} steps={}",
+                crate::gpu_content::ao::AO_RADIUS_METRES,
+                crate::gpu_content::ao::AO_SLICES,
+                crate::gpu_content::ao::AO_STEPS
+            );
+            Ok(Some(Box::new(pass)))
+        }
+        Err(reason) => {
+            eprintln!("next_game: AMBIENT_OCCLUSION_FALLBACK: {reason}");
+            Ok(None)
+        }
     }
 }
 
