@@ -9,6 +9,9 @@ use next_physics_physx::{CanonicalPhysXContactV2, CanonicalPhysXSnapshotV2};
 
 use crate::CompiledBodySchemaV2;
 
+mod articulated;
+pub use articulated::{BiomechanicsContactClassifierV2, articulated_foot_contact_profile_hash};
+
 pub const HUMANOID_SAFETY_CONTACT_PROFILE_SHA256: [u8; 32] = [
     0xba, 0x9d, 0x36, 0x8e, 0x07, 0x5f, 0x38, 0x9a, 0x4d, 0xbf, 0xf4, 0xa0, 0xed, 0x92, 0x99, 0xb7,
     0x37, 0xed, 0xf4, 0x90, 0x7b, 0xe1, 0x0a, 0xe6, 0xcf, 0x3a, 0xeb, 0x60, 0xb3, 0x48, 0x72, 0x9f,
@@ -360,7 +363,10 @@ const fn projection_key(projected: ProjectedCollider) -> (u64, u8, u64) {
 
 fn impulse_magnitude_squared(impulse: [i128; 3]) -> Result<u128, ContactClassificationError> {
     impulse.into_iter().try_fold(0_u128, |sum, value| {
-        sum.checked_add(value.unsigned_abs().pow(2))
+        value
+            .unsigned_abs()
+            .checked_mul(value.unsigned_abs())
+            .and_then(|square| sum.checked_add(square))
             .ok_or(ContactClassificationError::NumericOverflow)
     })
 }

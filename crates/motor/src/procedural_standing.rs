@@ -14,6 +14,8 @@ pub const PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS: i64 = 100_000;
 pub const PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS: i64 = -140_000;
 pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2: &str =
     "nextengine.motor.procedural-standing-reference.v2";
+pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3: &str =
+    "nextengine.motor.procedural-standing-reference.v3";
 pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
     "nextengine.motor.procedural-walking-reference.v1";
 
@@ -213,6 +215,18 @@ impl BiomechanicsProceduralStandingControllerV2 {
         compiled: &crate::CompiledBodySchemaV4,
         reset_snapshot: &CanonicalPhysXSnapshotV2,
     ) -> Result<Self, ProceduralStandingError> {
+        Self::new_with_schema(
+            compiled,
+            reset_snapshot,
+            &crate::biomechanics_humanoid_body_schema_v7(),
+        )
+    }
+
+    fn new_with_schema(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+        schema: &next_contracts::body::BodySchemaV2,
+    ) -> Result<Self, ProceduralStandingError> {
         let base = &compiled.base.base;
         let subject = base
             .physics_descriptors
@@ -223,11 +237,8 @@ impl BiomechanicsProceduralStandingControllerV2 {
             .subject_id;
         // Validate the complete supplied compilation, not merely an editable
         // hash label. This is reset-time work, not part of the substep loop.
-        let expected = crate::CompiledBodySchemaV4::compile(
-            &crate::biomechanics_humanoid_body_schema_v7(),
-            subject,
-        )
-        .map_err(|_| ProceduralStandingError::ProfileMismatch)?;
+        let expected = crate::CompiledBodySchemaV4::compile(schema, subject)
+            .map_err(|_| ProceduralStandingError::ProfileMismatch)?;
         if *compiled != expected {
             return Err(ProceduralStandingError::ProfileMismatch);
         }
@@ -283,6 +294,43 @@ impl BiomechanicsProceduralStandingControllerV2 {
         bytes.extend_from_slice(self.compiled_hash.as_bytes());
         bytes.extend_from_slice(self.subject_id.as_bytes());
         bytes.extend_from_slice(self.base.state_root().as_bytes());
+        content_hash_from_bytes(sha256(&bytes))
+    }
+}
+
+/// V8-bound diagnostic standing: retained upright law, neutral MTP targets.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BiomechanicsProceduralStandingControllerV3 {
+    base: BiomechanicsProceduralStandingControllerV2,
+}
+
+impl BiomechanicsProceduralStandingControllerV3 {
+    pub fn new(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Ok(Self {
+            base: BiomechanicsProceduralStandingControllerV2::new_with_schema(
+                compiled,
+                reset_snapshot,
+                &crate::biomechanics_humanoid_body_schema_v8(),
+            )?,
+        })
+    }
+
+    pub fn reference_targets(
+        &self,
+        snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Vec<i64>, ProceduralStandingError> {
+        self.base.reference_targets(snapshot)
+    }
+
+    #[must_use]
+    pub fn state_root(&self) -> ContentHash {
+        let mut bytes = b"nextengine.humanoid-procedural-standing.v3\0".to_vec();
+        bytes.extend_from_slice(PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3.as_bytes());
+        bytes.extend_from_slice(self.base.state_root().as_bytes());
+        bytes.extend_from_slice(crate::articulated_foot_contact_profile_hash().as_bytes());
         content_hash_from_bytes(sha256(&bytes))
     }
 }

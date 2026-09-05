@@ -55,6 +55,8 @@ pub struct BiomechanicsTerminalDecisionV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsTerminalEvaluator {
+    contact_profile_hash: ContentHash,
+    articulated_binding: Option<ContentHash>,
     root_actor_token: u64,
     skill_profile: BiomechanicsSkillContactProfileV1,
     maximum_episode_motor_ticks: u64,
@@ -79,11 +81,33 @@ impl BiomechanicsTerminalEvaluator {
             .get(root_id)
             .ok_or(BiomechanicsTerminalError::InvalidProfile)?;
         Ok(Self {
+            contact_profile_hash: content_hash_from_bytes(HUMANOID_SAFETY_CONTACT_PROFILE_SHA256),
+            articulated_binding: None,
             root_actor_token,
             skill_profile,
             maximum_episode_motor_ticks,
             latched: None,
         })
+    }
+
+    pub fn new_articulated(
+        compiled: &crate::CompiledBodySchemaV4,
+        skill_profile: BiomechanicsSkillContactProfileV1,
+        maximum_episode_motor_ticks: u64,
+    ) -> Result<Self, BiomechanicsTerminalError> {
+        let subject = compiled
+            .articulated_subject()
+            .map_err(|_| BiomechanicsTerminalError::InvalidProfile)?;
+        let mut evaluator = Self::new(
+            &compiled.base.base,
+            skill_profile,
+            maximum_episode_motor_ticks,
+        )?;
+        evaluator.contact_profile_hash = crate::articulated_foot_contact_profile_hash();
+        let mut bytes = compiled.compiled_descriptor_hash.as_bytes().to_vec();
+        bytes.extend_from_slice(subject.as_bytes());
+        evaluator.articulated_binding = Some(content_hash_from_bytes(sha256(&bytes)));
+        Ok(evaluator)
     }
 
     pub fn evaluate_motor_tick(
@@ -102,8 +126,7 @@ impl BiomechanicsTerminalEvaluator {
         }
         if contact_substeps.iter().any(|frame| {
             frame.skill_profile != self.skill_profile
-                || frame.safety_contact_profile_hash
-                    != content_hash_from_bytes(HUMANOID_SAFETY_CONTACT_PROFILE_SHA256)
+                || frame.safety_contact_profile_hash != self.contact_profile_hash
         }) {
             return Err(BiomechanicsTerminalError::ContactProfileMismatch);
         }
@@ -164,6 +187,7 @@ impl BiomechanicsTerminalEvaluator {
             Some(_) => MotorTerminalDispositionV1::Terminated,
         };
         let decision_root = decision_root(
+            self.contact_profile_hash,
             self.skill_profile,
             self.maximum_episode_motor_ticks,
             motor_tick,
@@ -193,7 +217,7 @@ impl BiomechanicsTerminalEvaluator {
     pub fn terminal_state_root(&self) -> ContentHash {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(b"nextengine.humanoid-terminal-state.v1\0");
-        bytes.extend_from_slice(&HUMANOID_SAFETY_CONTACT_PROFILE_SHA256);
+        bytes.extend_from_slice(self.contact_profile_hash.as_bytes());
         bytes.extend_from_slice(&self.root_actor_token.to_le_bytes());
         bytes.extend_from_slice(&BIOMECHANICS_ROOT_NORM_TOLERANCE_Q2_60.to_le_bytes());
         bytes.push(self.skill_profile as u8);
@@ -203,6 +227,9 @@ impl BiomechanicsTerminalEvaluator {
             bytes.extend_from_slice(decision.decision_root.as_bytes());
         } else {
             bytes.push(0);
+        }
+        if let Some(binding) = self.articulated_binding {
+            bytes.extend_from_slice(binding.as_bytes());
         }
         content_hash_from_bytes(sha256(&bytes))
     }
@@ -243,6 +270,7 @@ fn root_rotation_is_valid(rotation_q1_30: [i64; 4], tolerance_q2_60: u64) -> boo
 
 #[allow(clippy::too_many_arguments)]
 fn decision_root(
+    contact_profile_hash: ContentHash,
     profile: BiomechanicsSkillContactProfileV1,
     maximum_episode_motor_ticks: u64,
     motor_tick: u64,
@@ -255,7 +283,7 @@ fn decision_root(
 ) -> ContentHash {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"nextengine.humanoid-terminal-decision.v1\0");
-    bytes.extend_from_slice(&HUMANOID_SAFETY_CONTACT_PROFILE_SHA256);
+    bytes.extend_from_slice(contact_profile_hash.as_bytes());
     bytes.push(profile as u8);
     bytes.extend_from_slice(&maximum_episode_motor_ticks.to_le_bytes());
     bytes.extend_from_slice(&motor_tick.to_le_bytes());

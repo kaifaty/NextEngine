@@ -20,14 +20,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let revision = std::env::args()
         .nth(1)
-        .ok_or("expected body revision 5, 6 or 7")?;
+        .ok_or("expected body revision 5, 6, 7 or 8")?;
     let ankle_offset: i64 = std::env::args().nth(2).map_or(Ok(0), |s| s.parse())?;
     let hip_offset: i64 = std::env::args().nth(3).map_or(Ok(0), |s| s.parse())?;
     let reference_mode = std::env::args()
         .nth(4)
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
-        "baseline" | "neutral-targets" | "upright-v2" => 0,
+        "baseline" | "neutral-targets" | "upright-v2" | "articulated-v3" => 0,
         "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
@@ -45,6 +45,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(6)
         .unwrap_or_else(|| "unchanged".to_owned());
     let response_mode = std::env::args().nth(7);
+    if (revision == "8" || reference_mode == "articulated-v3")
+        && (revision != "8"
+            || reference_mode != "articulated-v3"
+            || !per_iteration
+            || actuator_probe != "unchanged"
+            || ankle_offset != 0
+            || hip_offset != 0
+            || response_mode.is_some())
+    {
+        return Err(
+            "V8 requires articulated-v3, per-iteration, unchanged, and no offsets/response".into(),
+        );
+    }
     if (revision == "7" || reference_mode == "upright-v2")
         && (revision != "7"
             || reference_mode != "upright-v2"
@@ -108,7 +121,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "5" => next_motor::biomechanics_humanoid_body_schema_v5(),
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
         "7" => next_motor::biomechanics_humanoid_body_schema_v7(),
-        _ => return Err("expected body revision 5, 6 or 7".into()),
+        "8" => next_motor::biomechanics_humanoid_body_schema_v8(),
+        _ => return Err("expected body revision 5, 6, 7 or 8".into()),
     };
     let schema = if actuator_probe == "coupled-damping-4" {
         coupled_damping_discriminator(shoulder_yaw_discriminator(schema, "shoulder-yaw-gain-16")?)?
@@ -135,17 +149,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut snapshot = world.capture()?;
     let mut safety = BiomechanicsSafetyController::new(base)?;
     let mut classifier = BiomechanicsContactClassifier::new(base)?;
-    let mut terminal = BiomechanicsTerminalEvaluator::new(
-        base,
-        BiomechanicsSkillContactProfileV1::Locomotion,
-        1_800,
-    )?;
+    let mut articulated_classifier = if revision == "8" {
+        Some(next_motor::BiomechanicsContactClassifierV2::new(
+            &successor,
+        )?)
+    } else {
+        None
+    };
+    let mut terminal = if revision == "8" {
+        BiomechanicsTerminalEvaluator::new_articulated(
+            &successor,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_800,
+        )?
+    } else {
+        BiomechanicsTerminalEvaluator::new(
+            base,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_800,
+        )?
+    };
     // Existing controller: only knee/ankle reference targets are nonzero.
     // Optional ankle/hip counterfactuals, before unchanged safety. These are
     // diagnostic candidates, not selected production reference profiles.
     let standing = BiomechanicsProceduralStandingControllerV1::new(base, &snapshot)?;
     let upright = if reference_mode == "upright-v2" {
         Some(next_motor::BiomechanicsProceduralStandingControllerV2::new(
+            &successor, &snapshot,
+        )?)
+    } else {
+        None
+    };
+    let articulated = if revision == "8" {
+        Some(next_motor::BiomechanicsProceduralStandingControllerV3::new(
             &successor, &snapshot,
         )?)
     } else {
@@ -190,7 +226,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut effort_history = Vec::new();
     let envelopes = safety.default_skill_envelopes();
     'episode: for tick in 1..=1_800_u64 {
-        let mut reference = if let Some(controller) = &upright {
+        let mut reference = if let Some(controller) = &articulated {
+            controller.reference_targets(&snapshot)?
+        } else if let Some(controller) = &upright {
             controller.reference_targets(&snapshot)?
         } else {
             standing.reference_targets(&snapshot)?
@@ -227,20 +265,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         let applied_targets = safety
-            .begin_motor_tick(&reference, &[0; 23], &envelopes)?
+            .begin_motor_tick(&reference, &vec![0; reference.len()], &envelopes)?
             .iter()
             .map(|target| target.target_microradians)
             .collect::<Vec<_>>();
         let mut contacts = Vec::with_capacity(4);
         for _ in 0..4 {
             let efforts = safety.step_substep(&states(&snapshot))?;
-            let mut applied = [0; 23];
+            let mut applied = vec![0; base.actuator_dof_ordinals.len()];
             for (effort, &dof) in efforts.iter().zip(&base.actuator_dof_ordinals) {
                 applied[dof as usize] = effort.effort_micronewton_metres;
             }
             snapshot = world.apply_efforts_and_step(&applied)?;
             if measure_response {
-                effort_history.push(applied);
+                effort_history.push(
+                    applied
+                        .clone()
+                        .try_into()
+                        .map_err(|_| "response requires23 DOFs")?,
+                );
             }
             substeps += 1;
             let root = snapshot
@@ -278,10 +321,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ));
                 break 'episode;
             }
-            contacts.push(
+            contacts.push(if let Some(classifier) = &mut articulated_classifier {
                 classifier
-                    .classify_substep(&snapshot, BiomechanicsSkillContactProfileV1::Locomotion)?,
-            );
+                    .classify_substep(&snapshot, BiomechanicsSkillContactProfileV1::Locomotion)?
+            } else {
+                classifier
+                    .classify_substep(&snapshot, BiomechanicsSkillContactProfileV1::Locomotion)?
+            });
+            if let Some(classifier) = &articulated_classifier {
+                let sample = substep_samples.last_mut().expect("current substep");
+                sample["anatomical_foot_impulses_uns"] =
+                    json!(classifier.foot_impulses_micronewton_seconds());
+                sample["anatomical_foot_active_substeps"] =
+                    json!(classifier.foot_active_substeps());
+                sample["contact_classification_root"] =
+                    json!(contacts.last().unwrap().classification_root.to_hex());
+            }
         }
         let decision = terminal.evaluate_motor_tick(tick, &snapshot, &contacts, false, None)?;
         samples.push(sample(
@@ -343,6 +398,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         output["reference_profile_id"] =
             json!(next_motor::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2);
         output["reference_state_root"] = json!(controller.state_root().to_hex());
+        output["hip_feedback_gain"] = json!(2);
+    }
+    if let Some(controller) = &articulated {
+        output["reference_profile_id"] =
+            json!(next_motor::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3);
+        output["reference_state_root"] = json!(controller.state_root().to_hex());
+        output["contact_profile_hash"] =
+            json!(next_motor::articulated_foot_contact_profile_hash().to_hex());
         output["hip_feedback_gain"] = json!(2);
     }
     println!("{}", serde_json::to_string(&output)?);

@@ -1991,9 +1991,13 @@ successor needs an explicit finite-volume mass/inertia and contact projection.
 [ADR-118](architecture/adr/118-articulated-volumetric-foot-body.md) now implements
 BodySchema V8 with separate rear/forefoot segments, bilateral MTP hinges and
 finite-volume inertia. Native kinematic and unchanged-body regression checks
-pass (144 motor tests). This is not loaded standing: next implement anatomical
-foot impact aggregation and compatible standing consumers, then validate flat
-support, heel-rise/re-contact and disturbances before selecting training.
+pass (144 motor tests). [ADR-119](architecture/adr/119-articulated-foot-standing-diagnostics.md)
+now adds anatomical-foot impact aggregation and compatible diagnostic standing
+consumers. V8 completes30 seconds with both feet active; last10-second torso tilt
+stays below0.15 degrees. All149 native motor tests pass and V7 output is exact.
+This is nominal support only: loaded heel-rise/re-contact and disturbances remain
+next, before training. Toe velocity spectra still have high-frequency content;
+do not claim every joint is quiet from the flat final pose.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

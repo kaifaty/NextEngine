@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V8_KINEMATICS_IMPLEMENTED / LOADED_FEET_AND_DISTURBANCE_OPEN` |
+| Status | `BODY_V8_NOMINAL_STANDING / HEEL_RISE_AND_DISTURBANCE_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -28,7 +28,7 @@
   V5 reverses those eight axes only. Bilateral production native state import
   proves the corrected directions and preserved backwards knee flexion.
 - The preserved successful gait still uses a rigid box. V8 now adds a separate
-  forefoot and MTP hinge; native kinematics pass, loaded support is not tested.
+  forefoot and MTP hinge; native kinematics and30-second nominal standing pass.
 - V6 now carries full principal moments / frames for all six non-diagonal
   tensors. Integer and compiled-float reconstruction error <= 1 micro kg m²
   per component; old masses/COM/geometry and V5 descriptor bytes unchanged.
@@ -94,9 +94,12 @@
   becomes planar [100,1100,1000] micro kg m², not a finite-thickness repair.
   Source toe COM is3.4 mm past the current box front; visual toes reach45.718 mm
   past it. Do not simply partition the old box. The finite-volume articulated
-  proxy is implemented as V8 (report15). Next: anatomical foot impact aggregation
-  (existing6 Ns limit is per pair), compatible standing/terminal consumers,
-  then bilateral loaded controls. Old standing V2 rejects V8 as intended.
+  proxy is implemented as V8 (report15). ADR-119 adds raw anatomical-foot6 Ns
+  aggregation with preserved pair limits and standing V3 (report16). V8 lasts30s;
+  torso tail max0.14994°, each foot active7200 substeps; toe mean loads12.47/14.83N.
+  MTP velocity RMS0.0247/0.1112rad/s still has near-Nyquist power: do not infer
+  quiet joints or retune from a picture. Next loaded heel-rise/re-contact, then
+  disturbances. Old V7 output remains byte-exact; no training selection.
 
 ## Required context
 
@@ -127,6 +130,8 @@
 14. [Reviewed foot source/geometry inputs and successor constraints](../r8b-foot-successor-inputs-research-2026-09-05.md).
 15. [Implemented articulated foot and checks](../r8b-articulated-foot-v8-2026-09-05.md)
     and [ADR-118](../../architecture/adr/118-articulated-volumetric-foot-body.md).
+16. [Articulated contact/standing result](../r8b-articulated-standing-2026-09-05.md)
+    and [ADR-119](../../architecture/adr/119-articulated-foot-standing-diagnostics.md).
 
 ## Decision and remaining uncertainty
 
@@ -195,7 +200,7 @@
   Global active SDK has a different build profile and is correctly rejected;
   do not change global active locator or weaken manifest validation.
 - Initial previews and failed CLI artifact retained externally; use audit-04.
-- Physical V8 foot is implemented, not dynamically admitted. Initial144-test
+- Initial V8 foot implementation was kinematic-only. Its144-test
   suite failed rear mass-volume containment (143 passed); collider top +5 mm
   repairs it without changing sole/mass/COM. Final144 tests, native Clippy,
   boundary/content pass. Exact hashes and remaining consumers are in report15.

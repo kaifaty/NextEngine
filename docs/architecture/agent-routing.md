@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.57 |
+| Версия | 2.58 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For V8 articulated-foot contact/standing diagnostics, additionally read
+[ADR-119](adr/119-articulated-foot-standing-diagnostics.md), SPEC-35 and ADR-069/117/118.
+Verify raw anatomical-foot aggregation with retained pair limits, endpoint/order
+invariance, support transfer/reset and failure atomicity, terminal profile checks
+and reference body/subject/reset binding. Run native motor/example tests, Clippy,
+boundary/content, relevant replay/play checks and the unchanged V7 control.
+A nominal timeout does not establish heel-rise/re-contact or disturbance recovery.
 
 For articulated-foot BodySchema V8, additionally read
 [ADR-118](adr/118-articulated-volumetric-foot-body.md), SPEC-35 and ADR-069/071/115/117.
