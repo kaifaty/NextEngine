@@ -2003,6 +2003,13 @@ now fails on both sides: coupled ankle/MTP input triggers toe velocity violation
 ankle-only input delays/moves the failure but never establishes loaded heel rise.
 Both zero controls are exact. Next separate sampled toe-servo/rate-limit behavior
 from contact/whole-body transfer before another similar controller or gain change.
+A [native toe-servo discriminator](development/r8b-toe-servo-research-2026-09-05.md)
+now exposes large unloaded ankle/toe motion even with zero MTP command/effort at
+the first step. All34950 effort applications and the nominal control replay
+match; a full native rerun is exact. The frozen contact-free MTP-failure claim
+is inconclusive (raw self-contact records, and a non-MTP failure at198).
+Next isolate the first-step knee/ankle/toe response with a zero-effort control,
+not a toe-only gain sweep. Body/control defaults and all safety limits remain.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

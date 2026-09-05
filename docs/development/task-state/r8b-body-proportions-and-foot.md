@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V8_NOMINAL_STANDING / LOADED_TRANSFER_FAILED / SERVO_RESEARCH_NEXT` |
+| Status | `BODY_V8_NOMINAL_STANDING / UNLOADED_COUPLED_FOOT_RESPONSE_NEXT` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -86,8 +86,8 @@
   in the motor library, with full compiled-input validation and subject/reset
   state binding. All7200 native steps/1801 samples equal the candidate. Old
   modes repeat byte-exactly. No training environment or game route is switched.
-- Next: bounded disturbance/foot mechanics
-  checks and a separately identified learning environment. Do not repeat the finished mass audit,
+- Next: disturbance/foot mechanics and a separately identified learning environment.
+  Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
 - Foot input audit now independently closed: upstream2016/2023 toe inertia
@@ -100,12 +100,14 @@
   MTP velocity RMS0.0247/0.1112rad/s still has near-Nyquist power: do not infer
   quiet joints or retune from a picture. Next loaded heel-rise/re-contact, then
   disturbances. Old V7 output remains byte-exact; no training selection.
-- Loaded transfer now fails both coupled ankle/MTP and ankle-only inputs:
-  v1 stops at1305/1324 on active-side MTP velocity; v2 at2042/1810 on left ankle /
-  opposite MTP. No heel-rise interval; both zero controls exact (report17).
-  Next bounded unloaded/loaded toe-servo research, not another pulse/gain sweep.
-  Actual joint position oscillates too; velocity-report artifacts alone cannot
-  explain it. Preserve observed tolerance1000urad/s and all safety limits.
+- Loaded transfer fails coupled ankle/MTP and ankle-only inputs; both controls
+  exact (report17). FOOT-SERVO-01 (report18) now exposes unloaded whole-foot
+  oscillation: raised no-toe-input step1 has MTP effort0 but velocity nearly-8rad/s;
+  only knees/ankle-pitch have nonzero efforts. Every raised contact impulse is0,
+  but raw self-contact records invalidate the frozen empty-contact criterion.
+  Raised-right fails on left ankle-pitch at198, not MTP. Claim INCONCLUSIVE.
+  Native rerun/control and34950-channel effort replay exact. Next first-step
+  knee/ankle/toe discriminator with zero-effort control, not toe-only gain tuning.
 
 ## Required context
 
@@ -139,6 +141,7 @@
 16. [Articulated contact/standing result](../r8b-articulated-standing-2026-09-05.md)
     and [ADR-119](../../architecture/adr/119-articulated-foot-standing-diagnostics.md).
 17. [Failed loaded-transfer discriminators and next research boundary](../r8b-loaded-foot-transfer-2026-09-05.md).
+18. [Unloaded coupled-foot response and toe-servo research](../r8b-toe-servo-research-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -184,8 +187,7 @@
   implemented. No environment/default/runtime authority changes.
 - Historical V5/V6/force-schedule native and host checks passed; exact records
   remain in reports6–8. Current body/contact checks are in reports15–17.
-- External descriptor and comparison image are in
-  `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
+- External V5 descriptor/image: `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
 - V6 descriptor and both original standing outputs are in `body-v6-01`.
   New `upright-reference-01` includes every-step joints, effort, raw contacts
   and root pose/velocities, failed references, one-flag TGS experiment and
@@ -245,6 +247,4 @@
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.
-- Remaining routed SPEC-14/27/28, root-document gaps and Rust skill reads
-  are completed, including testing-and-quality and ADR-030. Relevant R8
-  roadmap scope was read. Do not restart these full reads on each continuation.
+- Routed SPEC/ADR/root/R8 and Rust reads are complete; do not restart on each continuation.
