@@ -79,9 +79,13 @@ class Block(nn.Module):
 
 
 class TextureFlow(nn.Module):
-    def __init__(self):
+    def __init__(self, physical_dim=5):
         super().__init__()
-        self.context = nn.Sequential(nn.Linear(14, 64), nn.SiLU(), nn.Linear(64, 64))
+        if physical_dim not in (5, 7):
+            raise ValueError("only original or surface-descriptor features supported")
+        self.context = nn.Sequential(
+            nn.Linear(physical_dim + 9, 64), nn.SiLU(), nn.Linear(64, 64)
+        )
         self.input = nn.Conv1d(64, 64, 3, padding=1)
         self.blocks = nn.ModuleList([Block() for _ in range(4)])
         self.output = nn.Conv1d(64, 64, 3, padding=1)

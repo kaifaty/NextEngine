@@ -4144,3 +4144,107 @@ run one bounded new-surface generator trial with playable output. Keep the
 shared-band, timing and background controls. Do not invent material composition,
 geometry or coefficients from names, relabel new surfaces as pristine protected
 evidence, or drop other required event families from the full goal.
+
+## New-surface descriptor transfer — 2026-09-05
+
+Primary artifact: [source-free rubber on frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-glass-standalone-2026-09-05/generated.wav>),
+3.15s,40mm/s,.5N,90mm. No reference audio, sensor file or surface ID is accepted
+by the standalone renderer; it takes category, two coefficients and motion.
+The independent CLI produces byte-identical PCM to the in-run requested profile.
+Compare [oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-66-comparison.wav>)
+and [frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-76-comparison.wav>).
+Each plays real / descriptor model / equally trained category-only model /
+previous timed model using the category representative, with250ms gaps.
+These are friction events, not glass impacts or perceived-quality admission.
+
+The selected Figshare v5 grid now contains180 recordings from9 surfaces,
+722 source members,242 reused from the earlier grid. All member bytes were
+verified against local SHA256 and source ZIP CRC, including reused members.
+Whole15.2GB archive MD5 remains **unverified**; only selected ranges downloaded.
+External root `cluster-surface-transfer-grid-2026-09-05` retains the original XLSX.
+Its SHA256 is `6cd7dfc06e61852d49a2256d7fe8d44d222f3619f48fe9a4031f677d1b0eb4ff`.
+The optional spreadsheet skill path was unavailable; direct bounded XML reads
+use cached cell values, ignore malformed font styles and reject formulas/entities.
+No source spreadsheet repair or generated spreadsheet was made.
+
+The table contains genuine static/dynamic friction measurements, **not** density,
+elastic modulus, surface height spectra or object geometry. In the
+[primary paper, v4,6Nov2025](https://arxiv.org/html/2407.16206v4),
+coefficients are measured with a rubber sheet pulled at10mm/min. Audio uses a
+cylindrical rubber probe at20–60mm/s. Therefore these values are candidate
+cross-surface features, not calibrated coefficients at audio scan speeds.
+
+| Category | TRAIN surfaces | New-surface development |
+|---|---|---|
+| Wood |0 Nyatoh,2 Elm |4 Oak |
+| Metals |65 Stainless steel,67 Cast iron |66 Steel |
+| Glass |74 Float glass,77 Glass(haze) |76 Frosted glass |
+
+Every recording of4/66/76 is excluded from fitting. TRAIN is48 repeat0 scans
+at20/30/50/60mm/s on the six TRAIN surfaces.40mm/s and repeat1 stay development.
+All surfaces/roles are disclosed development, not pristine final evidence.
+The parent has only original24 TRAIN IDs on0/65/74; foundation-codec pretraining
+overlap is unknown. No held-surface audio determines initialization, normalization,
+training loss, checkpoint selection or the standalone motion profile.
+
+`physical_sound_texture_surface.py` expands the existing time-conditioned flow
+from5 to7 physical features: category one-hot3, speed, force, static and dynamic
+friction. Coefficients use fixed scaling `(mu-.5)/.25`. Only128 weights are added
+to the first context layer; they start at zero and preserve parent predictions
+exactly in the warm-start test. Both arms use162560 trainable parameters,
+the same parent,48 TRAIN cases,seed23,2000 updates and first/random/last32-frame
+windows. The category-only arm zeros both coefficient features during fit/render.
+The codec and parent latent normalization are unchanged. The original common
+inputgain17.374337221633088/playback2.8778076171875 are retained; no per-case
+normalization/clipping or fitted onset shifts. Full decodes remain available.
+
+The entire run completed in245.46s, including preparation and both fits51.93s.
+External root `texture-surface-transfer-2026-09-05` has both checkpoints and
+the [complete result](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/result.json>).
+Descriptor checkpoint SHA256 `6d36e47c055512eef37a9b182c19b31f2db246c0c03d33a00c21822a4672a8e0`;
+category-only SHA256 `c259a9bca63c6acac813c9da51c10578a37390d38cca1de170962eb01dfc8cd9`.
+Evaluation covers60 new-surface scans plus36 old-surface development anchors,
+each with two fixed seeds and four variants:768 generated cases. A wrong-control
+variant substitutes the farthest same-category TRAIN coefficients, chosen without
+audio scoring. No candidate or seed is selected from these results.
+
+| New surface,40 comparisons each | Moving shape RMSE: descriptor / category-only / parent,dB | Descriptor wins vs category-only | Full envelope MAE: descriptor / category-only,dB |
+|---|---|---:|---|
+| Oak |2.185 /2.183 /2.249 |21/40 |1.704 /1.671 |
+| Steel |2.544 /2.589 /2.877 |36/40 |1.969 /2.005 |
+| Frosted glass |2.619 /2.518 /2.849 |3/40 |1.702 /1.795 |
+
+Moving metrics use the same measured central.75s interval and shared22.05kHz
+band for every variant. They separate shape from absolute level and avoid
+mistaking quiet-apparatus resemblance for moving-contact quality. Full-envelope
+metrics retain the previous background-confound warning. Steel descriptor
+absolute level error1.369 vs category-only1.427/parent2.322dB; frosted glass.793
+vs.771/1.236. Wrong coefficients actually improve glass shape to2.563dB; correct
+coefficients beat them only16/40 on shape. Thus sensitivity to an input does
+**not** establish physically correct transfer. On old-surface anchors descriptor
+shape2.305 vs parent2.330 improves slightly, but full-envelope error1.593 vs1.460
+and moving-level error.830 vs.743 worsen. Do not replace the existing model/demo.
+
+Reproduction: `physical_sound_texture_surface.py --source GRID/result.json
+--parent TIMED_MODEL --output NEW_EXTERNAL` fits both arms; adding
+`--evaluate-model SURFACE_MODEL` evaluates saved weights with zero updates.
+Source-free: `--model SURFACE_MODEL --category Glass --static 0.3970170073501798
+--dynamic 0.3827100881663895 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+The source acquisition command is `physical_sound_texture_probe.py --training-grid
+--surfaces 0 2 4 65 66 67 74 76 77 --cached OLD_GRID/result.json --output NEW_GRID`.
+
+Decision: source-free new-surface generation works mechanically and is audible;
+measured coefficients give a modest steel improvement, not reliable multi-surface
+physical control. The glass counterexample survives the matched category-only
+control. Before another neural fit, compare direct TRAIN-spectrum interpolation
+in coefficient space against category averaging and observed new-surface spectra.
+This cheap discriminator separates an inadequate input description from a learned
+mapping failure. If coefficients themselves do not transfer the acoustic shape,
+seek additional published surface/contact evidence rather than more epochs/width.
+No new protected split, runtime consumer, roadmap promotion or universal-quality
+claim; the full impacts/friction/rolling/destruction/water/rain goal stays active.
+Verification:44 focused unit tests,Ruff format/check,diff and direct links passed;
+all1640 output WAVs pass SHA/finite/layout/headroom checks, and722 source members
+pass SHA/CRC checks. Both training/evaluation and standalone jobs are terminal.
+No Cargo/ProductCheck or engine audition was run for this isolated Python lab.

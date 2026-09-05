@@ -120,7 +120,9 @@ def checked(path: str, manifest: dict, root: Path) -> Path:
     return p
 
 
-def load_data(path: Path, heldout_speed: int = 40):
+def load_data(
+    path: Path, heldout_speed: int = 40, *, textures=None, feature_builder=features
+):
     if path.stat().st_size > 2_000_000:
         raise ValueError("oversized source manifest")
     manifest = json.loads(path.read_text())
@@ -128,11 +130,11 @@ def load_data(path: Path, heldout_speed: int = 40):
         manifest["status"] != "complete"
         or manifest["article"] != source.ARTICLE
         or not manifest.get("training_grid")
-        or len(manifest["rows"]) != 60
+        or len(manifest["rows"]) != 20 * len(TEXTURES if textures is None else textures)
         or manifest["license"]["name"] != "CC BY 4.0"
     ):
         raise ValueError("complete fixed source grid required")
-    expected = {row["id"]: row for row in source.conditions(True)}
+    expected = {row["id"]: row for row in source.conditions(True, textures)}
     seen = set()
     rows, waves, noises, inputs = [], [], [], []
     for original in manifest["rows"]:
@@ -187,7 +189,7 @@ def load_data(path: Path, heldout_speed: int = 40):
         waves.append(signals[0])
         noises.append(signals[1])
         inputs.append(
-            features(
+            feature_builder(
                 row["texture_id"],
                 row["commanded_speed_mm_s"],
                 row["commanded_normal_force_N"],

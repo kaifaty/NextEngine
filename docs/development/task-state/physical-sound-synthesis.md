@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
+Status: ACTIVE_GOAL / NEW_SURFACE_WAVS_GENERATED / COEFFICIENT_TRANSFER_MIXED.
 
 ## Resume in 60 seconds
 
@@ -17,21 +17,23 @@ Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest learned event:** [rubber/glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-glass-standalone-2026-09-05/generated.wav),3.15s,40mm/s,.5N,90mm,start.3/stop2.65s,
-  NO audio/sensor input. Same162432param flow,parent+2000updates,same24TRAIN.
-  Timed100ms displacement-speed/force features; nominal source clock,NO fittedlags.
-  Inputgain17.374337221633088,commonplayback2.8778076171875,full decodes retained.
-- **Decisive countercheck:** [real/timed/gate/gate+background](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-noise-floor-2026-09-05/comparison.wav).
-  At40mm/s envelope error timed1.492 vsconstant2.273,silentgate7.803,butgate+TRAINnoise
-  1.328dB;timed wins only1/24. Repeat1 other speeds29/48wins. No overall superiority.
-  Timed onset.010s/offset.063s are detector errors,not physical clock calibration.
-- **Event recovery:** model `texture-full-event-2026-09-05` trained; JSON bool failure
-  leaves stale running report. `failure.json`/terminal process decisive. Corrected
-  `texture-full-event-evaluation-2026-09-05` has0newupdates,19 overlapping WAVs exact.
-  Original inherited context_frames unused; full output,not old central crop.
-- **Prior friction:** stationary flow core.743s; spectrum mixed, no overall win.
-  Shared22.05kHz metrics mandatory; native bandwidth confounds large level wins.
-  Oldrank4 lacks heldout field: verify recorded60-row roles. Details in pilot note.
+- **Latest source-free WAV:** [rubber/frosted glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-glass-standalone-2026-09-05/generated.wav),3.15s,40mm/s,.5N,90mm.
+  CLI takes category/static+dynamic friction/motion,NO surfaceID/audio/sensors.
+  Independent CLI PCM matches in-run profile. Full decode retained,nominal clock.
+- **Surface trial:** `texture-surface-transfer-2026-09-05`,complete,245.46s.
+  Both162560param arms,parent timed+2000updates each,same48TRAIN; one zerosmu.
+  TRAIN0/2/65/67/74/77,repeat0,20/30/50/60. All4/66/76 held development,not pristine.
+  Grid `cluster-surface-transfer-grid-2026-09-05`:180scans,722SHA/CRC verifiedmembers.
+  OriginalXLSX read directly; coefficients10mm/min≠audio20–60mm/s; no roughness/geometry.
+- **Transfer mixed:** shape descriptor/category-only: oak2.185/2.183,steel2.544/2.589,
+  glass2.619/2.518dB;wins21/40,36/40,3/40. Wrongmu also improves glassshape2.563.
+  Old-anchor envelope regresses1.460→1.593. NO overall physical/perceptual promotion.
+  Checkpoints descriptor6d36e47c…,category c259a9bc…;exact IDs/hashes/results in note.
+  44tests/1640WAV checks pass;all jobs terminal;no model/demo/runtime replacement.
+- **Prior timed countercheck:** envelope1.492 vs gate+TRAINbackground1.328dB,
+  wins1/24 at40mm/s. Noise resemblance≠quality. Shared22.05kHz metrics mandatory.
+  `texture-full-event-2026-09-05` stale running JSON is TERMINAL; corrected eval
+  `texture-full-event-evaluation-2026-09-05`,0updates,19overlapping WAVs exact.
 - **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV retained.
   Attack/body improve,tail worsens: silence-learning contradicted,no weight sweep.
   FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision-training rescue.
@@ -83,12 +85,11 @@ Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** surface transfer: inspect cached texture_list.xlsx/published friction
-  coefficients for real physical descriptors replacing3surface one-hot IDs; then
-  one bounded new-surface generator trial with WAVs. No invented geometry/material
-  values or new protected roles. Earlier XLSX font `&quot` repaired in memory only;
-  see source section in note. Keep shared-band/timing/background checks, not a new
-  epoch/width/loss sweep fitting apparatus noise. Full multi-event goal stays open.
+- **Next discriminator,not another fit:** interpolate TRAIN spectra in measured
+  coefficient space versus category averaging on the same4/66/76development.
+  Check whether the descriptors themselves predict new acoustic shape; if not,
+  seek richer published surface/contact evidence rather than epochs/width.
+  Retain timing/shared-band/background controls. Full multi-event goal stays open.
 
 ## Preserve these constraints
 
@@ -125,8 +126,7 @@ Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
   16 train/11 later strikes; expanded/anchored MLPs lose to analytic control.
 - No parameter-MLP size/epoch retries: sparse data/nonunique targets/loss mismatch
   unresolved; audio-to-parameter reconstruction is also the wrong goal interface.
-- MP3s: `ps2-freesound-wine-glass-v1/research`, same author/pack/train family;
-  not known identical objects. Do not infer wall thickness or force.
+- MP3s: `ps2-freesound-wine-glass-v1/research`,same author/pack,not known identical objects;no thickness/force inference.
 
 ## Legacy admission evidence and forbidden retries
 
@@ -145,6 +145,5 @@ Status: ACTIVE_GOAL / FULL_FRICTION_EVENT_GENERATED / SURFACE_TRANSFER_NEXT.
   thresholds, roles, seeds, capacities or contacts from opened results, or
   reconstruct missing outputs from failed runs. In particular, M0c physical
   response and QSO-v0 geometry/contact transfer were rejected.
-- Stationary random-phase residual, universal codec and prompt-to-waveform
-  cannot be relabelled as admitted physical formulas. A waveform model is
-  allowed as this separate report-only generator, with its own explicit claims.
+- Random-phase residual/codec/prompt-waveform≠admitted physical formulas;
+  waveform models are allowed as separate report-only generators with explicit claims.

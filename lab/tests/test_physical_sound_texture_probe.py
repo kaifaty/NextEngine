@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import io
 import sys
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -61,6 +63,48 @@ class TextureProbeTests(unittest.TestCase):
         result = probe.validate_audio(self.wav(np.zeros(441)), 1)
         self.assertEqual(result["rms"], [0.0])
         # Silence is evidence, not a reason to amplify or omit a source.
+
+    def test_bounded_selected_surface_grid(self):
+        self.assertEqual(len(probe.conditions(True, {2: "Elm", 4: "Oak"})), 40)
+        for bad in ({}, {118: "unknown"}, {True: "boolean"}, {2: ""}):
+            with self.assertRaises(ValueError):
+                probe.conditions(True, bad)
+
+    def test_table_cached_values_and_rejection(self):
+        ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+        strings = f'<sst xmlns="{ns}"><si><t>Wood</t></si></sst>'
+        header = '<row><c r="A1"><v>Texture_id</v></c><c r="F1"><v>Static friction coefficient</v></c><c r="G1"><v>Dynamic friction coefficient</v></c></row>'
+        rows = "".join(
+            f'<row><c r="A{i + 2}"><v>{i}</v></c><c r="B{i + 2}"><v>surface{i}</v></c><c r="D{i + 2}" t="s"><v>0</v></c><c r="F{i + 2}"><v>0.5</v></c><c r="G{i + 2}"><v>0.4</v></c></row>'
+            for i in range(118)
+        )
+        sheet = (
+            f'<worksheet xmlns="{ns}"><sheetData>{header}{rows}</sheetData></worksheet>'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "metadata.xlsx"
+
+            def write(data):
+                with zipfile.ZipFile(path, "w") as archive:
+                    archive.writestr("xl/sharedStrings.xml", strings)
+                    archive.writestr("xl/worksheets/sheet1.xml", data)
+                    archive.writestr(
+                        "xl/styles.xml", "deliberately malformed unused styles"
+                    )
+
+            write(sheet)
+            result = probe.texture_metadata(path)
+            self.assertEqual(len(result), 118)
+            self.assertEqual(result[76]["dynamic_friction"], 0.4)
+            for bad in (
+                sheet.replace("<v>0.4</v>", "<v>0.6</v>", 1),
+                sheet.replace("<v>0.4</v>", "<f>1+1</f><v>0.4</v>", 1),
+                "<!DOCTYPE a>" + sheet,
+                f'<worksheet xmlns="{ns}"><sheetData/></worksheet>',
+            ):
+                write(bad)
+                with self.assertRaises(ValueError):
+                    probe.texture_metadata(path)
 
 
 if __name__ == "__main__":

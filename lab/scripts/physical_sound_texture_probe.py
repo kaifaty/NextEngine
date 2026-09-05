@@ -12,7 +12,9 @@ import hashlib
 import io
 import json
 import zipfile
+import zlib
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import fsspec
 import numpy as np
@@ -30,7 +32,13 @@ PREFIX = "cluster_haptic_texture_dataset/"
 TEXTURES = {0: "Nyatoh", 65: "Stainless steel", 74: "Float glass"}
 
 
-def conditions(training_grid: bool = False) -> list[dict]:
+def conditions(training_grid: bool = False, textures: dict | None = None) -> list[dict]:
+    textures = TEXTURES if textures is None else textures
+    if not 1 <= len(textures) <= 12 or any(
+        type(k) is not int or not 0 <= k < 118 or not isinstance(v, str) or not v
+        for k, v in textures.items()
+    ):
+        raise ValueError("bounded known-surface selection required")
     return [
         {
             "id": f"{texture}_0_{speed}_{force}_{repeat}",
@@ -42,7 +50,7 @@ def conditions(training_grid: bool = False) -> list[dict]:
             "commanded_normal_force_N": force / 1000,
             "repeat": repeat,
         }
-        for texture, name in TEXTURES.items()
+        for texture, name in textures.items()
         for speed in ((20, 30, 40, 50, 60) if training_grid else (20, 60))
         for force in (500, 1000)
         for repeat in ((0, 1) if training_grid else (0,))
@@ -70,11 +78,89 @@ def validate_audio(data: bytes, channels: int) -> dict:
     }
 
 
-def run(output: Path, training_grid: bool = False) -> dict:
+def texture_metadata(path: Path) -> dict:
+    """Read original cached values, ignoring the malformed font-only styles."""
+    ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    if not 0 < path.stat().st_size <= 4_000_000:
+        raise ValueError("oversized texture table")
+    with zipfile.ZipFile(path) as archive:
+
+        def read(name):
+            if archive.getinfo(name).file_size > 2_000_000:
+                raise ValueError("oversized spreadsheet XML")
+            data = archive.read(name)
+            if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+                raise ValueError("XML entity declarations forbidden")
+            return ET.fromstring(data)
+
+        shared = read("xl/sharedStrings.xml")
+        strings = [
+            "".join(t.text or "" for t in item.findall(".//s:t", ns)) for item in shared
+        ]
+        sheet = read("xl/worksheets/sheet1.xml")
+        rows = []
+        for row in sheet.findall(".//s:sheetData/s:row", ns):
+            cells = {}
+            for cell in row:
+                if cell.find("s:f", ns) is not None:
+                    raise ValueError("formula in published descriptor table")
+                value = cell.find("s:v", ns)
+                if value is not None:
+                    text = (
+                        strings[int(value.text)]
+                        if cell.attrib.get("t") == "s"
+                        else value.text
+                    )
+                    column = "".join(c for c in cell.attrib["r"] if c.isalpha())
+                    cells[column] = text
+            if cells:
+                rows.append(cells)
+    if (
+        not rows
+        or rows[0].get("F") != "Static friction coefficient"
+        or rows[0].get("G") != "Dynamic friction coefficient"
+        or rows[0].get("A") != "Texture_id"
+    ):
+        raise ValueError("descriptor columns changed")
+    result = {}
+    for row in rows[1:]:
+        ident = int(row["A"])
+        static, kinetic = float(row["F"]), float(row["G"])
+        if (
+            ident in result
+            or not np.isfinite([static, kinetic]).all()
+            or not 0 <= kinetic <= static <= 2
+        ):
+            raise ValueError("invalid physical descriptor row")
+        result[ident] = {
+            "texture_id": ident,
+            "name": row["B"].strip(),
+            "category": row["D"].strip(),
+            "static_friction": static,
+            "dynamic_friction": kinetic,
+        }
+    if set(result) != set(range(118)):
+        raise ValueError("complete118-surface table required")
+    return result
+
+
+def run(
+    output: Path,
+    training_grid: bool = False,
+    surfaces: list[int] | None = None,
+    cached: Path | None = None,
+) -> dict:
     output = output.resolve()
     if output.is_relative_to(Path(__file__).resolve().parents[2]):
         raise ValueError("dataset must stay outside the repository")
     output.mkdir(parents=True, exist_ok=False)
+    reused = {}
+    if cached is not None:
+        cached = cached.resolve()
+        existing = json.loads(cached.read_text())
+        if existing["status"] != "complete" or existing["article"] != ARTICLE:
+            raise ValueError("complete same-source cache required")
+        reused = {r["member"]: r for r in existing["files"]}
     response = requests.get(ARTICLE, timeout=30)
     response.raise_for_status()
     if len(response.content) > 2_000_000:
@@ -114,7 +200,23 @@ def run(output: Path, training_grid: bool = False) -> dict:
         info = archive.getinfo(PREFIX + member)
         if not 0 < info.file_size <= 4_000_000 or info.compress_size > 4_000_000:
             raise ValueError("oversized ZIP member")
-        data = archive.read(info)  # zipfile verifies the member CRC.
+        entry = reused.get(info.filename)
+        if entry is not None:
+            source = Path(entry["path"]).resolve()
+            if (
+                not source.is_relative_to(cached.parent)
+                or source.stat().st_size != info.file_size
+                or entry["zip_crc32"] != info.CRC
+            ):
+                raise ValueError("cache member identity mismatch")
+            data = source.read_bytes()
+            if (
+                hashlib.sha256(data).hexdigest() != entry["sha256"]
+                or zlib.crc32(data) != info.CRC
+            ):
+                raise ValueError("cache content hash mismatch")
+        else:
+            data = archive.read(info)  # zipfile verifies the member CRC.
         path = output / local  # local names are constructed here, not archive paths.
         path.write_bytes(data)
         report["files"].append(
@@ -124,6 +226,7 @@ def run(output: Path, training_grid: bool = False) -> dict:
                 "bytes": len(data),
                 "sha256": hashlib.sha256(data).hexdigest(),
                 "zip_crc32": info.CRC,
+                "reused": entry is not None,
             }
         )
         return data
@@ -147,7 +250,18 @@ def run(output: Path, training_grid: bool = False) -> dict:
             with zipfile.ZipFile(remote) as archive:
                 read_member(archive, "README.md", "README.md")
                 read_member(archive, "texture_list.xlsx", "texture_list.xlsx")
-                for condition in conditions(training_grid):
+                textures = None
+                if surfaces is not None:
+                    if len(set(surfaces)) != len(surfaces):
+                        raise ValueError("duplicate surfaces")
+                    metadata = texture_metadata(output / "texture_list.xlsx")
+                    textures = {i: metadata[i]["name"] for i in surfaces}
+                    report.update(
+                        surface_grid=True,
+                        selected_texture_ids=surfaces,
+                        surface_metadata=[metadata[i] for i in surfaces],
+                    )
+                for condition in conditions(training_grid, textures):
                     row = dict(condition)
                     for kind in ("audio", "raw_audio", "force", "position"):
                         ext = "wav" if "audio" in kind else "csv"
@@ -179,5 +293,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--training-grid", action="store_true")
+    parser.add_argument("--surfaces", type=int, nargs="+")
+    parser.add_argument("--cached", type=Path)
     args = parser.parse_args()
-    run(args.output, args.training_grid)
+    run(args.output, args.training_grid, args.surfaces, args.cached)

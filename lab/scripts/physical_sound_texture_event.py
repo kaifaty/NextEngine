@@ -186,8 +186,15 @@ def event_metrics(candidate, reference, physical, commanded_speed):
 
 
 @torch.inference_mode()
-def prepare(manifest_path, vae, device):
-    rows, _, _, _, manifest = flow.spectrum.load_data(manifest_path)
+def prepare(
+    manifest_path,
+    vae,
+    device,
+    *,
+    loader=flow.spectrum.load_data,
+    feature_builder=trace_features,
+):
+    rows, _, _, _, manifest = loader(manifest_path)
     original = {r["id"]: r for r in manifest["rows"]}
     records, audit = [], []
     for row in rows:
@@ -213,7 +220,7 @@ def prepare(manifest_path, vae, device):
         count = posterior.mean.shape[-1]
         times = (np.arange(count) + 0.5) * HOP / RATE
         velocity = position_speed(position, times)
-        physical = trace_features(
+        physical = feature_builder(
             row["texture_id"], velocity, np.interp(times, force["time"], force["force"])
         )
         valid = len(native) // HOP
