@@ -41,6 +41,22 @@ class LatentFlowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             f.normalization(torch.zeros(3, 64, 88), -torch.ones(3, 64, 88))
 
+    def test_gaussian_skip_has_finite_exact_endpoints(self):
+        x = torch.randn(3, 64, 88)
+        t = torch.tensor([0.0, 0.5, 1.0])
+        expected = torch.stack([-x[0], torch.zeros_like(x[1]), x[2]])
+        self.assertTrue(torch.equal(f.gaussian_velocity(x, t), expected))
+        model = f.LatentFlow(gaussian_skip=True)
+        torch.nn.init.zeros_(model.output.weight)
+        torch.nn.init.zeros_(model.output.bias)
+        controls = torch.tensor(np.stack([f.c.v.phase.d.controls_for()] * 3))
+        self.assertTrue(torch.equal(model(x, t, controls), expected))
+        self.assertTrue(
+            torch.isfinite(
+                f.gaussian_velocity(x, torch.tensor([1e-6, 0.37, 0.99999]))
+            ).all()
+        )
+
     def test_source_free_seeded_sampling(self):
         model = f.LatentFlow().eval()
         torch.nn.init.zeros_(model.output.weight)
@@ -82,12 +98,27 @@ class LatentFlowTests(unittest.TestCase):
                 )
             )
             loaded, _ = f.load(root, "cpu")
+            self.assertFalse(loaded.gaussian_skip)
             self.assertTrue(
                 all(
                     torch.equal(x, loaded.state_dict()[k])
                     for k, x in model.state_dict().items()
                 )
             )
+            meta_path = root / "model.json"
+            meta = json.loads(meta_path.read_text())
+            meta["format"] = "pour-latent-flow-gaussian-v1"
+            meta_path.write_text(json.dumps(meta))
+            gaussian, _ = f.load(root, "cpu")
+            self.assertTrue(gaussian.gaussian_skip)
+            x = torch.randn(1, 64, 88)
+            t = torch.tensor([0.25])
+            controls = torch.tensor(f.c.v.phase.d.controls_for()[None])
+            with torch.no_grad():
+                torch.testing.assert_close(
+                    gaussian(x, t, controls),
+                    loaded(x, t, controls) + f.gaussian_velocity(x, t),
+                )
             path.write_bytes(b"broken")
             with self.assertRaises(ValueError):
                 f.load(root, "cpu")

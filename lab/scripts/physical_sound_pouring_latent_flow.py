@@ -20,6 +20,12 @@ from torch.nn import functional as F
 STEPS = 2000
 
 
+def gaussian_velocity(x, t):
+    """Unit-Gaussian marginal field; a baseline, not the true data field."""
+    coefficient = (2 * t - 1) / ((1 - t).square() + t.square())
+    return x * coefficient[:, None, None]
+
+
 class Block(nn.Module):
     def __init__(self, width):
         super().__init__()
@@ -37,8 +43,9 @@ class Block(nn.Module):
 
 
 class LatentFlow(nn.Module):
-    def __init__(self):
+    def __init__(self, gaussian_skip=False):
         super().__init__()
+        self.gaussian_skip = gaussian_skip
         self.context = nn.Sequential(nn.Linear(20, 128), nn.SiLU(), nn.Linear(128, 128))
         self.input = nn.Conv1d(65, 64, 3, padding=1)
         self.blocks = nn.ModuleList([Block(w) for w in (64, 128, 192, 128, 64)])
@@ -83,7 +90,8 @@ class LatentFlow(nn.Module):
             + first,
             context,
         )
-        return self.output(value)
+        result = self.output(value)
+        return result + gaussian_velocity(x, t) if self.gaussian_skip else result
 
 
 def normalization(mean, std):
@@ -162,7 +170,7 @@ def cache(source, output, device="cuda"):
     )
 
 
-def fit(cache_root, output, device="cuda"):
+def fit(cache_root, output, device="cuda", gaussian_skip=False, zero_output=False):
     torch.set_num_threads(4)
     meta = json.loads((cache_root / "cache.json").read_text())
     path = cache_root / "posterior.safetensors"
@@ -188,7 +196,10 @@ def fit(cache_root, output, device="cuda"):
         raise ValueError("invalid training controls")
     output = c.v.phase.d.fresh_output(output)
     torch.manual_seed(53)
-    model = LatentFlow().to(device)
+    model = LatentFlow(gaussian_skip=gaussian_skip).to(device)
+    if zero_output:
+        nn.init.zeros_(model.output.weight)
+        nn.init.zeros_(model.output.bias)
     model.center.copy_(center)
     model.scale.copy_(scale)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)
@@ -223,7 +234,10 @@ def fit(cache_root, output, device="cuda"):
     c.v.p.save_json(
         output / "model.json",
         {
-            "format": "pour-latent-flow-v1",
+            "format": "pour-latent-flow-gaussian-v1"
+            if gaussian_skip
+            else "pour-latent-flow-v1",
+            "zero_initialized_output": zero_output,
             "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
             "codec_sha256": c.CODEC_SHA,
             "cache_sha256": hashlib.sha256(
@@ -249,12 +263,12 @@ def load(directory, device="cuda"):
         raise ValueError("oversized model")
     meta = json.loads(mp.read_text())
     if (
-        meta["format"] != "pour-latent-flow-v1"
+        meta["format"] not in ("pour-latent-flow-v1", "pour-latent-flow-gaussian-v1")
         or meta["codec_sha256"] != c.CODEC_SHA
         or hashlib.sha256(path.read_bytes()).hexdigest() != meta["checkpoint_sha256"]
     ):
         raise ValueError("model identity failure")
-    model = LatentFlow()
+    model = LatentFlow(gaussian_skip=meta["format"] == "pour-latent-flow-gaussian-v1")
     state = load_file(path)
     if (
         not all(torch.isfinite(x).all() for x in state.values())
@@ -532,6 +546,9 @@ if __name__ == "__main__":
         for name in paths + ("output",):
             command.add_argument("--" + name, type=Path, required=True)
         command.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+        if mode == "train":
+            command.add_argument("--gaussian-skip", action="store_true")
+            command.add_argument("--zero-output", action="store_true")
         if mode == "render":
             command.add_argument("--controls", type=float, nargs=11, required=True)
             command.add_argument("--seed", type=int, default=2718)
@@ -539,7 +556,7 @@ if __name__ == "__main__":
     if args.mode == "cache":
         cache(args.source, args.output, args.device)
     elif args.mode == "train":
-        fit(args.cache, args.output, args.device)
+        fit(args.cache, args.output, args.device, args.gaussian_skip, args.zero_output)
     elif args.mode == "evaluate":
         evaluate(args.source, args.model, args.base, args.output, args.device)
     elif args.mode == "probe":

@@ -2707,3 +2707,79 @@ helper extraction reproduces first-audition hash exactly:
 `22c73aef2ee7a04b9ef0019ce61f6cf19f77dcdaec523e788e100f59473c0180`.
 105 focused tests, Ruff and198 new WAV hash/format/finite/headroom checks pass.
 All jobs terminal; no new download, runtime/roadmap/ProductCheck promotion.
+
+### Gaussian velocity skip: endpoint error improves, audio does not
+
+[Three-way source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-gaussian-skip-evaluation-2026-09-05/ablation-comparison.wav>)
+is13.74s: retained STFT base, matched zero-output plain latent flow, Gaussian-skip
+latent flow; glass H10cm/diameter7cm/duration15s/start0.1,seed2718,gain1.
+All four profiles/three seeds remain in each evaluation; no favourable selection.
+Both new models remain rejected. Correcting a measured field defect did not
+demonstrate a perceptual improvement.
+
+The existing latent-flow CLI adds `train --zero-output` and `--gaussian-skip`.
+Two fits share the279-crop cache, normalization,892992parameters,seed53,
+batch16,2000AdamW updates,lr3e-4,wd1e-4,clip1 and random draws. Both final layers
+start at zero; only one adds k(t)x, where k(t)=(2t-1)/((1-t)^2+t^2), to its
+learned velocity. No codec training or new data. The Gaussian form is a control
+distribution, not an assumption that water latents are actually independent
+unit Gaussians. Learned residuals can modify the endpoints after training.
+Separate format `pour-latent-flow-gaussian-v1` preserves the generation semantics
+on reload; original `pour-latent-flow-v1` checkpoints keep the unchanged path.
+
+`pouring-latent-zero-plain-2026-09-05` checkpoint SHA256
+`643568f1ee124a7841ef8c7ad5bcca7ae3f4d377ccfb28e26904a43983db113b`;
+`pouring-latent-gaussian-skip-2026-09-05` SHA256
+`d58f4a325e9b49a5e7b9c8b4f0dd813041a5fb5c243f94ba165f5c9b9d690a55`.
+First/last200 loss plain1.8743/1.5394, skip1.5196/1.3839. Completed, not proven
+converged. Model directories retain `field-diagnostic.json` with the same279
+TRAIN crops/three seeds/six times/matched condition permutations as above.
+Correct-control MSE at t0/.5/.984375 is plain1.3849/1.6302/1.4391 versus
+skip0.9952/1.6386/1.0460. The intended endpoint defect is substantially reduced;
+mid-path error is not. Lower aggregate training loss is not a quality pass.
+
+Separate `pouring-latent-zero-plain-evaluation-2026-09-05` and
+`pouring-latent-gaussian-skip-evaluation-2026-09-05` each preserve66 WAV rows,
+fixed AST raw/RMS0.005 and six-prompt CLAP. Zero unsafe outputs. Same disclosed
+training record/two development objects and hypothetical profiles, not clean test.
+
+| Development12 clips | Matched plain | Gaussian skip |
+|---|---:|---:|
+| Spectrum RMSE,dB | 8.512 | 8.860 |
+| Centered spectrum,dB | 6.751 | 7.165 |
+| CV absolute error | 0.241 | 0.378 |
+| AST raw/normalized | 0/0 | 0/0 |
+| CLAP positive | 9 | 10 |
+| Novel AST/CLAP,out of12 | 0/10 | 0/7 |
+
+Training6: plain/skip spectrum6.875/6.064,CVerror0.248/0.200; AST0/6 both,
+CLAP5/6 versus3/6. Real controls pass throughout; retained base results unchanged.
+Thus the hypothesis that this endpoint correction is enough for useful audio
+is not supported. No skip-weight, epoch, learning-rate, capacity or seed sweep.
+
+Bounded alternative hypothesis: posterior sampling might spend most learning
+effort on unused/noisy latent channels. [RAVE,v2,section3.2](https://arxiv.org/html/2111.05011v2)
+distinguishes informative latent means from posterior noise and analyses the
+mean representation's rank. This motivates measuring our frozen codec, not
+assuming its channels can be discarded. The skip directory's
+`latent-variance-diagnostic.json` uses only the279TRAIN posteriors. Per-channel
+Var(mean)/(Var(mean)+E(std^2)) is0.9076–0.9988, average0.9518; ALL64 channels
+exceed0.9. Normalized posterior-mean covariance needs54/61 components for95/99%
+variance (eigenvalue variance ratio, not RAVE's singular-value fidelity rule).
+This rejects the predominantly-posterior-noise explanation on these data;
+it does not measure decoder importance or authorize masking/PCA/mean-mode fits.
+
+Next discriminator is one-crop learnability, not another full-corpus sweep:
+cache row0,first training record/first phase, same frozen Oobleck and Gaussian
+skip,2000updates. Compare the resulting reference-free trained samples against
+the exact Gaussian posterior decoder control for that one crop. If it cannot
+learn even this, diagnose optimizer/parameterization before broader fitting;
+if it can, investigate multi-example transport. A memorized crop is explicitly
+NOT novel-object synthesis or completion of the user's multi-event goal.
+This single-crop fit has not yet been run; the completed full fits stay frozen.
+
+106 focused tests, Ruff, diff and local references pass.138 new WAVs pass writer
+hashes,PCM16/16k mono,finite/headroom checks. New-format CLI exactly reproduces
+its first-audition. Tests cover the analytic field's endpoints/midpoint and
+format-aware checkpoint reload. All jobs terminal; no source download, codec
+training, runtime/default/roadmap or ProductCheck promotion.
