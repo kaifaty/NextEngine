@@ -15,6 +15,31 @@ import physical_sound_text_tags as tags
 
 
 class TextPilotTest(unittest.TestCase):
+    def test_ast_level_control_is_opt_in_and_gain_invariant(self):
+        wave = np.array([0.01, -0.02, 0.03, -0.04], dtype=np.float32)
+        raw, record = tags.ast_level_control(wave, None)
+        self.assertIs(raw, wave)
+        self.assertEqual(record["gain"], 1)
+        a, record = tags.ast_level_control(wave, 0.005)
+        b, _ = tags.ast_level_control(wave * 10, 0.005)
+        np.testing.assert_allclose(a, b, atol=1e-9)
+        self.assertAlmostEqual(float(np.sqrt(np.mean(a * a))), 0.005, places=8)
+        np.testing.assert_array_equal(
+            wave, np.array([0.01, -0.02, 0.03, -0.04], dtype=np.float32)
+        )
+
+    def test_ast_level_control_preserves_silence_and_rejects_clipping(self):
+        silence, record = tags.ast_level_control(np.zeros(100, dtype=np.float32), 0.005)
+        self.assertTrue(record["zero_energy"])
+        self.assertEqual(float(abs(silence).max()), 0)
+        impulse = np.zeros(10000, dtype=np.float32)
+        impulse[0] = 0.1
+        with self.assertRaises(ValueError):
+            tags.ast_level_control(impulse, 0.02)
+        for level in [-1, 0, float("nan"), 1]:
+            with self.assertRaises(ValueError):
+                tags.ast_level_control(silence, level)
+
     def test_clap_wrapper_retains_case_and_empty_control_pairing(self):
         manifest = {
             "cases": [{"id": "a", "prompt": "glass"}, {"id": "b", "prompt": "wood"}],

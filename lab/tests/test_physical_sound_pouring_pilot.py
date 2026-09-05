@@ -147,6 +147,61 @@ class PouringTests(unittest.TestCase):
                     root, root / "bad-gain", device="cpu", playback_gain=float("nan")
                 )
 
+    def test_power_envelope_loss_identity_gain_variation_and_gradients(self):
+        target = torch.full((2, 1, 256, 256), -1.0)
+        self.assertEqual(pouring.power_envelope_loss(target, target).tolist(), [0, 0])
+        changed = (target + 0.2).requires_grad_()
+        loss = pouring.power_envelope_loss(changed, target)
+        self.assertTrue(torch.all(loss > 0))
+        loss.mean().backward()
+        self.assertTrue(torch.isfinite(changed.grad).all())
+        self.assertGreater(float(changed.grad.abs().sum()), 0)
+        variable = target.clone()
+        variable[:, :, :, ::2] += 0.3
+        variable[:, :, :, 1::2] -= 0.3
+        self.assertTrue(torch.all(pouring.power_envelope_loss(variable, target) > 0))
+        self.assertTrue(
+            torch.isfinite(pouring.power_envelope_loss(target * 100, target)).all()
+        )
+
+    def test_metrics_separate_level_and_shape(self):
+        wave = (
+            np.random.default_rng(1).normal(0, 0.1, pouring.SAMPLES).astype(np.float32)
+        )
+        result = pouring.metrics(wave * 2, wave)
+        self.assertAlmostEqual(result["level_error_db"], 6.0206, places=3)
+        self.assertLess(result["spectrum_shape_rmse_db"], 0.01)
+
+    def test_onset_sampling_preserves_rng_and_interior_support(self):
+        a = np.random.default_rng(53)
+        b = np.random.default_rng(53)
+        for i in range(100):
+            uniform = pouring.patch_start(a, 800, "uniform", i)
+            onset = pouring.patch_start(b, 800, "onset-balanced", i)
+            self.assertEqual(onset, 0 if i % 2 == 0 else uniform)
+            self.assertTrue(0 <= uniform <= 800 - pouring.FRAMES)
+            self.assertEqual(a.integers(100), b.integers(100))
+        self.assertEqual(pouring.patch_start(a, 100, "onset-balanced", 1), 0)
+        with self.assertRaises(ValueError):
+            pouring.patch_start(a, 0, "uniform", 0)
+        with self.assertRaises(ValueError):
+            pouring.patch_start(a, 800, "unknown", 0)
+
+    def test_auxiliary_statistic_does_not_preserve_flow_optimum(self):
+        a = torch.tensor([[-0.5, -1.5], [-0.5, -1.5]])
+        target = torch.stack([a, a.flip(-1)])[:, None]
+        mean = target.mean(0, keepdim=True).requires_grad_()
+        velocity_loss = 4 * (mean - target).square().mean()
+        gradient = torch.autograd.grad(velocity_loss, mean, retain_graph=True)[0]
+        self.assertEqual(float(gradient.abs().max()), 0)
+        loss = (
+            velocity_loss
+            + 0.25
+            * 0.5**2
+            * pouring.power_envelope_loss(mean.expand_as(target), target).mean()
+        )
+        self.assertGreater(float(torch.autograd.grad(loss, mean)[0].abs().max()), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

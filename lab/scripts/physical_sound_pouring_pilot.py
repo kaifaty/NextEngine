@@ -327,15 +327,60 @@ def metrics(wave, reference):
         power = 10 ** ((v * 25 - 50) / 10)
         return 10 * np.log10(power.mean(1) + 1e-12)
 
+    pa, pb = profile(a), profile(b)
     return {
-        "spectrum_rmse_db": float(np.sqrt(np.mean((profile(a) - profile(b)) ** 2))),
+        "spectrum_rmse_db": float(np.sqrt(np.mean((pa - pb) ** 2))),
+        "spectrum_shape_rmse_db": float(
+            np.sqrt(np.mean(((pa - pa.mean()) - (pb - pb.mean())) ** 2))
+        ),
+        "level_error_db": float(
+            20
+            * np.log10(
+                max(float(np.sqrt(np.mean(wave**2))), 1e-12)
+                / max(float(np.sqrt(np.mean(reference**2))), 1e-12)
+            )
+        ),
         "rms_cv": envelopes(wave),
         "reference_rms_cv": envelopes(reference),
         "rms": float(np.sqrt(np.mean(wave**2))),
     }
 
 
-def fit(source, output):
+def power_envelope_loss(estimate, target):
+    """Source-trained power/variation constraint, not a perceptual validator.
+
+    Offsets cancel in spectrum differences and envelope CV. Relative log power
+    stays bounded; all losses are per example for diffusion-time weighting.
+    """
+
+    def summary(value):
+        log_power = value.clamp(-2, 2) * (2.5 * np.log(10))
+        spectrum = (torch.logsumexp(log_power, dim=-1) - np.log(value.shape[-1])) / (
+            2.5 * np.log(10)
+        )
+        envelope = torch.exp(log_power).mean(dim=-2).sqrt()
+        cv = envelope.std(dim=-1, unbiased=False) / envelope.mean(dim=-1).clamp_min(
+            1e-6
+        )
+        return spectrum, cv
+
+    a, acv = summary(estimate)
+    b, bcv = summary(target)
+    return (a - b).square().mean(dim=(1, 2)) + (acv - bcv).square().mean(dim=1)
+
+
+def patch_start(rng, frames, sampling, ticket):
+    if sampling not in ("uniform", "onset-balanced") or frames < 1:
+        raise ValueError("invalid patch sampling")
+    # Consume the same random draw in both modes so recording selections stay
+    # matched. The condition retains the actual start; no time warp or relabel.
+    start = int(rng.integers(max(1, frames - FRAMES + 1)))
+    return 0 if sampling == "onset-balanced" and ticket % 2 == 0 else start
+
+
+def fit(source, output, objective="velocity", sampling="uniform"):
+    if objective not in ("velocity", "power-envelope"):
+        raise ValueError("unknown training objective")
     torch.set_num_threads(4)
     torch.manual_seed(53)
     rows, provenance = load_source(source)
@@ -354,16 +399,26 @@ def fit(source, output):
     losses = []
     for step in range(1500):
         batch = []
-        for _ in range(6):
+        for slot in range(6):
             row = training[rng.integers(len(training))]
-            start = int(rng.integers(max(1, row["spectrogram"].shape[1] - FRAMES + 1)))
+            start = patch_start(
+                rng, row["spectrogram"].shape[1], sampling, step * 6 + slot
+            )
             batch.append(crop(row, start))
         y = torch.from_numpy(np.stack([v[0] for v in batch])[:, None]).to("cuda")
         controls = torch.from_numpy(np.stack([v[1] for v in batch])).to("cuda")
         noise = torch.randn_like(y)
         time = torch.rand(len(y), device="cuda")
         xt = (1 - time[:, None, None, None]) * noise + time[:, None, None, None] * y
-        loss = F.mse_loss(model(xt, time, controls), y - noise)
+        prediction = model(xt, time, controls)
+        loss = F.mse_loss(prediction, y - noise)
+        if objective == "power-envelope":
+            endpoint = xt + (1 - time[:, None, None, None]) * prediction
+            # Low-noise examples carry more weight: the target at pure noise
+            # is not identifiable, so do not force a phase-aligned endpoint.
+            loss = (
+                loss + 0.25 * (time.square() * power_envelope_loss(endpoint, y)).mean()
+            )
         optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), 1)
@@ -392,6 +447,9 @@ def fit(source, output):
         ).hexdigest(),
         "seed": 53,
         "steps": 1500,
+        "objective": objective,
+        "patch_sampling": sampling,
+        "power_envelope_weight": 0.25 if objective == "power-envelope" else 0,
         "parameters": sum(p.numel() for p in model.parameters()),
         "train_ids": [r["item_id"] for r in training],
         "heldout_containers": HELDOUT,
@@ -542,6 +600,12 @@ if __name__ == "__main__":
     mode.add_argument("--source", type=Path)
     mode.add_argument("--render-model", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--objective", choices=("velocity", "power-envelope"), default="velocity"
+    )
+    parser.add_argument(
+        "--patch-sampling", choices=("uniform", "onset-balanced"), default="uniform"
+    )
     parser.add_argument("--height", type=float, default=10)
     parser.add_argument("--diameter-top", type=float, default=7)
     parser.add_argument("--diameter-bottom", type=float, default=7)
@@ -559,7 +623,7 @@ if __name__ == "__main__":
     if args.acquire:
         acquire(output)
     elif args.source:
-        fit(args.source.resolve(), output)
+        fit(args.source.resolve(), output, args.objective, args.patch_sampling)
     else:
         render(
             args.render_model.resolve(),

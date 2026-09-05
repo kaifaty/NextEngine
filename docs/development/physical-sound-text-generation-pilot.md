@@ -1437,3 +1437,96 @@ generalization envelope. Do not promise unsupported extrapolation.40 focused
 tests pass, including reference-free inference, checkpoint identity, whole-object
 exclusion, bounded annotation parsing, phase-transform controls and neural
 conditioning gradients. Ruff passes. No runtime/demo or product-roadmap changes.
+
+### Power/envelope objective, onset sampling and validator level confound
+
+[Power/envelope candidate](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-power-envelope-audition-2026-09-05/generated.wav>)
+uses the previous standalone conditions/seed2718 and audition gain10, with no
+reference input. [Matched revision comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-power-envelope-2026-09-05/revision-comparison.wav>)
+plays real -> base -> candidate for the first glass and PET examples,27.48s,
+gain1. No old artifact or demo is overwritten. These remain research candidates.
+
+Before training, `pouring-flow-discriminator-2026-09-05` checked the ORIGINAL
+checkpoint on all30 disclosed recordings, seed314.64 versus256 Euler steps
+give10.894/10.902dB spectrum error and0.599/0.610 envelope CV; integration
+resolution does not explain the approximately9dB level deficit. Slight absolute
+differences from the original report arise from rereading PCM16 references.
+Changing only the material label improves glass spectral error on13/13 cases
+and worsens PET on17/17. This contradicts using these scores as a reliable
+material-identity check, not proof of a unique causal material mechanism.
+
+Two matched fits retain all93 training IDs, source hashes, seed53,245985
+parameters,1500 updates and30 source-order excluded-object evaluations:
+
+- `--objective power-envelope`: endpoint estimate `xt+(1-t)*velocity` adds
+  a0.25×t²-weighted loss on log mean power spectra and frame-envelope CV.
+  Statistics are trained from source data, not an independent quality validator.
+  Default `velocity` is unchanged. Root `pouring-flow-power-envelope-2026-09-05`.
+- `--patch-sampling onset-balanced`: original velocity loss, half of training
+  patches start at zero; the remainder retain uniform internal crops. Random
+  draws are still consumed, preserving the recording-selection sequence.
+  Root `pouring-flow-onset-balanced-2026-09-05`. This tests a data-phase hypothesis:
+  real training first/middle median RMS is0.01156/0.00567; excluded recordings
+  0.01230/0.00451. More onset exposure is not a calibrated flow/force change.
+
+| First4.08s,30 recordings | Base | Power/envelope | Onset-balanced |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 10.9027 | 9.5814 | 8.1949 |
+| Median level error,dB | -8.9945 | -7.4410 | -5.8067 |
+| Mean envelope CV | 0.5993 | 0.8697 | 0.5797 |
+| AST Water/Pour top5 at stored level | 29/30 | 16/30 | 15/30 |
+| AST at common RMS0.005, PCM control | 30/30 | 30/30 | 21/30 |
+
+Power/envelope improves the spectrum metric on28/30 recordings. Mean absolute
+CV error falls0.5794 ->0.3266 (about44%); real mean CV is1.1787. Nevertheless
+neither model establishes realistic material response. The power candidate's
+material counterfactual still favours the wrong label for all13 glass cases,
+including after centering spectra to remove constant level. PET favours the
+correct label17/17. `material-counterfactual.json` retains all30 switched WAVs.
+
+The raw AST regression initially suggested retaining only the base. A common
+RMS control then removed the power candidate's deficit. In
+`pouring-flow-gain-validator-check-2026-09-05`, all150 real/base/oracle/power/onset
+WAVs were scaled to RMS0.005 with no clipping. Real/oracle remain30/30. Thus
+the raw top5 difference cannot be attributed solely to content degradation.
+This does NOT license discarding the raw result or claiming perceptual parity;
+normalization is a disclosed development countercheck, not a protected gate.
+The AST frontend warning and lack of calibrated naturalness/material authority
+remain. `physical_sound_text_tags.py --ast-rms 0.005` now exposes this optional
+classifier-input-only control, preserving raw defaults and WAVs, logging gain,
+preserving silence and rejecting insufficient headroom. CLAP stays separate.
+
+`pouring-flow-middle-check-2026-09-05` additionally checks a centered internal
+patch from ALL30 excluded recordings at its actual elapsed fraction. Base/onset
+spectrum error is9.6315/7.5492dB, median level error-5.4648/-4.0913dB, but raw
+AST Water/Pour top5 is13/30 and12/30 versus real30/30. The earlier29/30 base
+result applies only to beginnings, not entire pouring events. Power/envelope
+middle-phase and multi-seed robustness are not yet established.
+
+A bounded research check read [Flow Matching for Generative Modeling,v2,
+2023-02-08](https://arxiv.org/html/2210.02747v2), specifically the squared
+vector-field objectives and their gradient equivalence. Our two-pattern toy
+test finds nonzero gradient0.011879 at the original optimum after adding the
+nonlinear endpoint statistic. The modified objective need not preserve the
+original optimum. This is a counterexample to assuming equivalence, NOT proof
+that objective bias caused the audio scores; the gain control weakens that
+simple explanation. No downloaded research code was executed.
+
+Next: measure multiple seeds and middle-phase power-candidate behavior with
+BOTH raw and level-controlled checks before another fit. Do not select the
+onset candidate solely for lower spectral error, repeat loss-weight/sampling
+sweeps, or equate one noise seed across two objects with broad generalization.
+Reproduce each fit with the prior command plus its one named flag and a fresh
+external output. Focused tests cover loss gradients, the non-equivalence
+counterexample, unchanged uniform sampling/RNG consumption, shape versus level
+metrics, opt-in AST level control, silence and headroom. No production promotion.
+
+Verification:46 focused Python tests and Ruff check/format pass. All525 new
+WAVs pass16kHz mono PCM16, finite-sample and headroom checks;615 distinct WAV
+paths referenced across reports (including preserved controls) match their
+recorded SHA256. All three fits retain identical source/train IDs/exclusions,
+seed, update count and parameter count; checkpoint hashes match. The new
+in-memory float normalization rerun (`tags-float-normalization.json`) reproduces
+the PCM-control counts exactly: real/base/oracle/power30/30, onset21/30.
+Local documentation links and `git diff --check` pass. Cargo/ProductCheck and
+engine audition not run: no runtime, contract or engine-content changes.

@@ -190,7 +190,35 @@ def clap_measurement(manifest: dict) -> dict:
     }
 
 
-def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = False):
+def ast_level_control(audio: np.ndarray, target: float | None):
+    """Optional diagnostic level control; never alter the stored waveform."""
+    if audio.ndim != 1 or not len(audio) or not np.isfinite(audio).all():
+        raise ValueError("invalid AST input")
+    if target is not None and (not np.isfinite(target) or not 0 < target <= 0.1):
+        raise ValueError("invalid AST RMS target")
+    rms = float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
+    gain = target / rms if target is not None and rms > 1e-12 else 1.0
+    result = (audio * gain).astype(np.float32) if target is not None else audio
+    if target is not None and abs(result).max() > 0.98:
+        raise ValueError(
+            "AST RMS target exceeds headroom; no clipping or silent attenuation"
+        )
+    return result, {
+        "rms_target": target,
+        "source_rms": rms,
+        "gain": gain,
+        "zero_energy": rms <= 1e-12,
+        "scope": "classifier input only; not physical calibration",
+    }
+
+
+def run(
+    source: Path,
+    output: Path,
+    real_glass: list[Path],
+    with_clap: bool = False,
+    ast_rms: float | None = None,
+):
     import torch
     from transformers import ASTFeatureExtractor, ASTForAudioClassification
 
@@ -198,6 +226,10 @@ def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = Fa
         raise ValueError("report must remain outside the repository")
     if output.exists():
         raise ValueError("refusing to overwrite a previous report")
+    if ast_rms is not None:
+        ast_level_control(np.zeros(1, dtype=np.float32), ast_rms)
+        if with_clap:
+            raise ValueError("AST-only level control; run raw CLAP separately")
     manifest = json.loads(source.read_text())
     if manifest["status"] != "complete":
         raise ValueError("pilot must complete before this measurement")
@@ -219,6 +251,7 @@ def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = Fa
         "generator_weights_shared": False,
         "pretraining_data_disjoint": "not established",
         "status": "diagnostic only; no calibrated acceptance authority",
+        "ast_rms_target": ast_rms,
         "rows": [],
     }
     inputs = []
@@ -273,10 +306,16 @@ def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = Fa
     )
     with torch.inference_mode():
         for key, metadata, audio in inputs:
+            audio, level = ast_level_control(audio, ast_rms)
             features = extractor(audio, sampling_rate=pilot.RATE, return_tensors="pt")
             scores = model(**features).logits[0].sigmoid().numpy()
             expected = EXPECTED.get(metadata.get("diagnostic_id", key), ())
-            record = {"id": key, **metadata, **summarize(scores, labels, expected)}
+            record = {
+                "id": key,
+                **metadata,
+                "ast_level_control": level,
+                **summarize(scores, labels, expected),
+            }
             report["rows"].append(record)
             print(json.dumps({"id": key, "top3": record["top10"][:3]}), flush=True)
     if with_clap:
@@ -290,5 +329,10 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--real-glass", type=Path, nargs="*", default=[])
     parser.add_argument("--with-clap", action="store_true")
+    parser.add_argument(
+        "--ast-rms",
+        type=float,
+        help="optional diagnostic RMS normalization; retain a separate raw-level report",
+    )
     args = parser.parse_args()
-    run(args.source, args.output, args.real_glass, args.with_clap)
+    run(args.source, args.output, args.real_glass, args.with_clap, args.ast_rms)
