@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V6_AND_FORCE_SCHEDULE_IMPLEMENTED / BALANCE_AND_FEET_OPEN` |
+| Status | `BODY_V6_IMPLEMENTED / QUIET_UPRIGHT_CANDIDATE / FEET_AND_PROMOTION_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -69,10 +69,22 @@
   peak is 11.246 degrees; k=2 hip feedback fails on impact at substep236.
   Temporary native setter and metadata are reverted. Restored cold and warm
   outputs are byte-exact. Do not select zero friction from the upright final frame.
-- Next: predeclare a bounded, explicitly identified contact-solver convergence
-  discriminator with raised control and original safety, then torso/leg
-  control, foot mechanics and a separately
-  identified learning environment. Do not repeat the finished mass audit,
+- 16->64 position iterations is also rejected as sufficient: cold discrepancy
+  rises to87.716%, hip feedback still fails impact at6784. Patch reverted and
+  original cold hash exact. Stop using contact-map smoothness as a prerequisite
+  for standing/training or sweeping iterations to repair actual motion.
+- Quiet upright candidate now passes the frozen nominal30-second test:
+  shoulder-yaw gains/16 plus damping/4 on eight hip/knee/torso channels, then
+  k=2 hip position feedback WITHOUT its old omega/5 term. Last10-second root
+  max1.303656 degrees, torso0.181539; selected-eight tail RMS0.00391637 rad/s. Both feet
+  loaded and essentially flat. Whole-run torso transient still8.192405 degrees.
+  Independent native rerun byte-exact. This is not robust balance or learning.
+- Damping-only suppresses near-Nyquist RMS98.59% but leans3.44 degrees. Keeping
+  the hip rate term restores upright appearance but tail joint RMS0.897787;
+  do not select it by its final frame. No mass/inertia/geometry changed.
+- Next: implement an explicitly identified production body/control successor
+  from the exact quiet candidate, then bounded disturbance/foot mechanics
+  checks and a separately identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
 
@@ -97,6 +109,9 @@
 10. [Rejected local coupled map and independent correspondence](../r8b-coupled-effort-response-2026-09-05.md).
 11. [Cold contact-boundary result](../r8b-cold-contact-response-2026-09-05.md)
     and [rejected joint-friction ablation](../r8b-joint-friction-ablation-2026-09-05.md).
+12. [Rejected iteration intervention](../r8b-contact-iteration-discriminator-2026-09-05.md),
+    [effective coupled damping discriminator](../r8b-coupled-damping-discriminator-2026-09-05.md)
+    and [quiet upright hip reference](../r8b-hip-rate-feedback-discriminator-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -184,6 +199,14 @@
   source patch, limit caveats and rejected prediction are in reports 11.
   Current native example tests: 3 passed; Python analysis tests: 5 passed.
   Diagnostic apparatus is retained, no production bridge diff or new defaults.
+- Latest candidate command: `cargo run -p next_motor --features physx-sdk
+  --example probe_biomechanics_body_standing -- 6 0 0 hip-position-feedback
+  per-iteration coupled-damping-4` with the pinned SDK above.
+  External `hip-rate-feedback-discriminator-01/position-only.json` SHA49cb7fbf…;
+  complete hashes and negative controls are in reports12. New diagnostic body
+  hashc63ec6b8… and compiled hash719a6661…; no V7 production factory yet.
+  Native example tests4, focused Clippy/format and invalid CLI checks pass;
+  no broad ProductChecks or training run for this example-only change.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

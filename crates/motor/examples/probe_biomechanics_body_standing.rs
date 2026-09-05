@@ -24,11 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
         "baseline" | "neutral-targets" => 0,
-        "hip-feedback" => 2,
+        "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
             return Err(
-                "mode must be baseline, neutral-targets, hip-feedback or hip-feedback-4".into(),
+                "mode must be baseline, neutral-targets, hip-feedback, hip-position-feedback or hip-feedback-4".into(),
             );
         }
     };
@@ -56,12 +56,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("response contract requires V6 baseline per-iteration shoulder-yaw-gain-16 without offsets".into());
     }
+    if actuator_probe == "coupled-damping-4"
+        && (revision != "6"
+            || !per_iteration
+            || !matches!(
+                reference_mode.as_str(),
+                "baseline" | "hip-feedback" | "hip-position-feedback"
+            )
+            || ankle_offset != 0
+            || hip_offset != 0)
+    {
+        return Err(
+            "coupled damping requires V6 per-iteration baseline or declared hip feedback without offsets"
+                .into(),
+        );
+    }
+    if reference_mode == "hip-position-feedback" && actuator_probe != "coupled-damping-4" {
+        return Err("hip-position-feedback requires coupled-damping-4".into());
+    }
     if !matches!(
         actuator_probe.as_str(),
-        "unchanged" | "shoulder-yaw-near-passive" | "shoulder-yaw-gain-16"
+        "unchanged" | "shoulder-yaw-near-passive" | "shoulder-yaw-gain-16" | "coupled-damping-4"
     ) {
         return Err(
-            "actuator probe must be unchanged, shoulder-yaw-near-passive or shoulder-yaw-gain-16"
+            "actuator probe must be unchanged, shoulder-yaw-near-passive, shoulder-yaw-gain-16 or coupled-damping-4"
                 .into(),
         );
     }
@@ -76,7 +94,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
         _ => return Err("expected body revision 5 or 6".into()),
     };
-    let schema = if actuator_probe != "unchanged" {
+    let schema = if actuator_probe == "coupled-damping-4" {
+        coupled_damping_discriminator(shoulder_yaw_discriminator(schema, "shoulder-yaw-gain-16")?)?
+    } else if actuator_probe != "unchanged" {
         shoulder_yaw_discriminator(schema, &actuator_probe)?
     } else {
         schema
@@ -157,7 +177,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let pitch_urad = i128::from(root.rotation_q1_30[0]) * 2_000_000 / (1_i128 << 30);
             i64::try_from(
                 -hip_feedback_gain * pitch_urad
-                    - i128::from(root.angular_velocity_microradians_per_second[0]) / 5,
+                    - if reference_mode == "hip-position-feedback" {
+                        0
+                    } else {
+                        i128::from(root.angular_velocity_microradians_per_second[0]) / 5
+                    },
             )?
         } else {
             0
@@ -294,6 +318,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(feature = "physx-sdk")]
+fn coupled_damping_discriminator(
+    mut schema: next_contracts::body::BodySchemaV2,
+) -> Result<next_contracts::body::BodySchemaV2, Box<dyn std::error::Error>> {
+    use next_contracts::canonical::sha256;
+    use next_contracts::ids::{SchemaId, content_hash_from_bytes};
+
+    schema.schema_id = SchemaId::new(format!("{}.coupled-damping-4", schema.schema_id.as_str()))?;
+    let mut source = b"nextengine.probe.coupled-damping-4.v1\0".to_vec();
+    source.extend_from_slice(schema.source_provenance_hash.as_bytes());
+    schema.source_provenance_hash = content_hash_from_bytes(sha256(&source));
+    let mut count = 0;
+    for actuator in &mut schema.actuators {
+        if [
+            "-hip-pitch",
+            "-hip-yaw",
+            "-knee",
+            "torso-pitch",
+            "torso-yaw",
+        ]
+        .iter()
+        .any(|suffix| actuator.joint_id.as_str().ends_with(suffix))
+        {
+            actuator.damping_q16 /= 4;
+            count += 1;
+        }
+    }
+    if count != 8 {
+        return Err("expected eight coupled damping channels".into());
+    }
+    schema.validate()?;
+    Ok(schema)
+}
+
 /// Diagnostic input through the normal schema compiler and safety controller.
 /// The contract requires positive gains: 1 Q16 is near-passive, not zero torque.
 /// No selected body/profile or downstream effort/safety rule is changed.
@@ -334,6 +392,46 @@ fn shoulder_yaw_discriminator(
 
 #[cfg(all(test, feature = "physx-sdk"))]
 mod tests {
+    #[test]
+    fn coupled_damping_changes_only_eight_identified_damping_gains() {
+        let original = super::shoulder_yaw_discriminator(
+            next_motor::biomechanics_humanoid_body_schema_v6(),
+            "shoulder-yaw-gain-16",
+        )
+        .unwrap();
+        let mut candidate = super::coupled_damping_discriminator(original.clone()).unwrap();
+        assert_ne!(candidate.schema_id, original.schema_id);
+        assert_ne!(
+            candidate.source_provenance_hash,
+            original.source_provenance_hash
+        );
+        candidate.schema_id = original.schema_id.clone();
+        candidate.source_provenance_hash = original.source_provenance_hash;
+        let mut changed = Vec::new();
+        for (actual, expected) in candidate.actuators.iter_mut().zip(&original.actuators) {
+            if actual != expected {
+                changed.push(actual.actuator_id.as_str().to_owned());
+                assert_eq!(actual.damping_q16, expected.damping_q16 / 4);
+                actual.damping_q16 = expected.damping_q16;
+            }
+        }
+        changed.sort();
+        assert_eq!(
+            changed,
+            [
+                "actuator.left-hip-pitch",
+                "actuator.left-hip-yaw",
+                "actuator.left-knee",
+                "actuator.right-hip-pitch",
+                "actuator.right-hip-yaw",
+                "actuator.right-knee",
+                "actuator.torso-pitch",
+                "actuator.torso-yaw",
+            ]
+        );
+        assert_eq!(candidate, original);
+    }
+
     #[test]
     fn actuator_discriminator_changes_only_identified_shoulder_yaw_gains() {
         let original = next_motor::biomechanics_humanoid_body_schema_v6();
