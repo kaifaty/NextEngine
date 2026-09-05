@@ -2487,3 +2487,112 @@ hash/PCM16/16kHz/finite/headroom checks: one first prior,86 evaluation/compariso
 one standalone CLI replay and33 codec probes. CLI reproduces the first-prior hash
 exactly. Both inference separation and differentiable reconstruction/KL gradients
 are tested. All jobs terminal, no runtime/default/roadmap or ProductCheck promotion.
+
+### Matched decoder adversarial continuation: rejected, phase mismatch bounded
+
+[Four-way source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-adversarial-evaluation-2026-09-05/ablation-comparison.wav>)
+is18.32s: retained base-flow, original CVAE, reconstruction-only continuation,
+adversarial continuation. Glass H10cm/diameter7cm/duration15s/start0.1,
+latent2718/phase314/gain1. These CVAE candidates remain rejected; no source
+recording, teacher or critic is required at inference. Full four-profile
+base/adversarial comparison is in the same directory's `comparison.wav`.
+
+`physical_sound_pouring_cvae_adversarial.py` runs two matched600-step
+continuations from the original CVAE, not sequential fine-tunes of one another.
+Same93 training records, uniform3-record/crop batches, seed53, same latent/noise
+RNG consumption. Encoder/posterior/prior tensors stay byte-exact;322577 decoder
+parameters train. Adam lr1e-4, betas0.5/0.9, clip1. Both runs instantiate the same
+347362-parameter critic; only the adversarial arm updates/uses it. Two separate
+four-layer strided spectral critics see re-encoded synthesized waveforms at
+original/half spatial resolution, with hinge loss. Generator retains posterior
+reconstruction plus0.1 adversarial loss on posterior AND prior and0.5 posterior
+feature matching. Phase iterations remain2 in training and32 in inference.
+The critic is unconditional and training-only, not a physical-condition judge.
+AST/CLAP never enter training. This is not a reproduction of RAVE.
+
+External models: `pouring-cvae-reconstruction-continuation-2026-09-05`, SHA256
+`37c79a336ff1fd18eea4841d670888fb65a457076f0587597a7cb194116e51a4`;
+`pouring-cvae-adversarial-2026-09-05`, SHA256
+`f2b06c92cf82dbc379c208271fda3338bd0458c36dfb272ffc06c31796ccd3eb`.
+Last100 rec losses0.20830/0.21710; adversarial D/G/FM1.65619/0.24210/0.03848.
+Inherited parent metrics in model.json are explicitly labelled historical.
+Neither completion nor these losses prove convergence or naturalness.
+
+Evaluations reuse the exact original first training record, disclosed excluded
+objects18/30, first/middle phases, three latent seeds and four novel profiles.
+`pouring-cvae-rec-cont-evaluation-2026-09-05` and
+`pouring-cvae-adversarial-evaluation-2026-09-05` retain all84 individual rows,
+AST raw/RMS0.005 and fixed-six-prompt FP32 CLAP. Development is only TWO opened
+objects; it is not an independent test or evidence for all physical sounds.
+
+| Development,12 clips per mode | Original CVAE | Rec continuation | Adversarial |
+|---|---:|---:|---:|
+| Posterior spectrum RMSE,dB | 5.613 | 5.292 | 5.000 |
+| Posterior centered spectrum,dB | 2.558 | 2.472 | 2.934 |
+| Prior spectrum RMSE,dB | 8.626 | 8.584 | 7.794 |
+| Prior centered spectrum,dB | 5.284 | 5.161 | 5.570 |
+| AST posterior/prior,both levels | 0/0 | 0/0 | 0/0 |
+| CLAP positive posterior/prior | 0/1 | 0/2 | 3/0 |
+| Novel prior AST/CLAP,out of12 | 0/0 | 0/0 | 0/0 |
+
+All six real controls pass both classifiers. Base development AST raw10/12,
+normalized12/12, CLAP12/12; novel base12/12 throughout. On training, both new
+CVAE modes remain0/6 for both AST levels and CLAP. Better partial spectrum
+metrics have not recovered water semantics. Adversarial prior level changes
+substantially (development mean error-1.782dB versus rec-9.670dB), while centered
+shape worsens; do not call this a timbre improvement. No threshold/seed tuning.
+
+Bounded research after this failure considered three explanations: (1) merely
+too few additional updates, (2) train/inference phase inconsistency, (3) learned
+representation/objective lacking perceptual detail. The matched rec arm tests
+the first bounded600-update explanation, not eventual convergence. For the
+second, [Khan et al.,2020](https://arxiv.org/abs/2005.07810) identify consistency
+of generated spectrograms as a speech synthesis issue; [Masuyama et al.,2019](https://arxiv.org/abs/1903.03971)
+describe GLA limitations and learned iteration. These speech results motivate
+a control, not a water-quality or neural-vocoder success claim. RAVE's frozen
+encoder stage assumes a satisfactory representation; we have not established
+that assumption. No further critic/epoch/capacity sweep is justified here.
+
+The executable `--phase-budget-probe` uses the adversarial checkpoint and first
+training record, two phases, fixed latent53, phase314/2718/1618, exact target,
+posterior and source-free prior at2 versus32 iterations. External output:
+`pouring-cvae-phase-budget-2026-09-05`;38 individual WAVs plus a comparison.
+
+| Six clips per row | AST raw/normalized,2->32 | CLAP,2->32 | Spectrum RMSE,2->32 |
+|---|---|---|---|
+| Exact target | 3->6 at both levels | 6->6 | 0.648->0.341 |
+| Adversarial posterior | 0->0 at both levels | 0->0 | 3.280->3.139 |
+| Adversarial prior | 0->0 at both levels | 0->0 | 6.425->6.591 |
+
+Thus training-time synthesis itself can harm recognition, but returning the
+trained model to2 iterations does not restore it. This does NOT falsify an
+effect on training gradients; it rules out a simple inference-only rescue.
+`critic-response.json` also measures the saved training critic on these WAVs.
+Its fine-scale mean logit real/exact2/exact32 is0.299/-0.419/-0.197; posterior
+2/32 is-1.587/-2.341 and prior-0.247/-0.533. Coarse-scale scores disagree in
+ordering. It is not an independent validator or a reason to select outputs.
+Representation versus objective/undertraining remains unresolved, not proven
+to be a hard latent-capacity ceiling. All failures and phase seeds remain.
+
+Next selected discriminator: reuse the already cached, frozen TangoFlux
+Oobleck waveform autoencoder on the same water crops. Existing codec evidence
+above covers glass, not these recordings. [Stable Audio Open,v2,2024-07-31](https://arxiv.org/html/2407.14358v2)
+separates a waveform autoencoder from latent generation, which motivates
+reusing a learned waveform representation before another conditional fit.
+This is an alternative to jointly learning a lossy spectrogram codec and prior
+from93 recordings, not evidence it will succeed. Retain cached model revision,
+notices, raw headroom, mean/sample controls and AST/CLAP. If the codec preserves
+water detail, next train an object/event-conditioned latent sequence, without
+target audio at inference. If not, do not start that generator. A positive
+reconstruction control alone will NOT satisfy the user goal or material control.
+No new weights downloaded and no extra training launched for this selection.
+
+Reproduction: `physical_sound_pouring_cvae_adversarial.py --source SOURCE
+--parent ORIGINAL_CVAE --output NEW` with/without `--adversarial`; use the
+existing CVAE `evaluate` with the retained flow base. The same new script with
+`--parent ADVERSARIAL_MODEL --phase-budget-probe` runs only the discriminator.
+98 focused tests and Ruff pass;212 new WAVs pass writer hashes, mono PCM16,
+16kHz, finite/headroom checks. Four-way comparison reads back at18.32s.
+Source mismatch, critic/decoder gradient isolation and frozen representation
+are tested. No runtime/default/roadmap change, Cargo or ProductCheck run.
+All jobs terminal; full multi-event goal remains active.

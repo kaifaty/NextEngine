@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NEXT.
+Status: ACTIVE_GOAL / CVAE_ADVERSARIAL_REJECTED / PRETRAINED_WAVEFORM_CODEC_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,11 +12,11 @@ Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NE
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free experiment:** [CVAE prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-2026-09-05/first-audition/prior.wav),
-  H10cm/diameter7cm/duration15s/start0.1, latent2718/phase314, gain1.
-  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/comparison.wav):
-  glass10/glass16/PET10/glass10fast; base/prior,36.64s. REJECTED:
-  AST/CLAP novel0/12. No recording/teacher/base needed at inference.
+- **Latest reference-free experiment:** [four-way comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-adversarial-evaluation-2026-09-05/ablation-comparison.wav),
+  18.32s, base-flow/original-CVAE/rec-continuation/adversarial; glass H10cm/
+  diameter7cm/duration15s/start0.1, latent2718/phase314/gain1. Both600-step
+  decoder-only continuations REJECTED: AST/CLAP novel0/12; base12/12.
+  No recording/teacher/critic/base needed at CVAE inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** `cluster-texture-training-grid-2026-09-05`, Figshare29438288v5/
@@ -25,9 +25,8 @@ Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NE
   11/36 wins: no capacity/epoch/basis sweeps. Clean AND machine-mic retrieval
   30/30 is not quality proof. No exact NLMS replay; details in pilot note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; original CSV verified,
-  converted TSV rejected. Three full WAVs; cross-site43958/43957 unfetched.
-  Spectral gain7.469/7.580dB is not quality; stationary model loses temporal
-  structure, AST fails real wet controls. No rain-spectrum MLP sweep; see note.
+  converted TSV rejected. Stationary model loses temporal structure, AST fails
+  real wet controls. No rain-spectrum MLP sweep; exact data/results in note.
 - **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al.,
   HF `bpiyush/sound-of-water` revision12575460ee39d6adaebbe5aff531a5f4a24a627b.
   Dataset redistribution unspecified; do NOT inherit separate software MIT.
@@ -38,14 +37,11 @@ Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NE
 - **Pouring base:**245985param conditional STFT flow,53/1500updates,64 Euler/
   32 reconstruction,16k/FFT512/hop256/256² patches. Retained, no promotion.
 - **Prior checks:**256 Euler does not fix deficit; wrong glass material wins13/13.
-- **Prior phase fits:** paired93-record extension loses semantic stability
-  (AST120/180; seed2718 fails60/60), not explained by decoder seed. No retry.
-- **Envelope failure:**120/360 raw headroom failures, spectrum/CV worsen,
-  AST88/180 vs base180/180. Stage splices do not fix semantic instability.
-  No absolute-envelope sweep/guard weakening; exact runs in pilot note.
-- **Prior relative controls:** level delta improves4.656->3.883 but absolute
-  spectrum worsens; gain confounding unproven. Static32-band timbre metadata
-  loses to global curve, EQ worsens shape/CV. No gain/static-EQ sweeps.
+- **Prior phase/envelope fits:** paired extension AST120/180; seed2718 fails60/60,
+  not explained by decoder seed. Envelope120/360 headroom failures; splices fail.
+  No retries/absolute-envelope sweep/guard weakening; exact runs in pilot note.
+- **Prior relative controls:** gain confounding unproven; relative level/static
+  timbre/EQ fail absolute spectrum or shape/CV. No gain/static-EQ sweeps.
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
@@ -54,10 +50,9 @@ Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NE
   Frozen Sound of Water model improves inspected real tracks but falling-tone
   median error1382 cents; direction/context dependent. Same corpus exposure,
   NOT independent-data validation. Full provenance/code in pilot note.
-- **Teacher/head reuse:** checked `sound-of-water-pitch-model-2026-09-05`;
-  `pouring-sow-pitch-probe-2026-09-05` full-sequence pseudo-targets, not confidence.
-  `pouring-resonance-head-2026-09-05`:4993params/13 records/1000 updates,
-  OOF277.5 vs simple357.0 cents,6/13 wins. Do not retrain; overlap is not clean.
+- **Teacher/head reuse:** `pouring-resonance-head-2026-09-05`,4993params,
+  OOF277.5 vs simple357.0 cents,6/13 wins. Do not retrain; exact teacher/head
+  provenance in pilot note. Corpus overlap is not clean evidence.
 - **Prior renderer rejects:** fixed moving-band and144-parameter input adapter
   worsen spectra even with privileged teacher guidance. No tiny-adapter/filter
   sweep or retraining; exact runs/provenance in the pilot note.
@@ -67,23 +62,28 @@ Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NE
 - **Phase oracle:** `pouring-phase-oracle-2026-09-05`: exact magnitude needs phase
   consistency for AST0->6/6; CLAP already6/6 at both. Disagreement retained.
 - **CVAE fit:** `pouring-cvae-2026-09-05`,690449 parameters,93 records/2000 steps;
-  latent8x32x16, learned posterior/prior, full512x256 spectrogram. Last rec/KL
-  0.2102/0.4710;2 differentiable phase updates in loss,32 at sampling. Completed;
-  do not retrain. Separate evaluation in `pouring-cvae-evaluation-2026-09-05`.
-- **Both modes fail:** development base/posterior/prior spectrum7.655/5.613/8.626,
-  CV error0.441/0.435/0.697. AST posterior/prior0/12 at both levels; training0/6
-  too. CLAP dev posterior0/12/prior1/12; novel prior0/12. Not merely a prior gap.
-- **Codec discriminator:** `pouring-cvae-codec-probe-2026-09-05`,first training
-  record/two phases/three phase seeds. Exact encoded spectrum AST6/6; posterior,
-  time-coarsened, frequency-coarsened and both-coarsened all0/6. Preprocessing
-  positive control works. Coarsening is not a proof of latent capacity limits.
-- **Next action:** one decoder-only adversarial/feature-matching fine-tune,
-  retaining reconstruction and frozen encoder/prior. Tests whether current latent
-  can support perceptual detail; satisfactory representation is NOT established.
-  Train critic only on train data; AST/CLAP remain external checks, not losses.
-  Evaluate posterior AND reference-free prior; no KL/capacity/epoch sweep first.
-  RAVE motivates this discriminator, not a success guarantee; source in note.
-- **Verification:**94 tests, Ruff,121 WAVs and CLI exact replay; all jobs terminal.
+  latent8x32x16, learned posterior/prior,512x256 spectrogram. Both modes fail
+  AST even on training. Not merely a prior gap; exact results in pilot note.
+- **Codec discriminator:** `pouring-cvae-codec-probe-2026-09-05`: exact spectrum
+  AST6/6; posterior/time-/frequency-/both-coarsened0/6. Preprocessing works;
+  coarsening is not a proof of latent capacity limits. Details in pilot note.
+- **Decoder fine-tunes completed:** `pouring-cvae-reconstruction-continuation-2026-09-05`
+  and `pouring-cvae-adversarial-2026-09-05`; matched600steps,3records,seed53.
+  Encoder/prior frozen byte-exact;322577 decoder/347362 critic parameters.
+  Development prior spectrum rec/adv8.584/7.794dB, but AST0/12 both levels;
+  posterior also0/12. No more critic-weight/capacity/epoch sweeps.
+- **Training/inference discriminator:** `pouring-cvae-phase-budget-2026-09-05`,
+  exact target at2/32 phase iterations AST3/6 vs6/6, CLAP6/6 both. Adversarial
+  posterior/prior0/6 at BOTH budgets/classifiers. A real codec mismatch exists,
+  but returning to training-time synthesis does not rescue semantics. Critic
+  scores are not quality; representation sufficiency/convergence still unproven.
+- **Next action:** reuse cached TangoFlux Oobleck waveform codec, no new weights,
+  on the same disclosed water crops; compare originals/mean/sampled posterior
+  WAVs with fixed AST/CLAP and raw headroom. Existing codec probe is GLASS only.
+  If water detail survives, learn an object/event-conditioned latent sequence;
+  don't repeat CVAE or three-glass LoRA fits. Codec reconstruction alone is NOT
+  the goal. No phase-budget sweep; research/provenance in the pilot note.
+- **Verification:**98 focused tests, Ruff,212 new WAVs; all jobs terminal.
   No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
 
 ## Preserve these constraints
