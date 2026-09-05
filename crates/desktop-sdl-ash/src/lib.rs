@@ -302,10 +302,12 @@ fn apply_frame_source_result(
 
 mod gpu_content;
 mod graphics;
+mod hdr;
 mod lifecycle;
 mod native_events;
 mod particle_surface;
 mod shader_assets;
+mod sky;
 
 pub use particle_surface::{
     MAX_PARTICLE_SURFACE_PARTICLES, PARTICLE_SURFACE_STRIDE, ParticleSurfaceProfileV1,

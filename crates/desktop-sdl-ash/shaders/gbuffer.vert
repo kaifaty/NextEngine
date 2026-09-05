@@ -29,6 +29,7 @@ layout(set = 0, binding = 1, std430) readonly buffer PreviousModels {
 layout(push_constant, std430) uniform DrawPushConstants {
     mat4 model;
     vec4 base_color_factor;
+    vec4 material_params;  // metallic, roughness, emissive intensity, 0
     vec4 meta;  // draw index, group, roughness, 0
 } draw;
 

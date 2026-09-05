@@ -305,9 +305,12 @@ impl PipelineState {
         device: &ash::Device,
         color_format: vk::Format,
         depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
     ) -> Result<Self, B0GpuContentError> {
-        let layout_info = vk::PipelineLayoutCreateInfo::default();
-        // SAFETY: the sky shaders have no descriptors or push constants.
+        // Scene look L1: the sky reads the frame and lighting blocks (set 0).
+        let set_layouts = [frame_layout];
+        let layout_info = vk::PipelineLayoutCreateInfo::default().set_layouts(&set_layouts);
+        // SAFETY: the frame layout is live; the sky shaders push nothing.
         let layout = unsafe { device.create_pipeline_layout(&layout_info, None) }?;
         let fixed = RasterFixedStateV1 {
             blend_enable: false,
@@ -1220,14 +1223,22 @@ pub(super) fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0
 pub(super) fn draw_push_constant_bytes(
     transform: QuantizedPresentationTransformV1,
     base_color_rgba_unorm16: [u16; 4],
+    material_params: [f32; 4],
 ) -> [u8; DRAW_PUSH_CONSTANT_SIZE as usize] {
     let model = model_matrix(transform);
     let mut bytes = [0_u8; DRAW_PUSH_CONSTANT_SIZE as usize];
     for (destination, value) in bytes[..64].chunks_exact_mut(4).zip(model) {
         destination.copy_from_slice(&value.to_le_bytes());
     }
-    for (destination, value) in bytes[64..].chunks_exact_mut(4).zip(base_color_rgba_unorm16) {
+    for (destination, value) in bytes[64..80]
+        .chunks_exact_mut(4)
+        .zip(base_color_rgba_unorm16)
+    {
         destination.copy_from_slice(&(f32::from(value) / f32::from(u16::MAX)).to_le_bytes());
+    }
+    // Scene look L1: metallic, roughness, emissive intensity, spare.
+    for (destination, value) in bytes[80..].chunks_exact_mut(4).zip(material_params) {
+        destination.copy_from_slice(&value.to_le_bytes());
     }
     bytes
 }

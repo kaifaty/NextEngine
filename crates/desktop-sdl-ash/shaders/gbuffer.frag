@@ -27,6 +27,7 @@ layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
 layout(push_constant, std430) uniform DrawPushConstants {
     mat4 model;
     vec4 base_color_factor;
+    vec4 material_params;
     vec4 meta;
 } draw;
 

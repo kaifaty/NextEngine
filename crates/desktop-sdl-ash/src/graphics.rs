@@ -3,12 +3,13 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
-use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState};
+use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState, HDR_SCENE_FORMAT};
 use crate::gpu_content::water::WaterPassState;
 use crate::gpu_content::{
     B0_SUN_DIRECTION_INTENSITY, B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState,
     projection_jitter,
 };
+use crate::hdr::HDR_EXPOSURE_FALLBACK;
 use crate::particle_surface::{ParticleSurfaceProfileV1, ParticleSurfaceUpdateV1};
 use crate::run_state::{
     DesktopCaptureSourceV1, DesktopCapturedFrameV1, DesktopFrameCaptureRequestV1,
@@ -55,6 +56,12 @@ pub(super) struct GraphicsContext {
     /// Plan 18: the DLSS-ready outputs (HUD-less scene colour target and
     /// the G-buffer pass); `None` renders straight into the swapchain.
     gbuffer: Option<GBufferPassState>,
+    /// Scene look L1 (plan `look/01`): the format of the scene target the
+    /// scene passes render into; the swapchain's on the fallback path.
+    scene_format: vk::Format,
+    /// Scene look L1: the exposure of the last recorded frame (the tone map
+    /// and the developer capture of the linear scene target share it).
+    scene_exposure: f32,
     /// Plan 18: sub-pixel projection jitter per rendered frame.
     projection_jitter: bool,
     particle_surface_available: bool,
@@ -348,6 +355,12 @@ impl GraphicsContext {
                 fence,
             });
         }
+        let scene_format = initialization
+            .swapchain
+            .as_ref()
+            .map_or(vk::Format::UNDEFINED, |swapchain| {
+                select_scene_format(&instance, physical_device, swapchain)
+            });
         let b0_content = initialization
             .swapchain
             .as_ref()
@@ -358,7 +371,7 @@ impl GraphicsContext {
                     &device,
                     queue,
                     queue_family_index,
-                    swapchain.format,
+                    scene_format,
                     swapchain.depth_format,
                     render_content_catalog,
                     frame_slots.len(),
@@ -404,6 +417,7 @@ impl GraphicsContext {
             &device,
             options.particle_surface,
             initialization.swapchain.as_ref(),
+            scene_format,
             frame_slots.len(),
         )?;
         let water = create_water_pass(
@@ -412,6 +426,7 @@ impl GraphicsContext {
             &device,
             b0_content.as_ref(),
             initialization.swapchain.as_ref(),
+            scene_format,
             frame_slots.len(),
         )?;
         let gbuffer = create_gbuffer_pass(
@@ -420,8 +435,15 @@ impl GraphicsContext {
             &device,
             b0_content.as_ref(),
             initialization.swapchain.as_ref(),
+            scene_format,
             frame_slots.len(),
         )?;
+        if scene_format == HDR_SCENE_FORMAT && gbuffer.is_none() {
+            eprintln!("next_game: RENDER_HDR_FALLBACK: the G-buffer pass did not build");
+            return Err(DesktopAdapterError::RenderContent(
+                "the HDR scene format needs the offscreen scene target".to_owned(),
+            ));
+        }
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -462,6 +484,8 @@ impl GraphicsContext {
             fluid,
             water,
             gbuffer,
+            scene_format,
+            scene_exposure: HDR_EXPOSURE_FALLBACK,
             projection_jitter: options.projection_jitter,
             particle_surface_available,
         })
@@ -719,12 +743,17 @@ impl GraphicsContext {
         // Plan 18: the scene passes render into the HUD-less scene target and
         // the G-buffer pass follows them when the pass exists and the plan
         // has a camera; the UI overlay then draws on the swapchain.
-        let gbuffer_this_frame = self.gbuffer.is_some() && frame_plan.camera.is_some();
+        // Scene look L1: with the HDR scene format every frame renders
+        // offscreen (the content pipelines commit to that format); the
+        // G-buffer pass itself still needs a camera.
+        let scene_offscreen = self.gbuffer.is_some()
+            && (frame_plan.camera.is_some() || self.scene_format != swapchain.format);
+        let gbuffer_this_frame = scene_offscreen && frame_plan.camera.is_some();
         let jitter = self
             .projection_jitter
             .then(|| projection_jitter(rendered_frame_index, swapchain.extent));
         let (scene_image, scene_view) = match self.gbuffer.as_ref() {
-            Some(gbuffer) if gbuffer_this_frame => {
+            Some(gbuffer) if scene_offscreen => {
                 gbuffer.record_scene_begin(frame_slot.command_buffer);
                 (gbuffer.scene_color_image(), gbuffer.scene_color_view())
             }
@@ -745,7 +774,7 @@ impl GraphicsContext {
             .load_op(vk::AttachmentLoadOp::CLEAR)
             // The particle surface pass depth-tests against the opaque scene.
             .store_op(
-                if particle_pass_this_frame || water_pass_this_frame || gbuffer_this_frame {
+                if particle_pass_this_frame || water_pass_this_frame || scene_offscreen {
                     vk::AttachmentStoreOp::STORE
                 } else {
                     vk::AttachmentStoreOp::DONT_CARE
@@ -817,7 +846,12 @@ impl GraphicsContext {
             self.device
                 .cmd_begin_rendering(frame_slot.command_buffer, &rendering_info);
         }
-        b0_content.record_sky(frame_slot.command_buffer, swapchain.extent)?;
+        self.scene_exposure = b0_content.exposure();
+        b0_content.record_sky(
+            frame_slot.command_buffer,
+            swapchain.extent,
+            frame_slot_index,
+        )?;
         let mut dynamic_surface_draws = b0_content.record(
             frame_slot.command_buffer,
             frame_plan,
@@ -975,64 +1009,68 @@ impl GraphicsContext {
         if let Some(profiler) = self.frame_profiler.as_ref() {
             profiler.write_particle_surface(frame_slot.command_buffer, frame_slot_index, true)?;
         }
-        if gbuffer_this_frame && let Some(gbuffer) = self.gbuffer.as_mut() {
+        if scene_offscreen && let Some(gbuffer) = self.gbuffer.as_mut() {
             // SAFETY: the scene rendering instance ends before the G-buffer
             // pass; the scene target keeps its contents.
             unsafe {
                 self.device.cmd_end_rendering(frame_slot.command_buffer);
             }
-            gbuffer.record_gbuffer_begin(frame_slot.command_buffer);
-            let gbuffer_clear = vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 0.0],
-                },
-            };
-            let gbuffer_colors = [
-                gbuffer.albedo_mask_view(),
-                gbuffer.normal_roughness_view(),
-                gbuffer.motion_view(),
-                gbuffer.linear_depth_view(),
-            ]
-            .map(|view| {
-                vk::RenderingAttachmentInfo::default()
-                    .image_view(view)
-                    .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                    .load_op(vk::AttachmentLoadOp::CLEAR)
-                    .store_op(vk::AttachmentStoreOp::STORE)
-                    .clear_value(gbuffer_clear)
-            });
-            let gbuffer_depth = vk::RenderingAttachmentInfo::default()
-                .image_view(swapchain.depth_attachments[image_usize].view())
-                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
-                .load_op(vk::AttachmentLoadOp::LOAD)
-                .store_op(vk::AttachmentStoreOp::DONT_CARE);
-            let gbuffer_info = vk::RenderingInfo::default()
-                .render_area(render_area)
-                .layer_count(1)
-                .color_attachments(&gbuffer_colors)
-                .depth_attachment(&gbuffer_depth);
-            // SAFETY: the four targets are in attachment layout and the
-            // depth attachment holds the scene depth.
-            unsafe {
-                self.device
-                    .cmd_begin_rendering(frame_slot.command_buffer, &gbuffer_info);
+            if gbuffer_this_frame {
+                gbuffer.record_gbuffer_begin(frame_slot.command_buffer);
+                let gbuffer_clear = vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 0.0],
+                    },
+                };
+                let gbuffer_colors = [
+                    gbuffer.albedo_mask_view(),
+                    gbuffer.normal_roughness_view(),
+                    gbuffer.motion_view(),
+                    gbuffer.linear_depth_view(),
+                ]
+                .map(|view| {
+                    vk::RenderingAttachmentInfo::default()
+                        .image_view(view)
+                        .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                        .load_op(vk::AttachmentLoadOp::CLEAR)
+                        .store_op(vk::AttachmentStoreOp::STORE)
+                        .clear_value(gbuffer_clear)
+                });
+                let gbuffer_depth = vk::RenderingAttachmentInfo::default()
+                    .image_view(swapchain.depth_attachments[image_usize].view())
+                    .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                    .load_op(vk::AttachmentLoadOp::LOAD)
+                    .store_op(vk::AttachmentStoreOp::DONT_CARE);
+                let gbuffer_info = vk::RenderingInfo::default()
+                    .render_area(render_area)
+                    .layer_count(1)
+                    .color_attachments(&gbuffer_colors)
+                    .depth_attachment(&gbuffer_depth);
+                // SAFETY: the four targets are in attachment layout and the
+                // depth attachment holds the scene depth.
+                unsafe {
+                    self.device
+                        .cmd_begin_rendering(frame_slot.command_buffer, &gbuffer_info);
+                }
+                b0_content.record_gbuffer(
+                    frame_slot.command_buffer,
+                    frame_plan,
+                    swapchain.extent,
+                    frame_slot_index,
+                    gbuffer,
+                    jitter,
+                )?;
+                // SAFETY: the G-buffer rendering instance is ended exactly once.
+                unsafe {
+                    self.device.cmd_end_rendering(frame_slot.command_buffer);
+                }
+                gbuffer.record_gbuffer_end(frame_slot.command_buffer);
             }
-            b0_content.record_gbuffer(
-                frame_slot.command_buffer,
-                frame_plan,
-                swapchain.extent,
-                frame_slot_index,
-                gbuffer,
-                jitter,
-            )?;
-            // SAFETY: the G-buffer rendering instance is ended exactly once.
-            unsafe {
-                self.device.cmd_end_rendering(frame_slot.command_buffer);
-            }
-            gbuffer.record_gbuffer_end(frame_slot.command_buffer);
             gbuffer.record_scene_to_swapchain(
                 frame_slot.command_buffer,
                 swapchain.images[image_usize],
+                swapchain.image_views[image_usize],
+                self.scene_exposure,
             );
             let hud_colors = [vk::RenderingAttachmentInfo::default()
                 .image_view(swapchain.image_views[image_usize])
@@ -1095,9 +1133,11 @@ impl GraphicsContext {
             _ => None,
         };
         if capture_this_frame {
+            let (capture_image, capture_format) =
+                gbuffer_capture.unwrap_or((swapchain.images[image_usize], swapchain.format));
             let byte_count = u64::from(swapchain.extent.width)
                 .checked_mul(u64::from(swapchain.extent.height))
-                .and_then(|pixels| pixels.checked_mul(4))
+                .and_then(|pixels| pixels.checked_mul(capture_bytes_per_pixel(capture_format)))
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
             let buffer = BufferAllocation::new(
                 &self.instance,
@@ -1107,8 +1147,6 @@ impl GraphicsContext {
                 vk::BufferUsageFlags::TRANSFER_DST,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             )?;
-            let (capture_image, capture_format) =
-                gbuffer_capture.unwrap_or((swapchain.images[image_usize], swapchain.format));
             let to_transfer = [vk::ImageMemoryBarrier2::default()
                 .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
                 .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
@@ -1333,6 +1371,7 @@ impl GraphicsContext {
             &self.device,
             self.particle_surface_profile,
             replacement.as_ref(),
+            self.scene_format,
             self.frame_slots.len(),
         )?;
         self.fluid = fluid;
@@ -1342,6 +1381,7 @@ impl GraphicsContext {
             &self.device,
             self.b0_content.as_ref(),
             replacement.as_ref(),
+            self.scene_format,
             self.frame_slots.len(),
         )?;
         self.gbuffer = create_gbuffer_pass(
@@ -1350,8 +1390,15 @@ impl GraphicsContext {
             &self.device,
             self.b0_content.as_ref(),
             replacement.as_ref(),
+            self.scene_format,
             self.frame_slots.len(),
         )?;
+        if self.scene_format == HDR_SCENE_FORMAT && self.gbuffer.is_none() {
+            eprintln!("next_game: RENDER_HDR_FALLBACK: the G-buffer pass did not rebuild");
+            return Err(DesktopAdapterError::RenderContent(
+                "the HDR scene format needs the offscreen scene target".to_owned(),
+            ));
+        }
         self.particle_surface_available =
             self.particle_surface_available || particle_surface_available;
         let replacement_formats = replacement
@@ -1361,16 +1408,26 @@ impl GraphicsContext {
             .swapchain
             .as_ref()
             .map(|swapchain| (swapchain.format, swapchain.depth_format));
-        if replacement_formats != current_formats || self.b0_content.is_none() {
+        // Scene look L1: the scene format follows the replacement swapchain;
+        // the content pipelines commit to it, the overlay to the swapchain.
+        let replacement_scene_format = replacement
+            .as_ref()
+            .map_or(vk::Format::UNDEFINED, |swapchain| {
+                select_scene_format(&self.instance, self.physical_device, swapchain)
+            });
+        if replacement_formats != current_formats
+            || replacement_scene_format != self.scene_format
+            || self.b0_content.is_none()
+        {
             let replacement_content = replacement_formats
-                .map(|(color_format, depth_format)| {
+                .map(|(_, depth_format)| {
                     B0GpuContent::new(
                         &self.instance,
                         self.physical_device,
                         &self.device,
                         self.queue,
                         self.queue_family_index,
-                        color_format,
+                        replacement_scene_format,
                         depth_format,
                         &self.render_content_catalog,
                         self.frame_slots.len(),
@@ -1383,6 +1440,7 @@ impl GraphicsContext {
             }
             self.b0_content = replacement_content?;
         }
+        self.scene_format = replacement_scene_format;
         // The overlay pipeline commits to the swapchain color/depth formats;
         // a format change recreates it (the device was idled above) and the
         // next frame re-rasterizes into fresh resources.
@@ -1417,12 +1475,17 @@ impl GraphicsContext {
             let byte_count = usize::try_from(
                 u64::from(pending.extent[0])
                     .checked_mul(u64::from(pending.extent[1]))
-                    .and_then(|pixels| pixels.checked_mul(4))
+                    .and_then(|pixels| pixels.checked_mul(capture_bytes_per_pixel(pending.format)))
                     .ok_or(DesktopAdapterError::CounterOverflow)?,
             )
             .map_err(|_| DesktopAdapterError::CounterOverflow)?;
             let mut rgba8 = vec![0_u8; byte_count];
             buffer.read(0, &mut rgba8)?;
+            if pending.format == HDR_SCENE_FORMAT {
+                // Scene look L1: the linear scene target through the same
+                // exposure and curve as the tone-map suite.
+                rgba8 = crate::hdr::tonemap_half_rgba_to_rgba8(&rgba8, self.scene_exposure);
+            }
             if pending.format == vk::Format::B8G8R8A8_SRGB {
                 for pixel in rgba8.chunks_exact_mut(4) {
                     pixel.swap(0, 2);
@@ -1549,6 +1612,7 @@ fn create_fluid_pass(
     device: &ash::Device,
     profile: Option<ParticleSurfaceProfileV1>,
     swapchain: Option<&SwapchainState>,
+    scene_format: vk::Format,
     frame_slot_count: usize,
 ) -> Result<(Option<FluidPassState>, bool), DesktopAdapterError> {
     let (Some(profile), Some(swapchain)) = (profile, swapchain) else {
@@ -1571,7 +1635,7 @@ fn create_fluid_pass(
         physical_device,
         device,
         profile,
-        swapchain.format,
+        scene_format,
         swapchain.depth_format,
         swapchain.extent,
         frame_slot_count,
@@ -1599,6 +1663,7 @@ fn create_water_pass(
     device: &ash::Device,
     b0_content: Option<&B0GpuContent>,
     swapchain: Option<&SwapchainState>,
+    scene_format: vk::Format,
     frame_slot_count: usize,
 ) -> Result<Option<WaterPassState>, DesktopAdapterError> {
     let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
@@ -1615,13 +1680,14 @@ fn create_water_pass(
         instance,
         physical_device,
         device,
-        swapchain.format,
+        scene_format,
         swapchain.depth_format,
         swapchain.extent,
         frame_slot_count,
         frame_layout,
         texture_layout,
         shadow_layout,
+        &content.lighting_buffers(),
         swapchain.transfer_source,
         swapchain.depth_sampled,
     )? {
@@ -1630,6 +1696,76 @@ fn create_water_pass(
             eprintln!("next_game: WATER_PASS_FALLBACK: {reason}");
             Ok(None)
         }
+    }
+}
+
+/// Scene look L1 (plan `look/01`): the scene target format. The HDR format
+/// when the tone-map suite decodes, the device offers it as a blendable,
+/// sampleable, copyable colour attachment and the swapchain admits the
+/// offscreen scene target; the swapchain's format otherwise, with the
+/// reason printed once per process.
+fn select_scene_format(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    swapchain: &SwapchainState,
+) -> vk::Format {
+    static REPORTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    let report = |line: &str| {
+        if !REPORTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("next_game: {line}");
+        }
+    };
+    // SAFETY: the physical-device handle belongs to this live instance and
+    // the query returns format capability data only.
+    let properties = unsafe {
+        instance.get_physical_device_format_properties(physical_device, HDR_SCENE_FORMAT)
+    };
+    let required = vk::FormatFeatureFlags::COLOR_ATTACHMENT
+        | vk::FormatFeatureFlags::COLOR_ATTACHMENT_BLEND
+        | vk::FormatFeatureFlags::SAMPLED_IMAGE
+        | vk::FormatFeatureFlags::TRANSFER_SRC
+        | vk::FormatFeatureFlags::TRANSFER_DST;
+    let reason = hdr_chain_fallback_reason(
+        crate::shader_assets::tonemap_shader_modules().is_ok(),
+        swapchain.transfer_source && swapchain.transfer_destination,
+        properties.optimal_tiling_features.contains(required),
+    );
+    match reason {
+        Some(reason) => {
+            report(&format!("RENDER_HDR_FALLBACK: {reason}"));
+            swapchain.format
+        }
+        None => {
+            report("RENDER_HDR_CHAIN active target=R16G16B16A16_SFLOAT");
+            HDR_SCENE_FORMAT
+        }
+    }
+}
+
+/// Scene look L1: why the HDR chain cannot be built, or `None` when it can
+/// (plan `look/01` G6: the declared fallback conditions).
+pub(super) const fn hdr_chain_fallback_reason(
+    tonemap_suite: bool,
+    offscreen_scene_target: bool,
+    float_format_supported: bool,
+) -> Option<&'static str> {
+    if !tonemap_suite {
+        Some("the tonemap suite is missing")
+    } else if !offscreen_scene_target {
+        Some("the swapchain admits no offscreen scene target")
+    } else if !float_format_supported {
+        Some("R16G16B16A16_SFLOAT is not a blendable sampleable colour attachment")
+    } else {
+        None
+    }
+}
+
+/// Bytes per pixel of a capture read of `format`.
+const fn capture_bytes_per_pixel(format: vk::Format) -> u64 {
+    if matches!(format, vk::Format::R16G16B16A16_SFLOAT) {
+        8
+    } else {
+        4
     }
 }
 
@@ -1642,6 +1778,7 @@ fn create_gbuffer_pass(
     device: &ash::Device,
     b0_content: Option<&B0GpuContent>,
     swapchain: Option<&SwapchainState>,
+    scene_format: vk::Format,
     frame_slot_count: usize,
 ) -> Result<Option<GBufferPassState>, DesktopAdapterError> {
     let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
@@ -1658,6 +1795,7 @@ fn create_gbuffer_pass(
         physical_device,
         device,
         swapchain.format,
+        scene_format,
         swapchain.depth_format,
         swapchain.extent,
         frame_slot_count,

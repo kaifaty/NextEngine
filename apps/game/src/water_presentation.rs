@@ -14,10 +14,9 @@ use next_desktop_sdl_ash::{
     ParticleSurfaceUpdateV1,
 };
 use next_reference_game::{
-    WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WATER_SURFACE_INDEX_CAPACITY,
-    WATER_SURFACE_VERTEX_CAPACITY, WaterPresentationFrameV1, reference_water_basin_definition,
-    reference_water_pond_definition, reference_water_surface_bindings,
-    reference_water_vessel_definitions,
+    WATER_JET_MAX_PARTICLES, WATER_JET_RADIUS_MICROMETRES, WaterPresentationFrameV1,
+    reference_water_basin_definition, reference_water_pond_definition,
+    reference_water_surface_bindings, reference_water_vessel_definitions,
 };
 
 /// Frozen plan 09 shading constants for the jet (the NGQ10 revision 4 look

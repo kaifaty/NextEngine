@@ -220,3 +220,36 @@ no longer shimmer on far water. Compiled with the same pinned Linux
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o water_scene.frag.spv water_scene.frag
 ```
+
+## Tone-map suite (plan `look/01`, scene look L1)
+
+`tonemap` is the fragment stage of the HDR chain: the scene passes render
+into an `R16G16B16A16_SFLOAT` target and this fullscreen program (the
+`fluid_screen` vertex program reused) multiplies by the exposure, applies the
+ACES fitted curve and writes linear values into the sRGB swapchain, which
+encodes on write; alpha passes through. Compiled with the same pinned Linux
+`glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o tonemap.frag.spv tonemap.frag
+```
+
+## Physical lighting suites (plan `look/01`, scene look L1)
+
+The B0 interface moves to `nextengine.shader-interface.b0.v3`: set 0 gains
+binding 1, the `LightingUniforms` block (`368` bytes: the inverse
+view-projection, the sun in irradiance units with the exposure lane, nine
+SH2 sky coefficients, the fog's horizon radiance and density, and the
+Preetham sky's zenith and Perez coefficients), and the draw push block grows
+to `96` bytes with `material_params` (metallic, roughness, emissive
+intensity). `b0_textured`, `b0_textured_no_shadow` and `b0_reflect` shade
+Lambert under the SH irradiance plus the sun with a Cook-Torrance GGX lobe;
+`water_surface`, `water_scene`, `water_under` and `water_wet` read the same
+block (the reflected sky is the Preetham model along the reflection vector);
+`sky_analytic` replaces `sky_gradient` and draws the model with the sun disc
+from the pixel's world direction. Every module was recompiled with the same
+pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>
+```

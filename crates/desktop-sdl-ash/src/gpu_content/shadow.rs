@@ -349,7 +349,7 @@ impl B0GpuContent {
         }
         for draw in plan.draws.iter().filter(|draw| draw.casts_shadow) {
             let push_constants =
-                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16, [0.0; 4]);
             if let Some(binding) = self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index) {
                 // SAFETY: the slot ring was refreshed after this slot's fence
                 // completed, both buffers are live host-visible allocations

@@ -19,6 +19,7 @@ fn material_factor_uses_the_full_unorm16_range() {
     let bytes = draw_push_constant_bytes(
         QuantizedPresentationTransformV1::default(),
         [0, u16::MAX, 0, u16::MAX],
+        [0.25, 0.5, 0.0, 0.0],
     );
     assert_eq!(&bytes[64..68], &0.0_f32.to_le_bytes());
     assert_eq!(&bytes[68..72], &1.0_f32.to_le_bytes());

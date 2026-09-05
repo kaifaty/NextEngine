@@ -526,6 +526,7 @@ impl UiOverlayGpu {
         let push_constants = draw_push_constant_bytes(
             QuantizedPresentationTransformV1::default(),
             [u16::MAX, u16::MAX, u16::MAX, u16::MAX],
+            [0.0; 4],
         );
         // SAFETY: all bound objects belong to the same live device, the
         // command buffer is recording inside dynamic rendering, the quad

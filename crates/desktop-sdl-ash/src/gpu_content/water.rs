@@ -144,9 +144,13 @@ impl WaterPassState {
         frame_layout: vk::DescriptorSetLayout,
         texture_layout: vk::DescriptorSetLayout,
         shadow_layout: vk::DescriptorSetLayout,
+        lighting_buffers: &[vk::Buffer],
         transfer_source: bool,
         depth_sampled: bool,
     ) -> Result<Result<Self, &'static str>, B0GpuContentError> {
+        if lighting_buffers.len() != frame_slot_count {
+            return Ok(Err("lighting ring does not match the frame slots"));
+        }
         if !transfer_source {
             return Ok(Err("swapchain images carry no transfer-source usage"));
         }
@@ -346,13 +350,28 @@ impl WaterPassState {
         let sets = unsafe { device.allocate_descriptor_sets(&allocation_info) }?;
         let (water_sets, reflection_sets) = sets.split_at(frame_slot_count);
         let mut slots = Vec::with_capacity(frame_slot_count);
-        for ((((uniform, rings_uniform), set), reflection_uniform), reflection_set) in uniforms
-            .into_iter()
-            .zip(rings_uniforms)
-            .zip(water_sets.iter().copied())
-            .zip(reflection_uniforms)
-            .zip(reflection_sets.iter().copied())
+        for (((((uniform, rings_uniform), set), reflection_uniform), reflection_set), lighting) in
+            uniforms
+                .into_iter()
+                .zip(rings_uniforms)
+                .zip(water_sets.iter().copied())
+                .zip(reflection_uniforms)
+                .zip(reflection_sets.iter().copied())
+                .zip(lighting_buffers.iter().copied())
         {
+            // Scene look L1: the mirrored frame set shares the slot's
+            // lighting block at binding 1.
+            let lighting_info = [vk::DescriptorBufferInfo::default()
+                .buffer(lighting)
+                .offset(0)
+                .range(crate::sky::LIGHTING_UNIFORM_SIZE)];
+            let lighting_write = [vk::WriteDescriptorSet::default()
+                .dst_set(reflection_set)
+                .dst_binding(1)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .buffer_info(&lighting_info)];
+            // SAFETY: the set and the content's lighting buffer are live.
+            unsafe { device.update_descriptor_sets(&lighting_write, &[]) };
             let image_info = [vk::DescriptorImageInfo::default()
                 .sampler(linear_sampler)
                 .image_view(scene_copy.view)

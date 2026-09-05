@@ -7,8 +7,8 @@ const B0_NO_SHADOW_FRAGMENT_SHADER_BYTES: &[u8] =
 const SHADOW_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/shadow_depth.vert.spv");
 const UI_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ui_overlay.vert.spv");
 const UI_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ui_overlay.frag.spv");
-const SKY_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_gradient.vert.spv");
-const SKY_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_gradient.frag.spv");
+const SKY_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_analytic.vert.spv");
+const SKY_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/sky_analytic.frag.spv");
 const FLUID_SPLAT_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_splat.vert.spv");
 const FLUID_SPLAT_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_splat.frag.spv");
 const FLUID_SCREEN_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fluid_screen.vert.spv");
@@ -30,6 +30,7 @@ const WATER_WET_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/water_
 const REFLECTION_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/b0_reflect.frag.spv");
 const GBUFFER_VERTEX_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.vert.spv");
 const GBUFFER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.frag.spv");
+const TONEMAP_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/tonemap.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -82,8 +83,20 @@ pub(super) fn ui_shader_modules() -> Result<B0ShaderModules, &'static str> {
     })
 }
 
+/// Scene look L1 (plan `look/01`): the tone-map suite (the fullscreen
+/// vertex program of the fluid suite with the exposure and ACES fragment).
+pub(super) fn tonemap_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"tonemap_suite\": \"tonemap\"") {
+        return Err("embedded tonemap shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(TONEMAP_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
 pub(super) fn sky_shader_modules() -> Result<B0ShaderModules, &'static str> {
-    if !B0_SHADER_MANIFEST.contains("\"sky_suite\": \"sky_gradient\"") {
+    if !B0_SHADER_MANIFEST.contains("\"sky_suite\": \"sky_analytic\"") {
         return Err("embedded sky shader manifest is invalid");
     }
     Ok(B0ShaderModules {
@@ -220,35 +233,35 @@ mod tests {
         assert_eq!(modules.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(B0_VERTEX_SHADER_BYTES)),
-            "6a08d7aa1c81e41a537a28cf703562d233114682a40d11c40b66ee30301dad7d"
+            "c0fb4c8395fcab8c7233f433eed0aaf93b3dcdb09dd16818c51179694673650f"
         );
         assert_eq!(
             hex(sha256(B0_FRAGMENT_SHADER_BYTES)),
-            "84765392e08061e1bed7fd1d81983c374aaa187622a1a20968672ff03f354d6a"
+            "33a99323e1e22cf3b26e8ca547c30701aed4374fd94d237a3d1f805badadf2f8"
         );
         assert_eq!(
             hex(sha256(B0_NO_SHADOW_FRAGMENT_SHADER_BYTES)),
-            "2cbe4fbc0e049a2238064adca0be8143a7f5ec6ab45bd4006dddfdd56fc4a97a"
+            "5448972d1155f5fd528243ebdd07a08f71e6176db4a44495d84ea87949030e72"
         );
         assert_eq!(
             hex(sha256(SHADOW_VERTEX_SHADER_BYTES)),
-            "1566638f72144e2931f5246a41b1f9fa927e84ce4f67f859227db042e78c3b65"
+            "dd5be3e72a303b05c41b2b7a3c6657c44946590126c8a2e80518c9bac41cf3ed"
         );
         assert_eq!(
             hex(sha256(UI_VERTEX_SHADER_BYTES)),
-            "9d28209b9d413a8bf91ee5e09817330df8bd19df79c1075a68c94f2bf405e19a"
+            "0ed38332dc6999eef5f6929ad944ebc59fc550f3b7393954d0f149b6b04e8ab1"
         );
         assert_eq!(
             hex(sha256(UI_FRAGMENT_SHADER_BYTES)),
-            "c03cd67fa05eeb1fea77246aa406ad68117583e3f207c9960687eb64d2531cda"
+            "aced1675e3a4771e1e17b1d9e260b75f39b6c07ebf737bf4c24856e0bf4fe645"
         );
         assert_eq!(
             hex(sha256(SKY_VERTEX_SHADER_BYTES)),
-            "5624b656b86d1ba74615dc79f9d477cb2a30cd83f1e108013e9cefc24897261d"
+            "e679fcdb1a4f0ff935c38cb65d9e7ff0a0176c5b369f1652e6337835f33ad2bf"
         );
         assert_eq!(
             hex(sha256(SKY_FRAGMENT_SHADER_BYTES)),
-            "b0b6682b742f4486ce03b46802e71f34003ac2bd026f6fba55b27c6170f4dd00"
+            "b1dbe87741df72b34cec313326b7493438069f37de91b2a9c1208803580af249"
         );
         assert_eq!(
             hex(sha256(FLUID_SPLAT_VERTEX_SHADER_BYTES)),
@@ -288,38 +301,44 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(WATER_SURFACE_FRAGMENT_SHADER_BYTES)),
-            "902a4f3664ae70034646c051a65fd3f82bc3752fd0e145f3326e13bd1bc6773f"
+            "01a5b48465069067907a43c8fe961949fb0b7d3826a2ec9df85520cde7966ac0"
         );
         let water = water_surface_shader_modules().expect("checked-in water modules decode");
         assert_eq!(water.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(WATER_SCENE_FRAGMENT_SHADER_BYTES)),
-            "e8cb5534b170561b164262a0e0dde758e912cba301d41b49ee3c5d9ad8c52957"
+            "4f2427b3fd97ffca5d33c3986c0d9d776f419e043bcf3323c2558f6a433bb6f8"
         );
         let water_scene =
             water_scene_shader_modules().expect("checked-in water scene modules decode");
         assert_eq!(water_scene.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(WATER_UNDER_FRAGMENT_SHADER_BYTES)),
-            "10c19729fe04b791be6dc63c42b09cd6d98c669509e3450c7370db65cf6fe5a3"
+            "5dd2a291003f2523386357d2686df9e1764839ea87c38afd184df976c665c2f1"
         );
         let water_under =
             water_under_shader_modules().expect("checked-in underwater modules decode");
         assert_eq!(water_under.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(WATER_WET_FRAGMENT_SHADER_BYTES)),
-            "cc1ef09bca8ee78c7cb91ee8a9d98169f6ebfb5bb330dbf7bdec5dbf69eeb45f"
+            "af862453e54546d0dd5a7691fe0350b97c1e578cae7e49412af5f86de891f674"
         );
         let water_wet = water_wet_shader_modules().expect("checked-in wet band modules decode");
         assert_eq!(water_wet.fragment[0], SPIRV_MAGIC);
         assert_eq!(
             hex(sha256(GBUFFER_VERTEX_SHADER_BYTES)),
-            "3838e9a335b52ec87c677d86fa314526bc4bcb7ec9f148275a2997160ef4d29a"
+            "265146836530325496863b164ad1e13b787d1959ebac77b52021ac44eab2f9b8"
         );
         assert_eq!(
             hex(sha256(GBUFFER_FRAGMENT_SHADER_BYTES)),
-            "0a87ee7851be9ff02f115b2d64864660c457e1cd38447ae7e5a7ee54d5c0db15"
+            "cfdafeab6c84478a4246942226724d5c67058855b4b87d259a3874184ca98835"
         );
+        assert_eq!(
+            hex(sha256(TONEMAP_FRAGMENT_SHADER_BYTES)),
+            "92adca13b3013e18015c36bf4cf7dc9b8040528ffaebfc4444674117398128a7"
+        );
+        let tonemap = tonemap_shader_modules().expect("checked-in tonemap modules decode");
+        assert_eq!(tonemap.fragment[0], SPIRV_MAGIC);
         let gbuffer = gbuffer_shader_modules().expect("checked-in G-buffer modules decode");
         assert_eq!(gbuffer.vertex[0], SPIRV_MAGIC);
         assert_eq!(gbuffer.fragment[0], SPIRV_MAGIC);
@@ -329,7 +348,7 @@ mod tests {
         assert!(B0_SHADER_MANIFEST.contains("\"schema_version\": 1"));
         assert!(B0_SHADER_MANIFEST.contains(
             "\"interface_contract_sha256\": \
-             \"204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c\""
+             \"dd7daad5544bdb0aeb28e4e468e52b0da290c6732caff164e592c0e371beabcd\""
         ));
         assert!(!B0_SHADER_MANIFEST.contains("\"runtime_compilation\""));
     }

@@ -38,8 +38,14 @@ pub(crate) const GBUFFER_COLOR_FORMATS: [vk::Format; 4] = [
 pub(crate) const GBUFFER_MAX_DRAWS: u32 = 4_096;
 /// `view_projection`, `previous_view_projection`, `viewport`, `jitter`.
 pub(crate) const GBUFFER_UNIFORM_SIZE: vk::DeviceSize = 160;
-/// `model`, `base_color_factor`, `meta` (draw index, group, roughness, 0).
-pub(crate) const GBUFFER_PUSH_CONSTANT_SIZE: u32 = 96;
+/// `model`, `base_color_factor`, `material_params`, `meta` (draw index,
+/// group, roughness, 0).
+pub(crate) const GBUFFER_PUSH_CONSTANT_SIZE: u32 = 112;
+/// Scene look L1 (plan `look/01`): the HDR scene target format; the scene
+/// passes render into it and the `tonemap` suite resolves it to the swapchain.
+pub(crate) const HDR_SCENE_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
+/// `exposure` and three spare lanes.
+const TONEMAP_PUSH_CONSTANT_SIZE: u32 = 16;
 const MODEL_MATRIX_BYTES: vk::DeviceSize = 64;
 
 /// The engine-level object groups of the mask channel.
@@ -197,6 +203,18 @@ struct GBufferSlot {
     set: vk::DescriptorSet,
 }
 
+/// Scene look L1: the fullscreen resolve of the HDR scene target into the
+/// swapchain (exposure and the ACES curve). Present only when the scene
+/// format differs from the swapchain's.
+struct TonemapPass {
+    sampler: vk::Sampler,
+    set_layout: vk::DescriptorSetLayout,
+    pool: vk::DescriptorPool,
+    set: vk::DescriptorSet,
+    layout: vk::PipelineLayout,
+    pipeline: vk::Pipeline,
+}
+
 /// Owner of every device object of the pass. Fields drop in dependency
 /// order: pipeline, descriptors, views, images, buffers.
 pub(crate) struct GBufferPassState {
@@ -211,6 +229,7 @@ pub(crate) struct GBufferPassState {
     motion: Target,
     linear_depth: Target,
     slots: Vec<GBufferSlot>,
+    tonemap: Option<TonemapPass>,
     history: MotionHistoryV1,
     /// Per-frame state: the view-projection and jitter of the frame being
     /// recorded, committed by `end_frame_draws`.
@@ -231,6 +250,7 @@ impl GBufferPassState {
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
         color_format: vk::Format,
+        scene_format: vk::Format,
         depth_format: vk::Format,
         extent: vk::Extent2D,
         frame_slot_count: usize,
@@ -251,6 +271,10 @@ impl GBufferPassState {
             layouts: Vec::new(),
             pool: vk::DescriptorPool::null(),
             views: Vec::new(),
+            samplers: Vec::new(),
+            pools: Vec::new(),
+            pipeline_layouts: Vec::new(),
+            pipelines: Vec::new(),
             armed: true,
         };
         let target = |format: vk::Format, usage: vk::ImageUsageFlags, guard: &mut Teardown| {
@@ -281,11 +305,14 @@ impl GBufferPassState {
                 format,
             })
         };
+        // Scene look L1: the scene target in the scene format, sampled by
+        // the tone-map resolve when that format is the HDR one.
         let scene_color = target(
-            color_format,
+            scene_format,
             vk::ImageUsageFlags::COLOR_ATTACHMENT
                 | vk::ImageUsageFlags::TRANSFER_SRC
-                | vk::ImageUsageFlags::TRANSFER_DST,
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED,
             &mut guard,
         )?;
         let gbuffer_usage =
@@ -392,6 +419,16 @@ impl GBufferPassState {
             texture_layout,
             GBUFFER_RASTER_FIXED_STATE,
         )?;
+        let tonemap = if scene_format == color_format {
+            None
+        } else {
+            Some(create_tonemap_pass(
+                device,
+                color_format,
+                scene_color.view,
+                &mut guard,
+            )?)
+        };
         guard.armed = false;
         Ok(Ok(Self {
             device: device.clone(),
@@ -405,6 +442,7 @@ impl GBufferPassState {
             motion,
             linear_depth,
             slots,
+            tonemap,
             history: MotionHistoryV1::default(),
             frame_view_projection: IDENTITY,
             frame_jitter_pixels: [0.0; 2],
@@ -620,15 +658,22 @@ impl GBufferPassState {
         }
     }
 
-    /// Copies the HUD-less scene colour to the swapchain image (which is in
-    /// attachment layout before and after) and leaves the scene target in
-    /// transfer-source layout for a capture. No rendering instance may be
-    /// active.
+    /// Resolves the HUD-less scene colour to the swapchain image (which is
+    /// in attachment layout before and after): the tone-map draw when the
+    /// scene target is the HDR one, a copy otherwise. Leaves the scene
+    /// target in transfer-source layout for a capture. No rendering
+    /// instance may be active.
     pub(crate) fn record_scene_to_swapchain(
         &self,
         command_buffer: vk::CommandBuffer,
         swapchain_image: vk::Image,
+        swapchain_view: vk::ImageView,
+        exposure: f32,
     ) {
+        if let Some(tonemap) = self.tonemap.as_ref() {
+            self.record_tonemap(command_buffer, tonemap, swapchain_view, exposure);
+            return;
+        }
         let before = [
             image_barrier(
                 self.scene_color.image.image(),
@@ -705,6 +750,111 @@ impl GBufferPassState {
         }
     }
 
+    /// Scene look L1: the tone-map resolve. The scene target goes to
+    /// shader-read layout, the fullscreen triangle writes the swapchain
+    /// image inside its own rendering instance, then the scene target goes
+    /// to transfer-source layout for a capture and the swapchain image is
+    /// made ready for the overlay's load.
+    fn record_tonemap(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        tonemap: &TonemapPass,
+        swapchain_view: vk::ImageView,
+        exposure: f32,
+    ) {
+        let to_sampled = [image_barrier(
+            self.scene_color.image.image(),
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            (
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            ),
+            (
+                vk::PipelineStageFlags2::FRAGMENT_SHADER,
+                vk::AccessFlags2::SHADER_READ,
+            ),
+        )];
+        let to_transfer = [image_barrier(
+            self.scene_color.image.image(),
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            (
+                vk::PipelineStageFlags2::FRAGMENT_SHADER,
+                vk::AccessFlags2::SHADER_READ,
+            ),
+            (
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_READ,
+            ),
+        )];
+        let color_attachments = [vk::RenderingAttachmentInfo::default()
+            .image_view(swapchain_view)
+            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .load_op(vk::AttachmentLoadOp::DONT_CARE)
+            .store_op(vk::AttachmentStoreOp::STORE)];
+        let rendering_info = vk::RenderingInfo::default()
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.extent,
+            })
+            .layer_count(1)
+            .color_attachments(&color_attachments);
+        let viewport = [vk::Viewport {
+            x: 0.0,
+            y: 0.0,
+            width: self.extent.width as f32,
+            height: self.extent.height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }];
+        let scissor = [vk::Rect2D {
+            offset: vk::Offset2D { x: 0, y: 0 },
+            extent: self.extent,
+        }];
+        let mut push = [0_u8; TONEMAP_PUSH_CONSTANT_SIZE as usize];
+        push[..4].copy_from_slice(&exposure.to_le_bytes());
+        // SAFETY: the scene target and the swapchain image are in the
+        // declared layouts, no rendering instance is active, and every
+        // handle belongs to this pass or the live swapchain.
+        unsafe {
+            self.device.cmd_pipeline_barrier2(
+                command_buffer,
+                &vk::DependencyInfo::default().image_memory_barriers(&to_sampled),
+            );
+            self.device
+                .cmd_begin_rendering(command_buffer, &rendering_info);
+            self.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                tonemap.pipeline,
+            );
+            self.device.cmd_set_viewport(command_buffer, 0, &viewport);
+            self.device.cmd_set_scissor(command_buffer, 0, &scissor);
+            self.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                tonemap.layout,
+                0,
+                &[tonemap.set],
+                &[],
+            );
+            self.device.cmd_push_constants(
+                command_buffer,
+                tonemap.layout,
+                vk::ShaderStageFlags::FRAGMENT,
+                0,
+                &push,
+            );
+            self.device.cmd_draw(command_buffer, 3, 1, 0, 0);
+            self.device.cmd_end_rendering(command_buffer);
+            self.device.cmd_pipeline_barrier2(
+                command_buffer,
+                &vk::DependencyInfo::default().image_memory_barriers(&to_transfer),
+            );
+        }
+    }
+
     pub(crate) fn allocation_bytes(&self) -> vk::DeviceSize {
         self.scene_color.image.allocation_size()
             + self.albedo_mask.image.allocation_size()
@@ -724,6 +874,14 @@ impl Drop for GBufferPassState {
         // SAFETY: the owner waits for device idle before dropping; children
         // are destroyed before parents (the pipeline state drops itself).
         unsafe {
+            if let Some(tonemap) = self.tonemap.take() {
+                self.device.destroy_pipeline(tonemap.pipeline, None);
+                self.device.destroy_pipeline_layout(tonemap.layout, None);
+                self.device.destroy_descriptor_pool(tonemap.pool, None);
+                self.device
+                    .destroy_descriptor_set_layout(tonemap.set_layout, None);
+                self.device.destroy_sampler(tonemap.sampler, None);
+            }
             self.device
                 .destroy_descriptor_pool(self.descriptor_pool, None);
             self.device
@@ -754,12 +912,190 @@ const IDENTITY: [f32; 16] = [
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
 ];
 
+/// Scene look L1: builds the tone-map resolve objects (sampler, one
+/// descriptor set over the scene view, the pipeline over the swapchain
+/// format); every handle is recorded in the guard until construction ends.
+fn create_tonemap_pass(
+    device: &ash::Device,
+    swapchain_format: vk::Format,
+    scene_view: vk::ImageView,
+    guard: &mut Teardown,
+) -> Result<TonemapPass, B0GpuContentError> {
+    let modules = super::super::shader_assets::tonemap_shader_modules()
+        .map_err(B0GpuContentError::ShaderAsset)?;
+    let sampler_info = vk::SamplerCreateInfo::default()
+        .mag_filter(vk::Filter::NEAREST)
+        .min_filter(vk::Filter::NEAREST)
+        .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
+        .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .min_lod(0.0)
+        .max_lod(0.0);
+    // SAFETY: plain sampler creation on the live device.
+    let sampler = unsafe { device.create_sampler(&sampler_info, None) }?;
+    guard.samplers.push(sampler);
+    let bindings = [vk::DescriptorSetLayoutBinding::default()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)];
+    let layout_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings);
+    // SAFETY: plain layout creation on the live device.
+    let set_layout = unsafe { device.create_descriptor_set_layout(&layout_info, None) }?;
+    guard.layouts.push(set_layout);
+    let pool_sizes = [vk::DescriptorPoolSize {
+        ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+        descriptor_count: 1,
+    }];
+    let pool_info = vk::DescriptorPoolCreateInfo::default()
+        .max_sets(1)
+        .pool_sizes(&pool_sizes);
+    // SAFETY: the pool exactly covers one set.
+    let pool = unsafe { device.create_descriptor_pool(&pool_info, None) }?;
+    guard.pools.push(pool);
+    let layouts = [set_layout];
+    let allocation_info = vk::DescriptorSetAllocateInfo::default()
+        .descriptor_pool(pool)
+        .set_layouts(&layouts);
+    // SAFETY: pool and layout are live on this device.
+    let set = unsafe { device.allocate_descriptor_sets(&allocation_info) }?[0];
+    let image_info = [vk::DescriptorImageInfo::default()
+        .sampler(sampler)
+        .image_view(scene_view)
+        .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+    let writes = [vk::WriteDescriptorSet::default()
+        .dst_set(set)
+        .dst_binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .image_info(&image_info)];
+    // SAFETY: the set, sampler and view are live; the descriptor is copied now.
+    unsafe { device.update_descriptor_sets(&writes, &[]) };
+    let push_ranges = [vk::PushConstantRange {
+        stage_flags: vk::ShaderStageFlags::FRAGMENT,
+        offset: 0,
+        size: TONEMAP_PUSH_CONSTANT_SIZE,
+    }];
+    let pipeline_layout_info = vk::PipelineLayoutCreateInfo::default()
+        .set_layouts(&layouts)
+        .push_constant_ranges(&push_ranges);
+    // SAFETY: the set layout is live.
+    let layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None) }?;
+    guard.pipeline_layouts.push(layout);
+    let pipeline = create_tonemap_pipeline(
+        device,
+        layout,
+        swapchain_format,
+        &modules.vertex,
+        &modules.fragment,
+    )?;
+    guard.pipelines.push(pipeline);
+    Ok(TonemapPass {
+        sampler,
+        set_layout,
+        pool,
+        set,
+        layout,
+        pipeline,
+    })
+}
+
+/// The fullscreen tone-map pipeline over the swapchain colour format: no
+/// vertex input, no depth, no blending, dynamic viewport and scissor.
+fn create_tonemap_pipeline(
+    device: &ash::Device,
+    layout: vk::PipelineLayout,
+    color_format: vk::Format,
+    vertex_words: &[u32],
+    fragment_words: &[u32],
+) -> Result<vk::Pipeline, B0GpuContentError> {
+    let vertex_info = vk::ShaderModuleCreateInfo::default().code(vertex_words);
+    let fragment_info = vk::ShaderModuleCreateInfo::default().code(fragment_words);
+    // SAFETY: checked-in SPIR-V passed structural validation.
+    let vertex_module = unsafe { device.create_shader_module(&vertex_info, None) }?;
+    // SAFETY: same conditions as the vertex module.
+    let fragment_module = match unsafe { device.create_shader_module(&fragment_info, None) } {
+        Ok(module) => module,
+        Err(error) => {
+            // SAFETY: the vertex module has no dependants.
+            unsafe { device.destroy_shader_module(vertex_module, None) };
+            return Err(error.into());
+        }
+    };
+    let result = {
+        let stages = [
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::VERTEX)
+                .module(vertex_module)
+                .name(c"main"),
+            vk::PipelineShaderStageCreateInfo::default()
+                .stage(vk::ShaderStageFlags::FRAGMENT)
+                .module(fragment_module)
+                .name(c"main"),
+        ];
+        let vertex_input = vk::PipelineVertexInputStateCreateInfo::default();
+        let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::default()
+            .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+            .primitive_restart_enable(false);
+        let viewport_state = vk::PipelineViewportStateCreateInfo::default()
+            .viewport_count(1)
+            .scissor_count(1);
+        let rasterization = vk::PipelineRasterizationStateCreateInfo::default()
+            .polygon_mode(vk::PolygonMode::FILL)
+            .cull_mode(vk::CullModeFlags::NONE)
+            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+            .line_width(1.0);
+        let multisample = vk::PipelineMultisampleStateCreateInfo::default()
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::default()
+            .depth_test_enable(false)
+            .depth_write_enable(false);
+        let blend_attachments = [vk::PipelineColorBlendAttachmentState::default()
+            .blend_enable(false)
+            .color_write_mask(vk::ColorComponentFlags::RGBA)];
+        let color_blend =
+            vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend_attachments);
+        let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+        let dynamic = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
+        let color_formats = [color_format];
+        let mut rendering =
+            vk::PipelineRenderingCreateInfo::default().color_attachment_formats(&color_formats);
+        let info = vk::GraphicsPipelineCreateInfo::default()
+            .stages(&stages)
+            .vertex_input_state(&vertex_input)
+            .input_assembly_state(&input_assembly)
+            .viewport_state(&viewport_state)
+            .rasterization_state(&rasterization)
+            .multisample_state(&multisample)
+            .depth_stencil_state(&depth_stencil)
+            .color_blend_state(&color_blend)
+            .dynamic_state(&dynamic)
+            .layout(layout)
+            .push_next(&mut rendering);
+        // SAFETY: every referenced create-info structure and module stays
+        // live for the call; dynamic rendering declares the exact format.
+        unsafe { device.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None) }
+            .map(|pipelines| pipelines[0])
+            .map_err(|(_, error)| B0GpuContentError::from(error))
+    };
+    // SAFETY: pipeline creation copied all module state.
+    unsafe {
+        device.destroy_shader_module(fragment_module, None);
+        device.destroy_shader_module(vertex_module, None);
+    }
+    result
+}
+
 /// Destroys partially constructed objects when construction fails midway.
 struct Teardown {
     device: ash::Device,
     layouts: Vec<vk::DescriptorSetLayout>,
     pool: vk::DescriptorPool,
     views: Vec<vk::ImageView>,
+    samplers: Vec<vk::Sampler>,
+    pools: Vec<vk::DescriptorPool>,
+    pipeline_layouts: Vec<vk::PipelineLayout>,
+    pipelines: Vec<vk::Pipeline>,
     armed: bool,
 }
 
@@ -771,6 +1107,18 @@ impl Drop for Teardown {
         // SAFETY: every handle was recorded right after creation and none
         // has been submitted; children go before parents.
         unsafe {
+            for pipeline in self.pipelines.drain(..) {
+                self.device.destroy_pipeline(pipeline, None);
+            }
+            for layout in self.pipeline_layouts.drain(..) {
+                self.device.destroy_pipeline_layout(layout, None);
+            }
+            for pool in self.pools.drain(..) {
+                self.device.destroy_descriptor_pool(pool, None);
+            }
+            for sampler in self.samplers.drain(..) {
+                self.device.destroy_sampler(sampler, None);
+            }
             if self.pool != vk::DescriptorPool::null() {
                 self.device.destroy_descriptor_pool(self.pool, None);
             }
@@ -881,11 +1229,12 @@ mod tests {
 
         let draw = [7_u8; super::super::DRAW_PUSH_CONSTANT_SIZE as usize];
         let push = gbuffer_push_constant_bytes(draw, 41, GBufferGroupV1::WaterSurface);
-        assert_eq!(push.len(), 96);
-        assert_eq!(&push[..80], &draw[..]);
-        assert_eq!(&push[80..84], &41.0_f32.to_le_bytes());
-        assert_eq!(&push[84..88], &3.0_f32.to_le_bytes());
-        assert_eq!(&push[88..92], &0.05_f32.to_le_bytes());
-        assert_eq!(&push[92..96], &0.0_f32.to_le_bytes());
+        // Scene look L1: the draw bytes carry the material lane (96 bytes).
+        assert_eq!(push.len(), 112);
+        assert_eq!(&push[..96], &draw[..]);
+        assert_eq!(&push[96..100], &41.0_f32.to_le_bytes());
+        assert_eq!(&push[100..104], &3.0_f32.to_le_bytes());
+        assert_eq!(&push[104..108], &0.05_f32.to_le_bytes());
+        assert_eq!(&push[108..112], &0.0_f32.to_le_bytes());
     }
 }

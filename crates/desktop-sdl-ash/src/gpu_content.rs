@@ -39,7 +39,15 @@ use crate::dynamic_surface::{
 const VERTEX_STRIDE: u32 = 28;
 const INDIRECT_COMMAND_STRIDE: u32 = 20;
 const FRAME_UNIFORM_SIZE: vk::DeviceSize = 208;
-const DRAW_PUSH_CONSTANT_SIZE: u32 = 80;
+const DRAW_PUSH_CONSTANT_SIZE: u32 = 96;
+/// Scene look L1: the fog's density per metre (the colour comes from the sky).
+pub(super) const B0_FOG_DENSITY: f32 = 0.006;
+/// Scene look L1: the material lane of a draw whose material record is
+/// unknown (fallback material): dielectric, matte.
+const DEFAULT_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.8, 0.0, 0.0];
+/// Scene look L1: the material lane of a `WaterSurface` ring draw (the
+/// water programs do not read it).
+const WATER_RING_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.05, 0.0, 0.0];
 const MINIMUM_BUFFER_SIZE: vk::DeviceSize = 4;
 
 #[derive(Debug)]
@@ -110,6 +118,13 @@ pub(super) struct B0GpuContent {
     shadow_map: Option<ShadowMap>,
     indirect: BufferAllocation,
     frame_uniforms: Vec<BufferAllocation>,
+    /// Scene look L1: the `LightingUniforms` block per frame slot.
+    lighting_uniforms: Vec<BufferAllocation>,
+    /// Scene look L1: the analytic sky the lighting block is built from.
+    sky: crate::sky::SkyModel,
+    /// Scene look L1: metallic, roughness and emissive intensity per
+    /// material revision, read from the catalog's material records.
+    materials: BTreeMap<AssetRevisionRefV1, [f32; 4]>,
     dynamic_vertices: Vec<BufferAllocation>,
     geometry: BufferAllocation,
     index_buffer_offset: vk::DeviceSize,
@@ -229,6 +244,7 @@ impl B0GpuContent {
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
         let mut frame_uniforms = Vec::with_capacity(frame_slot_count);
+        let mut lighting_uniforms = Vec::with_capacity(frame_slot_count);
         let mut dynamic_vertices = Vec::with_capacity(frame_slot_count);
         for _ in 0..frame_slot_count {
             let frame_uniform = BufferAllocation::new(
@@ -241,6 +257,14 @@ impl B0GpuContent {
             )?;
             frame_uniform.write(0, &identity_matrix_bytes())?;
             frame_uniforms.push(frame_uniform);
+            lighting_uniforms.push(BufferAllocation::new(
+                instance,
+                physical_device,
+                device,
+                crate::sky::LIGHTING_UNIFORM_SIZE,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )?);
             dynamic_vertices.push(BufferAllocation::new(
                 instance,
                 physical_device,
@@ -394,8 +418,17 @@ impl B0GpuContent {
                 "next_game: SHADOW_MAP_FALLBACK: sampled depth format or 2048x2048 allocation unavailable"
             );
         }
-        let descriptors =
-            DescriptorState::new(device, &frame_uniforms, &textures, shadow_map.as_ref())?;
+        let descriptors = DescriptorState::new(
+            device,
+            &frame_uniforms,
+            &lighting_uniforms,
+            &textures,
+            shadow_map.as_ref(),
+        )?;
+        // Scene look L1: the sky for the B0 sun; the lighting block is
+        // written per frame from it.
+        let sun = B0_SUN_DIRECTION_INTENSITY;
+        let sky = crate::sky::SkyModel::new([-sun[0], -sun[1], -sun[2]], crate::sky::SKY_TURBIDITY);
         let pipeline = PipelineState::new(
             device,
             color_format,
@@ -405,7 +438,8 @@ impl B0GpuContent {
             descriptors.shadow_layout,
             shadow_map.is_some(),
         )?;
-        let sky_pipeline = PipelineState::new_sky(device, color_format, depth_format)?;
+        let sky_pipeline =
+            PipelineState::new_sky(device, color_format, depth_format, descriptors.frame_layout)?;
         let water_pipeline = PipelineState::new_water_surface(
             device,
             color_format,
@@ -431,6 +465,9 @@ impl B0GpuContent {
             shadow_map,
             indirect,
             frame_uniforms,
+            lighting_uniforms,
+            sky,
+            materials: prepared.materials,
             dynamic_vertices,
             geometry,
             index_buffer_offset: prepared.index_buffer_offset,
@@ -672,6 +709,20 @@ impl B0GpuContent {
             ))?;
         let raster_state = frame_raster_state_jittered(plan.camera.as_ref(), extent, jitter)?;
         frame_uniform.write(0, &raster_state.view_projection_bytes)?;
+        // Scene look L1: the lighting block of the frame (the sky's static
+        // part and the inverse of this frame's view-projection).
+        let lighting_uniform = self.lighting_uniforms.get(frame_slot_index).ok_or(
+            B0GpuContentError::InvalidFramePlan(
+                "frame slot index is outside the allocated lighting ring",
+            ),
+        )?;
+        lighting_uniform.write(
+            0,
+            &self.sky.lighting_uniform_bytes(
+                crate::sky::invert_matrix(raster_state.view_projection),
+                B0_FOG_DENSITY,
+            ),
+        )?;
         let viewports = [raster_state.viewport];
         let scissors = [raster_state.scissor];
         let vertex_buffers = [self.geometry.buffer];
@@ -900,7 +951,11 @@ impl B0GpuContent {
                 B0GpuContentError::ResourceMissing("exact indexed draw command"),
             )?;
             let texture_sets = [texture_set];
-            let draw_bytes = draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            let draw_bytes = draw_push_constant_bytes(
+                draw.transform,
+                draw.base_color_rgba_unorm16,
+                self.material_params(draw),
+            );
             // Plan 18: the G-buffer pass pushes the draw bytes plus `meta`
             // and stores the draw's previous model; draws beyond its bound
             // are skipped there.
@@ -1131,6 +1186,28 @@ impl B0GpuContent {
         ))
     }
 
+    /// Scene look L1: the material lane of a draw from its material record.
+    fn material_params(&self, draw: &next_render::B0IndexedDrawV1) -> [f32; 4] {
+        self.materials
+            .get(&draw.material_revision)
+            .copied()
+            .unwrap_or(DEFAULT_MATERIAL_PARAMS)
+    }
+
+    /// Scene look L1: the exposure the tone map applies (the sky model's).
+    pub(super) fn exposure(&self) -> f32 {
+        self.sky.exposure()
+    }
+
+    /// Scene look L1: the lighting block buffer of every frame slot, for
+    /// passes that build their own B0 frame sets (the reflection pass).
+    pub(super) fn lighting_buffers(&self) -> Vec<vk::Buffer> {
+        self.lighting_uniforms
+            .iter()
+            .map(|buffer| buffer.buffer)
+            .collect()
+    }
+
     /// Whether any declared ring uses the water surface shading.
     pub(super) fn has_water_surface_rings(&self) -> bool {
         self.dynamic_surfaces
@@ -1212,8 +1289,11 @@ impl B0GpuContent {
                 .ok_or(B0GpuContentError::ResourceMissing(
                     "exact base-color texture descriptor",
                 ))?;
-            let push_constants =
-                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
+            let push_constants = draw_push_constant_bytes(
+                draw.transform,
+                draw.base_color_rgba_unorm16,
+                WATER_RING_MATERIAL_PARAMS,
+            );
             // SAFETY: the texture set matches set layout 1, the push bytes
             // cover the declared 80-byte range, and the ring buffers hold
             // this slot's uploaded update.
@@ -1516,12 +1596,17 @@ impl B0GpuContent {
         &self,
         command_buffer: vk::CommandBuffer,
         extent: vk::Extent2D,
+        frame_slot_index: usize,
     ) -> Result<(), B0GpuContentError> {
         if extent.width == 0 || extent.height == 0 {
             return Err(B0GpuContentError::InvalidFramePlan(
                 "sky extent must be non-zero",
             ));
         }
+        let frame_set = *self.descriptors.frame_sets.get(frame_slot_index).ok_or(
+            B0GpuContentError::InvalidFramePlan("frame slot index is outside the descriptor ring"),
+        )?;
+        let frame_sets = [frame_set];
         let viewports = [vk::Viewport {
             x: 0.0,
             y: 0.0,
@@ -1542,6 +1627,14 @@ impl B0GpuContent {
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 self.sky_pipeline.pipeline,
+            );
+            self.geometry.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.sky_pipeline.layout,
+                0,
+                &frame_sets,
+                &[],
             );
             self.geometry
                 .device
@@ -1649,6 +1742,8 @@ struct PreparedContent {
     vertex_templates: BTreeMap<AssetRevisionRefV1, Vec<[u8; 16]>>,
     dynamic_vertex_capacity: vk::DeviceSize,
     textures: Vec<PreparedTexture>,
+    /// Scene look L1: metallic, roughness, emissive intensity per material.
+    materials: BTreeMap<AssetRevisionRefV1, [f32; 4]>,
 }
 
 impl PreparedContent {
@@ -1659,6 +1754,18 @@ impl PreparedContent {
         let mut draw_offsets = BTreeMap::new();
         let mut draw_commands = BTreeMap::new();
         let mut vertex_templates = BTreeMap::new();
+        let mut materials = BTreeMap::new();
+        for material in catalog.materials() {
+            materials.insert(
+                material.asset_revision()?,
+                [
+                    f32::from(material.metallic_unorm16()) / f32::from(u16::MAX),
+                    f32::from(material.roughness_unorm16()) / f32::from(u16::MAX),
+                    material.emissive_intensity_q16_16() as f32 / 65_536.0,
+                    0.0,
+                ],
+            );
+        }
 
         for mesh in catalog.meshes() {
             let revision = mesh.asset_revision()?;
@@ -1826,6 +1933,7 @@ impl PreparedContent {
             vertex_templates,
             dynamic_vertex_capacity,
             textures,
+            materials,
         })
     }
 

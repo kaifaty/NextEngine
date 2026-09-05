@@ -813,9 +813,15 @@ impl DescriptorState {
     pub(super) fn new(
         device: &ash::Device,
         frame_uniforms: &[BufferAllocation],
+        lighting_uniforms: &[BufferAllocation],
         textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
         shadow: Option<&ShadowMap>,
     ) -> Result<Self, B0GpuContentError> {
+        if lighting_uniforms.len() != frame_uniforms.len() {
+            return Err(B0GpuContentError::InvalidCatalog(
+                "lighting ring must match the frame ring",
+            ));
+        }
         let frame_count =
             u32::try_from(frame_uniforms.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
         if frame_count == 0 {
@@ -823,11 +829,19 @@ impl DescriptorState {
                 "descriptor frame ring must be non-empty",
             ));
         }
-        let frame_bindings = [vk::DescriptorSetLayoutBinding::default()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)];
+        // Scene look L1: binding 1 is the lighting block.
+        let frame_bindings = [
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(0)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT),
+            vk::DescriptorSetLayoutBinding::default()
+                .binding(1)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT),
+        ];
         let texture_bindings = [vk::DescriptorSetLayoutBinding::default()
             .binding(0)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -894,7 +908,7 @@ impl DescriptorState {
             u32::try_from(textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
         let mut pool_sizes = vec![vk::DescriptorPoolSize {
             ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: frame_count,
+            descriptor_count: frame_count * 2,
         }];
         let shadow_count = u32::from(shadow.is_some());
         if texture_count != 0 || shadow_count != 0 {
@@ -960,16 +974,31 @@ impl DescriptorState {
         };
         let frame_set_count = frame_uniforms.len();
         let frame_sets = sets[..frame_set_count].to_vec();
-        for (frame_uniform, frame_set) in frame_uniforms.iter().zip(&frame_sets) {
+        for ((frame_uniform, lighting_uniform), frame_set) in frame_uniforms
+            .iter()
+            .zip(lighting_uniforms)
+            .zip(&frame_sets)
+        {
             let frame_info = [vk::DescriptorBufferInfo::default()
                 .buffer(frame_uniform.buffer)
                 .offset(0)
                 .range(FRAME_UNIFORM_SIZE)];
-            let frame_writes = [vk::WriteDescriptorSet::default()
-                .dst_set(*frame_set)
-                .dst_binding(0)
-                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-                .buffer_info(&frame_info)];
+            let lighting_info = [vk::DescriptorBufferInfo::default()
+                .buffer(lighting_uniform.buffer)
+                .offset(0)
+                .range(crate::sky::LIGHTING_UNIFORM_SIZE)];
+            let frame_writes = [
+                vk::WriteDescriptorSet::default()
+                    .dst_set(*frame_set)
+                    .dst_binding(0)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                    .buffer_info(&frame_info),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(*frame_set)
+                    .dst_binding(1)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                    .buffer_info(&lighting_info),
+            ];
             // SAFETY: destination set and uniform buffer are live; Vulkan
             // copies descriptor values during this call.
             unsafe { device.update_descriptor_sets(&frame_writes, &[]) };

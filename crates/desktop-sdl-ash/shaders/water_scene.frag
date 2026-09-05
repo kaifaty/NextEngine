@@ -20,6 +20,81 @@ layout(set = 0, binding = 0, std140) uniform FrameUniforms {
     vec4 fog_color_density;
 } frame;
 
+// Scene look L1 (plan look/01): the lighting block. The sun in irradiance
+// units (normal to the sun), the sky's SH2 radiance, the fog's radiance at
+// the horizon, and the Preetham sky's coefficients for the reflected sky.
+layout(set = 0, binding = 1, std140) uniform LightingUniforms {
+    mat4 inverse_view_projection;
+    vec4 sun_radiance;          // rgb irradiance normal to the sun, w exposure
+    vec4 sky_sh[9];             // SH2 radiance coefficients (rgb)
+    vec4 fog;                   // rgb radiance at the horizon, w density per metre
+    vec4 sky_zenith;            // zenith x, y, Y (raw), sun disc cos inner
+    vec4 sky_perez_x[2];
+    vec4 sky_perez_y[2];
+    vec4 sky_perez_luminance[2];
+    vec4 sky_params;            // ground albedo, turbidity, luminance scale, sun disc cos outer
+} lighting;
+
+const float LIGHTING_PI = 3.14159265;
+
+// Irradiance at a normal from the SH2 radiance (Ramamoorthi and Hanrahan).
+vec3 sh_irradiance(vec3 n) {
+    const float c1 = 0.429043;
+    const float c2 = 0.511664;
+    const float c3 = 0.743125;
+    const float c4 = 0.886227;
+    const float c5 = 0.247708;
+    vec3 l00 = lighting.sky_sh[0].rgb;
+    vec3 l1m1 = lighting.sky_sh[1].rgb;
+    vec3 l10 = lighting.sky_sh[2].rgb;
+    vec3 l11 = lighting.sky_sh[3].rgb;
+    vec3 l2m2 = lighting.sky_sh[4].rgb;
+    vec3 l2m1 = lighting.sky_sh[5].rgb;
+    vec3 l20 = lighting.sky_sh[6].rgb;
+    vec3 l21 = lighting.sky_sh[7].rgb;
+    vec3 l22 = lighting.sky_sh[8].rgb;
+    float x = n.x;
+    float y = n.y;
+    float z = n.z;
+    vec3 e = c1 * l22 * (x * x - y * y) + c3 * l20 * z * z + c4 * l00 - c5 * l20
+        + 2.0 * c1 * (l2m2 * x * y + l21 * x * z + l2m1 * y * z)
+        + 2.0 * c2 * (l11 * x + l1m1 * y + l10 * z);
+    return max(e, vec3(0.0));
+}
+
+float sky_perez(vec4 a, vec4 b, float cos_theta, float gamma) {
+    return (1.0 + a.x * exp(a.y / max(cos_theta, 0.01)))
+        * (1.0 + a.z * exp(a.w * gamma) + b.x * cos(gamma) * cos(gamma));
+}
+
+// The Preetham sky's radiance along a direction (linear sRGB, the same
+// units as the lighting block); below the horizon the horizon's value.
+vec3 sky_radiance(vec3 direction) {
+    vec3 sun = normalize(-frame.sun_direction_intensity.xyz);
+    float cos_theta = max(direction.y, 0.01);
+    float gamma = acos(clamp(dot(direction, sun), -1.0, 1.0));
+    float theta_s = acos(clamp(sun.y, -1.0, 1.0));
+    float x = lighting.sky_zenith.x
+        * sky_perez(lighting.sky_perez_x[0], lighting.sky_perez_x[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_x[0], lighting.sky_perez_x[1], 1.0, theta_s);
+    float y = lighting.sky_zenith.y
+        * sky_perez(lighting.sky_perez_y[0], lighting.sky_perez_y[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_y[0], lighting.sky_perez_y[1], 1.0, theta_s);
+    float big_y = lighting.sky_zenith.z
+        * sky_perez(lighting.sky_perez_luminance[0], lighting.sky_perez_luminance[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_luminance[0], lighting.sky_perez_luminance[1], 1.0, theta_s);
+    big_y = max(big_y, 0.0);
+    y = max(y, 1e-4);
+    float big_x = x * big_y / y;
+    float big_z = (1.0 - x - y) * big_y / y;
+    vec3 rgb = vec3(
+        3.2406 * big_x - 1.5372 * big_y - 0.4986 * big_z,
+        -0.9689 * big_x + 1.8758 * big_y + 0.0415 * big_z,
+        0.0557 * big_x - 0.2040 * big_y + 1.0570 * big_z
+    );
+    return max(rgb, vec3(0.0)) * lighting.sky_params.z;
+}
+
 layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
 layout(set = 2, binding = 0) uniform sampler2DShadow shadow_map;
 layout(set = 3, binding = 0) uniform sampler2D scene_color;
@@ -41,8 +116,6 @@ layout(push_constant, std430) uniform DrawPushConstants {
 const float WATER_F0 = 0.02;
 const float SUN_SPECULAR_EXPONENT = 240.0;
 const float BODY_DIFFUSE_WEIGHT = 0.6;
-const vec3 SKY_HORIZON = vec3(0.48, 0.60, 0.68);
-const vec3 SKY_ZENITH = vec3(0.10, 0.20, 0.34);
 const float DETAIL_NORMAL_OFFSET = 0.03;
 // Plan 42: the detail tilt is whole at the camera and a fifth at 50 m.
 const float DETAIL_FADE_METRES = 12.0;
@@ -105,7 +178,7 @@ void main() {
         float sin_t = WATER_INDEX * sin_i;
         vec3 colour;
         if (sin_t >= 1.0) {
-            colour = WATER_UNDER_MIRROR;
+            colour = WATER_UNDER_MIRROR / lighting.sun_radiance.w;
         } else {
             float cos_t = sqrt(1.0 - sin_t * sin_t);
             float fresnel_below = WATER_F0 + (1.0 - WATER_F0) * pow(1.0 - cos_t, 5.0);
@@ -115,11 +188,14 @@ void main() {
                 1.0 - water.viewport.zw
             );
             vec3 above = texture(scene_color, refracted).rgb;
-            colour = mix(above, WATER_UNDER_MIRROR, fresnel_below);
+            colour = mix(above, WATER_UNDER_MIRROR / lighting.sun_radiance.w, fresnel_below);
         }
         float path = distance(frame.camera_world_position.xyz, in_world_position);
         vec3 transmittance = exp(-WATER_UNDER_ABSORPTION_PER_METRE * path);
-        out_color = vec4(mix(WATER_UNDER_INSCATTER, colour, transmittance), 1.0);
+        out_color = vec4(
+            mix(WATER_UNDER_INSCATTER / lighting.sun_radiance.w, colour, transmittance),
+            1.0
+        );
         return;
     }
 
@@ -187,14 +263,9 @@ void main() {
     }
 
     // Lit water body (WL1) and the transmitted, absorbed scene behind it.
-    float hemisphere = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
-    vec3 ambient = mix(
-        frame.hemisphere_ground_color.rgb,
-        frame.hemisphere_sky_color.rgb,
-        hemisphere
-    );
-    vec3 body = base_color.rgb * (
-        ambient + BODY_DIFFUSE_WEIGHT * diffuse * shadow_visibility * frame.sun_direction_intensity.w
+    vec3 body = base_color.rgb / LIGHTING_PI * (
+        sh_irradiance(normal)
+        + BODY_DIFFUSE_WEIGHT * diffuse * shadow_visibility * lighting.sun_radiance.rgb
     );
     vec3 transmittance = exp(-water.absorption.rgb * thickness);
     vec3 under = mix(body, scene * transmittance, transmittance);
@@ -205,12 +276,11 @@ void main() {
     float vertical_depth = max(in_world_position.y - behind.y, 0.0);
     float fade = smoothstep(0.0, water.shore.y, vertical_depth);
     float foam = 1.0 - smoothstep(0.0, water.shore.x, vertical_depth);
-    vec3 shore_colour = mix(under, vec3(water.shore.z), foam * 0.6);
+    vec3 shore_colour = mix(under, vec3(water.shore.z / lighting.sun_radiance.w), foam * 0.6);
 
     // WL1 reflection, glint and fog.
     vec3 reflected = reflect(-view, normal);
-    float elevation = clamp(reflected.y, 0.0, 1.0);
-    vec3 reflected_sky = mix(SKY_HORIZON, SKY_ZENITH, smoothstep(0.0, 0.8, elevation));
+    vec3 reflected_sky = sky_radiance(reflected);
     // WL5: the mirrored scene at this pixel, distorted by the ring normal,
     // over the analytic sky where nothing reflects (alpha 0).
     vec2 reflection_uv = clamp(
@@ -221,16 +291,17 @@ void main() {
     vec4 mirrored = texture(reflection, reflection_uv);
     reflected_sky = mix(reflected_sky, mirrored.rgb, mirrored.a);
     vec3 half_vector = normalize(light_direction + view);
-    float specular = pow(max(dot(normal, half_vector), 0.0), SUN_SPECULAR_EXPONENT)
-        * frame.sun_direction_intensity.w * shadow_visibility;
-    vec3 lit_water = mix(shore_colour, reflected_sky, fresnel) + vec3(specular);
+    vec3 specular = pow(max(dot(normal, half_vector), 0.0), SUN_SPECULAR_EXPONENT)
+        * (SUN_SPECULAR_EXPONENT + 8.0) / (8.0 * LIGHTING_PI)
+        * lighting.sun_radiance.rgb * shadow_visibility;
+    vec3 lit_water = mix(shore_colour, reflected_sky, fresnel) + specular;
     vec3 lit_color = mix(texture(scene_color, uv).rgb, lit_water, fade);
 
     float world_distance = distance(in_world_position, frame.camera_world_position.xyz);
     float fog_amount = clamp(
-        1.0 - exp(-world_distance * frame.fog_color_density.w),
+        1.0 - exp(-world_distance * lighting.fog.w),
         0.0,
         0.82
     );
-    out_color = vec4(mix(lit_color, frame.fog_color_density.rgb, fog_amount), 1.0);
+    out_color = vec4(mix(lit_color, lighting.fog.rgb, fog_amount), 1.0);
 }

@@ -332,6 +332,9 @@ fn run_interactive_session(
             scripted_input: Vec::new(),
             projection_jitter,
             inject_device_loss_after_frames,
+            // Scene look L1 (plan `look/01`): a bounded timestamp buffer so
+            // the closing report carries the GPU frame time.
+            frame_profiling_sample_capacity: 4_096,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed, audio| {
@@ -567,6 +570,26 @@ fn run_interactive_session(
         adapter.audio_output_active,
         adapter.device_allocation_bytes,
     );
+    // Scene look L1 (plan `look/01`): the GPU frame time from the adapter's
+    // timestamps, mean and 95th percentile over the recorded samples.
+    {
+        let mut gpu: Vec<u64> = adapter
+            .frame_timings
+            .iter()
+            .map(|sample| sample.gpu_duration_microseconds)
+            .filter(|value| *value > 0)
+            .collect();
+        gpu.sort_unstable();
+        let mean = gpu.iter().sum::<u64>() / u64::try_from(gpu.len().max(1)).unwrap_or(1);
+        let p95 = gpu
+            .get((gpu.len() * 95 / 100).min(gpu.len().saturating_sub(1)))
+            .copied()
+            .unwrap_or(0);
+        eprintln!(
+            "next_game: render timing: gpu_samples={}, gpu_frame_mean_us={mean}, gpu_frame_p95_us={p95}",
+            gpu.len()
+        );
+    }
     Ok(worker_report)
 }
 

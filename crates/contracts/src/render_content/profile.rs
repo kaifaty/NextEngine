@@ -21,7 +21,7 @@ use super::{
 pub const B0_MAX_MESHLET_VERTICES: u32 = 64;
 pub const B0_MAX_MESHLET_TRIANGLES: u32 = 126;
 pub const B0_SHADER_INTERFACE_MANIFEST_CANONICAL_BYTES: &[u8] =
-    b"nextengine.shader-interface.b0.v2;vertex-inputs:location0-f32x3-position,location1-f32x2-uv0,location2-r16g16b16a16-snorm-normal;descriptors:set0-binding0-uniform-buffer-vertex-fragment-min208,set1-binding0-combined-image-sampler-fragment-count1,set2-binding0-combined-depth-compare-sampler-fragment-count1;push-constants:offset0-size80-vertex-fragment-model-mat4-base-color-factor-f32x4;fragment-output:location0-f32x4-rgba";
+    b"nextengine.shader-interface.b0.v3;vertex-inputs:location0-f32x3-position,location1-f32x2-uv0,location2-r16g16b16a16-snorm-normal;descriptors:set0-binding0-uniform-buffer-vertex-fragment-min208,set0-binding1-uniform-buffer-vertex-fragment-min368,set1-binding0-combined-image-sampler-fragment-count1,set2-binding0-combined-depth-compare-sampler-fragment-count1;push-constants:offset0-size96-vertex-fragment-model-mat4-base-color-factor-f32x4-material-params-f32x4;fragment-output:location0-f32x4-rgba";
 
 #[must_use]
 pub fn b0_shader_interface_manifest_sha256() -> ContentHash {
