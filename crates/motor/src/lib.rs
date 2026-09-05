@@ -58,6 +58,7 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES,
     BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES, biomechanics_humanoid_body_schema_v2,
     biomechanics_humanoid_body_schema_v3, biomechanics_humanoid_body_schema_v4,
+    biomechanics_humanoid_body_schema_v5,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID,
@@ -152,8 +153,9 @@ pub use humanoid::{
 };
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use mirror_v2::{
-    biomechanics_isaac_mirror_descriptor_json_v1, biomechanics_isaac_mirror_descriptor_json_v2,
-    biomechanics_isaac_mirror_descriptor_json_v3, biomechanics_isaac_mirror_descriptor_json_v4,
+    biomechanics_body_diagnostic_descriptor_json_v5, biomechanics_isaac_mirror_descriptor_json_v1,
+    biomechanics_isaac_mirror_descriptor_json_v2, biomechanics_isaac_mirror_descriptor_json_v3,
+    biomechanics_isaac_mirror_descriptor_json_v4,
 };
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,

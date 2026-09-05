@@ -166,3 +166,75 @@ review. Native simulation, training and runtime ProductChecks:
 `NotRun(DiagnosticOnlyNoPhysicalChange)`. The active goal remains open until
 physical changes and meaningful standing/walking non-regression establish
 the requested end state.
+
+## Physical V5 implementation — axis and sagittal proxy discriminator
+
+The diagnostic-only boundary above describes the original mass-audit commit,
+not the subsequent implementation. [ADR-114](../architecture/adr/114-anatomical-axes-and-sagittal-body-proxies.md)
+now records the opt-in physical successor.
+
+Competing explanations for the neutral picture were wrong lumbar translation,
+misplaced collision proxies, or learned posture alone. Exact original OSIM
+lumbar translation rejects the compiler-translation explanation; neutral V4
+rules out learning as the sole explanation of the box-centre gap. The original
+rib geometry has source forward bounds `[-0.087827, 0.104939] m`, midpoint
+`0.008556 m`. Source axes (forward, up, right) map to engine (right, up,
+forward). V5 uses that midpoint for torso collider Z, and source sagittal COM
+`-0.0707 m` for pelvis collider Z. It preserves the broad proxy dimensions;
+bone bounds are not claimed to define the soft-tissue envelope.
+
+The downloaded `r_pelvis.vtp` global geometry is not used as pelvis authority:
+[upstream issue 171](https://github.com/opensim-org/opensim-models/issues/171)
+reports differences from Rajagopal-specific pelvis geometry. Original model
+mass/COM and joint coordinates remain the numeric authority. Raw geometry
+stays external in `source-geometry-01`, not in the repository/distribution.
+
+A separate kinematic check exposed the reversed limb-flexion and hip-adduction
+axes. At +30 degrees with identity **xyzw** root, V4 target FK gives right
+knee forward displacement `-0.20289615 m` from hip flexion, elbow
+`-0.14489746 m` from shoulder flexion, palm `-0.15049038 m` from elbow flexion.
+Knee flexion correctly moves the ankle backwards. An initial exploratory call
+used wxyz identity and was discarded before conclusions; the corrected call
+and the production native test both use engine conventions.
+
+V5 reverses those eight bilateral anatomical axes while keeping their numeric
+ROM, effort limits and all other joints unchanged. The native test creates
+both V4 and V5 through `CompiledBodySchemaV3`, imports a +30-degree pose through
+the production restore API and reads physical endpoints / forearm orientation.
+It verifies V4's backwards flexion as a negative control, V5's forward flexion,
+inward adduction and unchanged backwards knee bending on both sides. This is
+kinematic correctness, not a causal claim about the learned trunk lean.
+
+Exact delta tests permit only eight axes, two collider local Z coordinates,
+and new schema/source identities. Mass, COM, full and projected inertia, link
+binds, effectors, feet, dimensions, materials and exclusions are unchanged.
+The neutral gap is `21.444 mm` versus V4's `90.7 mm`; whole-body neutral COM is
+unchanged. All V2–V5 neutral stature/sole/non-excluded-AABB checks pass.
+
+External output directory:
+`/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
+`descriptor.json` SHA-256:
+`1e3c0cefaa92cda91e1c1ae893126df0da4beee852d69a509efae597bbe86a54`.
+Body schema hash:
+`5a485b67d250ac40c1232176ab9de982954541a6a2080078494aea1b5054288b`.
+`sagittal-comparison.png` was visually inspected; it compares actual compiled
+colliders and unchanged centres of mass, not learned trajectories.
+
+Validation: 130 native `next_motor` library tests passed; focused clippy with
+all targets and warnings denied passed after replacing a redundant test Vec
+with an array. Initial default-SDK build failed closed on a different global
+SDK build profile. Re-running with the existing exact CPU SDK `f259d3da…`
+passed; the global locator and manifest checks were not changed.
+
+`content-package` (123 records / 64 chunks) and all six `boundary-scan`
+checks also passed. Formatting, diff
+whitespace and local report/ADR/task-state links passed. Broad `host-check`,
+gameplay `play`, full application `persistence-replay` and performance were
+not run for this opt-in body-data change; the package's native replay and
+old-environment regression tests were included in the 130 passing tests.
+
+Remaining: source-preserving full principal inertia, foot mechanics,
+V5-compatible controller/reference directions, native dynamic support and a
+separately identified training environment. No optimizer was started. The old
+V4 checkpoint remains a control and is not called V5-compatible. A native
+neutral substep is not a standing/walking quality result.

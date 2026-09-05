@@ -1958,6 +1958,18 @@ are not part of R8a. The current Linux `host-check`, `play`,
 `persistence-replay` and `content-package` all pass; full
 `INJURY-EMBODIMENT-P1` remains `NOT_RUN`.
 
+**2026-09-05 body-improvement update:** The separately recorded
+[known V4-body walking candidate](development/r8b-known-candidate-reuse-2026-09-05.md)
+passes the nominal V8 physical matrix, without robustness/runtime promotion.
+[ADR-114](architecture/adr/114-anatomical-axes-and-sagittal-body-proxies.md) now
+adds an opt-in BodySchema V5 diagnostic: eight corrected anatomical axes and
+two sagittal collider centres. Native direction and neutral-clearance tests
+pass; mass/inertia/foot and learned posture improvements remain open. No
+optimizer is active. Keep the old candidate as control; next work is a
+source-consistent inertia/foot successor and compatible standing controller,
+then a separately identified training environment. Historical run results
+below remain exact-profile records, not the status of the V5 body.
+
 **Текущий пакет R8b:** `SELECTED / ACTIVE_R&D /
 FIRST_LEARNED_LOCOMOTION / V3_STANDING_NOMINAL_GATE_PASS /
 R&D_ONLY_WALKING_V1_V2_V3_FAILED / WALKING_ACTION_BASIS_AUDIT_REQUIRED /

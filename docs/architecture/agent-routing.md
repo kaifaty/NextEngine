@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.52 |
+| Версия | 2.53 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -32,6 +32,13 @@
 `Future neural-assisted world solvers` дополнительно обязателен полный
 [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md): он
 задаёт promotion guardrails и supersedes конфликтующие Proposed clauses.
+
+For the opt-in anatomical BodySchema V5 successor, additionally read
+[SPEC-35](35-deterministic-humanoid-training-substrate.md) and
+[ADR-114](adr/114-anatomical-axes-and-sagittal-body-proxies.md). Run focused
+motor format/lint/tests, bilateral native anatomical-direction and exact
+body-delta checks, and diagnostic descriptor export. Existing training
+environment/checkpoint compatibility is not inherited by this body.
 
 ## Validation scope
 

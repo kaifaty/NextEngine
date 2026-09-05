@@ -9,6 +9,20 @@ use crate::{
     biomechanics_humanoid_body_schema_v4,
 };
 
+/// Inspection of the canonical compiled body; not a training or mirror admission.
+pub fn biomechanics_body_diagnostic_descriptor_json_v5() -> Result<String, MotorCompileError> {
+    let schema = crate::biomechanics_humanoid_body_schema_v5();
+    let mut descriptor: Value = serde_json::from_str(
+        &biomechanics_isaac_mirror_descriptor_json_v2_for_schema(&schema)?,
+    )
+    .expect("engine descriptor JSON");
+    descriptor["translator_id"] = json!("nextengine.canonical-body-inspection.v1");
+    descriptor["backend_admission"] = json!("native-body-diagnostic-only");
+    let mut output = serde_json::to_string_pretty(&descriptor).expect("descriptor JSON");
+    output.push('\n');
+    Ok(output)
+}
+
 pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v2();
     biomechanics_isaac_mirror_descriptor_json_v1_for_schema(&schema)
@@ -293,6 +307,34 @@ fn geometry_json(geometry: &PhysicsGeometryV1) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v5_body_inspection_has_new_identity_and_no_environment_admission() {
+        let value: Value = serde_json::from_str(
+            &biomechanics_body_diagnostic_descriptor_json_v5().expect("body inspection"),
+        )
+        .expect("valid JSON");
+        let schema = crate::biomechanics_humanoid_body_schema_v5();
+        assert_eq!(
+            value["body_schema_hash"],
+            schema.schema_hash().expect("hash").to_hex()
+        );
+        assert_eq!(value["body_schema_revision"], 5);
+        assert_eq!(value["backend_admission"], "native-body-diagnostic-only");
+        assert_eq!(
+            value["translator_id"],
+            "nextengine.canonical-body-inspection.v1"
+        );
+        assert!(value.get("environment_profiles").is_none());
+        let old: Value =
+            serde_json::from_str(&biomechanics_isaac_mirror_descriptor_json_v4().expect("V4"))
+                .expect("old JSON");
+        assert_ne!(
+            value["compiled_descriptor_hash"],
+            old["compiled_descriptor_hash"]
+        );
+        assert_eq!(value["material_lineage_hash"], old["material_lineage_hash"]);
+    }
 
     #[test]
     fn biomechanics_mirror_is_generated_from_compiled_descriptor() {

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.80 |
+| Версия | 2.81 |
 | Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.79; admits explicit known-candidate nominal reuse under ADR-113 |
+| Заменяет | INDEX-001 2.80; adds anatomical BodySchema V5 diagnostics under ADR-114 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -320,6 +320,7 @@ traceability — навигационная карта, не admission authority
 | ADR-111 | [Final-weight corrected walking evaluation](adr/111-final-weight-corrected-walking-evaluation.md) | Accepted separate V8 matrix using only closed V7 final weights; exact loaded support plus free-foot release, no optimizer or runtime admission |
 | ADR-112 | [Prospective validated walking training](adr/112-prospective-validated-walking-training.md) | Accepted separate fresh V8 run, fixed learning rate and first full native-validation pass retention; old results frozen, no runtime admission |
 | ADR-113 | [Explicit known walking candidate reuse](adr/113-explicit-known-walking-candidate-reuse.md) | Accepted one openly selected intermediate candidate, unchanged full native physical matrix; no old-result relabeling, statistical or runtime promotion |
+| ADR-114 | [Anatomical axes and sagittal body proxies](adr/114-anatomical-axes-and-sagittal-body-proxies.md) | Accepted opt-in BodySchema V5 native diagnostic; old environments and checkpoints unchanged, no learned-quality admission |
 
 ## Proposed tracks
 

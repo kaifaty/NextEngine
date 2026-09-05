@@ -92,6 +92,47 @@ pub fn biomechanics_humanoid_body_schema_v4() -> BodySchemaV2 {
     )
 }
 
+/// Anatomical-axis and sagittal-proxy successor; no training profile inherits it.
+#[must_use]
+pub fn biomechanics_humanoid_body_schema_v5() -> BodySchemaV2 {
+    let mut schema = biomechanics_humanoid_body_schema_v4();
+    schema.schema_id = id("nextengine.body.humanoid-biomechanics-raja-1700.v5");
+    schema.schema_revision = 5;
+    schema.source_provenance_hash =
+        domain_hash(b"nextengine.source.raja-1700.anatomical-axis-sagittal-projection.v5");
+    for joint in &mut schema.joints {
+        match joint.anatomical_semantic_id.as_str() {
+            // A hanging limb points down (-Y). Positive flexion must move it
+            // forward (+Z), hence -X. Knee flexion deliberately remains +X.
+            "anatomical-joint.hip-flexion"
+            | "anatomical-joint.shoulder-flexion"
+            | "anatomical-joint.elbow-flexion"
+            | "anatomical-joint.hip-adduction" => {
+                joint.axis_q1_30 = joint.axis_q1_30.map(|component| -component);
+            }
+            _ => {}
+        }
+    }
+    for body in &mut schema.bodies {
+        for collider in &mut body.colliders {
+            match collider.collider_id.as_str() {
+                // Centre the pelvis proxy on its source sagittal COM, not the
+                // anterior body-frame origin. No COM or joint is relocated.
+                "collider.pelvis" => collider.local_pose.translation_micrometres[2] = -70_700,
+                // Source rib-cage sagittal bounds midpoint: (-87827+104939)/2.
+                // Retain the coarse envelope dimensions and vertical extent.
+                "collider.torso" => collider.local_pose.translation_micrometres[2] = 8_556,
+                _ => {}
+            }
+        }
+    }
+    let schema = schema.canonicalize();
+    schema
+        .validate()
+        .expect("the V5 anatomical successor is valid");
+    schema
+}
+
 fn biomechanics_humanoid_body_schema(
     schema_id: &str,
     schema_revision: u32,
@@ -944,6 +985,161 @@ mod tests {
     }
 
     #[test]
+    fn v5_changes_only_eight_anatomical_axes_and_two_sagittal_proxies() {
+        let v4 = biomechanics_humanoid_body_schema_v4();
+        let v5 = biomechanics_humanoid_body_schema_v5();
+        assert_ne!(v4.schema_hash(), v5.schema_hash());
+        let mut restored = v5.clone();
+        restored.schema_id = v4.schema_id.clone();
+        restored.schema_revision = v4.schema_revision;
+        restored.source_provenance_hash = v4.source_provenance_hash;
+        let mut changed_axes = 0;
+        for (old, new) in v4.joints.iter().zip(&mut restored.joints) {
+            if old.axis_q1_30 != new.axis_q1_30 {
+                changed_axes += 1;
+                assert_eq!(new.axis_q1_30, old.axis_q1_30.map(|v| -v));
+                new.axis_q1_30 = old.axis_q1_30;
+            }
+        }
+        assert_eq!(changed_axes, 8);
+        let mut changed_proxies = 0;
+        for (old, new) in v4.bodies.iter().zip(&mut restored.bodies) {
+            for (old, new) in old.colliders.iter().zip(&mut new.colliders) {
+                if old.local_pose != new.local_pose {
+                    changed_proxies += 1;
+                    assert!(matches!(
+                        new.collider_id.as_str(),
+                        "collider.pelvis" | "collider.torso"
+                    ));
+                    new.local_pose = old.local_pose;
+                }
+            }
+        }
+        assert_eq!(changed_proxies, 2);
+        assert_eq!(restored, v4);
+    }
+
+    #[test]
+    fn v5_aligns_sagittal_proxies_without_relocating_anatomical_mass() {
+        let schema = biomechanics_humanoid_body_schema_v5();
+        let pelvis = schema
+            .bodies
+            .iter()
+            .find(|b| b.body_id == body_id("pelvis"))
+            .expect("pelvis");
+        let torso = schema
+            .bodies
+            .iter()
+            .find(|b| b.body_id == body_id("torso-yaw"))
+            .expect("torso");
+        let torso_proxy = torso
+            .colliders
+            .iter()
+            .find(|c| c.collider_id.as_str() == "collider.torso")
+            .expect("torso collider");
+        let pelvis_z = pelvis.colliders[0].local_pose.translation_micrometres[2];
+        let torso_z = -100_700 + torso_proxy.local_pose.translation_micrometres[2];
+        assert_eq!(pelvis_z, pelvis.center_of_mass_micrometres[2]);
+        assert_eq!(pelvis_z - torso_z, 21_444);
+        assert_eq!(torso.center_of_mass_micrometres[2], -30_000);
+    }
+
+    #[cfg(feature = "physx-sdk")]
+    #[test]
+    fn v5_native_positive_flexion_and_adduction_have_anatomical_directions() {
+        use crate::CompiledBodySchemaV3;
+        use next_contracts::ids::PersistentId;
+        use next_physics_physx::PhysXArticulationWorldV3;
+
+        // Production compiler + native state import, not a second FK model.
+        for (schema, flexion_sign) in [
+            (biomechanics_humanoid_body_schema_v4(), -1_i64),
+            (biomechanics_humanoid_body_schema_v5(), 1_i64),
+        ] {
+            let compiled =
+                CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))
+                    .expect("compile");
+            let mut world = PhysXArticulationWorldV3::create(
+                compiled.base.physx_scene_profile,
+                &compiled.physx_catalog,
+            )
+            .expect("native create");
+            let neutral = world.capture().expect("neutral capture");
+            let checkpoint = world.raw_checkpoint();
+            for side in ["left", "right"] {
+                for (joint_name, endpoint, dimension, expected_sign) in [
+                    ("hip-pitch", "knee", 2, flexion_sign),
+                    ("shoulder-pitch", "elbow", 2, flexion_sign),
+                    ("knee", "ankle-roll", 2, -1),
+                    (
+                        "hip-roll",
+                        "knee",
+                        0,
+                        if side == "right" {
+                            -flexion_sign
+                        } else {
+                            flexion_sign
+                        },
+                    ),
+                ] {
+                    let dof = compiled.base.joint_dof_ordinals
+                        [&joint_id(&format!("{side}-{joint_name}"))]
+                        as usize;
+                    let slot = compiled
+                        .base
+                        .construction_order
+                        .iter()
+                        .position(|id| id == &body_id(&format!("{side}-{endpoint}")))
+                        .expect("endpoint slot");
+                    let token = compiled.physx_catalog.base.links[slot].user_token;
+                    let mut posed = checkpoint.clone();
+                    posed.joints[dof].position_bits = (std::f32::consts::PI / 6.0).to_bits();
+                    let observed = world.restore(&posed).expect("production native restore");
+                    let before = neutral
+                        .links
+                        .iter()
+                        .find(|link| link.user_token == token)
+                        .expect("neutral link");
+                    let after = observed
+                        .links
+                        .iter()
+                        .find(|link| link.user_token == token)
+                        .expect("posed link");
+                    let delta = after.position_micrometres[dimension]
+                        - before.position_micrometres[dimension];
+                    assert!(
+                        expected_sign * delta > 100_000,
+                        "{} {side}-{joint_name}: delta {delta}",
+                        schema.schema_id.as_str()
+                    );
+                }
+                let dof =
+                    compiled.base.joint_dof_ordinals[&joint_id(&format!("{side}-elbow"))] as usize;
+                let slot = compiled
+                    .base
+                    .construction_order
+                    .iter()
+                    .position(|id| id == &body_id(&format!("{side}-elbow")))
+                    .expect("elbow slot");
+                let mut posed = checkpoint.clone();
+                posed.joints[dof].position_bits = (std::f32::consts::PI / 6.0).to_bits();
+                world.restore(&posed).expect("native elbow pose");
+                let raw = world.raw_checkpoint();
+                let [x, y, z, w] = raw.links[slot]
+                    .rotation_bits
+                    .map(|b| f64::from(f32::from_bits(b)));
+                // Forward coordinate of the distal forearm's local -Y axis.
+                let distal_forward = -2.0 * (y * z + w * x);
+                assert!(distal_forward * flexion_sign as f64 > 0.49);
+            }
+            world.restore(&checkpoint).expect("restore neutral");
+            world
+                .apply_efforts_and_step(&[0; BIOMECHANICS_HUMANOID_DOF])
+                .expect("native neutral substep");
+        }
+    }
+
+    #[test]
     fn compound_joint_source_adjacencies_are_collision_excluded() {
         let schema = biomechanics_humanoid_body_schema_v2();
         assert_eq!(schema.schema_revision, 2);
@@ -1028,7 +1224,17 @@ mod tests {
 
     #[test]
     fn neutral_geometry_has_exact_stature_soles_and_no_nonexcluded_overlap() {
-        let schema = biomechanics_humanoid_body_schema_v2();
+        for schema in [
+            biomechanics_humanoid_body_schema_v2(),
+            biomechanics_humanoid_body_schema_v3(),
+            biomechanics_humanoid_body_schema_v4(),
+            biomechanics_humanoid_body_schema_v5(),
+        ] {
+            assert_neutral_geometry(schema);
+        }
+    }
+
+    fn assert_neutral_geometry(schema: BodySchemaV2) {
         let bodies = schema
             .bodies
             .iter()
