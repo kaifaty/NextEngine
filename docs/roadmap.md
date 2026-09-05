@@ -1987,8 +1987,13 @@ training environment; no more unchanged friction/iteration sweeps.
 A [reviewed foot-input audit](development/r8b-foot-successor-inputs-research-2026-09-05.md)
 now closes the source2023 check: its toe inertia is planar at engine precision,
 and the current box ends45.718 mm behind the source visual toe tip. An articulated
-successor needs an explicit finite-volume mass/inertia and contact projection;
-no new foot or training profile is implemented by this audit.
+successor needs an explicit finite-volume mass/inertia and contact projection.
+[ADR-118](architecture/adr/118-articulated-volumetric-foot-body.md) now implements
+BodySchema V8 with separate rear/forefoot segments, bilateral MTP hinges and
+finite-volume inertia. Native kinematic and unchanged-body regression checks
+pass (144 motor tests). This is not loaded standing: next implement anatomical
+foot impact aggregation and compatible standing consumers, then validate flat
+support, heel-rise/re-contact and disturbances before selecting training.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

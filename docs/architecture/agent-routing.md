@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.56 |
+| Версия | 2.57 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,13 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For articulated-foot BodySchema V8, additionally read
+[ADR-118](adr/118-articulated-volumetric-foot-body.md), SPEC-35 and ADR-069/071/115/117.
+Run native motor tests, all-target Clippy/format, boundary-scan and content-package.
+Verify finite-volume toe/source-rear moments, preserved mass and non-foot anatomy,
+neutral geometry, bilateral native articulation and exact four-sole material closure.
+No existing contact/standing/training consumer is admitted by a kinematic check.
 
 For BodySchema V7 / quiet upright standing V2, additionally read
 [ADR-117](adr/117-quiet-upright-body-and-standing-reference.md), SPEC-35 and

@@ -26,7 +26,10 @@ pub const BIOMECHANICS_HUMANOID_V4_SHANK_HALF_WIDTH_MICROMETRES: i64 = 45_000;
 pub const BIOMECHANICS_HUMANOID_V3_KNEE_RADIUS_MICROMETRES: i64 = 65_000;
 pub const BIOMECHANICS_HUMANOID_V4_KNEE_RADIUS_MICROMETRES: i64 = 50_000;
 
+mod foot_v8;
 mod profile;
+
+pub use foot_v8::biomechanics_humanoid_body_schema_v8;
 
 use profile::*;
 
@@ -1486,6 +1489,8 @@ mod tests {
             biomechanics_humanoid_body_schema_v4(),
             biomechanics_humanoid_body_schema_v5(),
             biomechanics_humanoid_body_schema_v6(),
+            biomechanics_humanoid_body_schema_v7(),
+            biomechanics_humanoid_body_schema_v8(),
         ] {
             assert_neutral_geometry(schema);
         }

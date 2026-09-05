@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V7_AND_UPRIGHT_V2_IMPLEMENTED / DISTURBANCE_AND_FEET_OPEN` |
+| Status | `BODY_V8_KINEMATICS_IMPLEMENTED / LOADED_FEET_AND_DISTURBANCE_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -27,8 +27,8 @@
 - V4 has reversed hip/shoulder/elbow flexion and hip-adduction directions.
   V5 reverses those eight axes only. Bilateral production native state import
   proves the corrected directions and preserved backwards knee flexion.
-- Foot is still a rigid box. The successful gait shows toe-edge roll and a
-  flat final stance; adding forefoot articulation is not yet implemented.
+- The preserved successful gait still uses a rigid box. V8 now adds a separate
+  forefoot and MTP hinge; native kinematics pass, loaded support is not tested.
 - V6 now carries full principal moments / frames for all six non-diagonal
   tensors. Integer and compiled-float reconstruction error <= 1 micro kg m²
   per component; old masses/COM/geometry and V5 descriptor bytes unchanged.
@@ -93,9 +93,10 @@
 - Foot input audit now independently closed: upstream2016/2023 toe inertia
   becomes planar [100,1100,1000] micro kg m², not a finite-thickness repair.
   Source toe COM is3.4 mm past the current box front; visual toes reach45.718 mm
-  past it. Do not simply partition the old box. Next: finite-volume articulated
-  proxy with explicit inertia projection, bilateral native support controls
-  and anatomical foot impact aggregation (existing6 Ns limit is per pair).
+  past it. Do not simply partition the old box. The finite-volume articulated
+  proxy is implemented as V8 (report15). Next: anatomical foot impact aggregation
+  (existing6 Ns limit is per pair), compatible standing/terminal consumers,
+  then bilateral loaded controls. Old standing V2 rejects V8 as intended.
 
 ## Required context
 
@@ -124,6 +125,8 @@
 13. [Implemented V7/standing V2](../r8b-body-v7-upright-profile-2026-09-05.md)
     and [ADR-117](../../architecture/adr/117-quiet-upright-body-and-standing-reference.md).
 14. [Reviewed foot source/geometry inputs and successor constraints](../r8b-foot-successor-inputs-research-2026-09-05.md).
+15. [Implemented articulated foot and checks](../r8b-articulated-foot-v8-2026-09-05.md)
+    and [ADR-118](../../architecture/adr/118-articulated-volumetric-foot-body.md).
 
 ## Decision and remaining uncertainty
 
@@ -149,7 +152,7 @@
   setMassSpaceInertiaTensor path was inspected in pinned 5.9.0 source.
 - Source toes have a non-realizable diagonal inertia; do not copy it into a
   new dynamic MTP link. Current merged foot tensors pass that elementary
-  check. Source2023 audit is complete (report14); finite-volume proxy remains.
+  check. Source2023 audit and V8 finite-volume proxy are complete (reports14/15).
 - Success oracle for physical successor: loaded flat support, controlled
   heel rise, release/re-contact and bilateral symmetry, original safety;
   later learned quality needs a new compatible generation.
@@ -192,10 +195,10 @@
   Global active SDK has a different build profile and is correctly rejected;
   do not change global active locator or weaken manifest validation.
 - Initial previews and failed CLI artifact retained externally; use audit-04.
-- Physical foot successor remains open, not completed by the rendering fix.
-  OpenSim issue185 reports the toe Izz factor-ten discrepancy but is not an
-  accepted correction. Source audit report14 supersedes the inspect-source
-  next action; it does not select a new physical split or passive gains.
+- Physical V8 foot is implemented, not dynamically admitted. Initial144-test
+  suite failed rear mass-volume containment (143 passed); collider top +5 mm
+  repairs it without changing sole/mass/COM. Final144 tests, native Clippy,
+  boundary/content pass. Exact hashes and remaining consumers are in report15.
 - `actuator-discriminator-01` holds unchanged, near-passive and gain-/16 traces
   and hash-bound per-channel audits. New unchanged trace equals all original
   per-iteration steps/hashes. Near-passive arms are rejected, and gain-/16 is

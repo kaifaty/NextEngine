@@ -49,8 +49,17 @@ impl CompiledBodySchemaV3 {
         let materials = biomechanics_material_catalog_v2();
         let material_combine_profile = biomechanics_material_combine_profile_v1();
         let ground_material_id = schema_id(BIOMECHANICS_GROUND_MATERIAL_ID);
+        let sole_count =
+            if schema.schema_id.as_str() == "nextengine.body.humanoid-biomechanics-raja-1700.v8" {
+                if *schema != crate::biomechanics_humanoid_body_schema_v8() {
+                    return Err(MotorCompileError::UnsupportedMaterialProfile);
+                }
+                4
+            } else {
+                2
+            };
         let collider_material_assignment_counts =
-            validate_material_closure(&base, &materials, &ground_material_id)?;
+            validate_material_closure(&base, &materials, &ground_material_id, sole_count)?;
         let shared_material = PhysXSharedMaterialProfileV1::from_material_catalog(
             &materials,
             &material_combine_profile,
@@ -133,6 +142,7 @@ fn validate_material_closure(
     compiled: &CompiledBodySchemaV2,
     materials: &BTreeMap<SchemaId, PhysicsMaterialDescriptorV2>,
     ground_material_id: &SchemaId,
+    sole_count: u32,
 ) -> Result<BTreeMap<SchemaId, u32>, MotorCompileError> {
     if !materials.contains_key(ground_material_id) {
         return Err(MotorCompileError::InvalidReference);
@@ -155,7 +165,7 @@ fn validate_material_closure(
     }
     let expected = BTreeMap::from([
         (schema_id(BIOMECHANICS_BODY_MATERIAL_ID), 17),
-        (schema_id(BIOMECHANICS_SOLE_MATERIAL_ID), 2),
+        (schema_id(BIOMECHANICS_SOLE_MATERIAL_ID), sole_count),
     ]);
     if counts != expected {
         return Err(MotorCompileError::UnsupportedMaterialProfile);

@@ -20,6 +20,12 @@ pub fn biomechanics_body_diagnostic_descriptor_json_v6() -> Result<String, Motor
     biomechanics_body_diagnostic_descriptor_json(&schema)
 }
 
+/// Articulated foot geometry inspection; standing/contact-controller admission is separate.
+pub fn biomechanics_body_diagnostic_descriptor_json_v8() -> Result<String, MotorCompileError> {
+    let schema = crate::biomechanics_humanoid_body_schema_v8();
+    biomechanics_body_diagnostic_descriptor_json(&schema)
+}
+
 fn biomechanics_body_diagnostic_descriptor_json(
     schema: &BodySchemaV2,
 ) -> Result<String, MotorCompileError> {

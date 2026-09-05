@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 3.11 |
+| Версия | 3.12 |
 | Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md), [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
-| Заменяет | SPEC-35 3.10; adds opt-in BodySchema V7 and standing reference V2 |
+| Заменяет | SPEC-35 3.11; adds opt-in articulated-foot BodySchema V8 diagnostic |
+| Дополнительные зависимости V3.12 | [ADR-118](adr/118-articulated-volumetric-foot-body.md) |
 | Дополнительные зависимости V3.9 | [ADR-115](adr/115-full-principal-inertia-body-successor.md) |
 | Дополнительные зависимости V3.10 | [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md) |
 | Дополнительные зависимости V3.11 | [ADR-117](adr/117-quiet-upright-body-and-standing-reference.md) |
@@ -324,6 +325,16 @@ the compiled identity, subject PersistentId and reset anchoring. Old references/
 unchanged. Full native correspondence to the quiet nominal candidate is
 required; this does not admit perturbation robustness, walking, old weights,
 training or runtime deployment. Foot mechanics remains separate work.
+
+[ADR-118](adr/118-articulated-volumetric-foot-body.md) adds opt-in BodySchema V8:
+two MTP hinges, source calcaneus mass/inertia and finite-volume toe proxies,
+26 bodies/25 actuators/21 colliders. Total body mass and non-foot anatomy remain.
+Source toe COM/mass are preserved while impossible/planar inertia is replaced
+by an explicit projection and new ankle-group moments. Native kinematics and
+four-sole material closure do not admit dynamic standing. Existing controller
+V2 rejects this body; a successor must preserve6 Ns anatomical-foot aggregate
+safety, validate loaded support/re-contact and disturbances, and carry separate
+training compatibility. Existing body and environment hashes are unchanged.
 
 `WorldCheckpointV5` atomically contains runtime/RPG state plus the final
 `PhysicsWorldCheckpointV2` and `MotorWorldCheckpointV1` witness. The same
