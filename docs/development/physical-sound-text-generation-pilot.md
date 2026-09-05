@@ -5970,3 +5970,109 @@ for relative shape/contact with eligible TRAIN/disclosed3DGS input and published
 weights, while retaining the proven lack of explicit size/force/striker controls.
 Do not reopen protectedObjectFolder roles/defaultvalidation inputs, claim broad
 realism, or treat these2D improvements as completion of the multi-process goal.
+
+## First source-free SonicGauss 3D contact pair — 2026-09-06
+
+[Two generated contacts, A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-pair-2026-09-06/comparison.wav),
+6.444s including a0.5s gap.
+[Recorded A→generated A→recorded B→generated B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-assessment-2026-09-06/reference-generated-comparison.wav),
+13.944s including four0.5s gaps. Source references are assessment-only, downloaded
+AFTER the first source-free generation. This is a shared published model, not a
+new per-material fit, not unseen-object evidence and not a replacement for liked
+glass/water examples.
+
+[Runner](../../lab/scripts/physical_sound_sonicgauss_pilot.py) executes the
+inference-reachable reviewed definitions from pinned external sources:
+[SonicGauss](https://github.com/AiEson/SonicGauss/tree/7a5687afbe6d4338f8e569b3738c3fa7fa62304a),
+[SplatFormer](https://github.com/ChenYutongTHU/SplatFormer/tree/446ffb5dd1c35b4b8f94953a22046bde5714a094),
+[Pointcept](https://github.com/ChenYutongTHU/Pointcept/tree/c4aa232bfbc24dc0f3d6699dff03632f9d0ff595),
+[TangoFlux](https://github.com/declare-lab/TangoFlux/tree/fb364c254884c017d327ff5180660ec59ba56251).
+Source17file hashes and five weight hashes are enforced before use. No broad
+upstream package initializers, pickle, tokenizer or network model loading.
+
+[Model weights](https://huggingface.co/AiEson2/SonicGauss/tree/57b0604763fe2adb8acd686afeabd055b05d446e)
+total2506171436bytes; all five full SHA256 checks passed. VAE365, TangoFlux243,
+GaussianEncoder537, PositionEncoder7, FeatureFusion12 state keys load strictly.
+The219text-encoder keys are explicitly unused: geometry replaces text in this
+inference path. VAE uses the existing AutoencoderOobleck default architecture,
+strictly loaded from the published frozen VAE weights,44100Hz. The upstream gated
+VAE config URL returned401; no gated download or bypass. Exact authors' software-
+environment equivalence is NOT established by strict tensor shape coverage alone.
+
+[Dataset](https://huggingface.co/datasets/AiEson2/SonicGauss/tree/e905b8cbc06f8b3d8f5c5bc0ed697ca63307ed77)
+is a six-part24.7GBZIP. Bounded HTTP206/content-range checks read the ZIP64
+directory and ONLY `objectfolder_real_train.json`, one eligible PLY, then the two
+assessment references. CRC32 and per-range/selected-file SHA256 checks pass;
+the full archive hash is NOT verified. No default author validation JSON,
+protected response or other object payload is opened.
+
+Selected object6 is the already disclosed TRAIN canonical parent
+`realimpact-6-bowl--objectfolder-real-object-6`, not the unrelated ObjectFolder2.0
+object6. Author TRAIN has39records for it. The first two in author order are
+contacts16/35, selected before hearing/scoring. PLY5629642bytes, SHA
+92892268d640c54e60482562fb712b0a6b562a15917d6256bb7fe475dd058303.
+Upstream raw-opacity filtering retains12250Gaussians; grid384 has12130unique
+coordinates (duplicate voxels observed, not removed or proven causal).
+Dataset card labelsCC-BY4 and refers to ObjectFolder terms; model card labels
+Apache2. These labels do not establish blanket redistribution rights for source
+code, VAE or upstream components. Assets/notices stay external; no product license
+clearance or runtime promotion is claimed.
+
+Compatibility: Python3.12/Torch2.13+cu130, external `sonicgauss-python-2026-09-06`
+overlay with SpConv-cu1182.3.8/Cumm-cu1180.7.11, gin0.5, plyfile1.1.3, addict2.4,
+timm1.0.20; reuse `mmaudio-python-2026-09-05` for torchvision. Mainvenv unchanged.
+PTv3 retains stride2/2/4/4, all original features,1024token patches, original
+serialization/padding and FP16QKV. Native ragged PyTorchSDPA substitutes for
+FlashAttention, and `torch.segment_reduce` for CSR max/mean. Do NOT just disable
+flash in upstream config: that also changes patches to128. CPU explicit-attention
+and CSR controls pass; GPU1024+7token ragged attention versus explicitFP64 has
+maxabs.00038962/relativeRMS.00026727. This is numerical compatibility, NOT bitwise
+upstream-backend identity.
+
+Both contacts use seed0/50steps/noCFG, duration request3s. Full decoder output is
+131072stereo samples,2.972154s; no prefix-only crop,EQ,gating or per-case gain.
+Shared playback gain1.0; raw peaks.14963/.14516. AST audio-only diagnostic puts
+`Chink, clink` first for both, at raw levels and fixed diagnosticRMS.005. The real
+TRAIN controls instead rankDing/Clang first; this supports only coarse impact
+recognition, not material/physical realism. Source sub20Hz energy fractions are
+32.71%/54.58%, generated43.51%/45.50%; low-frequency energy is not a generator-only
+artifact. Do not automatically high-pass or normalize it away. In audible band,
+source dominant bins differ13099.3/783.7Hz, generated both3896.5Hz; dominance alone
+does not describe the full modal spectrum or prove the cause of the mismatch.
+
+Repeatability FAILED exact equality: A→B relative waveformRMS change.07017,
+same-input A repeat.0017715 (~39.6times smaller). Fresh-process replay also differs.
+This is a measured sensitivity above observed repeat drift, not a calibrated
+position-response pass. No retry-to-green or kernel-cause assertion. Raw latents,
+raw waveform arrays and all repeat WAVs retained. Warm generation.61–.65s on this
+GPU excludes startup and is not a runtime performance claim.
+
+External roots share `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`:
+`sonicgauss-source-2026-09-06`, `sonicgauss-assets-2026-09-06` (download.py/source.json),
+`sonicgauss-range-2026-09-06` (pinned selective acquisition scripts/range receipts),
+`sonicgauss-contact-pair-2026-09-06`, `sonicgauss-contact-replay-2026-09-06`,
+`sonicgauss-contact-assessment-2026-09-06` (assess.py/signal.json/twoASTreports).
+Run with the above two PYTHONPATH overlays, HF_HUB_OFFLINE=1,
+TRANSFORMERS_OFFLINE=1, OMP_NUM_THREADS=4, OPENBLAS_NUM_THREADS=4:
+
+```text
+lab/.venv/bin/python lab/scripts/physical_sound_sonicgauss_pilot.py \
+  --source EXTERNAL/sonicgauss-source-2026-09-06 \
+  --assets EXTERNAL/sonicgauss-assets-2026-09-06 \
+  --input EXTERNAL/sonicgauss-range-2026-09-06 --output NEW_EXTERNAL_DIRECTORY
+```
+
+Strace of fresh-process inference reads no reference WAV, training dataset JSON
+or audio features. Only newly generated own WAVs are reopened for hashing; the
+only connect is a failed local NVIDIA-MPS Unix-socket lookup, no internet. All
+nine focused tests (five new, four existing scale-probe), Ruff and full WAV
+layout/headroom/shared-gain checks PASS. Exact replay FAILS as above. All runs
+terminal. No demo/runtime/roadmap change; Cargo,
+host-check and ProductChecks NOT_RUN for bounded external report-only work.
+
+Next discriminator: determine whether real geometry/contact differences survive
+the shared 3Dencoder and frozen decoder, using geometry/appearance and cached-
+conditioning controls before retraining. The two real reference sounds differ
+substantially while generated pair remains close. Do not jump to per-object fits,
+seed sweeps, globalEQ or more2Dloss tuning. This source still lacks explicit size,
+striker material and force; those full-goal requirements remain open.
