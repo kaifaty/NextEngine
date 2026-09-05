@@ -3,7 +3,11 @@ import unittest
 
 import torch
 
-from lab.scripts.diagnose_canonical_ppo_update import check_returns, run_arm
+from lab.scripts.diagnose_canonical_ppo_update import (
+    check_returns,
+    restore_buffer,
+    run_arm,
+)
 from lab.tests.test_ppo_diagnostics import algorithm_fixture, fill
 
 
@@ -41,6 +45,55 @@ class GradientProbeTests(unittest.TestCase):
     def test_unknown_arm_rejected(self):
         with self.assertRaisesRegex(ValueError, "unknown"):
             run_arm(algorithm_fixture("cpu"), "another-lr", 0, 4)
+
+    def test_fixed_lr_never_adapts_source_rate(self):
+        algorithm = algorithm_fixture("cpu")
+        fill(algorithm)
+        rate = algorithm.learning_rate
+        result = run_arm(algorithm, "fixed-source-lr", 55, 4)
+        self.assertTrue(
+            all(row["learning_rate"] == rate for row in result["minibatches"])
+        )
+
+    def test_buffer_roundtrip_and_bad_dtype_rejection_before_copy(self):
+        algorithm = algorithm_fixture("cpu")
+        fill(algorithm)
+        keys = (
+            "actions",
+            "rewards",
+            "dones",
+            "values",
+            "returns",
+            "advantages",
+            "actions_log_prob",
+            "mu",
+            "sigma",
+        )
+        data = {key: getattr(algorithm.storage, key).numpy().copy() for key in keys}
+        data["observations"] = algorithm.storage.observations["policy"].numpy().copy()
+        data.update(
+            {
+                key: value.numpy().copy()
+                for key, value in algorithm.policy.state_dict().items()
+                if "normalizer" in key
+            }
+        )
+        restored = copy.deepcopy(algorithm)
+        for key in keys:
+            getattr(restored.storage, key).zero_()
+        invalid = dict(data)
+        invalid["dones"] = data["dones"].astype("float32")
+        with self.assertRaisesRegex(ValueError, "dones"):
+            restore_buffer(restored, invalid)
+        self.assertEqual(float(restored.storage.actions.abs().sum()), 0)
+        restore_buffer(restored, data)
+        for key in keys:
+            self.assertTrue(
+                torch.equal(
+                    getattr(algorithm.storage, key), getattr(restored.storage, key)
+                )
+            )
+        self.assertEqual(restored.storage.step, 4)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,22 @@
+{
+  "schema": "nextengine.ppo-gradient-diagnostic.v1",
+  "profile_id": "nextengine.ppo-fixed-lr-diagnostic.v1",
+  "status": "ReportOnly",
+  "source_checkpoint_sha256": "108e372cd45e7d7ca30eae6bfaafb1116a549c10a131c1b6a2582fb719d928de",
+  "source_manifest_sha256": "3bcd5ee7a6cd6cd5582454da40c951c143e642bceec4b5f25d721d11f9d76e9e",
+  "headless_sha256": "431b9c22ab6b2185f9fb8446ec1403e79bf8ef9e0c0ec59374dd5f89b8f63624",
+  "buffer_source_manifest_sha256": "934e370de9473678bc765ff1924385e85af9d71861c668c598e13a4a932dbd04",
+  "buffer_sha256": "6e3f9cae5499ffef052e4c068dff66362147661103bb1a16be4cd22548d94d07",
+  "initialization": "same disposable checkpoint model and Adam; restore closed buffer and normalization; not resume",
+  "update_rng_seed": 55001,
+  "num_envs": 128,
+  "shards": 8,
+  "buffer_steps": 32,
+  "arms": ["exact-replayed-adaptive-control", "fixed-source-lr"],
+  "change": "only disable adaptive scheduling; retain checkpoint learning rate 0.00001",
+  "ppo_updates_per_arm": 1,
+  "adam_steps_per_arm": 20,
+  "wall_seconds": 180,
+  "save_candidate_weights": false,
+  "apply_updated_policy_to_environment": false
+}

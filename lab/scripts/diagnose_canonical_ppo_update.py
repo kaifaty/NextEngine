@@ -39,6 +39,52 @@ from lab.scripts.evaluate_corrected_walking import (
 )
 
 PROFILE = ROOT / "lab/profiles/canonical-ppo-gradient-diagnostic.v1.json"
+FIXED_PROFILE = ROOT / "lab/profiles/canonical-ppo-fixed-lr-diagnostic.v1.json"
+
+
+def restore_buffer(algorithm, data):
+    """Restore verified data and normalization, never trainable model parameters."""
+    storage = algorithm.storage
+    destinations = {
+        key: getattr(storage, key)
+        for key in (
+            "actions",
+            "rewards",
+            "dones",
+            "values",
+            "returns",
+            "advantages",
+            "actions_log_prob",
+            "mu",
+            "sigma",
+        )
+    }
+    destinations["observations"] = storage.observations["policy"]
+    destinations.update(
+        {
+            key: value
+            for key, value in algorithm.policy.state_dict().items()
+            if "normalizer" in key
+        }
+    )
+    # Validate the complete set before the first copy.
+    dtypes = {
+        torch.float32: np.dtype("float32"),
+        torch.int64: np.dtype("int64"),
+        torch.uint8: np.dtype("uint8"),
+    }
+    for key, target in destinations.items():
+        if (
+            key not in data
+            or data[key].shape != tuple(target.shape)
+            or data[key].dtype != dtypes.get(target.dtype)
+            or not np.isfinite(data[key]).all()
+        ):
+            raise ValueError(f"invalid buffer field: {key}")
+    with torch.no_grad():
+        for key, target in destinations.items():
+            target.copy_(torch.as_tensor(data[key], device=target.device))
+    storage.step = storage.num_transitions_per_env
 
 
 def check_returns(storage, final_value, gamma, lam):
@@ -81,8 +127,10 @@ def buffer_metrics(policy, storage):
 
 def run_arm(algorithm, name, seed, expected_steps):
     """Both arms start from identical data/model/Adam state and consume equal RNG."""
-    if name not in ("zero-effective-lr", "source-adaptive-lr"):
+    if name not in ("zero-effective-lr", "source-adaptive-lr", "fixed-source-lr"):
         raise ValueError("unknown diagnostic arm")
+    if name == "fixed-source-lr":
+        algorithm.schedule = "fixed"
     before = {
         key: value.clone() for key, value in algorithm.policy.state_dict().items()
     }
@@ -138,8 +186,10 @@ def main():
     parser.add_argument("--target-descriptor", type=Path, required=True)
     parser.add_argument("--headless", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--replay-buffer", type=Path)
     args = parser.parse_args()
-    cfg, matrix = read_json(PROFILE), read_json(MATRIX)
+    profile_path = FIXED_PROFILE if args.replay_buffer is not None else PROFILE
+    cfg, matrix = read_json(profile_path), read_json(MATRIX)
     run = require_external_path(args.run, ROOT, label="closed source")
     out = require_external_path(
         args.output, ROOT, label="diagnostic output", must_exist=False
@@ -173,7 +223,7 @@ def main():
         "schema": "nextengine.ppo-gradient-diagnostic-run.v1",
         "status": "running",
         "profile": cfg,
-        "profile_sha256": sha256_file(PROFILE),
+        "profile_sha256": sha256_file(profile_path),
         "repository_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
@@ -214,6 +264,75 @@ def main():
         if len(rates) != 1:
             raise ValueError("source optimizer has unequal rates")
         algorithm.learning_rate = rates.pop()
+        if args.replay_buffer is not None:
+            source = require_external_path(
+                args.replay_buffer, ROOT, label="buffer source"
+            )
+            require_hash(
+                source / "run-manifest.json", cfg["buffer_source_manifest_sha256"]
+            )
+            source_manifest = read_json(source / "run-manifest.json")
+            if source_manifest["status"] != "completed":
+                raise ValueError("buffer source is not completed")
+            for relative, digest in source_manifest["artifacts"].items():
+                if not (source / relative).resolve().is_relative_to(source.resolve()):
+                    raise ValueError("buffer artifact escapes source")
+                require_hash(source / relative, digest)
+            require_hash(source / "buffer.npz", cfg["buffer_sha256"])
+            algorithm.init_storage(
+                "rl", cfg["num_envs"], cfg["buffer_steps"], obs, [23]
+            )
+            with np.load(source / "buffer.npz", allow_pickle=False) as data:
+                restore_buffer(algorithm, data)
+                error = check_returns(
+                    algorithm.storage,
+                    torch.as_tensor(data["final_value"], device=device),
+                    algorithm.gamma,
+                    algorithm.lam,
+                )
+            baseline = run_arm(
+                copy.deepcopy(algorithm),
+                "source-adaptive-lr",
+                cfg["update_rng_seed"],
+                cfg["adam_steps_per_arm"],
+            )
+            atomic_write_json(out / "replayed-baseline.json", baseline)
+            if baseline != read_json(source / "source-adaptive-lr.json"):
+                raise ValueError(
+                    "fixed-buffer replay does not exactly reproduce baseline"
+                )
+            fixed = run_arm(
+                copy.deepcopy(algorithm),
+                "fixed-source-lr",
+                cfg["update_rng_seed"],
+                cfg["adam_steps_per_arm"],
+            )
+            atomic_write_json(out / "fixed-source-lr.json", fixed)
+            if time.monotonic() - start > cfg["wall_seconds"]:
+                raise TimeoutError("diagnostic wall ceiling")
+            require_hash(
+                run / matrix["source_checkpoint_name"], cfg["source_checkpoint_sha256"]
+            )
+            require_hash(run / "run-manifest.json", cfg["source_manifest_sha256"])
+            manifest.update(
+                status="completed",
+                baseline_exact=True,
+                recurrence_max_error=error,
+                candidate_weights_saved=False,
+                native_steps=0,
+                elapsed_seconds=time.monotonic() - start,
+            )
+            print(
+                json.dumps(
+                    {
+                        "pre": fixed["pre"],
+                        "post": fixed["post"],
+                        "summary": fixed["summary"],
+                    }
+                ),
+                flush=True,
+            )
+            return
         source_parameters = {
             key: value.clone() for key, value in policy.named_parameters()
         }
