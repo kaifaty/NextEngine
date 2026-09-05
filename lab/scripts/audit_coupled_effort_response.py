@@ -16,9 +16,13 @@ import numpy as np
 
 
 def response_matrices(response):
-    if response["contract"] != "r8b-coupled-effort-response.v1":
+    expected_prefix = {
+        "r8b-coupled-effort-response.v1": 240,
+        "r8b-cold-contact-response.v1": 0,
+    }.get(response["contract"])
+    if expected_prefix is None:
         raise ValueError("unsupported research contract")
-    if response["physics_hz"] != 240 or response["prefix_steps"] != 240:
+    if response["physics_hz"] != 240 or response["prefix_steps"] != expected_prefix:
         raise ValueError("wrong time/prefix profile")
     if response["exact_reconstructions"] != 94:
         raise ValueError("wrong reconstruction count")
@@ -86,6 +90,7 @@ def analyze(response):
     return {
         "schema_version": 1,
         "contract": response["contract"],
+        "native_source_override": response.get("native_source_override"),
         "scope": "finite amplitude consistency only; not physical or control stability",
         "criterion": "relative Frobenius difference <= 0.05",
         "criterion_satisfied": relative <= 0.05,
@@ -101,12 +106,44 @@ def analyze(response):
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("trace", type=Path)
-    args = parser.parse_args()
-    data = args.trace.read_bytes()
-    trace = json.loads(data)
+def analyze_cold(trace):
+    pair = trace["cold_response"]
+    if set(pair) != {"grounded", "raised"} or trace["translation_um"] != [0, 500000, 0]:
+        raise ValueError("wrong cold pair/translation")
+    for response in pair.values():
+        if (
+            response["contract"] != "r8b-cold-contact-response.v1"
+            or response["baseline_efforts_by_dof_unm"] != [0] * 23
+        ):
+            raise ValueError("wrong cold contract/baseline")
+    ground, air = pair["grounded"], pair["raised"]
+    if ground.get("native_source_override") != air.get("native_source_override"):
+        raise ValueError("native override mismatch")
+    posts = [air["control_after"], air["repeat_control_after"]] + [
+        t["after"] for t in air["trials"]
+    ]
+    if any(1 in c["actors"] for post in posts for c in post["contacts"]):
+        raise ValueError("raised case still has ground records")
+    support = sum(
+        abs(c["impulse_uns"][1])
+        for c in ground["control_after"]["contacts"]
+        if 1 in c["actors"]
+    )
+    if support <= 0:
+        raise ValueError("grounded control has no support load")
+    return {
+        "schema_version": 1,
+        "scope": "finite cold contact comparison only",
+        "native_source_override": ground.get("native_source_override"),
+        "source_body_schema_hash": trace["source_body_schema_hash"],
+        "grounded_control_support_impulse_ns": support / 1e6,
+        "cases": {name: analyze(response) for name, response in pair.items()},
+    }
+
+
+def analyze_trace(trace):
+    if "cold_response" in trace:
+        return analyze_cold(trace)
     response = trace["response_probe"]
     if response["compiled_descriptor_hash"] != trace["compiled_descriptor_hash"]:
         raise ValueError("compiled identity mismatch")
@@ -118,6 +155,16 @@ def main():
     result = analyze(response)
     result["compiled_descriptor_hash"] = trace["compiled_descriptor_hash"]
     result["body_schema_hash"] = trace["body_schema_hash"]
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("trace", type=Path)
+    args = parser.parse_args()
+    data = args.trace.read_bytes()
+    trace = json.loads(data)
+    result = analyze_trace(trace)
     result["evidence_sha256"] = {
         "trace": hashlib.sha256(data).hexdigest(),
         "script": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),

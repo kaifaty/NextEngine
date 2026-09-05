@@ -60,8 +60,17 @@
   rounding cannot explain this (0.001725 bound vs1.420739 difference norm).
   All trials retain four loaded points per foot; friction/constraint/solver
   sensitivity is unresolved. Do not fit gains/inverse mass from this matrix.
-- Next: compare cold-start same joint pose/zero velocities with/without ground
-  contact via an explicitly identified vertical translation, then torso/leg
+- Cold comparison completed: grounded central maps differ 45.477565%, raised
+  ground-contact-free maps 0.0185195% (max-norm denominator). Independent review
+  and exact native rerun pass. This supports a cold contact-boundary contribution,
+  not the mechanism or warm standing cause; limit kinks remain possible.
+- Joint-friction-zero ablation is REFUTED as a sufficient fix: complete cold
+  outputs unchanged except metadata. Standing lasts 30 s but torso last-10-s
+  peak is 11.246 degrees; k=2 hip feedback fails on impact at substep236.
+  Temporary native setter and metadata are reverted. Restored cold and warm
+  outputs are byte-exact. Do not select zero friction from the upright final frame.
+- Next: predeclare a bounded, explicitly identified contact-solver convergence
+  discriminator with raised control and original safety, then torso/leg
   control, foot mechanics and a separately
   identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
@@ -86,6 +95,8 @@
    and [ADR-116](../../architecture/adr/116-explicit-per-iteration-force-scheduling.md).
 9. [Shoulder actuator discriminator and remaining coupled response](../r8b-actuator-oscillation-discriminator-2026-09-05.md).
 10. [Rejected local coupled map and independent correspondence](../r8b-coupled-effort-response-2026-09-05.md).
+11. [Cold contact-boundary result](../r8b-cold-contact-response-2026-09-05.md)
+    and [rejected joint-friction ablation](../r8b-joint-friction-ablation-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -167,7 +178,12 @@
   exact signed 23-DOF response experiment. Independent native rerun is byte
   exact, with no load-bearing review defect. Two native example tests and
   three Python tests plus focused clippy/Ruff pass. Do not retry amplitudes
-  under v1; the next experiment changes contact boundary/cold-start apparatus.
+  under v1. The later cold experiment is now complete, not the next action.
+- `cold-contact-response-01` and `joint-friction-ablation-01` contain both new
+  independently reviewed experiments and restoration controls. Exact hashes,
+  source patch, limit caveats and rejected prediction are in reports 11.
+  Current native example tests: 3 passed; Python analysis tests: 5 passed.
+  Diagnostic apparatus is retained, no production bridge diff or new defaults.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

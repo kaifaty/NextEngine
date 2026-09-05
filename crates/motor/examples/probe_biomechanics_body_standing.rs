@@ -40,9 +40,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actuator_probe = std::env::args()
         .nth(6)
         .unwrap_or_else(|| "unchanged".to_owned());
-    let measure_response = match std::env::args().nth(7).as_deref() {
+    let response_mode = std::env::args().nth(7);
+    let measure_response = match response_mode.as_deref() {
         None => false,
-        Some("response") => true,
+        Some("response" | "cold-response") => true,
         _ => return Err("optional final mode must be response".into()),
     };
     if measure_response
@@ -80,6 +81,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         schema
     };
+    if response_mode.as_deref() == Some("cold-response") {
+        println!(
+            "{}",
+            serde_json::to_string(&effort_response::measure_cold_pair(&schema)?)?
+        );
+        return Ok(());
+    }
     let successor = CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16]))?;
     let compiled = &successor.base;
     let base = &compiled.base;

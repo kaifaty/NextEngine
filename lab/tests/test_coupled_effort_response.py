@@ -3,7 +3,11 @@ import unittest
 
 import numpy as np
 
-from lab.scripts.audit_coupled_effort_response import analyze, response_matrices
+from lab.scripts.audit_coupled_effort_response import (
+    analyze,
+    analyze_cold,
+    response_matrices,
+)
 
 
 def manufactured_response():
@@ -43,7 +47,54 @@ def manufactured_response():
     }
 
 
+def manufactured_cold_pair():
+    _, response = manufactured_response()
+    response["contract"] = "r8b-cold-contact-response.v1"
+    response["prefix_steps"] = 0
+    response["control_after"] = {"contacts": []}
+    response["repeat_control_after"] = {"contacts": []}
+    for trial in response["trials"]:
+        trial["after"]["contacts"] = []
+    ground = copy.deepcopy(response)
+    ground["control_after"]["contacts"] = [
+        {"actors": [1, 2], "impulse_uns": [0, 1000000, 0]}
+    ]
+    ground["repeat_control_after"] = copy.deepcopy(ground["control_after"])
+    return {
+        "translation_um": [0, 500000, 0],
+        "source_body_schema_hash": "manufactured",
+        "cold_response": {"grounded": ground, "raised": response},
+    }
+
+
 class CoupledResponseTests(unittest.TestCase):
+    def test_cold_pair_requires_loaded_control_and_ground_free_raised_case(self):
+        trace = manufactured_cold_pair()
+        result = analyze_cold(trace)
+        self.assertEqual(result["grounded_control_support_impulse_ns"], 1)
+        self.assertTrue(all(c["criterion_satisfied"] for c in result["cases"].values()))
+
+    def test_invalid_cold_boundaries_fail(self):
+        for case in range(6):
+            trace = manufactured_cold_pair()
+            ground, air = (trace["cold_response"][k] for k in ("grounded", "raised"))
+            if case == 0:
+                air["trials"][0]["after"]["contacts"] = [
+                    {"actors": [1, 2], "impulse_uns": [0, 0, 0]}
+                ]
+            elif case == 1:
+                ground["control_after"]["contacts"][0]["impulse_uns"][1] = 0
+            elif case == 2:
+                air["native_source_override"] = "unmatched"
+            elif case == 3:
+                trace["translation_um"][1] = 0
+            elif case == 4:
+                air["prefix_steps"] = 240
+            else:
+                ground["baseline_efforts_by_dof_unm"][0] = 1
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                analyze_cold(trace)
+
     def test_exact_coupled_linear_response_and_units(self):
         expected, response = manufactured_response()
         for matrix in response_matrices(response):
