@@ -164,3 +164,92 @@ evidence here calls for another anatomy edit or an untested upgrade. Retain
 the scoped unit-boundary correction as the next proposed action; validate the
 real UI-to-live-gain path and reverse readback, then body-level response. Revisit
 if NVIDIA publishes a repair or an end-to-end control contradicts this mapping.
+
+## Local patch implementation — 2026-09-06
+
+User authorized the patch and optionally an upstream PR. Angular damping-unit
+boundary is now `ROOT_CAUSE_FIXED` in an isolated extension copy, not in the
+original pip installation or any NextEngine body/controller. This supersedes
+the earlier "next proposed action" for that boundary only.
+
+Source checkout `/home/kaifaty/NextEngine-training/IsaacSim-gain-tuner-fix`,
+branch `codex/fix-gain-tuner-angular-damping`, commit
+`c02aaa1caf9c20233b5d9f63ce55f06c01527b70`, upstream base
+`987015050efebfd0cd5d3736ae47fffe5adee308`. Changes are five files: UI boundary,
+math unit documentation, regression tests, extension version and changelog.
+The math helpers retain their existing API (stored K, SI D); only non-mimic
+revolute / rotational D6 UI callers convert D on write and readback. Manual
+USD gains, linear paths and mimic parameters receive no new scaling.
+
+Deployment is a backport to the installed3.5.2 extension copied into
+`/home/kaifaty/NextEngine-training/isaacsim-6.0/local-exts/isaacsim.robot_setup.gain_tuner`.
+Its local3.5.4 metadata/title identify the patch; this is NOT an NVIDIA release
+or an installation of Isaac6.0.1. The original39 sealed files, including vendor
+sources and original launch script, still match their hashes. A separate
+launcher opts in via Kit's extension search path:
+`/home/kaifaty/NextEngine-training/isaacsim-6.0/isaac-sim-gain-tuner.sh`.
+Use the original `isaac-sim.sh` to run without this overlay; no uninstall needed.
+Tests assert the actual imported module path, not just the requested extension.
+
+### Regression evidence
+
+External `/home/kaifaty/NextEngine-training/gain-patch-validation-ceOW4Y` retains
+source patch, harnesses, logs, raw NPZ and result JSON. Five new async UI tests
+cover frequency edits, ratio edits, absolute USD gains, manual damping readback,
+row reconstruction without stage mutation, force/acceleration, rotational D6,
+linear non-regression, velocity mode and mimic parameters. Against stock3.5.2:
+ten angular subcases fail, no errors/skips; non-angular controls pass. Against
+both the source branch and deployed backport: all five plus eight existing
+upstream drive-math tests pass (13 tests each, no failures/errors/skips).
+
+The original three physical fixtures and force-mode thresholds are reused:
+24 traces at240/960Hz, four conditions (direct SI control, tuner inertia,
+known inertia, frequency edit3Hz->2Hz). All live K/D relative errors are
+2.94208e-8; expected D2.513274 now reads2.513274, not144. Errors against the
+critical-step solution are0.10310–0.13827% at240Hz and0.03388–0.04484% at960Hz,
+with strict refinement for every condition. All six original direct-SI control
+time/q/v arrays remain bit-exact. No post-UI corrective setter is used.
+
+Acceleration-mode extension of the fixture passes all12 live K/D comparisons
+(max relative error6.72067e-8), but motion error1.30277–2.55630% FAILS the frozen
+1% fine-step criterion, including the direct-SI control BEFORE applying tuner
+gains. Initial run stopped on that control; a collection-only rerun retained
+all traces and records `motion_criterion_pass=false`, without loosening the
+threshold. This limits dynamic calibration claims, not the observed unit fix.
+Do not diagnose its mechanism or mark acceleration dynamics calibrated here.
+
+The first UI harness launch hit Python package attribute shadowing (`ui`);
+using `importlib.import_module` repaired only harness loading, before collecting
+the baseline. `probe-v1.py` retains the exact script used for the force tests;
+the later collection variant saves negative motion results before closing Kit.
+JSON outcomes and completion markers, not Kit process exit status alone, are
+the validation authority.
+
+Summary SHA256 `4af96360d457cd02262c52d161a6a4127eedd638cf71ee15469d3ff80309a0c0`.
+Export `0001-Fix-angular-damping-conversion-at-Gain-Tuner-USD-bou.patch` SHA256
+`ef212df5f8bba95b75635cb683470012871a21b6205692bd574178bb3ae6720e`.
+The summary seals deployed files, harnesses and outputs; exact source is the
+external Git commit. Generated evidence is not committed into NextEngine.
+
+### Limits and handoff
+
+- Existing USD gains are NOT automatically migrated. Re-enter the intended
+  damping ratio for gains previously authored through the broken path; do not
+  divide arbitrary BodySchema/direct-SI gains by57.3.
+- Linear natural-frequency math already reuses revolute stiffness formulas.
+  This patch preserves that path, not certifies it. Universal-morphology
+  calibration, coupled/contact response and NextEngine transfer remain untested.
+- Next scoped action is a body-level force-drive waveform check. No training,
+  anatomy changes, mirror admission or new physics backend follows from this fix.
+- GitHub account access is available, but current upstream
+  [CONTRIBUTING.md](https://github.com/isaac-sim/IsaacSim/blob/987015050efebfd0cd5d3736ae47fffe5adee308/CONTRIBUTING.md)
+  says contributions are not accepted and directs bug reports to the forum.
+  No PR, public fork, issue or forum message was created. Patch remains ready
+  locally for a developer-requested submission or separately authorized report.
+
+Checks: Black/isort, focused Ruff, shell syntax, Git diff/local paths PASS;
+new UI and existing drive-math tests PASS; force physics PASS; acceleration
+gain units PASS but acceleration motion criterion FAIL (control also fails).
+Full upstream suite and NextEngine native ProductChecks NOT_RUN: bounded external
+Python extension patch, documentation-only NextEngine changes. No validation
+process remains active; unrelated host GPU processes were left untouched.

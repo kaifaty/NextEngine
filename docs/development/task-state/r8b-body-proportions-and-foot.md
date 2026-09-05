@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `GAIN_TUNER_AUTO_REFUTED / V8_NOMINAL / NO_NEW_TRAINING` |
+| Status | `GAIN_TUNER_ANGULAR_UNITS_FIXED / V8_NOMINAL / NO_NEW_TRAINING` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -22,7 +22,7 @@
   [One-DOF oracle](../r8b-gain-tuner-one-dof-research-2026-09-05.md) refutes inertia/UI units; independent controls pass.
   User authorizes separate Isaac Sim6 install on RTX3080 (3090 later); no driver/training change.
   [Isaac6 installed separately](../r8b-isaac6-install-2026-09-05.md): CUDA/smoke120 steps/Gain Tuner3.5.2 load PASS; old5.1 preserved.
-  [Isaac6 test and upstream research](../r8b-gain-tuner6-one-dof-research-2026-09-06.md): inertia/K pass, D180/pi too large; public6.0.1 source retains mismatch. Next proposed UI unit fix; no installed fix/training.
+  [Isaac6 angular-unit patch/evidence](../r8b-gain-tuner6-one-dof-research-2026-09-06.md): isolated overlay fixed;13 tests/24 force traces pass. Acceleration control misses motion criterion; linear/coupled calibration unproven. Next body-level force check; no training/PR.
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.
 - Initial V4 measures 170 cm stature, 86.5 cm hip, 139.65 cm shoulder,
