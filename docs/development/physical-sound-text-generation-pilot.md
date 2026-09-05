@@ -1011,3 +1011,114 @@ diff/link checks pass. The four new tests cover the fixed physical grid,
 separate raw channels, malformed audio rejection and silence preservation.
 All jobs terminal. No Cargo/ProductCheck or engine audition: external lab only;
 the base/demo and product contracts remain unchanged.
+
+## Neural friction from physical conditions (2026-09-05)
+
+[Generated glass friction,40mm/s,0.5N,seed2718](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-neural-rank4-glass-40-2026-09-05/generated.wav>)
+is two seconds, made **without an input recording**. This is a rubber probe
+sliding on float glass, not glass impact/ringing. [Six-second comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-rank4-2026-09-05/glass-comparison.wav>)
+plays real -> neural -> interpolation at0.5N, then the same at1N. Each clip
+is0.75s with a0.25s gap. One shared playback gain100 preserves their levels.
+
+The acquisition script's `--training-grid` adds intermediate velocities and
+repeat1 without changing its original12-condition default. The new external
+`cluster-texture-training-grid-2026-09-05` has60 recordings,242 files and
+86,691,095 selected bytes, including both microphone channels and sensors.
+All source hashes pass. Training is24 repeat0 scans at20/30/50/60mm/s.
+All12 scans at40mm/s are disclosed unseen-speed development; the other24
+repeat1 scans test repeat transfer. These are the same three surfaces/fixed
+probe, not independent objects, hidden tests or pretraining-independent sound
+categories. Commanded controls and measured force/speed remain separate.
+
+[The bounded fitting script](../../lab/scripts/physical_sound_texture_fit.py)
+takes surface one-hot, normalized commanded speed and normal force. It predicts
+a stationary log power spectrum. Input audio is used only in offline training
+and comparison. The standalone `--render-model` path reads model metadata and
+safetensors, not a corpus or recording; domain, checkpoint hashes, finite values,
+tensor shapes, duration and amplitude are checked. A test forbids audio reads
+during standalone inference. Unknown surfaces and out-of-range controls fail.
+
+This follows the general learned-controller plus signal-processing approach
+described by [DDSP, Engel et al.,2020](https://arxiv.org/abs/2001.04643), not its
+trained model or a reproduction of its reported quality. Our renderer shapes
+fresh Gaussian noise using the predicted one-sided power density, removes DC
+and adds10ms endpoint fades. It cannot reproduce impacts, deterministic phase,
+contact sequences or arbitrary nonstationary structure. It is an external
+stochastic texture baseline, **not** an admitted physical formula/runtime model.
+
+Each source contributes the same0.75-second central sliding window, located
+from position CSVs. Mono is resampled44.1 ->22.05kHz; Welch spectra use1024
+samples/50% overlap. No per-recording loudness normalization. Both fits use
+CPU FP32, seed23,1500 full-batch AdamW updates at1e-3, weight decay1e-4;
+only training rows determine the mean, optimizer targets and optional basis.
+No pretrained weights. Baseline interpolates training log spectra in speed
+for the same surface/load. Oracle rendering uses the target's own spectrum
+as an explicitly reference-dependent representation control, not an inference
+result. Raw machine-microphone spectra are mean-level-matched shape controls,
+not SNR estimates or proof of noise removal.
+
+First model:5 ->64 ->64 ->513,37,889 learned parameters. It fits training
+spectra well but loses all12 unseen-speed comparisons. The single corrective
+experiment restricts outputs to four PCA components derived only from the24
+training spectra:5 ->64 ->64 ->4,4,804 learned parameters plus fixed basis.
+This tests fitting of incidental spectral detail; it is not an epoch/width sweep.
+
+| Spectrum RMSE,dB, lower is better | Full network | Four-component network | Interpolation |
+|---|---:|---:|---:|
+| Train24 | .22379 | 1.08692 | 0 (stored training spectra) |
+| Unseen speed40mm/s,12 | 2.07522 | 1.68983 | 1.72887 |
+| Repeat development24 | 1.31552 | 1.34025 | 1.33773 |
+
+Full/rank4 win0/12 and6/12 unseen-speed cases against interpolation; repeat
+wins20/24 and15/24. The smaller model improves this narrow network prediction,
+but its mean advantage over interpolation is only0.039dB, not a robust benefit.
+The outcome is an audible, physically conditioned neural **candidate**, not
+quality acceptance or superiority of neural synthesis.
+
+Both runs also publish real/neural/interpolation/oracle WAVs for all six
+surface/load combinations at40mm/s, repeat0, noise seed314. Each full preview
+is24s. `waveform-audit.json` evaluates actual PCM, not just predicted spectra:
+mean spectral RMSE full2.00855, rank4 1.77531, interpolation1.79547,
+oracle .92227dB. Mean25ms envelope coefficient of variation: real .05813,
+rank4 .04445, oracle .06197. Thus neither an exact waveform match nor a severe
+temporal-representation failure is established. Mean-level-matched machine
+shape RMSE is10.48dB on unseen-speed sources; this alone cannot rule out a
+motion-dependent recording/preprocessing shortcut. Metrics are diagnostic,
+not a calibrated perception/realism validator.
+
+Roots: `texture-conditional-spectrum-2026-09-05`,
+`texture-conditional-rank4-2026-09-05`; standalone inference roots
+`texture-neural-glass-40-2026-09-05` and
+`texture-neural-rank4-glass-40-2026-09-05`. Checkpoints are154,136/30,068 bytes.
+The standalone examples use a second noise seed2718. Generated/artifact hashes
+and attribution stay external; model/data are not installed in the demo.
+Later code adds the same waveform diagnostic to future fit results; executed
+reports preserve their original hashes and separate PCM audit files.
+
+Before a third model variant, use a bounded residual/repeat/noise discriminator
+and crossed velocity checks to establish whether the apparent gain persists
+beyond the chosen40mm/s split. Keep development reuse disclosed and do not
+turn an opened fold into independent evidence. The next checkpoint must still
+include generated sounds at other velocities, not a validator-only package.
+Do not infer that more units/epochs or a time-varying decoder fixes this result.
+The full impacts/water/rain/geometry/both-materials goal remains open; this is
+one narrow forward-conditioning capability, not a replacement objective.
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_texture_probe.py \
+  --training-grid --output /absolute/external/new-texture-grid
+lab/.venv/bin/python lab/scripts/physical_sound_texture_fit.py \
+  --corpus /absolute/external/new-texture-grid/result.json \
+  --rank 4 --output /absolute/external/new-texture-fit
+lab/.venv/bin/python lab/scripts/physical_sound_texture_fit.py \
+  --render-model /absolute/external/new-texture-fit --texture 74 \
+  --speed 40 --force 0.5 --seconds 2 --seed 2718 \
+  --output /absolute/external/new-texture-inference
+```
+
+Verification:29 focused tests pass, including source grid/split, input domain,
+PSD scale, noise seeds, reference-free inference, checkpoint rejection, rank
+shape and waveform metric controls. Ruff/static/format and diff/link checks
+pass.242 source files,52 individual/control/preview WAVs and the additional
+six-second glass comparison pass hash/signal checks. Both fits and inference
+jobs terminal. No Cargo/ProductCheck/engine audition; no production promotion.

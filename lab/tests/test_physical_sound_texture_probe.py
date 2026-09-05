@@ -34,6 +34,15 @@ class TextureProbeTests(unittest.TestCase):
         self.assertEqual(result["rms"], [0.25, 0.125])
         self.assertEqual(result["seconds"], 0.1)
 
+    def test_training_grid_has_repeats_and_middle_speed(self):
+        rows = probe.conditions(True)
+        self.assertEqual(len(rows), 60)
+        self.assertEqual(len({row["id"] for row in rows}), 60)
+        self.assertEqual({row["repeat"] for row in rows}, {0, 1})
+        self.assertEqual(
+            {row["commanded_speed_mm_s"] for row in rows}, {20, 30, 40, 50, 60}
+        )
+
     def test_invalid_audio_rejected(self):
         for data, rate, channels in [
             (np.zeros(441), 16000, 1),

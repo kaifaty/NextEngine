@@ -30,21 +30,22 @@ PREFIX = "cluster_haptic_texture_dataset/"
 TEXTURES = {0: "Nyatoh", 65: "Stainless steel", 74: "Float glass"}
 
 
-def conditions() -> list[dict]:
+def conditions(training_grid: bool = False) -> list[dict]:
     return [
         {
-            "id": f"{texture}_0_{speed}_{force}_0",
+            "id": f"{texture}_0_{speed}_{force}_{repeat}",
             "texture_id": texture,
             "texture_name": name,
             "probe_material": "urethane rubber",
             "direction_degrees": 0,
             "commanded_speed_mm_s": speed,
             "commanded_normal_force_N": force / 1000,
-            "repeat": 0,
+            "repeat": repeat,
         }
         for texture, name in TEXTURES.items()
-        for speed in (20, 60)
+        for speed in ((20, 30, 40, 50, 60) if training_grid else (20, 60))
         for force in (500, 1000)
+        for repeat in ((0, 1) if training_grid else (0,))
     ]
 
 
@@ -69,7 +70,7 @@ def validate_audio(data: bytes, channels: int) -> dict:
     }
 
 
-def run(output: Path) -> dict:
+def run(output: Path, training_grid: bool = False) -> dict:
     output = output.resolve()
     if output.is_relative_to(Path(__file__).resolve().parents[2]):
         raise ValueError("dataset must stay outside the repository")
@@ -92,6 +93,7 @@ def run(output: Path) -> dict:
     report = {
         "status": "acquiring",
         "scope": "disclosed development acquisition; no model or quality claim",
+        "training_grid": training_grid,
         "article": ARTICLE,
         "article_sha256": hashlib.sha256(response.content).hexdigest(),
         "archive": entry,
@@ -145,7 +147,7 @@ def run(output: Path) -> dict:
             with zipfile.ZipFile(remote) as archive:
                 read_member(archive, "README.md", "README.md")
                 read_member(archive, "texture_list.xlsx", "texture_list.xlsx")
-                for condition in conditions():
+                for condition in conditions(training_grid):
                     row = dict(condition)
                     for kind in ("audio", "raw_audio", "force", "position"):
                         ext = "wav" if "audio" in kind else "csv"
@@ -176,4 +178,6 @@ def run(output: Path) -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--training-grid", action="store_true")
+    args = parser.parse_args()
+    run(args.output, args.training_grid)
