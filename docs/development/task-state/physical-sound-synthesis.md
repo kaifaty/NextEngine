@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / COEFFICIENT_DISCRIMINATOR_COMPLETE / GENERATOR_SHAPE_LOSS.
+Status: ACTIVE_GOAL / SOURCE_FREE_HYBRID_GENERATED / DC_METRIC_CAUSAL_CHECK_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,19 +17,20 @@ Status: ACTIVE_GOAL / COEFFICIENT_DISCRIMINATOR_COMPLETE / GENERATOR_SHAPE_LOSS.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest source-free WAV:** [rubber/frosted glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-glass-standalone-2026-09-05/generated.wav),3.15s,40mm/s,.5N,90mm.
-  CLI takes category/static+dynamic friction/motion,NO surfaceID/audio/sensors.
-  Independent CLI PCM matches in-run profile. Full decode retained,nominal clock.
-- **Surface trial:** `texture-surface-transfer-2026-09-05`,complete,245.46s.
-  Both162560param arms,parent timed+2000updates each,same48TRAIN; one zerosmu.
-  TRAIN0/2/65/67/74/77,repeat0,20/30/50/60. All4/66/76 held development,not pristine.
-  Grid `cluster-surface-transfer-grid-2026-09-05`:180scans,722SHA/CRC verifiedmembers.
-  OriginalXLSX read directly; coefficients10mm/min≠audio20–60mm/s; no roughness/geometry.
-- **Transfer mixed:** shape descriptor/category-only: oak2.185/2.183,steel2.544/2.589,
-  glass2.619/2.518dB;wins21/40,36/40,3/40. Wrongmu also improves glassshape2.563.
-  Old-anchor envelope regresses1.460→1.593. NO overall physical/perceptual promotion.
-  Checkpoints descriptor6d36e47c…,category c259a9bc…;exact IDs/hashes/results in note.
-  44tests/1640WAV checks pass;all jobs terminal;no model/demo/runtime replacement.
+- **Latest source-free WAV:** [neural/hybrid glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s,40mm/s,.5N,90mm;NO audio/sensor/surfaceID input.
+  Neural+48TRAIN spectrum bank,513tap motion-gated FIR,unitDC(v2);0newweights.
+  Full decode+256sample filtertail retained;fixed latency compensation,not clockfit.
+- **Hybrid result:** `texture-hybrid-dc-2026-09-05`,complete,576cases.
+  Shape neural→hybrid oak2.185→1.774,steel2.544→2.273,glass2.619→2.329dB;
+  wins118/120 newcases,72/72 oldanchors. Level/onset/offset nearly retained;
+  envelope small regressions,glassoffset.2344s unsolved. NOT quality admission.
+- **DC bug:** Welch removes means; old FIR boosted DC2.2766,standalone+2.2565dBRMS.
+  UnitDC correction reduces drift to-.0919dB. V1 global/motion artifacts preserved.
+  55tests/3780WAV checks pass;all jobs terminal. Exact reproduction/history in note.
+- **Surface lineage:** `texture-surface-transfer-2026-09-05`,162560params,48TRAIN
+  0/2/65/67/74/77,repeat0,20/30/50/60;all4/66/76 held development,not pristine.
+  Weights6d36e47c…/c259a9bc…;bank5c440edd…;no runtime/demo/model replacement.
+  Coefficients10mm/min≠audio20–60mm/s;no geometry. Glass category-mean still wins.
 - **Prior timed countercheck:** envelope1.492 vs gate+TRAINbackground1.328dB,wins1/24 at40mm/s;noise≠quality,shared22.05kHz mandatory.
   `texture-full-event-2026-09-05` stale running JSON is TERMINAL; corrected eval
   `texture-full-event-evaluation-2026-09-05`,0updates,19overlapping WAVs exact.
@@ -78,18 +79,17 @@ Status: ACTIVE_GOAL / COEFFICIENT_DISCRIMINATOR_COMPLETE / GENERATOR_SHAPE_LOSS.
   macro recall AST24.30%,RMS20.11%,spectrum25.47%,duration/gain21.45%; glass pair0/7
   for AST.32label permutations mean16.53%,max21.72%. NOT qualified judge/reward;
   no threshold/prompt tuning. Exact selection, hashes, source previews in note.
-- **Pair validator:** frozen CLAP4/24 on six fixed prompts (chance expectation4).
-  Not qualified as sole material validator/reward; don't tune prompts or drop
-  failures. One sequential-vs-seek decode matches except4 one-LSB samples.
-  Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
+- **Pair validator:** CLAP4/24 on6prompts(chance4),not qualified sole material judge/reward;no prompt tuning/drop failures.
+  Sequential/seek4one-LSB differences;remoteMP4 partialMD5 unverified,localWAV SHA passes.
 - **Discriminator complete:** [750ms comparisons](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/comparison.wav),784WAV,47tests,0newweights.
   TRAINmu interpolation shape1.543/2.044/2.271 vs neural2.185/2.544/2.619dB,
   wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
   Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
-- **Next:** source-free hybrid full-event countercheck: keep timed neural event/
-  level,calibrate moving shape toward TRAIN-only predictedPSD. Same cases/controls,
-  old-surface regressions,onset/offset/background;no targetaudio/epochs/width sweep.
+- **Next:** no more EQ/tap/smoothing/gating sweeps. Audit DC/AC in existing real/
+  reference-aided codec/generated WAVs before another neural fit; distinguish
+  decoder-conditioned bias,learned latent drift and time-dependent energy loss.
+  Start `texture-codec-controls-2026-09-05`;silence controls alone don't isolate it.
 
 ## Preserve these constraints
 
@@ -98,7 +98,7 @@ Status: ACTIVE_GOAL / COEFFICIENT_DISCRIMINATOR_COMPLETE / GENERATOR_SHAPE_LOSS.
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint adds learned flow WAVs;
+  not replace the audible deliverable. Latest adds source-free hybrid WAVs,0newfit;
   supporting-only debt is zero. Keep the full multi-event goal.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)

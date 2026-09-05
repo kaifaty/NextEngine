@@ -4340,3 +4340,113 @@ Reproduce with `physical_sound_texture_interpolation.py --source GRID/result.jso
 tests,Ruff format/check,diff and direct artifact links pass; all784 output WAVs
 pass SHA/layout/finite/headroom checks. No new neural weights, GPU job, engine
 audition, Cargo/ProductCheck, runtime/demo or roadmap changes. The job is terminal.
+
+## Full-event source-free hybrid and DC correction — 2026-09-05
+
+Listen to [standalone neural / corrected glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav>)
+or [the corrected sound alone](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/hybrid.wav>).
+This is a3.15s rubber/frosted-glass sliding request,40mm/s,.5N,90mm,seed314,
+generated from the saved neural model and a TRAIN-only spectrum bank. No source
+audio, reference recording, sensor file or surface ID enters standalone inference.
+Full neural and filtered decodes are retained. The neural control is byte-identical
+to the prior standalone source-free WAV. The new corrected PCM SHA256 is
+`eec12325dc70339767846b0f4b3d1bb58f4cd89127ff05637071bee28497fd1b`.
+
+`physical_sound_texture_hybrid.py` cooks only the48 TRAIN central log spectra
+and their six surfaces' coefficients into a98576-byte safetensors bank. Its SHA256
+is `5c440edd763373c788411c481c48c6690c1093780b6fd5609d1957bf34cd6e20`.
+The bank is identical in all three evaluations; no new neural weights are fitted.
+Source validation may read the complete disclosed grid, but only declared TRAIN
+waveforms supply bank values. The bank loader checks its hash,finite bounds,
+48 exact TRAIN IDs/conditions and six-surface membership. Inference interpolates
+speed,normal force and same-category coefficient position without a target.
+
+The filter measures a750ms window of its **own generated** moving sound, selected
+from input velocity rather than acoustic score. It applies a513-tap FIR to align
+spectral shape with the predicted TRAIN spectrum: fixed±12dB pre-normalization
+limit and two-bin Gaussian smoothing. Above13kHz the requested unnormalized
+response is unity; there is no new high-band truth claim. Intrinsic filter gain
+preserves the predicted generated moving power, not a real recording's loudness.
+This is an algorithmic EQ gain, **not per-file playback/headroom normalization**.
+All publications retain the common inputgain17.374337221633088/playback2.8778076171875
+and strict.98 PCM headroom. No clipping or gain change is used to rescue an output.
+The fixed256-sample FIR group delay is compensated explicitly and256 extra tail
+samples retained. This is not a fitted sensor/acoustic clock alignment.
+
+The first global filter (`texture-hybrid-shape-2026-09-05`) improved shape but
+also modified quiet background and shifted some onsets. A posthoc motion-only
+countercheck (`texture-hybrid-motion-2026-09-05`) applies the correction through
+`clip(input_velocity/commanded_speed,0,1)`, leaving the floating-point neural
+signal unchanged when requested velocity is zero. Publication can differ by
+one PCM24 LSB from an old float32-multiplied control; do not claim byte-exact idle
+PCM. The full requested neural control itself does replay byte-exactly.
+
+Both early variants exposed a calculation defect, not evidence for another
+filter-parameter sweep. In the standalone moving window, the raw mean was
+-.003092 with RMS.007780; the first corrected mean was-.007041 with RMS.010088.
+DC accounted for15.8% versus48.7% of power, creating+2.2565dB RMS drift. Yet the
+detrended PSD integrals were almost unchanged,5.054e-5 versus5.077e-5. The
+[SciPy1.18 Welch documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.welch.html)
+confirms the default constant detrending. Our shape estimator therefore could
+not authorize the DC gain2.2766 that its FIR happened to produce.
+
+The bounded discriminator distinguished PSD/DC bookkeeping from insufficient
+training or a change in the source clock. The correction is algebraic: project
+the FIR onto unit DC gain using a normalized513-sample Hann kernel. It is not a
+new fitted threshold, test-selected tap length or target-aided loudness match.
+Revision `dc-preserving-fir-v2` has unit DC gain within1.12e-15 on all192 cases;
+the standalone calibration-window level change becomes-.0919dB. Across192
+cases that change has median-.0138dB and range[-.1943,+.3077]dB: preservation is
+approximate, not an exact per-window normalization claim. A nonzero-mean test now
+covers the bug missed by the original zero-mean-noise test.
+
+Final [evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/result.json>)
+uses the same60 unseen-surface and36 original-surface development scans, two
+fixed seeds, and three variants: neural / corrected / corrected category mean.
+View [oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-66-comparison.wav>)
+and [glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-76-comparison.wav>),
+each real / neural / corrected / corrected category mean. These comparisons
+reuse the original source-defined central interval and shared22.05kHz metrics;
+full-envelope/onset/offset measurements remain unchanged in definition.
+
+| Surface | Shape RMSE neural→hybrid,dB | Shape wins | Moving-level absolute error neural→hybrid,dB | Envelope MAE neural→hybrid,dB |
+|---|---|---:|---|---|
+| Oak |2.185→1.774 |40/40 |1.507→1.492 |1.704→1.715 |
+| Steel |2.544→2.273 |38/40 |1.369→1.381 |1.969→1.966 |
+| Frosted glass |2.619→2.329 |40/40 |.793→.815 |1.702→1.718 |
+| Original-surface development |2.305→1.804 |72/72 |.830→.825 |1.593→1.604 |
+
+Mean onset errors are unchanged for oak/old anchors,steel.0065→.0070s and
+glass.0075→.0070s. Mean uncensored offset errors remain unchanged, including
+glass.2344s; this existing large error has not been solved. These are detector
+errors,not calibrated physical clock accuracy. Glass category-mean shape2.302
+still beats the coefficient-conditioned2.329: reliable coefficient transfer
+and broad material fidelity remain unproven. Small envelope regressions remain;
+no universal perceptual or product-admission claim is made.
+
+All three evaluations and three standalone jobs are terminal; their3780 WAVs
+pass SHA/layout/finite/headroom checks.55 focused unit tests,Ruff format/check,
+diff and direct artifact links pass. Old failed-design outputs and executed
+scripts are preserved,not overwritten. No new training, engine audition,
+Cargo/ProductCheck, runtime/demo or roadmap promotion occurred.
+
+Reproduce current evaluation with `physical_sound_texture_hybrid.py --source
+GRID/result.json --neural-result SURFACE_FLOW/result.json --motion-only --output
+NEW_EXTERNAL`. Source-free inference: `--model SURFACE_FLOW --bank BANK_DIRECTORY
+--category Glass --static 0.3970170073501798 --dynamic 0.3827100881663895 --speed 40
+--force 0.5 --seed 314 --motion-only --output NEW_EXTERNAL`. Historical pre-DC
+variants use their preserved `executed-script.py`; the current default includes
+the DC correction. Dropping `--motion-only` runs a current DC-preserving global
+filter, not a replay of the historical first variant.
+
+Decision: retain the hybrid as a useful report-only spectral baseline, not a
+replacement for the authored demo or proof of physically realistic friction.
+Stop EQ/tap/smoothing/gating sweeps. The DC finding also questions prior RMS
+interpretations: next compare existing real,reference-aided codec and source-free
+generator WAVs with explicit DC and AC components before another neural fit.
+Distinguish decoder-conditioned bias from learned latent drift and time-dependent
+energy errors; silence controls alone do not isolate those hypotheses. Use the
+cached codec audit first, not new protocols/data acquisition. This is a validator/
+generator causal check, not permission to redefine quality around an easier metric.
+The full multi-event, both-materials, geometry and natural-process goal stays open.
