@@ -5800,3 +5800,87 @@ the author's clamped-boundary2D displacement-proxy limitation; this does not yet
 model3D acoustic radiation, two-body materials, measured size/force/speed, friction,
 rolling, destruction, water or rain. Do not launch per-material fitting, expand a
 metric suite, or promote this model before that direct reference discriminator.
+
+## Neural Resonator numerical reference pairs — 2026-09-06
+
+Twelve source-free neural/reference pairs now exist, not another material-specific
+fit. Examples: [octagon, centre](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/octagon-base-center-comparison.wav),
+[skewed shape, combined material](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/skewed-combined-center-comparison.wav),
+[largest dominant-peak discrepancy](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/rectangle-combined-off-center-comparison.wav).
+Each2.5s: numerical reference1s→gap.5s→neural1s. All12cases/36WAVs retained in
+`neuralresonator-reference-report-fixed-2026-09-06`; no winner selection/promotion.
+
+[Reference runner](../../lab/scripts/physical_sound_neuralresonator_reference.py)
+implements the reviewed author's plane-strain elasticity, quadratic triangular
+vector basis, zero displacement on the whole boundary,32lowest modes and
+Rayleigh damping. Mode gains are the author's norm of the two nodal displacement
+components; waveform is the sum of zero-phase damped cosines. This is the
+author's synthetic displacement proxy, **not** microphone pressure, measured
+force,3D radiation, a glass vessel or evidence of real perceptual fidelity.
+[scikit-fem documentation](https://scikit-fem.readthedocs.io/en/latest/extended.html)
+supports the mesh/basis/Dirichlet operations. Solver12.0.2 installed without
+dependencies into external`neuralresonator-solver-python-2026-09-06`,not the venv.
+PyPI wheel178478bytes/SHA34cd891f80072c0c1eb759a2371e82f0eeec91ff7c08acab96d27b6edbbe1b05.
+
+Own convex octagon, rectangle and skewed quadrilateral; two interior mesh-node
+contacts (centre and midpoint towards first vertex). Base material unchanged;
+combined numeric material=(rho2100,E1.7e10,nu.31,alpha6,beta1e-6). All within the
+published datamodule ranges, which also confirm the previous result-notebook
+normalization. No training data/target WAV enters neural prediction. These own
+cases are now opened development; pretrained shape overlap is not established.
+
+An important source ambiguity is retained, not silently calibrated away: the
+author's results notebook meshes use`world=2*(normalized-.5)`, whereas the dataset
+generator defaults toscale_factor1. Primary comparison explicitly follows the
+published results notebook. An additional scale1/2 numerical control gives an
+exact2×undamped-frequency ratio across32modes, dominant1557/779Hz with the same
+neural input. This does not establish arbitrary absolute-size conditioning.
+
+| Geometry/material | Centre reference→neural Hz | Off-centre reference→neural Hz |
+|---|---:|---:|
+| Octagon/base |779→785|779→770|
+| Octagon/combined |1196→1204|1196→1285|
+| Rectangle/base |815→802|815→806|
+| Rectangle/combined |1235→1218|1900→1224|
+| Skewed/base |924→916|924→919|
+| Skewed/combined |1406→1394|1406→1399|
+
+Ten dominant peaks differ by≤1.60%; remaining discrepancies7.44%and35.58%.
+The latter is a **dominant-mode selection** discrepancy, not evidence that every
+frequency is35.58%wrong. Gain-invariant full-second FFT log-shape RMSE1.17–4.72dB
+is descriptive, not a learned acceptance gate. In all12cases neural energy
+centroid is shorter, .357–.832×reference; octagon/base18.833→7.602ms. These failures
+are found automatically without user audition; no realism admission follows.
+
+Reference checks: refinement3→4 (4226/8450fineDOFs) max32modal-frequency change
+.220–1.757%; eigen residual≤1.96e-13. Since this alone does not bound all acoustic
+errors, refinement4→5 was also run on rectangle/combined/off-centre failure,
+octagon/base/centre temporal failure and skewed/base/centre control. External
+`neuralresonator-reference-refinement-2026-09-06` retains finer modes,raw,WAVs and
+results. Max32frequency changes.1703%/.0156%/.1622%; dominant peaks remain
+1900/779/924Hz, spectrum changes.0354/.00787/.0313dB. Octagon energy centroid
+18.8329→18.8352ms; rectangle2.87344→2.87146ms. Thus these particular discrepancies
+survive reference refinement; other combinations have only the3→4 check.
+Reproduce selected refinement with `solve_modes(polygon,material,5)` and
+`render_reference(modes,contact)` from the runner; no neural parameters change.
+
+Reproduction uses previous pilot command/environment, adding the solver overlay
+toPYTHONPATH, `OPENBLAS_NUM_THREADS=4 OMP_NUM_THREADS=4`, and script
+`physical_sound_neuralresonator_reference.py --assets ASSETS --output NEW`.
+Single shared gain.7843326047870074 over all24signals preserves level differences.
+No clipping,gates,EQ,per-case normalization,tailcrop or transient injection.
+Initial`neuralresonator-reference-2026-09-06` exited1 after all36WAVs were produced:
+finalJSON couldn't serialize numpy.int32DOFcount. Explicitint export fix only;
+rerun in NEWdirectory yields36/36byte-identicalWAVs. Original failure.txt preserved.
+Ten focused tests(6pilot+4reference), Ruff, finite/sharedgain/headroom/full-layout/
+hash and exact WAV replay checks pass. All jobs terminal. No Cargo/host-check/
+ProductChecks: bounded lab only, no runtime/demo/public contracts/roadmap changes.
+
+Next improvement should distinguish modal-gain/magnitude errors from phase and
+time-envelope errors before one shared fine-tuning experiment with new own
+shape-disjoint checks and before/after/reference WAVs. Upstream training uses a
+magnitude-only objective; that is a hypothesis for temporal mismatch, not a proven
+exclusive cause. Do not train per material or launch loss/seed/epoch sweeps from
+these opened cases. Keep the full real-object, both-material,3D/size/force/speed,
+water/rain/friction/rolling/destruction objective intact; this reference check
+does not close those requirements.

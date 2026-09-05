@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / NEURAL_RESONATOR_AUDIBLE_NUMERIC_CONDITIONS / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / NEURAL_RESONATOR_REFERENCE_MIXED_CONTACT_AND_DECAY_ERRORS / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -17,7 +17,19 @@ Status: ACTIVE_GOAL / NEURAL_RESONATOR_AUDIBLE_NUMERIC_CONDITIONS / NO_LIVE_JOBS
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest neural audible:**[seven numeric-condition impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-replay-2026-09-06/comparison.wav),10.5s.
+- **Latest pairs:**`neuralresonator-reference-report-fixed-2026-09-06`,12cases
+  (3ownpolygons×2numericmaterials×2contacts),each2.5s numerical→neural.
+  10/12dominantpeakswithin1.60%,other2errors7.44%/35.58%;not generalpitcherror.
+  Rectanglecombinedoffcenter reference1900Hz vsneural1224. ALL12neuralenergy
+  centroids shorter(.357–.832×reference). Reference5refinement onfailure/octagon/
+  skewed controls preservespeaks/timing;max32modefreqchange.016–.170%,notmeshfix.
+  World=2*(normalized-.5)matchesauthorresultsnotebook;generator defaultuses1.
+  Explicit scale1/2control gives2×frequencies withSAME neuralinput;no sizecontrol.
+  36WAV finite/headroom/layout/hash/replaychecks,10tests/Ruff pass;nojobs live.
+  Initialreference run exit1 ONLYfinalJSON int32serialization,all36WAValready
+  produced;fixedint→newrun36WAVEXACT. Bothruns/failure.txt preserved.
+  Solveroverlay`neuralresonator-solver-python-2026-09-06`,scikit-fem12.0.2,no venvchange.
+- **Retained neural:**[seven numeric-condition impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-replay-2026-09-06/comparison.wav),10.5s.
   Neural Resonator published checkpoint,NOT trainedhere. Own64x64octagon+contact+
   rho/E/nu/alpha/beta→EfficientNetB0+MLP→32parallel×2IIR. No targetaudio/dataset.
   Base785Hz;lowerdensity1785,higher584,stiffer976. Ratios within.191%ofundamped
@@ -58,11 +70,13 @@ Status: ACTIVE_GOAL / NEURAL_RESONATOR_AUDIBLE_NUMERIC_CONDITIONS / NO_LIVE_JOBS
 - **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3 ORIGINAL
   recorded-audio videos,not generation. Motion tracks shaft,not tip;no croptraining.
   Public contact pixel labels not located;not proof lost. No TLS bypass/val/test.
-- **Next primary artifact:** compare this shared model with the declared2D
-  elasticity solver on several ownnewshapes/contact/material combinations;
-  neural/reference WAV pairs and numericalmode/spectrumerrors. No training sweep
-  before that discriminator. Authorclamped-boundary2Dvolume displacementproxy
-  is not3D radiatedsound;keep fullmulti-processgoal. No protecteddata reopening.
+- **Next primary artifact:** one shared improvement experiment targeting modal
+  gain/temporal mismatch, notper-materialfits. First discriminate magnitude vs
+  phase/time-envelope error (upstreamtrainingusesmagnitude-onlyloss),then one
+  bounded fit with ownnewshape-disjoint checks and before/after/reference WAVs.
+  Current12cases are OPENEDdevelopment,not pristineholdout. No seed/epoch/loss
+  sweep,realismjudge or runtimepromotion. Clamped2Ddisplacementproxy≠3Dradiation;
+  this syntheticteacher pilot is notthefullreal-object/multi-processgoal.
   Repo`rodrigodzf/neuralresonator`,revceab3770d88caae1c9ee208bea127ec0d0a1e763;
   source/model/dsp/utilities/modal/data/shape/resultnotebook read;assets external.
   CLI`physical_sound_neuralresonator_pilot.py --assets ... --output NEW` usesexisting
