@@ -4248,3 +4248,95 @@ Verification:44 focused unit tests,Ruff format/check,diff and direct links passe
 all1640 output WAVs pass SHA/finite/layout/headroom checks, and722 source members
 pass SHA/CRC checks. Both training/evaluation and standalone jobs are terminal.
 No Cargo/ProductCheck or engine audition was run for this isolated Python lab.
+
+## Coefficient versus generator discriminator — 2026-09-05
+
+The promised discriminator is complete, without new neural training. Listen to
+[oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-66-comparison.wav>),
+[frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-76-comparison.wav>)
+or [all three](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/comparison.wav>).
+Each group contains six central750ms segments: real, neural descriptor,
+coefficient interpolation, category mean, **target-aided** best mixture,
+**target-aided** self spectrum. The final two are diagnostic controls, NOT
+reference-free generators. This probe does not replace the full-event WAVs.
+
+`physical_sound_texture_interpolation.py` retains the exact48-TRAIN and60
+new-surface development rows. For each same-category TRAIN surface it interpolates
+log spectra along commanded speed, with40mm/s bracketed by TRAIN30/50mm/s.
+The requested static/dynamic coefficient pair is projected onto the segment
+between the two same-category TRAIN pairs; no target waveform enters this path.
+That convex weight blends the two log spectra. Category mean uses weight.5.
+The source-aided oracle minimizes shape error along this same two-spectrum span;
+the self-spectrum control measures stochastic rendering error with the target
+spectrum supplied. Both are explicitly labelled in every generated receipt.
+
+All candidate spectra use the same stationary random-phase renderer and two
+fixed seeds314/2718; playbackgain50 is common. Neural PCM is taken from the saved,
+hash-verified previous trial and cropped to the identical source-defined central
+interval; no weights or source-free request are refitted. Every comparison WAV
+is band-limited through the same22.05→44.1→22.05kHz publication/check path. This
+additional resampling modestly changes absolute-level errors relative to the
+previous full-event report; the within-probe comparisons below are consistent.
+It does not restore or judge temporal structure, contact transients or timbre
+above11.025kHz. Each source/weight/result retains its earlier disclosed roles.
+
+| New surface,40 PCM comparisons each | Coefficient shape RMSE,dB | Category mean | Neural descriptor | Target-aided best mix | Target-aided self spectrum |
+|---|---:|---:|---:|---:|---:|
+| Oak |1.543 |1.551 |2.185 |1.535 |.931 |
+| Steel |2.044 |2.226 |2.544 |1.997 |.965 |
+| Frosted glass |2.271 |2.230 |2.619 |2.186 |.955 |
+
+The coefficient PCM beats the neural descriptor on shape in40/40 oak,39/40 steel
+and40/40 glass cases. This is **not overall quality dominance**: absolute-level
+error coefficient/neural is.454/1.584dB oak,2.584/1.393 steel and1.579/.747 glass.
+The stationary model also has no learned onset/offset behavior. Do not replace
+the timed generator with stationary noise merely because a spectrum score wins.
+
+Before stochastic rendering, coefficient/category-mean/best-mix shape errors
+are1.314/1.326/1.306dB oak,1.889/2.067/1.853 steel and2.076/2.033/1.999 glass.
+Coefficients beat equal mixing on12/20,20/20 and3/20 source cases respectively.
+Coefficient weights oak.673,steel.742,glass.370 differ from mean target-aided
+optimal weights.618,.858,.611. Two real repeats differ by1.284,1.333,1.267dB
+on the same central spectral measure; this is a variability reference, not a
+universal lower bound or protected final test. All60 source comparisons and720
+generated/cropped cases are retained in
+[result.json](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/result.json>).
+
+Falsifiable hypotheses and outcome:
+
+- **Only neural mapping is wrong:** contradicted as an exclusive explanation.
+  Glass coefficients also underperform equal mixing without a neural model;
+  even the target-aided two-spectrum span leaves a substantial residual.
+- **Only the two coefficients lack information:** also insufficient. Fixed
+  TRAIN-only interpolation already predicts much of the shape that the neural
+  output loses. This does not prove that an arbitrary nonlinear coefficient
+  mapping could never transfer; only the tested linear span is bounded here.
+- **Only stochastic spectrum estimation explains the gap:** not supported by
+  self-spectrum rendering error around.95dB versus neural2.19–2.62dB. These
+  components are not independent additive errors, so do not subtract them as
+  a decomposition or treat the oracle as deployable generation.
+
+A bounded literature check found a relevant counterexample to treating friction
+as a unique topography label: [Hsia et al., Phys. Rev. Research3,043204,
+21Dec2021](https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.3.043204)
+reports a fourfold change in real contact area with only a modest coefficient
+change in its studied interface. This supports caution, not a diagnosis of the
+Cluster apparatus or an acoustic law. The Cluster paper's10mm/min versus audio
+20–60mm/s measurement distinction remains relevant. Two additional publisher/
+author pages could not be opened; no claims rely on their search snippets.
+
+Next useful experiment: retain the timed neural event and its level response,
+but constrain/calibrate its moving spectral shape with the TRAIN-only predicted
+spectrum. First do one reversible **source-free hybrid** full-event countercheck,
+not an epoch/width sweep. Keep target recordings out of its inference path and
+evaluate all same cases, including onset/offset, quiet background, absolute level
+and old-surface regressions. A better central PSD score alone cannot admit it.
+Richer surface/contact evidence remains a later input issue, not an excuse to
+ignore the demonstrated generator-side loss. Full multi-event goal stays open.
+
+Reproduce with `physical_sound_texture_interpolation.py --source GRID/result.json
+--neural-result SURFACE_FLOW/result.json --output NEW_EXTERNAL`.47 focused unit
+tests,Ruff format/check,diff and direct artifact links pass; all784 output WAVs
+pass SHA/layout/finite/headroom checks. No new neural weights, GPU job, engine
+audition, Cargo/ProductCheck, runtime/demo or roadmap changes. The job is terminal.

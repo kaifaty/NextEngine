@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / NEW_SURFACE_WAVS_GENERATED / COEFFICIENT_TRANSFER_MIXED.
+Status: ACTIVE_GOAL / COEFFICIENT_DISCRIMINATOR_COMPLETE / GENERATOR_SHAPE_LOSS.
 
 ## Resume in 60 seconds
 
@@ -30,13 +30,11 @@ Status: ACTIVE_GOAL / NEW_SURFACE_WAVS_GENERATED / COEFFICIENT_TRANSFER_MIXED.
   Old-anchor envelope regresses1.460→1.593. NO overall physical/perceptual promotion.
   Checkpoints descriptor6d36e47c…,category c259a9bc…;exact IDs/hashes/results in note.
   44tests/1640WAV checks pass;all jobs terminal;no model/demo/runtime replacement.
-- **Prior timed countercheck:** envelope1.492 vs gate+TRAINbackground1.328dB,
-  wins1/24 at40mm/s. Noise resemblance≠quality. Shared22.05kHz metrics mandatory.
+- **Prior timed countercheck:** envelope1.492 vs gate+TRAINbackground1.328dB,wins1/24 at40mm/s;noise≠quality,shared22.05kHz mandatory.
   `texture-full-event-2026-09-05` stale running JSON is TERMINAL; corrected eval
   `texture-full-event-evaluation-2026-09-05`,0updates,19overlapping WAVs exact.
-- **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV retained.
-  Attack/body improve,tail worsens: silence-learning contradicted,no weight sweep.
-  FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision-training rescue.
+- **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV;attack/body improve,tail worsens,silence-learning contradicted.
+  FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision/weight sweep.
   Source-aided one-step preview is NOT source-free generation; details in note.
 - **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
   source154TRAIN/19participants,10240params/200updates,113distinctexposures;
@@ -47,8 +45,7 @@ Status: ACTIVE_GOAL / NEW_SURFACE_WAVS_GENERATED / COEFFICIENT_TRANSFER_MIXED.
   Heldwood/glass worsens7.028456→7.080724,ranks4,2,4,1. No reliable material control.
   Raw AST remains Breaking/Smash(seed314),Door(2718),including base. No replacement.
   After two bridge cycles: NO next data-size/capacity/epoch/seed sweep.
-- **Impact reproducibility:** CLI defaults full/event; `--event-matrix` evaluates
-  all14 without fitting. Commands/guards/PCM identities in note; no noise-prefix scoring.
+- **Impact reproducibility:** CLI full/event;`--event-matrix` all14 without fit;commands/PCM in note,no noise-prefix scoring.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
@@ -85,11 +82,14 @@ Status: ACTIVE_GOAL / NEW_SURFACE_WAVS_GENERATED / COEFFICIENT_TRANSFER_MIXED.
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next discriminator,not another fit:** interpolate TRAIN spectra in measured
-  coefficient space versus category averaging on the same4/66/76development.
-  Check whether the descriptors themselves predict new acoustic shape; if not,
-  seek richer published surface/contact evidence rather than epochs/width.
-  Retain timing/shared-band/background controls. Full multi-event goal stays open.
+- **Discriminator complete:** [750ms comparisons](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/comparison.wav),784WAV,47tests,0newweights.
+  TRAINmu interpolation shape1.543/2.044/2.271 vs neural2.185/2.544/2.619dB,
+  wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
+  Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
+  limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
+- **Next:** source-free hybrid full-event countercheck: keep timed neural event/
+  level,calibrate moving shape toward TRAIN-only predictedPSD. Same cases/controls,
+  old-surface regressions,onset/offset/background;no targetaudio/epochs/width sweep.
 
 ## Preserve these constraints
 
