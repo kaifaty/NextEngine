@@ -19,9 +19,9 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Diagnose final-policy regression before another optimizer:
-  inspect update/normalization behavior and specify passive KL/clip/gradient
-  telemetry with unchanged-output controls. See the [closed final result](../r8b-final-policy-regression-research-2026-09-05.md).
+- **Next action:** Predeclare one bounded fixed-buffer gradient diagnostic,
+  not a resume/full budget. Passive KL/clip/gradient telemetry now preserves
+  exact CPU/CUDA outputs. See the [closed result and probes](../r8b-final-policy-regression-research-2026-09-05.md).
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
   `f0c15bd4`; no optimizer is active. All five final model 9999 episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
@@ -184,11 +184,11 @@ not clean-commit generation/run manifests.
   and the two report-only interventions are in the final regression report.
 - **Decision:** Retain V7/V8 failures. No unchanged restart, retrospective
   model-3999 selection, arm freeze, stochastic deployment or safety relaxation.
-- **Uncertainty:** Missing KL/clip/gradient records prevent attributing the
-  regression to update size; normalization/distribution shift and objective
-  mismatch remain unresolved. Finite losses and higher return are insufficient.
-- **Next/reconsider:** Inspect pinned update/normalization code; define passive
-  telemetry and an exact non-regression control before a new bounded experiment.
+- **Measured:** Final-policy 128 × 32 no-optimizer rollout gives normalization
+  KL 1.11e-7 versus target 0.008, zero ratio clipping; local drift is too small.
+- **Uncertainty:** Actual update size, cumulative shift and objective mismatch.
+- **Next/reconsider:** Close a bounded gradient probe; its new passive observer
+  passes 33 tests, including exact full-size CUDA update/state/RNG controls.
 
 ## Retained safety and mirror hypotheses
 

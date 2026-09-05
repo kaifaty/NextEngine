@@ -14,14 +14,17 @@ from rsl_rl.modules import ActorCritic
 from tensordict import TensorDict
 
 
-def algorithm_fixture(device):
-    obs = TensorDict({"policy": torch.zeros(8, 4, device=device)}, [8])
+def algorithm_fixture(device, canonical=False):
+    count, width, actions = (128, 88, 23) if canonical else (8, 4, 3)
+    hidden = [256, 128, 64] if canonical else [16, 8]
+    obs = TensorDict({"policy": torch.zeros(count, width, device=device)}, [count])
     policy = ActorCritic(
         obs,
         {"policy": ["policy"], "critic": ["policy"]},
-        3,
-        actor_hidden_dims=[16, 8],
-        critic_hidden_dims=[16, 8],
+        actions,
+        actor_hidden_dims=hidden,
+        critic_hidden_dims=hidden,
+        activation="elu",
         actor_obs_normalization=True,
         critic_obs_normalization=True,
         init_noise_std=0.25,
@@ -29,25 +32,31 @@ def algorithm_fixture(device):
     algorithm = TerminalObservationPPO(
         policy,
         device=device,
-        num_learning_epochs=2,
-        num_mini_batches=2,
+        num_learning_epochs=5 if canonical else 2,
+        num_mini_batches=4 if canonical else 2,
         desired_kl=0.008,
         schedule="adaptive",
         learning_rate=1e-4,
         max_grad_norm=1,
+        gamma=0.99,
+        lam=0.95,
+        entropy_coef=0.001,
     )
-    algorithm.init_storage("rl", 8, 4, obs, [3])
+    algorithm.init_storage("rl", count, 32 if canonical else 4, obs, [actions])
     return algorithm
 
 
 def fill(algorithm):
     device = algorithm.device
-    obs = TensorDict({"policy": torch.randn(8, 4, device=device)}, [8])
+    steps, count, width = algorithm.storage.observations["policy"].shape
+    obs = TensorDict({"policy": torch.randn(count, width, device=device)}, [count])
     with torch.inference_mode():
-        for tick in range(4):
+        for tick in range(steps):
             action = algorithm.act(obs)
-            obs = TensorDict({"policy": torch.randn(8, 4, device=device)}, [8])
-            done = torch.tensor([tick == 3] * 8, device=device)
+            obs = TensorDict(
+                {"policy": torch.randn(count, width, device=device)}, [count]
+            )
+            done = torch.tensor([tick == steps - 1] * count, device=device)
             timeout = done.clone()
             timeout[0] = False  # Includes both real termination and truncation.
             algorithm.process_env_step(
@@ -100,12 +109,12 @@ class PpoDiagnosticsTests(unittest.TestCase):
         else:
             self.assertEqual(left, right)
 
-    def check_noninterference(self, device):
+    def check_noninterference(self, device, canonical=False):
         torch.set_num_threads(1)
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
         torch.manual_seed(44)
-        baseline = algorithm_fixture(device)
+        baseline = algorithm_fixture(device, canonical)
         observed = copy.deepcopy(baseline)
         for iteration in range(2):
             torch.manual_seed(100 + iteration)
@@ -124,8 +133,10 @@ class PpoDiagnosticsTests(unittest.TestCase):
             torch.manual_seed(200 + iteration)
             with observe_ppo_update(observed) as records:
                 losses_b = observed.update()
-            self.assertEqual(len(records), 4)
-            self.assertEqual(summarize_update(records)["sample_visits"], 64)
+            self.assertEqual(len(records), 20 if canonical else 4)
+            self.assertEqual(
+                summarize_update(records)["sample_visits"], 20480 if canonical else 64
+            )
             self.assertEqual(losses_a, losses_b)
             self.assertTrue(torch.equal(rng_a, torch.get_rng_state()))
             if cuda_a is not None:
@@ -157,6 +168,10 @@ class PpoDiagnosticsTests(unittest.TestCase):
     @unittest.skipUnless(torch.cuda.is_available(), "CUDA unavailable")
     def test_cuda_noninterference_two_complete_updates(self):
         self.check_noninterference("cuda:0")
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA unavailable")
+    def test_canonical_network_and_batch_cuda_noninterference(self):
+        self.check_noninterference("cuda:0", canonical=True)
 
     def test_hooks_restore_after_error_and_reject_nested_observation(self):
         algorithm = algorithm_fixture("cpu")

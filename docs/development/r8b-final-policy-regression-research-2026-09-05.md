@@ -98,12 +98,76 @@ restart unchanged, switch to stochastic deployment, freeze arms as a presumed
 fix, or retrospectively select model 3999. No current evidence requires new
 body geometry, an all-phase flat-foot constraint or a different RL algorithm.
 
-Next: inspect the pinned update/normalization path and define passive KL,
-clip-fraction, gradient and action-saturation telemetry with a matched
-non-regression control before any new optimizer run. The unresolved choice is
+Passive telemetry and a local normalization discriminator now pass, as below.
+Next: predeclare one bounded fixed-buffer gradient diagnostic with explicit
+source weights, optimizer initialization, RNG and buffer/return closure; it is
+not a resume or another full walking budget. The unresolved choice is
 whether update instability, normalization/distribution shift, or an objective
 that rewards unreliable behavior dominates. A subsequent bounded experiment
 must discriminate those, rather than merely adding samples or reward terms.
+
+## Passive update instrumentation and normalization discriminator
+
+`lab/next_lab/ppo_diagnostics.py`, introduced at `b7330152`, observes the
+installed RSL-RL 3.1.2 minibatches and pre-step distributions through scoped
+instance/optimizer/parameter hooks. It records analytic old-to-current Gaussian
+KL, likelihood-ratio clipping fraction, saturation, learned std, actual learning
+rate and pre/post-clipping gradient norms, including actor/critic components.
+It adds no sampling, backward pass, global monkeypatch, weight update or
+normalizer update. Hooks are removed on success and exception; unsupported
+recurrent/RND/symmetry/multi-GPU paths and nested observation fail closed.
+It is an opt-in private diagnostic context, not enabled in frozen old trainers.
+
+The hook contract is checked against installed PyTorch and its
+[2.7 backward-hook documentation](https://docs.pytorch.org/docs/2.7/generated/torch.Tensor.register_hook.html).
+Detached float64 arithmetic is report-only. Analytic KL deliberately excludes
+the scheduler expression's log epsilon, so identical Gaussians yield zero.
+Ratio clipping measures likelihood ratios outside the PPO interval, not the
+fraction whose clipped surrogate actually wins. Gradient norms precede the
+existing clip, not a substituted clipping algorithm.
+
+PASS: two complete baseline/observed updates have exactly equal losses, weights,
+Adam state, adaptive learning rate and CPU/CUDA RNG states; normalizers do not
+change during updates. Controls cover small CPU/CUDA networks and the actual
+88-input/23-action, [256,128,64] ELU network with 128 × 32 transitions and
+5 × 4 minibatches on CUDA. These use synthetic transitions and fresh networks,
+not another humanoid optimizer run or a checkpoint continuation. Seven focused
+diagnostic tests plus 26 adapter/evaluator tests pass (33 total), with Ruff,
+formatting and diff checks. No Rust/public-contract changes require host-check.
+
+The no-optimizer normalization discriminator uses unchanged final model 9999,
+V8, 128 environments/eight shards, 32 steps, environment seed 44 and Torch noise
+seed 44001 set after weight loading. It follows the trainer's explicit
+post-step normalization updates, retains pre-action observations/actions/old
+distributions, and recomputes their distribution under the end-of-rollout
+normalizer. Trainable parameters remain exact; all state is restored afterward.
+
+- Normalizer count: 40,960,000 -> 40,964,096.
+- Analytic KL: mean 1.1117264101339589e-7, max 3.685534865072171e-7,
+  versus the profile's target 0.008; likelihood-ratio clipping fraction zero.
+- Maximum absolute log-ratio change 0.0024394989013671875; mean/std parameter
+  maximum changes 0.0001221299171447754 / 0.00011980533599853516.
+- Six real terminals within the 4,096 transitions (2 joint safety, 3 impact,
+  1 self-collision). They are retained, not hidden by resetting the report.
+- Outcome: within-one-rollout normalization is far too small in this measured
+  late-policy/reset batch to explain a large pre-gradient distribution mismatch.
+  Cumulative drift over thousands of updates and later walking-phase batches
+  remain unresolved; this is not a global normalization-invariance claim.
+
+External `final-rollout-normalization-01/control-manifest.json` SHA-256:
+`23ce8e522896998585a76c66f18e94421c904a3b8bdab74ff324c0ceceb5a8db`;
+report `6aa1ca6f4cde458e7f5ffbc2fe71a837e7c630b5d42cbcf919b20090f1dc8607`;
+rollout NPZ `a9d2a6d66cc47a1bddfce344e0240ce07b8f6585c420654dc1241b49470accf9`.
+The manifest binds code, source checkpoint/manifest, descriptor and native
+executable hashes. Optimizer steps are exactly zero. The retained buffer is
+for distribution diagnostics; it does not close final/terminal value inputs
+for a PPO return calculation and must not be silently reused as training data.
+
+Method research also confirms that predeclared periodic validation and retaining
+validated checkpoints are ordinary tools, distinct from requiring the last
+optimizer state: see [SB3 EvalCallback and stopping callbacks](https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html).
+A future selection protocol may use that approach if frozen before its run;
+it does not retrospectively admit model 3999 or weaken physical quality gates.
 
 ## Exact external evidence and verification
 
@@ -126,5 +190,6 @@ hashes and ffprobe (152 frames / 60 fps / 2.533333 s / 1200×800). Final preview
 was inspected; the video is the complete failed episode, not a selected prefix.
 FAILED: original and corrected final walking quality, both causal remedies as
 sufficient fixes. NOT RUN: new optimizer, runtime/export or renewed mirror gate.
-This transition changes documentation only; focused implementation tests and
-native host-check results remain in the linked evaluator/schedule reports.
+The initial final-result transition changed documentation only. Subsequent
+passive telemetry passes the focused checks above; native host-check results
+remain in the linked evaluator/schedule reports for the unchanged plant.

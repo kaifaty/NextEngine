@@ -2307,8 +2307,10 @@ V8 matrices: all five episodes terminate at 152 ticks on forearm/head collision,
 with -0.176714 m travel. Exact physical trajectories agree. The [final regression
 investigation](development/r8b-final-policy-regression-research-2026-09-05.md)
 also rejects arm masking and stochastic inference as sufficient fixes. No
-optimizer is active; next is update/normalization diagnosis with passive
-telemetry controls, not another unchanged run or retrospective checkpoint choice.
+optimizer is active. Passive update telemetry now passes exact CPU/CUDA and
+full-size network controls; a 4,096-transition no-optimizer probe finds tiny
+local normalization drift (KL 1.11e-7). Next is a bounded measured gradient
+diagnostic, not another unchanged run or retrospective checkpoint choice.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
