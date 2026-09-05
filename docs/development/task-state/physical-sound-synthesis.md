@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
+Status: ACTIVE_GOAL / AUDIO_MODULATION_REJECTED / DATA_NUISANCE_CHECK_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,9 +17,9 @@ Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
   water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
   References enter metrics only. No promotion or source/cache at generation.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Latest trial rejected:** [real/old/new/swapped comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-center-trained-development-2026-09-05/comparison.wav),
-  36.64s,glass18/PET30,middle,seed2718. Training-time centering retains water,
-  but shape error8.106 versus old7.687dB; wins2/8. No model replacement.
+- **Latest trial rejected:** [real/old/new/swapped comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-audio-modulation-development-2026-09-05/comparison.wav),
+  36.64s,glass18/PET30,middle,seed2718. Audio-layer modulation retains water,
+  but relative-power shape12.459 versus old7.692dB. No model replacement.
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
@@ -32,12 +32,9 @@ Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
   water selection. Author Test I/II/III and YouTube not used; no foreign code run.
   93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
   Approximate constant flow is not measured ml/s or exact liquid level.
-- **Pouring base:**245985param conditional STFT flow,53/1500updates,64 Euler/
-  32 reconstruction,16k/FFT512/hop256/256² patches. Retained, no promotion.
-- **Prior checks:** STFT256 Euler no rescue; wrong glass material wins13/13.
-- **Prior STFT paths:** paired extension AST120/180; envelope120/360 unsafe;
-  splices,relative level/static timbre/EQ fail. No phase/gain/EQ/envelope sweep
-  or guard weakening; exact experiments and confounds in pilot note.
+- **STFT base:** retained, not promoted; wrong glass material wins13/13.
+- **STFT failures:** splices/envelope/relative level/static timbre/EQ; no phase/
+  gain/EQ/envelope/step sweep or guard weakening. Exact configurations in note.
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
@@ -45,11 +42,9 @@ Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
   144param and temporal-noise paths fail. No head/filter/noise/phase sweeps.
 - **CVAE:** posterior/prior and rec/critic continuations fail; phase2/32 no rescue.
   No CVAE/critic/capacity/epoch/phase sweeps; exact evidence in pilot note.
-- **Codec:** cached TangoFlux rev367005e9/Oobleck SHA d73619a1;16k resampled
-  44.1k dual mono,64x88 latent. Initial six controls mostly pass; all-TRAIN below.
-- **Cache:** `pouring-oobleck-cache-2026-09-05`,279TRAIN posteriors; normalization
-  includes posterior variance. Earlier original/plain/skip2000 dev AST0/12;
-  don't repeat. Target-injected late trajectories are NOT source-free; see note.
+- **Old codec cache:** `pouring-oobleck-cache-2026-09-05`,279TRAIN posteriors64x88,
+  normalization includes variance. Original/plain/skip2000 dev AST0/12; no repeat.
+  Target-injected trajectories are not source-free. Codec identity in pilot note.
 - **Scratch flow rejected:** single-crop control learns water but full279 TRAIN
   coverage of10000-step model gives AST11/harder CLAP6/both2. Affine2000 coupling
   gives AST/harder CLAP0/30. Solver Euler64/midpoint128/256 does not rescue it.
@@ -67,11 +62,9 @@ Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
   that fixed mean (all279controls, no refit/sweep) restores all three8/8 checks.
   CLI `physical_sound_pouring_bridge.py render --model BRIDGE --offset CENTERED
   --controls <11 floats> --output NEW` byte-replays both formats; source-free.
-- **Development:** first source-order recording of each excluded container18/30,
-  first/middle,seeds314/2718. Raw/RMS AST and harder CLAP8/8,real4/4,base2/2.
-  Matched shape RMSE7.687 versus base7.756/swapped7.813dB; wins5/8 and6/8.
-  Marginal, correlated evidence; no calibrated response/generalization claim.
-  Joint object-control swap does not isolate material; level also uncalibrated.
+- **Development:** first source-order18/30,first/middle,seeds314/2718. Retained
+  centered model has marginal gains only; joint control swap does not isolate
+  material. Correlated evidence, no physical/level/generalization claim.
 - **Preserved export failures:** use exact published PCM, never loosen .98 guard.
   Generator requires_grad=False is needed for exact replay despite no_grad;
   no kernel-cause claim. Failed reports/WAVs retained; see note.
@@ -79,16 +72,26 @@ Status: ACTIVE_GOAL / TRAIN_CENTERING_REJECTED / MODULATION_INTERFACE_NEXT.
   objects,middle,sigmas.2/.5/.8,paired posterior/noise. Common-only explains98.35%
   of active improvement; tail worsens. Silence-dominated learning falsified here.
 - **Training centering:** `pouring-tango-bridge-center-trained-2026-09-05`,same
-  200steps/cache/draws, differentiable mean across279controls eachstep. Active
-  matched-vs-swapped gain0.003654,22/39 wins, but worse disclosed dev above.
-  Raw/RMS AST and harder CLAP8/8 hypothetical and dev; semantic-only success.
-  CLI automatically loads frozen mean without TRAIN bank; hashes in pilot note.
-- **Next:** no more global text/pooled centering/epoch/seed variants. Inspect
-  frozen Tango audio-layer modulation; zero-initialized residual feasibility,
-  zero/bypass exactness then condition-swap and playable output before largerfit.
-  PAVAS v2 residual AdaLN prior art/limits in note: it trains diffusion blocks,
-  code pending; not a drop-in or evidence our frozen tiny model must succeed.
-- **Verification:**138 tests, Ruff, new automatic-offset CLI exact;64 new WAVs
+  200steps/cache/draws, differentiable mean across279controls. Larger conditional
+  TRAIN signal but worse dev8.106 vs7.687dB; rejected. No centering/epoch sweep.
+- **Audio modulation:** `pouring-tango-audio-modulation-2026-09-05`,264696params,
+  six audio AdaLN mixers,200steps. Zero/bypass/full-model exact; waveform transfer
+  worse0/8 versus old. PAVAS-inspired placement, not its full-backbone training.
+  No layer/width/seed/epoch sweep. CLI auto-detects kind; hashes in pilot note.
+- **Comparison:** runnable `physical_sound_pouring_bridge_compare.py`, fixed
+  excluded-object/crop/seed roles, previous/base/new/swapped plus playable WAV.
+- **Metric confound:** old fixed-floor shape metric varies under pure gain.
+  New `relative_power_shape_rmse_db` passes gain control; rejection survives.
+  Historical fields/reports unchanged, no audio/EQ/gain adjustment.
+- **Data audit:** `pouring-control-information-2026-09-05`,all279TRAIN crops,
+  absolute profiles, ridge0.01. Leave-record ridge/global3.630/4.390dB; leave-object
+  5.351/4.601. Useful same-object signal, no transfer for this simple baseline;
+  not proof nonlinear prediction is impossible. No fit/selection from dev.
+- **Next:** use existing TRAIN cross-setting objects7/31/40 to compare within-
+  object/across-setting and between-object differences at matched phase before
+  another model fit. Setting is not measured microphone/room/force. CSV TRAIN
+  has only18 objects; don't reopen author tests or invent missing physical labels.
+- **Verification:**147 tests, Ruff, modulation CLI exact;64 new WAVs
   PCM/hash audited. All jobs terminal. No further training started.
   No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
 

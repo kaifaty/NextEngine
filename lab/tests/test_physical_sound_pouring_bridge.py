@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from scipy.io import wavfile
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import physical_sound_pouring_bridge as b
@@ -250,6 +251,110 @@ class BridgeTests(unittest.TestCase):
             meta["offset_sha256"] = "wrong"
             (root / "result.json").write_text(json.dumps(meta))
             with self.assertRaisesRegex(ValueError, "identity"):
+                b.load_bridge(root)
+
+    def modulation_stub(self):
+        # Separate hook surfaces sharing frozen storage keep this focused CPU
+        # test small; the real pinned six-block layout is checked by the run.
+        shared = nn.Linear(1024, 6144).requires_grad_(False)
+        blocks = []
+        for _ in range(6):
+            mixer = nn.Linear(1024, 6144, device="meta")
+            mixer.weight, mixer.bias = shared.weight, shared.bias
+            blocks.append(SimpleNamespace(norm1=SimpleNamespace(linear=mixer)))
+        return SimpleNamespace(transformer_blocks=blocks)
+
+    def test_audio_modulation_zero_exact_positive_branch_and_cleanup(self):
+        bridge = b.ModulationBridge()
+        transformer = self.modulation_stub()
+        controls, x = torch.ones(1, 11), torch.randn(2, 1024)
+        mixers = [block.norm1.linear for block in transformer.transformer_blocks]
+        original = [m(x) for m in mixers]
+        with bridge.hook(transformer, controls):
+            self.assertTrue(all(torch.equal(m(x), y) for m, y in zip(mixers, original)))
+        with torch.no_grad():
+            bridge.network[-1].bias.fill_(0.25)
+        with bridge.hook(transformer, controls):
+            for m, y in zip(mixers, original):
+                result = m(x)
+                self.assertTrue(torch.equal(result[:1], y[:1]))
+                torch.testing.assert_close(result[1:], y[1:] + 0.25)
+        self.assertTrue(all(not m._forward_hooks for m in mixers))
+        with self.assertRaises(RuntimeError), bridge.hook(transformer, controls):
+            raise RuntimeError("expected")
+        self.assertTrue(all(not m._forward_hooks for m in mixers))
+
+    def test_audio_modulation_gradients_survive_checkpoint_recomputation(self):
+        bridge = b.ModulationBridge()
+        transformer = self.modulation_stub()
+        condition = (torch.randn(1, 3, 1024), torch.randn(1, 1024))
+        with bridge.training_hook(transformer, torch.ones(1, 11), condition) as get:
+            self.assertIs(get(), condition)
+            x = torch.randn(1, 1024)
+            for block in transformer.transformer_blocks:
+                mixer = block.norm1.linear
+                x = checkpoint(
+                    lambda value, m=mixer: m(value)[:, :1024].tanh(),
+                    x,
+                    use_reentrant=False,
+                )
+            x.square().mean().backward()
+        self.assertGreater(float(bridge.network[-1].weight.grad.abs().sum()), 0)
+        self.assertTrue(all(p.grad is not None for p in bridge.parameters()))
+        for block in transformer.transformer_blocks:
+            self.assertIsNone(block.norm1.linear.weight.grad)
+            self.assertFalse(block.norm1.linear._forward_hooks)
+
+    def test_audio_modulation_rejects_unknown_layout_and_direct_condition(self):
+        bridge = b.ModulationBridge()
+        self.assertEqual(sum(p.numel() for p in bridge.parameters()), 264696)
+        transformer = self.modulation_stub()
+        transformer.transformer_blocks.pop()
+        with (
+            self.assertRaisesRegex(ValueError, "layout"),
+            bridge.hook(transformer, torch.ones(1, 11)),
+        ):
+            pass
+        with self.assertRaisesRegex(ValueError, "scoped"):
+            bridge.condition(None)
+        with self.assertRaisesRegex(ValueError, "unknown"):
+            b.make_bridge("other")
+        with self.assertRaisesRegex(ValueError, "combination"):
+            b.run(
+                None, None, None, center_training=True, bridge_kind="audio-modulation"
+            )
+
+    def test_text_training_hook_preserves_existing_condition(self):
+        bridge = b.Bridge()
+        c = torch.ones(1, 11)
+        pair = (torch.randn(1, 3, 1024), torch.randn(1, 1024))
+        original = bridge.condition(c, *pair)
+        with bridge.training_hook(None, c, pair) as get:
+            for a, expected in zip(get(), original):
+                self.assertTrue(torch.equal(a, expected))
+
+    def test_audio_modulation_checkpoint_kind_roundtrip(self):
+        bridge = b.ModulationBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "bridge.safetensors"
+            b.save_file(bridge.state_dict(), path)
+            meta = {
+                "format": b.FORMAT,
+                "status": "complete",
+                "revision": b.train.tango.REVISION,
+                "bridge_kind": "audio-modulation",
+                "bridge_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+            (root / "result.json").write_text(json.dumps(meta))
+            with patch.object(b.ModulationBridge, "to", lambda self, *a, **kw: self):
+                restored, _ = b.load_bridge(root)
+            self.assertIsInstance(restored, b.ModulationBridge)
+            for k, v in bridge.state_dict().items():
+                self.assertTrue(torch.equal(v, restored.state_dict()[k]))
+            meta["center_training"] = True
+            (root / "result.json").write_text(json.dumps(meta))
+            with self.assertRaisesRegex(ValueError, "centering"):
                 b.load_bridge(root)
 
 

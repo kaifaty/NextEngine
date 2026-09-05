@@ -70,6 +70,12 @@ class Bridge(nn.Module):
         return self.offset
 
     @contextmanager
+    def training_hook(self, transformer, controls, condition):
+        # Compute under the caller's autocast, retaining the hook scope through
+        # backward for adapters that participate in checkpoint recomputation.
+        yield lambda: self.condition(controls, *condition)
+
+    @contextmanager
     def hook(self, transformer, controls):
         def inject(module, args, kwargs):
             kwargs = dict(kwargs)
@@ -87,6 +93,72 @@ class Bridge(nn.Module):
             yield
         finally:
             handle.remove()
+
+
+class ModulationBridge(Bridge):
+    """Shared residual on six audio AdaLN mixers, not their text counterparts."""
+
+    def __init__(self):
+        nn.Module.__init__(self)
+        # 264696 parameters, close to the text bridge's 265728; no width sweep.
+        self.network = nn.Sequential(nn.Linear(11, 42), nn.SiLU(), nn.Linear(42, 6144))
+        nn.init.zeros_(self.network[-1].weight)
+        nn.init.zeros_(self.network[-1].bias)
+
+    def condition(self, *args, **kwargs):
+        raise ValueError("audio modulation requires its scoped transformer hook")
+
+    @contextmanager
+    def inject(self, transformer, controls, cfg):
+        if controls.shape != (1, 11) or not torch.isfinite(controls).all():
+            raise ValueError("one finite eleven-control vector required")
+        blocks = transformer.transformer_blocks
+        mixers = [block.norm1.linear for block in blocks]
+        if (
+            len(mixers) != 6
+            or len({id(m) for m in mixers}) != 6
+            or any(
+                not isinstance(m, nn.Linear)
+                or (m.in_features, m.out_features) != (1024, 6144)
+                for m in mixers
+            )
+        ):
+            raise ValueError("unsupported audio modulation layout")
+
+        def adjust(module, args, output):
+            if output.shape != (2 if cfg else 1, 6144):
+                raise ValueError("unsupported audio modulation batch")
+            delta = self.network(controls)
+            if cfg:
+                return torch.cat([output[:1], output[1:] + delta])
+            return output + delta
+
+        handles = []
+        try:
+            for mixer in mixers:
+                handles.append(mixer.register_forward_hook(adjust))
+            yield
+        finally:
+            for handle in handles:
+                handle.remove()
+
+    @contextmanager
+    def training_hook(self, transformer, controls, condition):
+        with self.inject(transformer, controls, cfg=False):
+            yield lambda: condition
+
+    @contextmanager
+    def hook(self, transformer, controls):
+        with self.inject(transformer, controls, cfg=True):
+            yield
+
+
+def make_bridge(kind):
+    if kind == "text":
+        return Bridge()
+    if kind == "audio-modulation":
+        return ModulationBridge()
+    raise ValueError("unknown bridge kind")
 
 
 def digest(module):
@@ -239,7 +311,10 @@ def load_bridge(directory):
         x.dtype == torch.float32 and torch.isfinite(x).all() for x in state.values()
     ):
         raise ValueError("invalid bridge weights")
-    bridge = Bridge()
+    kind = meta.get("bridge_kind", "text")
+    if kind != "text" and meta.get("center_training", False):
+        raise ValueError("training centering is only supported for the text bridge")
+    bridge = make_bridge(kind)
     bridge.load_state_dict(state, strict=True)
     if meta.get("center_training", False):
         bridge.offset, _ = load_offset(directory, meta)
@@ -340,9 +415,15 @@ def finish_export(report, model, vae, output):
     )
 
 
-def run(source, cache_root, output, steps=200, center_training=False):
+def run(
+    source, cache_root, output, steps=200, center_training=False, bridge_kind="text"
+):
     if not isinstance(steps, int) or not 1 <= steps <= 400:
         raise ValueError("one to 400 training updates required")
+    if bridge_kind not in ("text", "audio-modulation") or (
+        center_training and bridge_kind != "text"
+    ):
+        raise ValueError("unsupported bridge kind/centering combination")
     output = flow.c.v.phase.d.fresh_output(output)
     torch.set_num_threads(4)
     torch.manual_seed(53)
@@ -351,7 +432,7 @@ def run(source, cache_root, output, steps=200, center_training=False):
     vae.requires_grad_(False)
     before = digest(model)
     data, provenance = cache_targets(source, cache_root, vae, output)
-    bridge = Bridge().to("cuda")
+    bridge = make_bridge(bridge_kind).to("cuda")
     if center_training:
         bridge.center_controls = data["controls"].to("cuda")
     report = {
@@ -367,6 +448,7 @@ def run(source, cache_root, output, steps=200, center_training=False):
         "seed": 53,
         "steps_requested": steps,
         "center_training": center_training,
+        "bridge_kind": bridge_kind,
         "frozen_model_sha256_before": before,
     }
     save = lambda: flow.c.v.p.save_json(output / "result.json", report)
@@ -436,18 +518,22 @@ def run(source, cache_root, output, steps=200, center_training=False):
             index = int((torch.randn(1, generator=rng).sigmoid() * 1000).long())
             sigma = model.noise_scheduler_copy.sigmas[index].to("cuda")
             optimizer.zero_grad(set_to_none=True)
-            with torch.autocast("cuda", dtype=torch.bfloat16):
-                adapted = bridge.condition(
-                    data["controls"][i : i + 1].to("cuda"), *condition
-                )
-                prediction = train.velocity(
-                    model, (1 - sigma) * target + sigma * noise, sigma, adapted
-                )
-                parts = train.loss_parts(prediction, noise - target, active_frames=88)
-                loss = parts["full"]
-            if not torch.isfinite(loss):
-                raise ValueError("nonfinite bridge loss")
-            loss.backward()
+            with bridge.training_hook(
+                model.transformer, data["controls"][i : i + 1].to("cuda"), condition
+            ) as adapted:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    prediction = train.velocity(
+                        model, (1 - sigma) * target + sigma * noise, sigma, adapted()
+                    )
+                    parts = train.loss_parts(
+                        prediction, noise - target, active_frames=88
+                    )
+                    loss = parts["full"]
+                if not torch.isfinite(loss):
+                    raise ValueError("nonfinite bridge loss")
+                loss.backward()
+            if any(p.grad is None for p in bridge.parameters()):
+                raise ValueError("bridge parameters missing from the training graph")
             norm = torch.nn.utils.clip_grad_norm_(
                 bridge.parameters(), 1.0, error_if_nonfinite=True
             )
@@ -548,6 +634,9 @@ if __name__ == "__main__":
         run_parser.add_argument("--" + name, type=Path, required=True)
     run_parser.add_argument("--steps", type=int, default=200)
     run_parser.add_argument("--center-training", action="store_true")
+    run_parser.add_argument(
+        "--bridge-kind", choices=("text", "audio-modulation"), default="text"
+    )
     render_parser = sub.add_parser("render")
     render_parser.add_argument("--model", type=Path, required=True)
     render_parser.add_argument("--output", type=Path, required=True)
@@ -556,7 +645,14 @@ if __name__ == "__main__":
     render_parser.add_argument("--offset", type=Path)
     args = parser.parse_args()
     if args.mode == "run":
-        run(args.source, args.cache, args.output, args.steps, args.center_training)
+        run(
+            args.source,
+            args.cache,
+            args.output,
+            args.steps,
+            args.center_training,
+            args.bridge_kind,
+        )
     else:
         torch.set_num_threads(4)
         bridge, meta = load_bridge(args.model)

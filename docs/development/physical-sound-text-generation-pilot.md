@@ -3207,3 +3207,106 @@ gradients, exact freezing and automatic verified-offset reload. Standalone CLI
 without an offset flag byte-replays both formats.64 new WAVs pass PCM/rate/layout/
 headroom and result hashes. Ruff lint/format and diff checks pass. All jobs
 terminal; no Cargo/ProductCheck/runtime/default/roadmap promotion.
+
+## Audio-layer modulation and source-information audit — 2026-09-05
+
+Implemented `run --bridge-kind audio-modulation` in the existing bridge script.
+The pinned Diffusers Flux implementation has six dual-stream blocks with an
+audio `norm1.linear`1024->6144 mixer. A shared11->42->6144 MLP adds a zero-initialized
+residual to these six audio mixers. Its264696 parameters closely match the text
+bridge265728. Text/pool/duration inputs and context mixers are not directly
+changed; joint attention can still propagate changes to context activations.
+No single-stream mixer, pretrained weight or runtime engine component is trained.
+This is a bounded placement experiment inspired by the preceding PAVAS reading,
+not its architecture, video estimator, per-block gates or full-backbone training.
+
+Training hooks remain installed through backward because non-reentrant checkpoint
+recomputation re-enters the mixers. Tests verify zero exactness, positive CFG
+branch-only injection, nonzero gradients through recomputation, cleanup after
+errors, fixed layout, kind-aware checkpoint reload and unchanged text-bridge
+conditioning. Every actual training update checks that all bridge parameters
+received gradients and no frozen generator parameter did.
+
+`pouring-tango-audio-modulation-2026-09-05`: same native posterior SHA and200
+sampled rows as the original bridge, same optimizer/seed53,200 steps/full-horizon
+loss/BF16 training/FP32 inference. Bridge SHA256
+`0072e9dbb352904b9f21a7da8dd548b877092af6b7e17571c5eb1c5a4f057d8c`.
+First/last20 loss1.6726/1.5958. Zero-adapter PCM, upstream loss, frozen full-model
+hash and glass/wood/rain adapter-off regressions all pass. Standalone `render`
+detects the bridge kind and byte-replays both mono/native glass10/seed2718.
+
+`physical_sound_pouring_bridge_compare.py --source SOURCE --model MODEL
+--previous PREVIOUS_DEVELOPMENT --output NEW` makes the repeated comparison
+runnable: verify source/split/previous WAV identities, generate eight source-free
+clips, reuse matched-seed prior/base and other-object swaps, compute metrics and
+write a preview/tag input. Whole first source-order records of excluded
+containers18/30, first/middle,seeds314/2718; no favourable crop selection.
+Four real controls enter metrics/preview only. Failed generation keeps status
+failed rather than inventing completed output. The real run is
+`pouring-tango-audio-modulation-development-2026-09-05`.
+
+| Eight development pairs | Base | Previous centered | New matched | New swapped |
+|---|---:|---:|---:|---:|
+| Legacy spectrum RMSE,dB | 18.915 | 18.845 | 15.167 | 14.340 |
+| Legacy level-centered shape RMSE,dB | 7.756 | 7.687 | 11.838 | 12.170 |
+| Relative-power shape256 RMSE,dB | 7.764 | 7.692 | 12.459 | 12.793 |
+
+New shape beats base/previous0/8 and swapped4/8 under the legacy diagnostic.
+Raw/RMS0.005 AST and harder13-prompt CLAP still recognize water8/8 on both
+hypothetical and development generations. Reject this trained instance as an
+improvement; retain previous centered model. No layer/width/seed/epoch sweep.
+[Listen: real/previous/new/swapped](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-audio-modulation-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle,seed2718,published gains.
+
+The adjacent-layer audit found a metric confound: the legacy `p.metrics` first
+uses a fixed absolute dB floor, so subtracting the spectrum mean does not make
+its shape metric gain invariant. Scaling the same real clip by0.1/0.01 yields
+false shape distances0.273/3.616dB. The new separately named
+`relative_power_shape_rmse_db` uses normalized power and a relative floor;
+the same test is below4e-15dB. Legacy fields and old reports are not overwritten.
+`relative-power-audit.json` binds the completed result hash and re-scores its
+unchanged WAVs. The rejection survives this correction, also with32 coarse
+bands (base7.174/previous7.157/new11.892dB). No EQ, gain or audio changes.
+
+Before another adapter fit, `pouring-control-information-2026-09-05` audits ALL279
+TRAIN crops/93 recordings/13 objects using absolute relative-power profiles256.
+This differs from the earlier relative first-to-middle timbre probe: it compares
+leaving an entire recording out with leaving its entire object out. Ridge0.01
+uses the same eleven controls, centering/intercept fitted inside each fold;
+fixed shuffle53 and nearest-control baselines, no hyperparameter selection.
+All phases of a held recording/object are excluded together.
+
+| Mean per-crop shape RMSE,dB | Global mean | Ridge | Shuffled ridge | Nearest |
+|---|---:|---:|---:|---:|
+| Leave recording out | 4.390 | 3.630 | 4.427 | 4.468 |
+| Leave object out | 4.601 | 5.351 | 4.971 | 5.746 |
+
+Equal-object averaging preserves the direction: ridge/global4.157/4.786 for
+record exclusion versus5.476/4.898 for object exclusion. Controls carry useful
+within-object information, but this simple predictor does not transfer. This
+does NOT prove insufficient metadata or impossibility of a nonlinear model.
+[Source comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-control-information-2026-09-05/comparison.wav>),
+13.74s: first TRAIN object middle crop/another recording of that object/nearest
+other object. These are real recordings, not generated sounds or admission data.
+
+Bounded research revisited the [source paper,v2,2025-01-13](https://arxiv.org/html/2411.11222v2):
+it solves inverse pitch/physical-property estimation, not reference-free waveform
+generation for new containers. Its success does not validate our forward model
+or rescue the previously rejected pitch teacher. The verified publisher TRAIN
+CSV has195 recordings/18 objects, only the same four glass/plastic materials;
+`physical_parameters` is empty. Broadening existing filters is not a large new
+object/material corpus. Our93 TRAIN records have settings ws-kitchen52,
+vgg-mrcr37,vgg-coffee3,ws-room1. Objects7,31,40 cross settings; others do not.
+These are setting labels, not measured microphones, room responses or forces.
+
+Next discriminator uses those already-TRAIN cross-setting objects to compare
+within-object/across-setting variation against between-object variation at
+matched phase. Distinguish acquisition nuisance from missing transferable object
+coverage before choosing normalization/data acquisition or another model fit.
+Keep reference-free generation; do not add a reference recording or an object-ID
+shortcut to make the task easier. No protected/author-test roles reopened.
+
+147 focused tests pass, including runnable comparator success/failure, source
+order/roles and gain invariance. Ruff lint/format and diff checks pass.64 new
+WAVs pass PCM/rate/layout/headroom/result hashes. All jobs terminal. No Cargo/
+ProductCheck/runtime/default/roadmap promotion; full multi-event goal stays open.
