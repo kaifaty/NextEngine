@@ -1795,3 +1795,124 @@ Verification:61 focused tests, Ruff check/format, local links and
 finite/headroom checks; the120 raw generation-level failures remain failures.
 Checkpoint hashes and common audition gain verified. All jobs terminal;
 Cargo/ProductCheck and engine audition not run (isolated Python lab only).
+
+### Relative pouring level: limited gain, not better timbre
+
+[Source-free audition](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav>)
+is4.08s, glass/cylinder H10cm/top-bottom diameter7cm, duration15s,
+elapsed fraction0.2, generator2718/decoder314, explicit audition gain10.
+[Comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-2026-09-05/comparison.wav>)
+is54.96s: first source-order glass then PET, first/middle; real/base/relative,
+generator314/decoder314, gain1. First-window base/relative are identical.
+
+`physical_sound_pouring_relative_level.py` fits ridge0.01 to first/middle RMS
+levels from the SAME93 training recordings. Within-record demeaning cancels
+recording-level offsets and ALL static covariates: the relative model learns
+only a global elapsed-fraction slope, not material/geometry interactions.
+Its slope is-25.2779dB per unit fraction; absolute fit-24.1940, record-paired
+random-sign control-2.2978, zero-phase0. The constant training-mean delta is
+-6.5126dB. No neural weights changed. At inference, desired level is the
+generated first-window level plus slope times progress; a single scalar gain
+adjusts the generated current patch. No reference audio is read.
+
+| Middle-first level RMSE,dB | Base | Relative | Absolute | Shuffled | Zero | Train mean |
+|---|---:|---:|---:|---:|---:|---:|
+| Glass,13 recordings | 5.252 | 4.069 | 4.029 | 7.088 | 7.635 | 3.921 |
+| PET,17 recordings | 4.142 | 3.735 | 3.669 | 5.310 | 5.697 | 4.027 |
+| Pooled | 4.656 | 3.883 | 3.829 | 6.144 | 6.607 | 3.981 |
+
+These are TWO disclosed objects, not90 independent cases. Relative calibration
+reduces this error16.6% versus base but barely beats the constant training mean,
+and loses to the absolute fit. Recording-gain confounding is NOT established.
+Across180 generated clips, absolute spectrum RMSE worsens9.923->11.177dB;
+CV error is unchanged0.3642. The generated anchor is already too quiet relative
+to real recordings. Do not present this as an overall realism improvement.
+Raw AST real60/60, base/relative143/180 each; RMS0.005 AST60/60,180/180,180/180.
+Independent CLAP, same six fixed prompts, first glass/PET ×two phases ×three
+seeds: real4/4, base/relative12/12 positive water margins. Semantic consistency
+does not prove calibrated level, material or naturalness. Scalar negative
+controls were explicitly excluded from AST/CLAP inference.
+
+Root `pouring-relative-level-2026-09-05` contains960 individual WAVs, comparison,
+`model.json`, full results and classifier reports; the audition root contains
+one WAV. `render(parent, calibration, output, controls, seed=2718,
+device="cuda", audition_gain=10)` is the source-free Python entry point;
+controls come from the existing `physical_sound_pouring_pilot.condition`.
+Parent/calibration hashes are checked and all gains explicit. No automatic
+attenuation or peak-guard weakening.64 focused tests and962 WAV/hash checks pass.
+
+### Gain-invariant timbral evolution: conditioned correction rejected
+
+[Timbral comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-timbre-2026-09-05/comparison.wav>)
+plays first source-order glass then PET, middle phase: real/base/global/
+conditioned/shuffled, seed2718/decoder314, gain1,45.8s. This is a FAILED
+correction, not a new best model or demo replacement.
+
+`physical_sound_pouring_timbre_probe.py` tests the same93 training recordings
+before another neural fit. Target is middle-minus-first centered log-power
+in32 linear-frequency bands. Relative normalization removes scalar recording
+gain; targets retain time-averaged spectral color, not within-patch dynamics.
+The global ridge head uses elapsed fraction only. The conditioned head uses
+fraction times static controls plus an intercept (11 features); ridge0.01.
+Controls are training-mean delta, zero change and record-wise random signs,
+seed53. Each of13 training objects is excluded in turn from fitting the head.
+This is grouped head validation, NOT independent validation of the base neural
+model, which has already seen all13 objects. No hyperparameter/seed sweep.
+
+| Relative spectral prediction RMSE,dB | Conditioned | Global | Train mean | Zero | Shuffled |
+|---|---:|---:|---:|---:|---:|
+| Equal-object mean of13 excluded-group RMSEs | 3.956 | 3.867 | 3.916 | 4.212 | 4.480 |
+| Disclosed glass,13 recordings | 4.051 | 3.555 | 3.594 | 3.852 | 3.775 |
+| Disclosed PET,17 recordings | 2.898 | 2.876 | 2.861 | 2.988 | 3.094 |
+| Disclosed pooled RMSE | 3.445 | 3.188 | 3.199 | 3.390 | 3.406 |
+
+Metadata adds no robust advantage over the global curve here. This rejects
+this feature/target combination, NOT all learnable physical information.
+For audition, interpolate the predicted coarse correction into STFT bands
+of the frozen generated middle clip, anchored to its generated first clip.
+Preserve the current generated RMS; no real audio enters this correction.
+Generated inputs are hash-checked cached base samples, not a new neural fit.
+All30 disclosed recordings ×three seeds were rendered, not just previews.
+
+| Mean over90 middle clips | Base | Global | Conditioned | Shuffled |
+|---|---:|---:|---:|---:|
+| Relative32-band shape RMSE,dB | 3.177 | 3.004 | 3.213 | 3.242 |
+| Absolute32-band shape RMSE,dB | 5.060 | 5.455 | 5.605 | 5.172 |
+| Existing spectrum RMSE,dB | 9.315 | 10.199 | 10.204 | 9.415 |
+| CV absolute error | 0.225 | 0.242 | 0.234 | 0.231 |
+| Raw AST water top5 | 56/90 | 81/90 | 76/90 | 58/90 |
+| RMS0.005 AST water top5 | 90/90 | 90/90 | 90/90 | 90/90 |
+
+Global correction improves the narrow relative metric but worsens actual
+spectral match and CV. AST does not detect that degradation. Preserve the base;
+do not start another static gain/EQ/capacity sweep from these scores.
+
+Bounded adjacent-layer research: [Bagad et al.,2024-11-18,v1](https://arxiv.org/html/2411.11222v1),
+sections3–4 and6.1, motivates testing time-resolved resonance instead of
+time-averaged color. Axial pitch rises with shrinking air column; radial
+resonance can fall. Their generic pitch baselines also fail substantially;
+therefore a spectral maximum is not reliable ground truth. Their DDSP synthetic
+generator conditions loudness/residual on real audio and does not itself meet
+our reference-free interface. This is prior art, not validation of our model.
+
+Hypotheses: recording level alone explains poor control (not supported by the
+relative-vs-absolute level comparison); static coarse color captures the missing
+physical information (no robust gain above); time-resolved resonance/latent
+state matters (plausible, unproven here). Next discriminator: on the existing
+training-only recordings, compare temporal resonance tracking against known
+synthetic rising/falling controls and shuffled-time controls before using it as
+a training target. Require a playable reconstruction/control and report misses;
+do not invent liquid-height labels, force measurements or open protected data.
+
+Root `pouring-relative-timbre-2026-09-05` contains360 clips plus comparison,
+linear weights, group/development errors and separate raw/normalized AST reports.
+Reproduce with `physical_sound_pouring_timbre_probe.py --source SOURCE
+--base-outputs RELATIVE_LEVEL_ROOT --output NEW_EXTERNAL_ROOT`.
+
+Verification for both relative-level/timbre changes:67 focused tests,
+Ruff check/format and `git diff --check` pass. All1323 written WAVs pass SHA256,
+16kHz mono PCM16, finite/headroom checks; parent/source/training identities
+match. Both AST timbre reports have360 clips plus three synthetic controls;
+the pre-existing real-water positive controls remain disclosed, not new tests.
+All local links resolve and experiment jobs are terminal. No Cargo/ProductCheck
+or engine audition: report-only Python lab, no runtime or roadmap change.

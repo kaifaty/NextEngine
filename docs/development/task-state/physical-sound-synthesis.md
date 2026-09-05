@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
+Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -12,25 +12,22 @@ Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifacts:** [stage-splice comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-stage-ablation-2026-09-05/comparison.wav),
-  glass first/middle, real/base/matched/base-early/base-late, generator2718.
-  [Separate-envelope comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-envelope-flow-2026-09-05/comparison.wav)
-  is a FAILED candidate. Shared audition gain0.63339858 on real/base/candidates;
-  raw level failures preserved. No target recording enters neural inference.
+- **Latest primary artifacts:** [source-free pouring audition](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav),
+  glass H10cm/diameter7cm/duration15s/progress0.2, seed2718/decoder314, gain10.
+  [Timbral comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-timbre-2026-09-05/comparison.wav)
+  is FAILED: glass then PET middle; real/base/global/conditioned/shuffled,
+  seed2718, gain1. No target recording enters neural inference/correction.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Impacts:** prior improves only1/14 matched event crops; retain base, no LoRA
-  sweep. Prefix/old unmatched-empty failures are superseded; exact extraction
-  boundary and evidence in pilot note. Striker margins are not material proof.
-- **Physical-control source:** `cluster-texture-training-grid-2026-09-05`,
-  Figshare29438288v5, CC-BY4.0,60 records/242 files/86.69MB: wood0/steel65/glass74,
-  Urethane probe,20–60mm/s ×0.5/1N. Same surfaces, not new objects. Keep
-  measured/commanded controls separate. Acquisition details in pilot note.
+- **Impacts:** prior improves only1/14 matched crops; retain base, no LoRA sweep.
+  Extraction evidence in pilot note. Striker margins are not material proof.
+- **Friction source:** `cluster-texture-training-grid-2026-09-05`,
+  Figshare29438288v5/CC-BY4,60 records: wood0/steel65/glass74, Urethane probe,
+  20–60mm/s ×0.5/1N. Same surfaces, not new objects; measured/commanded differ.
 - **Crossed velocity:** rank4/4804params, pooled neural/interpolation spectrum
   1.815/1.758dB,11/36 wins. Stop three-surface capacity/epoch/basis tuning;
   40mm/s gain was not robust. Disclosed development; stationary texture, not impact.
-- **Friction countercheck:** clean AND machine-mic surface retrieval30/30;
-  not independent quality validation, nor proof of a noise-only generator.
-  No exact NLMS preprocessing replay; audit JSON in speed50 root.
+- **Friction countercheck:** clean AND machine-mic retrieval30/30, not quality
+  validation or proof of noise-only generation. No exact NLMS replay; see note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; original CSV verified,
   converted TSV rejected. Three full WAVs; cross-site43958/43957 unfetched.
   Spectral gain7.469/7.580dB is not quality; stationary model loses temporal
@@ -48,11 +45,9 @@ Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
   Material/shape/dimensions/duration/elapsed fraction inputs. Prior power and
   onset variants retained; no default change or runtime promotion.
 - **Prior causal checks:**64/256 Euler does not fix deficit; wrong glass material
-  wins13/13, PET correct17/17. No material claim. Endpoint penalty changes flow
-  optimum, not proven cause of audible error; details in pilot note.
-- **Prior phase controls:** power wins151/180 spectrum pairs, but middle CV
-  error0.224->0.230. Both base/power miss phase CV change on new AND13 training
-  objects; oracle preserves most. Prior broad AST positives are not quality proof.
+  wins13/13, PET correct17/17. Endpoint penalty is not proven cause; see note.
+- **Prior phase controls:** power wins151/180 spectrum pairs, middle CV worsens.
+  Base/power miss phase CV change on new AND13 training objects; oracle does not.
 - **Two-patch probe:** first training record/container1, matched/shuffled600-step
   fits; correct template6/6 versus parent/shuffled3/6. Phase is learnable here.
   Noisy target identifies phase for98% of uniform times in exact two-endpoint
@@ -60,33 +55,35 @@ Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
 - **Paired extension:** same93 train records,600 extra updates, all30 disclosed
   development recordings ×2 phases ×3 seeds. Spectrum wins158/180 but CV worsens;
   normalized AST120/180 vs parent180/180. Seed2718 fails all60; reject promotion.
-- **Independent checks:** crossed decoder seeds do not explain the full failure.
-  CLAP real/oracle8/8, base12/12 water, paired10/12; PET2718 favours birds,
-  glass2718 remains water. Judges disagree; neither is naturalness authority.
-- **Stage localization:** `pouring-flow-stage-ablation-2026-09-05`,13 training
-  objects ×8 flow times: paired MSE lower everywhere, phase penalty small.
-  Exact-endpoint oracle MSE<1e-12. Frozen stage splice at0.25 gives normalized
-  AST base/paired/base-early/base-late12/9/11/9 of12; no clean restoration.
-- **Envelope branch:** `pouring-envelope-flow-2026-09-05`,27424param/32-bin
-  RMS MLP flows, matched/shuffled1500 steps, same93 train records, frozen base.
-  Evaluation stopped at peak guard AFTER fitting, resumed exact checkpoints.
-  120/360 generated signals fail raw headroom; common gain only enables audition.
-  Matched spectrum first/middle12.572/15.077 vs base10.532/9.315dB; CV worsens,
-  phase level change-0.034 vs real-5.390dB. Normalized AST88/180 vs base180/180.
-  Reject; no absolute-envelope capacity/epoch sweeps or weakening peak guards.
-- **AST controls:** `--ast-rms .005` optional; raw preserved. CUDA matches CPU
-  top10/flags on180 raw+120 normalized WAVs, delta2.24e-6. CPU default, CLAP
-  unchanged; mel warning remains. Do not tune thresholds or blacklist seeds.
-- **Prior controls:** codec checks reject gross corruption; ESC-50 physical
-  attributes are null. No posterior-mean, duration/CFG or caption-threshold retries.
-- **Next action:** test a simple condition-to-relative-level predictor on93
-  training records versus zero-phase/shuffled controls; compare absolute and
-  per-record normalized targets on disclosed containers before another flow fit.
-  Recording-gain/listener confounding is unproven. No new source/stack, invented
-  labels or protected reuse. Preserve base/power; broad goal unchanged.
-- **Verification:** two envelope fits, resumed evaluation and AST complete;
-  61 focused tests, Ruff and718 written-WAV/hash checks pass; no jobs running.
-  No Cargo/ProductCheck or engine audition: external Python lab only.
+- **Independent checks:** crossed decoder seeds do not explain full failure.
+  CLAP base12/12, paired10/12 water; PET2718 favours birds. Neither judge is
+  naturalness authority; AST/CLAP disagreement retained in pilot note.
+- **Stage/envelope failures:** exact-endpoint oracle succeeds, stage splices
+  do not cleanly restore semantics. Separate32-bin envelope flows fail120/360
+  raw headroom checks, worsen spectrum/CV, normalized AST88/180 vs base180/180.
+  Exact runs retained in pilot note; no absolute-envelope sweeps/guard weakening.
+- **Relative level:** ridge head on same93 paired records learns only global
+  phase slope-25.2779dB. Delta RMSE4.656->3.883 on two disclosed objects;
+  absolute fit3.829, training mean3.981. Gain confounding NOT established.
+  Absolute spectrum worsens9.923->11.177; CV unchanged. AST normalized180/180,
+  CLAP12/12 preserved. Limited amplitude control, not new neural/timbral quality.
+- **Relative timbre:**32-band normalized paired spectra, ridge0.01. Excluding
+  each13 training object from head fitting: conditioned/global mean RMSE
+  3.956/3.867; disclosed two objects3.445/3.188. Metadata adds no robust gain.
+  Generated EQ worsens absolute shape5.060->5.605dB and CV; normalized AST
+  still90/90. Retain base, reject static EQ; no additional gain/EQ sweeps.
+- **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
+  warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
+  ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
+- **Next action:** test time-resolved resonance on existing training recordings
+  against synthetic rising/falling and shuffled-time controls, with a playable
+  reconstruction/control. Bagad et al.v1 sections3–4/6.1 motivate this but also
+  show generic pitch detectors fail; spectral argmax is not ground truth.
+  Static-color failure does not prove labels lack all physical information.
+  No invented liquid heights, protected reuse or new static-head sweep.
+- **Verification:**67 focused tests, Ruff and1323 WAV/hash checks pass;
+  raw/normalized AST complete. No jobs running. Cargo/ProductCheck/engine
+  audition not run: external Python lab only, no runtime promotion.
 - **Full goal remains open:** robust quality/control, generalization and integration.
 
 ## Preserve these constraints
@@ -128,8 +125,8 @@ Status: ACTIVE_GOAL / ABSOLUTE_ENVELOPE_REJECTED / RECORD_LEVEL_HYPOTHESIS_OPEN.
   data, nonunique modal targets and parameter/audio-loss mismatch were not
   isolated. More importantly, audio-to-parameter input is the wrong interface
   for the full goal. An input-dependent analytic fit is not a learned gain.
-- Source MP3s: `ps2-freesound-wine-glass-v1/research`, same author/pack/train
-  family, not known identical objects. Do not infer wall thickness or force.
+- MP3s: `ps2-freesound-wine-glass-v1/research`, same author/pack/train family;
+  not known identical objects. Do not infer wall thickness or force.
 
 ## Legacy admission evidence and forbidden retries
 
