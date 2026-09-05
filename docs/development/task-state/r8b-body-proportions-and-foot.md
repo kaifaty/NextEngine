@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `GAIN_TUNER_PARTIAL / V8_NOMINAL / V9_REJECTED / NO_NEW_TRAINING` |
+| Status | `GAIN_TUNER_HEADLESS / AUTO_CANDIDATE_REJECTED / V8_NOMINAL / NO_NEW_TRAINING` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -18,9 +18,9 @@
   violations (-14/-13urad; allowed minimum0 with10urad observed tolerance).
   This rules out the ramp as sufficient, not all smooth reference schemes.
   User-authorized [Gain Tuner trial](../r8b-gain-tuner-tool-check-2026-09-05.md):
-  headless ankle waveform works on a pinned implicit-drive fixture, not standing.
-  GUI crashes before body load; Robot Schema link discovery empty, auto-gains unverified.
-  Next schema-only discovery probe; no driver, safety, admission or training change.
+  isolated schema fix now discovers26 links/25DOFs; mass queries/control pass.
+  Fixed harness rad/degree gains; 2Hz auto-candidate RMSE0.900° vs source0.575°.
+  Not selected. Next one-DOF inertia/frequency oracle; no training/driver change.
   [Upstream baseline proposal](../r8b-locomotion-prior-art-research-2026-09-05.md) remains unexecuted.
 
 - Missing torso/head in the old origin-line plot caused the apparent
