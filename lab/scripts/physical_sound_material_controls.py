@@ -120,7 +120,7 @@ def metrics(rows, predicted):
     }
 
 
-def run(data, generated, assets, package, output):
+def run(data, generated, assets, package, output, reference_data=None):
     report = json.loads((data / "data.json").read_text())
     if (
         report["status"] != "complete"
@@ -143,11 +143,18 @@ def run(data, generated, assets, package, output):
         "shape": np.stack(shapes),
         "embedding": torch.load(data / "embeddings.pt", weights_only=True).numpy(),
     }
-    held = [i for i, r in enumerate(rows) if r["role"] != "train"]
+    reference_rows = rows
+    if reference_data is not None:
+        reference = json.loads((reference_data / "data.json").read_text())
+        if reference["status"] != "complete":
+            raise ValueError("Incomplete fixed references")
+        reference_rows = adapter.fixed_reference_rows(rows, reference["rows"])
+    held = [i for i, r in enumerate(reference_rows) if r["role"] != "train"]
     result = {
         "status": "real_controls_complete_generation_pending",
         "claim": "diagnostic only; no realism/material acceptance authority; recording-held, not known novel objects",
         "data_sha256": pilot.sha(data / "data.json"),
+        "reference_data_sha256": pilot.sha((reference_data or data) / "data.json"),
         "methods": {},
         "auditions": [],
         "generated": [],
@@ -294,7 +301,15 @@ if __name__ == "__main__":
     for name in ("data", "assets", "package", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--generated", type=Path, nargs="+", required=True)
+    parser.add_argument("--reference-data", type=Path)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
         parser.error("Artifacts must remain external")
-    run(args.data, args.generated, args.assets, args.package, args.output)
+    run(
+        args.data,
+        args.generated,
+        args.assets,
+        args.package,
+        args.output,
+        args.reference_data,
+    )

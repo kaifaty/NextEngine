@@ -5557,3 +5557,84 @@ run one shared-data fit with the same source-free audible path and real controls
 do not train a separate network for every material. Acquisition/inventory alone
 must not become another endpoint. No nearest-neighbor/k/metric/feature/threshold
 sweep on these now-opened control failures, and no automatic realism authority.
+
+## Incremental author TRAIN expansion — 2026-09-06
+
+Audible comparisons [glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/glass-rigid-motion-comparison.wav),
+[metal](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/metal-static-comparison.wav).
+Order real reference→retained adapter→expanded-data adapter. Same original held
+references, not a comparison between different evaluation populations.
+
+The [publisher API](https://zenodo.org/api/records/12634671) confirmed CC-BY4,
+TRAIN shard2 size2086871040/MD5a630d0d456ddd32cdd1df289f9073eb1 and shard3
+size1955266560/MD5f003e4764debaf68097e2aefd613cd0c. Web reader could not open the
+HTML record; the live API request succeeded. Downloaded only TRAIN archives,
+no author val/test. External directory`syncfusion-extra-train-2026-09-06`.
+Shard2 fully verifies, SHA977fd5dceba3ca42e08da285f2219fa9f61ceebc152b937710a84bfaac2a62e6.
+Shard3 first request ended exit28 after300s/410576212bytes; a single curl Range
+resume continues(session17208,PID229438 at handoff). Its partial data was NOT
+parsed, trained on or declared verified. Poll the existing handle/process; do not
+restart solely because observation times out. Check final size/MD5 before use.
+The external receipt records exact transport state; no source completeness claim.
+
+Shard2 adds317eligible events:251TRAIN/66recording-dev. Six additional TRAIN glass
+recordings justify running an incremental update while shard3 downloads, not
+waiting for transport or selecting data according to acoustic scores. No promise
+that adding shard3 to the same category-only mapping will resolve its limitations.
+
+`physical_sound_syncfusion_extend.py` reuses the existing event selection and
+frozen encoder, accepts only pinned author TRAIN shard identities, rejects
+cross-shard duplicate recordings/role changes and appends without re-encoding old
+events. Dataset`syncfusion-extended-data-2026-09-06`:624events,490TRAIN/184recordings,
+116recording-dev/44recordings,18combination-dev/3recordings. TRAIN glass20events/
+11recordings versus9/5 before. All original307row dictionaries,roles,WAV references
+and cached embeddings are EXACTLY preserved. No unmeasured geometry/force labels.
+The helper can append later verified shards while preserving the prior prefix;
+it does not make new-object or licensing claims for pretrained weights.
+
+One shared17,088parameter fit, same5descriptorinputs/200steps/AdamW/lr.003/wd.0001/
+seed42/group weighting. No per-material training, neural capacity/epoch/seed sweep,
+visual features or decoder updates. Fit`syncfusion-extended-fit-2026-09-06`,SHA
+6e3e678af11a684733d4ac4bfebdeae4420bb56a935b6c5cf627698a6474defb;loss1.013795→.179283.
+Source-free `adapter.render` uses `AUDITIONS+[("metal","static")]`,kindadapter,
+same .6/1.5/2.7/4.0s,FP32/150steps/CFG2/.5gain/full5.461333s. Four new WAVs,
+16/16attacks,**one EXTRA on moving glass**,22.3–22.5s/gen,CUDA2.3824GiB. No gate,
+tail crop or detector threshold adjustment to hide that regression.
+
+Assessment now optionally checks that fixed reference rows are an exact prefix
+of the enlarged data, and compares previous adapter WAVs with identical schedules.
+CLI `assess --reference-data ORIGINAL --previous-output OLD_ADAPTER OLD_METAL`.
+Previous three stored shape scores reproduce exactly. On ORIGINAL held references:
+
+| Case | Retained shape distance(dB) | Expanded | Reference events/recordings |
+|---|---:|---:|---:|
+| Glass static |9.461792|9.271135|4/2|
+| Wood static |5.139583|5.228038|27/14|
+| Glass rigid-motion |5.567051|5.404915|4/3|
+| Metal static |4.407571|4.157091|27/14|
+
+Three shape distances improve,wood worsens; these are descriptive, not a trusted
+realism gate. Fixed68held embedding loss worsens.155136→.159116;movingglass alone
+improves.198932→.184377. Comparisons13.699625/12.983146/13.195813/13.107750s.
+Raw/PCM/full-layout/finite/headroom/.5gain/hash/comparison checks pass.
+
+Real-control banks refit on enlarged TRAIN, evaluated on the SAME original68held
+events via`--reference-data`: shape mean/record macro.4980/.4226 versus.4802/.4405;
+embedding mean/record.6032/.2837 versus.4881/.3803. Embedding/material glass recall
+improves25→91.67%,butwood71.43→46.43%,metal50→42.86%. Shape mean still labels7/8real
+glass events metal. Twelve real-control WAVs and16generated attack classifications
+in`syncfusion-extended-real-controls-2026-09-06`;checks pass. No method selected as
+judge, no quality admission or replacement of retained baseline.
+
+30focused tests(25SyncFusion+5material),Ruff,diff/links/media checks pass. Generation,
+encoding,fit and assessment are terminal; shard3 transport alone remains running
+at handoff. No Cargo/host-check/ProductCheck,runtime/demo/roadmap changes.
+Next: finish/verify the existing shard3 transfer, then bounded research on the
+missing object/event conditioning before another similar fit. Current category+
+motion input cannot express shape,size,striker or force; more diverse targets
+alone do not add those controls. Review eligible internet evidence without
+reopening protected roles; require a source-free audible discriminator. Do not
+turn shard arrival into an automatic data-size/epoch/metric tuning sweep, or treat
+this descriptive impact prior as the full multi-process physical-sound goal.

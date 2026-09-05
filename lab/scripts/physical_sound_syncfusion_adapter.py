@@ -409,7 +409,15 @@ def render(assets, fitted, output, auditions=None, kinds=None, times=None):
     pilot.save(output / "result.json", result)
 
 
-def assess(data, fitted, output):
+def fixed_reference_rows(current, reference):
+    if current[: len(reference)] != reference:
+        raise ValueError(
+            "Fixed reference rows/roles changed or are not preserved prefix"
+        )
+    return reference
+
+
+def assess(data, fitted, output, reference_data=None, previous_outputs=()):
     """Post-inference held-recording checks; no tuning and no claimed quality judge."""
     if (output / "assessment.json").exists():
         raise ValueError("Assessment exists")
@@ -422,10 +430,31 @@ def assess(data, fitted, output):
     ):
         raise ValueError("Changed or incomplete experiment")
     rows = json.loads((data / "data.json").read_text())["rows"]
+    if reference_data is not None:
+        reference = json.loads((reference_data / "data.json").read_text())
+        if reference["status"] != "complete":
+            raise ValueError("Incomplete fixed references")
+        rows = fixed_reference_rows(rows, reference["rows"])
+    previous_rows, previous_hashes = [], []
+    for directory in previous_outputs:
+        old = json.loads((directory / "result.json").read_text())
+        if (
+            old["status"] != "complete"
+            or old["events_seconds"] != result["events_seconds"]
+        ):
+            raise ValueError("Incomplete or differently timed baseline")
+        previous_hashes.append(pilot.sha(directory / "result.json"))
+        previous_rows.extend(
+            dict(r, kind="previous-adapter", id=r["id"] + "-previous")
+            for r in old["rows"]
+            if r["kind"] == "adapter"
+        )
     report = {
         "scope": "adapter recording/combination development; generator pretraining overlap; no calibrated quality acceptance",
         "rows": [],
         "comparisons": [],
+        "reference_data_sha256": pilot.sha((reference_data or data) / "data.json"),
+        "previous_result_sha256": previous_hashes,
     }
     for material, motion in dict.fromkeys(
         (r["material"], r["motion"]) for r in result["rows"]
@@ -458,7 +487,7 @@ def assess(data, fitted, output):
         sf.write(reference_path, reference_wave * 0.5, pilot.RATE, subtype="PCM_16")
         waves = [sf.read(reference_path)[0], np.zeros(pilot.RATE // 2)]
         order = ["held-reference"]
-        for row in result["rows"]:
+        for row in previous_rows + result["rows"]:
             if (row["material"], row["motion"]) != (material, motion):
                 continue
             if row["status"] != "published":
@@ -515,13 +544,21 @@ def assess(data, fitted, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("prepare", "fit", "render", "assess"))
-    for name in ("assets", "archive", "clap-package", "data", "fitted"):
+    for name in (
+        "assets",
+        "archive",
+        "clap-package",
+        "data",
+        "fitted",
+        "reference-data",
+    ):
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--material", choices=MATERIALS)
     parser.add_argument("--motion", choices=MOTIONS)
     parser.add_argument("--kind", choices=("text", "prototype", "adapter"))
     parser.add_argument("--times", type=float, nargs="+")
+    parser.add_argument("--previous-output", type=Path, nargs="+", default=[])
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
         parser.error("Artifacts must remain external")
@@ -543,7 +580,12 @@ if __name__ == "__main__":
             kinds=[args.kind] if args.kind else None,
             times=args.times,
         )
-    else:
-        {"prepare": prepare, "fit": fit, "assess": assess}[args.mode](
-            *required, args.output
+    elif args.mode == "assess":
+        assess(
+            *required,
+            args.output,
+            reference_data=args.reference_data,
+            previous_outputs=args.previous_output,
         )
+    else:
+        {"prepare": prepare, "fit": fit}[args.mode](*required, args.output)

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / REAL_MATERIAL_CONTROLS_FAIL / SHARED_ADAPTER_METAL_AUDIBLE.
+Status: ACTIVE_GOAL / EXPANDED_DATA_MIXED_WITH_EXTRA_ATTACK / SHARD3_DOWNLOAD_LIVE.
 
 ## Resume in 60 seconds
 
@@ -17,35 +17,41 @@ Status: ACTIVE_GOAL / REAL_MATERIAL_CONTROLS_FAIL / SHARED_ADAPTER_METAL_AUDIBLE
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest audible:** [metal, same shared adapter](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav).
-  No newweights/referenceinput;knownTRAIN material,NOT zero-shot material.4/4,0extra,
-  5.461333s,48kmono,.5gain,seed42/150steps;adapterSHA863459fb…unchanged.26tests,
-  all jobs terminal. `syncfusion-material-controls-2026-09-06` has12REAL-control
-  auditions and40generated attack classifications;no realism acceptance.
+- **Latest audible:**`syncfusion-extended-audition-2026-09-06`,4comparisons
+  glass/wood/glassrigid/metal:real→retained→expanded.490TRAINvs239,glass11recordsvs5;
+  original307rows/roles/embeddings EXACT.4WAV,16/16attacks,1EXTRAglassrigid.
+  Fixedold references shape improves3/4,woodworse;held68embedding.15514→.15912worse.
+  No promotion. Fit`syncfusion-extended-fit-2026-09-06`,SHA6e3e678a…;data`...extended-data...`624rows.
+  30tests,Ruff/media checks;all MODEL jobs terminal,download below still LIVE.
+- **LIVE DOWNLOAD:** shard3 session17208,PID229438,external
+  `syncfusion-extra-train-2026-09-06/train_shard_3.tar`;last observed1192457556bytes.
+  Initial curl exit28/300s at410576212bytes,one Range resume(max1200s) underway.
+  Poll existing handle/PID;no restart on observation timeout. Final expected
+  1955266560bytes/MD5f003e4764debaf68097e2aefd613cd0c. NOT verified/parsed/trained.
+  Shard2 MD5passed,SHA977fd5dc…;CC-BY4/API12634671;no authorval/test.
+- **Real controls still fail:**extended TRAIN banks on SAMEold68held:
+  shape mean/recordmacro.4980/.4226,embeddingmean/record.6032/.2837. Embeddingmean
+  glass25→91.67%butwood/metalworse;shape still7/8REALglass→metal. No judge/reward.
+- **Retained metal:** [same original shared adapter](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav),4/4,0extra,knownTRAINmaterial,no newweights.
 - **Real controls fail:**307events,239TRAIN/68held;glass support5TRAIN/3heldrecords,
   wood43/14,metal51/14;recording-dev has NOglass. Shape/material labels7/8REALglass
   events metal. Record-balanced macro shape mean/record.4802/.4405,embedding
   mean/record.4881/.3803. Nearest record prototypes do not fixglass. TRAIN-only
   banks/recordLOO,not object IDs. No judge/reward/threshold/method winner.
-- **Previous audible:**`syncfusion-full-frame-audition-2026-09-06`,3comparisons
-  real→descriptor→full-frame→wrong-frame;9WAV,36/36attacks,0extras,3PCMcontrols exact.
-  Stock DINO preprocessing discards~17%width EACH edge(marker test);fixed224square
-  letterbox retains content. Same307rows/roles,DINO/ridge.01/196608coefficients.
-  Held68 cosine descriptor.155136/stock.158377/full.156619;still loses to descriptor.
-  Spectrum full improves only1/3cases vsdescriptor,wrongwood again beatscorrect.
-  NOT promoted;25focusedtests,Ruff/media/diff checks;all jobs terminal. Fit
-  `syncfusion-full-frame-fit-2026-09-06`,SHA8e8cfc8a…;features`...features-local...`.
+- **FOV closed:**`syncfusion-full-frame-audition-2026-09-06`,stockDINO discards17%
+  width EACHedge(marker test).224letterbox preservesinputbutheld68 stillworse;
+  spectrum only1/3wins,wrongwoodbeatscorrect. No promotion/DINO/crop/ridge sweep.
 - **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3videos with
   ORIGINAL recorded audio,NOT generation. One phase-corrected motion-window test
   passes synthetic movingpatch/camera controls but followswoodstickshaft,not tip.
   No crop training. Author paper reports pixel labels;public times/MAT/index did
   not expose them,Umich archive timeout. Not proof CSV lost coordinates. No TLS
   bypass/pickle/val/test. Six actual DINO input previews demonstrate FOV loss.
-- **Next:** inspect remaining authorTRAIN shard metadata/material recordingcounts
-  to address only5TRAINglassrecordings;preserve existing held keys/protectedroles.
-  If useful diversity,one shared-data fit+source-free WAVs+realcontrols,not per-
-  material networks. No inventory-only endpoint or metric/k/threshold/DINO/crop/
-  ridge/epoch/prompt sweeps. Exact evidence and restrictions in pilot note.
+- **Next:** finish/verify existing shard3 download;then bounded research before
+  another similar fit. Category+motion inputs cannot expressshape/size/striker/force;
+  extra targets alone addno suchcontrols. Inspect eligible internet object/event-
+  conditioned evidence,keep protectedroles;source-free audible discriminator.
+  No automatic shard-arrival data-size/epoch/metric sweep or inventory-only endpoint.
 - **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
   `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
   TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
