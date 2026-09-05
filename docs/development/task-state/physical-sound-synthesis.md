@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SETTING_BRIDGE_REJECTED / BROADER_OBJECT_DATA_NEXT.
+Status: ACTIVE_GOAL / EPIC_PAIR_SOURCE_AVAILABLE / LEARNED_IMPACT_NEXT.
 
 ## Resume in 60 seconds
 
@@ -97,13 +97,23 @@ Status: ACTIVE_GOAL / SETTING_BRIDGE_REJECTED / BROADER_OBJECT_DATA_NEXT.
   Matched beats old2/8 and style-only2/8. Glass slightly better, PET worse.
   Raw/RMS AST/hard CLAP8/8 for each variant. ws-room only1 TRAIN record/update.
   No setting/centering/capacity/seed/epoch sweep. Exact identities in pilot note.
-- **Next:** bounded internet search for broader object/material-pair coverage,
-  defensible physical descriptors and recording context. Acquire one small
-  permitted TRAIN slice + playable examples, then one data-backed learned trial.
-  Stop this small-corpus adapter family; don't narrow the goal to pouring.
-- **Verification:**114 focused tests, Ruff, setting CLI both formats byte-exact;
-  92 new WAVs +10 prior audit WAVs PCM/hash verified. All jobs terminal.
-  No runtime/default/ProductCheck promotion; full multi-event goal remains open.
+- **New source:** [EPIC real-pair preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-pairs-source-fixed-2026-09-05/comparison.wav),
+  37.297s,24 real TRAIN clips,6 unordered material pairs,19 videos/5 participants.
+  Four clips each: metal/glass,metal/wood,wood/glass,metal/plastic,metal/ceramic,
+  plastic/wood. NOT neural generation. Metadata revision57a922f0; full identities,
+  fixed source-order/no-overlap selection and runnable acquisition in pilot note.
+  CC-BY-NC4, noncommercial research only. No validation/test acquisition.
+  Object IDs/striker/geometry/force/velocity unknown; don't invent them.
+- **Pair validator:** frozen CLAP4/24 on six fixed prompts (chance expectation4).
+  Not qualified as sole material validator/reward; don't tune prompts or drop
+  failures. One sequential-vs-seek decode matches except4 one-LSB samples.
+  Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
+- **Next:** learned material-conditioned impact candidate + playable controls,
+  expanding TRAIN support as necessary. One supporting-only checkpoint owed;
+  no further report-only checkpoint. Stop the13-container adapter family.
+- **Verification:**3 new source tests, Ruff;49 source WAVs verified + one alignment
+  prefix. Failed string/int version matcher preserved; fixed run complete.
+  All jobs terminal. No runtime/default/ProductCheck promotion; full goal open.
 
 ## Preserve these constraints
 
@@ -112,8 +122,8 @@ Status: ACTIVE_GOAL / SETTING_BRIDGE_REJECTED / BROADER_OBJECT_DATA_NEXT.
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint has new reference-free
-  WAVs; supporting-only debt is zero. Keep the full goal, not only pouring.
+  not replace the audible deliverable. Latest checkpoint adds real source WAVs,
+  not neural audio; supporting-only debt is one. Keep the full multi-event goal.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
   is Proposed; report-only waveform generation/authored-asset research is

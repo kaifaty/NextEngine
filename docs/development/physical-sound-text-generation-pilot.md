@@ -3410,3 +3410,95 @@ slice and audible examples before building more support tooling; exclude
 protected roles and unknown-redistribution assets from distribution. Then choose
 one learned experiment from actual available coverage. Do not invent missing
 force/geometry, ask the user to record objects, or narrow the full goal to water.
+
+## EPIC-SOUNDS material-pair source slice — 2026-09-05
+
+The bounded source search changes event family from pouring to impacts rather
+than repeating the13-container adapter family. Competing explanations remain:
+too little transferable object coverage; unmodelled acquisition conditions;
+and evaluators that cannot actually distinguish physical conditions. The last
+trial did not fix transfer by separating setting labels. This checkpoint tests
+availability of broader material-pair data and the evaluator's real positives.
+
+[FillImpact](https://arxiv.org/html/2607.17773v1),20 July2026, describes88 objects,
+different strikers and fill states; no official downloadable release was found
+on the inspected paper page or bounded project search. It remains unavailable,
+not a reason to wait. SonicGauss/NISR reuse ObjectFolder lineage; no fresh real
+independence or reopening of protected roles is claimed. No payload was acquired
+from these leads. Existing source-admission research is not repeated as a gate
+on the following independent report-only source audition.
+
+[EPIC-SOUNDS publisher repository](https://github.com/epic-kitchens/epic-sounds-annotations)
+and [paper v2](https://arxiv.org/html/2302.00646v2),§IV-A/B andV-C, provide collision
+labels involving two materials. The authors describe audio annotation followed
+by visual verification and exclusion/correction of ambiguous labels; this is
+not measured physical ground truth. Participant/video IDs are recording context,
+NOT stable physical-object IDs. Material pairs are unordered: metal/glass does
+not identify the striker, a metal alloy, object dimensions, force or velocity.
+The corpus also contains action classes such as pouring, scraping and sliding.
+
+The actual publisher TRAIN CSV at revision
+`57a922f0d352e9429f1ef8a37eee21758dd3a33c` has60055 annotations,495 videos and32
+participants. Training counts include metal/glass472,metal/wood1451,
+wood/glass29,metal/plastic1285,metal/ceramic1303,plastic/wood123. This long tail
+must not be disguised as equally broad physical coverage. Validation/test
+annotations or audio were not acquired. Foundation pretraining overlap is unknown.
+
+`physical_sound_epic_slice.py --output EXTERNAL_NEW_DIRECTORY` downloads only
+TRAIN annotations, publisher README and video-path/checksum metadata. The latter
+comes from the [official downloader repository](https://github.com/epic-kitchens/epic-kitchens-download-scripts)
+at `4f11fb2b579833f360c3c7bb917bf1e24a9787b5`; its code was inspected for endpoint
+construction, NOT executed. TLS verification stays on. Some original MP4s are
+multi-gigabyte, so ffmpeg seeks to selected intervals through HTTPS partial access.
+Whole-video publisher MD5s are recorded but explicitly NOT verified. Local
+metadata/decoded/published bytes have SHA256 receipts; these are not evidence
+that the entire remote video was downloaded or admitted.
+
+Selection is fixed before waveform access: six classes in the count order above,
+first source-order0.25–3s annotation per participant with no overlap with any
+other TRAIN annotation; four participants per class. No audio-score selection.
+24 clips span19 videos and5 distinct participants overall. Unannotated background
+sounds, multiple impacts within one event and imperfect source labels remain
+possible. Missing physical fields are explicitly null, not filled from sound.
+
+`epic-material-pairs-source-2026-09-05` stopped before audio access: the checksum
+CSV mixes versions55/100 with `errata`, so its version column is string-valued.
+The matcher incorrectly compared integers. Preserve that failed result; the
+fixed string-compatible matcher is covered by a test and keeps identical selected
+annotations. `epic-material-pairs-source-fixed-2026-09-05` completed acquisition.
+Original AAC audio is decoded/downmixed/resampled to24kHz monoPCM16; each output
+length exactly matches the annotation sample interval. All24 require no gain
+attenuation and contain no full-scale decoded samples.49 decoded/published/
+comparison WAVs and four metadata files pass identities/layout/length checks.
+
+[Listen to real material-pair recordings](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-pairs-source-fixed-2026-09-05/comparison.wav>),
+37.297s: four clips each of metal/glass,metal/wood,wood/glass,metal/plastic,
+metal/ceramic,plastic/wood, separated by0.5s silence.25.297s of actual source
+audio. These are internet recordings, NOT new neural generations. The publisher
+uses CC-BY-NC4.0; retain attribution, changes and source terms. Local noncommercial
+research only; no commercial/distributed engine asset or model promotion.
+
+`clap-material-pairs.json` uses six fixed prompts, one per unordered material
+pair, with the existing frozen CLAP. Exact pair recognition is4/24 (uniform
+six-way chance expectation4/24). The confusion matrix and all scores are retained;
+no prompt/threshold retuning or removal of failed source positives. This small
+diagnostic does not prove material perception impossible, but does not qualify
+CLAP as the sole material-pair validator or training reward. The source paper
+also reports difficulty with bi-material audio recognition; it does not establish
+that our frozen zero-shot classifier is competent for this task.
+
+`alignment-check.json` rules out gross timestamp drift for one counterfactual
+control: sequential decode from video start versus direct seek forP04_09_4.
+54504 samples agree except four1-LSB differences; correlation0.999999999991.
+The separately retained12.669s prefix is a diagnostic source decode, not another
+selected training clip or exact whole-corpus alignment proof. No source audio
+was modified to improve evaluator scores.
+
+Three focused tests pass (selection/overlap/coverage,55/100 mixed-version source
+mapping, TLS/crop/headroom/null-physics behavior); Ruff lint/format and diff checks
+pass. All jobs terminal. No Cargo/ProductCheck/runtime/roadmap changes. This is
+one source/diagnostic-only checkpoint; the next checkpoint must produce a learned
+material-conditioned impact candidate and playable controls. Expand TRAIN support
+as needed within the stated metadata limits, preserve missing axes, and do not
+equate participant separation with proven new-object identity or CLAP scores with
+physical calibration. The full multi-event goal remains open.
