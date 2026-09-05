@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / CONDITIONED_NEURAL_FRICTION_AUDIBLE / ROBUST_GAIN_UNPROVEN.
+Status: ACTIVE_GOAL / FRICTION_GAIN_NOT_ROBUST / MEASURED_RAIN_SOURCE_LOCATED.
 
 ## Resume in 60 seconds
 
@@ -14,13 +14,13 @@ Status: ACTIVE_GOAL / CONDITIONED_NEURAL_FRICTION_AUDIBLE / ROBUST_GAIN_UNPROVEN
   Reconstructing an input recording does not satisfy this objective.
 - **Latest primary artifact:** [neural rubber-on-glass friction](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-neural-rank4-glass-40-2026-09-05/generated.wav)
   (2s), generated from surface74/speed40mm/s/force0.5N, noise seed2718;
-  standalone inference needs no recording. [Six-second comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-rank4-2026-09-05/glass-comparison.wav):
-  real -> neural -> interpolation at0.5N, then1N. Shared playback gain100.
+  standalone inference needs no recording. [Latest cross-speed comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-cross-speed50-2026-09-05/glass-cross-speed-comparison.wav):
+  real -> neural -> interpolation at30, then50mm/s. Separate model per fold;
+  same0.5N/seed314 and shared gain100. Six seconds, not a promoted model.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest roots: `texture-conditional-{spectrum,rank4}-2026-09-05`, under
+  Latest roots: `texture-cross-speed{30,50}-2026-09-05`, under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Each has result/model JSONs, safetensors, WAVs and waveform audit. Earlier roots in note.
 - **Matched impact result:** prior improves only1/14 event crops, all seven
   class means decline. Retain base; no LoRA sweep. Positive striker margins
   after cropping revise earlier window-confounded failures, not material proof.
@@ -34,22 +34,27 @@ Status: ACTIVE_GOAL / CONDITIONED_NEURAL_FRICTION_AUDIBLE / ROBUST_GAIN_UNPROVEN
   Train24 repeat0 at20/30/50/60;12 scans40mm/s unseen-speed development;
   other24 repeat1 development. Same surfaces, not new objects/protected tests.
   Keep raw two-mic/force/position; commanded and measured controls separate.
-  Initial12-condition probe remains `cluster-texture-controls-canonical`.
-  Clean audio−77…−66dBFS there; machine residual/preprocessing remains a risk.
-  Mini archive has no raw audio. Full archive range access works; canonical
-  Figshare URL must resolve per request (signed redirect expires after10s).
-  Earlier failed mini/full directories remain, not authoritative. No full ZIP
-  download or whole-archive MD5 verification. No protected evidence reopened.
-- **Neural friction result:** fixed0.75s central windows,22.05kHz, Welch1024,
-  physical features -> two64-unit SiLU layers -> log PSD -> fresh filtered noise.
-  Full513-output net:1500steps/37,889params, new-speed RMSE2.0752dB vs
-  interpolation1.7289, loses12/12. Single rank4 train-only PCA correction:
-  4,804params, error1.6898, wins6/12; repeat error1.3402 vs1.3377, wins15/24.
-  Learned mean gain over interpolation .039dB is weak; no quality promotion.
-  Actual WAV errors full/rank4/interpolation/oracle2.009/1.775/1.795/.922dB.
-  Envelope CV real/rank4/oracle .058/.044/.062 does not show severe temporal
-  failure. Oracle is reference-dependent control, never an inference result.
-  No pretrained weights, stationary texture only; no glass-impact or geometry claim.
+  Mini has no raw audio; full ZIP range reader must resolve canonical Figshare
+  URL per request (signed redirect expires after10s). No full-archive MD5 check.
+  Earlier failed acquisitions are not authoritative; no protected evidence reused.
+- **Crossed-velocity result:** fixed rank4/4,804params/1500steps. Neural versus
+  interpolation spectrum RMSE30:1.904/1.759;40:1.690/1.729;50:1.850/1.788dB.
+  Pooled1.815/1.758,11/36 wins. Stop this three-surface capacity/epoch/basis
+  tuning; the apparent40mm/s gain is not robust. All folds disclosed development.
+  No pretraining; physical inputs -> stationary Gaussian texture, not impacts.
+- **Counterchecks:** repeat scatter contributes13–17% of observed neural MSE;
+  most deviation remains relative to the two-repeat mean (not population truth).
+  Matched speed/load surface retrieval is30/30 for BOTH clean and machine-mic
+  spectra. That score is not independent quality validation. It does not prove
+  the generator uses only noise. Upstream noncausal NLMS inspected, not executed;
+  no exact archive-preprocessing replay. Audit JSON in speed50 root.
+- **Next source:** `amazon-rain-source-probe-2026-09-05`, DataSuds DOI
+  10.23708/I0QYNM V2, CC-BY4.0. Metadata/README/notebook plus three original
+  no/light/heavy rain WAVs60s/48kHz mono; five files MD5/SHA verified.
+  No numeric intensity inferred. `total_rain` means accumulated mm/5min;
+  notebook qualitative classes relabel isolated0.2mm as no rain. Do not run it.
+  Training spectra48,208 rows/file43944, cross-site43958/43957 unfetched.
+  Only three full WAVs; spectra alone cannot prove waveform realism.
 - **Prior fit:** prior-retention step240 gains are local, not broad; evidence in note.
 - **Codec controls:** reject gross sampling corruption; no posterior-mean retry.
 - **ESC-50:**117 WAVs/100 sources,93 train/24 development, source-disjoint.
@@ -58,23 +63,20 @@ Status: ACTIVE_GOAL / CONDITIONED_NEURAL_FRICTION_AUDIBLE / ROBUST_GAIN_UNPROVEN
   exact controls match. Do not repeat; details and frozen configuration in note.
 - **Do not repeat:** prior glass duration1.5/5s, CFG1/2/4.5 and base-unconditional
   sweeps. Exact controls passed; none repaired the old prefix scores.
-- **Validator limitation:** all six real/VAE controls prefer wooden-stick/glass
-  over knife/glass in the current wording-confounded caption bank. Their true
-  target cosines are 0.38–0.46, above generated examples; ranks cannot establish
-  striker identity. Steel remains unscored, and no perceptual risk is calibrated.
-- **Next action:** before a third neural variant, bounded residual/repeat/noise
-  discrimination plus crossed-velocity checks: is the small rank4 benefit real
-  beyond40mm/s? Include generated sounds at other speeds in that checkpoint;
-  no validator-only package. Disclose development reuse, never promote a used
-  fold to independent evidence. Do not assume width/epochs/time variation fixes
-  it. Scripts: `physical_sound_texture_probe.py --training-grid` and
-  `physical_sound_texture_fit.py --corpus ... --rank 4` / `--render-model ...`.
+- **Validator limitation:** caption bank misranks known real/VAE striker controls;
+  no material-identity or calibrated perceptual claim. Steel remains unscored.
+- **Next action:** acquire rain training spectral table, match source filenames,
+  validate frequency grid/units by reconstructing the three WAV spectra; then
+  generate a report-only rain sound conditioned on measured accumulation.
+  Keep cross-site tables out of tuning, group temporal development by storm/day.
+  Source discriminator and audible output belong in one checkpoint, not a new
+  protocol/validator-only milestone. Friction defaults/artifacts remain unchanged.
   No repeated generic-caption/glass SFT sweeps, modal-MLP restart, invented labels,
   protected reuse or new stack. Demo/base unchanged; no product admission.
 - **Hardware/runtime:** RTX3080 10GiB, working CUDA, `lab/.venv/bin/python`.
   Offline weights/code verified; exact libraries in note. Old GPU blockers stale.
-- **Verification:**242 source files,52 generated/control/preview WAVs plus6s
-  comparison verified.29 focused tests,
+- **Verification:**50 new WAVs plus6s comparison and five rain-source files
+  verified.30 focused tests,
   Ruff/diff/local-link checks pass. All jobs terminal. No Cargo/ProductCheck
   or engine audition: external Python lab only. Reproduction is in the note.
 - **All goal requirements remain open beyond this baseline:** independent

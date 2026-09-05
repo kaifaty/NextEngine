@@ -1,7 +1,8 @@
 """Small physical-condition -> stochastic friction sound baseline, offline only.
 
 Known surfaces and fixed rubber probe; no claim of universal material synthesis.
-Train repeat0 at20/30/50/60mm/s;40mm/s and repeat1 are disclosed development.
+By default train repeat0 at20/30/50/60mm/s;40mm/s/repeat1 are development.
+Crossed30/50mm/s folds reuse disclosed development data, never protected tests.
 The network predicts a stationary spectrum, not recorded phase or impacts.
 """
 
@@ -40,8 +41,10 @@ def features(texture: int, speed: float, force: float) -> np.ndarray:
     )
 
 
-def role(row: dict) -> str:
-    if row["commanded_speed_mm_s"] == 40:
+def role(row: dict, heldout_speed: int = 40) -> str:
+    if heldout_speed not in (30, 40, 50):
+        raise ValueError("only interior velocity folds supported")
+    if row["commanded_speed_mm_s"] == heldout_speed:
         return "unseen_speed"
     return "train" if row["repeat"] == 0 else "repeat_development"
 
@@ -114,7 +117,7 @@ def checked(path: str, manifest: dict, root: Path) -> Path:
     return p
 
 
-def load_data(path: Path):
+def load_data(path: Path, heldout_speed: int = 40):
     if path.stat().st_size > 2_000_000:
         raise ValueError("oversized source manifest")
     manifest = json.loads(path.read_text())
@@ -170,7 +173,7 @@ def load_data(path: Path):
         rows.append(
             {
                 **row,
-                "role": role(row),
+                "role": role(row, heldout_speed),
                 "crop_start_seconds": float(start),
                 "measured_force_median_N": float(np.median(ff)),
                 "measured_speed_mm_s": float(
@@ -242,10 +245,10 @@ def waveform_metrics(candidate: np.ndarray, reference: np.ndarray) -> dict:
     }
 
 
-def fit(manifest: Path, output: Path, rank: int = 0):
+def fit(manifest: Path, output: Path, rank: int = 0, heldout_speed: int = 40):
     torch.set_num_threads(2)
     torch.manual_seed(23)
-    rows, waves, noises, inputs, corpus = load_data(manifest.resolve())
+    rows, waves, noises, inputs, corpus = load_data(manifest.resolve(), heldout_speed)
     output.mkdir(parents=True, exist_ok=False)
     train = np.array([row["role"] == "train" for row in rows])
     target = np.stack([spectrum(w) for w in waves])
@@ -268,6 +271,8 @@ def fit(manifest: Path, output: Path, rank: int = 0):
     meta = {
         "format": "texture-spectrum-v1",
         "rank": rank,
+        "heldout_speed_mm_s": heldout_speed,
+        "split_scope": "disclosed cross-velocity development, not independent held-out objects",
         "checkpoint_sha256": hashlib.sha256(
             (output / "model.safetensors").read_bytes()
         ).hexdigest(),
@@ -407,12 +412,13 @@ if __name__ == "__main__":
     parser.add_argument("--seconds", type=float, default=2)
     parser.add_argument("--seed", type=int, default=314)
     parser.add_argument("--rank", type=int, choices=(0, 4), default=0)
+    parser.add_argument("--heldout-speed", type=int, choices=(30, 40, 50), default=40)
     args = parser.parse_args()
     out = args.output.resolve()
     if out.is_relative_to(Path(__file__).resolve().parents[2]):
         raise ValueError("generated artifacts must stay outside the repository")
     if args.corpus:
-        fit(args.corpus, out, args.rank)
+        fit(args.corpus, out, args.rank, args.heldout_speed)
     else:
         render(
             args.render_model,

@@ -43,6 +43,29 @@ class TextureFitTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fit.features(*args)
 
+    def test_crossed_velocity_folds_preserve_recording_separation(self):
+        rows = fit.source.conditions(True)
+        for speed in (30, 40, 50):
+            with self.subTest(speed=speed):
+                train = [row for row in rows if fit.role(row, speed) == "train"]
+                unseen = [row for row in rows if fit.role(row, speed) == "unseen_speed"]
+                self.assertEqual(len(train), 24)
+                self.assertEqual(len(unseen), 12)
+                self.assertTrue(
+                    all(
+                        row["commanded_speed_mm_s"] != speed and row["repeat"] == 0
+                        for row in train
+                    )
+                )
+                self.assertTrue(
+                    all(row["commanded_speed_mm_s"] == speed for row in unseen)
+                )
+                self.assertFalse(
+                    {row["id"] for row in train} & {row["id"] for row in unseen}
+                )
+        with self.assertRaises(ValueError):
+            fit.role(rows[0], 20)
+
     def test_psd_scaling_seed_and_limits(self):
         db = np.full(513, -80.0)
         a = fit.synthesize(db, 3, 314)

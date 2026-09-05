@@ -1122,3 +1122,94 @@ shape and waveform metric controls. Ruff/static/format and diff/link checks
 pass.242 source files,52 individual/control/preview WAVs and the additional
 six-second glass comparison pass hash/signal checks. Both fits and inference
 jobs terminal. No Cargo/ProductCheck/engine audition; no production promotion.
+
+## Crossed velocities and recording-channel countercheck (2026-09-05)
+
+[Glass30/50mm/s comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-cross-speed50-2026-09-05/glass-cross-speed-comparison.wav>)
+is six seconds: real -> neural -> interpolation at30mm/s, then50mm/s,
+0.5N/seed314. Each velocity has its **own excluded-velocity model**, not one
+promoted model. One gain100, no individual loudness matching. All six material/
+load cases, including poor results, remain in each24-second full comparison.
+
+Added `--heldout-speed {30,40,50}` to the existing fitter. Default40 and its
+previous artifacts remain unchanged. New roots `texture-cross-speed30-2026-09-05`
+and `texture-cross-speed50-2026-09-05` retain the same rank4 architecture,
+seed23,1500 updates and24 training scans, excluding the chosen velocity and
+all repeat1 recordings. Mean/PCA basis are recomputed on each fold's training
+rows only. This explicitly reuses disclosed development data in cross-validation;
+the models trained with40mm/s are not evidence that those models generalize to40.
+No protected/one-shot/test objects were reopened and no new capacity sweep ran.
+
+| Excluded speed | Neural mean spectrum RMSE,dB | Interpolation | Neural wins |
+|---|---:|---:|---:|
+| 30mm/s | 1.90424 | 1.75858 | 2/12 |
+| 40mm/s, previous run | 1.68983 | 1.72887 | 6/12 |
+| 50mm/s | 1.84997 | 1.78802 | 3/12 |
+| All three disclosed folds | 1.81468 | 1.75849 | 11/36 |
+
+The hypothesis of a stable gain across these speeds is contradicted. A third
+width/epoch/basis sweep on these three surfaces is not the next action.
+The neural baseline remains playable; neither it nor interpolation is promoted.
+
+`texture-cross-speed50-2026-09-05/cross-speed-audit.json` records the bounded
+discriminators. For each surface/load/velocity, both repeats receive the same
+prediction. Their mean squared error decomposes exactly into squared deviation
+from the two-repeat mean plus one-quarter of their squared difference.
+Repeat-to-repeat spectral RMSE is1.394/1.379/1.336dB for30/40/50; the latter
+scatter term contributes only13.3/16.8/13.0% of observed neural MSE. The
+two-repeat mean is not ground truth or an unbiased population estimate, but
+this check does not support explaining the entire error as repeat randomness.
+
+For a channel countercheck, a repeat1 recording retrieves one of three repeat0
+surface templates at the **same speed and load**, using centered log spectra
+(constant level removed). Clean audio is30/30 correct; so is the supposedly
+machine-noise microphone. This is a counterexample to treating this retrieval
+score as independent acoustic-quality validation. It does NOT prove that the
+generator learned only machinery, that clean audio is worthless, or that the
+reference microphone contains no actual contact sound.
+
+Read, but did not execute, the source's
+[NLMS implementation at e05d6b0](https://raw.githubusercontent.com/cluster-lab/Cluster-Haptic-Texture-Dataset/e05d6b022d127e24f73583146f0aa229c6934449/preprocessing/noise_cancel/active_filter/LMSnoise_cancel.py)
+and its [processing wrapper](https://github.com/cluster-lab/Cluster-Haptic-Texture-Dataset/blob/e05d6b022d127e24f73583146f0aa229c6934449/preprocessing/noise_cancel/active_noise_filter.py).
+The wrapper chooses noncausal700-tap normalized LMS, step1, leakage .001,
+without prewhitening. The implementation subtracts an adaptive estimate from
+the main channel and starts with random coefficients. This supports considering
+recording/preprocessing effects, not asserting an exact replay of the published
+archive or identifying which physical component was removed.
+
+Verification:30 focused tests pass, including all three excluded-velocity
+partitions and recording separation.50 new WAVs and the six-second comparison
+pass hash/PCM/rate/headroom checks. Ruff/static/format and diff/local links pass.
+Both jobs terminal; no Cargo/ProductCheck/engine audition or demo replacement.
+Reproduce with the previous fit command plus `--heldout-speed 30` or50 and a
+new external output directory. Original40mm/s fits remain unmodified.
+
+### Next missing physical axis: measured rainfall
+
+A bounded Internet search found
+[Measuring Amazon rainfall intensity with sound recorders, DataSuds V2](https://dataverse.ird.fr/dataset.xhtml?persistentId=doi:10.23708/I0QYNM&version=2.0).
+The published terms are CC-BY4.0. It provides48,208 training spectra and only
+three complete example recordings, plus separate cross-site spectral tables.
+The README identifies `total_rain` as **accumulated millimetres over five minutes**,
+not instantaneous mm/h; numeric columns label spectral frequencies. The
+notebook's class labels also relabel isolated0.2mm readings as no rain, so do
+not substitute those labels for the measured quantity or execute the notebook.
+This is a candidate rain-control source, not sufficient waveform evidence
+for universal rain synthesis, arbitrary struck surfaces or exact event timing.
+
+The external `amazon-rain-source-probe-2026-09-05` contains pinned-version
+API metadata, original README/notebook and the three original60s/48kHz/mono/
+PCM16 WAVs (no rain/light/heavy). All five files pass publisher MD5 and local
+SHA256. Notebook code was inspected as text only. No numeric intensity was
+invented from the three qualitative descriptions. A bounded local DOI/name
+scan found no earlier reference, not an exhaustive overlap audit.
+Train file43944 and cross-site files43958/43957 are **not downloaded**.
+
+Next: acquire the training spectral table, identify its units/frequency grid
+and match the three source filenames before another fit. Reconstruct those
+spectra from the supplied WAVs as a source-unit discriminator, then produce
+an explicitly experimental rain sound conditioned on measured accumulation.
+Do not use the two cross-site tables for tuning; keep any temporal splits
+storm/day-grouped rather than assuming adjacent rows are independent. Only
+three full WAVs means temporal realism will remain under-validated; that limits
+claims, not the ability to produce a report-only audible experiment.
