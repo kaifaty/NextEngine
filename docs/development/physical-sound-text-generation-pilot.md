@@ -5574,10 +5574,12 @@ HTML record; the live API request succeeded. Downloaded only TRAIN archives,
 no author val/test. External directory`syncfusion-extra-train-2026-09-06`.
 Shard2 fully verifies, SHA977fd5dceba3ca42e08da285f2219fa9f61ceebc152b937710a84bfaac2a62e6.
 Shard3 first request ended exit28 after300s/410576212bytes; a single curl Range
-resume continues(session17208,PID229438 at handoff). Its partial data was NOT
-parsed, trained on or declared verified. Poll the existing handle/process; do not
-restart solely because observation times out. Check final size/MD5 before use.
-The external receipt records exact transport state; no source completeness claim.
+resume(session17208,PID229438) subsequently completed exit0. Partial bytes were
+not parsed or trained. Final size1955266560/MD5f003e4764debaf68097e2aefd613cd0c
+and SHA679c9183b23a694c592c2131dfb887a4958f73a40b48c72dac37178c135c2fcc
+verify; PID is now absent. An annotation-only inventory found229eligible events,
+186TRAIN/43recording-dev,0combination-dev. No shard3 WAV decoding/encoding/refit.
+The external receipt preserves initial failure and completed resume history.
 
 Shard2 adds317eligible events:251TRAIN/66recording-dev. Six additional TRAIN glass
 recordings justify running an incremental update while shard3 downloads, not
@@ -5629,12 +5631,84 @@ in`syncfusion-extended-real-controls-2026-09-06`;checks pass. No method selected
 judge, no quality admission or replacement of retained baseline.
 
 30focused tests(25SyncFusion+5material),Ruff,diff/links/media checks pass. Generation,
-encoding,fit and assessment are terminal; shard3 transport alone remains running
-at handoff. No Cargo/host-check/ProductCheck,runtime/demo/roadmap changes.
-Next: finish/verify the existing shard3 transfer, then bounded research on the
+encoding,fit and assessment are terminal; shard3 transport subsequently completed
+as recorded above. No Cargo/host-check/ProductCheck,runtime/demo/roadmap changes.
+Next: bounded research on the
 missing object/event conditioning before another similar fit. Current category+
 motion input cannot express shape,size,striker or force; more diverse targets
 alone do not add those controls. Review eligible internet evidence without
 reopening protected roles; require a source-free audible discriminator. Do not
 turn shard arrival into an automatic data-size/epoch/metric tuning sweep, or treat
 this descriptive impact prior as the full multi-process physical-sound goal.
+
+## Geometry input discriminator — 2026-09-06
+
+The preceding explanatory reply produced no experimental progress; this resumed
+checkpoint executed a source-level counterfactual rather than another categorical
+fit. It is supporting evidence, NOT a new neural-audio result or goal completion.
+
+[SonicGauss](https://chunshi.wang/SonicGauss/) explicitly models 3D Gaussian
+appearance/geometry and impact position. Its
+[published inference](https://github.com/AiEson/SonicGauss/blob/7a5687afbe6d4338f8e569b3738c3fa7fa62304a/stage3/infer_3.py)
+passes normalized GS tensors and normalized contact into the networks; original
+scale is not passed separately. Force, velocity and striker properties are not
+arguments. This is a narrower interface than the user's full objective.
+
+Competing explanations: H1, normalized geometry still preserves absolute scale
+through Gaussian covariance/contact; H2, normalization removes that information;
+H3, the probe simply ignores all meaningful conditions. Executed H1/H2 using
+the exact reviewed `preprocess_gaussian`/`normalize_position` at SonicGauss
+7a5687afbe6d4338f8e569b3738c3fa7fa62304a and `MinMaxScaler` at the SplatFormer
+gitlink446ffb5dd1c35b4b8f94953a22046bde5714a094. The latter commit resolves in
+ChenYutongTHU/SplatFormer; SonicGauss root `.gitmodules` was404. Four full source
+snapshots are pinned by SHA before executing only three reviewed AST definitions.
+No imports, model entry point, weights, object archive or protected split opened.
+The published ptv3.gin has no scaler overrides; stripped gin decorator uses its
+documented defaults. Float32 CPU/Torch2.13.0+cu130.
+
+Own eight-Gaussian tensor fixture: multiply all centers/contact by2 and addln2
+to all Gaussian log-scales, preserving appearance/opacities/orientations.
+**All eight observed tensors are exactly equal**, including covariance inputs,
+position and derived384-grid coordinates; maximum absolute delta0. Relative
+contact changes position by1, aspect-ratio change alters means/scales/contact/grid,
+and colour changes features. These three positive controls reject H3. H2 is
+supported and H1 contradicted for this fixture/default path. Algebraically the
+inverse box scale cancels uniform scaling. Real 3DGS units may themselves be
+ambiguous; this is not a calibrated real-object size experiment.
+
+Decision: do not download/run SonicGauss merely to test absolute-size control
+through this unchanged interface. At fixed other inputs the network receives no
+such signal. Full inference was NOT run, so no identical-PCM or neural realism
+claim. Relative shape/contact usefulness remains untested, not disproven. A future
+size-conditioned successor needs an explicit dimensional input and corresponding
+training evidence, not a cosmetic preprocessing change to existing weights.
+
+Executable [probe](../../lab/scripts/physical_sound_sonicgauss_input_probe.py),
+external`sonicgauss-input-probe-2026-09-06/result.json`. Reproduction:
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_sonicgauss_input_probe.py \
+  --output /absolute/external/new-output \
+  --modal-profile /home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/glass-checkpointed/glass-500ms-16mode-151_20260826-222834/checkpoint-0150/modal-profile.json
+```
+
+[Audible frequency-control illustration](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-input-probe-2026-09-06/modal-frequency-control-NOT-NEURAL.wav):
+2.5s, old fitted16-mode glass bank then frequencies halved. Fixed damping/gains,
+no transient/target WAV/NN; one shared playback gain, full1s signals and.5s gap.
+This is deliberately **not SonicGauss output, physical size transfer or new neural
+progress**. It only makes a frequency intervention inspectable. It does not reset
+the primary-outcome debt. SHA4aa59332956bef74668a1f75a25c0d7d5d66135a8be910c8e496fef592ef8792.
+Four focused tests, Ruff, exact offline normalization replay, WAV/raw shared-gain,
+finite/headroom/full-layout/hash checks pass. No Cargo/runtime/demo changes.
+
+Next executable candidate:
+[Neural Resonator](https://github.com/rodrigodzf/neuralresonator/tree/ceab3770d88caae1c9ee208bea127ec0d0a1e763),
+published55,382,281-byte`data/ethereal_dust-317-2.ckpt` discovered through the tree,
+not downloaded/loaded yet. Full models/training/config/result-notebook reads show
+shape mask+contact+five numeric material parameters→predicted IIR bank, with a
+published author inference example. This is synthetic2D prior art, not a proven
+real object or two-body model. Next checkpoint should load safely and render
+source-free numeric-condition variants, not add another survey or training plan.
+NISR/VibraVerse rediscovery supplies no changed lineage evidence: existing
+[V46 D0 rejection](physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md)
+stands; their dataset payloads remain unopened.

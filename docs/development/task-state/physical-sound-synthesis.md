@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / EXPANDED_DATA_MIXED_WITH_EXTRA_ATTACK / SHARD3_DOWNLOAD_LIVE.
+Status: ACTIVE_GOAL / SONICGAUSS_SCALE_INPUT_COLLISION / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -22,60 +22,55 @@ Status: ACTIVE_GOAL / EXPANDED_DATA_MIXED_WITH_EXTRA_ATTACK / SHARD3_DOWNLOAD_LI
   original307rows/roles/embeddings EXACT.4WAV,16/16attacks,1EXTRAglassrigid.
   Fixedold references shape improves3/4,woodworse;held68embedding.15514→.15912worse.
   No promotion. Fit`syncfusion-extended-fit-2026-09-06`,SHA6e3e678a…;data`...extended-data...`624rows.
-  30tests,Ruff/media checks;all MODEL jobs terminal,download below still LIVE.
-- **LIVE DOWNLOAD:** shard3 session17208,PID229438,external
-  `syncfusion-extra-train-2026-09-06/train_shard_3.tar`;last observed1192457556bytes.
-  Initial curl exit28/300s at410576212bytes,one Range resume(max1200s) underway.
-  Poll existing handle/PID;no restart on observation timeout. Final expected
-  1955266560bytes/MD5f003e4764debaf68097e2aefd613cd0c. NOT verified/parsed/trained.
-  Shard2 MD5passed,SHA977fd5dc…;CC-BY4/API12634671;no authorval/test.
+  30tests,Ruff/media checks;all MODEL and download jobs now terminal.
+- **Shard3 complete:** existing Range resume exited0; PID229438 gone; size
+  1955266560/MD5f003e4764debaf68097e2aefd613cd0c/SHA679c9183… verified.
+  `syncfusion-extra-train-2026-09-06/train_shard_3.tar`; annotations only inspected,
+  no new decoded WAV/cache/fit. Initial exit28/300s and resume history preserved.
+  No automatic shard3 categorical refit; extra targets do not add missing inputs.
+- **SonicGauss discriminator:** own synthetic GS object and uniformly doubled
+  geometry/contact produce EXACT same8tensor inputs through pinned upstream
+  normalization. Relativecontact/shape/appearance positive controls change.
+  `sonicgauss-input-probe-2026-09-06`;4tests,Ruff/offline replay/media checks pass.
+  No weights/full inference/dataset payload. Modal-frequency-control WAV is OLD
+  fitted coefficients with frequency halved, NOT neural or physical-size evidence.
+  Do not run SonicGauss as-is to learn absolute size/force/striker control.
+  Relative shape/contact potential remains untested, not disproven.
 - **Real controls still fail:**extended TRAIN banks on SAMEold68held:
   shape mean/recordmacro.4980/.4226,embeddingmean/record.6032/.2837. Embeddingmean
   glass25→91.67%butwood/metalworse;shape still7/8REALglass→metal. No judge/reward.
 - **Retained metal:** [same original shared adapter](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav),4/4,0extra,knownTRAINmaterial,no newweights.
-- **Real controls fail:**307events,239TRAIN/68held;glass support5TRAIN/3heldrecords,
-  wood43/14,metal51/14;recording-dev has NOglass. Shape/material labels7/8REALglass
-  events metal. Record-balanced macro shape mean/record.4802/.4405,embedding
-  mean/record.4881/.3803. Nearest record prototypes do not fixglass. TRAIN-only
-  banks/recordLOO,not object IDs. No judge/reward/threshold/method winner.
 - **FOV closed:**`syncfusion-full-frame-audition-2026-09-06`,stockDINO discards17%
   width EACHedge(marker test).224letterbox preservesinputbutheld68 stillworse;
   spectrum only1/3wins,wrongwoodbeatscorrect. No promotion/DINO/crop/ridge sweep.
-- **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3videos with
-  ORIGINAL recorded audio,NOT generation. One phase-corrected motion-window test
-  passes synthetic movingpatch/camera controls but followswoodstickshaft,not tip.
-  No crop training. Author paper reports pixel labels;public times/MAT/index did
-  not expose them,Umich archive timeout. Not proof CSV lost coordinates. No TLS
-  bypass/pickle/val/test. Six actual DINO input previews demonstrate FOV loss.
-- **Next:** finish/verify existing shard3 download;then bounded research before
-  another similar fit. Category+motion inputs cannot expressshape/size/striker/force;
-  extra targets alone addno suchcontrols. Inspect eligible internet object/event-
-  conditioned evidence,keep protectedroles;source-free audible discriminator.
-  No automatic shard-arrival data-size/epoch/metric sweep or inventory-only endpoint.
+- **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3 ORIGINAL
+  recorded-audio videos,not generation. Motion tracks shaft,not tip;no croptraining.
+  Public contact pixel labels not located;not proof lost. No TLS bypass/val/test.
+- **Next primary artifact:** inspect/load published Neural Resonator checkpoint
+  and render several numeric-material/contact conditions without target audio.
+  Repo`rodrigodzf/neuralresonator`,revceab3770d88caae1c9ee208bea127ec0d0a1e763;
+  `data/ethereal_dust-317-2.ckpt`55382281bytes,not downloaded yet. README,models,
+  training,configs,result notebook read;2D synthetic,not real-object validation.
+  Use weights-only safe loading;do not execute Lightning pickle/default logger.
+  This audit is one supporting-only checkpoint;next checkpoint must emit actual
+  new neural WAVs or a concrete executable blocker,not another survey/metric fit.
 - **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
-  `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
-  TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
-  Material(glass/wood/metal)+motion(static/rigid)+times;NO reference at inference.
-  Standalone new .4/.9/1.7/3/4.7s schedule5/5,0extras;openat confirms no data/audio
-  reference reads.35tests,all jobs terminal. No geometry/size/force/striker claim.
+  Adapter17,088params,200steps,seed42,not decoder training. Material+motion+times;
+  .4/.9/1.7/3/4.7s schedule5/5,0extras;openat confirms no data/audio reference reads.
+  No geometry/size/force/striker claim;comparisons/35tests in pilot note.
   Fit`syncfusion-adapter-fit-2026-09-05`,SHA863459fb…;data307events,239TRAIN/86recordings,
   50recording-dev/21recordings,18combination-dev/3recordings. Exclude entire records
   2015-03-20-02-16-43/02-27-12 and2015-03-27-23-30-55(glass+rigid);previously opened
   examples,generator-pretrained TRAIN,NOT pristine/new-object evidence.
-  Held glass+rigid:cosine prototype.21425→adapter.19893,spectrum5.825→5.567dB,
-  only2/4reference events improve. Static glass text7.684/proto9.476/adapter9.462;
-  wood proto5.137/adapter5.140. Mixed transfer;NO replacement or size/epoch sweep.
-- **Prior oracle:**`syncfusion-condition-discriminator-2026-09-05`,4reference-aided
-  WAVs support text/audio transfer gap,not material admission. AST fails real
-  references;NOT judge/reward. AuthorTRAIN shard1MD5/SHA7284c9dd… verified,
-  CC-BY4/Zenodo12634671;no author val/test. Exact CLI/provenance/results in note.
+  Heldglassrigid mixed:only2/4referenceevents improve;no size/epoch sweep.
+- **Prior oracle:**4reference-aided WAVs support text/audio transfer gap,not material
+  admission. Shard1MD5/SHA7284c9dd… verified,CC-BY4/Zenodo12634671;no val/test.
 - **Previous source-free timing:**`syncfusion-explicit-times-2026-09-05`:text+times,
   12/12attacks. Empty schedule peak2.319/RMS.0328 rejected,not silence;still open.
   Assets`syncfusion-assets-2026-09-05`,SHAa25584b1…;no blanket production clearance.
 - **MMAudio impact:** video2/9,delayed3/8timing matches;no prompt/seed sweep. Apple
   CLIP research-only excludes product development;NOT engine candidate weights.
-- **Earlier MMAudio water:** coarse Water top5,not quality win;CLI/results in note.
-  Initial headroom failure terminal;use`water-generated-full.mp4`,not short mux.
+- **MMAudio water:**coarse Water top5,not qualitywin;usefullMP4,not shortmux.
 - **Friction corrections closed:** endpoint/fullsampler/level-shape lose toFM;
   window/DC changes don't fixtiming.24real-repeat pairs,not48independent records.
   No loss/weight/epoch/window/normalization/randomness/EQ/tap/gating sweeps.
@@ -84,18 +79,16 @@ Status: ACTIVE_GOAL / EXPANDED_DATA_MIXED_WITH_EXTRA_ATTACK / SHARD3_DOWNLOAD_LI
 - **Surface lineage:** `texture-surface-transfer-2026-09-05`,162560params,48TRAIN
   0/2/65/67/74/77,repeat0,20/30/50/60;all4/66/76 held development,not pristine.
   Coefficients10mm/min≠audio20–60mm/s;no geometry. Glass category-mean still wins.
-- **Learned EPIC impacts:**154TRAIN/19participants,Top1 only3/14,heldwood/glass
-  shape7.028→7.081dB. No replacement/data-size/capacity/epoch/seed sweep;see note.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Earlier impacts:** no LoRA/prompt/precision/silence-learning retries;source-aided previews are not source-free.
-- **Friction:** Figshare29438288v5/CC-BY4,60records;PSD neural/interpolation1.815/1.758dB,11/36wins,no sweep.
+- **Earlier impacts:**no LoRA/prompt/precision/silence-learning retries;EPIC154TRAIN
+  Top1 only3/14,not replacement;no data-size/capacity/epoch/seed sweep.
+- **Friction:**Figshare29438288v5/CC-BY4,60records;PSD neural loses interpolation.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
   Stationary model loses temporal structure, AST fails real wet. No MLP sweep.
-- **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al., local research
-  only; dataset terms unspecified, NOT software MIT. Author tests unopened;
-  containers18/30 excluded. Approximate flow is not measured ml/s/level. See note.
+- **Pouring source:**Bagad et al.,dataset terms unspecified,NOT software MIT;
+  local research only. Testsunopened,18/30excluded;flowproxy≠measured ml/s/level.
 - **Pouring closed:** STFT/envelope/EQ/pitch/CVAE/critic/scratchflow/affinecoupling/
   solver/noise/phase/centering/AdaLN/setting retries failtransfer. No13-container
   capacity/epoch/layer/seed/threshold sweeps. Retained centeredbridge8/8coarsewater,
@@ -142,14 +135,16 @@ Status: ACTIVE_GOAL / EXPANDED_DATA_MIXED_WITH_EXTRA_ATTACK / SHARD3_DOWNLOAD_LI
 ## Previous audible work — controls, not the endpoint
 
 - **Liked:** [three glass reconstructions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav), no generalization.
-- Frozen transfer:nearest old parameters beat MLP9/9 later strikes,not new objects.
-  Automatic16train/11later-strike cycle:expanded/anchored MLPs lose analytic control.
+- Frozen transfer:nearest beats MLP9/9laterstrikes;16train/11later cycle also loses.
 - No parameter-MLP size/epoch retries: sparse data/nonunique targets/loss mismatch
   unresolved; audio-to-parameter reconstruction is also the wrong goal interface.
-- MP3s: `ps2-freesound-wine-glass-v1/research`,same author/pack,not known identical objects;no thickness/force inference.
+- MP3s:same author/pack,not known identical objects;no thickness/force inference.
 
 ## Legacy admission evidence and forbidden retries
 
+- [V46 D0](../physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md)
+  already closed NISR20368791…/VibraVerse8099f137… before payload for missing exact
+  generator/asset lineage. No bulk/bounded payload retry absent that new evidence.
 - [V46 B0](../physical-sound-v46-b0-lane-aware-control-tournament-result-2026-09-03.md)
   remains NoUsefulTeacher, M0 admission blocked, real support 71/105. E0/V0
   source-power work is an admission path, not a prerequisite for report-only WAVs.
