@@ -22,6 +22,7 @@ use crate::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
     BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
     BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5,
     BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS,
@@ -190,7 +191,8 @@ impl BiomechanicsStandingVectorRunner {
             }
             BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
-            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7 => {
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8 => {
                 (true, true, true, true, true)
             }
             _ => return Err(BiomechanicsStandingRunnerError::ProfileMismatch),
@@ -201,10 +203,15 @@ impl BiomechanicsStandingVectorRunner {
             biomechanics_humanoid_body_schema_v3()
         };
         let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
-        let lift_return = profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7;
+        let corrected_stop =
+            profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8;
+        let lift_return = corrected_stop
+            || profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7;
         let periodic_gait =
             lift_return || profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6;
-        let manifest = if lift_return {
+        let manifest = if corrected_stop {
+            crate::biomechanics_forward_start_stop_environment_manifest_v8()?
+        } else if lift_return {
             crate::biomechanics_forward_start_stop_environment_manifest_v7()?
         } else if periodic_gait {
             crate::biomechanics_forward_start_stop_environment_manifest_v6()?
@@ -349,7 +356,11 @@ impl BiomechanicsStandingVectorRunner {
             } else {
                 derive_episode_seed_set(self.run_root, episode_ordinal, vector_slot)?
             };
-            let command_schedule = if self.forward_start_stop_v2 {
+            let command_schedule = if self.manifest.environment_id.as_str()
+                == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
+            {
+                Some(crate::biomechanics_forward_start_stop_command_schedule_v3())
+            } else if self.forward_start_stop_v2 {
                 Some(biomechanics_forward_start_stop_command_schedule_v2())
             } else if self.forward_start_stop {
                 let command_seed = seed_set
@@ -1373,6 +1384,55 @@ mod tests {
         assert!(
             moving_credit_seen,
             "native contact impulses must produce observable movement-phase credit"
+        );
+    }
+
+    #[test]
+    fn repaired_stop_profile_preserves_native_zero_control_through_terminal() {
+        let root = ContentHash::from_bytes([19; 32]);
+        let mut old = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
+            1,
+            root,
+        )
+        .unwrap();
+        let mut new = BiomechanicsStandingVectorRunner::create_profile(
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
+            1,
+            root,
+        )
+        .unwrap();
+        let a = old.reset_slots(&[0]).unwrap();
+        let b = new.reset_slots(&[0]).unwrap();
+        assert_eq!(a[0].observation_raw, b[0].observation_raw);
+        assert_eq!(new.observation_width(), 88);
+        assert_eq!(
+            new.slots[0].command_schedule,
+            crate::biomechanics_forward_start_stop_command_schedule_v3()
+        );
+        let mut terminal_seen = false;
+        for _ in 0..1200 {
+            let actions = vec![VectorPolicyStepInput {
+                vector_slot: 0,
+                episode_ordinal: 1,
+                action_microradians: vec![0; 23],
+            }];
+            let a = old
+                .step_actions_lockstep(actions.clone())
+                .unwrap()
+                .remove(0);
+            let b = new.step_actions_lockstep(actions).unwrap().remove(0);
+            assert_eq!(a.frame, b.frame);
+            assert_eq!(a.terminal_reason_id, b.terminal_reason_id);
+            assert_eq!((a.terminated, a.truncated), (b.terminated, b.truncated));
+            if a.terminated || a.truncated {
+                terminal_seen = true;
+                break;
+            }
+        }
+        assert!(
+            terminal_seen,
+            "compare the retained full control, not a selected prefix"
         );
     }
 

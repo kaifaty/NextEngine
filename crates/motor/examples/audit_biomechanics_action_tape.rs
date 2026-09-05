@@ -9,6 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
+        BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
         BiomechanicsStandingVectorRunner, VectorPolicyStepInput,
     };
     use serde_json::json;
@@ -36,8 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
     ) {
-        return Err("only canonical V5/V6/V7 tapes are supported".into());
+        return Err("only canonical V5/V6/V7/V8 tapes are supported".into());
     }
     let retain_frames = match input.get("retain_frames") {
         None => false,

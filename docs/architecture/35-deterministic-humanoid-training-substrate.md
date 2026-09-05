@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 3.3 |
+| Версия | 3.4 |
 | Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-100](adr/100-bounded-standing-reward-profile.md), [ADR-101](adr/101-biomechanics-command-only-standing-environment.md), [ADR-102](adr/102-biomechanics-neutral-self-clearance-successor.md), [ADR-103](adr/103-r8b-rd-only-walking-discriminator.md), [ADR-104](adr/104-r8b-discriminating-walking-objective.md), [ADR-105](adr/105-r8b-dense-tracking-walking-counterfactual.md) |
-| Заменяет | SPEC-35 3.2; adds observable V7 sole-height cost under ADR-109 without runtime or mirror promotion |
+| Заменяет | SPEC-35 3.3; adds ADR-110's V8 applied-command repair without changing frozen V7 |
+| Дополнительные зависимости V3.4 | [ADR-110](adr/110-applied-command-stop-window.md) |
 | Дополнительные зависимости V3.3 | [ADR-109](adr/109-observable-sole-lift-and-return.md) |
 | Дополнительные зависимости V3.2 | [ADR-107](adr/107-canonical-cpu-walking-learner.md), [ADR-108](adr/108-observable-periodic-walking-credit.md) |
 | Дополнительные зависимости V3.1 | [ADR-106](adr/106-walking-reference-and-leg-clearance-audit.md) |
@@ -259,6 +260,13 @@ per-foot phase-height costs and the unchanged V6 load credit. A separately
 closed 40,960,000-transition run has predeclared report-only milestones and
 the original final walking matrix. Body/action/safety and all older environment
 identities remain frozen; no Isaac or runtime admission follows from this.
+
+[ADR-110](adr/110-applied-command-stop-window.md) adds V8 as a no-optimizer
+schedule repair: ramp-down starts at action index 990, giving exact zero over
+all 180 final applied indices 1020..1199. V7 retains the defective historical
+vector with only 179 applied zeros. Body, action, observation, reward formula,
+phase and safety remain V7-identical. Corrected learned evaluation and support
+semantics need their own explicit admission; this is not a new training run.
 
 ## Checkpoint and replay
 

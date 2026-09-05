@@ -22,8 +22,8 @@
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
 - **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
-  final model 9999. Both diagnostics are complete. Before a successor, fix the
-  applied-command schedule and use the measured full-tick support discriminator.
+  final model 9999. V8's schedule repair passes native controls; host-check runs.
+  Next predeclare corrected support evaluation and final-weight compatibility.
   Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
   Do not restart on observation timeout or initialize old weights.
 - **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
@@ -34,9 +34,9 @@
 - **Milestones:** 999 fails on ankle ROM at 406. Exact replay of 3999 survives
   1,200 ticks, travels 6.135 m and repeatedly lifts whole feet 41.6/76.8 mm.
   Its contact-presence support gate still fails (15/3 ticks, zero switches).
-- **New defect:** Applied indices 0..1199 contain only 179 final zero commands;
-  index 1020 retains 20 um/s. No V7 policy can pass the exact 180-zero gate.
-  Preserve the failed identity; no gate weakening or live-run modification.
+- **Stop repair:** V7 has 179 final zeros; V8 shifts ramp-down to 990 and has
+  180. Native controls preserve 1,515 physical frames. ADR-110 admits only this
+  environment/control fix, no optimizer or corrected learned evaluation yet.
 - **Support measured:** Existing classified contacts show 24 >=8-tick switches
   with exclusive load over all four substeps; raw flags hide 419 such ticks.
   Controls pass, 1,515 legacy frames exact. This is report-only, not a new gate.
@@ -69,6 +69,7 @@
 8. [Executable lift/return discriminator](../r8b-lift-return-discriminator-2026-09-05.md).
 9. [ADR-109](../../architecture/adr/109-observable-sole-lift-and-return.md) and
    [native integration evidence](../r8b-native-lift-return-2026-09-05.md).
+10. [V8 schedule correction](../r8b-applied-stop-window-2026-09-05.md) and its ADR-110.
 
 ## Current evidence
 

@@ -2293,6 +2293,10 @@ the schedule under a new identity and correct the evaluation observables.
 The full-tick classified-load discriminator now observes 24 >=8-tick switches
 on the same diagnostic tape; zero/left/right controls and 1,515-frame exact
 non-regression pass. It does not replace the frozen gate or select a checkpoint.
+ADR-110's [V8 schedule correction](development/r8b-applied-stop-window-2026-09-05.md)
+now supplies all 180 final applied zeros with unchanged physical/action/safety
+results in 1,515 frames. Focused motor/headless tests pass; host-check is running.
+V8 admits native controls only, not another optimizer or corrected learned matrix.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

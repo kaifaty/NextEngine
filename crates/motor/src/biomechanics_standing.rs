@@ -39,6 +39,8 @@ pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v6";
 pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7: &str =
     "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v7";
+pub const BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8: &str =
+    "nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v8";
 pub const BIOMECHANICS_FORWARD_START_STOP_OBSERVATION_LAYOUT_ID: &str =
     "nextengine.motor.observation.humanoid-biomechanics-forward-start-stop.v1";
 pub const BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID: &str =
@@ -51,6 +53,7 @@ pub const BIOMECHANICS_FORWARD_START_STOP_RESIDUAL_SCALE_MULTIPLIER_Q16_V5: i64 
 pub const BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS: u64 = 1_200;
 pub const BIOMECHANICS_FORWARD_START_STOP_TARGET_MICROMETRES_PER_SECOND_V2: i64 = 500_000;
 pub const BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V2: u64 = 991;
+pub const BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V3: u64 = 990;
 pub const BIOMECHANICS_FORWARD_START_STOP_FINAL_ZERO_TICKS_V2: u64 = 180;
 
 pub const BIOMECHANICS_STANDING_REWARD_COMPONENT_IDS: [&str; 8] = [
@@ -495,13 +498,22 @@ fn biomechanics_forward_start_stop_reward_q16_v2_or_v3(
 
 #[must_use]
 pub fn biomechanics_forward_start_stop_command_schedule_v2() -> Vec<[i64; 3]> {
+    forward_start_stop_schedule(BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V2)
+}
+
+#[must_use]
+pub fn biomechanics_forward_start_stop_command_schedule_v3() -> Vec<[i64; 3]> {
+    forward_start_stop_schedule(BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V3)
+}
+
+fn forward_start_stop_schedule(ramp_down_tick: u64) -> Vec<[i64; 3]> {
     let maximum_delta = 1_000_000 / i64::from(STAGE0_MOTOR_HZ);
     let mut schedule =
         Vec::with_capacity(BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS as usize + 1);
     schedule.push([0; 3]);
     let mut forward = 0_i64;
     for tick in 1..=BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS {
-        let target = if (120..BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V2).contains(&tick) {
+        let target = if (120..ramp_down_tick).contains(&tick) {
             BIOMECHANICS_FORWARD_START_STOP_TARGET_MICROMETRES_PER_SECOND_V2
         } else {
             0
@@ -656,6 +668,28 @@ pub fn biomechanics_forward_start_stop_environment_manifest_v7()
     }
     manifest.correspondence_profile_hash = domain_hash(
         "nextengine.motor.correspondence.biomechanics-forward-start-stop.v7-canonical-only",
+        manifest.body_schema_hash,
+    );
+    manifest.validate_for_protocol_v2()?;
+    Ok(manifest)
+}
+
+pub fn biomechanics_forward_start_stop_environment_manifest_v8()
+-> Result<MotorTrainingEnvironmentManifestV2, MotorCompileError> {
+    let mut manifest = biomechanics_forward_start_stop_environment_manifest_v7()?;
+    manifest.environment_id = id(BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8);
+    let mut command = domain_preimage(
+        "nextengine.motor.command.biomechanics-forward-start-stop.v3;applied-indices=0..1199;next=1200",
+        manifest.body_schema_hash,
+    );
+    for entry in biomechanics_forward_start_stop_command_schedule_v3() {
+        for value in entry {
+            command.extend_from_slice(&value.to_le_bytes());
+        }
+    }
+    manifest.command_schedule_profile_hash = content_hash_from_bytes(sha256(&command));
+    manifest.correspondence_profile_hash = domain_hash(
+        "nextengine.motor.correspondence.biomechanics-forward-start-stop.v8-canonical-only",
         manifest.body_schema_hash,
     );
     manifest.validate_for_protocol_v2()?;
@@ -1063,6 +1097,32 @@ pub fn biomechanics_forward_start_stop_canonical_descriptor_json_v7()
     descriptor["training_descriptor_id"] =
         json!("nextengine.canonical.humanoid-biomechanics-forward-start-stop.v7");
     descriptor["observation_width"] = json!(88);
+    let mut output = serde_json::to_string_pretty(&descriptor).expect("engine JSON");
+    output.push('\n');
+    Ok(output)
+}
+
+pub fn biomechanics_forward_start_stop_canonical_descriptor_json_v8()
+-> Result<String, MotorCompileError> {
+    let manifest = biomechanics_forward_start_stop_environment_manifest_v8()?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_forward_start_stop_canonical_descriptor_json_v7()?)
+            .expect("engine-generated descriptor");
+    let profile = &mut descriptor["environment_profiles"][0];
+    profile["profile_id"] = json!(manifest.environment_id.as_str());
+    profile["manifest_hash"] = json!(manifest.manifest_hash()?.to_hex());
+    profile["command_schedule_profile_hash"] =
+        json!(manifest.command_schedule_profile_hash.to_hex());
+    profile["correspondence_profile_hash"] = json!(manifest.correspondence_profile_hash.to_hex());
+    profile["command_profile"]["kind"] = json!("fixed-forward-start-stop-v3");
+    profile["command_profile"]["profile_id"] =
+        json!("nextengine.motor.command.biomechanics-forward-start-stop.v3");
+    profile["command_profile"]["ramp_down_tick"] =
+        json!(BIOMECHANICS_FORWARD_START_STOP_RAMP_DOWN_TICK_V3);
+    profile["command_profile"]["applied_action_indices_inclusive"] = json!([0, 1199]);
+    profile["command_profile"]["final_zero_action_indices_inclusive"] = json!([1020, 1199]);
+    descriptor["training_descriptor_id"] =
+        json!("nextengine.canonical.humanoid-biomechanics-forward-start-stop.v8");
     let mut output = serde_json::to_string_pretty(&descriptor).expect("engine JSON");
     output.push('\n');
     Ok(output)
@@ -1703,6 +1763,80 @@ fn id(value: &str) -> SchemaId {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repaired_stop_window_counts_applied_actions_not_next_observation() {
+        let old = biomechanics_forward_start_stop_command_schedule_v2();
+        let new = biomechanics_forward_start_stop_command_schedule_v3();
+        assert_eq!(old.len(), 1201);
+        assert_eq!(new.len(), 1201);
+        assert_eq!(old[..990], new[..990]);
+        assert_eq!(old[1020], [0, 20, 0]);
+        assert_eq!(new[1019], [0, 20, 0]);
+        assert_eq!(new[1020], [0; 3]);
+        assert_eq!(
+            old[..1200]
+                .iter()
+                .rev()
+                .take_while(|v| **v == [0; 3])
+                .count(),
+            179
+        );
+        assert_eq!(
+            new[..1200]
+                .iter()
+                .rev()
+                .take_while(|v| **v == [0; 3])
+                .count(),
+            180
+        );
+        assert_eq!(new[1200], [0; 3]);
+        for pair in new.windows(2) {
+            assert!((pair[1][1] - pair[0][1]).abs() <= 1_000_000 / 60);
+            assert_eq!([pair[1][0], pair[1][2]], [0, 0]);
+        }
+        assert!(new[..1200].iter().map(|v| v[1]).sum::<i64>() >= 3 * 60 * 1_000_000);
+    }
+
+    #[test]
+    fn v8_changes_only_schedule_and_environment_identity() {
+        let mut old = biomechanics_forward_start_stop_environment_manifest_v7().unwrap();
+        let new = biomechanics_forward_start_stop_environment_manifest_v8().unwrap();
+        assert_ne!(old.manifest_hash().unwrap(), new.manifest_hash().unwrap());
+        assert_ne!(
+            old.command_schedule_profile_hash,
+            new.command_schedule_profile_hash
+        );
+        old.environment_id = new.environment_id.clone();
+        old.command_schedule_profile_hash = new.command_schedule_profile_hash;
+        old.correspondence_profile_hash = new.correspondence_profile_hash;
+        assert_eq!(old, new);
+        let old_text = biomechanics_forward_start_stop_canonical_descriptor_json_v7().unwrap();
+        assert_eq!(
+            content_hash_from_bytes(sha256(old_text.as_bytes())).to_hex(),
+            "6d0e9f4b3e2a6d27831d965632d50af5033d4b94e62032d3c2eeb4a3023ee083"
+        );
+        let mut old: Value = serde_json::from_str(&old_text).unwrap();
+        let new: Value = serde_json::from_str(
+            &biomechanics_forward_start_stop_canonical_descriptor_json_v8().unwrap(),
+        )
+        .unwrap();
+        old["training_descriptor_id"] = new["training_descriptor_id"].clone();
+        for key in [
+            "profile_id",
+            "manifest_hash",
+            "command_schedule_profile_hash",
+            "correspondence_profile_hash",
+            "command_profile",
+        ] {
+            old["environment_profiles"][0][key] = new["environment_profiles"][0][key].clone();
+        }
+        assert_eq!(old, new);
+        assert_eq!(
+            new["environment_profiles"][0]["command_profile"]["ramp_down_tick"],
+            990
+        );
+    }
 
     #[test]
     fn standing_manifest_and_training_descriptor_bind_current_biomechanics() {

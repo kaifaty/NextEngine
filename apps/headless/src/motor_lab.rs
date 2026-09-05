@@ -10,6 +10,7 @@ use next_motor::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
     BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
     VectorPolicyStepInput,
@@ -192,6 +193,7 @@ fn process_create(
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
     ) {
         ProtocolRunner::BiomechanicsStanding(Box::new(
             BiomechanicsStandingVectorRunner::create_profile(&profile_id, slot_count, run_root)?,
@@ -869,6 +871,71 @@ mod tests {
         .expect_err("unknown profile");
         assert_eq!(error.stable_code(), "UNSUPPORTED_MOTOR_ENVIRONMENT_PROFILE");
         assert!(session.runner.is_none());
+    }
+
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn repaired_stop_profile_routes_through_native_protocol() {
+        let mut session = ProtocolSession::default();
+        let mut payload = Vec::new();
+        push_text(
+            &mut payload,
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
+        )
+        .unwrap();
+        payload.extend_from_slice(&1_u32.to_le_bytes());
+        payload.extend_from_slice(&[3; 32]);
+        let response = process_request(
+            &mut session,
+            Request {
+                opcode: OP_CREATE,
+                request_id: 1,
+                payload,
+            },
+        )
+        .unwrap();
+        let mut reader = PayloadReader::new(&response);
+        assert_eq!(
+            reader.read_text(MAX_TEXT_BYTES).unwrap(),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
+        );
+        assert_eq!(
+            reader.read_hash().unwrap(),
+            next_motor::biomechanics_forward_start_stop_environment_manifest_v8()
+                .unwrap()
+                .manifest_hash()
+                .unwrap()
+        );
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&1_u32.to_le_bytes());
+        payload.extend_from_slice(&0_u32.to_le_bytes());
+        process_request(
+            &mut session,
+            Request {
+                opcode: OP_RESET,
+                request_id: 2,
+                payload,
+            },
+        )
+        .unwrap();
+        process_request(
+            &mut session,
+            Request {
+                opcode: OP_STEP,
+                request_id: 3,
+                payload: step_payload(1, 1),
+            },
+        )
+        .unwrap();
+        process_request(
+            &mut session,
+            Request {
+                opcode: OP_CLOSE,
+                request_id: 4,
+                payload: Vec::new(),
+            },
+        )
+        .unwrap();
     }
 
     #[cfg(any(feature = "mock-abi", feature = "physx-sdk"))]
