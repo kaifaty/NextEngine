@@ -2315,3 +2315,78 @@ finite/headroom checks:98 full experiment,8 retained failed-probe inputs,
 hashes; eight partial files carry explicitly observed hashes. Original head
 tensors match both final checkpoints exactly. Every job is terminal. No runtime,
 default, protected-data, roadmap or ProductCheck promotion; full goal remains open.
+
+### Exact-magnitude phase control and failed source-free phase repair
+
+`physical_sound_pouring_phase_oracle.py` separates two paths. The oracle uses
+the same first TRAINING record/container1/VID_20240116_230040_2.1_16.7, first/middle
+crops and three CPU seeds. It requires the original audio and is NOT a generator
+for new conditions. The separate refinement path uses only the stored full neural
+decoder, metadata controls and a seed when sampling; references enter metrics only.
+
+[Oracle comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-oracle-2026-09-05/comparison.wav>)
+is54.96s: first/middle, each real/learned/noise-phase/iterative-phase/coarse65/
+expected-noise-gain, seed2718, gain1. All use FFT1024/hop256/Hann and4.08s clips.
+Exact real magnitude is combined with Gaussian-noise phase, either directly or
+after32 alternating STFT/ISTFT phase updates. Coarse65 reduces log magnitude to65
+linear-frequency samples then interpolates back; this is not exactly the learned
+gain parameterization. Expected-noise-gain multiplies white-noise STFT by real
+magnitude divided by sqrt(sum(window²)), without inverting the current noise draw.
+The original signal is never used as the reconstruction phase.
+
+Matched windows, explicit length and the least-squares inverse follow the
+[PyTorch ISTFT documentation](https://docs.pytorch.org/docs/2.14/generated/torch.istft.html).
+Roundtrip and phase-refinement tests cover the implementation; no library upgrade.
+The learned control reuses the completed single-record probe. CPU generator
+draws differ from its prior CUDA audition, so its sample-level values are new
+matched CPU evidence, not a claim of CPU/CUDA waveform identity.
+
+| Oracle,6 clips per variant | Learned | Noise phase | 32 iterations | Coarse65 | Expected noise gain |
+|---|---:|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 4.621 | 1.253 | 0.332 | 2.467 | 1.118 |
+| Centered spectrum RMSE,dB | 2.133 | 0.519 | 0.324 | 1.841 | 0.951 |
+| CV absolute error | 0.435 | 0.159 | 0.045 | 0.181 | 0.148 |
+| AST water top5, raw AND RMS0.005 | 0/6 | 0/6 | 6/6 | 0/6 | 1/6 |
+| Fixed-six-prompt CLAP positive water margin | 1/6 | 6/6 | 6/6 | 6/6 | 6/6 |
+
+Real controls pass2/2. CLAP mean margins for noise/iterative phase are0.098/0.311,
+versus real0.324. Thus phase consistency materially affects this reconstruction
+and AST recognition; CLAP already recognizes several weaker reconstructions.
+Do not erase this disagreement or call phase the sole universal quality cause.
+This is one training record, not independent data or physical generalization.
+
+The executable follow-up then applied exactly32 updates to the neural decoder's
+own generated complex spectrogram, without teacher, original magnitude or new fit.
+[New source-free variant](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/glass10-refined-2718.wav>)
+and [comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/comparison.wav>)
+remain failed candidates. Comparison is36.64s: glass10/glass16/PET10/glass10fast,
+each native/refined, seed2718, gain1. Native zero-step sampling matches the old
+decoder numerically; no original model weights are modified.
+
+On the same two disclosed development objects/first records/two phases/three
+CUDA seeds, native/refined spectrum8.256/8.259dB, centered5.067/5.064, CV error
+0.7913/0.7911. AST is0/12 for both on development AND hypothetical profiles at
+both raw and normalized levels. CLAP hypothetical-profile water margins remain
+negative12/12 for each, real controls positive4/4. Inference-side phase repair
+alone therefore does not rescue the learned representation. No phase-iteration,
+65-band or smooth-noise capacity sweep follows from this result.
+
+Next selected experiment: preserve time-local spectral structure in a learned
+conditional latent decoder/prior, using consistent phase reconstruction.
+[Sohn et al.,NIPS2015,section4](https://proceedings.neurips.cc/paper/2015/file/8d55a249e6baa5c06772297520da2051-Paper.pdf)
+provides the conditional posterior/prior formulation for one-to-many structured
+outputs. Its image experiments do not establish audio success. Our proposed
+audio use is an inference: training posterior may read target audio, while the
+generation prior receives only object/event controls and randomness. Compare
+posterior reconstruction and source-free prior WAVs in the same bounded run;
+good reconstruction, low KL or a changed waveform cannot substitute for prior
+quality/control. Preserve the existing base and disclosed data roles. This
+changes the research model, not the product roadmap or an Accepted contract.
+
+Reproduction: oracle CLI `--source SOURCE --fitted SINGLE_RECORD_MODEL --output
+NEW_ORACLE`; source-free refinement evaluation `--source SOURCE --refine-model
+FULL_MODEL --output NEW_REFINEMENT --device cuda`. Pure inference function
+`refine_generated(model, controls, seed)` never reads a source recording.
+33 oracle and53 refinement WAVs pass hash/PCM16/16kHz/finite/headroom checks.
+90 focused tests, Ruff, local links and `git diff --check` pass. All jobs terminal;
+no training, downloads, runtime/default promotion, Cargo or ProductCheck run.

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TEMPORAL_NOISE_DECODER_REJECTED / SYNTHESIS_DISCRIMINATOR_NEXT.
+Status: ACTIVE_GOAL / PHASE_ONLY_REPAIR_REJECTED / STRUCTURED_LATENT_DECODER_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,10 +12,10 @@ Status: ACTIVE_GOAL / TEMPORAL_NOISE_DECODER_REJECTED / SYNTHESIS_DISCRIMINATOR_
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free experiment:** [temporal decoder](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/first-audition/generated.wav),
+- **Latest reference-free experiment:** [phase-refined decoder](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/glass10-refined-2718.wav),
   H10cm/diameter7cm/duration15s/start0.1, excitation seed2718, gain1.
-  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/comparison.wav):
-  glass10/glass16/PET10/glass10fast; base/temporal/static,54.96s. REJECTED:
+  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/comparison.wav):
+  glass10/glass16/PET10/glass10fast; native/refined,36.64s. REJECTED:
   classified as noise, not water. No recording/teacher/base needed at inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
@@ -63,29 +63,29 @@ Status: ACTIVE_GOAL / TEMPORAL_NOISE_DECODER_REJECTED / SYNTHESIS_DISCRIMINATOR_
 - **Input adapter rejected:**144 parameters, matched/shuffled600-step fits,
   spectrum7.655/8.026/8.086dB,0/12 wins each. Privileged teacher does not rescue
   it. Exact evidence in note; no tiny-adapter/epoch sweep or retraining.
-- **Temporal decoder:** `pouring-temporal-decoder-2026-09-05`,63619 trainable
-  params, frozen4993-param head,93 records/1200 steps. GRU produces65 noise-gain
-  bands and resonance strength/width; FFT1024/hop256 filtered Gaussian excitation.
-  Multiscale waveform reconstruction; no Griffin-Lim or reference input. Synthetic
-  moving-filter control improves2.807->1.323 loss vs static1.819; not real quality.
-- **Real rejection:** two disclosed objects/first records/two phases/three seeds.
-  Base/temporal spectrum7.655/8.256, centered5.990/5.067, CV error0.441/0.791.
-  Temporal AST0/12 development and0/12 novel at raw AND normalized level; CLAP
-  novel0/12 vs base12/12 and real4/4. Do not promote from centered spectrum.
-- **Single-record probe:** `pouring-temporal-decoder-fit-check-retry-2026-09-05`,
-  first training record/container1,300 updates. Centered error3.585->2.136,
-  CV error0.840->0.390, but AST0/6 before AND after vs real2/2. Memorization only.
-  First `...fit-check-2026-09-05` failed before optimizer step1 (eval-mode cuDNN
-  GRU);8 before/real WAVs retained and labelled partial. Fixed train mode; both
-  fits terminal, weights preserved. Do not rerun either completed fit.
-- **Next action:** exact-record magnitude with Gaussian-noise phase versus
-  iterative phase reconstruction, same FFT1024/time grid, first training record
-  only. Produce labelled oracle WAVs and use existing semantic checks to separate
-  missing spectral detail from excitation/phase limitations BEFORE another fit.
-  Current decoder has no learned stochastic event latent; cause not yet isolated.
-- **Verification:**86 tests, Ruff,127 WAVs checked; source-free CLI exact replay.
-  Frozen head/weights verified. All jobs terminal;
-  no Cargo/ProductCheck/engine audition or default/runtime promotion.
+- **Temporal decoder:** `pouring-temporal-decoder-2026-09-05`,63619 trainable/
+  4993 frozen params,93 records/1200 steps,65 noise bands/resonance, Gaussian
+  excitation. Synthetic positive control passes; real quality fails (see note).
+- **Real rejection:** base/temporal spectrum7.655/8.256, CV error0.441/0.791.
+  Temporal AST development/novel0/12; CLAP novel0/12 vs base12/12 and real4/4.
+- **Single-record probe:** `pouring-temporal-decoder-fit-check-retry-2026-09-05`:
+  CV error0.840->0.390, AST still0/6. Failed first attempt preserved; do not retrain.
+- **Phase oracle:** `pouring-phase-oracle-2026-09-05`, same first TRAINING record,
+  FFT1024, two phases ×three CPU seeds. Exact magnitude/noise phase AST0/6;
+  32 phase iterations6/6, spectrum1.253->0.332, CV error0.159->0.045. CLAP6/6
+  for both: disagreement retained. Coarse65 AST0/6, CLAP6/6; not sole-cause proof.
+- **Source-free repair rejected:** `pouring-phase-refinement-2026-09-05` reuses
+  full63619-param decoder, applies32 phase iterations. Spectrum8.256->8.259,
+  CV error0.791->0.791; AST development/novel0/12, CLAP novel0/12, before AND
+  after. No new training. Do not sweep phase iterations or smooth noise bands.
+- **Next action:** conditional latent spectrogram decoder/prior preserving
+  detailed time-local structure, with phase-consistent reconstruction. Reference
+  audio may enter training posterior ONLY; inference samples from conditions.
+  Compare posterior reconstruction and source-free prior WAVs in the same run,
+  preserving base controls; neither reconstruction nor KL alone is success.
+  CVAE is a research hypothesis, not a validated fix (paper/evidence in note).
+- **Verification:**90 tests, Ruff,86 WAVs; jobs terminal, no ProductCheck/promotion.
+
 ## Preserve these constraints
 
 - The user will not record impacts, hit glass or supply force-sensor data.
