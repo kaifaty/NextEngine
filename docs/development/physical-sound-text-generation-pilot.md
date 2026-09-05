@@ -5172,3 +5172,104 @@ External `assessment.json`, `tags-raw.json`, `tags-rms.json`, `conditions.pt` an
 `result.json` retain exact media/condition identities and controls. 29focused tests
 (6new+23existing), Ruff and diff checks pass. All jobs terminal. No Cargo/host-check
 or ProductCheck: only the bounded external audio lab changed.
+
+## SyncFusion learned structured adapter and standalone inference — 2026-09-05
+
+Primary new source-free media:
+[five glass impacts on a new schedule](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
+The learned input is categorical material + object motion and numerical event
+times, **not a target recording**. It is not a natural-language parser or a model
+of geometry, size, force, velocity, striker composition, water, rain or friction.
+Those full-goal requirements remain open; this is a bounded impact experiment.
+
+Comparisons: [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/glass-static-comparison.wav),
+[static wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/wood-static-comparison.wav),
+[glass with rigid motion](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/glass-rigid-motion-comparison.wav).
+Each plays one held-development reference, text, TRAIN prototype and learned
+adapter. Durations19.66/18.94/19.16s. The reference is added only during assessment.
+All generator arms are source-free at inference; prototype lookup uses persisted
+TRAIN means, not the held reference or a target embedding.
+
+Same verified author TRAIN shard1/source terms as above. Scan all202 annotation
+files, retain first two eligible .2–2s hit intervals per recording/material/motion.
+Materials glass/wood/metal; motions static/rigid-motion.307 encoded events:
+239TRAIN/86recordings,50recording-development/21recordings,
+18combination-development/3recordings. Cache `syncfusion-adapter-data-2026-09-05`
+retains exact sample indices, source/event hashes, roles and frozen audio embeddings.
+No additional dataset downloads, no author val/test or protected roles.
+
+Exclude **all** recordings containing glass+rigid-motion from adapter fitting:
+2015-03-20-02-16-43,2015-03-20-02-27-12,2015-03-27-23-30-55, including their other
+materials and static events. Other recording keys with first8SHA256hex modulo5=0
+form recording-development. Frozen before fit. The first and last excluded
+recordings were already opened in earlier oracle/gallery diagnostics; this is
+not pristine test evidence. SyncFusion itself was pretrained on author TRAIN;
+only this new adapter has the stated recording/combination exclusions. Distinct
+recordings are not proof of distinct physical objects.
+
+`physical_sound_syncfusion_adapter.py`: five factorized one-hot inputs,
+Linear5→32,SiLU,Linear32→512,L2 normalization;17,088 learned parameters. CPU AdamW,
+seed42,200full-batch steps,lr.003,weight_decay.0001, group-balanced cosine loss
+(equal weight per supported material/motion pair). No decoder or CLAP weight
+updates, epoch/width/seed sweep or development-selected checkpoint. Training loss
+1.01206→.14775. Saved `syncfusion-adapter-fit-2026-09-05/adapter.pt` SHA256
+863459fb1cd2587474d6e8528da3f3c65d667cb47aad5551525fad5effe334f6.
+Tests perturb all development targets and verify exact unchanged learned weights
+and prototypes. Learned training outputs nearly recover conditional means;
+training convergence by itself is not evidence of useful sound generalization.
+
+Prototype baseline averages only training embeddings for an exact pair; unseen
+glass+rigid-motion explicitly falls back to glass-only TRAIN mean. Text baseline
+also receives motion information via fixed prompts “A drumstick taps a {material}
+object that stays in place.” / “…object, causing it to move.”, chosen before
+generation, no prompt search. `pilot.text_conditions` extracts the existing frozen
+text path for reuse; the previous pilot keeps its own original prompts.
+
+Nine complete150step/FP32/seed42 generation runs, full262144samples at48kHz,
+guidance2 and shared.5playback gain.36/36 requested attacks detected; the moving-
+glass **text** arm has one extra attack. All prototype/adapter arms have0extras.
+Raw preserved;all PCM headroom/layout/finite/hash/gain checks pass. CUDA peak
+2.3824GiB; generation~18.5–22.5s per signal after setup.
+
+Same fixed200ms/32-band spectral diagnostic as above, this time versus **held
+adapter-development** recordings, never the training prototypes:
+
+| Condition | Reference events/recordings | Text distance(dB) | Prototype | Adapter |
+|---|---:|---:|---:|---:|
+| Glass static |4/2|7.6836|9.4760|9.4618|
+| Wood static |27/14|6.0671|5.1367|5.1396|
+| Glass rigid-motion |4/3|7.2949|5.8253|5.5671|
+
+Held-combination cosine error improves .214247→.198932; mean spectral distance
+improves5.8253→5.5671dB, but only2/4reference events improve, not consistent success.
+Wood remains essentially the prototype; static glass is substantially worse than
+text. No global quality win, physical calibration or new-object acceptance.
+AST is intentionally NOT rerun or promoted: its real-reference controls already
+failed in the preceding discriminator. Spectral/embedding metrics remain partial
+diagnostics, not a trained universal validator.
+
+Standalone CLI accepts `render --assets ASSETS --fitted FIT --output NEW_EXTERNAL
+--material glass --motion rigid-motion --kind adapter --times .4 .9 1.7 3.0 4.7`.
+It loads adapter/decoder weights, no data cache or reference and, for adapter-only
+inference, neither text nor audio encoder. Run with the existing external
+SyncFusion/MMAudio dependency overlays in `PYTHONPATH`; `HF_HUB_OFFLINE=1`.
+The real standalone run completed5/5attacks,0extras,peak1.173 before.5gain,
+~22.7s sampling under tracing,CUDA peak2.3817GiB. An `openat` trace confirms no
+read of training/archive/cache/reference WAVs; only its own generated WAVs are
+reread for hashing. Trace in fitted directory `standalone-openat.log`.
+
+Prepare/fit/render/assess are separate CLI modes. Assessment alone reads held
+references; artifact hashes and no-overwrite guards bind stages. Unknown categories
+and invalid numerical schedules fail explicitly. New9+1raw/PCM files,3comparisons
+and fitted model retained externally;all jobs terminal.35focused tests(6new plus
+29existing),Ruff,diff and changed-link checks pass. No Cargo/host-check/ProductCheck,
+runtime/demo/model replacement, license-clearance claim or roadmap promotion.
+
+Next evidence-backed direction: add an object-specific input rather than widening
+this categorical MLP. The static-glass transfer failure and near-prototype fit
+motivate a bounded visual/object-descriptor experiment using the same TRAIN frames,
+with mismatched-frame and descriptor-only controls and source-free audible output.
+Inspect frame timing/identity before fitting; do not invent physical dimensions
+or force from images. Keep the current recording exclusions. No adapter epoch/
+width/seed or prompt/guidance sweep, and no mandatory human approval per sound.
+Empty-schedule failure remains open; no post-generation gate is added to hide it.

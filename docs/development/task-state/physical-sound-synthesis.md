@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SYNCFUSION_AUDIO_CONDITIONING_GAIN / MATERIAL_UNVERIFIED.
+Status: ACTIVE_GOAL / SYNCFUSION_LEARNED_SOURCE_FREE_ADAPTER / MIXED_TRANSFER.
 
 ## Resume in 60 seconds
 
@@ -17,19 +17,23 @@ Status: ACTIVE_GOAL / SYNCFUSION_AUDIO_CONDITIONING_GAIN / MATERIAL_UNVERIFIED.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest media:** [glass comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/glass-comparison.wav),
-  [wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/wood-comparison.wav):
-  2real TRAIN events→text→mean audio prototype→individual audio condition.
-  New4WAV are reference-aided diagnostic oracles,NOT source-free generalization.
-  Same seed42/150steps/FP32/full5.46s/shared.5gain;16/16attacks,0extras,0weightupdates.
-  200ms spectral distance text→prototype glass9.698→4.583,wood8.259→3.304dB;
-  individual also improves. Glass still slightly nearer wood templates;no quality
-  or material admission. AST fails real references too;NOT qualified judge/reward.
-  Evidence motivates learned text/audio conditioning adapter,not generator sweep.
-  Source`syncfusion-train-prototypes-verified-2026-09-05`:first2glass/wood recordings,
-  105TRAIN annotations visited,author train_shard_1MD5 verified,SHA7284c9dd…;
-  CC-BY4/Zenodo12634671. Initial range scan429 terminal;full fetch recovery done.
-  No author val/test;29tests,all jobs terminal. Exact data/CLI/proof in pilot note.
+- **Latest source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
+  `syncfusion-adapter-audition-2026-09-05` has3comparisons:held reference→text→
+  TRAIN prototype→adapter. Adapter17,088params,200steps,seed42,not decoder training.
+  Material(glass/wood/metal)+motion(static/rigid)+times;NO reference at inference.
+  Standalone new .4/.9/1.7/3/4.7s schedule5/5,0extras;openat confirms no data/audio
+  reference reads.35tests,all jobs terminal. No geometry/size/force/striker claim.
+  Fit`syncfusion-adapter-fit-2026-09-05`,SHA863459fb…;data307events,239TRAIN/86recordings,
+  50recording-dev/21recordings,18combination-dev/3recordings. Exclude entire records
+  2015-03-20-02-16-43/02-27-12 and2015-03-27-23-30-55(glass+rigid);previously opened
+  examples,generator-pretrained TRAIN,NOT pristine/new-object evidence.
+  Held glass+rigid:cosine prototype.21425→adapter.19893,spectrum5.825→5.567dB,
+  only2/4reference events improve. Static glass text7.684/proto9.476/adapter9.462;
+  wood proto5.137/adapter5.140. Mixed transfer;NO replacement or size/epoch sweep.
+- **Prior oracle:**`syncfusion-condition-discriminator-2026-09-05`,4reference-aided
+  WAVs support text/audio transfer gap,not material admission. AST fails real
+  references;NOT judge/reward. AuthorTRAIN shard1MD5/SHA7284c9dd… verified,
+  CC-BY4/Zenodo12634671;no author val/test. Exact CLI/provenance/results in note.
 - **Previous source-free timing:**`syncfusion-explicit-times-2026-09-05`:text+times,
   12/12attacks. Empty schedule peak2.319/RMS.0328 rejected,not silence;still open.
   Assets`syncfusion-assets-2026-09-05`,SHAa25584b1…;no blanket production clearance.
@@ -92,11 +96,11 @@ Status: ACTIVE_GOAL / SYNCFUSION_AUDIO_CONDITIONING_GAIN / MATERIAL_UNVERIFIED.
   input limitations AND generator loss;not proof all nonlinearmu mappings fail.
 - **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
   align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** bounded source-free learned conditioning adapter;first determine
-  usable authorTRAIN material/action/motion groups and recording-disjoint dev split.
-  Compare text AND fixed prototype baselines;produce WAV immediately,not support-only
-  work. Geometry/force unknown;no author test/protected roles or generator/prompt/
-  seed/prototype-count/guidance sweep. Empty-schedule failure remains open.
+- **Next:** bounded object/visual-condition discriminator from sameTRAIN frames;
+  verify frame timing/identity,keep recording exclusions,compare mismatched frames
+  and descriptor-only controls;source-free WAV required. No inferred dimensions/
+  force or categorical adapter width/epoch/seed/prompt/guidance sweep. Static-glass
+  transfer failure motivates richer input. Empty-schedule failure remains open.
 
 ## Preserve these constraints
 

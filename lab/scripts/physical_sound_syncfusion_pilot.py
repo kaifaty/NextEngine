@@ -239,27 +239,10 @@ def assess(output):
         tags.run(path, output / f"tags-{name}.json", [], ast_rms=rms)
 
 
-def render(root, output):
+def text_conditions(state, prompts):
+    """Published frozen CLAP text path, reusable without loading its audio tower."""
     from transformers import RobertaConfig, RobertaModel, RobertaTokenizer
 
-    if output.exists():
-        raise ValueError("Refusing to overwrite an existing experiment")
-    report = json.loads((root / "source.json").read_text())
-    if (
-        report["status"] != "complete"
-        or sha(root / "model.ckpt") != report["checkpoint_sha256"]
-    ):
-        raise ValueError("Incomplete or changed checkpoint")
-    torch.set_num_threads(4)
-    torch.manual_seed(42)
-    checkpoint = torch.load(
-        root / "model.ckpt", weights_only=True, map_location="cpu", mmap=True
-    )
-    state = checkpoint["state_dict"]
-
-    model, encoder = build()
-    model.load_state_dict(subset(state, "model."), strict=True)
-    encoder.load_state_dict(subset(state, "onsets_encoder."), strict=True)
     # RoBERTa-base config, checked against FacebookAI/roberta-base e2da8e2f... .
     # Same LAION-CLAP text path: pooler -> Linear/ReLU/Linear -> L2 normalize.
     config = RobertaConfig(
@@ -289,10 +272,9 @@ def render(root, output):
         local_files_only=True,
     )
     # The cached RoBERTa vocabulary is reused; no AudioLDM weights or audio encoder.
-    cases = CASES
     embeddings = []
     with torch.inference_mode():
-        for _, prompt, _ in cases:
+        for prompt in prompts:
             tokens = tokenizer(
                 [prompt],
                 padding="max_length",
@@ -306,7 +288,30 @@ def render(root, output):
             embeddings.append(
                 torch.nn.functional.normalize(projection(pooled), dim=-1).unsqueeze(1)
             )
-    del checkpoint, state, text_state, text_model, projection
+    return torch.cat(embeddings)
+
+
+def render(root, output):
+    if output.exists():
+        raise ValueError("Refusing to overwrite an existing experiment")
+    report = json.loads((root / "source.json").read_text())
+    if (
+        report["status"] != "complete"
+        or sha(root / "model.ckpt") != report["checkpoint_sha256"]
+    ):
+        raise ValueError("Incomplete or changed checkpoint")
+    torch.set_num_threads(4)
+    torch.manual_seed(42)
+    checkpoint = torch.load(
+        root / "model.ckpt", weights_only=True, map_location="cpu", mmap=True
+    )
+    state = checkpoint["state_dict"]
+    model, encoder = build()
+    model.load_state_dict(subset(state, "model."), strict=True)
+    encoder.load_state_dict(subset(state, "onsets_encoder."), strict=True)
+    cases = CASES
+    embeddings = text_conditions(state, [prompt for _, prompt, _ in cases]).split(1)
+    del checkpoint, state
     model.cuda()
     encoder.cuda()
     output.mkdir(parents=True, exist_ok=False)
