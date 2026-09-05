@@ -26,6 +26,11 @@ pub fn biomechanics_body_diagnostic_descriptor_json_v8() -> Result<String, Motor
     biomechanics_body_diagnostic_descriptor_json(&schema)
 }
 
+/// V9 physical inspection; compiled V3 payload, not training or Isaac admission.
+pub fn biomechanics_body_diagnostic_descriptor_json_v9() -> Result<String, MotorCompileError> {
+    biomechanics_body_diagnostic_descriptor_json(&crate::biomechanics_humanoid_body_schema_v9())
+}
+
 fn biomechanics_body_diagnostic_descriptor_json(
     schema: &BodySchemaV2,
 ) -> Result<String, MotorCompileError> {

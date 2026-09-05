@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.86 |
+| Версия | 2.87 |
 | Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.85; adds articulated-foot standing diagnostics under ADR-119 |
+| Заменяет | INDEX-001 2.86; adds V9 damping diagnostic under ADR-120 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -326,6 +326,7 @@ traceability — навигационная карта, не admission authority
 | ADR-117 | [Quiet upright body and standing reference](adr/117-quiet-upright-body-and-standing-reference.md) | Accepted opt-in V7 actuator gains and compiled-V4-bound standing V2; unchanged anatomy and old modes, nominal evidence only |
 | ADR-118 | [Articulated volumetric foot body](adr/118-articulated-volumetric-foot-body.md) | Accepted opt-in V8 anatomy/kinematic diagnostic; finite-volume toe inertia, exact four-sole material closure; contact/standing diagnostics separately admitted by ADR-119 |
 | ADR-119 | [Articulated-foot standing diagnostics](adr/119-articulated-foot-standing-diagnostics.md) | Accepted exact-V8 contact aggregation and standing V3 diagnostic; old profiles unchanged, no robust-balance or training admission |
+| ADR-120 | [Stiffness-proportional damping diagnostic](adr/120-stiffness-proportional-damping-diagnostic.md) | Accepted opt-in V9 damping-only body and explicit diagnostic consumers; no training/default selection |
 
 ## Proposed tracks
 

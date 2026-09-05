@@ -4,11 +4,11 @@
 | --- | --- |
 | ID | ADR-119 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-069](069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-117](117-quiet-upright-body-and-standing-reference.md), [ADR-118](118-articulated-volumetric-foot-body.md) |
 | Supersedes | ADR-118's exclusion of contact/standing consumers only for the exact new diagnostics below. No training environment, learned weights, mirror or runtime admission. |
-| Superseded by | none |
+| Superseded by | [ADR-120](120-stiffness-proportional-damping-diagnostic.md), explicit V9 consumers and separately labeled startup-input diagnostic; old constructors/profiles/no-ramp outputs unchanged |
 
 ## Decision
 

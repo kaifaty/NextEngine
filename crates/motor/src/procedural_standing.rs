@@ -16,6 +16,8 @@ pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2: &str =
     "nextengine.motor.procedural-standing-reference.v2";
 pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3: &str =
     "nextengine.motor.procedural-standing-reference.v3";
+pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4: &str =
+    "nextengine.motor.procedural-standing-reference.v4";
 pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
     "nextengine.motor.procedural-walking-reference.v1";
 
@@ -302,6 +304,7 @@ impl BiomechanicsProceduralStandingControllerV2 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsProceduralStandingControllerV3 {
     base: BiomechanicsProceduralStandingControllerV2,
+    sampled_damping: bool,
 }
 
 impl BiomechanicsProceduralStandingControllerV3 {
@@ -315,7 +318,41 @@ impl BiomechanicsProceduralStandingControllerV3 {
                 reset_snapshot,
                 &crate::biomechanics_humanoid_body_schema_v8(),
             )?,
+            sampled_damping: false,
         })
+    }
+
+    /// Explicit V9 admission; identical equations, distinct reference identity.
+    pub fn new_sampled_damping(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Ok(Self {
+            base: BiomechanicsProceduralStandingControllerV2::new_with_schema(
+                compiled,
+                reset_snapshot,
+                &crate::biomechanics_humanoid_body_schema_v9(),
+            )?,
+            sampled_damping: true,
+        })
+    }
+
+    #[must_use]
+    pub const fn profile_id(&self) -> &'static str {
+        if self.sampled_damping {
+            PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4
+        } else {
+            PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3
+        }
+    }
+
+    #[must_use]
+    pub fn contact_profile_hash(&self) -> ContentHash {
+        if self.sampled_damping {
+            crate::sampled_damping_contact_profile_hash()
+        } else {
+            crate::articulated_foot_contact_profile_hash()
+        }
     }
 
     pub fn reference_targets(
@@ -327,10 +364,14 @@ impl BiomechanicsProceduralStandingControllerV3 {
 
     #[must_use]
     pub fn state_root(&self) -> ContentHash {
-        let mut bytes = b"nextengine.humanoid-procedural-standing.v3\0".to_vec();
-        bytes.extend_from_slice(PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3.as_bytes());
+        let mut bytes = if self.sampled_damping {
+            b"nextengine.humanoid-procedural-standing.v4\0".to_vec()
+        } else {
+            b"nextengine.humanoid-procedural-standing.v3\0".to_vec()
+        };
+        bytes.extend_from_slice(self.profile_id().as_bytes());
         bytes.extend_from_slice(self.base.state_root().as_bytes());
-        bytes.extend_from_slice(crate::articulated_foot_contact_profile_hash().as_bytes());
+        bytes.extend_from_slice(self.contact_profile_hash().as_bytes());
         content_hash_from_bytes(sha256(&bytes))
     }
 }

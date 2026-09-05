@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.58 |
+| Версия | 2.59 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For stiffness-proportional BodySchema V9 diagnostics, additionally read
+[ADR-120](adr/120-stiffness-proportional-damping-diagnostic.md), SPEC-35 and
+ADR-069/115/116/117/118/119. Check exact damping/identity-only delta, complete
+compiled-input admission, profile/subject/reset binding, unchanged contact and
+reference laws and byte-exact V8 controls. Run native motor/example tests,
+Clippy/format, boundary/content/play/replay and the frozen standing/toe-servo/
+loaded-transfer budget. No model-only stability or training promotion.
 
 For V8 articulated-foot contact/standing diagnostics, additionally read
 [ADR-119](adr/119-articulated-foot-standing-diagnostics.md), SPEC-35 and ADR-069/117/118.

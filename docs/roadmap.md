@@ -2014,8 +2014,17 @@ The [first-step isolation](development/r8b-foot-first-step-research-2026-09-05.m
 now passes its controls: zero effort gives zero joint motion; knees and ankles
 each independently induce>1rad/s relative MTP motion, ankles much more strongly.
 Small ankle effort gives a smaller response. Independent125-channel arithmetic,
-native repeat and old-mode regression pass. Next coupled small-signal/sampled
-control analysis before a gain correction; no mass/geometry or training change.
+native repeat and old-mode regression pass. The independently reviewed
+[sampled-control model](development/r8b-sampled-foot-control-research-2026-09-05.md)
+now exposes out-of-unit-circle modes for the current unloaded linearized PD.
+A foot-only damping vector fails model preflight. The whole-body stiffness-
+proportional [V9 diagnostic](development/r8b-body-sampled-damping-candidate-2026-09-05.md)
+passes that local model but fails native standing at substep18, before transfer;
+4275 effort channels and original V8 controls independently match. V9 remains
+unselected. A separate [startup ramp](development/r8b-standing-startup-ramp-research-2026-09-05.md)
+fails both V8/V9 at the identical first-step knee-ROM boundary. Next investigate
+initial stance inside ROM with measured sole placement, not another damping
+sweep or loosened safety. No new mass/geometry, training or default selection.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

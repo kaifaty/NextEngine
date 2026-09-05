@@ -2,12 +2,24 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V8_NOMINAL_STANDING / COUPLED_FOOT_INPUT_ISOLATED / SAMPLED_CONTROL_NEXT` |
+| Status | `V8_NOMINAL / V9_DAMPING_REJECTED / COLD_RESET_BOUNDARY_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
 
 ## Resume in 60 seconds
+
+- Latest result: whole-body sampled damping V9 is implemented as an opt-in
+  diagnostic (ADR-120), **not selected**. Independent local-model preflight
+  passes but native stance fails at18/240s, both ankle-pitch velocities>8.001rad/s.
+  All loaded-transfer cases fail before the input starts. V8 controls exact;
+ 152 native tests and relevant checks pass. See reports20–22, not old next-action text.
+- Separate60-tick startup ramp on V8/V9 gives identical first-step knee ROM
+  violations (-14/-13urad; allowed minimum0 with10urad observed tolerance).
+  This rules out the ramp as sufficient, not all smooth reference schemes.
+  Next: a separately bounded initial-stance test with knees inside ROM and
+  measured sole placement; no tolerance weakening, gain sweep, extra joints
+  or training. Source reset at exact knee hard minimum is the next boundary.
 
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.
@@ -100,13 +112,11 @@
   MTP velocity RMS0.0247/0.1112rad/s still has near-Nyquist power: do not infer
   quiet joints or retune from a picture. Next loaded heel-rise/re-contact, then
   disturbances. Old V7 output remains byte-exact; no training selection.
-- Loaded transfer remains failed (report17). FOOT-SERVO-01 remains INCONCLUSIVE
-  under its empty-contact firewall (report18). New FOOT-RESPONSE-01 (report19)
-  independently resolves five first-step inputs: zero gives no joint motion;
-  knees give MTP-1.095rad/s, ankles nearly-8, small ankles-0.153. Neither group
-  is necessary for>=1rad/s. MTP own effort0 throughout; relative speed combines
-  rear/toe opposite world rotation. All125 effort channels and native controls
-  exact. Next coupled small-signal/sampled-PD check, not more input/gain sweeps.
+- Loaded transfer fails (report17); FOOT-SERVO-01 is INCONCLUSIVE under its
+  empty-contact firewall (report18). First-step inputs (report19) independently
+  resolve zero->zero, knees->MTP-1.095rad/s, ankles->nearly-8, small ankles->-0.153.
+  All125 effort channels and native controls exact. Sampled-control work is
+  now completed in reports20–22; do not restart proximal input isolation.
 
 ## Required context
 
@@ -142,6 +152,11 @@
 17. [Failed loaded-transfer discriminators and next research boundary](../r8b-loaded-foot-transfer-2026-09-05.md).
 18. [Unloaded coupled-foot response and toe-servo research](../r8b-toe-servo-research-2026-09-05.md).
 19. [Resolved first-step proximal input isolation](../r8b-foot-first-step-research-2026-09-05.md).
+20. [Sampled-control local model](../r8b-sampled-foot-control-research-2026-09-05.md)
+    and [rejected foot-only preflight](../r8b-foot-gain-candidate-2026-09-05.md).
+21. [V9 damping-only implementation and native rejection](../r8b-body-sampled-damping-candidate-2026-09-05.md)
+    and [ADR-120](../../architecture/adr/120-stiffness-proportional-damping-diagnostic.md).
+22. [Cold reference startup comparison](../r8b-standing-startup-ramp-research-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -207,30 +222,13 @@
   suite failed rear mass-volume containment (143 passed); collider top +5 mm
   repairs it without changing sole/mass/COM. Final144 tests, native Clippy,
   boundary/content pass. Exact hashes and remaining consumers are in report15.
-- `actuator-discriminator-01` holds unchanged, near-passive and gain-/16 traces
-  and hash-bound per-channel audits. New unchanged trace equals all original
-  per-iteration steps/hashes. Near-passive arms are rejected, and gain-/16 is
-  only a local controlled-motion candidate. Do not tune shoulders further to
-  repair the remaining leg/trunk mode. Native example test, five Python tests
-  and focused clippy/Ruff pass; no new training/body default selected.
-- `coupled-response-01/response.json` SHA42d87748… and `analysis.json` hold the
-  exact signed 23-DOF response experiment. Independent native rerun is byte
-  exact, with no load-bearing review defect. Two native example tests and
-  three Python tests plus focused clippy/Ruff pass. Do not retry amplitudes
-  under v1. The later cold experiment is now complete, not the next action.
-- `cold-contact-response-01` and `joint-friction-ablation-01` contain both new
-  independently reviewed experiments and restoration controls. Exact hashes,
-  source patch, limit caveats and rejected prediction are in reports 11.
-  Current native example tests: 3 passed; Python analysis tests: 5 passed.
-  Diagnostic apparatus is retained, no production bridge diff or new defaults.
-- Preserved candidate command: `cargo run -p next_motor --features physx-sdk
-  --example probe_biomechanics_body_standing -- 6 0 0 hip-position-feedback
-  per-iteration coupled-damping-4` with the pinned SDK above.
-  External `hip-rate-feedback-discriminator-01/position-only.json` SHA49cb7fbf…;
-  complete hashes and negative controls are in reports12. New diagnostic body
-  hashc63ec6b8… and compiled hash719a6661…; predecessor diagnostics only.
-  Native example tests4, focused Clippy/format and invalid CLI checks pass;
-  no broad ProductChecks or training run for this example-only change.
+- Historical actuator/cold-map/friction/iteration and V6-reference artifacts
+  remain external with exact source/hash/check records in reports9–12. Negative
+  paths above remain binding; do not repeat their amplitude/gain/iteration sweeps.
+- `body-damping-01` holds V9 native results, review SHA256SUMS, four exact V8
+  controls and independent4275-effort-channel correspondence. Standing SHA
+  `68e08e58d1fa3ecb222c59d6a6c55822ff2142cb0130d2d5f9908ce19ff9af95`.
+  The later harness-only startup option preserves this no-ramp output exactly.
 - Current implemented command: `cargo run -p next_motor --features physx-sdk
   --example probe_biomechanics_body_standing -- 7 0 0 upright-v2 per-iteration unchanged`.
   V7 body hash43d9f3e1…, compiled hash5bc1bd85…, subject-zero reference root

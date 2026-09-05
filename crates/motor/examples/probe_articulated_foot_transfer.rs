@@ -22,7 +22,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_physics_physx::CanonicalPhysXSnapshotV2;
     use serde_json::json;
 
-    let args: Vec<_> = std::env::args().skip(1).collect();
+    let mut args: Vec<_> = std::env::args().skip(1).collect();
+    let sampled_damping = args.last().is_some_and(|arg| arg == "--body-v9");
+    if sampled_damping {
+        args.pop();
+    }
     if args.is_empty()
         || args.len() > 2
         || !matches!(args[0].as_str(), "none" | "left" | "right")
@@ -32,15 +36,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let neutral_toe = args.len() == 2;
     let side = &args[0];
-    let body = next_motor::biomechanics_humanoid_body_schema_v8();
+    let body = if sampled_damping {
+        next_motor::biomechanics_humanoid_body_schema_v9()
+    } else {
+        next_motor::biomechanics_humanoid_body_schema_v8()
+    };
     let compiled = CompiledBodySchemaV4::compile(&body, PersistentId::from_bytes([0; 16]))?;
     let base = &compiled.base.base;
     let mut world = compiled.create_world()?;
     let mut state = world.capture()?;
-    let standing = BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?;
+    let standing = if sampled_damping {
+        BiomechanicsProceduralStandingControllerV3::new_sampled_damping(&compiled, &state)?
+    } else {
+        BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?
+    };
     let mut safety = BiomechanicsSafetyController::new(base)?;
-    let mut contacts = BiomechanicsContactClassifierV2::new(&compiled)?;
-    let mut terminal = BiomechanicsTerminalEvaluator::new_articulated(
+    let mut contacts = if sampled_damping {
+        BiomechanicsContactClassifierV2::new_sampled_damping(&compiled)?
+    } else {
+        BiomechanicsContactClassifierV2::new(&compiled)?
+    };
+    let terminal_constructor = if sampled_damping {
+        BiomechanicsTerminalEvaluator::new_sampled_damping
+    } else {
+        BiomechanicsTerminalEvaluator::new_articulated
+    };
+    let mut terminal = terminal_constructor(
         &compiled,
         BiomechanicsSkillContactProfileV1::Locomotion,
         900,
@@ -133,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string(
             &json!({"schema_version":1,"probe":if neutral_toe {"nextengine.articulated-foot-transfer.v2"} else {"nextengine.articulated-foot-transfer.v1"},"side":side,
         "body_schema_hash":body.schema_hash()?.to_hex(),"compiled_descriptor_hash":compiled.compiled_descriptor_hash.to_hex(),
-        "standing_reset_root":standing.state_root().to_hex(),"contact_profile_hash":next_motor::articulated_foot_contact_profile_hash().to_hex(),
+        "standing_reset_root":standing.state_root().to_hex(),"contact_profile_hash":standing.contact_profile_hash().to_hex(),
         "physics_hz":240,"motor_hz":60,"requested_motor_ticks":900,"reason":reason,"frames":frames})
         )?
     );

@@ -98,12 +98,45 @@ impl BiomechanicsTerminalEvaluator {
         let subject = compiled
             .articulated_subject()
             .map_err(|_| BiomechanicsTerminalError::InvalidProfile)?;
+        Self::new_articulated_bound(
+            compiled,
+            subject,
+            crate::articulated_foot_contact_profile_hash(),
+            skill_profile,
+            maximum_episode_motor_ticks,
+        )
+    }
+
+    pub fn new_sampled_damping(
+        compiled: &crate::CompiledBodySchemaV4,
+        skill_profile: BiomechanicsSkillContactProfileV1,
+        maximum_episode_motor_ticks: u64,
+    ) -> Result<Self, BiomechanicsTerminalError> {
+        let subject = compiled
+            .sampled_damping_subject()
+            .map_err(|_| BiomechanicsTerminalError::InvalidProfile)?;
+        Self::new_articulated_bound(
+            compiled,
+            subject,
+            crate::sampled_damping_contact_profile_hash(),
+            skill_profile,
+            maximum_episode_motor_ticks,
+        )
+    }
+
+    fn new_articulated_bound(
+        compiled: &crate::CompiledBodySchemaV4,
+        subject: next_contracts::ids::PersistentId,
+        profile_hash: ContentHash,
+        skill_profile: BiomechanicsSkillContactProfileV1,
+        maximum_episode_motor_ticks: u64,
+    ) -> Result<Self, BiomechanicsTerminalError> {
         let mut evaluator = Self::new(
             &compiled.base.base,
             skill_profile,
             maximum_episode_motor_ticks,
         )?;
-        evaluator.contact_profile_hash = crate::articulated_foot_contact_profile_hash();
+        evaluator.contact_profile_hash = profile_hash;
         let mut bytes = compiled.compiled_descriptor_hash.as_bytes().to_vec();
         bytes.extend_from_slice(subject.as_bytes());
         evaluator.articulated_binding = Some(content_hash_from_bytes(sha256(&bytes)));

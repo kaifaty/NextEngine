@@ -20,6 +20,14 @@ pub struct CompiledBodySchemaV4 {
 impl CompiledBodySchemaV4 {
     /// Reset-time admission for consumers of the exact articulated body.
     pub(crate) fn articulated_subject(&self) -> Result<PersistentId, MotorCompileError> {
+        self.subject_for_schema(&crate::biomechanics_humanoid_body_schema_v8())
+    }
+
+    pub(crate) fn sampled_damping_subject(&self) -> Result<PersistentId, MotorCompileError> {
+        self.subject_for_schema(&crate::biomechanics_humanoid_body_schema_v9())
+    }
+
+    fn subject_for_schema(&self, schema: &BodySchemaV2) -> Result<PersistentId, MotorCompileError> {
         let subject = self
             .base
             .base
@@ -29,7 +37,7 @@ impl CompiledBodySchemaV4 {
             .next()
             .ok_or(MotorCompileError::InvalidReference)?
             .subject_id;
-        let expected = Self::compile(&crate::biomechanics_humanoid_body_schema_v8(), subject)?;
+        let expected = Self::compile(schema, subject)?;
         if *self != expected {
             return Err(MotorCompileError::InvalidReference);
         }

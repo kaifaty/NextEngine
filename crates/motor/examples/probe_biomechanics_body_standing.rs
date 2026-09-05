@@ -7,6 +7,17 @@ mod support {
 use support::effort_response;
 
 #[cfg(feature = "physx-sdk")]
+fn startup_target(target: i64, tick: u64) -> i64 {
+    let numerator = i128::from(target) * i128::from(tick.min(60));
+    let quotient = numerator / 60;
+    let remainder = numerator % 60;
+    let increment =
+        remainder.abs() * 2 > 60 || (remainder.abs() * 2 == 60 && quotient.abs() % 2 == 1);
+    i64::try_from(quotient + if increment { numerator.signum() } else { 0 })
+        .expect("ramped target stays within its i64 input")
+}
+
+#[cfg(feature = "physx-sdk")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_contracts::ids::PersistentId;
     use next_contracts::motor::MotorTerminalDispositionV1;
@@ -20,19 +31,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let revision = std::env::args()
         .nth(1)
-        .ok_or("expected body revision 5, 6, 7 or 8")?;
+        .ok_or("expected body revision 5, 6, 7, 8 or 9")?;
     let ankle_offset: i64 = std::env::args().nth(2).map_or(Ok(0), |s| s.parse())?;
     let hip_offset: i64 = std::env::args().nth(3).map_or(Ok(0), |s| s.parse())?;
     let reference_mode = std::env::args()
         .nth(4)
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
-        "baseline" | "neutral-targets" | "upright-v2" | "articulated-v3" => 0,
+        "baseline" | "neutral-targets" | "upright-v2" | "articulated-v3" | "sampled-v4" => 0,
         "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
             return Err(
-                "mode must be baseline, neutral-targets, hip-feedback, hip-position-feedback, hip-feedback-4 or upright-v2".into(),
+                "mode must be baseline, neutral-targets, hip-feedback, hip-position-feedback, hip-feedback-4, upright-v2, articulated-v3 or sampled-v4".into(),
             );
         }
     };
@@ -45,6 +56,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(6)
         .unwrap_or_else(|| "unchanged".to_owned());
     let response_mode = std::env::args().nth(7);
+    let startup_ramp = response_mode.as_deref() == Some("startup-ramp");
+    if startup_ramp && !matches!(revision.as_str(), "8" | "9") {
+        return Err("startup-ramp requires the exact V8 or V9 standing diagnostic".into());
+    }
+    if (revision == "9" || reference_mode == "sampled-v4")
+        && (revision != "9"
+            || reference_mode != "sampled-v4"
+            || !per_iteration
+            || actuator_probe != "unchanged"
+            || ankle_offset != 0
+            || hip_offset != 0
+            || (response_mode.is_some() && !startup_ramp))
+    {
+        return Err(
+            "V9 requires sampled-v4, per-iteration, unchanged, no offsets; optional startup-ramp"
+                .into(),
+        );
+    }
     if (revision == "8" || reference_mode == "articulated-v3")
         && (revision != "8"
             || reference_mode != "articulated-v3"
@@ -52,10 +81,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             || actuator_probe != "unchanged"
             || ankle_offset != 0
             || hip_offset != 0
-            || response_mode.is_some())
+            || (response_mode.is_some() && !startup_ramp))
     {
         return Err(
-            "V8 requires articulated-v3, per-iteration, unchanged, and no offsets/response".into(),
+            "V8 requires articulated-v3, per-iteration, unchanged, no offsets; optional startup-ramp".into(),
         );
     }
     if (revision == "7" || reference_mode == "upright-v2")
@@ -70,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("V7 standing requires upright-v2, per-iteration and unchanged actuators without offsets or response mode".into());
     }
     let measure_response = match response_mode.as_deref() {
-        None => false,
+        None | Some("startup-ramp") => false,
         Some("response" | "cold-response") => true,
         _ => return Err("optional final mode must be response".into()),
     };
@@ -122,7 +151,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
         "7" => next_motor::biomechanics_humanoid_body_schema_v7(),
         "8" => next_motor::biomechanics_humanoid_body_schema_v8(),
-        _ => return Err("expected body revision 5, 6, 7 or 8".into()),
+        "9" => next_motor::biomechanics_humanoid_body_schema_v9(),
+        _ => return Err("expected body revision 5, 6, 7, 8 or 9".into()),
     };
     let schema = if actuator_probe == "coupled-damping-4" {
         coupled_damping_discriminator(shoulder_yaw_discriminator(schema, "shoulder-yaw-gain-16")?)?
@@ -149,14 +179,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut snapshot = world.capture()?;
     let mut safety = BiomechanicsSafetyController::new(base)?;
     let mut classifier = BiomechanicsContactClassifier::new(base)?;
-    let mut articulated_classifier = if revision == "8" {
+    let mut articulated_classifier = if revision == "9" {
+        Some(next_motor::BiomechanicsContactClassifierV2::new_sampled_damping(&successor)?)
+    } else if revision == "8" {
         Some(next_motor::BiomechanicsContactClassifierV2::new(
             &successor,
         )?)
     } else {
         None
     };
-    let mut terminal = if revision == "8" {
+    let mut terminal = if revision == "9" {
+        BiomechanicsTerminalEvaluator::new_sampled_damping(
+            &successor,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_800,
+        )?
+    } else if revision == "8" {
         BiomechanicsTerminalEvaluator::new_articulated(
             &successor,
             BiomechanicsSkillContactProfileV1::Locomotion,
@@ -180,7 +218,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    let articulated = if revision == "8" {
+    let articulated = if revision == "9" {
+        Some(
+            next_motor::BiomechanicsProceduralStandingControllerV3::new_sampled_damping(
+                &successor, &snapshot,
+            )?,
+        )
+    } else if revision == "8" {
         Some(next_motor::BiomechanicsProceduralStandingControllerV3::new(
             &successor, &snapshot,
         )?)
@@ -233,6 +277,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             standing.reference_targets(&snapshot)?
         };
+        if startup_ramp {
+            for target in &mut reference {
+                *target = startup_target(*target, tick);
+            }
+        }
         let root = snapshot
             .links
             .iter()
@@ -401,12 +450,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         output["hip_feedback_gain"] = json!(2);
     }
     if let Some(controller) = &articulated {
-        output["reference_profile_id"] =
-            json!(next_motor::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3);
+        output["reference_profile_id"] = json!(controller.profile_id());
         output["reference_state_root"] = json!(controller.state_root().to_hex());
-        output["contact_profile_hash"] =
-            json!(next_motor::articulated_foot_contact_profile_hash().to_hex());
+        output["contact_profile_hash"] = json!(controller.contact_profile_hash().to_hex());
         output["hip_feedback_gain"] = json!(2);
+    }
+    if startup_ramp {
+        output["diagnostic_reference_input"] = json!({
+            "id":"STANDING-STARTUP-01.v1", "ramp_motor_ticks":60,
+            "rule":"whole-reference-times-min(tick,60)/60-ties-even",
+            "admission":"diagnostic-only-not-selected-reference"
+        });
     }
     println!("{}", serde_json::to_string(&output)?);
     Ok(())
@@ -486,6 +540,26 @@ fn shoulder_yaw_discriminator(
 
 #[cfg(all(test, feature = "physx-sdk"))]
 mod tests {
+    #[test]
+    fn startup_ramp_has_exact_endpoints_signed_ties_and_bounded_range() {
+        for value in [i64::MIN, -140_000, -3, -1, 0, 1, 3, 100_000, i64::MAX] {
+            assert_eq!(super::startup_target(value, 0), 0);
+            assert_eq!(super::startup_target(value, 60), value);
+            assert_eq!(super::startup_target(value, u64::MAX), value);
+            for tick in 1..=60 {
+                let actual = super::startup_target(value, tick);
+                assert!((value.min(0)..=value.max(0)).contains(&actual));
+                let error = (i128::from(actual) * 60 - i128::from(value) * i128::from(tick)).abs();
+                assert!(error <= 30);
+                if error == 30 {
+                    assert_eq!(actual % 2, 0);
+                }
+            }
+        }
+        assert_eq!(super::startup_target(1, 30), 0);
+        assert_eq!(super::startup_target(3, 30), 2);
+        assert_eq!(super::startup_target(-3, 30), -2);
+    }
     #[test]
     fn v7_matches_the_reviewed_candidate_except_for_identity() {
         let mut candidate = super::coupled_damping_discriminator(

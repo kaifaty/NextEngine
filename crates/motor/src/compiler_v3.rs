@@ -49,15 +49,22 @@ impl CompiledBodySchemaV3 {
         let materials = biomechanics_material_catalog_v2();
         let material_combine_profile = biomechanics_material_combine_profile_v1();
         let ground_material_id = schema_id(BIOMECHANICS_GROUND_MATERIAL_ID);
-        let sole_count =
-            if schema.schema_id.as_str() == "nextengine.body.humanoid-biomechanics-raja-1700.v8" {
-                if *schema != crate::biomechanics_humanoid_body_schema_v8() {
-                    return Err(MotorCompileError::UnsupportedMaterialProfile);
-                }
-                4
-            } else {
-                2
-            };
+        let sole_count = if schema.schema_id.as_str()
+            == "nextengine.body.humanoid-biomechanics-raja-1700.v8"
+        {
+            if *schema != crate::biomechanics_humanoid_body_schema_v8() {
+                return Err(MotorCompileError::UnsupportedMaterialProfile);
+            }
+            4
+        } else if schema.schema_id.as_str() == "nextengine.body.humanoid-biomechanics-raja-1700.v9"
+        {
+            if *schema != crate::biomechanics_humanoid_body_schema_v9() {
+                return Err(MotorCompileError::UnsupportedMaterialProfile);
+            }
+            4
+        } else {
+            2
+        };
         let collider_material_assignment_counts =
             validate_material_closure(&base, &materials, &ground_material_id, sole_count)?;
         let shared_material = PhysXSharedMaterialProfileV1::from_material_catalog(

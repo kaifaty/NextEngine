@@ -9,11 +9,20 @@ pub fn articulated_foot_contact_profile_hash() -> ContentHash {
     content_hash_from_bytes(sha256(b"nextengine.articulated-foot-contact.v1\0body=v8;ground-oriented-raw-vector-sum-before-active-filter;limit=6000000uns;retain-pair-limits;left-right-separate;anatomical-active-continuity;legacy-nonfoot-roles"))
 }
 
+/// Same contact law, explicitly bound to the V9 diagnostic body.
+#[must_use]
+pub fn sampled_damping_contact_profile_hash() -> ContentHash {
+    let mut bytes = b"nextengine.articulated-foot-contact.v2\0body=v9\0".to_vec();
+    bytes.extend_from_slice(articulated_foot_contact_profile_hash().as_bytes());
+    content_hash_from_bytes(sha256(&bytes))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsContactClassifierV2 {
     base: BiomechanicsContactClassifier,
     feet: BTreeMap<u64, usize>,
     binding: ContentHash,
+    profile_hash: ContentHash,
     foot_active_substeps: [u64; 2],
     foot_impulses: [[i128; 3]; 2],
 }
@@ -23,6 +32,23 @@ impl BiomechanicsContactClassifierV2 {
         let subject = compiled
             .articulated_subject()
             .map_err(|_| ContactClassificationError::ProfileMismatch)?;
+        Self::new_bound(compiled, subject, articulated_foot_contact_profile_hash())
+    }
+
+    pub fn new_sampled_damping(
+        compiled: &crate::CompiledBodySchemaV4,
+    ) -> Result<Self, ContactClassificationError> {
+        let subject = compiled
+            .sampled_damping_subject()
+            .map_err(|_| ContactClassificationError::ProfileMismatch)?;
+        Self::new_bound(compiled, subject, sampled_damping_contact_profile_hash())
+    }
+
+    fn new_bound(
+        compiled: &crate::CompiledBodySchemaV4,
+        subject: next_contracts::ids::PersistentId,
+        profile_hash: ContentHash,
+    ) -> Result<Self, ContactClassificationError> {
         let base = &compiled.base.base;
         let mut feet = BTreeMap::new();
         for (side_index, side) in ["left", "right"].iter().enumerate() {
@@ -43,6 +69,7 @@ impl BiomechanicsContactClassifierV2 {
             base: BiomechanicsContactClassifier::new(base)?,
             feet,
             binding: content_hash_from_bytes(sha256(&bytes)),
+            profile_hash,
             foot_active_substeps: [0; 2],
             foot_impulses: [[0; 3]; 2],
         })
@@ -89,7 +116,7 @@ impl BiomechanicsContactClassifierV2 {
         }
         self.foot_active_substeps = counts;
         self.foot_impulses = totals;
-        frame.safety_contact_profile_hash = articulated_foot_contact_profile_hash();
+        frame.safety_contact_profile_hash = self.profile_hash;
         let mut bytes = b"nextengine.articulated-foot-contact-frame.v1\0".to_vec();
         bytes.extend_from_slice(frame.safety_contact_profile_hash.as_bytes());
         bytes.extend_from_slice(self.binding.as_bytes());
@@ -123,7 +150,7 @@ impl BiomechanicsContactClassifierV2 {
     #[must_use]
     pub fn continuity_root(&self) -> ContentHash {
         let mut bytes = b"nextengine.articulated-foot-contact-continuity.v1\0".to_vec();
-        bytes.extend_from_slice(articulated_foot_contact_profile_hash().as_bytes());
+        bytes.extend_from_slice(self.profile_hash.as_bytes());
         bytes.extend_from_slice(self.binding.as_bytes());
         bytes.extend_from_slice(self.base.continuity_root().as_bytes());
         for count in self.foot_active_substeps {

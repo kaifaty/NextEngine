@@ -4,11 +4,11 @@
 | --- | --- |
 | ID | ADR-118 |
 | Status | Accepted |
-| Version | 1.1 |
+| Version | 1.2 |
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-069](069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-115](115-full-principal-inertia-body-successor.md), [ADR-117](117-quiet-upright-body-and-standing-reference.md) |
 | Supersedes | V7's rigid merged foot only when selecting BodySchema V8; ADR-071's two-sole material count only for the exact canonical V8 factory. No environment, standing reference, contact safety profile or runtime route changes. |
-| Superseded by | [ADR-119](119-articulated-foot-standing-diagnostics.md), contact/standing diagnostic admission only; body bytes unchanged |
+| Superseded by | [ADR-119](119-articulated-foot-standing-diagnostics.md), contact/standing diagnostic admission; [ADR-120](120-stiffness-proportional-damping-diagnostic.md), explicit V9 four-sole successor only; V8 body bytes unchanged |
 
 ## Decision
 

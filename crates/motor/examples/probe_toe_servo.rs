@@ -33,12 +33,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let first_step = args == ["--first-step"];
-    if !args.is_empty() && !first_step {
+    let sampled_damping = args == ["--body-v9"];
+    if !args.is_empty() && !first_step && !sampled_damping {
         return Err(
             "expected no arguments (FOOT-SERVO-01) or --first-step (FOOT-RESPONSE-01)".into(),
         );
     }
-    let body = next_motor::biomechanics_humanoid_body_schema_v8();
+    let body = if sampled_damping {
+        next_motor::biomechanics_humanoid_body_schema_v9()
+    } else {
+        next_motor::biomechanics_humanoid_body_schema_v8()
+    };
     let compiled = CompiledBodySchemaV4::compile(&body, PersistentId::from_bytes([0; 16]))?;
     let base = &compiled.base.base;
     let encode = |state: &CanonicalPhysXSnapshotV2| {
@@ -112,7 +117,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let initial = encode(&state);
-            let standing = BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?;
+            let standing = if sampled_damping {
+                BiomechanicsProceduralStandingControllerV3::new_sampled_damping(&compiled, &state)?
+            } else {
+                BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?
+            };
             let mut safety = BiomechanicsSafetyController::new(base)?;
             let envelopes = safety.default_skill_envelopes();
             let mut frames = Vec::new();
