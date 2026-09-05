@@ -1916,3 +1916,102 @@ match. Both AST timbre reports have360 clips plus three synthetic controls;
 the pre-existing real-water positive controls remain disclosed, not new tests.
 All local links resolve and experiment jobs are terminal. No Cargo/ProductCheck
 or engine audition: report-only Python lab, no runtime or roadmap change.
+
+### Temporal resonance controls and frozen Sound of Water detector
+
+[Diagnostic comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/comparison.wav>)
+is67.064s: first source-order training objects1(plastic),5(glass); full real
+recording, classical ridge component, neural-pitch band component; gain1.
+[Spectrogram/track overlay](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/tracking-diagnostic.png>)
+was rendered and inspected. These are SOURCE-DEPENDENT diagnostic extractions,
+not new reference-free neural sounds. The previous generator is unchanged.
+
+`physical_sound_pouring_resonance_probe.py` uses16kHz/FFT2048/hop256, a
+250–5993Hz log grid with96 bins/octave, frequency-median subtraction over31
+FFT bins, and a dynamic-programming ridge. Max jump12 grid bins/frame,
+penalty0.5 per grid bin; the path may rise or fall. These are fixed numerical
+choices, not calibrated physical limits. A Gaussian80-cent band extracts the
+selected component, with residual defined by subtraction; reconstruction is
+an arithmetic control, not synthesis quality. No material/geometry prior enters
+the tracker. All first source-order recordings from13 TRAINING objects used;
+no excluded or protected object opened.
+
+Known synthetic rising/falling/stationary/crossing tones plus noise use seed53.
+All four tonal cases have100% of interior frames within50 cents of an active
+mode. Crossing checks nearest mode, NOT identity through crossing. Reversing
+time yields the same reversed classical path. However, pure noise also gives
+a smooth path, median prominence7.09dB and score0.876 ABOVE the strongest of
+nine time-shuffled nulls. Thus positive shuffle margin/smoothness alone cannot
+admit labels. Stationary tone correctly has zero shuffle margin. On real
+recordings, selected component energy spans0.0005–0.342 of input; low-frequency
+background sometimes wins over the moving resonance. Reject automatic labels
+from this unconstrained tracker; do not tune its threshold from these cases.
+Root `pouring-resonance-probe-2026-09-05` has55 WAVs and full diagnostics.
+
+Following the [paper's explicit multiple-mode limitations,section6.4,v1](https://arxiv.org/html/2411.11222v1),
+the adjacent-layer alternative is the authors' specialized pitch network,
+not another classical ridge parameter sweep. The [official model card](https://huggingface.co/bpiyush/sound-of-water-models)
+marks model weights MIT and describes synthetic pretraining followed by real
+visual co-supervision. This does not change dataset redistribution terms.
+
+Acquired only the real-finetuned checkpoint, card and backbone configs:
+`sound-of-water-pitch-model-2026-09-05`, model revision
+`60c7b81251923b0116ffb1f12464c8170b377b9a`,377980520 bytes,
+SHA256`2fa3d8cec1488ee65bb5a6e30f1b79716d8243bbe4ddc4c0687ce2a02c84303c`.
+Backbone config revision`22aad52d435eb6dbaf354bdad9b0da84ce7d6156`.
+`physical_sound_sow_pitch.py` adapts the reviewed forward path from
+[upstream2599de7](https://github.com/bpiyush/SoundOfWater/blob/2599de7f11d565ed78f48e4340938e0fc6ef6455/sound_of_water/audio_pitch/model.py),
+retaining its MIT notice. No downloaded Python executed or dependencies added.
+Load is tensor-only `weights_only=True`, fixed publisher hash/size, all215
+finite tensors and strict key matching. Config is wav2vec2-base:768 hidden,
+12 layers/12 heads,512 CNN channels; do not substitute the paper's8-head prose.
+Time encoding matches upstream49Hz flooring, inclusive clip endpoints and
+0.01 scale. Input normalization uses the stored feature extractor config.
+Axial output is the probability-weighted wavelength on64 bins spanning0–100cm,
+converted with34000cm/s. Radial weights load but are not claimed as validated.
+
+The54 frozen evaluations cover13 full training recordings plus five synthetic
+controls, each original/reversed/250ms-block-shuffled. These weights are
+independent of the generator, but their training corpus OVERLAPS ours. They
+are not an independent unseen-data test or an authoritative naturalness judge.
+
+| Synthetic control | Median pitch error,cents | Frames within50 cents |
+|---|---:|---:|
+| Rising | 59.8 | 42.6% |
+| Falling | 1381.8 | 6.2% |
+| Stationary | 115.4 | 20.0% |
+| Crossing,nearest active mode | 76.3 | 30.8% |
+
+The neural model follows a plausible rising line in the two inspected real
+spectrograms and avoids the glass5 low-frequency classical path. But falling
+tones and reversal reveal strong direction/context dependence. Real reversed-
+versus-original pitch disagreement has per-object medians~316–2477 cents;
+it is not a general pitch tracker. Noise has median normalized entropy0.674,
+versus0.329–0.397 for original real recordings, but falling-tone confidence
+overlaps real examples. These observations do NOT establish an abstention
+threshold. Every result retains `automatic_label_admission=false`.
+
+`crop-context-check.json` adds52 inference comparisons:13 objects ×first/middle
+4.08s crops ×reset/absolute timestamps. Compare to the SAME full-recording
+prediction after interpolation, excluding0.25s from crop edges. Median of
+per-object median differences: first91.9 cents, middle67.8(reset)/51.2(absolute).
+Worst first crop is container23 at2561 cents; absolute middle worst179 cents.
+These are context-consistency errors, not errors against true pitch. Supplying
+the absolute crop start usually helps; short-clip output cannot silently replace
+a full-recording pseudo-target. Reproduce individual queries with
+`infer(model, extractor, crop, start_seconds=offset)`.
+
+Decision: use the frozen model only as a candidate training-side full-sequence
+pseudo-target, with uncertainty and the classical/synthetic controls retained.
+It must not become the sole validator or certify material identity. The next
+checkpoint owes a new REFERENCE-FREE waveform: a small condition-to-resonance
+learner around the retained neural texture, compared against unmodified texture
+and a simple trajectory baseline. Do not add another detector/validator stack
+first, or count the diagnostic components here as meeting the generator goal.
+
+Reproduce diagnostics with `physical_sound_pouring_resonance_probe.py --source
+SOURCE --output NEW_PROBE`, then `physical_sound_sow_pitch.py --model-dir
+MODEL --probe NEW_PROBE --output NEW_NEURAL_PROBE`.74 new WAVs and54 posterior
+NPZs verified, as well as four downloaded model/config files.73 focused tests,
+Ruff and `git diff --check` pass. No jobs remain; no Cargo/ProductCheck or
+engine audition. No new generator training, protected-data use or promotion.

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJECTED.
+Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_GENERATION.
 
 ## Resume in 60 seconds
 
@@ -12,22 +12,18 @@ Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJ
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifacts:** [source-free pouring audition](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav),
+- **Latest reference-free sound:** [pouring audition](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav),
   glass H10cm/diameter7cm/duration15s/progress0.2, seed2718/decoder314, gain10.
-  [Timbral comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-timbre-2026-09-05/comparison.wav)
-  is FAILED: glass then PET middle; real/base/global/conditioned/shuffled,
-  seed2718, gain1. No target recording enters neural inference/correction.
+  unchanged this checkpoint. [New resonance diagnostic](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/comparison.wav):
+  training plastic1/glass5; real/classical/neural-band, gain1,67.064s.
+  This is SOURCE-DEPENDENT extraction, not new generator output.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Impacts:** prior improves only1/14 matched crops; retain base, no LoRA sweep.
-  Extraction evidence in pilot note. Striker margins are not material proof.
-- **Friction source:** `cluster-texture-training-grid-2026-09-05`,
-  Figshare29438288v5/CC-BY4,60 records: wood0/steel65/glass74, Urethane probe,
-  20–60mm/s ×0.5/1N. Same surfaces, not new objects; measured/commanded differ.
-- **Crossed velocity:** rank4/4804params, pooled neural/interpolation spectrum
-  1.815/1.758dB,11/36 wins. Stop three-surface capacity/epoch/basis tuning;
-  40mm/s gain was not robust. Disclosed development; stationary texture, not impact.
-- **Friction countercheck:** clean AND machine-mic retrieval30/30, not quality
-  validation or proof of noise-only generation. No exact NLMS replay; see note.
+- **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
+- **Friction:** `cluster-texture-training-grid-2026-09-05`, Figshare29438288v5/
+  CC-BY4,60 records, wood0/steel65/glass74, Urethane20–60mm/s ×0.5/1N.
+  Same surfaces, measured/commanded differ. Neural/interpolation1.815/1.758dB,
+  11/36 wins: no capacity/epoch/basis sweeps. Clean AND machine-mic retrieval
+  30/30 is not quality proof. No exact NLMS replay; details in pilot note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; original CSV verified,
   converted TSV rejected. Three full WAVs; cross-site43958/43957 unfetched.
   Spectral gain7.469/7.580dB is not quality; stationary model loses temporal
@@ -46,22 +42,18 @@ Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJ
   onset variants retained; no default change or runtime promotion.
 - **Prior causal checks:**64/256 Euler does not fix deficit; wrong glass material
   wins13/13, PET correct17/17. Endpoint penalty is not proven cause; see note.
-- **Prior phase controls:** power wins151/180 spectrum pairs, middle CV worsens.
-  Base/power miss phase CV change on new AND13 training objects; oracle does not.
-- **Two-patch probe:** first training record/container1, matched/shuffled600-step
-  fits; correct template6/6 versus parent/shuffled3/6. Phase is learnable here.
-  Noisy target identifies phase for98% of uniform times in exact two-endpoint
-  toy; possible shortcut, not a measurement of what the network learned.
+- **Phase controls:** spectrum gains miss CV change on new AND13 train objects.
+- **Two-patch probe:** first train record/container1, matched6/6 vs parent3/6.
+  Phase learnable; shortcut toy not proof. No paired-record retry; see note.
 - **Paired extension:** same93 train records,600 extra updates, all30 disclosed
   development recordings ×2 phases ×3 seeds. Spectrum wins158/180 but CV worsens;
   normalized AST120/180 vs parent180/180. Seed2718 fails all60; reject promotion.
 - **Independent checks:** crossed decoder seeds do not explain full failure.
   CLAP base12/12, paired10/12 water; PET2718 favours birds. Neither judge is
   naturalness authority; AST/CLAP disagreement retained in pilot note.
-- **Stage/envelope failures:** exact-endpoint oracle succeeds, stage splices
-  do not cleanly restore semantics. Separate32-bin envelope flows fail120/360
-  raw headroom checks, worsen spectrum/CV, normalized AST88/180 vs base180/180.
-  Exact runs retained in pilot note; no absolute-envelope sweeps/guard weakening.
+- **Envelope failure:**120/360 raw headroom failures, spectrum/CV worsen,
+  AST88/180 vs base180/180. Stage splices do not fix semantic instability.
+  No absolute-envelope sweep/guard weakening; exact runs in pilot note.
 - **Relative level:** ridge head on same93 paired records learns only global
   phase slope-25.2779dB. Delta RMSE4.656->3.883 on two disclosed objects;
   absolute fit3.829, training mean3.981. Gain confounding NOT established.
@@ -75,15 +67,22 @@ Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJ
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
-- **Next action:** test time-resolved resonance on existing training recordings
-  against synthetic rising/falling and shuffled-time controls, with a playable
-  reconstruction/control. Bagad et al.v1 sections3–4/6.1 motivate this but also
-  show generic pitch detectors fail; spectral argmax is not ground truth.
-  Static-color failure does not prove labels lack all physical information.
-  No invented liquid heights, protected reuse or new static-head sweep.
-- **Verification:**67 focused tests, Ruff and1323 WAV/hash checks pass;
-  raw/normalized AST complete. No jobs running. Cargo/ProductCheck/engine
-  audition not run: external Python lab only, no runtime promotion.
+- **Temporal diagnostic:** classical ridge gets synthetic tones right but also
+  gives smooth noise paths/positive shuffle margin. Not automatic real labels.
+  Frozen Sound of Water model improves inspected real tracks but falling-tone
+  median error1382 cents; direction/context dependent. Same corpus exposure,
+  NOT independent-data validation. Full provenance/code in pilot note.
+- **Teacher artifacts:** `sound-of-water-pitch-model-2026-09-05` stores checked
+  MIT model weights/configs; `pouring-sow-pitch-probe-2026-09-05` has54 predictions
+  plus52 crop-context checks. Median context difference~52–92 cents but first
+  container23 differs2561 cents. Preserve full-sequence pseudo-targets; short
+  crops/softmax confidence cannot certify correctness. No automatic admission.
+- **Next action:** new REFERENCE-FREE waveform from a small condition-to-resonance
+  learner around retained neural texture, using full-record teacher pseudo-
+  targets, not true physical labels. Compare unmodified texture/simple trajectory
+  baseline; judge alone cannot approve it. No further detector stack first.
+- **Verification:**73 tests, Ruff,74 new WAVs/54 posteriors/four model-config
+  files checked. All jobs terminal. No Cargo/ProductCheck/engine audition.
 - **Full goal remains open:** robust quality/control, generalization and integration.
 
 ## Preserve these constraints
@@ -93,7 +92,8 @@ Status: ACTIVE_GOAL / RELATIVE_LEVEL_LIMITED_GAIN / STATIC_TIMBRE_CORRECTION_REJ
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Supporting-only debt is currently zero.
+  not replace the audible deliverable. Latest checkpoint is diagnostic-only;
+  the next checkpoint must produce new reference-free sound, not more support.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
   is Proposed; report-only waveform generation/authored-asset research is
