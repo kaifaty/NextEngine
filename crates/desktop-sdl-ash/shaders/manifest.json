@@ -14,7 +14,7 @@
   "reflection_suite": "b0_reflect",
   "gbuffer_suite": "gbuffer",
   "tonemap_suite": "tonemap",
-  "interface_contract_sha256": "dd7daad5544bdb0aeb28e4e468e52b0da290c6732caff164e592c0e371beabcd",
+  "interface_contract_sha256": "dd4b71e3cd9e6a4f034c17fc63b8fbeb8169140d3002da33600472f29460d6dc",
   "source_language": {
     "name": "GLSL",
     "version": "450"
@@ -222,23 +222,23 @@
     {
       "stage": "fragment",
       "source": "b0_textured.frag",
-      "source_sha256": "82fd821a69a99aa3ff76934cfe1f5efd67164a9965e998b87dbcd018164b31cc",
+      "source_sha256": "dbbb7213adb858eb6b37e899116749ed1f765ef76d848aea4a38461276875bdd",
       "module": "b0_textured.frag.spv",
-      "module_sha256": "33a99323e1e22cf3b26e8ca547c30701aed4374fd94d237a3d1f805badadf2f8"
+      "module_sha256": "d95940f1bd1933a77dccdb9e291471c0333b19c3596ba1a7f1d29b2770448b8a"
     },
     {
       "stage": "fragment",
       "source": "b0_textured_no_shadow.frag",
-      "source_sha256": "16e3d6c267c4c3f8c93b616ba0eb9b8bc16d3c64a1af794de5abf50031b34cb1",
+      "source_sha256": "7dba8613049c1c492991a284df9f1145fc566b0512b63772729e85ff46e25bcb",
       "module": "b0_textured_no_shadow.frag.spv",
-      "module_sha256": "5448972d1155f5fd528243ebdd07a08f71e6176db4a44495d84ea87949030e72"
+      "module_sha256": "30f7fd08de462f9788d885a6480955ffe6a9375a4f11bddf911d1c2862eb558c"
     },
     {
       "stage": "vertex",
       "source": "shadow_depth.vert",
-      "source_sha256": "a045b93e65cc38202a7e2ee71e3f56b0e74ca0e5ea3cd89f59361437456ba9dd",
+      "source_sha256": "f56d2890d70aa000f7d8c7c582222bfff056f75a1c8a793c068f56ca552b6869",
       "module": "shadow_depth.vert.spv",
-      "module_sha256": "dd5be3e72a303b05c41b2b7a3c6657c44946590126c8a2e80518c9bac41cf3ed"
+      "module_sha256": "80d064f1276c6588b3c0abf2f353c31682626dbe1bb48e41d645fc2a2b94a8e4"
     },
     {
       "stage": "vertex",
@@ -264,9 +264,9 @@
     {
       "stage": "fragment",
       "source": "sky_analytic.frag",
-      "source_sha256": "512492fdd52094789a25a5a671b7e021ec1718d17bf9b79239936e9c0b6dd22d",
+      "source_sha256": "7d520b3ce93a239a67ad8e17250bc13297eaccea0d98a48bd07f579172709980",
       "module": "sky_analytic.frag.spv",
-      "module_sha256": "b1dbe87741df72b34cec313326b7493438069f37de91b2a9c1208803580af249"
+      "module_sha256": "fe9a354695b2145ad5b0b6ad2cea9cec82908643fd872178dc69d4a37c01c067"
     },
     {
       "suite": "fluid_surface",
@@ -350,37 +350,37 @@
     {
       "stage": "fragment",
       "source": "water_surface.frag",
-      "source_sha256": "057fce813c08ce1b4b7243731544eab287b10b9cec7db1a65ea07d9b7c183393",
+      "source_sha256": "a0928e77fada06ea5ee6abd33ec2b41cc9050f894aec5652565a23bd2c62f290",
       "module": "water_surface.frag.spv",
-      "module_sha256": "01a5b48465069067907a43c8fe961949fb0b7d3826a2ec9df85520cde7966ac0"
+      "module_sha256": "1982e04d8be3e9c8202c0dafd0b8f17b9cf90f42bcc6fddcbc762ce946d6ee50"
     },
     {
       "stage": "fragment",
       "source": "water_scene.frag",
-      "source_sha256": "a960c84f04c1587bdaf2c3e57bee9422a0d38b26b9cf93a4d9a58b61fe087b13",
+      "source_sha256": "64756296122c562cb452f93d5540a17e62b6185b01b30acd863d7024a785140a",
       "module": "water_scene.frag.spv",
-      "module_sha256": "4f2427b3fd97ffca5d33c3986c0d9d776f419e043bcf3323c2558f6a433bb6f8"
+      "module_sha256": "81dca08d13fcb71c4bff3246b30af0bada60bcb90d5210359f00f733b469413e"
     },
     {
       "stage": "fragment",
       "source": "water_under.frag",
-      "source_sha256": "0102221b382c466e1000d6048a5c7d3e33d78bd5ad4446a84513d6c31df65266",
+      "source_sha256": "43ea99ecc37690461537061c5fe78658549b71f1985a6141320cbab745339856",
       "module": "water_under.frag.spv",
-      "module_sha256": "5dd2a291003f2523386357d2686df9e1764839ea87c38afd184df976c665c2f1"
+      "module_sha256": "55eee47de2f313e46af77a8efde8070ac712139f6f345dd0fa1e6ebd5bd05202"
     },
     {
       "stage": "fragment",
       "source": "water_wet.frag",
-      "source_sha256": "8ac92c63d873bb850e246cede0db3f026ef2f75c171a63d11f765d995586d5f7",
+      "source_sha256": "f1b6730025b435fe1d12858baf5575646890fad57c59fb5bbc9b375a020d344e",
       "module": "water_wet.frag.spv",
-      "module_sha256": "af862453e54546d0dd5a7691fe0350b97c1e578cae7e49412af5f86de891f674"
+      "module_sha256": "3f15ed6a6781ca6405be8d42fd723587b01326e5cbabf38a2e8f274224443ba9"
     },
     {
       "stage": "fragment",
       "source": "b0_reflect.frag",
-      "source_sha256": "6b9719ee4f5b608d233c41a04ba6e7652086b7d7e96076038a9b8892d8910bc3",
+      "source_sha256": "7af381e32d7fbbfc0d9459382396e974389b026bb51269bf98a013ee699acc49",
       "module": "b0_reflect.frag.spv",
-      "module_sha256": "ba2fc04709b870d4e794cb90ffc9401f74c635cac6dbdf25da15b063019098d5"
+      "module_sha256": "5cff33417ae8f7275d4eb07510c82b29c5faec3d413b9b62c9925159c6b795dc"
     },
     {
       "stage": "vertex",

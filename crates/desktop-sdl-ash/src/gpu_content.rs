@@ -23,8 +23,9 @@ use next_contracts::render_content::{
 use next_render::B0FramePlanV1;
 
 use self::pipeline::{
-    PipelineState, draw_push_constant_bytes, frame_raster_state_jittered, identity_matrix_bytes,
-    micrometres_to_metres_f32, mirrored_frame_raster_state, model_matrix,
+    PipelineState, SHADOW_CASCADE_EXTENTS_METRES, draw_push_constant_bytes,
+    frame_raster_state_jittered, identity_matrix_bytes, micrometres_to_metres_f32,
+    mirrored_frame_raster_state, model_matrix, shadow_cascade_matrices,
 };
 pub(crate) use self::pipeline::{ProjectionJitterV1, projection_jitter};
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
@@ -413,6 +414,13 @@ impl B0GpuContent {
         let shadow_map = ShadowMap::try_new(instance, physical_device, device)?;
         if let Some(shadow) = shadow_map.as_ref() {
             initialize_shadow_map(device, queue, queue_family_index, shadow)?;
+            eprintln!(
+                "next_game: SHADOW_CASCADES active layers={} extents={}/{}/{}",
+                super::gpu_content::resources::SHADOW_CASCADES,
+                SHADOW_CASCADE_EXTENTS_METRES[0],
+                SHADOW_CASCADE_EXTENTS_METRES[1],
+                SHADOW_CASCADE_EXTENTS_METRES[2]
+            );
         } else {
             eprintln!(
                 "next_game: SHADOW_MAP_FALLBACK: sampled depth format or 2048x2048 allocation unavailable"
@@ -716,11 +724,14 @@ impl B0GpuContent {
                 "frame slot index is outside the allocated lighting ring",
             ),
         )?;
+        let cascades = shadow_cascade_matrices(raster_state.camera_position)?;
         lighting_uniform.write(
             0,
             &self.sky.lighting_uniform_bytes(
                 crate::sky::invert_matrix(raster_state.view_projection),
                 B0_FOG_DENSITY,
+                &cascades,
+                SHADOW_CASCADE_EXTENTS_METRES.map(|extent| extent as f32),
             ),
         )?;
         let viewports = [raster_state.viewport];

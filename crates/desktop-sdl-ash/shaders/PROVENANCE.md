@@ -253,3 +253,19 @@ pinned Linux `glslang` 15.1.0:
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>
 ```
+
+## Cascaded shadows (plan `look/02`, scene look L2)
+
+The B0 interface moves to `b0.v4`: the lighting block grows to `576` bytes
+with three cascade view-projections and their extents, and set 2 binding 0
+becomes a depth-compare sampler over a three-layer `2048²` array.
+`shadow_depth` selects its cascade from the push block's spare lane;
+`b0_textured`, `b0_reflect`, `water_surface` and `water_scene` share
+`sun_visibility` (the first cascade holding the normal-offset receiver, a
+slope-scaled bias over the cascade's range, a 3x3 kernel of linear compare
+taps). Every module was recompiled with the same pinned Linux `glslang`
+15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>
+```

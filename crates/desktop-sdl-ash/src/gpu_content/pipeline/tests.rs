@@ -342,3 +342,63 @@ fn projection_jitter_shifts_ndc_by_a_constant_offset_at_every_depth() {
         &jittered.view_projection_bytes[64..]
     );
 }
+
+/// Plan look/02 G3: a point moved by one cascade texel along the light's
+/// side axis lands one texel further in the map; the third cascade holds a
+/// point 50 m out and the first does not; the CPU selection mirrors the
+/// programs' rule.
+#[test]
+fn shadow_cascades_snap_to_texels_and_select_by_extent() {
+    use super::{
+        SHADOW_CASCADE_EXTENTS_METRES, shadow_cascade_index, shadow_cascade_matrix,
+        transform_point_column_major,
+    };
+    let camera = [3.2_f32, 1.7, -4.1];
+    let forward = {
+        let v = [-0.45_f32, -0.82, -0.35];
+        let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        [v[0] / n, v[1] / n, v[2] / n]
+    };
+    let side = {
+        let v = [-forward[2], 0.0, forward[0]];
+        let n = (v[0] * v[0] + v[2] * v[2]).sqrt();
+        [v[0] / n, 0.0, v[2] / n]
+    };
+    let extent = SHADOW_CASCADE_EXTENTS_METRES[0];
+    let matrix = shadow_cascade_matrix(camera, extent).expect("cascade");
+    let texel = (extent / 2_048.0) as f32;
+    let point = [camera[0] + 1.0, 0.3, camera[2] - 2.0];
+    let moved = [
+        point[0] + side[0] * texel,
+        point[1],
+        point[2] + side[2] * texel,
+    ];
+    let a = transform_point_column_major(&matrix, point);
+    let b = transform_point_column_major(&matrix, moved);
+    let delta = (b[0] / b[3] - a[0] / a[3]).abs();
+    assert!((delta - 2.0 / 2_048.0).abs() < 1e-5, "{delta}");
+    let far_point = [camera[0] + 50.0, 0.0, camera[2]];
+    let far_in_first = transform_point_column_major(
+        &shadow_cascade_matrix(camera, SHADOW_CASCADE_EXTENTS_METRES[0]).expect("cascade"),
+        far_point,
+    );
+    assert!((far_in_first[0] / far_in_first[3]).abs() > 1.0);
+    let far_in_third = transform_point_column_major(
+        &shadow_cascade_matrix(camera, SHADOW_CASCADE_EXTENTS_METRES[2]).expect("cascade"),
+        far_point,
+    );
+    assert!((far_in_third[0] / far_in_third[3]).abs() <= 1.0);
+    for (distance, expected) in [
+        (4.0, Some(0)),
+        (15.0, Some(1)),
+        (50.0, Some(2)),
+        (200.0, None),
+    ] {
+        let probe = [camera[0] + distance, 0.0, camera[2]];
+        assert_eq!(
+            shadow_cascade_index(camera, probe).expect("cascades"),
+            expected,
+            "{distance} m"
+        );
+    }
+}

@@ -74,6 +74,8 @@ pub(super) const WATER_SURFACE_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFi
 
 pub(super) struct FrameRasterState {
     pub(super) view_projection_bytes: [u8; FRAME_UNIFORM_SIZE as usize],
+    /// Scene look L2: the camera's world position the cascades centre on.
+    pub(super) camera_position: [f32; 3],
     /// The (jittered) view-projection written into the frame block; plan
     /// 18 hands it to the G-buffer pass.
     pub(super) view_projection: [f32; 16],
@@ -644,6 +646,7 @@ pub(super) fn frame_raster_state_jittered(
             let shadow_matrix = shadow_view_projection_matrix(camera_position)?;
             Ok(FrameRasterState {
                 view_projection_bytes: frame_uniform_bytes(matrix, shadow_matrix, camera_position),
+                camera_position,
                 view_projection: matrix,
                 viewport,
                 scissor,
@@ -709,6 +712,7 @@ pub(super) fn mirrored_frame_raster_state(
             mirrored_position,
             plane_height_metres,
         ),
+        camera_position,
         view_projection: matrix,
         viewport,
         scissor,
@@ -755,6 +759,7 @@ fn fallback_raster_state(
             shadow_view_projection_matrix([0.0, 0.0, 0.0])?,
             [0.0, 0.0, 0.0],
         ),
+        camera_position: [0.0, 0.0, 0.0],
         view_projection: fallback,
         viewport,
         scissor,
@@ -1126,14 +1131,72 @@ fn frame_uniform_bytes_with_camera_lane(
 /// Fixed 32x32 metre orthographic light volume centred near the active
 /// camera. The projected centre is snapped to one 2048² texel so small camera
 /// motion does not shimmer the outdoor shadow footprint.
+/// Scene look L2 (plan `look/02`): the cascade extents in metres; near,
+/// far and the eye distance scale with the extent (`extent / 8`,
+/// `1.5 x extent`, `0.75 x extent`).
+pub(super) const SHADOW_CASCADE_EXTENTS_METRES: [f64; 3] = [12.0, 36.0, 108.0];
+
+/// The frame block's shadow matrix: the first cascade.
 fn shadow_view_projection_matrix(
     camera_position: [f32; 3],
 ) -> Result<[f32; 16], B0GpuContentError> {
-    const EXTENT_METRES: f64 = 32.0;
+    shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[0])
+}
+
+/// Scene look L2: the three cascade matrices for the lighting block.
+pub(super) fn shadow_cascade_matrices(
+    camera_position: [f32; 3],
+) -> Result<[[f32; 16]; 3], B0GpuContentError> {
+    Ok([
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[0])?,
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[1])?,
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[2])?,
+    ])
+}
+
+/// Scene look L2: the CPU mirror of the programs' cascade rule (the first
+/// cascade whose projection holds the point inside a `2 %` margin), for
+/// the plan's unit gate; `None` when no cascade holds it.
+#[cfg(test)]
+pub(super) fn shadow_cascade_index(
+    camera_position: [f32; 3],
+    point: [f32; 3],
+) -> Result<Option<usize>, B0GpuContentError> {
+    for (cascade, matrix) in shadow_cascade_matrices(camera_position)?.iter().enumerate() {
+        let clip = transform_point_column_major(matrix, point);
+        let x = clip[0] / clip[3] * 0.5 + 0.5;
+        let y = clip[1] / clip[3] * 0.5 + 0.5;
+        let z = clip[2] / clip[3];
+        if (0.02..=0.98).contains(&x) && (0.02..=0.98).contains(&y) && (0.0..=1.0).contains(&z) {
+            return Ok(Some(cascade));
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(test)]
+fn transform_point_column_major(matrix: &[f32; 16], point: [f32; 3]) -> [f32; 4] {
+    let mut out = [0.0_f32; 4];
+    for (row, value) in out.iter_mut().enumerate() {
+        *value = matrix[row] * point[0]
+            + matrix[4 + row] * point[1]
+            + matrix[8 + row] * point[2]
+            + matrix[12 + row];
+    }
+    out
+}
+
+/// One orthographic cascade of `extent_metres` centred on the camera's
+/// plan position, snapped to its texel along the light's axes.
+pub(super) fn shadow_cascade_matrix(
+    camera_position: [f32; 3],
+    extent_metres: f64,
+) -> Result<[f32; 16], B0GpuContentError> {
     const SHADOW_RESOLUTION: f64 = 2_048.0;
-    const EYE_DISTANCE: f64 = 24.0;
-    const NEAR: f64 = 4.0;
-    const FAR: f64 = 48.0;
+    let extent = extent_metres;
+    let eye_distance = 0.75 * extent;
+    let near = extent / 8.0;
+    let far = 1.5 * extent;
 
     let centre = [
         f64::from(camera_position[0]),
@@ -1145,7 +1208,7 @@ fn shadow_view_projection_matrix(
     let side = normalize3(cross3(forward, [0.0, 1.0, 0.0]))
         .ok_or_else(|| invalid_frame_plan("shadow light basis is invalid"))?;
     let up = cross3(side, forward);
-    let texel = EXTENT_METRES / SHADOW_RESOLUTION;
+    let texel = extent / SHADOW_RESOLUTION;
     let projected_x = dot3(side, centre);
     let projected_y = dot3(up, centre);
     let snapped_x = (projected_x / texel).round() * texel;
@@ -1156,9 +1219,9 @@ fn shadow_view_projection_matrix(
         centre[2] + side[2] * (snapped_x - projected_x) + up[2] * (snapped_y - projected_y),
     ];
     let eye = [
-        snapped_centre[0] - forward[0] * EYE_DISTANCE,
-        snapped_centre[1] - forward[1] * EYE_DISTANCE,
-        snapped_centre[2] - forward[2] * EYE_DISTANCE,
+        snapped_centre[0] - forward[0] * eye_distance,
+        snapped_centre[1] - forward[1] * eye_distance,
+        snapped_centre[2] - forward[2] * eye_distance,
     ];
     let view = [
         side[0],
@@ -1178,7 +1241,7 @@ fn shadow_view_projection_matrix(
         dot3(forward, eye),
         1.0,
     ];
-    let inverse_half_extent = 2.0 / EXTENT_METRES;
+    let inverse_half_extent = 2.0 / extent;
     let projection = [
         inverse_half_extent,
         0.0,
@@ -1190,11 +1253,11 @@ fn shadow_view_projection_matrix(
         0.0,
         0.0,
         0.0,
-        1.0 / (NEAR - FAR),
+        1.0 / (near - far),
         0.0,
         0.0,
         0.0,
-        NEAR / (NEAR - FAR),
+        near / (near - far),
         1.0,
     ];
     f64_matrix_to_f32(multiply_column_major_4x4(projection, view))

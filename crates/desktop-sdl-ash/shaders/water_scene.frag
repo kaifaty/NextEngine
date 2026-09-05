@@ -33,6 +33,8 @@ layout(set = 0, binding = 1, std140) uniform LightingUniforms {
     vec4 sky_perez_y[2];
     vec4 sky_perez_luminance[2];
     vec4 sky_params;            // ground albedo, turbidity, luminance scale, sun disc cos outer
+    mat4 shadow_cascades[3];    // plan look/02: the cascade view-projections
+    vec4 shadow_extents;        // cascade extents in metres, spare
 } lighting;
 
 const float LIGHTING_PI = 3.14159265;
@@ -96,7 +98,42 @@ vec3 sky_radiance(vec3 direction) {
 }
 
 layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
-layout(set = 2, binding = 0) uniform sampler2DShadow shadow_map;
+layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadow_map;
+
+// Scene look L2 (plan look/02): the sun's visibility from the cascaded
+// shadow map: the first cascade holding the receiver (moved along its
+// normal by 1.5 texels) inside a 2% margin, a slope-scaled bias over the
+// cascade's depth range, a 3x3 kernel of linear compare taps.
+const float SHADOW_MAP_TEXELS = 2048.0;
+
+float sun_visibility(vec3 world_position, vec3 normal, float n_dot_l) {
+    for (int cascade = 0; cascade < 3; ++cascade) {
+        float extent = lighting.shadow_extents[cascade];
+        float texel_metres = extent / SHADOW_MAP_TEXELS;
+        vec3 receiver = world_position + normal * texel_metres * 1.5;
+        vec4 clip = lighting.shadow_cascades[cascade] * vec4(receiver, 1.0);
+        vec3 coord = clip.xyz / clip.w;
+        coord.xy = coord.xy * 0.5 + 0.5;
+        if (any(lessThan(coord.xy, vec2(0.02))) || any(greaterThan(coord.xy, vec2(0.98)))
+            || coord.z < 0.0 || coord.z > 1.0) {
+            continue;
+        }
+        float range_scale = 44.0 / (1.375 * extent);
+        float bias = max(0.0007 * (1.0 - n_dot_l), 0.00025) * range_scale;
+        vec2 texel = vec2(1.0 / SHADOW_MAP_TEXELS);
+        float visibility = 0.0;
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                visibility += texture(
+                    shadow_map,
+                    vec4(coord.xy + vec2(x, y) * texel, float(cascade), coord.z - bias)
+                );
+            }
+        }
+        return visibility / 9.0;
+    }
+    return 1.0;
+}
 layout(set = 3, binding = 0) uniform sampler2D scene_color;
 layout(set = 3, binding = 1) uniform sampler2D scene_depth;
 layout(set = 3, binding = 3) uniform sampler2D reflection;
@@ -201,26 +238,7 @@ void main() {
 
     vec3 light_direction = normalize(-frame.sun_direction_intensity.xyz);
     float diffuse = max(dot(normal, light_direction), 0.0);
-    vec4 shadow_clip = frame.shadow_view_projection * vec4(in_world_position, 1.0);
-    vec3 shadow_coord = shadow_clip.xyz / shadow_clip.w;
-    shadow_coord.xy = shadow_coord.xy * 0.5 + 0.5;
-    float shadow_visibility = 1.0;
-    if (shadow_coord.x >= 0.0 && shadow_coord.x <= 1.0
-        && shadow_coord.y >= 0.0 && shadow_coord.y <= 1.0
-        && shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0) {
-        vec2 texel = 1.0 / vec2(textureSize(shadow_map, 0));
-        float receiver_bias = max(0.0007 * (1.0 - diffuse), 0.00025);
-        shadow_visibility = 0.0;
-        for (int y = -1; y <= 1; ++y) {
-            for (int x = -1; x <= 1; ++x) {
-                shadow_visibility += texture(
-                    shadow_map,
-                    vec3(shadow_coord.xy + vec2(x, y) * texel, shadow_coord.z - receiver_bias)
-                );
-            }
-        }
-        shadow_visibility /= 9.0;
-    }
+    float shadow_visibility = sun_visibility(in_world_position, normal, diffuse);
 
     // Path length through the water: from the surface point to the opaque
     // scene point behind it on the same pixel ray.

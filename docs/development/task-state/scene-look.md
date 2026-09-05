@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLAN_01_DONE / PLAN_02_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_01A_02_DONE / PLAN_03_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -24,7 +24,11 @@
   reference materials' albedos raised to `0.2..0.5` (two textures scaled
   `1.6x`, the factors and roughness per material, the blade metallic); the
   B0 profile now admits metallic and roughness. Roots re-pinned in the plan.
-- **Next:** item 2 (`look/02`, cascaded shadows with PCF), then 3 (GTAO)
+- **Plan 02 done (2026-09-05):** three shadow cascades (`12 / 36 / 108 m`)
+  in a `2048²` depth array with linear compare taps, a normal-offset
+  receiver and a shared `sun_visibility`; the contract at `b0.v4`; GPU
+  frame time `1.20 x`. Roots re-pinned in the plan.
+- **Next:** item 3 (`look/03`, GTAO from the G-buffer), then 4 (TAA)
   and 4 (TAA).
 - **Invariants.** Presentation only: no state root, checkpoint or
   command changes; captures from fixed cameras, the frame cost at

@@ -32,6 +32,8 @@ layout(set = 0, binding = 1, std140) uniform LightingUniforms {
     vec4 sky_perez_y[2];
     vec4 sky_perez_luminance[2];
     vec4 sky_params;            // ground albedo, turbidity, luminance scale, sun disc cos outer
+    mat4 shadow_cascades[3];    // plan look/02: the cascade view-projections
+    vec4 shadow_extents;        // cascade extents in metres, spare
 } lighting;
 
 const float LIGHTING_PI = 3.14159265;

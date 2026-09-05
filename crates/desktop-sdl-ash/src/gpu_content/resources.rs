@@ -173,12 +173,26 @@ impl ImageAllocation {
         format: vk::Format,
         usage: vk::ImageUsageFlags,
     ) -> Result<Self, B0GpuContentError> {
+        Self::new_layered(instance, physical_device, device, extent, format, usage, 1)
+    }
+
+    /// Scene look L2 (plan `look/02`): a 2D image with `array_layers`
+    /// layers (the cascaded shadow map).
+    pub(super) fn new_layered(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        extent: vk::Extent3D,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+        array_layers: u32,
+    ) -> Result<Self, B0GpuContentError> {
         let image_info = vk::ImageCreateInfo::default()
             .image_type(vk::ImageType::TYPE_2D)
             .format(format)
             .extent(extent)
             .mip_levels(1)
-            .array_layers(1)
+            .array_layers(array_layers)
             .samples(vk::SampleCountFlags::TYPE_1)
             .tiling(vk::ImageTiling::OPTIMAL)
             .usage(usage)
@@ -322,6 +336,8 @@ pub(crate) struct DepthAttachment {
 }
 
 pub(super) const SHADOW_MAP_EXTENT: u32 = 2_048;
+/// Scene look L2 (plan `look/02`): the cascades of the shadow map.
+pub(super) const SHADOW_CASCADES: u32 = 3;
 
 /// One renderer-owned sampled depth target. It is deliberately independent
 /// from swapchain depth so resize does not change the fixed shadow texel
@@ -329,7 +345,10 @@ pub(super) const SHADOW_MAP_EXTENT: u32 = 2_048;
 /// failures use the explicit no-shadow pipeline instead.
 pub(super) struct ShadowMap {
     device: ash::Device,
+    /// The array view the lit programs sample.
     view: vk::ImageView,
+    /// One attachment view per cascade layer.
+    layer_views: Vec<vk::ImageView>,
     sampler: vk::Sampler,
     image: ImageAllocation,
     format: vk::Format,
@@ -368,7 +387,7 @@ impl ShadowMap {
         device: &ash::Device,
         format: vk::Format,
     ) -> Result<Self, B0GpuContentError> {
-        let image = ImageAllocation::new(
+        let image = ImageAllocation::new_layered(
             instance,
             physical_device,
             device,
@@ -379,23 +398,55 @@ impl ShadowMap {
             },
             format,
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            SHADOW_CASCADES,
         )?;
         let subresource = vk::ImageSubresourceRange::default()
             .aspect_mask(vk::ImageAspectFlags::DEPTH)
             .base_mip_level(0)
             .level_count(1)
             .base_array_layer(0)
-            .layer_count(1);
+            .layer_count(SHADOW_CASCADES);
         let view_info = vk::ImageViewCreateInfo::default()
             .image(image.image)
-            .view_type(vk::ImageViewType::TYPE_2D)
+            .view_type(vk::ImageViewType::TYPE_2D_ARRAY)
             .format(format)
             .subresource_range(subresource);
         // SAFETY: image is live and uses the exact queried depth format.
         let view = unsafe { device.create_image_view(&view_info, None) }?;
+        // Scene look L2: one attachment view per cascade layer.
+        let mut layer_views = Vec::with_capacity(SHADOW_CASCADES as usize);
+        for layer in 0..SHADOW_CASCADES {
+            let layer_info = vk::ImageViewCreateInfo::default()
+                .image(image.image)
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(format)
+                .subresource_range(
+                    vk::ImageSubresourceRange::default()
+                        .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                        .base_mip_level(0)
+                        .level_count(1)
+                        .base_array_layer(layer)
+                        .layer_count(1),
+                );
+            // SAFETY: the image is live and the layer is inside its range.
+            match unsafe { device.create_image_view(&layer_info, None) } {
+                Ok(layer_view) => layer_views.push(layer_view),
+                Err(error) => {
+                    // SAFETY: the views created so far have no dependants.
+                    unsafe {
+                        for layer_view in layer_views {
+                            device.destroy_image_view(layer_view, None);
+                        }
+                        device.destroy_image_view(view, None);
+                    }
+                    return Err(error.into());
+                }
+            }
+        }
+        // Scene look L2: linear compare taps (hardware 2x2 PCF per tap).
         let sampler_info = vk::SamplerCreateInfo::default()
-            .mag_filter(vk::Filter::NEAREST)
-            .min_filter(vk::Filter::NEAREST)
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
             .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
             .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_BORDER)
             .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_BORDER)
@@ -409,14 +460,20 @@ impl ShadowMap {
         let sampler = match unsafe { device.create_sampler(&sampler_info, None) } {
             Ok(sampler) => sampler,
             Err(error) => {
-                // SAFETY: the view has no descriptors or submissions yet.
-                unsafe { device.destroy_image_view(view, None) };
+                // SAFETY: the views have no dependants.
+                unsafe {
+                    for layer_view in layer_views {
+                        device.destroy_image_view(layer_view, None);
+                    }
+                    device.destroy_image_view(view, None);
+                }
                 return Err(error.into());
             }
         };
         Ok(Self {
             device: device.clone(),
             view,
+            layer_views,
             sampler,
             image,
             format,
@@ -429,6 +486,11 @@ impl ShadowMap {
 
     pub(super) const fn view(&self) -> vk::ImageView {
         self.view
+    }
+
+    /// Scene look L2: the attachment view of one cascade layer.
+    pub(super) fn layer_view(&self, cascade: usize) -> Option<vk::ImageView> {
+        self.layer_views.get(cascade).copied()
     }
 
     pub(super) const fn sampler(&self) -> vk::Sampler {
@@ -450,6 +512,9 @@ impl Drop for ShadowMap {
         // destroyed before the backing image allocation.
         unsafe {
             self.device.destroy_sampler(self.sampler, None);
+            for layer_view in self.layer_views.drain(..) {
+                self.device.destroy_image_view(layer_view, None);
+            }
             self.device.destroy_image_view(self.view, None);
         }
     }

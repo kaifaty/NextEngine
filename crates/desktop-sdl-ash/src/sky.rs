@@ -11,8 +11,9 @@ use std::f32::consts::PI;
 
 /// `inverse_view_projection` (64), `sun_radiance` (16), nine `sky_sh`
 /// (144), `fog` (16), `sky_zenith` (16), three Perez pairs (96),
-/// `sky_params` (16).
-pub(crate) const LIGHTING_UNIFORM_SIZE: u64 = 368;
+/// `sky_params` (16), three shadow cascades (192, plan `look/02`),
+/// `shadow_extents` (16).
+pub(crate) const LIGHTING_UNIFORM_SIZE: u64 = 576;
 /// Atmospheric turbidity of the reference sky (clear).
 pub(crate) const SKY_TURBIDITY: f32 = 2.5;
 /// The ground's albedo under the sky, for the lower SH hemisphere.
@@ -300,6 +301,8 @@ impl SkyModel {
         &self,
         inverse_view_projection: [f32; 16],
         fog_density: f32,
+        shadow_cascades: &[[f32; 16]; 3],
+        shadow_extents_metres: [f32; 3],
     ) -> [u8; LIGHTING_UNIFORM_SIZE as usize] {
         let mut bytes = [0_u8; LIGHTING_UNIFORM_SIZE as usize];
         let mut offset = 0;
@@ -340,6 +343,16 @@ impl SkyModel {
         push(SKY_TURBIDITY);
         push(self.scale);
         push(SUN_DISC_COS_OUTER);
+        // Plan look/02: the cascades at 368..560 and their extents at 560.
+        for cascade in shadow_cascades {
+            for value in cascade {
+                push(*value);
+            }
+        }
+        for value in shadow_extents_metres {
+            push(value);
+        }
+        push(0.0);
         bytes
     }
 }
@@ -504,8 +517,24 @@ mod tests {
         let display = crate::hdr::aces_fitted(grey_up * model.exposure());
         assert!((display - MIDDLE_GREY).abs() < 1e-3, "{display}");
         assert!((aces_inverse(crate::hdr::aces_fitted(0.7)) - 0.7).abs() < 1e-4);
-        let bytes = model.lighting_uniform_bytes([0.0; 16], 0.035);
-        assert_eq!(bytes.len(), 368);
+        let mut cascade = [0.0_f32; 16];
+        cascade[0] = 7.0;
+        let bytes =
+            model.lighting_uniform_bytes([0.0; 16], 0.035, &[cascade; 3], [12.0, 36.0, 108.0]);
+        assert_eq!(bytes.len(), 576);
+        // Plan look/02 G3: the cascades at 368, the extents at 560.
+        assert_eq!(
+            f32::from_le_bytes([bytes[368], bytes[369], bytes[370], bytes[371]]),
+            7.0
+        );
+        assert_eq!(
+            f32::from_le_bytes([bytes[560], bytes[561], bytes[562], bytes[563]]),
+            12.0
+        );
+        assert_eq!(
+            f32::from_le_bytes([bytes[568], bytes[569], bytes[570], bytes[571]]),
+            108.0
+        );
         let exposure = f32::from_le_bytes([bytes[76], bytes[77], bytes[78], bytes[79]]);
         assert!((exposure - model.exposure()).abs() < 1e-6);
     }
