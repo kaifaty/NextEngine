@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / REFERENCE_FREE_PITCH_ADAPTER / NO_QUALITY_GAIN.
+Status: ACTIVE_GOAL / TEMPORAL_NOISE_DECODER_REJECTED / SYNTHESIS_DISCRIMINATOR_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,11 +12,11 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_PITCH_ADAPTER / NO_QUALITY_GAIN.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free sound:** [neural pouring](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/matched-first-audition/adapter.wav),
-  H10cm/diameter7cm/duration15s/start0.1, seed2718/decoder314, gain1.
-  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/comparison.wav):
-  glass10/glass16/PET10/glass10fast; base/matched/shuffled,54.96s. Experimental,
-  NOT a new best/default model. No recording or teacher needed at inference.
+- **Latest reference-free experiment:** [temporal decoder](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/first-audition/generated.wav),
+  H10cm/diameter7cm/duration15s/start0.1, excitation seed2718, gain1.
+  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/comparison.wav):
+  glass10/glass16/PET10/glass10fast; base/temporal/static,54.96s. REJECTED:
+  classified as noise, not water. No recording/teacher/base needed at inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** `cluster-texture-training-grid-2026-09-05`, Figshare29438288v5/
@@ -31,20 +31,15 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_PITCH_ADAPTER / NO_QUALITY_GAIN.
 - **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al.,
   HF `bpiyush/sound-of-water` revision12575460ee39d6adaebbe5aff531a5f4a24a627b.
   Dataset redistribution unspecified; do NOT inherit separate software MIT.
-  Local research only.123 full48kHz WAVs/110261540bytes plus README/train CSV,
-  125 files publisher/local hash verified. Annotation-only clean/constant/water
-  selection. Author Test I/II/III and YouTube files not used. No foreign code run.
+  Local research only.123 verified full48kHz WAVs, annotation-only clean/constant/
+  water selection. Author Test I/II/III and YouTube not used; no foreign code run.
   93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
   Approximate constant flow is not measured ml/s or exact liquid level.
-- **Pouring base:**245985param conditional STFT flow U-Net,53/1500updates,
-  batch6/lr3e-4,64 Euler/32 reconstruction,16k/FFT512/hop256/256² patches.
-  Material/shape/dimensions/duration/elapsed fraction inputs. Prior power and
-  onset variants retained; no default change or runtime promotion.
+- **Pouring base:**245985param conditional STFT flow,53/1500updates,64 Euler/
+  32 reconstruction,16k/FFT512/hop256/256² patches. Retained, no promotion.
 - **Prior checks:**256 Euler does not fix deficit; wrong glass material wins13/13.
-- **Prior phase fits:** learnable two-patch control, but paired93-record
-  extension loses semantic stability (AST120/180; seed2718 fails60/60).
-  Crossed decoder seeds do not explain it; CLAP partially corroborates.
-  No paired-record retry; exact evidence and remaining disagreements in note.
+- **Prior phase fits:** paired93-record extension loses semantic stability
+  (AST120/180; seed2718 fails60/60), not explained by decoder seed. No retry.
 - **Envelope failure:**120/360 raw headroom failures, spectrum/CV worsen,
   AST88/180 vs base180/180. Stage splices do not fix semantic instability.
   No absolute-envelope sweep/guard weakening; exact runs in pilot note.
@@ -59,30 +54,37 @@ Status: ACTIVE_GOAL / REFERENCE_FREE_PITCH_ADAPTER / NO_QUALITY_GAIN.
   Frozen Sound of Water model improves inspected real tracks but falling-tone
   median error1382 cents; direction/context dependent. Same corpus exposure,
   NOT independent-data validation. Full provenance/code in pilot note.
-- **Teacher/head reuse:** `sound-of-water-pitch-model-2026-09-05` has checked
-  MIT weights/configs; `pouring-sow-pitch-probe-2026-09-05` has54 predictions and
-  52 crop-context checks. Preserve full-sequence pseudo-targets, not confidence.
+- **Teacher/head reuse:** checked `sound-of-water-pitch-model-2026-09-05`;
+  `pouring-sow-pitch-probe-2026-09-05` full-sequence pseudo-targets, not confidence.
   `pouring-resonance-head-2026-09-05`:4993params/13 records/1000 updates,
-  OOF277.5 vs simple357.0 cents,6/13 wins. Reuse completed weights at gain1;
-  do not retrain. Teacher overlap prevents independent-data claims.
+  OOF277.5 vs simple357.0 cents,6/13 wins. Do not retrain; overlap is not clean.
 - **Fixed output band rejected:** spectrum9.918->11.101dB; privileged teacher
   also worsens9.238->9.873. Predictor-only explanation insufficient; see note.
-- **New input adapter rejected:** `pouring-pitch-adapter-2026-09-05`,144 trainable
-  parameters, frozen base, matched/shuffled curves,600 steps each. Both fits
-  complete; do not retrain. Two development objects ×two phases ×three seeds:
-  base/matched/shuffled spectrum7.655/8.026/8.086dB, both0/12 wins vs base.
-  AST normalized12/12 for all variants; NOT proof of naturalness/control.
-- **Guide discriminator:** `pouring-pitch-adapter-guide-check-2026-09-05`,13
-  training objects ×two phases. Base/predicted/teacher/scrambled spectrum
-  9.238/9.306/9.308/9.280. Teacher-input mismatch alone does not explain failure;
-  capacity and loss mismatch remain hypotheses. No tiny-adapter/epoch sweep.
-- **Next action:** a directly reconstruction-trained temporal audio decoder,
-  learning time-varying resonance/noise rather than modifying frozen flow input.
-  Use condition-only inference, multiscale audio loss, synthetic positive control
-  and reference-free real-domain WAVs. Preserve base/head as controls; no new
-  detector stack first. DDSP/Sound of Water support this experiment, not success.
-- **Verification:**81 tests, Ruff,214 WAVs checked for this adapter checkpoint.
-  Source-free CLI reproduced both audition WAV hashes. All jobs terminal;
+- **Input adapter rejected:**144 parameters, matched/shuffled600-step fits,
+  spectrum7.655/8.026/8.086dB,0/12 wins each. Privileged teacher does not rescue
+  it. Exact evidence in note; no tiny-adapter/epoch sweep or retraining.
+- **Temporal decoder:** `pouring-temporal-decoder-2026-09-05`,63619 trainable
+  params, frozen4993-param head,93 records/1200 steps. GRU produces65 noise-gain
+  bands and resonance strength/width; FFT1024/hop256 filtered Gaussian excitation.
+  Multiscale waveform reconstruction; no Griffin-Lim or reference input. Synthetic
+  moving-filter control improves2.807->1.323 loss vs static1.819; not real quality.
+- **Real rejection:** two disclosed objects/first records/two phases/three seeds.
+  Base/temporal spectrum7.655/8.256, centered5.990/5.067, CV error0.441/0.791.
+  Temporal AST0/12 development and0/12 novel at raw AND normalized level; CLAP
+  novel0/12 vs base12/12 and real4/4. Do not promote from centered spectrum.
+- **Single-record probe:** `pouring-temporal-decoder-fit-check-retry-2026-09-05`,
+  first training record/container1,300 updates. Centered error3.585->2.136,
+  CV error0.840->0.390, but AST0/6 before AND after vs real2/2. Memorization only.
+  First `...fit-check-2026-09-05` failed before optimizer step1 (eval-mode cuDNN
+  GRU);8 before/real WAVs retained and labelled partial. Fixed train mode; both
+  fits terminal, weights preserved. Do not rerun either completed fit.
+- **Next action:** exact-record magnitude with Gaussian-noise phase versus
+  iterative phase reconstruction, same FFT1024/time grid, first training record
+  only. Produce labelled oracle WAVs and use existing semantic checks to separate
+  missing spectral detail from excitation/phase limitations BEFORE another fit.
+  Current decoder has no learned stochastic event latent; cause not yet isolated.
+- **Verification:**86 tests, Ruff,127 WAVs checked; source-free CLI exact replay.
+  Frozen head/weights verified. All jobs terminal;
   no Cargo/ProductCheck/engine audition or default/runtime promotion.
 ## Preserve these constraints
 

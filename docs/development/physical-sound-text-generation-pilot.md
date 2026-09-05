@@ -2212,3 +2212,106 @@ Verification:81 focused tests, Ruff and `git diff --check` pass;81 experiment,
 Both fits and all evaluations are terminal. No CLAP rerun for this rejected
 candidate, no Cargo/ProductCheck/engine audition, no runtime/default/roadmap
 promotion. The full multi-event physical-sound goal remains open.
+
+### Direct temporal noise/resonance decoder: reconstruction gain is not water
+
+[New standalone generated waveform](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/first-audition/generated.wav>)
+and [four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/comparison.wav>)
+are real outputs, but this candidate is REJECTED as an improvement. Comparison
+order is glass10/glass16/PET10/glass10fast, each base/temporal/static, generator2718,
+gain1,54.96s. The decoder requires only its own combined checkpoint, object/event
+controls and a seed. It loads no source recording, teacher or previous PourFlow.
+No learned physical calibration or successful new-condition quality is claimed.
+
+`physical_sound_pouring_temporal_decoder.py` trains63619 parameters:12->96/SiLU,
+GRU96->96, output67. Inputs are the11 metadata/time controls and log frequency
+from the retained4993-parameter head. Its weights remain frozen and are packaged
+inside the new checkpoint. Outputs are65 linearly spaced log-noise-gain bands,
+resonance strength and width. Log gains interpolate to513 FFT1024 bins, bounded
+[-10,0] before exponentiation. A learned Gaussian resonance multiplier uses
+softplus strength and width50–900 cents. Predicted coefficients change each16ms.
+They filter Gaussian excitation with differentiable STFT/ISTFT, hop256,16kHz,
+4.08s. There is no iterative phase reconstruction. A static ablation preserves
+each bin's mean-square filter energy while removing temporal changes; a separate
+ablation removes the dedicated resonance multiplier.
+
+The loss operates on the generated waveform: mean log-magnitude L1 plus spectral
+convergence at FFT256/1024/2048, plus0.5 times20ms log-RMS-envelope L1. This differs
+from the previous frozen-flow input adapter and its one-step velocity objective.
+[Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1) motivated direct
+audio reconstruction, but its pitch/loudness/residual-conditioned DDSP generator
+is NOT reproduced here. In particular, this model has no audio-conditioned
+residual or learned stochastic event latent; only Gaussian excitation is random.
+
+An in-family positive control supplies known rising/falling frequency tracks
+and opposite amplitude ramps for two synthetic filtered-noise targets.300 updates
+reduce loss against a fresh excitation seed from2.807 to1.323; static-response
+ablation is1.819. Both specified checks pass (below70% initial and below static).
+Eight WAVs are retained. This verifies learnability in the selected signal
+family, not pitch inference, physical truth or real-water quality.
+
+One fresh real-data fit uses all93 existing training recordings/13 containers,
+uniform recording and crop sampling, batch6,1200 AdamW steps, seed53, lr1e-3,
+wd1e-4, gradient clip1. No teacher extraction or new data download. First/last
+100-update loss means3.217/2.337. The source, training roster and inherited head
+identity are checked. Dataset terms remain unspecified/local-research-only.
+
+The first source-order recording of disclosed excluded containers18/30, first/
+middle phases and seeds314/2718/1618 form12 generated clips per variant.
+
+| Development mean | Base | Temporal | Static | No resonance |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 8.256 | 8.238 | 8.507 |
+| Centered spectrum RMSE,dB | 5.990 | 5.067 | 5.065 | 4.961 |
+| CV absolute error | 0.441 | 0.791 | 0.969 | 0.811 |
+| Raw AST water top5 | 10/12 | 0/12 | 0/12 | 0/12 |
+| RMS0.005 AST water top5 | 12/12 | 0/12 | 0/12 | 0/12 |
+
+Every new variant wins only3/12 spectral comparisons and0/12 CV comparisons
+against base. Four real controls pass both AST levels. For the four hypothetical
+profiles ×three seeds, base/temporal/static AST is12/0/0 of12 at both levels.
+The same frozen six-prompt CLAP contrast independently gives12/0/0 positive water
+margins, with real4/4. Common wrong AST categories are white/pink noise and leaves.
+Classifier data overlap is unknown; neither classifier is a calibrated quality
+judge, but the agreement is strong evidence against promoting this candidate.
+
+A bounded fit-versus-transfer discriminator trains only the FIRST source-order
+training record, container1/VID_20240116_230040_2.1_16.7, first/middle crops.
+It reuses the completed decoder and performs300 updates with fresh excitation,
+same optimizer/seed and three fixed evaluation seeds. This is memorization,
+not a new-condition result. `pouring-temporal-decoder-fit-check-2026-09-05` failed
+before its first optimizer update because loaded eval-mode cuDNN GRU cannot
+backpropagate. Its eight before/real WAVs remain explicitly labelled partial.
+The corrected train-mode run uses the same original weights in fresh
+`pouring-temporal-decoder-fit-check-retry-2026-09-05`; no full fit was repeated.
+
+| Single-record diagnostic,6 clips | Before | After | After, static |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 4.452 | 4.622 | 4.593 |
+| Centered spectrum RMSE,dB | 3.585 | 2.136 | 2.082 |
+| CV absolute error | 0.840 | 0.390 | 0.792 |
+| RMS0.005 AST water top5 | 0/6 | 0/6 | 0/6 |
+
+Real controls pass2/2. Learned dynamics are possible and improve on this record,
+but do not restore water recognition. This weakens an unseen-object-only failure
+explanation. It does not yet isolate insufficient spectral detail, inadequate
+excitation/phase structure, stochastic event averaging or optimization.
+Do not start a65-band/capacity/epoch sweep. Next discriminator is source-dependent
+exact-record FFT1024 magnitude with Gaussian-noise phase versus iterative phase
+reconstruction on this same first training record. Produce labelled oracle WAVs
+and check existing semantic controls before selecting the next learned model.
+
+CLI training uses `--source --parent --head --output`; fit diagnostic uses
+`--source --probe-model --output`. Standalone rendering uses `--model MODEL
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --output NEW_OUTPUT`, optionally
+`--seed`/`--device`, explicitly excluding training inputs. The real standalone
+CLI reproduced the first-audition WAV hash exactly. Checks cover synthesis
+identity, temporal ablation, finite gradients including exact reconstruction,
+frozen head, input/seed rejection, checkpoint integrity and reference-free render.
+
+86 focused tests, Ruff and diff/link checks pass.127 written WAVs pass format,
+finite/headroom checks:98 full experiment,8 retained failed-probe inputs,
+20 corrected-probe clips and one standalone CLI output.119 have original writer
+hashes; eight partial files carry explicitly observed hashes. Original head
+tensors match both final checkpoints exactly. Every job is terminal. No runtime,
+default, protected-data, roadmap or ProductCheck promotion; full goal remains open.
