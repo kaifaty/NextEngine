@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `PLANNED / ROADMAP_RECORDED_2026-09-05` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLAN_01_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -26,6 +26,11 @@
 - **2026-09-05 (user):** the reference scene reads as "a bare Minecraft";
   the look work is recorded as its own roadmap so it is not lost behind
   the water series. Order of the first plans: 1, 2, 3, 4.
+
+- **2026-09-05 (user, D-L01):** the engine systems come first: items 1 to 4
+  (HDR chain and physical lighting, shadows, ambient occlusion, TAA) on
+  the current scene before any content work; the scene itself (items 5
+  and 6) waits for them.
 
 ## Related
 
