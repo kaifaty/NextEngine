@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_GENERATION.
+Status: ACTIVE_GOAL / REFERENCE_FREE_RESONANCE_HEAD / FIXED_BAND_RENDERER_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -12,11 +12,11 @@ Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_G
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free sound:** [pouring audition](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav),
-  glass H10cm/diameter7cm/duration15s/progress0.2, seed2718/decoder314, gain10.
-  unchanged this checkpoint. [New resonance diagnostic](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/comparison.wav):
-  training plastic1/glass5; real/classical/neural-band, gain1,67.064s.
-  This is SOURCE-DEPENDENT extraction, not new generator output.
+- **Latest reference-free sound:** [neural pouring](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/glass10-2718/neural.wav),
+  H10cm/diameter7cm/duration15s/start0.1, seed2718/decoder314, gain1.
+  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/comparison.wav):
+  glass10/glass16/PET10/glass10fast; base/neural/simple,54.96s. Experimental,
+  NOT a new best/default model. No recording or teacher needed at inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** `cluster-texture-training-grid-2026-09-05`, Figshare29438288v5/
@@ -42,28 +42,16 @@ Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_G
   onset variants retained; no default change or runtime promotion.
 - **Prior causal checks:**64/256 Euler does not fix deficit; wrong glass material
   wins13/13, PET correct17/17. Endpoint penalty is not proven cause; see note.
-- **Phase controls:** spectrum gains miss CV change on new AND13 train objects.
-- **Two-patch probe:** first train record/container1, matched6/6 vs parent3/6.
-  Phase learnable; shortcut toy not proof. No paired-record retry; see note.
-- **Paired extension:** same93 train records,600 extra updates, all30 disclosed
-  development recordings ×2 phases ×3 seeds. Spectrum wins158/180 but CV worsens;
-  normalized AST120/180 vs parent180/180. Seed2718 fails all60; reject promotion.
-- **Independent checks:** crossed decoder seeds do not explain full failure.
-  CLAP base12/12, paired10/12 water; PET2718 favours birds. Neither judge is
-  naturalness authority; AST/CLAP disagreement retained in pilot note.
+- **Prior phase fits:** learnable two-patch control, but paired93-record
+  extension loses semantic stability (AST120/180; seed2718 fails60/60).
+  Crossed decoder seeds do not explain it; CLAP partially corroborates.
+  No paired-record retry; exact evidence and remaining disagreements in note.
 - **Envelope failure:**120/360 raw headroom failures, spectrum/CV worsen,
   AST88/180 vs base180/180. Stage splices do not fix semantic instability.
   No absolute-envelope sweep/guard weakening; exact runs in pilot note.
-- **Relative level:** ridge head on same93 paired records learns only global
-  phase slope-25.2779dB. Delta RMSE4.656->3.883 on two disclosed objects;
-  absolute fit3.829, training mean3.981. Gain confounding NOT established.
-  Absolute spectrum worsens9.923->11.177; CV unchanged. AST normalized180/180,
-  CLAP12/12 preserved. Limited amplitude control, not new neural/timbral quality.
-- **Relative timbre:**32-band normalized paired spectra, ridge0.01. Excluding
-  each13 training object from head fitting: conditioned/global mean RMSE
-  3.956/3.867; disclosed two objects3.445/3.188. Metadata adds no robust gain.
-  Generated EQ worsens absolute shape5.060->5.605dB and CV; normalized AST
-  still90/90. Retain base, reject static EQ; no additional gain/EQ sweeps.
+- **Prior relative controls:** level delta improves4.656->3.883 but absolute
+  spectrum worsens; gain confounding unproven. Static32-band timbre metadata
+  loses to global curve, EQ worsens shape/CV. No gain/static-EQ sweeps.
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
@@ -77,12 +65,22 @@ Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_G
   plus52 crop-context checks. Median context difference~52–92 cents but first
   container23 differs2561 cents. Preserve full-sequence pseudo-targets; short
   crops/softmax confidence cannot certify correctness. No automatic admission.
-- **Next action:** new REFERENCE-FREE waveform from a small condition-to-resonance
-  learner around retained neural texture, using full-record teacher pseudo-
-  targets, not true physical labels. Compare unmodified texture/simple trajectory
-  baseline; judge alone cannot approve it. No further detector stack first.
-- **Verification:**73 tests, Ruff,74 new WAVs/54 posteriors/four model-config
-  files checked. All jobs terminal. No Cargo/ProductCheck/engine audition.
+- **Resonance head:**4993params,13 full-record pseudo-trajectories ×64 points,
+  1000 updates. OOF head error277.5 vs simple357.0/mean438.8 cents,6/13 wins
+  versus simple. Teacher overlap means NOT independent-data generalization.
+  `pouring-resonance-head-evaluation-2026-09-05` reuses original full-fit weights
+  after gain10 audition failure; gain1 safe. Do not retrain the completed head.
+- **Rendered result:** fixed150-cent/boost3 band, RMS preserved. Spectrum
+  9.918->11.101dB, CV error0.364->0.328, AST normalized180->170 of180.
+  Novel profiles AST11/12, CLAP12/12: disagreement, not full quality approval.
+- **Privileged control:** real full-record teacher curve still worsens spectrum
+  9.238->9.873 on13 training objects/two phases. Predictor-only explanation
+  weakened; fixed band emphasis insufficient. Teacher is not true pitch.
+- **Next action:** trajectory-conditioned, reconstruction-trained decoder
+  adapter around retained texture, exact zero-adapter control and new reference-
+  free WAVs. No fixed-band/head-capacity sweep or another detector stack first.
+- **Verification:**76 tests, Ruff,532 written WAVs checked. All jobs terminal;
+  no Cargo/ProductCheck/engine audition or default/runtime promotion.
 - **Full goal remains open:** robust quality/control, generalization and integration.
 
 ## Preserve these constraints
@@ -92,8 +90,8 @@ Status: ACTIVE_GOAL / TEMPORAL_TEACHER_DIAGNOSTIC_ONLY / NEXT_CHECKPOINT_NEEDS_G
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint is diagnostic-only;
-  the next checkpoint must produce new reference-free sound, not more support.
+  not replace the audible deliverable. Latest checkpoint has new reference-free
+  WAVs; supporting-only debt is zero. Keep the full goal, not only pouring.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
   is Proposed; report-only waveform generation/authored-asset research is

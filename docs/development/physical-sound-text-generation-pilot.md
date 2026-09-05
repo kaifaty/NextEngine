@@ -2015,3 +2015,100 @@ MODEL --probe NEW_PROBE --output NEW_NEURAL_PROBE`.74 new WAVs and54 posterior
 NPZs verified, as well as four downloaded model/config files.73 focused tests,
 Ruff and `git diff --check` pass. No jobs remain; no Cargo/ProductCheck or
 engine audition. No new generator training, protected-data use or promotion.
+
+### Learned resonance trajectories: reference-free WAVs, renderer not promoted
+
+[New neural sound](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/glass10-2718/neural.wav>)
+is4.08s, glass/cylinder H10cm/top-bottom diameter7cm, event15s, start fraction0.1,
+generator2718/decoder314, gain1. [Four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/comparison.wav>)
+is54.96s: glass H10, glass H16, PET H10, glass H10/event8s; each base/neural/simple,
+seed2718, all gain1. All profiles share diameter7cm/start fraction0.1. Changing
+height at fixed duration also changes implied fill rate; no measured ml/s claim.
+These clips genuinely require NO recording or teacher at inference.
+
+`physical_sound_pouring_resonance_head.py` trains a4993-parameter MLP
+11->64->64->1/SiLU on the first source-order recording from each of13 training
+objects.64 points at fractions0.02–0.98 interpolate the frozen full-record
+Sound of Water teacher; target is `(log2(wavelength_cm)-5)/2`.1000 AdamW updates,
+seed53, batch128, lr1e-3, wd1e-4, gradient clip1; sampled loss0.2242->0.01544.
+Teacher predictions are uncertain pseudo-targets, NOT true physical labels.
+The frozen texture still inherits its original93 recordings. Source identity
+is verified through file hashes and PCM16 quantization correspondence.
+
+The head predicts frequency over the4.08s patch. A fixed STFT2048/hop256 response
+`1+3*exp(-0.5*(cents/150)^2)` emphasizes that moving band, then restores the
+original generated RMS. Neither width, strength, damping nor loudness is learned.
+The simple control uses the cylindrical air-column/end-correction approximation;
+it is only approximate for semiconical vessels. End-of-event fractions saturate
+at1 for fixed-length evaluation patches; no new tail-modeling claim.
+
+The first gain10 audition attempt stopped AFTER the full fit: glass10/seed314
+has three completed WAVs; glass10/2718 has only the already-written base WAV.
+All four remain in `pouring-resonance-head-2026-09-05`; the partial file has
+explicit post-failure metadata and is excluded from completed evaluation.
+No missing output was reconstructed. `--trained-head` reused the SAME weights
+in the fresh `pouring-resonance-head-evaluation-2026-09-05` root at explicit gain1.
+SHA256`462793195961551827d5c18abdeef4e7b8fb6e29241baba6644087214b02b2c2`
+matches both copies. There was one full fit, not two; peak guards were preserved.
+
+Thirteen additional1000-step fits each exclude one object from head training.
+Mean of per-object median pseudo-target errors: neural277.5 cents, simple357.0,
+training-mean trajectory438.8. Neural beats simple on6/13 objects, so the22.3%
+mean reduction is not a uniform gain. Teacher corpus overlap prevents an
+independent-data generalization claim. On hypothetical profiles the learned
+start/end frequencies are912/1157Hz(glass10),769/919(glass16),537/665(PET10),
+989/2014(glass10fast). Responsiveness alone does not prove physical accuracy;
+especially the material-only axial-pitch change remains uncalibrated.
+
+All30 disclosed excluded recordings ×two phases ×three seeds were evaluated.
+Cached PCM16 bases/real references are reread, so base values differ slightly
+from earlier pre-quantization metrics. These remain TWO objects.
+
+| Mean over180 generated clips | Base | Neural trajectory | Simple trajectory |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 9.918 | 11.101 | 11.481 |
+| Centered spectrum RMSE,dB | 5.928 | 5.988 | 5.952 |
+| CV absolute error | 0.364 | 0.328 | 0.290 |
+| Raw AST water top5 | 143/180 | 166/180 | 161/180 |
+| RMS0.005 AST water top5 | 180/180 | 170/180 | 161/180 |
+
+Neural spectral wins11/180, CV wins150/180. Thus no overall quality improvement
+or default replacement. On the four hypothetical profiles ×three seeds, AST
+base/neural/simple12/11/12 of12 at BOTH levels. The neural miss is glass10fast/
+2718; Water ranks6, no seed/threshold tuning. Independent fixed-six-prompt CLAP
+still gives positive water margins12/12 for each variant; real controls4/4.
+This disagreement is retained, not relabelled as an all-pass naturalness check.
+
+Bounded research/discriminator: is the frequency predictor the only bottleneck,
+or is fixed band emphasis insufficient? [Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1)
+uses pitch AND loudness/residual with an audio-reconstruction-trained decoder;
+it does not establish that a fixed moving filter suffices. No new upstream code
+or data was imported. `pouring-resonance-oracle-control-2026-09-05` tests the
+privileged full-record teacher trajectory on13 training objects ×two phases,
+seed2718, alongside real/base/neural/simple.131 WAVs include a clearly labelled
+[privileged-control comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-oracle-control-2026-09-05/comparison.wav>).
+
+| Training-side diagnostic,26 clips | Base | Neural | Simple | Privileged teacher |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 9.238 | 9.658 | 9.584 | 9.873 |
+| Centered spectrum RMSE,dB | 5.754 | 5.696 | 5.759 | 5.725 |
+| CV absolute error | 0.309 | 0.300 | 0.333 | 0.317 |
+
+Even the source-conditioned teacher curve does not restore spectral fidelity.
+This weakens the predictor-only explanation; it does not prove the teacher
+is true pitch or isolate every decoder failure. Stop fixed-band/head-capacity
+sweeps. Next smallest experiment: feed the retained trajectory into a narrowly
+trained waveform/spectrogram decoder adapter and optimize reconstruction, with
+an exact zero-adapter baseline and new reference-free WAVs. Preserve the current
+base and head as controls; do not make teacher confidence the quality objective.
+
+Source-free Python API: `render(parent, head, fresh_output, controls, seed=2718)`;
+no dataset, teacher checkpoint or target waveform is opened. Main CLI takes
+`--source --teacher-probe --parent --base-outputs --output`, optionally
+`--trained-head` for exact full-fit reuse. Evaluation contains360 new corrected
+WAVs,36 hypothetical-profile WAVs and one comparison. Together with the four
+retained first-attempt WAVs and131 privileged-control WAVs,532 WAVs pass format,
+finite/headroom checks.531 have original writer hashes; the partial base has an
+explicit observed hash and matches gain1 base within PCM16 quantization bounds.
+76 focused tests, Ruff, local links and `git diff --check` pass. All evaluations
+terminal; no Cargo/ProductCheck/engine audition, runtime or roadmap promotion.
