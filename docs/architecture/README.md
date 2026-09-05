@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.82 |
+| Версия | 2.83 |
 | Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.81; adds full principal-inertia BodySchema V6 under ADR-115 |
+| Заменяет | INDEX-001 2.82; adds explicitly identified per-iteration force scheduling under ADR-116 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -322,6 +322,7 @@ traceability — навигационная карта, не admission authority
 | ADR-113 | [Explicit known walking candidate reuse](adr/113-explicit-known-walking-candidate-reuse.md) | Accepted one openly selected intermediate candidate, unchanged full native physical matrix; no old-result relabeling, statistical or runtime promotion |
 | ADR-114 | [Anatomical axes and sagittal body proxies](adr/114-anatomical-axes-and-sagittal-body-proxies.md) | Accepted opt-in BodySchema V5 native diagnostic; old environments and checkpoints unchanged, no learned-quality admission |
 | ADR-115 | [Full principal-inertia body successor](adr/115-full-principal-inertia-body-successor.md) | Accepted opt-in V6 full tensors and bounded principal mass-frame validation; old profiles unchanged, no learned-quality admission |
+| ADR-116 | [Explicit per-iteration force scheduling](adr/116-explicit-per-iteration-force-scheduling.md) | Accepted opt-in compiled V4 force schedule and additive native extension; preserves old scenes, no training or posture-quality admission |
 
 ## Proposed tracks
 

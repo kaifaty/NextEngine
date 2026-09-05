@@ -5,7 +5,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_motor::{
         BiomechanicsContactClassifier, BiomechanicsProceduralStandingControllerV1,
         BiomechanicsSafetyController, BiomechanicsSkillContactProfileV1,
-        BiomechanicsTerminalEvaluator, CompiledBodySchemaV3, JointControlStateV1,
+        BiomechanicsTerminalEvaluator, CompiledBodySchemaV4, JointControlStateV1,
     };
     use next_physics_physx::{CanonicalPhysXSnapshotV2, PhysXArticulationWorldV3};
     use serde_json::json;
@@ -15,15 +15,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("expected body revision 5 or 6")?;
     let ankle_offset: i64 = std::env::args().nth(2).map_or(Ok(0), |s| s.parse())?;
     let hip_offset: i64 = std::env::args().nth(3).map_or(Ok(0), |s| s.parse())?;
-    let hip_feedback_gain = match std::env::args().nth(4).as_deref() {
-        None => 0,
-        Some("hip-feedback") => 2,
-        Some("hip-feedback-4") => 4,
-        _ => return Err("optional mode must be hip-feedback or hip-feedback-4".into()),
+    let reference_mode = std::env::args()
+        .nth(4)
+        .unwrap_or_else(|| "baseline".to_owned());
+    let hip_feedback_gain = match reference_mode.as_str() {
+        "baseline" | "neutral-targets" => 0,
+        "hip-feedback" => 2,
+        "hip-feedback-4" => 4,
+        _ => {
+            return Err(
+                "mode must be baseline, neutral-targets, hip-feedback or hip-feedback-4".into(),
+            );
+        }
+    };
+    let per_iteration = match std::env::args().nth(5).as_deref() {
+        None => false,
+        Some("per-iteration") => true,
+        _ => return Err("optional force schedule must be per-iteration".into()),
     };
     if !(-140_000..=140_000).contains(&ankle_offset)
         || !(0..=150_000).contains(&hip_offset)
-        || std::env::args().len() > 5
+        || std::env::args().len() > 6
     {
         return Err("offset bounds: ankle +/-140000; hip 0..150000 microradians".into());
     }
@@ -32,10 +44,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
         _ => return Err("expected body revision 5 or 6".into()),
     };
-    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let successor = CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let compiled = &successor.base;
     let base = &compiled.base;
-    let mut world =
-        PhysXArticulationWorldV3::create(base.physx_scene_profile, &compiled.physx_catalog)?;
+    let mut world = if per_iteration {
+        successor.create_world()?
+    } else {
+        PhysXArticulationWorldV3::create(base.physx_scene_profile, &compiled.physx_catalog)?
+    };
     let mut snapshot = world.capture()?;
     let mut safety = BiomechanicsSafetyController::new(base)?;
     let mut classifier = BiomechanicsContactClassifier::new(base)?;
@@ -105,6 +121,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .iter_mut()
             .zip(&base.physics_descriptors.actuators)
         {
+            if reference_mode == "neutral-targets" {
+                *target = actuator.base.neutral_position_microradians;
+            }
             if actuator.base.joint_id.as_str().ends_with("-ankle-pitch") {
                 *target += ankle_offset;
             } else if actuator.base.joint_id.as_str().ends_with("-hip-pitch") {
@@ -184,13 +203,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         serde_json::to_string(&json!({
-            "schema_version": 6, "probe": "native-body-standing-substep-counterfactual-v6",
+            "schema_version": 8, "probe": "native-body-standing-reference-and-force-schedule-v8",
+            "reference_mode": reference_mode,
+            "force_schedule": if per_iteration { "every-solver-position-iteration" } else { "frame-start" },
+            "force_schedule_profile_id": per_iteration.then_some(next_motor::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1),
             "ankle_reference_offset_urad": ankle_offset,
             "hip_reference_offset_urad": hip_offset,
             "hip_feedback_gain": hip_feedback_gain,
             "ordered_actuator_ids": base.actuator_definitions.iter().map(|a| a.actuator_id.as_str()).collect::<Vec<_>>(),
             "body_schema_hash": base.body_schema_hash.to_hex(),
-            "compiled_descriptor_hash": compiled.compiled_descriptor_hash.to_hex(),
+            "compiled_descriptor_hash": if per_iteration { successor.compiled_descriptor_hash } else { compiled.compiled_descriptor_hash }.to_hex(),
             "body_revision": schema.schema_revision, "reason": reason,
             "requested_motor_ticks": 1_800, "physics_substeps": substeps,
             "scope": "nominal procedural standing diagnostic, not learned quality",

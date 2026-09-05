@@ -10,6 +10,7 @@ use std::fmt::{Debug, Display, Formatter};
 use canonical::{canonicalize_native_output, canonicalize_native_output_v2, scaled_f32_bits};
 pub use material::PhysXSharedMaterialProfileV1;
 use material::legacy_stage0_material_input;
+pub use next_physics_physx_ffi::ExternalForceScheduleV1;
 
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
@@ -449,10 +450,23 @@ impl PhysXArticulationWorldV3 {
         profile: PhysXSceneProfile,
         catalog: &PhysXArticulationCatalogV3,
     ) -> Result<Self, PhysXAdapterError> {
+        Self::create_with_force_schedule_v1(profile, catalog, ExternalForceScheduleV1::FrameStart)
+    }
+
+    pub fn create_with_force_schedule_v1(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalogV3,
+        schedule: ExternalForceScheduleV1,
+    ) -> Result<Self, PhysXAdapterError> {
         catalog.base.validate(profile)?;
         let mut native = NativeWorld::create()?;
         native.configure_material(catalog.shared_material.ffi())?;
-        native.configure_scene(profile.ffi())?;
+        match schedule {
+            ExternalForceScheduleV1::FrameStart => native.configure_scene(profile.ffi())?,
+            ExternalForceScheduleV1::EverySolverPositionIteration => {
+                native.configure_scene_with_force_schedule_v1(profile.ffi(), schedule)?;
+            }
+        }
         native.reserve_static_boxes(
             u32::try_from(catalog.base.static_boxes.len())
                 .map_err(|_| PhysXAdapterError::CapacityExceeded)?,

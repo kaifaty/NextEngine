@@ -1971,9 +1971,12 @@ both complete 30-second procedural standing, but final torso tilt is still
 active. A [bounded TGS force-scheduling experiment](development/r8b-upright-reference-research-2026-09-05.md)
 isolates substantial native steady-state velocity bias with unchanged body /
 control. The experimental flag nearly removes mean root velocity discrepancy,
-but posture still oscillates; no scene-profile adoption occurred. Keep the old
-candidate as control; next work is identified opt-in force scheduling, upright
-balance and foot mechanics, then a separately identified training environment.
+but posture still oscillates. [ADR-116](architecture/adr/116-explicit-per-iteration-force-scheduling.md)
+now implements the same behavior as an opt-in compiled V4 profile, preserving
+old bodies/scenes. Full native traces match both controls; reference follow-up
+is rejected on foot impact / knee ROM, not accepted for training. Keep the old
+candidate as control; next work is actuator/balance discrimination and foot
+mechanics, then a separately identified training environment.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

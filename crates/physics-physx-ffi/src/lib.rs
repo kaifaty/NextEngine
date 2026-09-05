@@ -14,6 +14,15 @@ use std::rc::Rc;
 compile_error!("features `physx-sdk` and `mock-abi` are mutually exclusive");
 
 pub const NEXTENGINE_PHYSX_ABI_VERSION: u32 = 4;
+// Additive, statically linked extension; existing ABI-4 layouts are unchanged.
+pub const PHYSX_FORCE_SCHEDULE_EXTENSION_VERSION: u32 = 1;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ExternalForceScheduleV1 {
+    FrameStart = 0,
+    EverySolverPositionIteration = 1,
+}
 pub const EXPECTED_PHYSX_VERSION: PhysXVersion = PhysXVersion {
     abi: NEXTENGINE_PHYSX_ABI_VERSION,
     major: 5,
@@ -283,6 +292,28 @@ impl NativeWorld {
         // SAFETY: the handle and the fixed-layout input are valid for this call;
         // the bridge copies all values and retains no Rust pointer.
         status_result(unsafe { raw::world_configure_scene(self.handle.as_ptr(), &input) })?;
+        self.max_contacts = input.max_contacts;
+        self.scene_configured = true;
+        Ok(())
+    }
+
+    pub fn configure_scene_with_force_schedule_v1(
+        &mut self,
+        input: SceneProfileInput,
+        schedule: ExternalForceScheduleV1,
+    ) -> Result<(), PhysXFfiError> {
+        if !self.material_configured || self.scene_configured {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        // SAFETY: fixed-layout input and live owned handle are valid throughout
+        // the synchronous call. The bridge validates the closed schedule tag.
+        status_result(unsafe {
+            raw::world_configure_scene_with_force_schedule_v1(
+                self.handle.as_ptr(),
+                &input,
+                schedule as u32,
+            )
+        })?;
         self.max_contacts = input.max_contacts;
         self.scene_configured = true;
         Ok(())
@@ -698,6 +729,12 @@ mod raw {
         ) -> i32;
         #[link_name = "ne_physx_world_configure_scene"]
         pub fn world_configure_scene(world: *mut c_void, input: *const SceneProfileInput) -> i32;
+        #[link_name = "ne_physx_world_configure_scene_with_force_schedule_v1"]
+        pub fn world_configure_scene_with_force_schedule_v1(
+            world: *mut c_void,
+            input: *const SceneProfileInput,
+            schedule: u32,
+        ) -> i32;
         #[link_name = "ne_physx_world_reserve"]
         pub fn world_reserve(world: *mut c_void, capacity: u32) -> i32;
         #[link_name = "ne_physx_world_add_static_box"]
@@ -825,6 +862,14 @@ mod raw {
     }
 
     pub unsafe fn world_reserve(_world: *mut c_void, _capacity: u32) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
+    pub unsafe fn world_configure_scene_with_force_schedule_v1(
+        _world: *mut c_void,
+        _input: *const SceneProfileInput,
+        _schedule: u32,
+    ) -> i32 {
         STATUS_UNAVAILABLE
     }
 

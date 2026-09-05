@@ -9,6 +9,7 @@ mod capsule_procedural_tests;
 mod compiler;
 mod compiler_v2;
 mod compiler_v3;
+mod compiler_v4;
 mod contact_classifier;
 #[cfg(test)]
 mod contact_classifier_tests;
@@ -133,6 +134,7 @@ pub use compiler_v3::{
     CompiledPhysicsDescriptorsV3, biomechanics_material_catalog_v2,
     biomechanics_material_combine_profile_v1,
 };
+pub use compiler_v4::{BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1, CompiledBodySchemaV4};
 pub use contact_classifier::{
     ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS, BiomechanicsContactClassV1,
     BiomechanicsContactClassifier, BiomechanicsContactFrameV1, BiomechanicsSkillContactProfileV1,

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V6_IMPLEMENTED / TGS_VELOCITY_BIAS_ISOLATED / BALANCE_AND_FEET_OPEN` |
+| Status | `BODY_V6_AND_FORCE_SCHEDULE_IMPLEMENTED / BALANCE_AND_FEET_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -41,10 +41,16 @@
   during nearly stationary stance. Per-iteration external-force scheduling
   reduces this mean discrepancy nearly to zero with unchanged body/control.
   Both runs last 30 s; experimental final torso tilt 0.6503°, but last-10-s
-  maximum 8.5946° means oscillation remains. Flag was reverted; NO adoption.
-- Next: explicitly identified opt-in TGS force scheduling, then damping /
-  balance and foot mechanics, then a separately identified learning
-  environment. Do not repeat the finished mass audit,
+  maximum 8.5946° means oscillation remains. ADR-116 now implements the exact
+  behavior as opt-in CompiledBodySchemaV4 with a distinct outer hash; all 7200
+  steps match the experiment, and all old-scene steps / hashes remain exact.
+- k=2 hip feedback on the new profile stops at tick596 on foot impact:
+  summed impulses 6.602703 / 6.338131 N s at substep2382 exceed the unchanged
+  6 N s limit. All-zero targets instead violate knee ROM at substep1 (-12/-11
+  microradians). Neither is an accepted stance. No gain or safety change.
+- Next: discriminate discrete actuator response versus global balance /
+  reference error on the new profile, then foot mechanics and a separately
+  identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
 
@@ -63,6 +69,8 @@
 6. [V6 implementation and standing discriminator](../r8b-principal-inertia-and-standing-2026-09-05.md)
    and [ADR-115](../../architecture/adr/115-full-principal-inertia-body-successor.md).
 7. [Reference failures and isolated TGS mechanism](../r8b-upright-reference-research-2026-09-05.md).
+8. [Implemented force-schedule profile and rejected reference follow-up](../r8b-force-schedule-profile-2026-09-05.md)
+   and [ADR-116](../../architecture/adr/116-explicit-per-iteration-force-scheduling.md).
 
 ## Decision and remaining uncertainty
 
@@ -96,19 +104,24 @@
   survives at 5.47° pelvis tilt, k=4 falls. Do not tune against the old biased
   velocity or reuse these as selected profiles. Ordinary gravity deflection
   alone is no longer an adequate explanation. The one-flag TGS experiment
-  changes root/joint velocity semantics and needs a new profile identity,
-  preserved old replay/descriptor bytes, native controls and subsequent
-  balance validation. No global bridge flag or fake measured velocity fix.
+  changes force scheduling and is now implemented under a new identity with
+  preserved old descriptor/native traces. Balance validation remains open.
+  No global bridge flag or fake measured velocity fix. Do not replace the
+  explicit PD with SPD based solely on that paper: clipping/contact and its
+  anchored-root demos do not establish our free-standing result.
 
 ## Handoff
 
-- Rust V6 body and mass-frame descriptor repair, inspection/standing examples
+- Rust V6 body and mass-frame repair plus opt-in compiled V4 force schedule
   implemented. No environment/default/runtime authority changes.
 - Motor native library tests: 132 passed, including old profile regression,
   V5/V6 axis directions, V2–V6 neutral geometry and full tensor reconstruction.
 - `play`, `persistence-replay`, `content-package`, format and links pass.
   Full host-check for `ba84b9a0` completed PASS, session 71889 is closed.
-  Current diagnostic example passes focused clippy and CLI failure checks.
+  New native motor suite: 134 passed; native FFI 3 and mock lifecycle 6 passed.
+  Current host-check completed PASS; session 10364 is closed. Workspace and
+  native-feature all-target clippy passed;
+  play/replay/content and platform portable contract pass, SDL/ash not run.
 - External descriptor and comparison image are in
   `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
 - V6 descriptor and both original standing outputs are in `body-v6-01`.
@@ -116,12 +129,19 @@
   and root pose/velocities, failed references, one-flag TGS experiment and
   `standing-tgs-comparison.png`. Full zero-offset JSON repeats byte-exactly
   after the temporary flag is reverted. Exact hashes / reproducible temporary
-  patch are in the new report. No altered backend remains in the worktree.
+  patch are in that report. `profiled-*.json` now records the real opt-in
+  implementation and rejected reference cases; hashes are in the newer report.
+- New outer compiled V6 hash:
+  `66d6a5b01ea1a26294b92e050bbdc79556cffd63cabdd7382d15ea0543d6c7ed`.
+  Use explicit Cargo SDK feature invocation, not the shared unhashed debug
+  binary during host-check: its no-SDK configuration can replace that path.
 - Build with `NEXTENGINE_PHYSX_SDK_DIR=/home/kaifaty/.cache/nextengine/physx/sdk/f259d3da157cc6120b378b53ee14c10805be89698242b03d7417f699ca711c3b`.
   Global active SDK has a different build profile and is correctly rejected;
   do not change global active locator or weaken manifest validation.
 - Initial previews and failed CLI artifact retained externally; use audit-04.
 - Physical foot successor remains open, not completed by the rendering fix.
+  OpenSim issue185 reports the toe Izz factor-ten discrepancy but is not an
+  accepted correction. Inspect source data before choosing a physical split.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

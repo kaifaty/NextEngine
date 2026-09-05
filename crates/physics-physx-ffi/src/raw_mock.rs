@@ -128,6 +128,18 @@ pub unsafe fn world_configure_scene(world: *mut c_void, input: *const SceneProfi
     STATUS_OK
 }
 
+pub unsafe fn world_configure_scene_with_force_schedule_v1(
+    world: *mut c_void,
+    input: *const SceneProfileInput,
+    schedule: u32,
+) -> i32 {
+    if schedule > 1 {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: same live handle and input preconditions as the legacy entry.
+    unsafe { world_configure_scene(world, input) }
+}
+
 pub unsafe fn world_reserve(world: *mut c_void, capacity: u32) -> i32 {
     // SAFETY: private raw API is called only with a live MockWorld handle.
     let Some(world) = (unsafe { world.cast::<MockWorld>().as_mut() }) else {

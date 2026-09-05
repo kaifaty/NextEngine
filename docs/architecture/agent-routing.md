@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.54 |
+| Версия | 2.55 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,13 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For per-iteration TGS external forces / CompiledBodySchemaV4, additionally
+read [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md), SPEC-26 and
+SPEC-35. Verify unchanged legacy hashes/trajectory, new force-schedule identity,
+native same-effort reconstruction, invalid native tags and configure lifecycle,
+and complete standing trace comparison; run native motor/FFI tests and
+host/play/replay/content checks. No existing training environment is switched.
 
 ADR-030/SPEC-12 documentation-only cheap path имеет приоритет над check column
 ниже: если diff содержит только human-readable documentation/agent guidance и

@@ -672,12 +672,13 @@ std::int32_t ne_physx_world_configure_material(
     return kOk;
 }
 
-std::int32_t ne_physx_world_configure_scene(
+std::int32_t ne_physx_world_configure_scene_with_force_schedule_v1(
     void* opaque_world,
-    const NePhysXSceneProfile* input) noexcept {
+    const NePhysXSceneProfile* input,
+    std::uint32_t force_schedule) noexcept {
     auto* world = static_cast<World*>(opaque_world);
     if (world == nullptr || input == nullptr || world->material == nullptr
-        || world->scene != nullptr
+        || world->scene != nullptr || force_schedule > 1U
         || input->position_iterations == 0 || input->velocity_iterations == 0
         || input->max_actors == 0 || input->max_joints == 0) {
         return kInvalidArgument;
@@ -712,6 +713,9 @@ std::int32_t ne_physx_world_configure_scene(
     description.filterShader = contact_filter_shader;
     description.simulationEventCallback = &world->contact_sink;
     description.solverType = physx::PxSolverType::eTGS;
+    if (force_schedule == 1U) {
+        description.flags |= physx::PxSceneFlag::eENABLE_EXTERNAL_FORCES_EVERY_ITERATION_TGS;
+    }
     description.broadPhaseType = physx::PxBroadPhaseType::ePABP;
     description.frictionType = physx::PxFrictionType::ePATCH;
     description.flags.clear(physx::PxSceneFlag::eENABLE_PCM);
@@ -727,6 +731,12 @@ std::int32_t ne_physx_world_configure_scene(
     }
     world->timestep = timestep;
     return kOk;
+}
+
+std::int32_t ne_physx_world_configure_scene(
+    void* opaque_world,
+    const NePhysXSceneProfile* input) noexcept {
+    return ne_physx_world_configure_scene_with_force_schedule_v1(opaque_world, input, 0U);
 }
 
 std::int32_t ne_physx_world_reserve(void* opaque_world, std::uint32_t capacity) noexcept {

@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
 | Заменяет | SPEC-26 2.4; closes the quantized principal mass-frame descriptor boundary |
 | Дополнительная зависимость V2.5 | [ADR-115](adr/115-full-principal-inertia-body-successor.md) |
+| Дополнительная зависимость V2.6 | [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md) |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -1079,6 +1080,14 @@ snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 | FAIL-053 | Non-finite backend value, missing mapping/contact, order divergence, exact mismatch, corrupt snapshot or continuation-root mismatch | Abort the uncommitted step/query/restore, preserve last valid checkpoint and report `NONDETERMINISTIC_RESULT`; retry, tolerance and native snapshots cannot waive it. | PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1, PHYS-SNAPSHOT-P1 |
 
 ## Production technology profile
+
+[ADR-116](adr/116-explicit-per-iteration-force-scheduling.md) adds explicitly
+selected per-TGS-position-iteration external forces. `CompiledBodySchemaV4`
+binds the force schedule separately from its preserved V3/body identities.
+Existing scene entry points retain frame-start forces and old trajectories.
+The native schedule extension is additive to ABI 4, rejects unknown tags before
+scene construction and does not alter old layouts. It is not a global default,
+runtime solver toggle, dynamics-equivalence or learned-posture claim.
 
 ADR-058 selects static CPU PhysX 5.9.0 as the sole production implementation
 of these engine-owned contracts. Vendor types and native feature IDs remain
