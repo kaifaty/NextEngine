@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `APPROACH_RESEARCH_COMPLETE / V8_NOMINAL / V9_REJECTED / NO_NEW_RUN` |
+| Status | `GAIN_TUNER_PARTIAL / V8_NOMINAL / V9_REJECTED / NO_NEW_TRAINING` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -17,10 +17,11 @@
 - Separate60-tick startup ramp on V8/V9 gives identical first-step knee ROM
   violations (-14/-13urad; allowed minimum0 with10urad observed tolerance).
   This rules out the ramp as sufficient, not all smooth reference schemes.
-  User-requested [prior-art research](../r8b-locomotion-prior-art-research-2026-09-05.md)
-  pauses that next reset experiment. Proposal: reproduce an upstream human
-  imitation baseline before more local tuning; compatibility and assets untested.
-  No safety/admission change, new joints, simulator run or training authorized here.
+  User-authorized [Gain Tuner trial](../r8b-gain-tuner-tool-check-2026-09-05.md):
+  headless ankle waveform works on a pinned implicit-drive fixture, not standing.
+  GUI crashes before body load; Robot Schema link discovery empty, auto-gains unverified.
+  Next schema-only discovery probe; no driver, safety, admission or training change.
+  [Upstream baseline proposal](../r8b-locomotion-prior-art-research-2026-09-05.md) remains unexecuted.
 
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.
