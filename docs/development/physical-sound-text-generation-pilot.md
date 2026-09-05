@@ -5074,3 +5074,101 @@ the same numerical schedule. Any reference-aided control is explicitly an oracle
 not the target source-free interface;no author test/protected roles or data-size
 sweeps. Empty-schedule failure stays open;do not claim silence robustness or hide
 it by post-generation gating. Preserve the full waveform and timing controls.
+
+## SyncFusion TRAIN conditioning discriminator — 2026-09-05
+
+Audible results: [glass comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/glass-comparison.wav)
+(20.54s) and [wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/wood-comparison.wav)
+(20.93s). Each plays two real TRAIN events, previous text-only generation,
+two-event mean audio prototype, then first individual audio condition; 0.5s gaps.
+The four new generated clips are diagnostic **audio-reference-aided oracles**,
+not a new source-free interface, new physical calibration or independent test.
+No weight updates; no runtime/demo/roadmap change.
+
+Source: [authors' processed TRAIN data](https://zenodo.org/records/12634671),
+Marco Comunità, 2024-07-03, record metadata CC-BY-4.0. Only `train_shard_1.tar`:
+2,099,322,880 bytes, publisher MD5 d95042871d2e1c5892acc5a31bd35cb9 verified;
+local SHA256 7284c9dd5eb5eb4caf81ee3b7acca71be6c11f4f6d91c19a85936a4ed634ece3.
+No author val/test data. Initial range scan exited1 with HTTP429 after retaining
+two wood sources, preserved as failed in `syncfusion-train-prototypes-2026-09-05`.
+A single full-archive request completed; selection from verified local archive
+is `syncfusion-train-prototypes-verified-2026-09-05`. Recovered wood samples exact;
+FLOAT WAV byte hashes differ from the first extraction because of PEAK metadata.
+
+Fixed selection, before generation: first two distinct recordings per glass/wood
+in archive order, first annotated `material hit` followed by an onset 0.2–2s later.
+Visited 105 TRAIN annotation files, selected:
+
+| Material | Recording | Event interval(s) | Author label |
+|---|---|---|---|
+| Wood | 2015-02-16-17-02-05 | 3.092552–4.305115 | wood hit static |
+| Wood | 2015-02-16-17-27-53 | 2.095562–2.928260 | wood hit static |
+| Glass | 2015-03-20-01-49-30 | 36.950291–37.830780 | glass hit static |
+| Glass | 2015-03-20-02-16-43 | 6.167958–6.941104 | glass hit rigid-motion |
+
+Distinct recordings do not establish distinct physical objects. Exact geometry,
+striker composition, force and velocity remain unknown. Metadata/WAV/annotation
+hashes and source sample indices are in the external source receipt.
+
+`physical_sound_syncfusion_condition.py` implements acquisition, render and
+assessment. Load unmodified LAION-CLAP1.1.4 HTSAT-tiny submodules directly, avoiding
+its global training hooks. Audio encoder31,325,143 parameters and Linear/ReLU/Linear
+projection strictly loaded from the same SyncFusion checkpoint; no extra weights.
+Non-fusion preprocessing matches inspected author code: clip/quantize to int16,
+divide by32767, repeat whole event to10s, zero-pad remainder. This input quantization
+is the author's embedding path, not clipping of generated or audition waveforms.
+Some real source peaks exceed1; full original FLOAT data and shared0.5 audition
+gain retained. Added torchlibrosa0.1.0/h5py3.15.1 only to external overlay; initial
+missing-h5py preflight failed, strict-load/finite forward passed after installation.
+
+Mean of two normalized embeddings is renormalized; individual controls exclude
+mean interpolation as the sole explanation. Same seed42/noise, FP32,150steps,
+guidance2, full262144 samples/48kHz, event times .6/1.5/2.7/4.0s as the prior
+text baseline. All four output peaks1.050–1.169, published with fixed0.5 gain;
+no prefix muting/cropping/gating. 16/16 detected attacks,0extras at5ms resolution.
+Each~18.2–18.6s after setup; measured process CUDA peak2.3784GiB. Raw/PCM hashes,
+exact layout, finite values and PCM gain within one quantization step verified.
+
+Fixed gain-invariant attack diagnostic: first200ms after annotated/requested
+onset, Welch2048/1024,32 logarithmic bands200–16000Hz; mean absolute log-PSD
+distance across four generated attacks and both TRAIN references. This deliberately
+reference-aided metric measures spectral resemblance, not semantic/physical quality.
+
+| Material | Text distance(dB) | Mean prototype | Individual |
+|---|---:|---:|---:|
+| Glass |9.6982|4.5828|4.8959|
+| Wood |8.2585|3.3038|3.9805|
+
+Post-hoc cross-material check on the same features: wrong-minus-own distance
+for glass text/mean/individual +.1144/−.3458/−.3262dB; wood +.4544/+1.5100/+1.1118.
+Glass is still slightly nearer the wood reference set. Within-category reference
+pair distances glass5.5115/wood3.5868dB; between-category average4.3921dB. These
+four records do not qualify this descriptor as a material judge. First200ms
+contains99.60/98.15% glass and58.96/93.78% wood event energy; source absolute peaks
+occur0.5–4ms after annotation, so the window did not simply miss the actual attack.
+
+AST raw/RMS.005 fails to identify even the four real short events reliably
+(Cash register/Burping/Camera/Coin etc). Generated glass becomes Chop/Tick; wood
+Ping/Tick/Bouncing. Silence/noise/tone controls behave coarsely as expected.
+Do not tune or use AST as a sole acceptance/reward model. No perceptual quality
+win claimed solely from spectral distance, and no new human validation requested.
+
+Conclusion: evidence supports a text/audio-conditioning transfer limitation;
+the generator can move toward TRAIN acoustic examples while retaining timing.
+It does not establish a glass/material solution or remove generator limitations.
+A small learned source-free conditioning adapter is now a motivated next bounded
+experiment, with recording-disjoint TRAIN-development evaluation against both
+text and fixed-prototype baselines. First determine usable material/action/motion
+groups; do not infer geometry/force or open protected author test roles. Require
+an immediate generated audition, not another infrastructure-only checkpoint.
+No larger-generator, prompt/seed, prototype-count or guidance sweep. Empty-schedule
+failure remains open and this experiment does not re-test or fix it.
+
+Reproduce: acquire with `--archive` pointing at the checksum-verified TRAIN tar;
+render with `--assets`, `--source`, `--clap-package`, `--output NEW_EXTERNAL` under
+the existing two external dependency overlays. Assess with `--source`, `--baseline`
+(the previous explicit-time result) and `--output` (this discriminator result).
+External `assessment.json`, `tags-raw.json`, `tags-rms.json`, `conditions.pt` and
+`result.json` retain exact media/condition identities and controls. 29focused tests
+(6new+23existing), Ruff and diff checks pass. All jobs terminal. No Cargo/host-check
+or ProductCheck: only the bounded external audio lab changed.

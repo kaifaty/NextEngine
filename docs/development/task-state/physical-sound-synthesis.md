@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJECTED.
+Status: ACTIVE_GOAL / SYNCFUSION_AUDIO_CONDITIONING_GAIN / MATERIAL_UNVERIFIED.
 
 ## Resume in 60 seconds
 
@@ -17,15 +17,22 @@ Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJ
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest media:** [SyncFusion glass/delayed/wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-explicit-times-2026-09-05/comparison.wav),5.46s each.
-  Explicit .6/1.5/2.7/4.0s and +.4s schedules:12/12detected attacks,0extras at5ms
-  resolution. Text+time impulses ONLY,0fit,seed42,150steps,FP32. Not calibration.
-  Full raw retained,shared.5 gain;empty schedule peak2.319/RMS.0328,REJECTED.
-  Initial exit1 then`finalize`same4raw outputs,0rerender;complete_with_rejections.
-  AST Ping/snaps,material realism unverified.23tests;all jobs terminal. Exact CLI,
-  architecture/CLAP/state-loading proof and partial-ZIP provenance in pilot note.
-  Assets`syncfusion-assets-2026-09-05`,SHAa25584b1…;Zenodo12634630CC-BY4,not blanket
-  production clearance. External overlay;no dataset/visual model/target audio.
+- **Latest media:** [glass comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/glass-comparison.wav),
+  [wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/wood-comparison.wav):
+  2real TRAIN events→text→mean audio prototype→individual audio condition.
+  New4WAV are reference-aided diagnostic oracles,NOT source-free generalization.
+  Same seed42/150steps/FP32/full5.46s/shared.5gain;16/16attacks,0extras,0weightupdates.
+  200ms spectral distance text→prototype glass9.698→4.583,wood8.259→3.304dB;
+  individual also improves. Glass still slightly nearer wood templates;no quality
+  or material admission. AST fails real references too;NOT qualified judge/reward.
+  Evidence motivates learned text/audio conditioning adapter,not generator sweep.
+  Source`syncfusion-train-prototypes-verified-2026-09-05`:first2glass/wood recordings,
+  105TRAIN annotations visited,author train_shard_1MD5 verified,SHA7284c9dd…;
+  CC-BY4/Zenodo12634671. Initial range scan429 terminal;full fetch recovery done.
+  No author val/test;29tests,all jobs terminal. Exact data/CLI/proof in pilot note.
+- **Previous source-free timing:**`syncfusion-explicit-times-2026-09-05`:text+times,
+  12/12attacks. Empty schedule peak2.319/RMS.0328 rejected,not silence;still open.
+  Assets`syncfusion-assets-2026-09-05`,SHAa25584b1…;no blanket production clearance.
 - **MMAudio impact:** video2/9,delayed3/8timing matches;no prompt/seed sweep. Apple
   CLIP research-only excludes product development;NOT engine candidate weights.
 - **Earlier MMAudio water:** coarse Water top5,not quality win;CLI/results in note.
@@ -45,14 +52,12 @@ Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJ
   0/2/65/67/74/77,repeat0,20/30/50/60;all4/66/76 held development,not pristine.
   Weights6d36e47c…/c259a9bc…;bank5c440edd…;no runtime/demo/model replacement.
   Coefficients10mm/min≠audio20–60mm/s;no geometry. Glass category-mean still wins.
-- **Prior timed countercheck:** envelope1.492 vs gate+TRAINbackground1.328dB,wins1/24 at40mm/s;noise≠quality,shared22.05kHz mandatory.
-  `texture-full-event-2026-09-05` stale running JSON is TERMINAL; corrected eval
-  `texture-full-event-evaluation-2026-09-05`,0updates,19overlapping WAVs exact.
+- **Timed countercheck:**`texture-full-event-2026-09-05` stale running JSON TERMINAL;
+  corrected`texture-full-event-evaluation-2026-09-05`,19overlapping WAVs exact.
 - **Impact diagnostics:** silence-learning/precision remedies contradicted;
   source-aided one-step previews are NOT source-free generation. Details in note.
-- **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),154TRAIN/19participants;all14 full29.9537s decodes retained.
-  Top1 only3/14;heldwood/glass shape7.028→7.081dB. No reliable material control.
-  No replacement or next data-size/capacity/epoch/seed sweep; exact evidence in note.
+- **Learned EPIC impacts:**154TRAIN/19participants,Top1 only3/14,heldwood/glass
+  shape7.028→7.081dB. No replacement/data-size/capacity/epoch/seed sweep;see note.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718; water raw/RMS AST+hardCLAP8/8, not physical calibration.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
@@ -75,25 +80,23 @@ Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJ
 - **Preserved guards:** publish exact PCM, never weaken.98 headroom.
   `requires_grad=False` is required for exact frozen-generator replay despite
   no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
-- **EPIC source/probe:** `epic-information-2026-09-05`,161TRAIN/19participants/84videos,
-  CC-BY-NC4 local research; P04/P07 excluded,no author val/test. Only7 wood/glass.
-  No object IDs/striker/geometry/force/velocity. Fixed leave-participant-out C1 probe
-  macro recall AST24.30%,RMS20.11%,spectrum25.47%,duration/gain21.45%; glass pair0/7
-  for AST.32label permutations mean16.53%,max21.72%. NOT qualified judge/reward;
-  no threshold/prompt tuning. Exact selection, hashes, source previews in note.
+- **EPIC probe:**`epic-information-2026-09-05`,161TRAIN/19participants/84videos,
+  CC-BY-NC4 local research;P04/P07 excluded,no author val/test. Only7wood/glass;
+  no object IDs/striker/geometry/force/velocity. AST macro24.30%,glass pair0/7;
+  NOT qualified judge/reward,no threshold/prompt tuning. Full C1 controls in note.
 - **Pair validator:** CLAP4/24 on6prompts(chance4),not qualified material judge/reward.
   Sequential/seek4one-LSB differences;remoteMP4 partialMD5 unverified,localWAV SHA passes.
-- **Discriminator complete:** [750ms comparisons](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/comparison.wav),784WAV,47tests,0newweights.
-  TRAINmu interpolation shape1.543/2.044/2.271 vs neural2.185/2.544/2.619dB,
-  wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
-  Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
-  limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
+- **Friction discriminator:**`texture-coefficient-discriminator-2026-09-05`,784WAV;
+  TRAINmu interpolation wins shape119/120,levels worse onsteel/glass. Last2arms
+  TARGET-AIDED. Glassmu loses equal mixing;best2-spectrum oracle limited. Both
+  input limitations AND generator loss;not proof all nonlinearmu mappings fail.
 - **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
   align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** discriminate text/audio-condition transfer vs generator timbre limits,
-  using small author TRAIN-only audio-embedding prototypes at fixed event times.
-  No author test/protected roles;reference-aided controls are oracles,not final
-  interfaces. Empty-schedule failure open;no prefix/gating trick or prompt sweep.
+- **Next:** bounded source-free learned conditioning adapter;first determine
+  usable authorTRAIN material/action/motion groups and recording-disjoint dev split.
+  Compare text AND fixed prototype baselines;produce WAV immediately,not support-only
+  work. Geometry/force unknown;no author test/protected roles or generator/prompt/
+  seed/prototype-count/guidance sweep. Empty-schedule failure remains open.
 
 ## Preserve these constraints
 
@@ -104,7 +107,7 @@ Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJ
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace audible output. Latest SyncFusion inference/assessment all terminal;
+  not replace audible output. Latest SyncFusion discriminator jobs all terminal;
   full multi-event goal stays open; familiar auditions are not mandatory approval.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
@@ -126,10 +129,8 @@ Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJ
 ## Previous audible work — controls, not the endpoint
 
 - **Liked:** [three glass reconstructions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-first-2026-09-04/comparison.wav), no generalization.
-- **Frozen transfer failure:** [unseen result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/result.json).
-  Nearest old parameters beat the MLP on 9/9 later strikes, not new objects.
-- **Automatic cycle:** [cycle result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json).
-  16 train/11 later strikes; expanded/anchored MLPs lose to analytic control.
+- Frozen transfer:nearest old parameters beat MLP9/9 later strikes,not new objects.
+  Automatic16train/11later-strike cycle:expanded/anchored MLPs lose analytic control.
 - No parameter-MLP size/epoch retries: sparse data/nonunique targets/loss mismatch
   unresolved; audio-to-parameter reconstruction is also the wrong goal interface.
 - MP3s: `ps2-freesound-wine-glass-v1/research`,same author/pack,not known identical objects;no thickness/force inference.
