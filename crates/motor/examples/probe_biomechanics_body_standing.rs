@@ -1,6 +1,10 @@
 #[cfg(feature = "physx-sdk")]
-#[path = "support/effort_response.rs"]
-mod effort_response;
+mod support {
+    pub mod effort_response;
+}
+
+#[cfg(feature = "physx-sdk")]
+use support::effort_response;
 
 #[cfg(feature = "physx-sdk")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,19 +20,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let revision = std::env::args()
         .nth(1)
-        .ok_or("expected body revision 5 or 6")?;
+        .ok_or("expected body revision 5, 6 or 7")?;
     let ankle_offset: i64 = std::env::args().nth(2).map_or(Ok(0), |s| s.parse())?;
     let hip_offset: i64 = std::env::args().nth(3).map_or(Ok(0), |s| s.parse())?;
     let reference_mode = std::env::args()
         .nth(4)
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
-        "baseline" | "neutral-targets" => 0,
+        "baseline" | "neutral-targets" | "upright-v2" => 0,
         "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
             return Err(
-                "mode must be baseline, neutral-targets, hip-feedback, hip-position-feedback or hip-feedback-4".into(),
+                "mode must be baseline, neutral-targets, hip-feedback, hip-position-feedback, hip-feedback-4 or upright-v2".into(),
             );
         }
     };
@@ -41,6 +45,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(6)
         .unwrap_or_else(|| "unchanged".to_owned());
     let response_mode = std::env::args().nth(7);
+    if (revision == "7" || reference_mode == "upright-v2")
+        && (revision != "7"
+            || reference_mode != "upright-v2"
+            || !per_iteration
+            || actuator_probe != "unchanged"
+            || ankle_offset != 0
+            || hip_offset != 0
+            || response_mode.is_some())
+    {
+        return Err("V7 standing requires upright-v2, per-iteration and unchanged actuators without offsets or response mode".into());
+    }
     let measure_response = match response_mode.as_deref() {
         None => false,
         Some("response" | "cold-response") => true,
@@ -92,7 +107,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let schema = match revision.as_str() {
         "5" => next_motor::biomechanics_humanoid_body_schema_v5(),
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
-        _ => return Err("expected body revision 5 or 6".into()),
+        "7" => next_motor::biomechanics_humanoid_body_schema_v7(),
+        _ => return Err("expected body revision 5, 6 or 7".into()),
     };
     let schema = if actuator_probe == "coupled-damping-4" {
         coupled_damping_discriminator(shoulder_yaw_discriminator(schema, "shoulder-yaw-gain-16")?)?
@@ -128,6 +144,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Optional ankle/hip counterfactuals, before unchanged safety. These are
     // diagnostic candidates, not selected production reference profiles.
     let standing = BiomechanicsProceduralStandingControllerV1::new(base, &snapshot)?;
+    let upright = if reference_mode == "upright-v2" {
+        Some(next_motor::BiomechanicsProceduralStandingControllerV2::new(
+            &successor, &snapshot,
+        )?)
+    } else {
+        None
+    };
     let states = |snapshot: &CanonicalPhysXSnapshotV2| {
         base.actuator_dof_ordinals
             .iter()
@@ -167,7 +190,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut effort_history = Vec::new();
     let envelopes = safety.default_skill_envelopes();
     'episode: for tick in 1..=1_800_u64 {
-        let mut reference = standing.reference_targets(&snapshot)?;
+        let mut reference = if let Some(controller) = &upright {
+            controller.reference_targets(&snapshot)?
+        } else {
+            standing.reference_targets(&snapshot)?
+        };
         let root = snapshot
             .links
             .iter()
@@ -288,33 +315,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    println!(
-        "{}",
-        serde_json::to_string(&json!({
-            "schema_version": 9, "probe": "native-body-standing-actuator-discriminator-v9",
-            "actuator_probe": actuator_probe,
-            "body_schema_id": schema.schema_id.as_str(),
-            "reference_mode": reference_mode,
-            "force_schedule": if per_iteration { "every-solver-position-iteration" } else { "frame-start" },
-            "force_schedule_profile_id": per_iteration.then_some(next_motor::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1),
-            "ankle_reference_offset_urad": ankle_offset,
-            "hip_reference_offset_urad": hip_offset,
-            "hip_feedback_gain": hip_feedback_gain,
-            "ordered_actuator_ids": base.actuator_definitions.iter().map(|a| a.actuator_id.as_str()).collect::<Vec<_>>(),
-            "actuators": base.actuator_definitions.iter().zip(&base.actuator_dof_ordinals).map(|(a, dof)| json!({
-                "actuator_id": a.actuator_id.as_str(), "dof_ordinal": dof,
-                "stiffness_q16": a.stiffness_q16, "damping_q16": a.damping_q16,
-            })).collect::<Vec<_>>(),
-            "body_schema_hash": base.body_schema_hash.to_hex(),
-            "compiled_descriptor_hash": if per_iteration { successor.compiled_descriptor_hash } else { compiled.compiled_descriptor_hash }.to_hex(),
-            "body_revision": schema.schema_revision, "reason": reason,
-            "requested_motor_ticks": 1_800, "physics_substeps": substeps,
-            "scope": "nominal procedural standing diagnostic, not learned quality",
-            "samples": samples,
-            "substep_samples": substep_samples,
-            "response_probe": response,
-        }))?
-    );
+    let mut output = json!({
+        "schema_version": 9, "probe": "native-body-standing-actuator-discriminator-v9",
+        "actuator_probe": actuator_probe,
+        "body_schema_id": schema.schema_id.as_str(),
+        "reference_mode": reference_mode,
+        "force_schedule": if per_iteration { "every-solver-position-iteration" } else { "frame-start" },
+        "force_schedule_profile_id": per_iteration.then_some(next_motor::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1),
+        "ankle_reference_offset_urad": ankle_offset,
+        "hip_reference_offset_urad": hip_offset,
+        "hip_feedback_gain": hip_feedback_gain,
+        "ordered_actuator_ids": base.actuator_definitions.iter().map(|a| a.actuator_id.as_str()).collect::<Vec<_>>(),
+        "actuators": base.actuator_definitions.iter().zip(&base.actuator_dof_ordinals).map(|(a, dof)| json!({
+            "actuator_id": a.actuator_id.as_str(), "dof_ordinal": dof,
+            "stiffness_q16": a.stiffness_q16, "damping_q16": a.damping_q16,
+        })).collect::<Vec<_>>(),
+        "body_schema_hash": base.body_schema_hash.to_hex(),
+        "compiled_descriptor_hash": if per_iteration { successor.compiled_descriptor_hash } else { compiled.compiled_descriptor_hash }.to_hex(),
+        "body_revision": schema.schema_revision, "reason": reason,
+        "requested_motor_ticks": 1_800, "physics_substeps": substeps,
+        "scope": "nominal procedural standing diagnostic, not learned quality",
+        "samples": samples,
+        "substep_samples": substep_samples,
+        "response_probe": response,
+    });
+    if let Some(controller) = &upright {
+        output["reference_profile_id"] =
+            json!(next_motor::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2);
+        output["reference_state_root"] = json!(controller.state_root().to_hex());
+        output["hip_feedback_gain"] = json!(2);
+    }
+    println!("{}", serde_json::to_string(&output)?);
     Ok(())
 }
 
@@ -392,6 +423,24 @@ fn shoulder_yaw_discriminator(
 
 #[cfg(all(test, feature = "physx-sdk"))]
 mod tests {
+    #[test]
+    fn v7_matches_the_reviewed_candidate_except_for_identity() {
+        let mut candidate = super::coupled_damping_discriminator(
+            super::shoulder_yaw_discriminator(
+                next_motor::biomechanics_humanoid_body_schema_v6(),
+                "shoulder-yaw-gain-16",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let v7 = next_motor::biomechanics_humanoid_body_schema_v7();
+        assert_ne!(candidate.schema_hash(), v7.schema_hash());
+        candidate.schema_id = v7.schema_id.clone();
+        candidate.schema_revision = v7.schema_revision;
+        candidate.source_provenance_hash = v7.source_provenance_hash;
+        assert_eq!(candidate, v7);
+    }
+
     #[test]
     fn coupled_damping_changes_only_eight_identified_damping_gains() {
         let original = super::shoulder_yaw_discriminator(

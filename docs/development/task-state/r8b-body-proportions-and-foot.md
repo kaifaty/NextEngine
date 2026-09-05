@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V6_IMPLEMENTED / QUIET_UPRIGHT_CANDIDATE / FEET_AND_PROMOTION_OPEN` |
+| Status | `BODY_V7_AND_UPRIGHT_V2_IMPLEMENTED / DISTURBANCE_AND_FEET_OPEN` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -13,7 +13,7 @@
   leg/trunk disproportion. All 19 physical colliders are now drawn.
 - Initial V4 measures 170 cm stature, 86.5 cm hip, 139.65 cm shoulder,
   40.8 cm thigh and 39.6 cm shank. Do not shorten legs to repair that picture.
-- Opt-in physical BodySchema V5/V6 is implemented under ADR-114/115. Existing
+- Opt-in physical BodySchema V5/V6/V7 is implemented under ADR-114/115/117. Existing
   environments/checkpoints still use V4; full goal remains active and no
   optimizer is running. Do not treat the V5 diagnostic as a learned fix.
 - Independent all-1200-frame mass audit: total 75.337 kg, legs 38.923%,
@@ -82,8 +82,11 @@
 - Damping-only suppresses near-Nyquist RMS98.59% but leans3.44 degrees. Keeping
   the hip rate term restores upright appearance but tail joint RMS0.897787;
   do not select it by its final frame. No mass/inertia/geometry changed.
-- Next: implement an explicitly identified production body/control successor
-  from the exact quiet candidate, then bounded disturbance/foot mechanics
+- ADR-117 now implements the exact quiet candidate as V7 body and standing V2
+  in the motor library, with full compiled-input validation and subject/reset
+  state binding. All7200 native steps/1801 samples equal the candidate. Old
+  modes repeat byte-exactly. No training environment or game route is switched.
+- Next: bounded disturbance/foot mechanics
   checks and a separately identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
@@ -112,6 +115,8 @@
 12. [Rejected iteration intervention](../r8b-contact-iteration-discriminator-2026-09-05.md),
     [effective coupled damping discriminator](../r8b-coupled-damping-discriminator-2026-09-05.md)
     and [quiet upright hip reference](../r8b-hip-rate-feedback-discriminator-2026-09-05.md).
+13. [Implemented V7/standing V2](../r8b-body-v7-upright-profile-2026-09-05.md)
+    and [ADR-117](../../architecture/adr/117-quiet-upright-body-and-standing-reference.md).
 
 ## Decision and remaining uncertainty
 
@@ -199,14 +204,27 @@
   source patch, limit caveats and rejected prediction are in reports 11.
   Current native example tests: 3 passed; Python analysis tests: 5 passed.
   Diagnostic apparatus is retained, no production bridge diff or new defaults.
-- Latest candidate command: `cargo run -p next_motor --features physx-sdk
+- Preserved candidate command: `cargo run -p next_motor --features physx-sdk
   --example probe_biomechanics_body_standing -- 6 0 0 hip-position-feedback
   per-iteration coupled-damping-4` with the pinned SDK above.
   External `hip-rate-feedback-discriminator-01/position-only.json` SHA49cb7fbf…;
   complete hashes and negative controls are in reports12. New diagnostic body
-  hashc63ec6b8… and compiled hash719a6661…; no V7 production factory yet.
+  hashc63ec6b8… and compiled hash719a6661…; predecessor diagnostics only.
   Native example tests4, focused Clippy/format and invalid CLI checks pass;
   no broad ProductChecks or training run for this example-only change.
+- Current implemented command: `cargo run -p next_motor --features physx-sdk
+  --example probe_biomechanics_body_standing -- 7 0 0 upright-v2 per-iteration unchanged`.
+  V7 body hash43d9f3e1…, compiled hash5bc1bd85…, subject-zero reference root
+  cec3d35b…. External `body-v7-01/standing-subject-bound.json` SHA6eef44ec…;
+  descriptor SHA18de43f4…. Full exact hashes and checks in report13.
+  First subject-state collision test failed and was repaired by explicit
+  PersistentId binding, not a weaker test; physical trajectory unchanged.
+  Final138 native tests, five example tests, native all-target Clippy,
+  format/diff/links and play/replay/content pass. Broad host-check passed
+  workspace Clippy/tests, failed final source-layout scan on old diagnostic
+  `#[path]`. Replaced with conventional nested modules; all six boundary
+  checks and native example/Clippy revalidation pass. Full wrapper not rerun;
+  exact failed/repaired status is preserved in report13, session32268 closed.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

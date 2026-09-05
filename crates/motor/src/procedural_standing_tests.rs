@@ -6,6 +6,84 @@ use crate::{
     biomechanics_humanoid_body_schema_v2,
 };
 
+#[test]
+fn upright_reference_matches_frozen_integer_hip_law_and_preserves_other_channels() {
+    let compiled = crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v7(),
+        PersistentId::from_bytes([62; 16]),
+    )
+    .unwrap();
+    let base = &compiled.base.base;
+    let root = base.body_tokens[&base.construction_order[0]];
+    let reset = snapshot(root, 0);
+    let old = BiomechanicsProceduralStandingControllerV1::new(base, &reset).unwrap();
+    let new = crate::BiomechanicsProceduralStandingControllerV2::new(&compiled, &reset).unwrap();
+    assert_ne!(old.state_root(), new.state_root());
+    for qx in [-536_870_912, -53_687_091, -1, 0, 1, 53_687_091, 536_870_912] {
+        let mut state = reset.clone();
+        state.links[0].rotation_q1_30[0] = qx;
+        for omega in [-123_456, 0, 789_123] {
+            state.links[0].angular_velocity_microradians_per_second[0] = omega;
+            let mut expected = old.reference_targets(&state).unwrap();
+            for (value, actuator) in expected.iter_mut().zip(&base.actuator_definitions) {
+                if actuator.joint_id.as_str().ends_with("-hip-pitch") {
+                    *value += (-2 * (i128::from(qx) * 2_000_000 / (1_i128 << 30))) as i64;
+                }
+            }
+            assert_eq!(new.reference_targets(&state).unwrap(), expected);
+        }
+    }
+    let shifted =
+        crate::BiomechanicsProceduralStandingControllerV2::new(&compiled, &snapshot(root, 1))
+            .unwrap();
+    assert_ne!(new.state_root(), shifted.state_root());
+    let other_subject = crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v7(),
+        PersistentId::from_bytes([63; 16]),
+    )
+    .unwrap();
+    let other =
+        crate::BiomechanicsProceduralStandingControllerV2::new(&other_subject, &reset).unwrap();
+    assert_ne!(new.state_root(), other.state_root());
+    let mut invalid = reset.clone();
+    invalid.links.push(invalid.links[0].clone());
+    assert_eq!(
+        new.reference_targets(&invalid),
+        Err(ProceduralStandingError::RootState)
+    );
+}
+
+#[test]
+fn upright_reference_rejects_old_and_tampered_compilations() {
+    let subject = PersistentId::from_bytes([0; 16]);
+    let v7 = crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v7(),
+        subject,
+    )
+    .unwrap();
+    let root = v7.base.base.body_tokens[&v7.base.base.construction_order[0]];
+    let reset = snapshot(root, 0);
+    let old = crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v6(),
+        subject,
+    )
+    .unwrap();
+    let mut tampered = v7.clone();
+    tampered.base.base.actuator_definitions[0].damping_q16 += 1;
+    for invalid in [old, tampered] {
+        assert_eq!(
+            crate::BiomechanicsProceduralStandingControllerV2::new(&invalid, &reset),
+            Err(ProceduralStandingError::ProfileMismatch)
+        );
+    }
+    let mut absent = reset.clone();
+    absent.links.clear();
+    assert_eq!(
+        crate::BiomechanicsProceduralStandingControllerV2::new(&v7, &absent),
+        Err(ProceduralStandingError::RootState)
+    );
+}
+
 fn compiled() -> CompiledBodySchemaV2 {
     CompiledBodySchemaV2::compile(
         &biomechanics_humanoid_body_schema_v2(),

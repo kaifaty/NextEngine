@@ -12,6 +12,8 @@ use crate::{
 pub const PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS: u64 = 1_800;
 pub const PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS: i64 = 100_000;
 pub const PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS: i64 = -140_000;
+pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2: &str =
+    "nextengine.motor.procedural-standing-reference.v2";
 pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
     "nextengine.motor.procedural-walking-reference.v1";
 
@@ -192,6 +194,95 @@ impl BiomechanicsProceduralStandingControllerV1 {
             bytes.extend_from_slice(&self.root_target_z_micrometres.to_le_bytes());
         }
         bytes.extend_from_slice(&(self.channels.len() as u64).to_le_bytes());
+        content_hash_from_bytes(sha256(&bytes))
+    }
+}
+
+/// Explicit V7-body / compiled-V4 standing successor. It retains the V1 ankle
+/// law and adds only the verified hip position term, without hip rate feedback.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BiomechanicsProceduralStandingControllerV2 {
+    base: BiomechanicsProceduralStandingControllerV1,
+    hip_channels: [usize; 2],
+    compiled_hash: ContentHash,
+    subject_id: next_contracts::ids::PersistentId,
+}
+
+impl BiomechanicsProceduralStandingControllerV2 {
+    pub fn new(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        let base = &compiled.base.base;
+        let subject = base
+            .physics_descriptors
+            .bodies
+            .keys()
+            .next()
+            .ok_or(ProceduralStandingError::ProfileMismatch)?
+            .subject_id;
+        // Validate the complete supplied compilation, not merely an editable
+        // hash label. This is reset-time work, not part of the substep loop.
+        let expected = crate::CompiledBodySchemaV4::compile(
+            &crate::biomechanics_humanoid_body_schema_v7(),
+            subject,
+        )
+        .map_err(|_| ProceduralStandingError::ProfileMismatch)?;
+        if *compiled != expected {
+            return Err(ProceduralStandingError::ProfileMismatch);
+        }
+        let hip_channels = base
+            .physics_descriptors
+            .actuators
+            .iter()
+            .enumerate()
+            .filter_map(|(index, actuator)| {
+                actuator
+                    .base
+                    .joint_id
+                    .as_str()
+                    .ends_with("-hip-pitch")
+                    .then_some(index)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .map_err(|_| ProceduralStandingError::ProfileMismatch)?;
+        Ok(Self {
+            base: BiomechanicsProceduralStandingControllerV1::new(base, reset_snapshot)?,
+            hip_channels,
+            compiled_hash: compiled.compiled_descriptor_hash,
+            subject_id: subject,
+        })
+    }
+
+    pub fn reference_targets(
+        &self,
+        snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Vec<i64>, ProceduralStandingError> {
+        let mut targets = self.base.reference_targets(snapshot)?;
+        let root = unique_root(snapshot, self.base.root_actor_token)
+            .ok_or(ProceduralStandingError::RootState)?;
+        // The discriminator uses truncation towards zero here, independently
+        // of the preserved V1 ankle law's ties-to-even arithmetic.
+        let pitch = i128::from(root.rotation_q1_30[0]) * 2_000_000 / (1_i128 << 30);
+        let correction =
+            i64::try_from(-2 * pitch).map_err(|_| ProceduralStandingError::NumericOverflow)?;
+        for index in self.hip_channels {
+            targets[index] = targets[index]
+                .checked_add(correction)
+                .ok_or(ProceduralStandingError::NumericOverflow)?;
+        }
+        Ok(targets)
+    }
+
+    #[must_use]
+    pub fn state_root(&self) -> ContentHash {
+        let mut bytes = b"nextengine.humanoid-procedural-standing.v2\0".to_vec();
+        bytes.extend_from_slice(PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2.as_bytes());
+        bytes.push(0);
+        bytes.extend_from_slice(self.compiled_hash.as_bytes());
+        bytes.extend_from_slice(self.subject_id.as_bytes());
+        bytes.extend_from_slice(self.base.state_root().as_bytes());
         content_hash_from_bytes(sha256(&bytes))
     }
 }

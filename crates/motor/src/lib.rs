@@ -60,6 +60,7 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_V4_THIGH_HALF_WIDTH_MICROMETRES, biomechanics_humanoid_body_schema_v2,
     biomechanics_humanoid_body_schema_v3, biomechanics_humanoid_body_schema_v4,
     biomechanics_humanoid_body_schema_v5, biomechanics_humanoid_body_schema_v6,
+    biomechanics_humanoid_body_schema_v7,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID,
@@ -156,7 +157,8 @@ pub use humanoid::{
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use mirror_v2::{
     biomechanics_body_diagnostic_descriptor_json_v5,
-    biomechanics_body_diagnostic_descriptor_json_v6, biomechanics_isaac_mirror_descriptor_json_v1,
+    biomechanics_body_diagnostic_descriptor_json_v6,
+    biomechanics_body_diagnostic_descriptor_json_v7, biomechanics_isaac_mirror_descriptor_json_v1,
     biomechanics_isaac_mirror_descriptor_json_v2, biomechanics_isaac_mirror_descriptor_json_v3,
     biomechanics_isaac_mirror_descriptor_json_v4,
 };
@@ -182,8 +184,9 @@ pub use physical_animation::{
     PhysicalAnimationProjectionModeV1,
 };
 pub use procedural_standing::{
-    BiomechanicsProceduralStandingControllerV1, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
-    PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
+    BiomechanicsProceduralStandingControllerV1, BiomechanicsProceduralStandingControllerV2,
+    PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS, PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS,
+    PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
     PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1, ProceduralStandingError,
 };
 pub use reference_baseline::{ReferenceBaselineError, biomechanics_reference_baseline_json_v1};

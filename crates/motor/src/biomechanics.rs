@@ -162,6 +162,39 @@ pub fn biomechanics_humanoid_body_schema_v6() -> BodySchemaV2 {
     schema
 }
 
+/// V6 physical anatomy with the verified sampled standing actuator gains.
+/// Old environments retain their bodies; selecting this does not transfer weights.
+#[must_use]
+pub fn biomechanics_humanoid_body_schema_v7() -> BodySchemaV2 {
+    let mut schema = biomechanics_humanoid_body_schema_v6();
+    schema.schema_id = id("nextengine.body.humanoid-biomechanics-raja-1700.v7");
+    schema.schema_revision = 7;
+    schema.source_provenance_hash =
+        domain_hash(b"nextengine.source.raja-1700.sampled-standing-actuators.v7");
+    for actuator in &mut schema.actuators {
+        let joint = actuator.joint_id.as_str();
+        if joint.ends_with("-shoulder-yaw") {
+            actuator.stiffness_q16 /= 16;
+            actuator.damping_q16 /= 16;
+        } else if [
+            "-hip-pitch",
+            "-hip-yaw",
+            "-knee",
+            "torso-pitch",
+            "torso-yaw",
+        ]
+        .iter()
+        .any(|suffix| joint.ends_with(suffix))
+        {
+            actuator.damping_q16 /= 4;
+        }
+    }
+    schema
+        .validate()
+        .expect("V7 sampled actuator profile is valid");
+    schema
+}
+
 // Offline symmetric eigendecomposition of the six non-diagonal source tensors.
 // Eigenvalues rounded to micro kg m², eigenvectors encoded as canonical xyzw
 // Q30 quaternions. Runtime does no eigensolve; BodySchema validates R D Rᵀ.
@@ -1073,6 +1106,48 @@ mod tests {
         }
         assert_eq!(changed, 6);
         assert_eq!(restored, v5);
+    }
+
+    #[test]
+    fn v7_has_only_frozen_actuator_changes_and_new_identity() {
+        let v6 = biomechanics_humanoid_body_schema_v6();
+        let mut v7 = biomechanics_humanoid_body_schema_v7();
+        assert_eq!(
+            v7.schema_hash().unwrap().to_hex(),
+            "43d9f3e1f8291fc054767c104ef19a2712b3dbb69016c975168e960a4417e989"
+        );
+        v7.schema_id = v6.schema_id.clone();
+        v7.schema_revision = v6.schema_revision;
+        v7.source_provenance_hash = v6.source_provenance_hash;
+        let mut changed = 0;
+        for (actual, old) in v7.actuators.iter_mut().zip(&v6.actuators) {
+            if actual != old {
+                let joint = actual.joint_id.as_str();
+                let (stiffness, damping) = if joint.ends_with("-shoulder-yaw") {
+                    (573_440, 57_344)
+                } else if joint.ends_with("-hip-pitch") {
+                    (old.stiffness_q16, 737_280)
+                } else if joint.ends_with("-knee") {
+                    (old.stiffness_q16, 819_200)
+                } else {
+                    assert!(
+                        joint.ends_with("-hip-yaw")
+                            || joint.ends_with("torso-pitch")
+                            || joint.ends_with("torso-yaw")
+                    );
+                    (old.stiffness_q16, 491_520)
+                };
+                assert_eq!(
+                    (actual.stiffness_q16, actual.damping_q16),
+                    (stiffness, damping)
+                );
+                actual.stiffness_q16 = old.stiffness_q16;
+                actual.damping_q16 = old.damping_q16;
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 10);
+        assert_eq!(v7, v6);
     }
 
     #[test]

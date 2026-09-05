@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.55 |
+| Версия | 2.56 |
 | Последняя проверка | 2026-09-05 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For BodySchema V7 / quiet upright standing V2, additionally read
+[ADR-117](adr/117-quiet-upright-body-and-standing-reference.md), SPEC-35 and
+ADR-115/116. Verify exact gain-only body delta, profile/compiled-state binding,
+wrong/tampered input rejection, signed integer reference vectors, unchanged
+old outputs and complete7200-step candidate correspondence. Run native motor
+and example tests, descriptor export, host/play/replay/content checks. This
+does not select an existing training environment or prove robustness.
 
 For per-iteration TGS external forces / CompiledBodySchemaV4, additionally
 read [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md), SPEC-26 and

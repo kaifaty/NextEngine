@@ -34,6 +34,27 @@ fn biomechanics_body_diagnostic_descriptor_json(
     Ok(output)
 }
 
+/// V7 physical descriptor with the explicit compiled-V4 standing scene identity.
+/// This remains native inspection, never an Isaac or training admission.
+pub fn biomechanics_body_diagnostic_descriptor_json_v7() -> Result<String, MotorCompileError> {
+    let schema = crate::biomechanics_humanoid_body_schema_v7();
+    let compiled =
+        crate::CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_body_diagnostic_descriptor_json(&schema)?)
+            .expect("engine descriptor JSON");
+    descriptor["translator_id"] = json!("nextengine.canonical-upright-body-inspection.v1");
+    descriptor["legacy_compiled_descriptor_hash"] = descriptor["compiled_descriptor_hash"].clone();
+    descriptor["compiled_descriptor_hash"] = json!(compiled.compiled_descriptor_hash.to_hex());
+    descriptor["force_schedule_profile_id"] =
+        json!(crate::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1);
+    descriptor["standing_reference_profile_id"] =
+        json!(crate::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2);
+    let mut output = serde_json::to_string_pretty(&descriptor).expect("descriptor JSON");
+    output.push('\n');
+    Ok(output)
+}
+
 pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v2();
     biomechanics_isaac_mirror_descriptor_json_v1_for_schema(&schema)
@@ -383,6 +404,37 @@ mod tests {
             .map(|body| body["colliders"].as_array().expect("colliders").len())
             .sum::<usize>();
         assert_eq!(shape_count, 19);
+    }
+
+    #[test]
+    fn v7_inspection_binds_standing_scene_without_mirror_admission() {
+        let value: Value =
+            serde_json::from_str(&biomechanics_body_diagnostic_descriptor_json_v7().unwrap())
+                .unwrap();
+        let v6: Value =
+            serde_json::from_str(&biomechanics_body_diagnostic_descriptor_json_v6().unwrap())
+                .unwrap();
+        assert_eq!(value["body_schema_revision"], 7);
+        assert_eq!(value["backend_admission"], "native-body-diagnostic-only");
+        assert!(value.get("environment_profiles").is_none());
+        assert_eq!(value["bodies"], v6["bodies"]);
+        assert_eq!(value["joints"], v6["joints"]);
+        assert_eq!(
+            value["compiled_descriptor_hash"],
+            "5bc1bd8536cec8c9879889c2ea54840b24c07cd01b22f1b3a250ed58f496ae0b"
+        );
+        assert_ne!(
+            value["compiled_descriptor_hash"],
+            value["legacy_compiled_descriptor_hash"]
+        );
+        assert_eq!(
+            value["force_schedule_profile_id"],
+            crate::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1
+        );
+        assert_eq!(
+            value["standing_reference_profile_id"],
+            crate::PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2
+        );
     }
 
     #[test]

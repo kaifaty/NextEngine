@@ -4,7 +4,7 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 9.22 |
+| Версия | 9.23 |
 | Последняя проверка | 2026-09-05 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V7.0 | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
@@ -38,7 +38,8 @@
 | Дополнительные зависимости V9.20 | [ADR-114](adr/114-anatomical-axes-and-sagittal-body-proxies.md) |
 | Дополнительные зависимости V9.21 | [ADR-115](adr/115-full-principal-inertia-body-successor.md) |
 | Дополнительные зависимости V9.22 | [ADR-116](adr/116-explicit-per-iteration-force-scheduling.md) |
-| Заменяет | TRACE-001 9.20; adds full inertia and quantized mass-frame checks |
+| Дополнительные зависимости V9.23 | [ADR-117](adr/117-quiet-upright-body-and-standing-reference.md) |
+| Заменяет | TRACE-001 9.22; adds V7/upright-V2 correspondence and identity checks |
 
 ## Назначение
 
@@ -201,6 +202,12 @@ descriptor / native trajectory, native new-profile dynamics and same-effort
 reconstruction, rejected malformed native tags without mutation, unchanged
 material/configure lifecycle, and full 7,200-step standing comparison. Neither
 mock lifecycle checks nor a favorable final pose prove stable standing.
+
+ADR-117 requires exact V7 actuator-only deltas, V2 standing's signed integer
+vectors and complete compiled-input validation, state/reset binding, preserved
+legacy outputs, exported native inspection identity and full7200-step equality
+to the reviewed quiet candidate. The nominal scenario leaves perturbation
+recovery, physical foot successor and compatible learned quality open.
 
 Существующие `REQ-*` и `FAIL-*` identifiers MAY оставаться в subsystem SPEC
 как editorial anchors и удобные search labels. Они:

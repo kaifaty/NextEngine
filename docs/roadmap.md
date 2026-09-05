@@ -1975,8 +1975,15 @@ but posture still oscillates. [ADR-116](architecture/adr/116-explicit-per-iterat
 now implements the same behavior as an opt-in compiled V4 profile, preserving
 old bodies/scenes. Full native traces match both controls; reference follow-up
 is rejected on foot impact / knee ROM, not accepted for training. Keep the old
-candidate as control; next work is actuator/balance discrimination and foot
-mechanics, then a separately identified training environment.
+candidate as control. [ADR-117](architecture/adr/117-quiet-upright-body-and-standing-reference.md)
+now implements the independently verified quiet candidate as opt-in BodySchema
+V7 and standing reference V2. Exact native target/effort/pose/contact correspondence
+holds for all7200 substeps; physical mass/anatomy remain those of V6. The last
+10-second nominal root/torso tilt maxima are1.304/0.182 degrees, with loaded
+flat soles. This is reusable body/control implementation, not a selected
+training environment or disturbance-recovery claim. Next work is bounded
+disturbance validation and foot mechanics, then a separately identified
+training environment; no more unchanged friction/iteration sweeps.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
