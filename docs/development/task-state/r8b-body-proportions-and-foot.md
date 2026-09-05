@@ -21,8 +21,8 @@
   isolated schema fix now discovers26 links/25DOFs; mass queries/control pass.
   [One-DOF oracle](../r8b-gain-tuner-one-dof-research-2026-09-05.md) refutes inertia/UI units; independent controls pass.
   User authorizes separate Isaac Sim6 install on RTX3080 (3090 later); no driver/training change.
-  CAD stop/cache cleanup authorized and completed; root now26GiB free, old Isaac5.1/torch imports pass.
-  Isaac6 NOT_INSTALLED: empty Python3.12 env created; torch download stopped/cleaned for space. Next approve additional cleanup (local target36GiB) or choose disk.
+  [Isaac6 installed separately](../r8b-isaac6-install-2026-09-05.md): CUDA/smoke120 steps/Gain Tuner3.5.2 load PASS; old5.1 preserved.
+  Cache/target cleanup completed; use external python.sh for local libxml2. Next one-DOF oracle on6; no auto-gain correctness/training claim.
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.
 - Initial V4 measures 170 cm stature, 86.5 cm hip, 139.65 cm shoulder,
