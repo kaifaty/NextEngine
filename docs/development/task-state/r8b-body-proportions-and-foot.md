@@ -48,8 +48,14 @@
   summed impulses 6.602703 / 6.338131 N s at substep2382 exceed the unchanged
   6 N s limit. All-zero targets instead violate knee ROM at substep1 (-12/-11
   microradians). Neither is an accepted stance. No gain or safety change.
-- Next: discriminate discrete actuator response versus global balance /
-  reference error on the new profile, then foot mechanics and a separately
+- New actuator discriminator: shoulder-yaw explicit PD generates ~24 Hz actual
+  rotations near 10 rad/s. Nearly passive shoulders remove that mode but drift
+  to ROM; gains /16 keep both shoulders within 0.008 rad for 30 s. Trunk/leg
+  oscillation remains. With the same k=2 hip feedback, left-foot impulse is
+  6.952268 N s at substep2229; termination at2232. Shoulder repair alone is not
+  the balance fix. These are newly hashed diagnostic schemas, not selected V7.
+- Next: measure coupled effort/velocity response at exactly reconstructed
+  standing states before changing torso/leg control, then foot mechanics and a separately
   identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
@@ -71,6 +77,7 @@
 7. [Reference failures and isolated TGS mechanism](../r8b-upright-reference-research-2026-09-05.md).
 8. [Implemented force-schedule profile and rejected reference follow-up](../r8b-force-schedule-profile-2026-09-05.md)
    and [ADR-116](../../architecture/adr/116-explicit-per-iteration-force-scheduling.md).
+9. [Shoulder actuator discriminator and remaining coupled response](../r8b-actuator-oscillation-discriminator-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -142,6 +149,12 @@
 - Physical foot successor remains open, not completed by the rendering fix.
   OpenSim issue185 reports the toe Izz factor-ten discrepancy but is not an
   accepted correction. Inspect source data before choosing a physical split.
+- `actuator-discriminator-01` holds unchanged, near-passive and gain-/16 traces
+  and hash-bound per-channel audits. New unchanged trace equals all original
+  per-iteration steps/hashes. Near-passive arms are rejected, and gain-/16 is
+  only a local controlled-motion candidate. Do not tune shoulders further to
+  repair the remaining leg/trunk mode. Native example test, five Python tests
+  and focused clippy/Ruff pass; no new training/body default selected.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

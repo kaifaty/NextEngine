@@ -33,9 +33,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some("per-iteration") => true,
         _ => return Err("optional force schedule must be per-iteration".into()),
     };
+    let actuator_probe = std::env::args()
+        .nth(6)
+        .unwrap_or_else(|| "unchanged".to_owned());
+    if !matches!(
+        actuator_probe.as_str(),
+        "unchanged" | "shoulder-yaw-near-passive" | "shoulder-yaw-gain-16"
+    ) {
+        return Err(
+            "actuator probe must be unchanged, shoulder-yaw-near-passive or shoulder-yaw-gain-16"
+                .into(),
+        );
+    }
     if !(-140_000..=140_000).contains(&ankle_offset)
         || !(0..=150_000).contains(&hip_offset)
-        || std::env::args().len() > 6
+        || std::env::args().len() > 7
     {
         return Err("offset bounds: ankle +/-140000; hip 0..150000 microradians".into());
     }
@@ -43,6 +55,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "5" => next_motor::biomechanics_humanoid_body_schema_v5(),
         "6" => next_motor::biomechanics_humanoid_body_schema_v6(),
         _ => return Err("expected body revision 5 or 6".into()),
+    };
+    let schema = if actuator_probe != "unchanged" {
+        shoulder_yaw_discriminator(schema, &actuator_probe)?
+    } else {
+        schema
     };
     let successor = CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16]))?;
     let compiled = &successor.base;
@@ -203,7 +220,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         serde_json::to_string(&json!({
-            "schema_version": 8, "probe": "native-body-standing-reference-and-force-schedule-v8",
+            "schema_version": 9, "probe": "native-body-standing-actuator-discriminator-v9",
+            "actuator_probe": actuator_probe,
+            "body_schema_id": schema.schema_id.as_str(),
             "reference_mode": reference_mode,
             "force_schedule": if per_iteration { "every-solver-position-iteration" } else { "frame-start" },
             "force_schedule_profile_id": per_iteration.then_some(next_motor::BIOMECHANICS_FORCE_SCHEDULE_PROFILE_ID_V1),
@@ -211,6 +230,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "hip_reference_offset_urad": hip_offset,
             "hip_feedback_gain": hip_feedback_gain,
             "ordered_actuator_ids": base.actuator_definitions.iter().map(|a| a.actuator_id.as_str()).collect::<Vec<_>>(),
+            "actuators": base.actuator_definitions.iter().zip(&base.actuator_dof_ordinals).map(|(a, dof)| json!({
+                "actuator_id": a.actuator_id.as_str(), "dof_ordinal": dof,
+                "stiffness_q16": a.stiffness_q16, "damping_q16": a.damping_q16,
+            })).collect::<Vec<_>>(),
             "body_schema_hash": base.body_schema_hash.to_hex(),
             "compiled_descriptor_hash": if per_iteration { successor.compiled_descriptor_hash } else { compiled.compiled_descriptor_hash }.to_hex(),
             "body_revision": schema.schema_revision, "reason": reason,
@@ -221,6 +244,80 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))?
     );
     Ok(())
+}
+
+/// Diagnostic input through the normal schema compiler and safety controller.
+/// The contract requires positive gains: 1 Q16 is near-passive, not zero torque.
+/// No selected body/profile or downstream effort/safety rule is changed.
+#[cfg(feature = "physx-sdk")]
+fn shoulder_yaw_discriminator(
+    mut schema: next_contracts::body::BodySchemaV2,
+    mode: &str,
+) -> Result<next_contracts::body::BodySchemaV2, Box<dyn std::error::Error>> {
+    use next_contracts::canonical::sha256;
+    use next_contracts::ids::{SchemaId, content_hash_from_bytes};
+
+    if !matches!(mode, "shoulder-yaw-near-passive" | "shoulder-yaw-gain-16") {
+        return Err("unknown shoulder-yaw discriminator".into());
+    }
+    schema.schema_id = SchemaId::new(format!("{}.{mode}", schema.schema_id.as_str()))?;
+    let mut source = format!("nextengine.probe.{mode}.v1\0").into_bytes();
+    source.extend_from_slice(schema.source_provenance_hash.as_bytes());
+    schema.source_provenance_hash = content_hash_from_bytes(sha256(&source));
+    let mut count = 0;
+    for actuator in &mut schema.actuators {
+        if actuator.joint_id.as_str().ends_with("-shoulder-yaw") {
+            if mode == "shoulder-yaw-near-passive" {
+                actuator.stiffness_q16 = 1;
+                actuator.damping_q16 = 1;
+            } else {
+                actuator.stiffness_q16 /= 16;
+                actuator.damping_q16 /= 16;
+            }
+            count += 1;
+        }
+    }
+    if count != 2 {
+        return Err("expected exactly two shoulder-yaw actuators".into());
+    }
+    schema.validate()?;
+    Ok(schema)
+}
+
+#[cfg(all(test, feature = "physx-sdk"))]
+mod tests {
+    #[test]
+    fn actuator_discriminator_changes_only_identified_shoulder_yaw_gains() {
+        let original = next_motor::biomechanics_humanoid_body_schema_v6();
+        for mode in ["shoulder-yaw-near-passive", "shoulder-yaw-gain-16"] {
+            let mut candidate = super::shoulder_yaw_discriminator(original.clone(), mode).unwrap();
+            assert_ne!(candidate.schema_id, original.schema_id);
+            assert_ne!(
+                candidate.source_provenance_hash,
+                original.source_provenance_hash
+            );
+            candidate.schema_id = original.schema_id.clone();
+            candidate.source_provenance_hash = original.source_provenance_hash;
+            let mut changed = 0;
+            for (actual, expected) in candidate.actuators.iter_mut().zip(&original.actuators) {
+                if actual != expected {
+                    assert!(actual.joint_id.as_str().ends_with("-shoulder-yaw"));
+                    let gains = if mode == "shoulder-yaw-near-passive" {
+                        (1, 1)
+                    } else {
+                        (expected.stiffness_q16 / 16, expected.damping_q16 / 16)
+                    };
+                    assert_eq!((actual.stiffness_q16, actual.damping_q16), gains);
+                    actual.stiffness_q16 = expected.stiffness_q16;
+                    actual.damping_q16 = expected.damping_q16;
+                    changed += 1;
+                }
+            }
+            assert_eq!(changed, 2);
+            assert_eq!(candidate, original);
+        }
+        assert!(super::shoulder_yaw_discriminator(original, "unknown").is_err());
+    }
 }
 
 #[cfg(not(feature = "physx-sdk"))]
