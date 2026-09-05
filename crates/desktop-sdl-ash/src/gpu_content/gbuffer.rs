@@ -480,6 +480,16 @@ impl GBufferPassState {
         self.linear_depth.image.image()
     }
 
+    pub(crate) fn motion_image(&self) -> vk::Image {
+        self.motion.image.image()
+    }
+
+    /// Scene look L4: the jittered view-projection of the frame being
+    /// recorded (set by [`Self::prepare`]).
+    pub(crate) const fn frame_view_projection(&self) -> [f32; 16] {
+        self.frame_view_projection
+    }
+
     pub(crate) fn normal_roughness_image(&self) -> vk::Image {
         self.normal_roughness.image.image()
     }

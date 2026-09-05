@@ -5,6 +5,7 @@ use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::ao::AmbientOcclusionPassState;
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
 use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState, HDR_SCENE_FORMAT};
+use crate::gpu_content::taa::TemporalAaPassState;
 use crate::gpu_content::water::WaterPassState;
 use crate::gpu_content::{
     B0_SUN_DIRECTION_INTENSITY, B0GpuContent, BufferAllocation, DepthAttachment, UiOverlayState,
@@ -60,6 +61,11 @@ pub(super) struct GraphicsContext {
     /// Scene look L3 (plan `look/03`): the ambient occlusion pass over the
     /// G-buffer prepass; `None` leaves the white placeholder bound.
     ambient_occlusion: Option<Box<AmbientOcclusionPassState>>,
+    /// Scene look L4 (plan `look/04`): the temporal resolve; `None` renders
+    /// every frame as it is.
+    temporal_aa: Option<Box<TemporalAaPassState>>,
+    /// Scene look L4: whether the option asked for the resolve.
+    temporal_aa_requested: bool,
     /// Scene look L1 (plan `look/01`): the format of the scene target the
     /// scene passes render into; the swapchain's on the fallback path.
     scene_format: vk::Format,
@@ -456,6 +462,15 @@ impl GraphicsContext {
             gbuffer.as_ref(),
             initialization.swapchain.as_ref(),
         )?;
+        let temporal_aa = create_temporal_aa_pass(
+            &instance,
+            physical_device,
+            &device,
+            b0_content.as_ref(),
+            gbuffer.as_ref(),
+            initialization.swapchain.as_ref(),
+            options.temporal_aa,
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -497,6 +512,8 @@ impl GraphicsContext {
             water,
             gbuffer,
             ambient_occlusion,
+            temporal_aa,
+            temporal_aa_requested: options.temporal_aa,
             scene_format,
             scene_exposure: HDR_EXPOSURE_FALLBACK,
             projection_jitter: options.projection_jitter,
@@ -762,8 +779,8 @@ impl GraphicsContext {
         let scene_offscreen = self.gbuffer.is_some()
             && (frame_plan.camera.is_some() || self.scene_format != swapchain.format);
         let gbuffer_this_frame = scene_offscreen && frame_plan.camera.is_some();
-        let jitter = self
-            .projection_jitter
+        // Scene look L4: the resolve needs the jitter regardless of the option.
+        let jitter = (self.projection_jitter || (self.temporal_aa.is_some() && gbuffer_this_frame))
             .then(|| projection_jitter(rendered_frame_index, swapchain.extent));
         let (scene_image, scene_view) = match self.gbuffer.as_ref() {
             Some(gbuffer) if scene_offscreen => {
@@ -1094,6 +1111,18 @@ impl GraphicsContext {
             unsafe {
                 self.device.cmd_end_rendering(frame_slot.command_buffer);
             }
+            // Scene look L4: the temporal resolve over the finished scene.
+            if gbuffer_this_frame && let Some(temporal_aa) = self.temporal_aa.as_mut() {
+                temporal_aa.record(
+                    frame_slot.command_buffer,
+                    b0_content.frame_set(frame_slot_index)?,
+                    gbuffer.scene_color_image(),
+                    gbuffer.motion_image(),
+                    gbuffer.linear_depth_image(),
+                    gbuffer.frame_view_projection(),
+                    jitter.map_or([0.0; 2], |jitter| jitter.pixels),
+                );
+            }
             gbuffer.record_scene_to_swapchain(
                 frame_slot.command_buffer,
                 swapchain.images[image_usize],
@@ -1406,6 +1435,7 @@ impl GraphicsContext {
         if let Some(content) = self.b0_content.as_ref() {
             content.bind_ambient_occlusion_placeholder();
         }
+        drop(self.temporal_aa.take());
         drop(self.ambient_occlusion.take());
         drop(self.fluid.take());
         drop(self.water.take());
@@ -1451,6 +1481,15 @@ impl GraphicsContext {
             self.b0_content.as_ref(),
             self.gbuffer.as_ref(),
             replacement.as_ref(),
+        )?;
+        self.temporal_aa = create_temporal_aa_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.b0_content.as_ref(),
+            self.gbuffer.as_ref(),
+            replacement.as_ref(),
+            self.temporal_aa_requested,
         )?;
         self.particle_surface_available =
             self.particle_surface_available || particle_surface_available;
@@ -1624,6 +1663,14 @@ impl GraphicsContext {
                 .checked_add(1)
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
         }
+        if let Some(temporal_aa) = self.temporal_aa.as_ref() {
+            bytes = bytes
+                .checked_add(temporal_aa.allocation_bytes())
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(1)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         if let Some(fluid) = self.fluid.as_ref() {
             let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
             bytes = bytes
@@ -1652,8 +1699,9 @@ impl Drop for GraphicsContext {
         unsafe {
             let _ = self.device.device_wait_idle();
             drop(self.frame_profiler.take());
-            // Scene look L3: the occlusion pass before the passes and the
-            // content it reads.
+            // Scene look L3/L4: the passes over the G-buffer before the
+            // passes and the content they read.
+            drop(self.temporal_aa.take());
             drop(self.ambient_occlusion.take());
             self.ui_overlay.teardown();
             drop(self.fluid.take());
@@ -1828,6 +1876,58 @@ pub(super) const fn hdr_chain_fallback_reason(
         Some("R16G16B16A16_SFLOAT is not a blendable sampleable colour attachment")
     } else {
         None
+    }
+}
+
+/// Scene look L4: builds the temporal resolve when the option asks for it
+/// and the prepass exists; the declared fallback prints
+/// `TEMPORAL_AA_FALLBACK` once and renders every frame as it is.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the private adapter creation boundary keeps all ownership inputs explicit"
+)]
+fn create_temporal_aa_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    b0_content: Option<&B0GpuContent>,
+    gbuffer: Option<&GBufferPassState>,
+    swapchain: Option<&SwapchainState>,
+    requested: bool,
+) -> Result<Option<Box<TemporalAaPassState>>, DesktopAdapterError> {
+    let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
+        return Ok(None);
+    };
+    if let Some(reason) =
+        crate::gpu_content::taa::temporal_aa_fallback_reason(requested, gbuffer.is_some(), true)
+    {
+        eprintln!("next_game: TEMPORAL_AA_FALLBACK: {reason}");
+        return Ok(None);
+    }
+    let Some(gbuffer) = gbuffer else {
+        return Ok(None);
+    };
+    match TemporalAaPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        swapchain.extent,
+        content.frame_layout(),
+        gbuffer.scene_color_view(),
+        gbuffer.motion_view(),
+        gbuffer.linear_depth_view(),
+    )? {
+        Ok(pass) => {
+            eprintln!(
+                "next_game: TEMPORAL_AA active blend={:.1} history=R16G16B16A16_SFLOAT",
+                1.0 - crate::gpu_content::taa::TAA_CURRENT_WEIGHT
+            );
+            Ok(Some(Box::new(pass)))
+        }
+        Err(reason) => {
+            eprintln!("next_game: TEMPORAL_AA_FALLBACK: {reason}");
+            Ok(None)
+        }
     }
 }
 

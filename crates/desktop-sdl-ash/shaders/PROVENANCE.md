@@ -284,3 +284,17 @@ multiplies into its sky irradiance. Compiled with the same pinned Linux
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o ao.frag.spv ao.frag
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o ao_blur.frag.spv ao_blur.frag
 ```
+
+## Temporal resolve suite (plan `look/04`, scene look L4)
+
+`temporal_aa` is one fragment program over the `fluid_screen` vertex
+program: the previous resolved history reprojected by the G-buffer's motion
+vectors (the sky through the previous view-projection), clipped to the
+current 3x3 neighbourhood's variance box and blended `0.9 / 0.1` with the
+jittered frame; the result is copied back into the scene target. The B0
+interface is unchanged. Compiled with the same pinned Linux `glslang`
+15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o taa.frag.spv taa.frag
+```

@@ -17,6 +17,7 @@ pub(super) struct GameOptions {
     pub(super) capture_frames: Option<u32>,
     /// Plan `continuum-water/18`: sub-pixel projection jitter.
     pub(super) projection_jitter: bool,
+    pub(super) temporal_aa_disabled: bool,
     /// Plan 25 (ADR-106): the PhysX water presentation lane over the basin.
     pub(super) physx_water: bool,
     /// Plan 24: the demo block poured onto the basin (needs `--physx-water`).
@@ -165,6 +166,11 @@ impl GameOptions {
                 "--projection-jitter" => {
                     if std::mem::replace(&mut options.projection_jitter, true) {
                         return Err(AppFailure::argument("--projection-jitter specified twice"));
+                    }
+                }
+                "--no-temporal-aa" => {
+                    if std::mem::replace(&mut options.temporal_aa_disabled, true) {
+                        return Err(AppFailure::argument("--no-temporal-aa specified twice"));
                     }
                 }
                 "--capture-png" => {

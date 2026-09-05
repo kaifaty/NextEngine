@@ -153,6 +153,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             capture,
             InteractiveSessionOptions {
                 projection_jitter: options.projection_jitter,
+                temporal_aa: !options.temporal_aa_disabled,
                 physx_water: options.physx_water,
                 physx_water_pour: options.physx_water_pour,
                 physx_water_fail_after: options.physx_water_fail_after,
@@ -205,6 +206,7 @@ fn begin_or_resume_reference_game_live(
 )]
 struct InteractiveSessionOptions {
     projection_jitter: bool,
+    temporal_aa: bool,
     physx_water: bool,
     physx_water_pour: bool,
     /// Plan 29: inject a fluid failure after this many lane frames.
@@ -222,6 +224,7 @@ fn run_interactive_session(
 ) -> Result<RunReportV1, AppFailure> {
     let InteractiveSessionOptions {
         projection_jitter,
+        temporal_aa,
         physx_water,
         physx_water_pour,
         physx_water_fail_after,
@@ -331,6 +334,7 @@ fn run_interactive_session(
                 .map(capture::CaptureRequest::adapter_request),
             scripted_input: Vec::new(),
             projection_jitter,
+            temporal_aa,
             inject_device_loss_after_frames,
             // Scene look L1 (plan `look/01`): a bounded timestamp buffer so
             // the closing report carries the GPU frame time.

@@ -63,6 +63,9 @@ pub struct DesktopRunOptions {
     /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
     /// Vulkan timestamp buffer in the same release binary.
     pub frame_profiling_sample_capacity: u32,
+    /// Scene look L4 (plan `look/04`): the temporal resolve over the plan 18
+    /// jitter and motion vectors; `false` renders every frame as it is.
+    pub temporal_aa: bool,
     /// Baseline audio device output (A4): opens the SDL playback stream with
     /// bounded unavailable/silent fallback. Disable for audio-free runs.
     pub audio_output_enabled: bool,
@@ -203,6 +206,7 @@ pub struct DesktopCapturedFrameV1 {
 impl Default for DesktopRunOptions {
     fn default() -> Self {
         Self {
+            temporal_aa: true,
             title: "Next Engine — Cooked Offline RPG Slice".to_owned(),
             initial_extent: [960, 540],
             maximum_frames: None,

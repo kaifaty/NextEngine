@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_01A_02_03_DONE / PLAN_04_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_04_DONE / ITEM_5_OR_7_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -35,7 +35,15 @@
   (full resolution read `1.7 x`, recorded); the frozen contact-band metric
   at the pad's base read `4.9 %` (fail as frozen), the avatars' contact
   `33 %`.
-- **Next:** item 4 (`look/04`, TAA on the plan 18 motion vectors)
+- **Plan 04 done (2026-09-05):** TAA on the plan 18 jitter and motion
+  vectors (variance clipping, history `0.9`, the sky through the previous
+  view-projection), `--no-temporal-aa`; no contract change, roots unchanged;
+  GPU frame time `1.10 x`; frame-to-frame difference `8.6 %` of the
+  jitter-only value.
+- **Items 1-4 (engine first, D-L01) are done.** Next by the roadmap: item 5
+  (PBR materials: mip chains, linear textures, BC compression, normal maps,
+  a glTF importer) and item 7 (post: bloom, volumetric fog, grading); item 6
+  (environment) after them.
   and 4 (TAA).
 - **Invariants.** Presentation only: no state root, checkpoint or
   command changes; captures from fixed cameras, the frame cost at

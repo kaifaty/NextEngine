@@ -33,6 +33,7 @@ const GBUFFER_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/gbuffer.
 const TONEMAP_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/tonemap.frag.spv");
 const AO_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao.frag.spv");
 const AO_BLUR_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao_blur.frag.spv");
+const TAA_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/taa.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -117,6 +118,17 @@ pub(super) fn ambient_occlusion_blur_shader_modules() -> Result<B0ShaderModules,
     Ok(B0ShaderModules {
         vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
         fragment: decode_spirv(AO_BLUR_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L4 (plan `look/04`): the temporal resolve suite.
+pub(super) fn temporal_aa_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"taa_suite\": \"temporal_aa\"") {
+        return Err("embedded temporal resolve shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(TAA_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -370,6 +382,12 @@ mod tests {
             hex(sha256(AO_BLUR_FRAGMENT_SHADER_BYTES)),
             "1c103c73fc335cbce62a1203fa35bee94d1df11b7fb5eb30300e04a00f1f930a"
         );
+        assert_eq!(
+            hex(sha256(TAA_FRAGMENT_SHADER_BYTES)),
+            "a4d50eb484f8d78e851fcf8058be7869b46a6784a19f13fa29f23e3624a2279d"
+        );
+        let temporal = temporal_aa_shader_modules().expect("checked-in temporal modules decode");
+        assert_eq!(temporal.fragment[0], SPIRV_MAGIC);
         let occlusion =
             ambient_occlusion_shader_modules().expect("checked-in occlusion modules decode");
         assert_eq!(occlusion.fragment[0], SPIRV_MAGIC);

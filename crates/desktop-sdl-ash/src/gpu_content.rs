@@ -2,6 +2,7 @@ pub(crate) mod ao;
 pub(crate) mod fluid;
 pub(crate) mod gbuffer;
 mod pipeline;
+pub(crate) mod taa;
 pub(crate) mod water;
 pub(crate) use pipeline::B0_SUN_DIRECTION_INTENSITY;
 mod resources;

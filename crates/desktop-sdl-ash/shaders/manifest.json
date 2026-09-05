@@ -416,7 +416,15 @@
       "source_sha256": "7d9f0386c6950d9d48e10dda0edec7e8430ae120368a2b6e9d72d4f927c8e28c",
       "module": "ao_blur.frag.spv",
       "module_sha256": "1c103c73fc335cbce62a1203fa35bee94d1df11b7fb5eb30300e04a00f1f930a"
+    },
+    {
+      "stage": "fragment",
+      "source": "taa.frag",
+      "source_sha256": "5c820d0aeee9da78451dfa8e930d31a0b55079bf6b6779a32891c80b35df8c58",
+      "module": "taa.frag.spv",
+      "module_sha256": "a4d50eb484f8d78e851fcf8058be7869b46a6784a19f13fa29f23e3624a2279d"
     }
   ],
-  "ao_suite": "ambient_occlusion"
+  "ao_suite": "ambient_occlusion",
+  "taa_suite": "temporal_aa"
 }
