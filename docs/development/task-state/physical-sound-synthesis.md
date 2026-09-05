@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / WINDOWED_INFERENCE_REJECTED / GENERATOR_ACOUSTIC_ERROR_CONFIRMED.
+Status: ACTIVE_GOAL / ACOUSTIC_ENDPOINT_TRAINED / NO_OVERALL_IMPROVEMENT.
 
 ## Resume in 60 seconds
 
@@ -17,18 +17,20 @@ Status: ACTIVE_GOAL / WINDOWED_INFERENCE_REJECTED / GENERATOR_ACOUSTIC_ERROR_CON
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest experiment:** [global/windowed glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/requested-comparison.wav),3.15s each,source-free,same weights/seed. Windowed inference REJECTED:
-  24records×2seeds,shape2.350→2.352,envelope1.651→1.656dB;steel0/8wins.
-  GroupNorm remote dependence exists(.13458→0),but removing it did not fix audio.
+- **Latest trained WAV:** [base/FM-only/acoustic glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/requested-comparison.wav),3.15s each,source-free. Same48TRAIN,200updates/arm,seed23.
+  Endpoint auxiliary.02 through frozen decoder;gradient.05945. Overall envelope
+  base1.650/FM1.600/acoustic1.664dB;acoustic helps steel/glass but hurts wood.
+  Not promoted.67tests/481WAV pass;both jobs terminal.72 base PCM controls exact.
+  Standalone CLI `--render-model` takes no dataset: both PCM files exact;
+  full FLOAT data exact,PEAK metadata differs. No full-file SHA equality claim.
+- **Windowed inference rejected:** shape2.350→2.352,envelope1.651→1.656dB.
+  Removing GroupNorm remote dependence(.13458→0) did not fix audio;no window sweep.
 - **DC/repeat diagnostics:** DC already increases in reference-aided codec;
-  removing event mean leaves neural envelope1.593→1.591dB. DC-only explanation fails.
-  Real-repeat moving-level error.191 vs neural1.087dB;shape1.292 vs2.350;
-  envelope-distribution W1 .234 vs1.135. Natural randomness alone is insufficient.
-  24repeat pairs,not48independent recordings;750ms diagnostics do NOT replace
-  full-event timing/perceptual validation. All3jobs terminal,227WAV/62tests pass.
+  removing event mean leaves neural envelope1.593→1.591dB. Real-repeat level.191
+  vs neural1.087,shape1.292 vs2.350. DC/randomness alone insufficient;24real pairs,
+  not48independent recordings;750ms diagnostics cannot replace full-event quality.
 - **Retained source-free baseline:** [neural/hybrid glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s,40mm/s,.5N,90mm;NO audio/sensor/surfaceID input.
   Neural+48TRAIN spectrum bank,513tap motion-gated FIR,unitDC(v2);0newweights.
-  Full decode+256sample filtertail retained;fixed latency compensation,not clockfit.
 - **Hybrid result:** `texture-hybrid-dc-2026-09-05`,complete,576cases.
   Shape neural→hybrid oak2.185→1.774,steel2.544→2.273,glass2.619→2.329dB;
   wins118/120 newcases,72/72 oldanchors. Level/onset/offset nearly retained;
@@ -85,12 +87,10 @@ Status: ACTIVE_GOAL / WINDOWED_INFERENCE_REJECTED / GENERATOR_ACOUSTIC_ERROR_CON
   wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
   Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
-- **Next:** no more EQ/tap/smoothing/gating/window-length sweeps. Inspect the
-  generator's latent-only training objective against the decoded acoustic errors.
-  Next bounded experiment should test a TRAIN-only acoustic training correction
-  with a source-free WAV and unchanged reference/repeat controls, not a metric
-  threshold change or another duration-normalization variant. A training-case
-  success alone cannot establish new-condition transfer. See latest pilot section.
+- **Next:** no EQ/window/auxiliary-weight/epoch sweeps. Distinguish target-aided
+  one-step endpoint correction from the actual noise→full-event synthesis path.
+  Test acoustic feedback through real source-free sampling on TRAIN only,keeping
+  the FM-only control,full decodes and unseen-condition evaluation. See pilot.
 
 ## Preserve these constraints
 

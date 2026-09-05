@@ -4546,3 +4546,99 @@ latent-only objective versus decoded acoustic errors and run one bounded
 TRAIN-only acoustic training correction with a source-free output and unchanged
 controls. Do not substitute sorted-envelope scores for timing/perceptual quality,
 launch another EQ/window sweep, or interpret training-case recovery as transfer.
+
+## Paired decoded-acoustic endpoint training (2026-09-05)
+
+New source-free output: [base / ordinary fine-tuning / acoustic fine-tuning](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/requested-comparison.wav>).
+Each is3.15s of requested frosted-glass friction,40mm/s,.5N,90mm,seed314,
+with the existing measured coefficient pair. No recording or sensor trace is
+passed to the generator. [Real/base/FM/acoustic](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/comparison.wav>)
+adds the actual40mm/s,.5N reference for comparison, not for inference.
+
+The prior loss optimized latent velocity MSE without a decoded-audio term.
+[WaveFM, NAACL2025](https://aclanthology.org/2025.naacl-long.110.pdf), §§3.2–3.3,
+provides primary-source precedent for endpoint prediction with auxiliary spectral
+losses in speech vocoding. That mel-conditioned waveform task is not physical
+texture generation or evidence that its gains transfer to our latent model.
+This experiment preserves our velocity parameterization and uses the algebraic
+endpoint estimate `mixed + (1-t)*predicted_velocity`; it is not a WaveFM replica.
+
+Two copies of descriptor checkpoint6d36e47c… receive200 fixed updates each:
+same existing48TRAIN records,seed23,AdamW1e-4/weight_decay1e-4,gradient clip1,
+same crop/posterior/noise/time sampling recipe. No new surfaces/records enter fit.
+The ordinary arm minimizes the original48-case velocity MSE. The acoustic arm
+adds.02 times a decoded auxiliary loss on one TRAIN case per update:
+
+- Select `step % 48`; the original prefix/random/suffix crop schedule remains.
+  Because48 is divisible by3, the auxiliary crop mode is tied to a record; the
+  full latent MSE still covers every record in every mode. This limited exposure
+  does not establish comprehensive acoustic fitting of every event phase.
+- Decode the predicted32-frame endpoint through the unchanged frozen Oobleck.
+  Backpropagation reaches the flow; first auxiliary gradient norm to predicted
+  velocity is.05944818. Codec parameters require no gradients and receive none.
+- Use a differentiable41-tap shared-band resampler, numerically checked against
+  SciPy's default `resample_poly(1,2)`. Discard fixed8-latent-frame margins for
+  this auxiliary loss only. This is not proof all codec boundary effects vanish.
+- Add absolute log-power-spectrum error at512/2048 FFT sizes, averaged in time,
+  and ordered20ms log-energy error. Spectra subtract each frame's mean; energy
+  retains DC. No per-output level normalization, phase target, development-derived
+  threshold or changed evaluation metric. Natural-log units, not reported dB.
+
+Training finishes in1.80s ordinary and11.08s acoustic after preparation; these
+times exclude source encoding,model/codec loading and evaluation. The last48
+training losses are not a fixed before/after probe because noise/time/crops vary.
+Do not claim an auxiliary training-loss improvement from those histories.
+Both162560-parameter weights and complete histories are external:
+
+- Ordinary: `81a67e05f9c5be565c4f9fe29800c1dd8761411a15ca42669719d62e4c582ea9`.
+- Acoustic: `4354345aeb9cb2860fd4f52c92f8b15fdfe1f5bef46da0868e5686dc282035f6`.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/result.json>)
+covers36 source events:20/40/60mm/s,.5/1N,new4/66/76 repeat0 and old0/65/74
+repeat1; two seeds,three arms=216 generations.40mm/s remains absent from TRAIN.
+All cases are disclosed development,not a new protected test. All72 baseline
+PCM controls reproduce the earlier surface model byte-exactly.
+
+| Scope | Moving-shape RMSE base/FM/acoustic,dB | Moving-level absolute error base/FM/acoustic,dB | Full-envelope MAE base/FM/acoustic,dB |
+|---|---|---|---|
+| Old anchors |2.3156/2.3052/2.3100 |.8430/.7510/.9765 |1.5165/1.4580/1.5592 |
+| Oak |2.1070/2.0654/2.0722 |1.7065/1.5588/1.9865 |1.7147/1.5670/1.8574 |
+| Steel |2.6661/2.6638/2.6635 |1.4788/1.6027/1.3606 |1.9572/2.0367/1.8803 |
+| Frosted glass |2.6945/2.6689/2.6634 |.8114/.8316/.7436 |1.6769/1.6218/1.5717 |
+| All |2.4024/2.3856/2.3882 |1.0876/1.0410/1.1700 |1.6497/1.5999/1.6645 |
+
+Acoustic versus ordinary wins shape29/72,level28/72,envelope28/72. On oak,
+level and envelope win0/12 each. Mean onset base/FM/acoustic is.00972/.00611/
+.01056s; uncensored offset.13833/.13200/.13967s on60 paired cases. At unseen
+speed40, envelope1.64796/1.61386/1.69210 and level1.08930/1.06877/1.20066dB:
+the auxiliary loss does not produce an overall transfer improvement. Steel/glass
+averages improve but do not authorize selecting favourable surfaces or promotion.
+
+A separate [standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-standalone-2026-09-05/requested-comparison.wav>)
+loads only saved candidate metadata/weights and the cached frozen codec, no
+dataset or source WAV. It exactly reproduces both published PCM files and every
+full FLOAT audio sample. Full FLOAT file SHA differs only in byte60 inside the
+RIFF PEAK metadata chunk, not the data chunk; each file's own receipt is valid.
+No metadata rewriting or audio regeneration was used to force matching hashes.
+
+Run `lab/.venv/bin/python lab/scripts/physical_sound_texture_acoustic.py --lab-root
+ROOT --output NEW_EXTERNAL` for the paired fit/evaluation. `--evaluate-model MODEL`
+reuses saved weights with0updates. `--render-model MODEL --output NEW_EXTERNAL`
+requires no `--lab-root` and renders the fixed requested glass profile. It rejects
+dataset/evaluation arguments,incorrect48-TRAIN identity,codec/parent identity,
+weight hash/size and invalid tensors. Existing surface/demo loaders are unchanged.
+
+Both jobs terminal.67 focused tests,Ruff format/check,481 WAV receipt/layout/
+finite/headroom checks pass. Current model reloads and all72 baseline controls
+verified; FLOAT sample equality distinguished from container-byte equality.
+No perceptual admission,Cargo/host-check,ProductCheck,engine/demo or roadmap change.
+
+Decision: keep both candidates as report-only evidence,not an overall upgraded
+model. Do not sweep auxiliary weights,training duration or decoder windows from
+these results. The penalty acts on a target-aided one-step endpoint during fit,
+whereas inference follows64 midpoint steps from independent noise. A remaining
+testable explanation is that correcting these endpoints does not correct the
+actual generated distribution; this is a hypothesis,not established causation.
+Next test acoustic feedback through actual source-free sampling on TRAIN only,
+retaining the ordinary-fit control,full decodes and unchanged new-condition
+evaluation. No conclusion that all acoustic losses fail or the goal is complete.
