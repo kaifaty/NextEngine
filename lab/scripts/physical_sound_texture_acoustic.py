@@ -1,4 +1,4 @@
-"""Paired TRAIN-only acoustic endpoint fine-tuning of the existing texture flow.
+"""Paired TRAIN-only endpoint or full-sampler acoustic texture fine-tuning.
 
 Report-only, fixed rubber probe. Source-free full-event inference is unchanged.
 Eguchi et al./CC BY4; Powered by Stability AI/TangoFlux. Auxiliary endpoint-loss
@@ -25,6 +25,39 @@ event, flow = surface.event, surface.flow
 STEPS = 200
 WEIGHT = 0.02
 FORMAT = "texture-acoustic-endpoint-v1"
+SAMPLED_FORMAT = "texture-acoustic-full-sampler-v1"
+
+
+def candidate_arm(model_format):
+    if model_format == FORMAT:
+        return "acoustic"
+    if model_format == SAMPLED_FORMAT:
+        return "sampled"
+    raise ValueError("unknown acoustic experiment format")
+
+
+def sampled_latent(model, physical, seed):
+    """Differentiable existing64-midpoint sampler: conditions/noise only."""
+    surface.validate_features(physical)
+    frames = physical.shape[-1]
+    if type(seed) is not int or not 0 <= seed < 2**32 or not 32 <= frames <= 256:
+        raise ValueError("bounded latent length and seed required")
+    device = next(model.parameters()).device
+    controls = torch.tensor(physical[None], device=device)
+    x = torch.randn(
+        (1, 64, frames),
+        generator=torch.Generator(device=device).manual_seed(seed),
+        device=device,
+    ).repeat(1, 1, 1)
+    for step in range(64):
+        t = torch.full((1,), step / 64, device=device)
+        first = model(x, t, controls)
+        second = model(x + first / 128, t + 1 / 128, controls)
+        x = x + second / 64
+    latent = x * model.scale + model.center
+    if not torch.isfinite(latent).all():
+        raise ValueError("nonfinite differentiable sample")
+    return latent
 
 
 def shared_band(wave):
@@ -79,7 +112,7 @@ def training_records(records):
     return selected
 
 
-def fit(model, vae, records, acoustic, output, report):
+def fit(model, vae, records, acoustic, output, report, *, sampled=False):
     training = training_records(records)
     device = next(model.parameters()).device
     torch.manual_seed(23)
@@ -114,14 +147,20 @@ def fit(model, vae, records, acoustic, output, report):
         values = {"step": step + 1, "fm": float(fm_loss.detach())}
         if acoustic:
             index = step % len(training)
-            predicted = endpoint(
-                mixed[index : index + 1],
-                prediction[index : index + 1],
-                t[index : index + 1],
-            )
-            latent = predicted * model.scale + model.center
-            decoded = vae.decode(latent).sample
             start = starts[index] * flow.HOP
+            if sampled:
+                # Dedicated RNG does not change the paired FM minibatch sequence.
+                latent = sampled_latent(model, training[index]["physical"], 607 + step)
+                full = vae.decode(latent).sample
+                decoded = full[:, :, start : start + 32 * flow.HOP]
+            else:
+                predicted = endpoint(
+                    mixed[index : index + 1],
+                    prediction[index : index + 1],
+                    t[index : index + 1],
+                )
+                latent = predicted * model.scale + model.center
+                decoded = vae.decode(latent).sample
             truth = torch.tensor(
                 training[index]["wave"][start : start + 32 * flow.HOP].T[None],
                 device=device,
@@ -129,16 +168,20 @@ def fit(model, vae, records, acoustic, output, report):
             parts = acoustic_parts(decoded, truth)
             auxiliary = parts["spectrum"] + parts["envelope"]
             if step == 0:
-                grad = torch.autograd.grad(auxiliary, prediction, retain_graph=True)[0]
+                destination = model.output.weight if sampled else prediction
+                grad = torch.autograd.grad(auxiliary, destination, retain_graph=True)[0]
                 norm = float(grad.norm())
                 if not np.isfinite(norm) or norm <= 0:
                     raise ValueError("missing finite acoustic gradient to flow")
-                report["acoustic_gradient_to_velocity_norm"] = norm
+                name = "output_weight" if sampled else "velocity"
+                report[f"acoustic_gradient_to_{name}_norm"] = norm
             loss = loss + WEIGHT * auxiliary
             values.update({k: float(v.detach()) for k, v in parts.items()})
             values.update(
                 acoustic_training_id=training[index]["row"]["id"], t=float(t[index])
             )
+            if sampled:
+                values.update(sampler_seed=607 + step, sampled_frames=latent.shape[-1])
         if not torch.isfinite(loss):
             raise ValueError("nonfinite training loss")
         optimizer.zero_grad()
@@ -151,7 +194,7 @@ def fit(model, vae, records, acoustic, output, report):
         optimizer.step()
         history.append({**values, "gradient_norm": float(norm)})
         if (step + 1) % 20 == 0:
-            name = "acoustic" if acoustic else "fm_only"
+            name = ("sampled" if sampled else "acoustic") if acoustic else "fm_only"
             report["training_progress"] = {
                 "arm": name,
                 "step": step + 1,
@@ -168,14 +211,14 @@ def load_candidates(directory, parent):
     if path.stat().st_size > 200000:
         raise ValueError("oversized model metadata")
     meta = json.loads(path.read_text())
+    candidate = candidate_arm(meta["format"])
     expected = {
         r["id"]
         for r in surface.source.conditions(True, {t: str(t) for t in surface.SURFACES})
         if surface.role(r) == "train"
     }
     if (
-        meta["format"] != FORMAT
-        or meta["parent"] != parent
+        meta["parent"] != parent
         or meta["steps_per_arm"] != STEPS
         or meta["acoustic_weight"] != WEIGHT
         or len(meta["training_ids"]) != 48
@@ -188,7 +231,7 @@ def load_candidates(directory, parent):
     ):
         raise ValueError("incompatible acoustic experiment")
     models = {}
-    for arm in ("fm_only", "acoustic"):
+    for arm in ("fm_only", candidate):
         path = directory / f"{arm}.safetensors"
         if (
             path.stat().st_size > 4_000_000
@@ -320,12 +363,12 @@ def evaluate(models, vae, records, output, report):
     report["comparison"], _ = flow.codec.publish(
         output / "comparison.wav", np.concatenate(preview)
     )
-    report["comparison_order"] = (
-        "frosted glass40mm/s,.5N,seed314: real/base/fm_only/acoustic"
+    report["comparison_order"] = "frosted glass40mm/s,.5N,seed314: real/" + "/".join(
+        models
     )
 
 
-def run(root, output, existing=None):
+def run(root, output, existing=None, *, sampled=False):
     torch.set_num_threads(4)
     root = root.resolve()
     source = root / "cluster-surface-transfer-grid-2026-09-05" / "result.json"
@@ -338,7 +381,7 @@ def run(root, output, existing=None):
     output = flow.fresh(output)
     report = {
         "status": "running",
-        "scope": "paired TRAIN-only acoustic endpoint correction; not quality admission",
+        "scope": "paired TRAIN-only acoustic correction; not quality admission",
         "source_sha256": flow.codec.sha(source),
         "requested": {},
         "rows": [],
@@ -346,6 +389,21 @@ def run(root, output, existing=None):
     }
     flow.save(output / "result.json", report)
     try:
+        if sampled:
+            profile, _ = event.profile()
+            physical = surface.features(
+                "Glass", 0.4, 0.38, profile[3] * 20 + 40, profile[4] * 0.25 + 0.75
+            )
+            actual = sampled_latent(parents["descriptor"], physical, 607)
+            expected = flow.sample_features(
+                parents["descriptor"], physical[None], 607, physical.shape[-1]
+            )
+            report["sampler_forward_max_absolute_delta"] = float(
+                (actual.detach() - expected).abs().max()
+            )
+            torch.testing.assert_close(actual.detach(), expected, rtol=1e-5, atol=1e-6)
+            del actual, expected
+            flow.save(output / "result.json", report)
         records, _, _ = event.prepare(
             source,
             vae,
@@ -359,7 +417,7 @@ def run(root, output, existing=None):
             models.update(candidates)
         else:
             meta = {
-                "format": FORMAT,
+                "format": SAMPLED_FORMAT if sampled else FORMAT,
                 "parent": parent_meta,
                 "steps_per_arm": STEPS,
                 "acoustic_weight": WEIGHT,
@@ -367,9 +425,17 @@ def run(root, output, existing=None):
                 "learning_rate": 1e-4,
                 "training_ids": [r["row"]["id"] for r in training_records(records)],
             }
-            for arm in ("fm_only", "acoustic"):
+            for arm in ("fm_only", "sampled" if sampled else "acoustic"):
                 model = copy.deepcopy(models["base"])
-                history = fit(model, vae, records, arm == "acoustic", output, report)
+                history = fit(
+                    model,
+                    vae,
+                    records,
+                    arm != "fm_only",
+                    output,
+                    report,
+                    sampled=sampled,
+                )
                 path = output / f"{arm}.safetensors"
                 save_file(model.state_dict(), path)
                 meta[arm] = {"sha256": flow.codec.sha(path), "history": history}
@@ -396,12 +462,15 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--evaluate-model", type=Path)
     parser.add_argument("--render-model", type=Path)
+    parser.add_argument("--sampled-loss", action="store_true")
     args = parser.parse_args()
     if args.render_model:
-        if args.lab_root or args.evaluate_model:
+        if args.lab_root or args.evaluate_model or args.sampled_loss:
             parser.error("standalone rendering takes no dataset/evaluation inputs")
         render(args.render_model, args.output)
     elif args.lab_root:
-        run(args.lab_root, args.output, args.evaluate_model)
+        if args.sampled_loss and args.evaluate_model:
+            parser.error("evaluation uses the saved objective, not --sampled-loss")
+        run(args.lab_root, args.output, args.evaluate_model, sampled=args.sampled_loss)
     else:
         parser.error("--lab-root or --render-model required")

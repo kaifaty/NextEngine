@@ -34,6 +34,30 @@ class AcousticTests(unittest.TestCase):
         mixed = noise * (1 - t[:, None, None]) + target * t[:, None, None]
         torch.testing.assert_close(acoustic.endpoint(mixed, target - noise, t), target)
 
+    def test_differentiable_sampler_matches_inference_and_backpropagates(self):
+        model = acoustic.flow.TextureFlow(7).eval()
+        torch.nn.init.normal_(model.output.weight, std=0.01)
+        for frames in (32, 68):
+            physical = acoustic.surface.features(
+                "Glass", 0.4, 0.38, np.full(frames, 40), np.full(frames, 0.5)
+            )
+            expected = acoustic.flow.sample_features(model, physical[None], 607, frames)
+            actual = acoustic.sampled_latent(model, physical, 607)
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+            model.zero_grad()
+            actual.square().mean().backward()
+            self.assertTrue(torch.isfinite(model.output.weight.grad).all())
+            self.assertGreater(float(model.output.weight.grad.norm()), 0)
+        for seed in (-1, 2**32, 3.0):
+            with self.assertRaises(ValueError):
+                acoustic.sampled_latent(model, physical, seed)
+
+    def test_objective_identity_is_explicit(self):
+        self.assertEqual(acoustic.candidate_arm(acoustic.FORMAT), "acoustic")
+        self.assertEqual(acoustic.candidate_arm(acoustic.SAMPLED_FORMAT), "sampled")
+        with self.assertRaises(ValueError):
+            acoustic.candidate_arm("unknown")
+
     def test_loss_detects_gain_without_normalizing_it_away(self):
         wave = torch.randn(1, 2, 65536) * 0.01
         equal = acoustic.acoustic_parts(wave, wave)

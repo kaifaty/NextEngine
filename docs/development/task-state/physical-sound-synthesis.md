@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / ACOUSTIC_ENDPOINT_TRAINED / NO_OVERALL_IMPROVEMENT.
+Status: ACTIVE_GOAL / FULL_SAMPLER_TRAINED / ACOUSTIC_CORRECTIONS_NOT_PROMOTED.
 
 ## Resume in 60 seconds
 
@@ -17,10 +17,10 @@ Status: ACTIVE_GOAL / ACOUSTIC_ENDPOINT_TRAINED / NO_OVERALL_IMPROVEMENT.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest trained WAV:** [base/FM-only/acoustic glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/requested-comparison.wav),3.15s each,source-free. Same48TRAIN,200updates/arm,seed23.
-  Endpoint auxiliary.02 through frozen decoder;gradient.05945. Overall envelope
-  base1.650/FM1.600/acoustic1.664dB;acoustic helps steel/glass but hurts wood.
-  Not promoted.67tests/481WAV pass;both jobs terminal.72 base PCM controls exact.
+- **Latest trained WAV:** [base/FM-only/full-sampler glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/requested-comparison.wav),3.15s each,source-free. Same48TRAIN,200updates/arm,seed23.
+  Full64-step gradient,weight.02;sampler parity exact,gradient1.63347. Envelope
+  base1.650/FM1.600/sampled1.627dB;helps wood,hurt steel/glass. Endpoint arm1.664.
+  Neither promoted.69tests/481WAV pass;both jobs terminal.144 old PCM controls exact.
   Standalone CLI `--render-model` takes no dataset: both PCM files exact;
   full FLOAT data exact,PEAK metadata differs. No full-file SHA equality claim.
 - **Windowed inference rejected:** shape2.350→2.352,envelope1.651→1.656dB.
@@ -87,10 +87,10 @@ Status: ACTIVE_GOAL / ACOUSTIC_ENDPOINT_TRAINED / NO_OVERALL_IMPROVEMENT.
   wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
   Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
-- **Next:** no EQ/window/auxiliary-weight/epoch sweeps. Distinguish target-aided
-  one-step endpoint correction from the actual noise→full-event synthesis path.
-  Test acoustic feedback through real source-free sampling on TRAIN only,keeping
-  the FM-only control,full decodes and unseen-condition evaluation. See pilot.
+- **Next:** after endpoint+full-sampler corrections fail overall,run bounded
+  research before another fit. Inspect signed level errors/gradient clustering
+  by material: common gain drift vs conditional mismatch vs limited descriptors.
+  No EQ/window/auxiliary-weight/epoch sweeps;keep full goal and repeat controls.
 
 ## Preserve these constraints
 

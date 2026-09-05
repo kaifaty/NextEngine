@@ -4642,3 +4642,64 @@ actual generated distribution; this is a hypothesis,not established causation.
 Next test acoustic feedback through actual source-free sampling on TRAIN only,
 retaining the ordinary-fit control,full decodes and unchanged new-condition
 evaluation. No conclusion that all acoustic losses fail or the goal is complete.
+
+## Full-sampler acoustic correction countercheck (2026-09-05)
+
+[New source-free WAV comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/requested-comparison.wav>):
+base/FM-only/full-sampler,3.15s each,glass40mm/s,.5N,90mm,seed314. The new arm
+backpropagates through the actual64-midpoint noise→latent integration and one
+full-length frozen codec decode. No target/posterior enters that sampler; the
+existing48-case latent FM regularizer still uses TRAIN posteriors normally.
+
+The added sampler has exact forward equality to existing inference in CPU tests
+and the actual CUDA preflight (maximum latent difference0). First acoustic
+gradient norm to the flow's output weight is1.6334659; this is a different
+derivative destination from the earlier endpoint's velocity-output gradient.
+Keep the same200updates,48TRAIN,seed23,learning rate1e-4 and auxiliary weight.02.
+Sampler noise uses dedicated seeds607..806,not evaluation seeds,without consuming
+the FM minibatch RNG. The ordinary-control weights reproduce SHA81a67e05… exactly.
+
+Although generation covers the full event, the auxiliary loss still uses the
+same32-frame selected interval and8-frame margins as the endpoint experiment;
+no new loss/window/threshold is fitted. The record-linked crop-mode limitation
+also remains. Thus this tests feedback through real generation,not comprehensive
+full-event acoustic supervision or an isolated change of a single tensor.
+History `t` is the regularizer's sampled FM time; the auxiliary sampler always
+traverses all64 steps. The sampled arm finishes200updates in107.67s after
+preparation. CUDA emitted one allocation/OOM warning but continued to completion:
+no exception, restart, gradient truncation or reduction of event length occurred.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/result.json>)
+is the unchanged36-event/two-seed/three-arm set. All144 base/FM-only PCM controls
+match the prior endpoint experiment byte-for-byte. New checkpoint SHA256:
+`2dc305b20cf1ae8054f915823b63efd64ce3f087cca8df9ffbbe3a0ca9039a02`.
+
+| Scope | Shape RMSE FM→sampled,dB | Level absolute error FM→sampled,dB | Full-envelope MAE FM→sampled,dB |
+|---|---|---|---|
+| Old anchors |2.3052→2.3405 |.7510→.8033 |1.4580→1.4491 |
+| Oak |2.0654→2.0589 |1.5588→1.2299 |1.5670→1.4130 |
+| Steel |2.6638→2.6845 |1.6027→1.8748 |2.0367→2.2221 |
+| Frosted glass |2.6689→2.7070 |.8316→1.3483 |1.6218→1.7772 |
+| All |2.3856→2.4120 |1.0410→1.1438 |1.5999→1.6266 |
+
+Onset .00611→.00556s and uncensored offset .13200→.13100s do not compensate for
+the spectrum/level regressions. This arm helps wood and hurts steel/glass, the
+opposite broad tradeoff from endpoint correction. Neither is an overall upgrade.
+This does not prove all acoustic losses fail or that descriptor insufficiency
+alone causes the error. No favourable-surface promotion or demo replacement.
+
+Reproduce the new fit with existing script `physical_sound_texture_acoustic.py
+--lab-root ROOT --sampled-loss --output NEW_EXTERNAL`. Metadata format
+`texture-acoustic-full-sampler-v1` explicitly selects the sampled arm; old endpoint
+metadata remains supported. `--render-model MODEL --output NEW_EXTERNAL` takes
+neither dataset nor objective override. The [standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-standalone-2026-09-05/requested-comparison.wav>)
+reproduces both PCM files and all full FLOAT samples exactly (not a container-SHA
+claim).69 focused tests,Ruff,481 WAV SHA/layout/finite/headroom checks pass;
+all jobs terminal. No runtime/roadmap/Cargo/ProductCheck change.
+
+Two completed acoustic corrections now fail the overall criterion. Before
+another fit, run bounded research on competing explanations: signed global-level
+drift versus material-conditioned error, gradient interference, and limited
+physical descriptors. Inspect existing per-material errors and TRAIN gradients
+with successful controls; do not start an auxiliary-weight/epoch/window sweep.
+The broad both-materials/geometry/water/rain objective remains active.
