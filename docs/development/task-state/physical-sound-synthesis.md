@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FRICTION_CODEC_FEASIBLE / CONDITIONAL_LATENT_GENERATOR_NEXT.
+Status: ACTIVE_GOAL / CONDITIONAL_FRICTION_GENERATED / COMPLETE_EVENT_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,22 +17,22 @@ Status: ACTIVE_GOAL / FRICTION_CODEC_FEASIBLE / CONDITIONAL_LATENT_GENERATOR_NEX
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest audible friction:** [codec real/mean/sample](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-codec-controls-2026-09-05/comparison.wav),36s,
-  reference-AIDED,24 original TRAIN,clean/main/machine. Sharedgain17.374337221633088
-  from full TRAIN peaks improves clean mean level MAE.924→.251dB,shape2.647→1.943.
-  Speed direction16/18mean,17/18sample;load12/12both. Machine responses survive too,
-  not a quality judge. Codec feasible, not new generation. Full decodes retained.
-- **Source-free controls:** [speed](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/speed-comparison.wav)/[load](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/load-comparison.wav),20.25s each,
-  existing rank4 weights,15two-second WAVs;knownwood/steel/glass,fixedrubberprobe.
-  25/40/55mm/s at.75N or.5/.75/1N at40mm/s,seed314,gain100,no audio input/newtraining.
-  Unrecorded25/55/.75 illustrations are not verified physical generalization.
-- **Signal audit:** `epic-impact-signal-summary-2026-09-05` corrects preview assembly
-  only; original477-case report/100WAVs retained.154TRAIN×3sigma FP32 plus15 BF16
-  controls. Attack/body improve.000525/.000507; padded tail worsens.00000674.
-  Correct condition beats ALL wrong only73/462 attack,77/459 body. Silence-learning
-  hypothesis contradicted; no new attack/tail-weight sweep. FP32/BF16 same15-case
-  rank1 counts2/15 attack,3/15 body: no precision rescue or precision-training sweep.
-  Source-aided one-step preview is diagnosis, NOT source-free generation.
+- **Latest learned friction:** [real/flow/rank4/interpolation/codec](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-flow-legacy-roles-2026-09-05/comparison.wav),29.791s;
+  [standalone rubber/glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-flow-glass-standalone-2026-09-05/generated.wav),.743s,40mm/s,.5N,seed314,NO reference input.
+  162432params,2000updates,24TRAIN,seed23,frozenOobleck32frames/16core/8context.
+  Inputgain17.374337221633088,commonplayback5.755615234375. Full decodes retained.
+- **Friction result:**40mm/s spectrum flow2.415/old2.337dB;repeat1 2.207/2.164.
+  Correct material/speed beat wrong72/72dev×seed;load61/72,but old spectrum wins47/72.
+  `bandmatched-analysis.json` is decisive:22.05kHz level MAE40mm/s .490vsold1.033;
+  envelope ACF.282vs.297 (small),CV worse. Native4dB/temporal wins confound bandwidth.
+  Shared-band repeat1 speed slope MAE.570vsold.442,load.402vs.365. No overall win.
+- **Friction guards:** oldrank4 lacks heldout field; validate original60-row roles.
+  First preflight failed before training; keep it. CLI/batch PCM not bit-exact:
+  maxdiff.000256,RMS.0000495. No epoch/width/seed sweep from mixed scores.
+- **Impact signal:** `epic-impact-signal-summary-2026-09-05`,477cases/100WAV retained.
+  Attack/body improve,tail worsens: silence-learning contradicted,no weight sweep.
+  FP32/BF16 same15-case rank1 2/15attack,3/15body:no precision-training rescue.
+  Source-aided one-step preview is NOT source-free generation; details in note.
 - **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
   source154TRAIN/19participants,10240params/200updates,113distinctexposures;
   wood/glass excluded,same7dev/P04/P07. Not isolated data-count effect. All14 cases
@@ -83,12 +83,12 @@ Status: ACTIVE_GOAL / FRICTION_CODEC_FEASIBLE / CONDITIONAL_LATENT_GENERATOR_NEX
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** one small physical-conditioned latent sequence generator with frozen
-  Oobleck,same24TRAIN/sharedgain17.3743,source-free WAVs in same checkpoint. Evaluate
-  already-open40mm/s/repeat1 development against spectrum/interpolation and codec
-  ceiling; temporal/paired-response/wrong-condition checks, all failures retained.
-  No new source/plan package, stationary-PSD/PCA or EPIC bridge/prompt sweeps.
-  See latest codec section in pilot note; preserve commanded/measured distinction.
+- **Next:** complete start/slide/stop friction event, not another stationary fit.
+  Verify source clock alignment and speed/load-onset/offset relation on existing
+  TRAIN full audio/position/force. If supported, extend SAME generator with timed
+  physical conditions and publish full event; don't invent synchronization.
+  Retain shared-band and wrong-condition checks. No new plan package or PSD/EPIC
+  sweeps. See latest flow section in pilot note; full multi-event goal stays open.
 
 ## Preserve these constraints
 
@@ -97,7 +97,7 @@ Status: ACTIVE_GOAL / FRICTION_CODEC_FEASIBLE / CONDITIONAL_LATENT_GENERATOR_NEX
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest checkpoint adds codec/control WAVs;
+  not replace the audible deliverable. Latest checkpoint adds learned flow WAVs;
   supporting-only debt is zero. Keep the full multi-event goal.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)

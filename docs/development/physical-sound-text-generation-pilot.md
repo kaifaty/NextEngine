@@ -3935,3 +3935,112 @@ and the reference-aided codec ceiling. Keep temporal and paired-response errors,
 wrong-condition controls and all failures. Do not resume stationary-PSD/PCA,
 EPIC prompt/bridge or precision/attack-weight sweeps. A new latent model must
 produce playable WAVs in the same checkpoint; no separate planning package.
+
+## First physical-conditioned latent friction generator (2026-09-05)
+
+[New learned friction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-flow-legacy-roles-2026-09-05/comparison.wav>)
+is29.791seconds: wood/steel/glass,.5/1N,40mm/s,repeat0,seed314; each group plays
+real -> new flow -> old rank4 spectrum -> interpolation -> reference-aided codec.
+[Standalone rubber-on-glass generation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-flow-glass-standalone-2026-09-05/generated.wav>)
+is.743seconds. Unlike the earlier codec diagnostic, this branch consumes only
+model weights, known surface, commanded speed/load and seed, not source audio.
+
+`physical_sound_texture_flow.py` trains a162432-parameter conditional sequence
+model:64-channel input/output convolutions, four residual convolution blocks,
+physical/time conditioning. The method follows the linear noise-to-data path
+and velocity-regression construction in
+[Lipman et al., Flow Matching, v2,8February2023, sections3–4](https://arxiv.org/html/2210.02747v2).
+This is a small friction implementation, not a reproduction of the paper's
+ImageNet results or evidence of universal physical synthesis.
+
+The same24 TRAIN scans are used, repeat0 at20/30/50/60mm/s.40mm/s and repeat1
+remain excluded from fitting; all60 were already disclosed development. The
+frozen encoder reads full clean recordings. Each target is32 native64-dimensional
+latent frames around central travel, with8frames of real context on each side
+of a16-frame scored core. Alignment is snapped to the2048-sample codec grid;
+the exact source core is32768samples/.74303855seconds, not the old.75s window.
+No context padding enters these targets. Full1.486s generated decodes are kept.
+Encoder/decoder weights and shared input gain17.374337221633088 are unchanged.
+
+TRAIN-only per-channel center/scale include posterior variance; there is no
+per-recording amplitude normalization.2000full-batch AdamW updates,lr.001,
+weight decay.0001,gradient cap1,seed23,FP32. Each update draws fresh posterior
+and Gaussian noise samples. Generation uses64 explicit-midpoint steps and
+common initial noise across conditions, seeds314/2718; neither source posterior
+nor waveform enters generation. No best-checkpoint/seed/capacity selection.
+Loss-window mean decreases1.69960 ->1.21357. Training+preparation18.77seconds,
+whole run35.31seconds. Model653728bytes,SHA256
+`86526a73fb488eb913be9f561b18bf484aa52b36b5b388d7f707b9c8f746ebbe`.
+
+The initial `texture-conditional-flow-2026-09-05` failed before training because
+old rank4 metadata predates `heldout_speed_mm_s`. It remains untouched. The
+corrected preflight verifies the original complete60-row report, its model
+identity and every TRAIN/development role instead of inventing a default.
+Only the corrected run trained. It records the verified baseline-report hash.
+
+All comparison PCM uses a common playback gain5.755615234375 after the codec
+input gain: equivalent to100times original digital amplitude. No individual
+gain, waveform time alignment, onset selection or equalization. This is not
+calibrated SPL. Spectrum metrics use the shared22.05kHz mono band; the original
+native-level/temporal summaries compare44.1kHz flow against a22.05kHz baseline.
+Therefore `bandmatched-analysis.json` separately verifies the unchanged PCM
+hashes and recomputes level/envelope/paired responses in the shared band. The
+initial report is preserved; no model or output was refitted after this check.
+
+| Disclosed evaluation | Flow | Old rank4 | Interpolation |
+|---|---:|---:|---:|
+|40mm/s spectrum RMSE,dB |2.41463 |2.33733 |2.41908 |
+|repeat1 other speeds spectrum RMSE,dB |2.20725 |2.16442 |2.11538 |
+|40mm/s shared-band level MAE,dB |.49008 |1.03316 |1.34150 |
+|repeat1 other speeds shared-band level MAE,dB |.45036 |.76100 |.61314 |
+|40mm/s shared-band envelope ACF MAE |.28228 |.29697 |.30619 |
+|repeat1 other speeds shared-band envelope ACF MAE |.27865 |.28961 |.28387 |
+
+Envelope ACF compares four25–100ms lags; it is a short-clip diagnostic, not a
+perceptual judge. Envelope-CV error is worse for flow than the old spectrum
+model (.02606 vs.02209 at40mm/s). Native-band claims of a large4dB level or
+large temporal advantage are not the fair comparison. DC is not the main
+explanation: mean source DC energy fraction.00443 versus flow.01819.
+The new model has more audible bandwidth; isolate that from learned temporal
+or physical-response improvements.
+
+Across the36 development recordings×2seeds, correct material and correct speed
+each beat their wrong-condition controls in72/72 spectrum comparisons; correct
+load in61/72. Wrong material rotates the surface ID, wrong speed selects the
+opposite20/60 endpoint, wrong load swaps.5/1N. These are known-condition controls,
+not unseen surfaces or independent naturalness validation. Repeated recordings
+receive the same generation for the same condition/seed;72 is not72 independent
+generated cases. Against the old spectrum model flow wins only25/72 overall
+spectrum comparisons (8/24 at40mm/s,17/48 at repeat1 other speeds).
+
+Shared-band repeat1 paired speed direction: flow40/48,old42/48,interpolation42/48;
+delta MAE.570/.442/.520dB. Load direction30/30all,delta MAE.402/.365/.294dB.
+Thus correct-vs-wrong association does NOT establish better fine physical slopes.
+Reference-aided cropped-latent codec spectrum RMSE1.98281 over all60 versus
+flow's2.21–2.41 development range leaves a generation gap, not codec failure.
+
+The standalone CLI and batched evaluation use identical model/seed/conditions
+but are not byte-exact: max PCM difference.00025618,RMS.00004954 in the glass
+control. Keep both artifacts; no cross-batch bit-replay claim. Focused tests
+forbid source reads during sampling and allow only newly generated PCM reads
+during the standalone path. Reproduce with `physical_sound_texture_flow.py
+--corpus GRID/result.json --baseline OLD_RANK4 --output NEW_EXTERNAL`, or
+`--model FLOW_RUN --texture 74 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+
+30 focused tests pass; Ruff lint/format,diff/local links and543 new WAV
+identity/layout/rate/finiteness/headroom checks pass. All processes terminal.
+Source/codec notices stay external with media/weights. No engine audition,
+Cargo/ProductCheck,runtime/demo/roadmap changes or promotion. This is a real
+new source-free learned model with partially successful physical conditioning,
+not achievement of the full multi-material/multi-event goal.
+
+Next: retain the model as an experimental control, not a replacement. Move from
+stationary.743s cores to a complete start/slide/stop event using the existing
+full recordings and force/position traces. First verify source clock alignment
+and whether measured speed/load explain onset/offset on TRAIN; do not invent
+sensor/audio synchronization. If supported, extend this same generator with
+time-varying physical conditions and publish a complete event in that checkpoint.
+Do not respond to the mixed spectrum scores with an epoch/width/seed sweep or
+erase the shared-band countercheck. Other probe materials, shape/size, impacts,
+rolling/destruction,water/rain and engine integration remain separate missing
+parts of the original full goal, not removed success criteria.
