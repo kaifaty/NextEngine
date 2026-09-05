@@ -1984,6 +1984,11 @@ flat soles. This is reusable body/control implementation, not a selected
 training environment or disturbance-recovery claim. Next work is bounded
 disturbance validation and foot mechanics, then a separately identified
 training environment; no more unchanged friction/iteration sweeps.
+A [reviewed foot-input audit](development/r8b-foot-successor-inputs-research-2026-09-05.md)
+now closes the source2023 check: its toe inertia is planar at engine precision,
+and the current box ends45.718 mm behind the source visual toe tip. An articulated
+successor needs an explicit finite-volume mass/inertia and contact projection;
+no new foot or training profile is implemented by this audit.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

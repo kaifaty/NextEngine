@@ -90,6 +90,12 @@
   checks and a separately identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
+- Foot input audit now independently closed: upstream2016/2023 toe inertia
+  becomes planar [100,1100,1000] micro kg m², not a finite-thickness repair.
+  Source toe COM is3.4 mm past the current box front; visual toes reach45.718 mm
+  past it. Do not simply partition the old box. Next: finite-volume articulated
+  proxy with explicit inertia projection, bilateral native support controls
+  and anatomical foot impact aggregation (existing6 Ns limit is per pair).
 
 ## Required context
 
@@ -117,6 +123,7 @@
     and [quiet upright hip reference](../r8b-hip-rate-feedback-discriminator-2026-09-05.md).
 13. [Implemented V7/standing V2](../r8b-body-v7-upright-profile-2026-09-05.md)
     and [ADR-117](../../architecture/adr/117-quiet-upright-body-and-standing-reference.md).
+14. [Reviewed foot source/geometry inputs and successor constraints](../r8b-foot-successor-inputs-research-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -142,7 +149,7 @@
   setMassSpaceInertiaTensor path was inspected in pinned 5.9.0 source.
 - Source toes have a non-realizable diagonal inertia; do not copy it into a
   new dynamic MTP link. Current merged foot tensors pass that elementary
-  check. Source 2023 correction/proxy derivation remains to be examined.
+  check. Source2023 audit is complete (report14); finite-volume proxy remains.
 - Success oracle for physical successor: loaded flat support, controlled
   heel rise, release/re-contact and bilateral symmetry, original safety;
   later learned quality needs a new compatible generation.
@@ -187,7 +194,8 @@
 - Initial previews and failed CLI artifact retained externally; use audit-04.
 - Physical foot successor remains open, not completed by the rendering fix.
   OpenSim issue185 reports the toe Izz factor-ten discrepancy but is not an
-  accepted correction. Inspect source data before choosing a physical split.
+  accepted correction. Source audit report14 supersedes the inspect-source
+  next action; it does not select a new physical split or passive gains.
 - `actuator-discriminator-01` holds unchanged, near-passive and gain-/16 traces
   and hash-bound per-channel audits. New unchanged trace equals all original
   per-iteration steps/hashes. Near-passive arms are rejected, and gain-/16 is
