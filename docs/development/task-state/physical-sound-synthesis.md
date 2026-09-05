@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FULL_SAMPLER_TRAINED / ACOUSTIC_CORRECTIONS_NOT_PROMOTED.
+Status: ACTIVE_GOAL / SIGNED_GAIN_GRADIENT_PROBE_COMPLETE / NO_PCGRAD_ADMISSION.
 
 ## Resume in 60 seconds
 
@@ -87,20 +87,23 @@ Status: ACTIVE_GOAL / FULL_SAMPLER_TRAINED / ACOUSTIC_CORRECTIONS_NOT_PROMOTED.
   wins119/120;levels worse onsteel/glass. Last2preview arms TARGET-AIDED,not generators.
   Glassmu loses to equal mixing;best2-spectrum oracle still limited. Both input
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
-- **Next:** after endpoint+full-sampler corrections fail overall,run bounded
-  research before another fit. Inspect signed level errors/gradient clustering
-  by material: common gain drift vs conditional mismatch vs limited descriptors.
-  No EQ/window/auxiliary-weight/epoch sweeps;keep full goal and repeat controls.
+- **Gradient discriminator:** sampled level-.449±.247dB vsFM,69/72quieter;
+  residual after gain fit22.8%,not pure gain.12TRAIN local envelope/gain cosine
+  median.986;category gradients all align. No evidence to introduce PCGrad.
+- **Next:** test separating level from spectral-shape learning on TRAIN,not
+  another global correction/weight/epoch sweep. Keep full generation/evaluation.
 
 ## Preserve these constraints
 
+- User feedback: water sounds normal; rubber/glass seems normal but unfamiliar.
+  Not friction realism admission. Prefer familiar water/impact/rain auditions.
 - The user will not record impacts, hit glass or supply force-sensor data.
   Use internet sources. Preserve source attribution and applicable terms;
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace the audible deliverable. Latest adds source-free hybrid WAVs,0newfit;
-  supporting-only debt is zero. Keep the full multi-event goal.
+  not replace audible output. Latest probe10WAV/71tests,0fit,all terminal;
+  full multi-event goal stays open; familiar auditions are not mandatory approval.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
   is Proposed; report-only waveform generation/authored-asset research is

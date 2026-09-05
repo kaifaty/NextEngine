@@ -4703,3 +4703,76 @@ drift versus material-conditioned error, gradient interference, and limited
 physical descriptors. Inspect existing per-material errors and TRAIN gradients
 with successful controls; do not start an auxiliary-weight/epoch/window sweep.
 The broad both-materials/geometry/water/rain objective remains active.
+
+## Signed-level and gradient discriminator (2026-09-05)
+
+User feedback on the retained audition examples: water sounds normal; rubber on
+glass seems normal but is unfamiliar. This is useful perceptual feedback,not a
+physical-calibration or friction-realism pass. Prefer familiar water/impact/rain
+auditions without requiring per-sound user approval or shrinking the broad goal.
+
+After the two acoustic corrections failed overall, a bounded research cycle
+compared common gain drift,material-conditioned gradient interference and missing
+physical descriptors. [PCGrad,NeurIPS2020](https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf),§2.2,
+explicitly distinguishes negative gradient alignment from the combination with
+gradient-magnitude imbalance and curvature that can make it harmful. This is
+motivation for a diagnostic,not evidence that PCGrad fixes our audio model.
+
+[Result](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-gradient-discriminator-2026-09-05/result.json>)
+rechecks72 seed-paired development cases×4 variants from the completed reports,
+including byte-identical shared controls and exact signed/absolute metric
+consistency. Common22.05kHz/source-defined750ms windows remain unchanged.
+No new fit,per-output gain matching or altered acceptance metric.
+
+| Held surface | Signed moving-level error FM/endpoint/full-sampler,dB |
+|---|---|
+| Oak |+1.559/+1.986/+1.230 |
+| Steel |-1.603/-1.361/-1.875 |
+| Frosted glass |-.716/-.582/-1.324 |
+
+Endpoint-minus-FM level change averages+.28279dB (SD.37312;53/72 positive),
+full-sampler-minus-FM -.44892dB (SD.24731;69/72 negative). Lowering most outputs
+helps already-loud wood and harms already-quiet steel: the direction of the
+tradeoff is not evidence of better material fidelity. But changes are not purely
+gain: least-squares scalar alignment to the same-seed FM waveform leaves mean
+residual power8.87% endpoint and22.77% full-sampler. This is an analytical
+counterfactual only; no corrected waveform or favourable-case promotion is made.
+Mean spectral-shape changes from FM are.24512/.45185dB respectively.
+
+The local-gradient probe uses all six TRAIN surfaces at30mm/s,both forces,
+repeat0 (12cases),one fixed seed607 and the common FM-only checkpoint. It
+generates complete events through the differentiable64-step sampler and frozen
+codec,then uses the existing central32-frame/8-margin auxiliary objective.
+It obtains separate gradients for spectral loss,envelope loss,and log moving
+power with respect to all162560 flow parameters. The12×3×162560 finite vectors
+and their SHA remain in an external NPZ. No optimizer or weight update is used.
+
+Median envelope/log-power gradient cosine is.98565; spectral/log-power.70562;
+spectral/envelope.74389. Envelope feedback largely follows a level-change
+direction on these local cases. There are exceptions: both Float-glass cases
+have opposing spectral/envelope gradients(-.7581,-.9979),and the1N case has
+large opposing norms69.02/68.17. This is not evidence to discard that case.
+Category-averaged total auxiliary gradients are positively aligned: wood/metals
+.2495,wood/glass.8262,metals/glass.3606. A simple category-level gradient-conflict
+explanation is not supported at this checkpoint/seed/speed. Historical training
+trajectory,curvature,all speeds and physical-descriptor sufficiency are unproven.
+Do not infer PCGrad admission from two negative within-case loss cosines.
+
+[Full-event comparisons](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-gradient-discriminator-2026-09-05/comparison.wav>)
+play oak/steel/frosted glass40mm/s,.5N: real/FM/endpoint/full-sampler. Three
+additional TRAIN previews generate FM-only sound without reference audio,using
+the published sensor controls; both full and requested-horizon WAVs are retained.
+The comparison includes real audio but does not mix it into generated variants.
+
+Run `lab/.venv/bin/python lab/scripts/physical_sound_texture_gradient_probe.py
+--lab-root ROOT --output NEW_EXTERNAL`. Job terminal,0newweights.71 focused tests,
+Ruff and10 WAV SHA/layout/finite/headroom checks plus NPZ shape/SHA pass. No
+perceptual admission,Cargo/host-check,ProductCheck,runtime or roadmap change.
+
+Decision: common-level drift explains an important part of the observed tradeoff,
+not all waveform error. Both acoustic terms can steer level; their sum has not
+learned reliable independent material-level correction. The next bounded test
+should separate level and spectral-shape learning on TRAIN with full source-free
+generation and unchanged controls/evaluation,not change global gain or sweep loss
+weights. Missing descriptors remain a separate unproven limitation. Preserve the
+liked water example and use familiar events for later human-facing auditions.
