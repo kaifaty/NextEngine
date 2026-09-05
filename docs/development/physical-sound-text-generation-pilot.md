@@ -4982,3 +4982,95 @@ consume event times without target audio. The inspected
 describes editable onset tracks plus text/audio conditioning;code/weights/terms
 and exact text-only inference path need inspection before use. Do not assume
 its visual onset predictor or audio-reference branch is required by our goal.
+
+## SyncFusion explicit-time source-free audition — 2026-09-05
+
+Primary media: [glass / delayed glass / wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-explicit-times-2026-09-05/comparison.wav),
+three5.461333s mono48kHz signals with0.5s gaps. Separate`glass.wav`,`delayed.wav`,
+`wood.wav` in that directory. Frozen pretrained SyncFusion,0new training updates,
+no video or reference audio input. This is an explicit-time capability experiment,
+not material/geometry/force calibration or completion of the full goal.
+
+Inspected the [authors' code](https://github.com/mcomunita/syncfusion/tree/e67ad8300db2cb68cf6391a71ba8cfee7c95785f),
+especially`main/module_diffusion.py`,`generation.py`,`dataset_diffusion.py`,
+`exp/model/diffusion.yaml`,`evaluate_gh_gen_text.yaml`. Training uses audio CLAP
+conditions;generation supports text embeddings and a separate sample-level onset
+track. We bypass the dataset/visual-onset/training wrappers,not the learned
+generator or onset encoder. No need for user recordings or sensor data.
+
+[Zenodo checkpoint record12634630](https://zenodo.org/records/12634630) metadata,
+read through its API,states CC-BY4.0. Downloaded only
+`ckpt-diffusion/epoch=784-valid_loss=0.008.ckpt` via bounded ZIP range reads:
+compressed2,834,640,643bytes,expanded3,223,219,889,CRC32=1701792866. ZIP decoder
+checks member CRC;whole5.67GB archive MD5 NOT verified. Local checkpoint SHA256
+a25584b18d5e8f4b2fad1f8fa5444fa5b30cca6224e12fd107435f071dc4e51f.
+No last-checkpoint,visual model,train/val/test shards or separate CLAP weights
+downloaded. External`syncfusion-assets-2026-09-05/source.json` records acquisition.
+Repo lacks an explicit top-level code license;do not redistribute that clone or
+infer production clearance for the entire dependency/pretraining chain.
+
+`physical_sound_syncfusion_pilot.py` builds the published architecture with
+audio-diffusion-pytorch.1.3,audio-encoders-pytorch.0.0.22,a-unet.0.0.16;
+213,051,434generator and2,393,374onset-encoder parameters. All consumed tensors
+finite,all state dictionaries load strictly. `weights_only=True,mmap=True` loads
+the checkpoint;optimizer states and audio tower are not used by inference.
+Text tower follows inspected LAION-CLAP1.1.4:RoBERTa pooler,Linear/ReLU/Linear,L2
+normalization. Legacy position_ids checked against exact arange514 before removal
+as a now-nonpersistent buffer. Cached tokenizer vocabulary,BPE ranks and special
+tokens exactly match FacebookAI/roberta-base e2da8e2f811d1448a5b465c236feacd80ffbac7b;
+config also checked. No AudioLDM model weights enter this path.
+
+External`syncfusion-python-2026-09-05` overlays the earlier MMAudio dependencies;
+imports torchaudio2.11.0+cu130 with existing Torch2.13.0+cu130. Does not modify
+the original lab environment or install Lightning/W&B/training stack. This is
+not a claim of original Python/Torch numerical equivalence. Full-length CUDA
+shape/finite preflight passes,peak2.378GiB for that preflight only;generation peak
+was not recorded before the initial rejection. First3cases each~18.3s after setup.
+
+Seed42,FP32,150VSampler steps,embedding scale2,262144samples. Onset impulses1.0 at
+specified sample indices;no target audio,post-hoc event gating,prefix muting or
+2s crop. Retain full raw FLOAT,including samples above1;shared0.5 gain for audition,
+without clipping or weakening the.98 playback headroom gate.
+
+| Condition | Requested onsets(seconds) | Detected matches / extras |
+|---|---|---|
+| `A drumstick taps glass.` |.6,1.5,2.7,4.0 |4/4,0extra |
+| Same text,delayed |1.0,1.9,3.1,4.4 |4/4,0extra |
+| `A drumstick taps wood.` |.6,1.5,2.7,4.0 |4/4,0extra |
+| Glass text,empty schedule |none |REJECTED headroom;no PCM published |
+
+Fixed existing10ms-energy/5ms-hop attack proxy detects12/12 at requested bins;
+zero reported error is detector-resolution limited,not sample-accurate contact
+proof or naturalness. No per-sound human approval used. This does not establish
+all rhythms,overlap limits or generalization of physical properties.
+
+Empty raw signal is finite but peak2.31949,RMS.0328345,not silence. Initial inference
+exited1 at its publication guard;all4raw files survived. `finalize` consumed those
+same outputs without new inference,retained the terminal-error history,marked
+`complete_with_rejections` and published only the3safe signals plus comparison.
+Empty remains a visible rejected control,not quietly dropped or normalized into
+a passing artifact. Finalizer validates existing raw/PCM hashes and refuses
+re-finalization. Future inference also records and retains rejected cases.
+
+CPU AST raw/RMS.005 diagnostics on3published clips:glass largely Ping/Sound effect,
+delayed glass also Wood block,wood Finger snapping/Tick. Material realism remains
+unverified;coarse ontology mismatch alone is not proof of wrong material. Empty
+is explicitly excluded from audible-PCM classifier inputs because its publication
+failed,and remains rejected in the parent result. No prompt/threshold/seed tuning.
+
+Reproduce using the two external dependency overlays in`PYTHONPATH` and
+`HF_HUB_OFFLINE=1`: `lab/.venv/bin/python
+lab/scripts/physical_sound_syncfusion_pilot.py render --root ASSETS --output NEW_EXTERNAL`.
+`prepare` obtains the single checkpoint;`finalize` recovers already-generated raw
+artifacts without rerendering;`assess` runs raw/RMS AST with negative controls.
+23focused tests(4new+19existing),Ruff,diff/link and full/raw/PCM gain+identity checks
+pass. All acquisition/inference/assessment jobs terminal. No Cargo,host-check,
+ProductCheck,runtime/demo or roadmap promotion.
+
+Next discriminator: separate text/audio-conditioning transfer from generator
+timbre limitations. Inspect a small author TRAIN-only source selection and compare
+fixed text conditions with TRAIN-derived audio-embedding prototypes under exactly
+the same numerical schedule. Any reference-aided control is explicitly an oracle,
+not the target source-free interface;no author test/protected roles or data-size
+sweeps. Empty-schedule failure stays open;do not claim silence robustness or hide
+it by post-generation gating. Preserve the full waveform and timing controls.

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / MMAUDIO_IMPACT_TIMING_INCOMPLETE / EXPLICIT_ONSET_CONDITIONING_NEXT.
+Status: ACTIVE_GOAL / SYNCFUSION_TIMING_12_OF_12 / MATERIAL_UNVERIFIED_EMPTY_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -17,14 +17,17 @@ Status: ACTIVE_GOAL / MMAUDIO_IMPACT_TIMING_INCOMPLETE / EXPLICIT_ONSET_CONDITIO
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest media:** [MMAudio glass-panel taps](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/video-generated-full.mp4),8s;
-  sibling`comparison.wav`:text/video/static/+1s. Seed42,25steps,CFG4.5,0fit.
-  Fixed audio-onset diagnostic:video2/9matches+6extras,delayed3/8+2extras at100ms.
-  Not measured visual contacts or calibrated quality. Some timing response,not
-  complete rhythm. Greatest Hits first author Glass demo,CC-BY4,opened development.
-  No target audio at inference;reference only later. Provenance/CLI in pilot note.
-  MMAudio CC-BY-NC,Apple CLIP research-only excludes product development:NOT engine
-  candidate weights. Shared.5 playback gain,full FLOAT,19tests;all jobs terminal.
+- **Latest media:** [SyncFusion glass/delayed/wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-explicit-times-2026-09-05/comparison.wav),5.46s each.
+  Explicit .6/1.5/2.7/4.0s and +.4s schedules:12/12detected attacks,0extras at5ms
+  resolution. Text+time impulses ONLY,0fit,seed42,150steps,FP32. Not calibration.
+  Full raw retained,shared.5 gain;empty schedule peak2.319/RMS.0328,REJECTED.
+  Initial exit1 then`finalize`same4raw outputs,0rerender;complete_with_rejections.
+  AST Ping/snaps,material realism unverified.23tests;all jobs terminal. Exact CLI,
+  architecture/CLAP/state-loading proof and partial-ZIP provenance in pilot note.
+  Assets`syncfusion-assets-2026-09-05`,SHAa25584b1…;Zenodo12634630CC-BY4,not blanket
+  production clearance. External overlay;no dataset/visual model/target audio.
+- **MMAudio impact:** video2/9,delayed3/8timing matches;no prompt/seed sweep. Apple
+  CLIP research-only excludes product development;NOT engine candidate weights.
 - **Earlier MMAudio water:** coarse Water top5,not quality win;CLI/results in note.
   Initial headroom failure terminal;use`water-generated-full.mp4`,not short mux.
 - **Friction corrections closed:** endpoint/fullsampler/level-shape all lose to
@@ -87,10 +90,10 @@ Status: ACTIVE_GOAL / MMAUDIO_IMPACT_TIMING_INCOMPLETE / EXPLICIT_ONSET_CONDITIO
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
 - **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
   align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** explicit event-time conditioning. Inspect SyncFusion author code,
-  weight terms and exact text+onset(no target audio) inference before use. README
-  describes editable onset tracks;not yet downloaded/run. Do not assume a visual
-  predictor is needed when physics supplies event times. No MMAudio prompt/seed sweep.
+- **Next:** discriminate text/audio-condition transfer vs generator timbre limits,
+  using small author TRAIN-only audio-embedding prototypes at fixed event times.
+  No author test/protected roles;reference-aided controls are oracles,not final
+  interfaces. Empty-schedule failure open;no prefix/gating trick or prompt sweep.
 
 ## Preserve these constraints
 
@@ -101,7 +104,7 @@ Status: ACTIVE_GOAL / MMAUDIO_IMPACT_TIMING_INCOMPLETE / EXPLICIT_ONSET_CONDITIO
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace audible output. Latest MMAudio generation/timing jobs all terminal;
+  not replace audible output. Latest SyncFusion inference/assessment all terminal;
   full multi-event goal stays open; familiar auditions are not mandatory approval.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
