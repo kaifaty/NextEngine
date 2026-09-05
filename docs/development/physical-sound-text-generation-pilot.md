@@ -3122,3 +3122,88 @@ frames. This distinguishes conditional learning from a common domain shift;
 do not assume padded silence dominates merely because it occupies most frames.
 Include a TRAIN-real audible control. No offset-strength, epoch or seed sweep.
 All jobs terminal; broad multi-event user goal remains active.
+
+## Conditional signal and training-time centering — 2026-09-05
+
+`pouring-tango-bridge-signal-2026-09-05` uses the first source-order recording
+of each13 TRAIN objects, middle crop, sigmas0.2/0.5/0.8. All six variants share
+one posterior sample and noise per crop, CPU seed10000+cache index, FP32 frozen
+generator inference. Wrong controls are a fixed cyclic next-object permutation.
+Same verified native645-frame cache; no heldout data, retraining or score selection.
+
+| Mean velocity MSE,39 crop/time pairs | Active88 | Tail557 | Full645 |
+|---|---:|---:|---:|
+| Base | 1.217021 | 1.590602 | 1.539633 |
+| Full bridge,matched | 1.163848 | 1.591441 | 1.533102 |
+| Full bridge,swapped | 1.165143 | 1.591455 | 1.533291 |
+| Post-hoc centered,matched | 1.211986 | 1.590589 | 1.538935 |
+| Post-hoc centered,swapped | 1.213984 | 1.590597 | 1.539214 |
+| Common TRAIN mean only | 1.164725 | 1.591360 | 1.533152 |
+
+The silence-dominated-learning hypothesis is contradicted here: full bridge
+improves active error while tail error worsens slightly.98.35% of active
+improvement is reproduced by the common correction alone. Full matched controls
+beat swapped31/39, but by only0.001295 mean active MSE. After centering,22/39,
+mean0.001998. These are correlated TRAIN probes, not generalization or estimates
+over the full time-sampling distribution.
+[TRAIN audible control](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-signal-2026-09-05/comparison.wav>)
+is18.32s:first training object,middle crop,real/base/full/post-hoc centered,
+seed2718,published gains. References are used for diagnosis, not generation.
+
+One reversible counterfactual adds `run --center-training` to the bridge script.
+During each update, subtract the differentiable network mean across ALL279 TRAIN
+control vectors. Final output bias cancels; condition-dependent gradients remain.
+After fitting, freeze this mean into an offset, drop the training-control bank
+and automatically load the verified offset with this model's checkpoint.
+No source/cache or extra flag is needed at inference. Existing uncentered and
+post-hoc-centered loaders/defaults remain unchanged.
+
+`pouring-tango-bridge-center-trained-2026-09-05`: same200 steps,seed53,optimizer,
+BF16 training/FP32 inference,loss,sample sequence and frozen generator. Native
+posterior file and all200 sampled cache indices exactly match the earlier fit.
+Bridge SHA256 `e5a792889481e2f0f3ac9ec99aa8994449e407100efc249254503e05851d8159`;
+offset `4bd29db8631c35830cd2b07c1bb011c390ce303bbc037001df5f05360d7d0dd9`.
+Zero/bypass/upstream-loss/full-model hashes and all glass/wood/rain regression
+pairs pass. First/last20 loss1.6743/1.6073, not a perceptual criterion.
+The matched TRAIN probe active MSE1.207547 versus swapped1.211201 gives22/39
+wins,mean gain0.003654: a larger conditional training signal, not transfer proof.
+
+`pouring-tango-bridge-center-trained-development-2026-09-05` repeats the exact
+two excluded objects/first-middle/seeds314-2718 comparison. Shape RMSE is
+8.106dB versus old centered7.687/base7.756/new swapped8.214. New beats old only
+2/8,base3/8,swapped5/8. **Reject as an improvement**; retain the previous centered
+experimental model. Water identity still passes raw/RMS0.005 AST and harder
+CLAP8/8 on both hypothetical and development generations; semantic recognition
+does not rescue the physical-response result.
+[Listen: real/old/new/swapped](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-center-trained-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle phase,seed2718,published gains.
+
+Bounded adjacent-layer research (inspected2026-09-05):
+[PAVAS v2,2026-03-30,sections3.4/E.4/E.5](https://arxiv.org/html/2512.08282v2)
+uses zero-initialized residual corrections to per-block adaptive-normalization
+parameters rather than directly mixing physical features into the shared
+condition. It also updates diffusion blocks; it is NOT evidence that our tiny
+frozen-generator bridge should work. Its physical inputs include estimated
+mass/velocity and video features, not measured container controls; APCC is an
+energy-correlation metric, not material validation. The official
+[repository](https://github.com/SonyResearch/PAVAS) currently exposes README and
+teaser only, with code/assets pending. CVF PDF fetch returned403; arXiv v2 was
+read instead. No downloads, code execution or reliance on pending checkpoints.
+The [UPF texture thesis repository](https://github.com/Metiu-Metiu/Neural-Texture-Sound-Synthesis-with-physically-driven-continuous-controls)
+describes synthetic-to-real parameter pseudo-labelling before conditional audio
+training. This is an alternative data route, not independent measured physical
+labels or an adopted implementation.
+
+Next: stop centering/epoch/seed variants of global text/pooled shifts. Inspect
+the existing generator's modulation interface and test a bounded zero-initialized
+audio-layer residual against the current bridge: zero/bypass exactness, then
+matched/wrong-condition signal and playable output before any larger fit.
+Keep backbone frozen and existing reference-free fallback; PAVAS does not
+authorize full-model retraining, video inputs, invented mass labels or new
+runtime authority. Physical parameter transfer and the full user goal stay open.
+
+138 focused tests pass, including common-bias cancellation, nonzero conditional
+gradients, exact freezing and automatic verified-offset reload. Standalone CLI
+without an offset flag byte-replays both formats.64 new WAVs pass PCM/rate/layout/
+headroom and result hashes. Ruff lint/format and diff checks pass. All jobs
+terminal; no Cargo/ProductCheck/runtime/default/roadmap promotion.

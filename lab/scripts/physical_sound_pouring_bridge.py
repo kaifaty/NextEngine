@@ -31,6 +31,7 @@ class Bridge(nn.Module):
         nn.init.zeros_(self.network[-1].weight)
         nn.init.zeros_(self.network[-1].bias)
         self.register_buffer("offset", None, persistent=False)
+        self.register_buffer("center_controls", None, persistent=False)
 
     def condition(self, controls, hidden, pooled, cfg=False):
         if controls.shape != (1, 11) or not torch.isfinite(controls).all():
@@ -44,6 +45,10 @@ class Bridge(nn.Module):
         ):
             raise ValueError("unsupported pretrained conditioning layout")
         delta = self.network(controls)
+        if self.center_controls is not None:
+            if self.offset is not None:
+                raise ValueError("use training centering or frozen offset, not both")
+            delta = delta - self.network(self.center_controls).mean(0, keepdim=True)
         if self.offset is not None:
             delta = delta - self.offset
         positive = torch.cat(
@@ -55,6 +60,14 @@ class Bridge(nn.Module):
                 [pooled[:1], positive_pool]
             )
         return positive, positive_pool
+
+    @torch.no_grad()
+    def freeze_centering(self):
+        if self.center_controls is None or self.offset is not None:
+            raise ValueError("training centering required")
+        self.offset = self.network(self.center_controls).mean(0, keepdim=True).detach()
+        self.center_controls = None
+        return self.offset
 
     @contextmanager
     def hook(self, transformer, controls):
@@ -228,6 +241,8 @@ def load_bridge(directory):
         raise ValueError("invalid bridge weights")
     bridge = Bridge()
     bridge.load_state_dict(state, strict=True)
+    if meta.get("center_training", False):
+        bridge.offset, _ = load_offset(directory, meta)
     return bridge.eval().to("cuda"), meta
 
 
@@ -325,7 +340,7 @@ def finish_export(report, model, vae, output):
     )
 
 
-def run(source, cache_root, output, steps=200):
+def run(source, cache_root, output, steps=200, center_training=False):
     if not isinstance(steps, int) or not 1 <= steps <= 400:
         raise ValueError("one to 400 training updates required")
     output = flow.c.v.phase.d.fresh_output(output)
@@ -337,6 +352,8 @@ def run(source, cache_root, output, steps=200):
     before = digest(model)
     data, provenance = cache_targets(source, cache_root, vae, output)
     bridge = Bridge().to("cuda")
+    if center_training:
+        bridge.center_controls = data["controls"].to("cuda")
     report = {
         "format": FORMAT,
         "status": "running",
@@ -349,6 +366,7 @@ def run(source, cache_root, output, steps=200):
         "parameters": sum(p.numel() for p in bridge.parameters()),
         "seed": 53,
         "steps_requested": steps,
+        "center_training": center_training,
         "frozen_model_sha256_before": before,
     }
     save = lambda: flow.c.v.p.save_json(output / "result.json", report)
@@ -461,6 +479,18 @@ def run(source, cache_root, output, steps=200):
             weights,
         )
         report["bridge_sha256"] = hashlib.sha256(weights.read_bytes()).hexdigest()
+        if center_training:
+            offset = bridge.freeze_centering()
+            save_file(
+                {"offset": offset.cpu().contiguous()}, output / "offset.safetensors"
+            )
+            report.update(
+                offset_sha256=hashlib.sha256(
+                    (output / "offset.safetensors").read_bytes()
+                ).hexdigest(),
+                frozen_model_sha256=after,
+                training_posterior_sha256=provenance["posterior_sha256"],
+            )
         save()
         bridge.eval()
         cases = []
@@ -517,6 +547,7 @@ if __name__ == "__main__":
     for name in ("source", "cache", "output"):
         run_parser.add_argument("--" + name, type=Path, required=True)
     run_parser.add_argument("--steps", type=int, default=200)
+    run_parser.add_argument("--center-training", action="store_true")
     render_parser = sub.add_parser("render")
     render_parser.add_argument("--model", type=Path, required=True)
     render_parser.add_argument("--output", type=Path, required=True)
@@ -525,11 +556,11 @@ if __name__ == "__main__":
     render_parser.add_argument("--offset", type=Path)
     args = parser.parse_args()
     if args.mode == "run":
-        run(args.source, args.cache, args.output, args.steps)
+        run(args.source, args.cache, args.output, args.steps, args.center_training)
     else:
         torch.set_num_threads(4)
         bridge, meta = load_bridge(args.model)
-        offset_sha = None
+        offset_sha = meta.get("offset_sha256") if meta.get("center_training") else None
         if args.offset:
             offset, offset_sha = load_offset(args.offset, meta)
             bridge.offset = offset.to("cuda")

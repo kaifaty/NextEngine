@@ -190,6 +190,68 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "identity"):
                 b.load_offset(root, model)
 
+    def test_training_centering_cancels_common_bias_and_freezes_exactly(self):
+        bridge = b.Bridge()
+        bank = torch.randn(13, 11)
+        bridge.center_controls = bank
+        with torch.no_grad():
+            bridge.network[-1].weight.normal_(0, 0.01)
+        hidden, pooled = torch.zeros(1, 3, 1024), torch.zeros(1, 1024)
+        predictions = [bridge.condition(c[None], hidden, pooled) for c in bank]
+        torch.testing.assert_close(
+            torch.stack([v[1] for v in predictions]).mean(0),
+            torch.zeros_like(pooled),
+            rtol=0,
+            atol=1e-7,
+        )
+        predictions[0][1].square().mean().backward()
+        self.assertGreater(float(bridge.network[-1].weight.grad.abs().sum()), 0)
+        torch.testing.assert_close(
+            bridge.network[-1].bias.grad,
+            torch.zeros_like(bridge.network[-1].bias),
+            rtol=0,
+            atol=1e-9,
+        )
+        offset = bridge.freeze_centering()
+        self.assertFalse(offset.requires_grad)
+        self.assertIsNone(bridge.center_controls)
+        frozen = bridge.condition(bank[:1], hidden, pooled)
+        for a, original in zip(frozen, predictions[0], strict=True):
+            self.assertTrue(torch.equal(a, original))
+        self.assertNotIn("center_controls", bridge.state_dict())
+        with self.assertRaises(ValueError):
+            bridge.freeze_centering()
+
+    def test_center_trained_checkpoint_automatically_loads_frozen_offset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            b.save_file(b.Bridge().state_dict(), root / "bridge.safetensors")
+            b.save_file({"offset": torch.ones(1, 2048)}, root / "offset.safetensors")
+            meta = {
+                "format": b.FORMAT,
+                "status": "complete",
+                "revision": b.train.tango.REVISION,
+                "center_training": True,
+                "bridge_sha256": hashlib.sha256(
+                    (root / "bridge.safetensors").read_bytes()
+                ).hexdigest(),
+                "offset_sha256": hashlib.sha256(
+                    (root / "offset.safetensors").read_bytes()
+                ).hexdigest(),
+                "source": {"posterior_sha256": "train"},
+                "training_posterior_sha256": "train",
+                "frozen_model_sha256_after": "model",
+                "frozen_model_sha256": "model",
+            }
+            (root / "result.json").write_text(json.dumps(meta))
+            with patch.object(b.Bridge, "to", lambda self, *a, **kw: self):
+                model, _ = b.load_bridge(root)
+            self.assertTrue(torch.equal(model.offset, torch.ones(1, 2048)))
+            meta["offset_sha256"] = "wrong"
+            (root / "result.json").write_text(json.dumps(meta))
+            with self.assertRaisesRegex(ValueError, "identity"):
+                b.load_bridge(root)
+
 
 if __name__ == "__main__":
     unittest.main()
