@@ -218,6 +218,7 @@ def run(
     real_glass: list[Path],
     with_clap: bool = False,
     ast_rms: float | None = None,
+    device: str = "cpu",
 ):
     import torch
     from transformers import ASTFeatureExtractor, ASTForAudioClassification
@@ -226,6 +227,8 @@ def run(
         raise ValueError("report must remain outside the repository")
     if output.exists():
         raise ValueError("refusing to overwrite a previous report")
+    if device not in ("cpu", "cuda"):
+        raise ValueError("unsupported AST device")
     if ast_rms is not None:
         ast_level_control(np.zeros(1, dtype=np.float32), ast_rms)
         if with_clap:
@@ -234,9 +237,13 @@ def run(
     if manifest["status"] != "complete":
         raise ValueError("pilot must complete before this measurement")
     torch.set_num_threads(4)
-    model = ASTForAudioClassification.from_pretrained(
-        MODEL, revision=REVISION, use_safetensors=True, local_files_only=True
-    ).eval()
+    model = (
+        ASTForAudioClassification.from_pretrained(
+            MODEL, revision=REVISION, use_safetensors=True, local_files_only=True
+        )
+        .to(device)
+        .eval()
+    )
     extractor = ASTFeatureExtractor.from_pretrained(
         MODEL, revision=REVISION, local_files_only=True
     )
@@ -252,6 +259,7 @@ def run(
         "pretraining_data_disjoint": "not established",
         "status": "diagnostic only; no calibrated acceptance authority",
         "ast_rms_target": ast_rms,
+        "ast_device": device,
         "rows": [],
     }
     inputs = []
@@ -308,7 +316,7 @@ def run(
         for key, metadata, audio in inputs:
             audio, level = ast_level_control(audio, ast_rms)
             features = extractor(audio, sampling_rate=pilot.RATE, return_tensors="pt")
-            scores = model(**features).logits[0].sigmoid().numpy()
+            scores = model(**features.to(device)).logits[0].sigmoid().cpu().numpy()
             expected = EXPECTED.get(metadata.get("diagnostic_id", key), ())
             record = {
                 "id": key,
@@ -329,10 +337,18 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--real-glass", type=Path, nargs="*", default=[])
     parser.add_argument("--with-clap", action="store_true")
+    parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument(
         "--ast-rms",
         type=float,
         help="optional diagnostic RMS normalization; retain a separate raw-level report",
     )
     args = parser.parse_args()
-    run(args.source, args.output, args.real_glass, args.with_clap, args.ast_rms)
+    run(
+        args.source,
+        args.output,
+        args.real_glass,
+        args.with_clap,
+        args.ast_rms,
+        args.device,
+    )

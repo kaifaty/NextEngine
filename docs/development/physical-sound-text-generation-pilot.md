@@ -1530,3 +1530,83 @@ in-memory float normalization rerun (`tags-float-normalization.json`) reproduces
 the PCM-control counts exactly: real/base/oracle/power30/30, onset21/30.
 Local documentation links and `git diff --check` pass. Cargo/ProductCheck and
 engine audition not run: no runtime, contract or engine-content changes.
+
+### Frozen-model phase/seed check: spectrum gain is not temporal control
+
+Middle-pour comparisons, real -> base -> power/envelope for first source-order
+glass then PET,27.48s each, shared gain1:
+[seed314](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed314.wav>),
+[seed2718](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed2718.wav>),
+[seed1618](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed1618.wav>).
+No training, new source, protected evidence or old-WAV replacement in this check.
+
+`physical_sound_pouring_compare.py` evaluates ALL30 disclosed development
+recordings at first and centered internal patches, with seeds314/2718/1618 for
+both frozen models. Only numeric metadata enters neural sampling; target audio
+enters metrics and explicit real/oracle controls. Root
+`pouring-flow-phase-seeds-2026-09-05`:480 individual WAVs plus3 comparisons,
+`result.json`, `tag-input.json`, raw/normalized CUDA tags and `analysis.json`.
+The original first/seed314 and middle/seed314 values reproduce exactly.
+
+| Phase/seed | Spectrum RMSE base -> power,dB | Power wins /30 | Mean absolute CV error base -> power |
+|---|---:|---:|---:|
+| First/314 | 10.903 ->9.581 | 28 | 0.579 ->0.327 |
+| First/2718 | 10.461 ->9.079 | 26 | 0.349 ->0.288 |
+| First/1618 | 10.235 ->9.250 | 21 | 0.574 ->0.501 |
+| Middle/314 | 9.631 ->8.426 | 24 | 0.280 ->0.119 |
+| Middle/2718 | 9.167 ->8.104 | 23 | 0.127 ->0.372 |
+| Middle/1618 | 9.149 ->8.117 | 29 | 0.265 ->0.197 |
+
+Spectrum improvement survives all six groups (151/180 paired wins); centered
+spectrum shape improves only seed1618, not the other two. Pooled middle CV
+error slightly worsens0.2238 ->0.2295. Earlier44% CV improvement is confined to
+first/seed314, NOT a robust global gain. Three noise draws are not three new
+objects: generalization evidence still concerns just glass18 and PET30.
+
+More decisively, mean middle-minus-first CV is real-0.2969, exact-spectrogram
+oracle-0.2681, base+0.0073 and power+0.0138. The representation/phase decoder
+preserves most of the observed change; both learned generators largely miss it.
+This is a paired diagnostic, not proof of the unique cause or a guarantee that
+every individual stochastic draw should reproduce one recording's envelope.
+
+`--training-controls` repeats the matrix on the FIRST source-order recording
+from each of13 training objects, excluding18/30, with no score-based selection.
+Root `pouring-flow-training-phase-control-2026-09-05`:208 individual WAVs plus
+3 comparisons. Mean phase CV change: real-0.5731, oracle-0.5230, base+0.0207,
+power+0.0286. Mean spectrum base/power: first8.904/9.052, middle9.552/9.671dB;
+middle CV error0.1373/0.2869. Thus failure is NOT solely new-object transfer.
+This sample of13 disclosed training recordings is a fit diagnostic, not a new
+test set or a complete training-distribution audit.
+
+AST at RMS0.005 reports Water/Pour top5 for ALL360 generated development WAVs
+and ALL156 generated training-control WAVs. Nevertheless real development is
+60/60, oracle58/60; real training26/26, oracle23/26. Together with missing
+temporal response, these positives show that coarse event identity cannot
+stand in for naturalness, temporal control or material correctness. Raw
+seed314 first base/power29/16 and middle13/13 remain; other seeds are30/30 in
+both phases/models. No raw evidence discarded, thresholds unchanged.
+
+`physical_sound_text_tags.py --device cuda` now accelerates AST; CPU remains
+default, device is recorded, CLAP unchanged. Compared by identical WAV SHA256
+against preserved CPU reports:180 raw and120 normalized rows retain identical
+top10 label order and expected-top5 flags; max score difference2.24e-6.
+The two slow duplicate CPU jobs were deliberately terminated (exit143) after
+this cross-check; their incomplete outputs are NOT evidence. Both full GPU
+development runs and the normalized training-control run completed. The NumPy
+mel-filter warning remains; this is not a new calibrated validator.
+
+Reproduce with `physical_sound_pouring_compare.py --source SOURCE --base BASE
+--candidate POWER --output NEW_EXTERNAL_ROOT`, optionally `--training-controls`.
+Run `physical_sound_text_tags.py --source NEW_EXTERNAL_ROOT/tag-input.json
+--output NEW_EXTERNAL_ROOT/tags-raw.json --device cuda` and separately add
+`--ast-rms .005` with another report path. All51 focused tests, Ruff and694 WAV
+hash/rate/PCM/finite/headroom checks pass. No runtime/ProductCheck or demo change.
+
+Next: bounded research and a training-side discriminator before further full
+fits. Competing explanations are weak learned phase conditioning/optimization,
+insufficient predictive information in elapsed fraction, and representation
+loss. The oracle weakens the last explanation; training-object failure weakens
+an OOD-only explanation. Test a small known-object first/middle conditional fit
+against shuffled-phase and exact-spectrogram controls, retaining playable WAVs.
+Do not resume generic capacity/epoch/loss sweeps, promote power on AST alone,
+or replace the broad user objective with matching these summary statistics.

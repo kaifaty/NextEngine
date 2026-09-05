@@ -15,6 +15,18 @@ import physical_sound_text_tags as tags
 
 
 class TextPilotTest(unittest.TestCase):
+    def test_ast_rejects_unknown_device_before_loading_artifacts(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            self.assertRaisesRegex(ValueError, "unsupported AST device"),
+        ):
+            tags.run(
+                Path("missing-source"),
+                Path(directory) / "report.json",
+                [],
+                device="invalid",
+            )
+
     def test_ast_level_control_is_opt_in_and_gain_invariant(self):
         wave = np.array([0.01, -0.02, 0.03, -0.04], dtype=np.float32)
         raw, record = tags.ast_level_control(wave, None)
