@@ -7,7 +7,7 @@ redistribution remains unspecified. No recording is an inference input.
 import argparse
 import hashlib
 import json
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +20,8 @@ from torch import nn
 PROMPT = "The sound of water being poured into a container."
 SECONDS = 4.08
 FORMAT = "pour-tango-numeric-bridge-v1"
+SETTINGS = ("vgg-coffee", "vgg-mrcr", "ws-kitchen", "ws-room")
+PREVIEW_SETTING = "ws-kitchen"
 
 
 class Bridge(nn.Module):
@@ -44,13 +46,7 @@ class Bridge(nn.Module):
             or pooled.shape != (batch, 1024)
         ):
             raise ValueError("unsupported pretrained conditioning layout")
-        delta = self.network(controls)
-        if self.center_controls is not None:
-            if self.offset is not None:
-                raise ValueError("use training centering or frozen offset, not both")
-            delta = delta - self.network(self.center_controls).mean(0, keepdim=True)
-        if self.offset is not None:
-            delta = delta - self.offset
+        delta = self.delta(controls)
         positive = torch.cat(
             [hidden[-1:, :-1] + delta[:, None, :1024], hidden[-1:, -1:]], 1
         )
@@ -60,6 +56,16 @@ class Bridge(nn.Module):
                 [pooled[:1], positive_pool]
             )
         return positive, positive_pool
+
+    def delta(self, controls):
+        delta = self.network(controls)
+        if self.center_controls is not None:
+            if self.offset is not None:
+                raise ValueError("use training centering or frozen offset, not both")
+            delta = delta - self.network(self.center_controls).mean(0, keepdim=True)
+        if self.offset is not None:
+            delta = delta - self.offset
+        return delta
 
     @torch.no_grad()
     def freeze_centering(self):
@@ -93,6 +99,55 @@ class Bridge(nn.Module):
             yield
         finally:
             handle.remove()
+
+
+class SettingBridge(Bridge):
+    """Centered physical controls plus an opaque, separately learned setting."""
+
+    def __init__(self):
+        super().__init__()
+        # Allocate zeros without advancing RNG: physical initialization and the
+        # fixed training draw trace remain those of the centered text control.
+        self.setting_delta = nn.Parameter(torch.zeros(len(SETTINGS), 2048))
+        self.recording_state = None
+
+    @contextmanager
+    def recording(self, setting, physical=True):
+        if setting not in SETTINGS or not isinstance(physical, bool):
+            raise ValueError(
+                "known recording setting and boolean physical flag required"
+            )
+        old = self.recording_state
+        self.recording_state = (SETTINGS.index(setting), physical)
+        try:
+            yield
+        finally:
+            self.recording_state = old
+
+    def delta(self, controls):
+        if self.recording_state is None:
+            raise ValueError("explicit recording setting required")
+        index, physical = self.recording_state
+        style = self.setting_delta[index : index + 1]
+        return style + super().delta(controls) if physical else style
+
+
+def training_settings(source, crop_rows):
+    # load_source verifies the CSV and source wave hashes before using labels.
+    rows, _ = flow.c.v.p.load_source(source)
+    lookup = {r["item_id"]: r for r in rows if r["role"] == "train"}
+    settings = []
+    for row in crop_rows:
+        original = lookup.get(row["item_id"])
+        if original is None or original["container_id"] != row["container_id"]:
+            raise ValueError("setting labels require matching TRAIN crops")
+        setting = original["setting"]
+        if setting not in SETTINGS:
+            raise ValueError("unknown TRAIN setting")
+        settings.append(setting)
+    if set(settings) != set(SETTINGS):
+        raise ValueError("TRAIN setting vocabulary differs")
+    return settings
 
 
 class ModulationBridge(Bridge):
@@ -158,6 +213,8 @@ def make_bridge(kind):
         return Bridge()
     if kind == "audio-modulation":
         return ModulationBridge()
+    if kind == "setting-text":
+        return SettingBridge()
     raise ValueError("unknown bridge kind")
 
 
@@ -247,10 +304,25 @@ def cache_targets(source, cache_root, vae, output):
 
 @torch.no_grad()
 def generate(
-    model, vae, output, name, prompt=PROMPT, controls=None, bridge=None, seed=2718
+    model,
+    vae,
+    output,
+    name,
+    prompt=PROMPT,
+    controls=None,
+    bridge=None,
+    seed=2718,
+    setting=None,
+    physical=True,
 ):
     if not isinstance(seed, int) or not 0 <= seed < 2**32:
         raise ValueError("invalid seed")
+    setting_bridge = isinstance(bridge, SettingBridge)
+    if setting_bridge:
+        if setting not in SETTINGS or not isinstance(physical, bool):
+            raise ValueError("explicit valid setting required")
+    elif setting is not None or physical is not True:
+        raise ValueError("setting/physical ablation requires setting-text bridge")
     # Match training-time baseline execution, including parameter flags.
     # no_grad alone did not give byte-exact reload in the paired flag control.
     model.requires_grad_(False)
@@ -270,7 +342,10 @@ def generate(
         vector = torch.tensor(
             np.asarray(controls, dtype=np.float32)[None], device="cuda"
         )
-        with bridge.hook(model.transformer, vector):
+        with (
+            bridge.recording(setting, physical) if setting_bridge else nullcontext(),
+            bridge.hook(model.transformer, vector),
+        ):
             latent = model.inference_flow(
                 prompt,
                 duration=SECONDS,
@@ -291,7 +366,10 @@ def generate(
     torch.cuda.empty_cache()
     row, mono = train.tango.publish(output, name, native)
     print({"generated": name}, flush=True)
-    return {**row, "seed": seed, "reference_audio_input": False}, mono
+    labels = (
+        {"setting": setting, "physical_enabled": physical} if setting_bridge else {}
+    )
+    return {**row, **labels, "seed": seed, "reference_audio_input": False}, mono
 
 
 def load_bridge(directory):
@@ -312,8 +390,12 @@ def load_bridge(directory):
     ):
         raise ValueError("invalid bridge weights")
     kind = meta.get("bridge_kind", "text")
-    if kind != "text" and meta.get("center_training", False):
+    if kind not in ("text", "setting-text") and meta.get("center_training", False):
         raise ValueError("training centering is only supported for the text bridge")
+    if kind == "setting-text" and (
+        not meta.get("center_training") or meta.get("settings") != list(SETTINGS)
+    ):
+        raise ValueError("setting bridge requires centering and exact vocabulary")
     bridge = make_bridge(kind)
     bridge.load_state_dict(state, strict=True)
     if meta.get("center_training", False):
@@ -420,8 +502,10 @@ def run(
 ):
     if not isinstance(steps, int) or not 1 <= steps <= 400:
         raise ValueError("one to 400 training updates required")
-    if bridge_kind not in ("text", "audio-modulation") or (
-        center_training and bridge_kind != "text"
+    if (
+        bridge_kind not in ("text", "audio-modulation", "setting-text")
+        or (center_training and bridge_kind == "audio-modulation")
+        or (bridge_kind == "setting-text" and not center_training)
     ):
         raise ValueError("unsupported bridge kind/centering combination")
     output = flow.c.v.phase.d.fresh_output(output)
@@ -432,6 +516,11 @@ def run(
     vae.requires_grad_(False)
     before = digest(model)
     data, provenance = cache_targets(source, cache_root, vae, output)
+    settings = (
+        training_settings(source, provenance["rows"])
+        if bridge_kind == "setting-text"
+        else None
+    )
     bridge = make_bridge(bridge_kind).to("cuda")
     if center_training:
         bridge.center_controls = data["controls"].to("cuda")
@@ -449,6 +538,9 @@ def run(
         "steps_requested": steps,
         "center_training": center_training,
         "bridge_kind": bridge_kind,
+        "settings": list(SETTINGS) if settings else None,
+        "training_settings": settings,
+        "preview_setting": PREVIEW_SETTING if settings else None,
         "frozen_model_sha256_before": before,
     }
     save = lambda: flow.c.v.p.save_json(output / "result.json", report)
@@ -457,7 +549,13 @@ def run(
         c0 = flow.c.v.phase.d.controls_for()
         baseline, _ = generate(model, vae, output, "initial-base")
         zero, _ = generate(
-            model, vae, output, "initial-zero", controls=c0, bridge=bridge
+            model,
+            vae,
+            output,
+            "initial-zero",
+            controls=c0,
+            bridge=bridge,
+            setting=PREVIEW_SETTING if settings else None,
         )
         if (
             baseline["sha256"] != zero["sha256"]
@@ -518,9 +616,12 @@ def run(
             index = int((torch.randn(1, generator=rng).sigmoid() * 1000).long())
             sigma = model.noise_scheduler_copy.sigmas[index].to("cuda")
             optimizer.zero_grad(set_to_none=True)
-            with bridge.training_hook(
-                model.transformer, data["controls"][i : i + 1].to("cuda"), condition
-            ) as adapted:
+            with (
+                bridge.recording(settings[i]) if settings else nullcontext(),
+                bridge.training_hook(
+                    model.transformer, data["controls"][i : i + 1].to("cuda"), condition
+                ) as adapted,
+            ):
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     prediction = train.velocity(
                         model, (1 - sigma) * target + sigma * noise, sigma, adapted()
@@ -591,6 +692,7 @@ def run(
                     controls=controls,
                     bridge=bridge,
                     seed=seed,
+                    setting=PREVIEW_SETTING if settings else None,
                 )
                 case = len(cases)
                 cases.append({"id": f"{profile}-{seed}", "diagnostic_id": "water-pour"})
@@ -635,7 +737,9 @@ if __name__ == "__main__":
     run_parser.add_argument("--steps", type=int, default=200)
     run_parser.add_argument("--center-training", action="store_true")
     run_parser.add_argument(
-        "--bridge-kind", choices=("text", "audio-modulation"), default="text"
+        "--bridge-kind",
+        choices=("text", "audio-modulation", "setting-text"),
+        default="text",
     )
     render_parser = sub.add_parser("render")
     render_parser.add_argument("--model", type=Path, required=True)
@@ -643,6 +747,8 @@ if __name__ == "__main__":
     render_parser.add_argument("--controls", type=float, nargs=11, required=True)
     render_parser.add_argument("--seed", type=int, default=2718)
     render_parser.add_argument("--offset", type=Path)
+    render_parser.add_argument("--setting", choices=SETTINGS)
+    render_parser.add_argument("--style-only", action="store_true")
     args = parser.parse_args()
     if args.mode == "run":
         run(
@@ -672,6 +778,8 @@ if __name__ == "__main__":
             controls=np.array(args.controls, dtype=np.float32),
             bridge=bridge,
             seed=args.seed,
+            setting=args.setting,
+            physical=not args.style_only,
         )
         flow.c.v.p.save_json(
             out / "result.json",

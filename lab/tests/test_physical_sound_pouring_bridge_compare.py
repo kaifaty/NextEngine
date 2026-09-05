@@ -60,9 +60,16 @@ class CompareTests(unittest.TestCase):
             sha = hashlib.sha256(b"{}").hexdigest()
             controls = np.array([0.5, 0.3, 0.3, 0.5, 0.0, 1, 0, 0, 0, 1, 0], np.float32)
             real = np.ones(c.p.SAMPLES, np.float32) * 0.01
+            control_by_object = {key: controls.copy() for key in c.p.HELDOUT}
+            control_by_object[c.p.HELDOUT[1]][0] = 0.8
             rows = [
-                {"item_id": key, "container_id": key, "role": "unseen_container"}
-                for key in c.p.HELDOUT
+                {
+                    "item_id": key,
+                    "container_id": key,
+                    "role": "unseen_container",
+                    "setting": setting,
+                }
+                for key, setting in zip(c.p.HELDOUT, ("ws-room", "ws-kitchen"))
             ]
             prior_audio = c.b.train.pilot.write_audio(root / "prior.wav", real)
             previous = {
@@ -75,7 +82,7 @@ class CompareTests(unittest.TestCase):
                         "target_phase": phase,
                         "seed": seed,
                         "kind": kind,
-                        "controls": controls.tolist(),
+                        "controls": control_by_object[key].tolist(),
                     }
                     for key in c.p.HELDOUT
                     for phase in ("first", "middle")
@@ -90,18 +97,28 @@ class CompareTests(unittest.TestCase):
                 "frozen_model_sha256_after": "frozen",
             }
 
-            def generate(model, vae, output, name, *, controls, bridge, seed):
+            def generate(model, vae, output, name, *, controls, bridge, seed, **extra):
                 return {
                     **c.b.train.pilot.write_audio(output / f"{name}.wav", real),
                     "seed": seed,
                     "reference_audio_input": False,
+                    **extra,
                 }, real
 
             with (
                 patch.object(
                     c.p, "load_source", return_value=(rows, {"terms": "test"})
                 ),
-                patch.object(c.c, "phase_crop", return_value=(None, controls, real, 0)),
+                patch.object(
+                    c.c,
+                    "phase_crop",
+                    side_effect=lambda r, phase: (
+                        None,
+                        control_by_object[r["container_id"]],
+                        real,
+                        0,
+                    ),
+                ),
                 patch.object(c.b, "load_bridge", return_value=(None, meta)),
                 patch.object(c.b.train.tango, "load_models", return_value=(None, None)),
                 patch.object(c.b, "digest", return_value="frozen"),
@@ -115,6 +132,26 @@ class CompareTests(unittest.TestCase):
                 self.assertFalse(report["reference_audio_input_to_generator"])
                 rate, pcm = wavfile.read(report["comparison"]["wav"])
                 self.assertEqual((rate, len(pcm)), (16000, 8 * (c.p.SAMPLES + 8000)))
+                meta["bridge_kind"] = "setting-text"
+                renderer.reset_mock()
+                c.run(root, root, root, root / "setting")
+                setting_report = json.loads((root / "setting/result.json").read_text())
+                self.assertEqual(len(setting_report["rows"]), 40)
+                self.assertEqual(renderer.call_count, 24)
+                calls = renderer.call_args_list
+                for j in range(0, len(calls), 3):
+                    matched, swapped, style = [call.kwargs for call in calls[j : j + 3]]
+                    self.assertEqual(matched["setting"], swapped["setting"])
+                    self.assertEqual(matched["setting"], style["setting"])
+                    self.assertFalse(
+                        np.array_equal(matched["controls"], swapped["controls"])
+                    )
+                    self.assertTrue(
+                        np.array_equal(matched["controls"], style["controls"])
+                    )
+                    self.assertTrue(matched["physical"])
+                    self.assertTrue(swapped["physical"])
+                    self.assertFalse(style["physical"])
                 renderer.side_effect = RuntimeError("expected failure")
                 with self.assertRaisesRegex(RuntimeError, "expected failure"):
                     c.run(root, root, root, root / "failed")

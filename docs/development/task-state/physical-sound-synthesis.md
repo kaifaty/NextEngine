@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / AUDIO_MODULATION_REJECTED / DATA_NUISANCE_CHECK_NEXT.
+Status: ACTIVE_GOAL / SETTING_BRIDGE_REJECTED / BROADER_OBJECT_DATA_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,9 +17,9 @@ Status: ACTIVE_GOAL / AUDIO_MODULATION_REJECTED / DATA_NUISANCE_CHECK_NEXT.
   water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
   References enter metrics only. No promotion or source/cache at generation.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-- **Latest trial rejected:** [real/old/new/swapped comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-audio-modulation-development-2026-09-05/comparison.wav),
-  36.64s,glass18/PET30,middle,seed2718. Audio-layer modulation retains water,
-  but relative-power shape12.459 versus old7.692dB. No model replacement.
+- **Latest trial rejected:** [real/old/new/swapped/style-only](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-setting-development-2026-09-05/comparison.wav),
+  45.8s,glass18/PET30,middle,seed2718. Separate recording-setting branch retains
+  water but shape8.025 versus old7.692/style-only7.817dB. No replacement.
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
@@ -87,13 +87,23 @@ Status: ACTIVE_GOAL / AUDIO_MODULATION_REJECTED / DATA_NUISANCE_CHECK_NEXT.
   absolute profiles, ridge0.01. Leave-record ridge/global3.630/4.390dB; leave-object
   5.351/4.601. Useful same-object signal, no transfer for this simple baseline;
   not proof nonlinear prediction is impossible. No fit/selection from dev.
-- **Next:** use existing TRAIN cross-setting objects7/31/40 to compare within-
-  object/across-setting and between-object differences at matched phase before
-  another model fit. Setting is not measured microphone/room/force. CSV TRAIN
-  has only18 objects; don't reopen author tests or invent missing physical labels.
-- **Verification:**147 tests, Ruff, modulation CLI exact;64 new WAVs
-  PCM/hash audited. All jobs terminal. No further training started.
-  No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
+- **Setting audit:** `pouring-setting-nuisance-2026-09-05`,TRAIN7/31/40.
+  Same-object cross-setting distance5.743 vs within3.731dB; correlated observations,
+  NOT measured room/mic causality. Setting-only beats controls in leave-object
+  ridge4.062/5.351. Details/source preview in note; no author tests reopened.
+- **Setting bridge:** `pouring-tango-setting-bridge-2026-09-05`,273920params,
+  same200steps/posteriors/draws; centered physical branch +4 learned setting rows.
+  Target setting FIXED during wrong-physical controls; physical-disabled ablation.
+  Matched beats old2/8 and style-only2/8. Glass slightly better, PET worse.
+  Raw/RMS AST/hard CLAP8/8 for each variant. ws-room only1 TRAIN record/update.
+  No setting/centering/capacity/seed/epoch sweep. Exact identities in pilot note.
+- **Next:** bounded internet search for broader object/material-pair coverage,
+  defensible physical descriptors and recording context. Acquire one small
+  permitted TRAIN slice + playable examples, then one data-backed learned trial.
+  Stop this small-corpus adapter family; don't narrow the goal to pouring.
+- **Verification:**114 focused tests, Ruff, setting CLI both formats byte-exact;
+  92 new WAVs +10 prior audit WAVs PCM/hash verified. All jobs terminal.
+  No runtime/default/ProductCheck promotion; full multi-event goal remains open.
 
 ## Preserve these constraints
 

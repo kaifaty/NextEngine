@@ -65,6 +65,9 @@ def run(source, directory, previous_root, output):
     patches = select_patches(rows)
     source_sha = hashlib.sha256((source / "source.json").read_bytes()).hexdigest()
     bridge, meta = b.load_bridge(directory)
+    setting_aware = meta.get("bridge_kind") == "setting-text"
+    if setting_aware and any(r["setting"] not in b.SETTINGS for r, _, _ in patches):
+        raise ValueError("unknown development setting")
     previous = json.loads((previous_root / "result.json").read_text())
     if (
         meta["source"]["source_sha256"] != source_sha
@@ -103,6 +106,9 @@ def run(source, directory, previous_root, output):
         "terms": provenance["terms"],
         "reference_audio_input_to_generator": False,
         "swap": "all11 controls from other object, same phase; not isolated material",
+        "setting_policy": "target setting held fixed for matched/swapped/style-only"
+        if setting_aware
+        else None,
         "rows": [],
     }
     save = lambda: p.save_json(output / "result.json", report)
@@ -122,33 +128,53 @@ def run(source, directory, previous_root, output):
             )
         for seed in (314, 2718):
             for i, (r, phase, (_, controls, _, start)) in enumerate(patches):
-                row, _ = b.generate(
-                    model,
-                    vae,
-                    output,
-                    f"{i}-matched-{seed}",
-                    controls=controls,
-                    bridge=bridge,
-                    seed=seed,
-                )
-                generated[i, seed] = {
-                    **row,
-                    "item_id": r["item_id"],
-                    "container_id": r["container_id"],
-                    "phase": phase,
-                    "controls": controls.tolist(),
-                    "start_sample": start,
-                }
-                report["generated_so_far"] = list(generated.values())
-                save()
+                variants = [("matched", controls, True)]
+                if setting_aware:
+                    variants += [
+                        ("swapped", patches[(i + 2) % 4][2][1], True),
+                        ("style-only", controls, False),
+                    ]
+                for kind, vector, physical in variants:
+                    extra = (
+                        {"setting": r["setting"], "physical": physical}
+                        if setting_aware
+                        else {}
+                    )
+                    row, _ = b.generate(
+                        model,
+                        vae,
+                        output,
+                        f"{i}-{kind}-{seed}",
+                        controls=vector,
+                        bridge=bridge,
+                        seed=seed,
+                        **extra,
+                    )
+                    generated[i, seed, kind] = {
+                        **row,
+                        "item_id": r["item_id"],
+                        "container_id": r["container_id"],
+                        "phase": phase,
+                        "controls": vector.tolist(),
+                        "start_sample": start,
+                    }
+                    report["generated_so_far"] = list(generated.values())
+                    save()
         for i, (r, phase, (_, _, real, _)) in enumerate(patches):
             for seed in (314, 2718):
                 pending = [
                     ("base", prior[r["item_id"], phase, seed, "base"]),
                     ("previous", prior[r["item_id"], phase, seed, "matched"]),
-                    ("matched", generated[i, seed]),
-                    ("swapped", generated[(i + 2) % 4, seed]),
+                    ("matched", generated[i, seed, "matched"]),
+                    (
+                        "swapped",
+                        generated[i, seed, "swapped"]
+                        if setting_aware
+                        else generated[(i + 2) % 4, seed, "matched"],
+                    ),
                 ]
+                if setting_aware:
+                    pending.append(("style-only", generated[i, seed, "style-only"]))
                 for kind, row in pending:
                     wave = checked_audio(row)
                     report["rows"].append(
@@ -175,7 +201,12 @@ def run(source, directory, previous_root, output):
         preview = []
         for i in (1, 3):
             preview.append({**real_rows[i], "seed": 2718})
-            for kind in ("previous", "matched", "swapped"):
+            kinds = (
+                ("previous", "matched", "swapped", "style-only")
+                if setting_aware
+                else ("previous", "matched", "swapped")
+            )
+            for kind in kinds:
                 preview.append(
                     next(
                         r
@@ -188,7 +219,9 @@ def run(source, directory, previous_root, output):
                 )
         report["comparison"] = {
             **b.write_comparison(output, preview),
-            "order": "glass18 thenPET30,middle,real/previous/new/swapped,seed2718,published gains",
+            "order": "glass18 thenPET30,middle,real/previous/new/swapped"
+            + ("/style-only" if setting_aware else "")
+            + ",seed2718,published gains",
         }
         report["real_rows"] = real_rows
         report.pop("generated_so_far")

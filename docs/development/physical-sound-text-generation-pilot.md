@@ -3310,3 +3310,103 @@ shortcut to make the task easier. No protected/author-test roles reopened.
 order/roles and gain invariance. Ruff lint/format and diff checks pass.64 new
 WAVs pass PCM/rate/layout/headroom/result hashes. All jobs terminal. No Cargo/
 ProductCheck/runtime/default/roadmap promotion; full multi-event goal stays open.
+
+## Recording-setting factorization — 2026-09-05
+
+The completed TRAIN-only `pouring-setting-nuisance-2026-09-05/result.json`
+compares objects7/31/40 across published setting labels. Same-phase pairs use
+another recording nearest in eleven-control space, never nearest audio.
+Median relative-power shape distance is3.731dB within object/setting,
+5.743 within object/across settings, and4.853 across objects/within setting.
+Cross-setting distance exceeds within-setting distance for155/162 paired
+anchors; repeated recordings/overlapping phases are not independent trials.
+Three anchors have no within-setting alternative and remain explicitly missing.
+Duration/control matching is imperfect; date, pouring behavior and acquisition
+are confounded. This is association, not measured room/microphone causality.
+
+Fixed ridge0.01 on all279 TRAIN crops, excluding whole recordings/objects:
+
+| Mean relative-power shape RMSE,dB | Global | Controls | Setting | Both |
+|---|---:|---:|---:|---:|
+| Leave recording out | 4.390 | 3.630 | 3.867 | 3.435 |
+| Leave object out | 4.601 | 5.351 | 4.062 | 5.152 |
+
+Equal-object averaging preserves both conclusions: settings matter, but adding
+them does not establish physical-parameter transfer. No dev fitting or reopened
+author tests. [Listen to the source comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-setting-nuisance-2026-09-05/comparison.wav>):
+41.22s, glass7/PET31/PP40; each anchor/same-object-same-setting/
+same-object-other-setting. These ten verified WAVs are real recordings, not new
+neural output. This diagnostic-only checkpoint owes a learned audible candidate.
+
+The next bounded discriminator is a centered text bridge plus a separate
+four-setting2048-dimensional learned offset, not an object-ID embedding or an
+inference recording. Keep the200-step seed53 training draw trace, frozen
+generator and previous post-hoc-centered control. Hypothetical previews fix
+ws-kitchen (largest TRAIN group) before scoring. Disclosed development uses
+each target's setting, held FIXED when physical controls are swapped. Also
+disable the physical branch: improved style matching alone is not success.
+The glass18 development setting ws-room has only one TRAIN recording; report
+that limitation, not a calibrated acoustic environment or independent test.
+
+Implemented `--bridge-kind setting-text --center-training` in the existing
+bridge runner:273920 trainable parameters, centered physical11→128→2048 branch
+plus4×2048 setting offsets. Vocabulary comes only from verified TRAIN metadata;
+setting offsets initialize at zero without advancing the physical branch RNG.
+Scoped setting state survives backward and is removed on errors. No new
+backbone, source-at-inference, object-ID input, runtime or product contract.
+
+`pouring-tango-setting-bridge-2026-09-05` completed200 updates. Posterior SHA
+and all200 sampled crop indices match the prior centered-training control.
+Setting draws: ws-kitchen107,vgg-mrcr90,vgg-coffee2,ws-room1. First/last20 mean
+loss1.6741/1.6055. Bridge SHA256
+`999885c06d7f1822d4d70eb24abe24e2e11805adbc95ca84ba870cd320ffd699`;
+frozen TRAIN offset SHA256
+`c495d42f2185d947ed4e0162be9442ff1c8186ed59568f491ac818c318db9a49`.
+Zero-adapter PCM, upstream loss, frozen full-model identity and adapter-off
+glass/wood/rain PCM regressions pass. Standalone `render --setting ws-kitchen
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --seed 2718`
+in `pouring-tango-setting-cli-2026-09-05` byte-replays both
+formats, loading the centering artifact automatically. `--style-only` disables
+the physical branch; this is an ablation, not an alternative trained baseline.
+
+`pouring-tango-setting-development-2026-09-05` uses the unchanged disclosed
+first records of excluded containers18/30,first/middle,seeds314/2718.24 new
+generations: matched physical controls, other-object controls at the SAME target
+setting, and physical-disabled. Tests catch accidentally swapping setting along
+with the object. Real audio enters only metrics/preview. Actual style-only WAVs
+are byte-identical across phases/physical controls for each setting/seed.
+
+| Relative-power shape RMSE,dB | Base | Previous retained | Matched | Swapped | Style-only |
+|---|---:|---:|---:|---:|---:|
+| All8 development pairs | 7.764 | 7.692 | 8.025 | 7.820 | 7.817 |
+| Glass18,4 pairs | 8.840 | 8.745 | 8.655 | 9.040 | 8.930 |
+| PET30,4 pairs | 6.687 | 6.639 | 7.395 | 6.599 | 6.704 |
+
+Matched beats previous2/8, swapped4/8 and style-only2/8. Glass has a small
+average gain while PET worsens; no general physical-transfer improvement.
+Legacy shape8.019 also loses to previous7.687. Reject this instance as a
+replacement and retain the post-hoc-centered bridge. This falsifies improvement
+for this fixed trial, not the general possibility of separating recording
+conditions or learning nonlinear physical controls.
+
+Raw/RMS0.005 AST and the unchanged harder13-prompt CLAP recognize water8/8
+for hypothetical matched clips, and8/8 for EACH development variant. These
+coarse checks are insufficient to certify object properties. CPU AST used the
+same pinned weights and prior checked CPU/CUDA correspondence; the existing mel
+filter warning remains. No score/threshold/prompt tuning or historical rewrites.
+
+[Listen: real/previous/new/wrong-physical/style-only](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-setting-development-2026-09-05/comparison.wav>),
+45.8s,glass18 thenPET30,middle,seed2718,published gains. The new model renders
+without target audio.92 new WAVs across training/development/CLI, plus the10
+earlier setting-audit source WAVs, pass PCM/rate/layout/headroom/hash checks.
+114 focused tests pass (92 pouring,22 pretrained-generator), Ruff lint/format
+and diff checks pass. All jobs terminal; no runtime/default/roadmap promotion.
+
+Next: stop this small-corpus adapter family rather than sweep settings/centering/
+capacity/seeds/epochs. Run a bounded internet source search for substantially
+broader object and material-pair coverage with defensible physical descriptors
+and recording-context information. Acquire the smallest permitted training
+slice and audible examples before building more support tooling; exclude
+protected roles and unknown-redistribution assets from distribution. Then choose
+one learned experiment from actual available coverage. Do not invent missing
+force/geometry, ask the user to record objects, or narrow the full goal to water.

@@ -357,6 +357,98 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "centering"):
                 b.load_bridge(root)
 
+    def test_setting_factorization_gradients_and_scoped_ablation(self):
+        bridge = b.SettingBridge()
+        controls = torch.randn(2, 11)
+        bridge.center_controls = controls
+        hidden, pooled = torch.zeros(2, 3, 1024), torch.zeros(2, 1024)
+        with self.assertRaisesRegex(ValueError, "explicit"):
+            bridge.condition(controls[:1], hidden, pooled, cfg=True)
+        with bridge.recording("ws-kitchen"):
+            h, p = bridge.condition(controls[:1], hidden, pooled, cfg=True)
+            self.assertTrue(torch.equal(h, hidden))
+            self.assertTrue(torch.equal(p, pooled))
+            with torch.no_grad():
+                bridge.network[-1].weight.normal_(0, 0.01)
+                bridge.setting_delta[2].fill_(0.25)
+            h, p = bridge.condition(controls[:1], hidden, pooled, cfg=True)
+            p.sum().backward()
+            self.assertGreater(float(bridge.network[-1].weight.grad.abs().sum()), 0)
+            self.assertGreater(float(bridge.setting_delta.grad[2].abs().sum()), 0)
+            self.assertEqual(float(bridge.setting_delta.grad[:2].abs().sum()), 0)
+            self.assertTrue(torch.equal(h[:1], hidden[:1]))
+            self.assertTrue(torch.equal(h[:, -1:], hidden[:, -1:]))
+            with bridge.recording("ws-kitchen", physical=False):
+                first = bridge.delta(controls[:1])
+                second = bridge.delta(controls[1:])
+                self.assertTrue(torch.equal(first, second))
+                self.assertTrue(torch.equal(first, torch.full_like(first, 0.25)))
+            self.assertTrue(bridge.recording_state[1])
+            before = bridge.delta(controls[:1])
+            bridge.freeze_centering()
+            self.assertTrue(torch.equal(before, bridge.delta(controls[:1])))
+        self.assertIsNone(bridge.recording_state)
+        with self.assertRaises(RuntimeError), bridge.recording("ws-room"):
+            raise RuntimeError("test")
+        self.assertIsNone(bridge.recording_state)
+        with self.assertRaises(ValueError), bridge.recording("invented"):
+            pass
+        with self.assertRaises(ValueError):
+            b.generate(None, None, None, "bad", bridge=bridge)
+        with self.assertRaises(ValueError):
+            b.run(None, None, None, bridge_kind="setting-text")
+
+    def test_setting_labels_use_train_only_and_exact_vocabulary(self):
+        rows = [
+            {"item_id": str(i), "container_id": str(i), "role": "train", "setting": s}
+            for i, s in enumerate(b.SETTINGS)
+        ]
+        with patch.object(b.flow.c.v.p, "load_source", return_value=(rows, {})):
+            self.assertEqual(b.training_settings(None, rows), list(b.SETTINGS))
+            rows[0]["role"] = "unseen_container"
+            with self.assertRaisesRegex(ValueError, "TRAIN"):
+                b.training_settings(None, rows)
+
+    def test_setting_checkpoint_roundtrip_and_vocabulary_guard(self):
+        torch.manual_seed(53)
+        previous = b.Bridge()
+        torch.manual_seed(53)
+        bridge = b.SettingBridge()
+        for key, value in previous.state_dict().items():
+            self.assertTrue(torch.equal(value, bridge.state_dict()[key]))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            b.save_file(bridge.state_dict(), root / "bridge.safetensors")
+            b.save_file({"offset": torch.ones(1, 2048)}, root / "offset.safetensors")
+            meta = {
+                "format": b.FORMAT,
+                "status": "complete",
+                "revision": b.train.tango.REVISION,
+                "bridge_kind": "setting-text",
+                "center_training": True,
+                "settings": list(b.SETTINGS),
+                "bridge_sha256": hashlib.sha256(
+                    (root / "bridge.safetensors").read_bytes()
+                ).hexdigest(),
+                "offset_sha256": hashlib.sha256(
+                    (root / "offset.safetensors").read_bytes()
+                ).hexdigest(),
+                "source": {"posterior_sha256": "train"},
+                "training_posterior_sha256": "train",
+                "frozen_model_sha256_after": "model",
+                "frozen_model_sha256": "model",
+            }
+            (root / "result.json").write_text(json.dumps(meta))
+            with patch.object(b.SettingBridge, "to", lambda self, *a, **kw: self):
+                restored, _ = b.load_bridge(root)
+            self.assertIsInstance(restored, b.SettingBridge)
+            self.assertIsNone(restored.recording_state)
+            self.assertTrue(torch.equal(restored.offset, torch.ones(1, 2048)))
+            meta["settings"].reverse()
+            (root / "result.json").write_text(json.dumps(meta))
+            with self.assertRaisesRegex(ValueError, "vocabulary"):
+                b.load_bridge(root)
+
 
 if __name__ == "__main__":
     unittest.main()
