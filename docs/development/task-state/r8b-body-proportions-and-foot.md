@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V8_NOMINAL_STANDING / UNLOADED_COUPLED_FOOT_RESPONSE_NEXT` |
+| Status | `BODY_V8_NOMINAL_STANDING / COUPLED_FOOT_INPUT_ISOLATED / SAMPLED_CONTROL_NEXT` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -100,14 +100,13 @@
   MTP velocity RMS0.0247/0.1112rad/s still has near-Nyquist power: do not infer
   quiet joints or retune from a picture. Next loaded heel-rise/re-contact, then
   disturbances. Old V7 output remains byte-exact; no training selection.
-- Loaded transfer fails coupled ankle/MTP and ankle-only inputs; both controls
-  exact (report17). FOOT-SERVO-01 (report18) now exposes unloaded whole-foot
-  oscillation: raised no-toe-input step1 has MTP effort0 but velocity nearly-8rad/s;
-  only knees/ankle-pitch have nonzero efforts. Every raised contact impulse is0,
-  but raw self-contact records invalidate the frozen empty-contact criterion.
-  Raised-right fails on left ankle-pitch at198, not MTP. Claim INCONCLUSIVE.
-  Native rerun/control and34950-channel effort replay exact. Next first-step
-  knee/ankle/toe discriminator with zero-effort control, not toe-only gain tuning.
+- Loaded transfer remains failed (report17). FOOT-SERVO-01 remains INCONCLUSIVE
+  under its empty-contact firewall (report18). New FOOT-RESPONSE-01 (report19)
+  independently resolves five first-step inputs: zero gives no joint motion;
+  knees give MTP-1.095rad/s, ankles nearly-8, small ankles-0.153. Neither group
+  is necessary for>=1rad/s. MTP own effort0 throughout; relative speed combines
+  rear/toe opposite world rotation. All125 effort channels and native controls
+  exact. Next coupled small-signal/sampled-PD check, not more input/gain sweeps.
 
 ## Required context
 
@@ -142,6 +141,7 @@
     and [ADR-119](../../architecture/adr/119-articulated-foot-standing-diagnostics.md).
 17. [Failed loaded-transfer discriminators and next research boundary](../r8b-loaded-foot-transfer-2026-09-05.md).
 18. [Unloaded coupled-foot response and toe-servo research](../r8b-toe-servo-research-2026-09-05.md).
+19. [Resolved first-step proximal input isolation](../r8b-foot-first-step-research-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 

@@ -9,6 +9,18 @@ fn pulse(tick: u64) -> i64 {
     }
 }
 
+fn first_step_target(case: &str, joint: &str) -> i64 {
+    if matches!(case, "knees" | "both") && joint.ends_with("-knee") {
+        100_000
+    } else if matches!(case, "ankles" | "both") && joint.ends_with("-ankle-pitch") {
+        -140_000
+    } else if case == "ankles-small" && joint.ends_with("-ankle-pitch") {
+        -250
+    } else {
+        0
+    }
+}
+
 #[cfg(feature = "physx-sdk")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_contracts::ids::PersistentId;
@@ -19,8 +31,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_physics_physx::CanonicalPhysXSnapshotV2;
     use serde_json::json;
 
-    if std::env::args().len() != 1 {
-        return Err("no arguments: runs the six frozen FOOT-SERVO-01 cases".into());
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let first_step = args == ["--first-step"];
+    if !args.is_empty() && !first_step {
+        return Err(
+            "expected no arguments (FOOT-SERVO-01) or --first-step (FOOT-RESPONSE-01)".into(),
+        );
     }
     let body = next_motor::biomechanics_humanoid_body_schema_v8();
     let compiled = CompiledBodySchemaV4::compile(&body, PersistentId::from_bytes([0; 16]))?;
@@ -55,8 +71,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>()
     };
     let mut trials = Vec::new();
-    for height in [0_i64, 10_000_000] {
-        for side in ["none", "left", "right"] {
+    let heights: &[i64] = if first_step {
+        &[10_000_000]
+    } else {
+        &[0, 10_000_000]
+    };
+    let cases: &[&str] = if first_step {
+        &["zero", "knees", "ankles", "both", "ankles-small"]
+    } else {
+        &["none", "left", "right"]
+    };
+    for &height in heights {
+        for &side in cases {
             let mut world = compiled.create_world()?;
             let original = world.capture()?;
             let mut raw = world.raw_checkpoint();
@@ -91,18 +117,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let envelopes = safety.default_skill_envelopes();
             let mut frames = Vec::new();
             let mut reason = "horizon".to_owned();
-            'episode: for tick in 1..=60_u64 {
+            'episode: for tick in 1..=if first_step { 1 } else { 60_u64 } {
                 let mut reference = standing.reference_targets(&state)?;
                 let mut selected = 0;
                 for (target, actuator) in reference.iter_mut().zip(&base.actuator_definitions) {
-                    if actuator.joint_id.as_str() == format!("joint.{side}-mtp") {
+                    if first_step {
+                        *target = first_step_target(side, actuator.joint_id.as_str());
+                    } else if actuator.joint_id.as_str() == format!("joint.{side}-mtp") {
                         *target += pulse(tick);
                         selected += 1;
                     }
                 }
-                assert_eq!(selected, usize::from(side != "none"));
+                assert_eq!(selected, usize::from(!first_step && side != "none"));
                 let targets = safety.begin_motor_tick(&reference, &[0; 25], &envelopes)?;
-                for substep in 0..4 {
+                for substep in 0..if first_step { 1 } else { 4 } {
                     let before = states(&state);
                     let efforts = match safety.step_substep(&before) {
                         Ok(value) => value,
@@ -138,9 +166,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!(
         "{}",
-        serde_json::to_string(&json!({"probe":"FOOT-SERVO-01.v1","physics_hz":240,
+        serde_json::to_string(
+            &json!({"probe":if first_step {"FOOT-RESPONSE-01.v1"} else {"FOOT-SERVO-01.v1"},"physics_hz":240,
         "body_schema_hash":body.schema_hash()?.to_hex(),"compiled_descriptor_hash":compiled.compiled_descriptor_hash.to_hex(),
-        "trials":trials}))?
+        "trials":trials})
+        )?
     );
     Ok(())
 }
@@ -148,11 +178,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(not(feature = "physx-sdk"))]
 fn main() {
     let _ = pulse(0);
+    let _ = first_step_target("zero", "joint.left-mtp");
     panic!("requires --features physx-sdk");
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn first_step_inputs_isolate_only_declared_joint_groups() {
+        for side in ["left", "right"] {
+            for (case, knee, ankle) in [
+                ("zero", 0, 0),
+                ("knees", 100_000, 0),
+                ("ankles", 0, -140_000),
+                ("both", 100_000, -140_000),
+                ("ankles-small", 0, -250),
+            ] {
+                assert_eq!(
+                    super::first_step_target(case, &format!("joint.{side}-knee")),
+                    knee
+                );
+                assert_eq!(
+                    super::first_step_target(case, &format!("joint.{side}-ankle-pitch")),
+                    ankle
+                );
+                for joint in ["mtp", "ankle-roll", "hip-pitch", "elbow"] {
+                    assert_eq!(
+                        super::first_step_target(case, &format!("joint.{side}-{joint}")),
+                        0
+                    );
+                }
+            }
+        }
+    }
     #[test]
     fn frozen_input_has_bounded_slew_and_returns_to_zero() {
         for tick in 0..=60 {

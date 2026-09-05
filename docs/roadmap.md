@@ -2008,8 +2008,14 @@ now exposes large unloaded ankle/toe motion even with zero MTP command/effort at
 the first step. All34950 effort applications and the nominal control replay
 match; a full native rerun is exact. The frozen contact-free MTP-failure claim
 is inconclusive (raw self-contact records, and a non-MTP failure at198).
-Next isolate the first-step knee/ankle/toe response with a zero-effort control,
+This required first-step knee/ankle/toe isolation with a zero-effort control,
 not a toe-only gain sweep. Body/control defaults and all safety limits remain.
+The [first-step isolation](development/r8b-foot-first-step-research-2026-09-05.md)
+now passes its controls: zero effort gives zero joint motion; knees and ankles
+each independently induce>1rad/s relative MTP motion, ankles much more strongly.
+Small ankle effort gives a smaller response. Independent125-channel arithmetic,
+native repeat and old-mode regression pass. Next coupled small-signal/sampled
+control analysis before a gain correction; no mass/geometry or training change.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
