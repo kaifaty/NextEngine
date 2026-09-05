@@ -154,6 +154,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             InteractiveSessionOptions {
                 projection_jitter: options.projection_jitter,
                 temporal_aa: !options.temporal_aa_disabled,
+                post_chain: !options.post_chain_disabled,
                 physx_water: options.physx_water,
                 physx_water_pour: options.physx_water_pour,
                 physx_water_fail_after: options.physx_water_fail_after,
@@ -207,6 +208,8 @@ fn begin_or_resume_reference_game_live(
 struct InteractiveSessionOptions {
     projection_jitter: bool,
     temporal_aa: bool,
+    /// Scene look L7 (plan `look/07`): the post chain.
+    post_chain: bool,
     physx_water: bool,
     physx_water_pour: bool,
     /// Plan 29: inject a fluid failure after this many lane frames.
@@ -225,6 +228,7 @@ fn run_interactive_session(
     let InteractiveSessionOptions {
         projection_jitter,
         temporal_aa,
+        post_chain,
         physx_water,
         physx_water_pour,
         physx_water_fail_after,
@@ -335,6 +339,7 @@ fn run_interactive_session(
             scripted_input: Vec::new(),
             projection_jitter,
             temporal_aa,
+            post_chain,
             inject_device_loss_after_frames,
             // Scene look L1 (plan `look/01`): a bounded timestamp buffer so
             // the closing report carries the GPU frame time.

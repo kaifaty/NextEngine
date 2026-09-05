@@ -313,3 +313,20 @@ the same pinned Linux `glslang` 15.1.0:
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o <module> <source>
 ```
+
+## Post chain (plan `look/07`, scene look L7)
+
+Three fragment programs over the fluid suite's fullscreen vertex program
+(`fluid_screen.vert`), the `post_chain` suite: `bloom_down.frag` (the 13-tap
+downsample of Jimenez 2014 with the Karis average on the first level),
+`bloom_up.frag` (a `3 x 3` tent over the coarser level added to the level's
+downsample) and `post.frag` (the composite: the exponential height fog
+marched through the plan 02 cascades with Henyey-Greenstein sun
+in-scattering, the closed-form remainder to the sky, the bloom mix,
+exposure, the ACES fitted curve and the `32³` grading LUT strip). The B0
+interface is unchanged. Compiled with the same pinned Linux `glslang`
+15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o <module> <source>
+```

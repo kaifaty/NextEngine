@@ -5,6 +5,7 @@ use crate::dynamic_surface::{DynamicSurfaceProfileV1, DynamicSurfaceUpdateV1};
 use crate::gpu_content::ao::AmbientOcclusionPassState;
 use crate::gpu_content::fluid::{FluidPassState, FluidUploadStats};
 use crate::gpu_content::gbuffer::{GBufferCaptureImageV1, GBufferPassState, HDR_SCENE_FORMAT};
+use crate::gpu_content::post::PostPassState;
 use crate::gpu_content::taa::TemporalAaPassState;
 use crate::gpu_content::water::WaterPassState;
 use crate::gpu_content::{
@@ -66,6 +67,12 @@ pub(super) struct GraphicsContext {
     temporal_aa: Option<Box<TemporalAaPassState>>,
     /// Scene look L4: whether the option asked for the resolve.
     temporal_aa_requested: bool,
+    /// Scene look L7 (plan `look/07`): the post chain (bloom, volumetric
+    /// height fog with shafts, grading) in place of the plan 01 resolve;
+    /// `None` resolves as plan 01.
+    post_chain: Option<Box<PostPassState>>,
+    /// Scene look L7: whether the option asked for the chain.
+    post_chain_requested: bool,
     /// Scene look L1 (plan `look/01`): the format of the scene target the
     /// scene passes render into; the swapchain's on the fallback path.
     scene_format: vk::Format,
@@ -371,7 +378,7 @@ impl GraphicsContext {
             .map_or(vk::Format::UNDEFINED, |swapchain| {
                 select_scene_format(&instance, physical_device, swapchain)
             });
-        let b0_content = initialization
+        let mut b0_content = initialization
             .swapchain
             .as_ref()
             .map(|swapchain| {
@@ -471,6 +478,16 @@ impl GraphicsContext {
             initialization.swapchain.as_ref(),
             options.temporal_aa,
         )?;
+        let post_chain = create_post_chain_pass(
+            &instance,
+            physical_device,
+            &device,
+            b0_content.as_mut(),
+            gbuffer.as_ref(),
+            initialization.swapchain.as_ref(),
+            options.post_chain,
+            scene_format,
+        )?;
         let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
@@ -514,6 +531,8 @@ impl GraphicsContext {
             ambient_occlusion,
             temporal_aa,
             temporal_aa_requested: options.temporal_aa,
+            post_chain,
+            post_chain_requested: options.post_chain,
             scene_format,
             scene_exposure: HDR_EXPOSURE_FALLBACK,
             projection_jitter: options.projection_jitter,
@@ -1123,12 +1142,34 @@ impl GraphicsContext {
                     jitter.map_or([0.0; 2], |jitter| jitter.pixels),
                 );
             }
-            gbuffer.record_scene_to_swapchain(
-                frame_slot.command_buffer,
-                swapchain.images[image_usize],
-                swapchain.image_views[image_usize],
-                self.scene_exposure,
-            );
+            // Scene look L7: the post chain resolves the frame when it
+            // exists and the prepass ran; the plan 01 resolve otherwise.
+            let post_resolved = if gbuffer_this_frame
+                && let Some(post_chain) = self.post_chain.as_mut()
+                && let Some((shadow_set, _)) = b0_content.shadow_set_and_layout()
+            {
+                post_chain.record(
+                    frame_slot.command_buffer,
+                    b0_content.frame_set(frame_slot_index)?,
+                    shadow_set,
+                    gbuffer.scene_color_image(),
+                    gbuffer.linear_depth_image(),
+                    swapchain.image_views[image_usize],
+                    self.scene_exposure,
+                    B0GpuContent::fog_density(),
+                );
+                true
+            } else {
+                false
+            };
+            if !post_resolved {
+                gbuffer.record_scene_to_swapchain(
+                    frame_slot.command_buffer,
+                    swapchain.images[image_usize],
+                    swapchain.image_views[image_usize],
+                    self.scene_exposure,
+                );
+            }
             if gbuffer_this_frame && let Some(ambient_occlusion) = self.ambient_occlusion.as_ref() {
                 ambient_occlusion.record_capture_ready(frame_slot.command_buffer);
             }
@@ -1435,6 +1476,7 @@ impl GraphicsContext {
         if let Some(content) = self.b0_content.as_ref() {
             content.bind_ambient_occlusion_placeholder();
         }
+        drop(self.post_chain.take());
         drop(self.temporal_aa.take());
         drop(self.ambient_occlusion.take());
         drop(self.fluid.take());
@@ -1490,6 +1532,16 @@ impl GraphicsContext {
             self.gbuffer.as_ref(),
             replacement.as_ref(),
             self.temporal_aa_requested,
+        )?;
+        self.post_chain = create_post_chain_pass(
+            &self.instance,
+            self.physical_device,
+            &self.device,
+            self.b0_content.as_mut(),
+            self.gbuffer.as_ref(),
+            replacement.as_ref(),
+            self.post_chain_requested,
+            self.scene_format,
         )?;
         self.particle_surface_available =
             self.particle_surface_available || particle_surface_available;
@@ -1671,6 +1723,14 @@ impl GraphicsContext {
                 .checked_add(1)
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
         }
+        if let Some(post_chain) = self.post_chain.as_ref() {
+            bytes = bytes
+                .checked_add(post_chain.allocation_bytes())
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+            allocations = allocations
+                .checked_add(3)
+                .ok_or(DesktopAdapterError::CounterOverflow)?;
+        }
         if let Some(fluid) = self.fluid.as_ref() {
             let (fluid_bytes, fluid_allocations) = fluid.allocation_stats()?;
             bytes = bytes
@@ -1701,6 +1761,7 @@ impl Drop for GraphicsContext {
             drop(self.frame_profiler.take());
             // Scene look L3/L4: the passes over the G-buffer before the
             // passes and the content they read.
+            drop(self.post_chain.take());
             drop(self.temporal_aa.take());
             drop(self.ambient_occlusion.take());
             self.ui_overlay.teardown();
@@ -1926,6 +1987,71 @@ fn create_temporal_aa_pass(
         }
         Err(reason) => {
             eprintln!("next_game: TEMPORAL_AA_FALLBACK: {reason}");
+            Ok(None)
+        }
+    }
+}
+
+/// Scene look L7: builds the post chain when the option asks for it, the
+/// prepass and the HDR target exist and the content has a shadow map; the
+/// declared fallback prints `POST_CHAIN_FALLBACK` once and keeps the plan
+/// 01 resolve. The content's fog ownership follows the outcome.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the private adapter creation boundary keeps all ownership inputs explicit"
+)]
+fn create_post_chain_pass(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    device: &ash::Device,
+    b0_content: Option<&mut B0GpuContent>,
+    gbuffer: Option<&GBufferPassState>,
+    swapchain: Option<&SwapchainState>,
+    requested: bool,
+    scene_format: vk::Format,
+) -> Result<Option<Box<PostPassState>>, DesktopAdapterError> {
+    let (Some(content), Some(swapchain)) = (b0_content, swapchain) else {
+        return Ok(None);
+    };
+    content.set_volumetric_fog(false);
+    if let Some(reason) = crate::gpu_content::post::post_chain_fallback_reason(
+        requested,
+        gbuffer.is_some(),
+        scene_format == HDR_SCENE_FORMAT,
+    ) {
+        eprintln!("next_game: POST_CHAIN_FALLBACK: {reason}");
+        return Ok(None);
+    }
+    let Some(gbuffer) = gbuffer else {
+        return Ok(None);
+    };
+    let Some((_, shadow_layout)) = content.shadow_set_and_layout() else {
+        eprintln!("next_game: POST_CHAIN_FALLBACK: no shadow map for the shafts");
+        return Ok(None);
+    };
+    match PostPassState::try_new(
+        instance,
+        physical_device,
+        device,
+        swapchain.extent,
+        swapchain.format,
+        content.frame_layout(),
+        shadow_layout,
+        gbuffer.scene_color_view(),
+        gbuffer.linear_depth_view(),
+    )? {
+        Ok(pass) => {
+            content.set_volumetric_fog(true);
+            eprintln!(
+                "next_game: POST_CHAIN active bloom_mips={} fog_steps={} lut={}",
+                pass.mip_count(),
+                crate::gpu_content::post::POST_FOG_STEPS,
+                crate::gpu_content::post::POST_LUT_SIZE
+            );
+            Ok(Some(Box::new(pass)))
+        }
+        Err(reason) => {
+            eprintln!("next_game: POST_CHAIN_FALLBACK: {reason}");
             Ok(None)
         }
     }

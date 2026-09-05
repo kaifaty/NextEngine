@@ -2,6 +2,7 @@ pub(crate) mod ao;
 pub(crate) mod fluid;
 pub(crate) mod gbuffer;
 mod pipeline;
+pub(crate) mod post;
 pub(crate) mod taa;
 pub(crate) mod water;
 pub(crate) use pipeline::B0_SUN_DIRECTION_INTENSITY;
@@ -128,6 +129,9 @@ pub(super) struct B0GpuContent {
     lighting_uniforms: Vec<BufferAllocation>,
     /// Scene look L1: the analytic sky the lighting block is built from.
     sky: crate::sky::SkyModel,
+    /// Scene look L7: the post chain owns the fog (the block carries a
+    /// zero density for the world programs).
+    volumetric_fog: bool,
     /// Scene look L1: metallic, roughness and emissive intensity per
     /// material revision, read from the catalog's material records.
     materials: BTreeMap<AssetRevisionRefV1, [f32; 4]>,
@@ -554,6 +558,7 @@ impl B0GpuContent {
             frame_uniforms,
             lighting_uniforms,
             sky,
+            volumetric_fog: false,
             materials: prepared.materials,
             white,
             placeholders,
@@ -810,7 +815,11 @@ impl B0GpuContent {
             0,
             &self.sky.lighting_uniform_bytes(
                 crate::sky::invert_matrix(raster_state.view_projection),
-                B0_FOG_DENSITY,
+                if self.volumetric_fog {
+                    0.0
+                } else {
+                    B0_FOG_DENSITY
+                },
                 &cascades,
                 SHADOW_CASCADE_EXTENTS_METRES.map(|extent| extent as f32),
             ),
@@ -1311,6 +1320,28 @@ impl B0GpuContent {
 
     pub(super) fn frame_layout(&self) -> vk::DescriptorSetLayout {
         self.descriptors.frame_layout
+    }
+
+    /// Scene look L7 (plan `look/07`): the shadow set (set 2) and its
+    /// layout, for the post chain's shafts; `None` without a shadow map.
+    pub(super) fn shadow_set_and_layout(
+        &self,
+    ) -> Option<(vk::DescriptorSet, vk::DescriptorSetLayout)> {
+        self.descriptors
+            .shadow_set
+            .map(|set| (set, self.descriptors.shadow_layout))
+    }
+
+    /// Scene look L7: whether the post chain owns the fog; the world
+    /// programs' per-pixel fog then yields (a zero density in the block).
+    pub(super) fn set_volumetric_fog(&mut self, owned_by_post_chain: bool) {
+        self.volumetric_fog = owned_by_post_chain;
+    }
+
+    /// Scene look L7: the fog density the post chain marches (the plan 01
+    /// ground-level density).
+    pub(super) const fn fog_density() -> f32 {
+        B0_FOG_DENSITY
     }
 
     /// Scene look L3: binds the occlusion target at set 2 binding 1 (the

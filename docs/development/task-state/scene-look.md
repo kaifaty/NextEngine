@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05B_DONE / ITEM_7_POST_OR_ITEM_6_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05B_AND_07_DONE / ITEM_6_ENVIRONMENT_NEXT` |
 | Branch | `codex/water-research` |
-| Last updated | 2026-09-05 |
+| Last updated | 2026-09-06 |
 
 ## Resume in 60 seconds
 
@@ -61,9 +61,20 @@
   of magnitude between sessions; the same-session A/B reads `1.04-1.10 x`.
   Open: the `16 MiB` catalog decode limit for imported textures, JPEG
   and embedded images, compressed extensions, skins.
-- **Item 5 is done in two plans (05, 05b).** Next by the roadmap: item 7
-  (post: bloom, volumetric fog, grading) or item 6 (environment: terrain,
-  props through the importer, vegetation, a real avatar).
+- **Plan 07 done (2026-09-06, item 7, three revisions):** the post chain
+  in place of the plan 01 resolve: a five-mip bloom (Jimenez downsample
+  with the Karis average, tent upsample, `0.04` mix), an exponential
+  height fog marched at half resolution through the cascades with the
+  sky's radiance along the ray partitioned into a shadowed sun share,
+  exposure, ACES and a `32³` grading LUT; `--no-post`. Revisions: the
+  grade's endpoints, the in-scatter from the sky model (the frozen sum
+  double-counted the aureole and washed the falls view), the march at
+  half resolution with one tap (the frozen chain cost `2.2 x`). Cost
+  `1.23 / 1.28 / 1.25 x` in a release build (spawn / lake / falls);
+  roots unchanged. Open: the shafts do not read at this density.
+- **Item 5 is done in two plans (05, 05b).** Item 7 is done. Next by the roadmap: item 6
+  (environment: terrain, props through the importer, vegetation, a real
+  avatar).
 - **Items 1-4 (engine first, D-L01) are done.** Next by the roadmap: item 5
   (PBR materials: mip chains, linear textures, BC compression, normal maps,
   a glTF importer) and item 7 (post: bloom, volumetric fog, grading); item 6

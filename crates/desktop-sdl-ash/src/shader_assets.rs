@@ -34,6 +34,10 @@ const TONEMAP_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/tonemap.
 const AO_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao.frag.spv");
 const AO_BLUR_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/ao_blur.frag.spv");
 const TAA_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/taa.frag.spv");
+const BLOOM_DOWN_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/bloom_down.frag.spv");
+const BLOOM_UP_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/bloom_up.frag.spv");
+const POST_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/post.frag.spv");
+const FOG_FRAGMENT_SHADER_BYTES: &[u8] = include_bytes!("../shaders/fog.frag.spv");
 
 pub(super) const B0_SHADER_MANIFEST: &str = include_str!("../shaders/manifest.json");
 
@@ -129,6 +133,50 @@ pub(super) fn temporal_aa_shader_modules() -> Result<B0ShaderModules, &'static s
     Ok(B0ShaderModules {
         vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
         fragment: decode_spirv(TAA_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L7 (plan `look/07`): the post chain's bloom downsample.
+pub(super) fn bloom_down_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"post_suite\": \"post_chain\"") {
+        return Err("embedded post chain shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(BLOOM_DOWN_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L7: the post chain's bloom upsample.
+pub(super) fn bloom_up_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"post_suite\": \"post_chain\"") {
+        return Err("embedded post chain shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(BLOOM_UP_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L7 (revision 3): the post chain's half-resolution volume.
+pub(super) fn fog_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"post_suite\": \"post_chain\"") {
+        return Err("embedded post chain shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(FOG_FRAGMENT_SHADER_BYTES)?,
+    })
+}
+
+/// Scene look L7: the post chain's composite (fog, bloom, tone, grade).
+pub(super) fn post_shader_modules() -> Result<B0ShaderModules, &'static str> {
+    if !B0_SHADER_MANIFEST.contains("\"post_suite\": \"post_chain\"") {
+        return Err("embedded post chain shader manifest is invalid");
+    }
+    Ok(B0ShaderModules {
+        vertex: decode_spirv(FLUID_SCREEN_VERTEX_SHADER_BYTES)?,
+        fragment: decode_spirv(POST_FRAGMENT_SHADER_BYTES)?,
     })
 }
 
@@ -388,6 +436,30 @@ mod tests {
         );
         let temporal = temporal_aa_shader_modules().expect("checked-in temporal modules decode");
         assert_eq!(temporal.fragment[0], SPIRV_MAGIC);
+        assert_eq!(
+            hex(sha256(BLOOM_DOWN_FRAGMENT_SHADER_BYTES)),
+            "425726979231916b09c096e3ede058a5e88eb75611028df1a993be7a9645f715"
+        );
+        assert_eq!(
+            hex(sha256(BLOOM_UP_FRAGMENT_SHADER_BYTES)),
+            "c6af12139d53c76da5dcde1fe01069d272014072b52709944e51aa2a02c635fe"
+        );
+        assert_eq!(
+            hex(sha256(POST_FRAGMENT_SHADER_BYTES)),
+            "d86ffbbeff611b80eedda498af41db626b103cb23736b6655391498e5ca715a5"
+        );
+        let bloom_down = bloom_down_shader_modules().expect("checked-in bloom modules decode");
+        assert_eq!(bloom_down.fragment[0], SPIRV_MAGIC);
+        let bloom_up = bloom_up_shader_modules().expect("checked-in bloom modules decode");
+        assert_eq!(bloom_up.fragment[0], SPIRV_MAGIC);
+        let post = post_shader_modules().expect("checked-in post chain modules decode");
+        assert_eq!(post.fragment[0], SPIRV_MAGIC);
+        assert_eq!(
+            hex(sha256(FOG_FRAGMENT_SHADER_BYTES)),
+            "2ec014b0ee0ec186f1416dfb5b07c0e429613f6c09f27df35c65d59e7bc4e291"
+        );
+        let fog = fog_shader_modules().expect("checked-in fog modules decode");
+        assert_eq!(fog.fragment[0], SPIRV_MAGIC);
         let occlusion =
             ambient_occlusion_shader_modules().expect("checked-in occlusion modules decode");
         assert_eq!(occlusion.fragment[0], SPIRV_MAGIC);

@@ -18,6 +18,8 @@ pub(super) struct GameOptions {
     /// Plan `continuum-water/18`: sub-pixel projection jitter.
     pub(super) projection_jitter: bool,
     pub(super) temporal_aa_disabled: bool,
+    /// Scene look L7 (plan `look/07`): `--no-post` keeps the plan 01 resolve.
+    pub(super) post_chain_disabled: bool,
     /// Plan 25 (ADR-106): the PhysX water presentation lane over the basin.
     pub(super) physx_water: bool,
     /// Plan 24: the demo block poured onto the basin (needs `--physx-water`).
@@ -171,6 +173,11 @@ impl GameOptions {
                 "--no-temporal-aa" => {
                     if std::mem::replace(&mut options.temporal_aa_disabled, true) {
                         return Err(AppFailure::argument("--no-temporal-aa specified twice"));
+                    }
+                }
+                "--no-post" => {
+                    if std::mem::replace(&mut options.post_chain_disabled, true) {
+                        return Err(AppFailure::argument("--no-post specified twice"));
                     }
                 }
                 "--capture-png" => {

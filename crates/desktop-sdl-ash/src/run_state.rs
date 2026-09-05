@@ -66,6 +66,10 @@ pub struct DesktopRunOptions {
     /// Scene look L4 (plan `look/04`): the temporal resolve over the plan 18
     /// jitter and motion vectors; `false` renders every frame as it is.
     pub temporal_aa: bool,
+    /// Scene look L7 (plan `look/07`): the post chain (bloom, volumetric
+    /// height fog with light shafts, grading); `false` keeps the plan 01
+    /// resolve.
+    pub post_chain: bool,
     /// Baseline audio device output (A4): opens the SDL playback stream with
     /// bounded unavailable/silent fallback. Disable for audio-free runs.
     pub audio_output_enabled: bool,
@@ -207,6 +211,7 @@ impl Default for DesktopRunOptions {
     fn default() -> Self {
         Self {
             temporal_aa: true,
+            post_chain: true,
             title: "Next Engine — Cooked Offline RPG Slice".to_owned(),
             initial_extent: [960, 540],
             maximum_frames: None,
