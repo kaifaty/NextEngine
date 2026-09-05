@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / LATE_EVENT_CONFIRMED / EVENT_EXTRACTION_WORKS / BASE_RETAINED.
+Status: ACTIVE_GOAL / MATCHED_IMPACT_LORA_REJECTED / PHYSICAL_FRICTION_DATA_ACQUIRED.
 
 ## Resume in 60 seconds
 
@@ -12,45 +12,51 @@ Status: ACTIVE_GOAL / LATE_EVENT_CONFIRMED / EVENT_EXTRACTION_WORKS / BASE_RETAI
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [recovered bottle-fracture excerpt, seed314](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/break-glass-seed314.wav)
-  (5 s); [failed prefix -> extracted event](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/comparison.wav)
-  (11 s). Same generated full horizon, no new weights/reference recording.
-  Three descriptions × two seeds recover glass tags on 6/6 versus prefixes
-  3/6. This fixes candidate extraction, not neural duration control or the goal.
+- **Latest primary artifact:** [glass base/prior comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/glass-comparison.wav)
+  (22s): base/metal striker, prior/metal, base/wooden, prior/wooden, seed314.
+  Wood/steel comparisons are in the same directory. Same event extraction;
+  no new weights, reference input or independent loudness normalization.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest roots: `tangoflux-fracture-timing-2026-09-05` and
-  `tangoflux-fracture-event-matched-2026-09-05`, under
+  Latest roots: `tangoflux-impact-window-{base,prior,base-crops,prior-crops}-2026-09-05`, under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
   Each has result/AST-CLAP JSONs and WAVs. Earlier transfer/fit roots are in note.
-- **Prior transfer:** 16 prompts × seeds314/2718, mean CLAP .369675 -> .370049,
-  14/32 improve; AST21/28 ->22/28, steel unscored. Roof-rain captions improve,
-  tap/puddle drops worsen. Glass striker margin fails on314 in both models.
-- **Decisive timing evidence:** seed314 original/without-empty/direct-fracture
-  prefixes ~-99.7 dBFS, but remaining full horizon -20…-21 dBFS; peaks at
-  18.17/17.53/12.67 s. Over 99.9999997% energy follows five seconds. Seed2718
-  peaks near 1.68 s. Late event confirmed; wording changes do not fix timing.
-  Positive prefix replays exactly; noise-floor replay differs by <=1 PCM unit
-  (67 mono/868 stereo samples), so no universal exact-replay claim.
-- **Extraction evidence:** first 10-ms RMS crossing max(-50dBFS, 0.1 peak),
-  50-ms pre-roll; offsets12.61/0.70 s. Matched empty controls use same policy.
-  AST Breaking top1 on all6; CLAP mean .28179 -> .43874, failed original
-  .16196 -> .47726. All6 exceed matched empties. Later activity exists beyond
-  every five-second crop: useful excerpts, not proven complete isolated events.
-  No noise amplification/time stretch. The first `event-window` directory's
-  unmatched-empty comparison is superseded by `event-matched`; do not use it.
+- **Earlier broad transfer:**16 prompts × two seeds:14/32 improve, roof-rain
+  gains but tap/puddle drops regress. Exact evidence is in the pilot note.
+- **Matched impact result:** seven prompts × two seeds, base/prior prefix CLAP
+  .318445/.317866 -> crops .373407/.363659. Prior improves only1/14 crops;
+  all seven class means decline. Retain base; do not repeat this LoRA sweep.
+  AST8/10 ->10/10 both, steel unscored; rank1 crops7/14 ->8/14 is not quality.
+  All crops beat equally processed empties. Glass/metal314 onset6.67/7.91s;
+  fracture31412.61s. All28 have later activity, no padding: not isolated events.
+  Striker-swap margins now positive on both seeds/materials/models; the former
+  glass314 failure is window-sensitive, not proven striker confusion.
+- **Extraction boundary:** first10ms RMS crossing max(-50dBFS,0.1peak),50ms
+  pre-roll, same policy for empties; no amplification/stretch. Uncalibrated,
+  discrete-event policy, not continuous rain/water. Old unmatched-empty
+  `tangoflux-fracture-event-window` evidence is superseded; do not reuse it.
+- **New physical-control source:** `cluster-texture-controls-canonical-2026-09-05`,
+  Figshare29438288v5, CC-BY4.0,12 disclosed recordings: wood0/steel65/glass74,
+  urethane probe,20/60mm/s ×0.5/1N, direction0/repeat0. Audio/raw two-mic,
+  force/position and original metadata:50 files,19.50MB, CRC/SHA checked.
+  [Recorded friction preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/cluster-texture-controls-canonical-2026-09-05/clean-controls-preview.wav)
+  uses one gain78.515; recorded, NOT generated. `signal-audit.json` has order.
+  Actual speed19.755–19.828/59.459–60.155mm/s; force medians .529/1.029–1.049N.
+  Clean signal−77…−66dBFS; machine residual/preprocessing is a possible shortcut.
+  Preserve raw noise channel; commanded labels are not actual sensor readings.
+  Mini archive has no raw audio. Full archive range access works; canonical
+  Figshare URL must resolve per request (signed redirect expires after10s).
+  Earlier failed mini/full directories remain, not authoritative. No full ZIP
+  download or whole-archive MD5 verification. No protected evidence reopened.
 - **Prior fit:** `tangoflux-prior-retention-2026-09-05`, step240, real full-MSE
   + weight1 field rehearsal. Prefix gains local, not broad quality; exact
   sources/order/teacher controls and drift reductions documented in note.
 - **Codec discriminator:** mean replays and sampled controls reject gross
   sampling corruption; do not retry glass merely switching to posterior means.
-- **Corpus:** ESC-50 `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`,
-  117 WAVs/100 sources, 93 train folds 1–4 / 24 disclosed development fold 5,
-  source-ID-disjoint. Rain/pour/drops 40/37/40; generic captions, physical
-  attributes null. CLAP matches 110/117; disagreements retained.
-  CC-BY-NC 3.0/individual notices retained; CC-Sampling+ IDs 67152/79220/126433
-  unfetched. Ten full-scale PCM sources. Bounded prior-ID screen found no
-  collisions; foundation pretraining independence is unknown.
+- **ESC-50 corpus:**117 WAVs/100 sources,93 train/24 disclosed development,
+  source-ID-disjoint. Generic rain/pour/drop labels, physical attributes null.
+  CC-BY-NC3.0/individual notices retained; excluded Sampling+ IDs unfetched.
+  Revision, source list and limitations remain in the pilot note.
 - **Prior glass fits:** balanced/uniform objectives improve fit, not generation;
   exact controls match. Do not repeat; details and frozen configuration in note.
 - **Do not repeat:** prior glass duration1.5/5s, CFG1/2/4.5 and base-unconditional
@@ -59,20 +65,18 @@ Status: ACTIVE_GOAL / LATE_EVENT_CONFIRMED / EVENT_EXTRACTION_WORKS / BASE_RETAI
   over knife/glass in the current wording-confounded caption bank. Their true
   target cosines are 0.38–0.46, above generated examples; ranks cannot establish
   striker identity. Steel remains unscored, and no perceptual risk is calibrated.
-- **Next action:** reassess discrete-event base/prior differences with the same
-  event-aware extraction before interpreting prefix regression as forgotten
-  timbre. Keep full horizons/prefixes as controls and test multiple seeds.
-  CLI now supports `--keep-full-horizon`, then `--extract-events result.json`
-  with `--diagnostics`. This policy is not for continuous rain/water; the
-  threshold is uncalibrated and late activity must not be silently accepted.
-  No further SFT sweep, model shopping, modal-MLP restart, invented labels,
+- **Next action:** expand friction data to repeats/intermediate velocities and
+  produce a conditional neural sound with held-out-speed/repeat comparisons
+  and a non-neural baseline. Include raw machine-noise controls in that same
+  audible experiment; no validator-only milestone. The new bounded source
+  script is `lab/scripts/physical_sound_texture_probe.py`. One fixed probe and
+  three surfaces are one physical axis, not the whole goal or object transfer.
+  No repeated generic-caption/glass SFT sweeps, modal-MLP restart, invented labels,
   protected reuse or new stack. Demo/base unchanged; no product admission.
-- **Hardware/runtime:** RTX 3080 10 GiB, working CUDA, `lab/.venv/bin/python`,
-  Torch 2.13.0+cu130, datasets 2.21.0/fsspec 2024.6.1, peft 0.12.0. Offline
-  inference loads hash-reviewed code, verifies weights/T5 alias. Old sandbox
-  GPU failures are stale; exact pinned libraries are in the pilot note.
-- **Verification:** 48 authoritative full/prefix/extracted WAVs and 11-second
-  comparison pass signal/hash checks, not quality acceptance. 51 focused tests and
+- **Hardware/runtime:** RTX3080 10GiB, working CUDA, `lab/.venv/bin/python`.
+  Offline weights/code verified; exact libraries in note. Old GPU blockers stale.
+- **Verification:**192 generated WAVs,24 acquired WAVs plus sensor files,
+  three22s comparisons and recorded previews verified.22 focused tests and
   Ruff/diff/local-link checks pass. All jobs terminal. No Cargo/ProductCheck
   or engine audition: external Python lab only. Reproduction is in the note.
 - **All goal requirements remain open beyond this baseline:** independent
@@ -111,13 +115,9 @@ Status: ACTIVE_GOAL / LATE_EVENT_CONFIRMED / EVENT_EXTRACTION_WORKS / BASE_RETAI
   User liked three fitted glass reconstructions; no generalization.
 - **Frozen transfer failure:** [unseen result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-unseen-2026-09-04/result.json).
   Nearest old parameters beat the MLP on 9/9 later strikes, not new objects.
-- **Automatic cycle:** [cycle result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json),
-  [analytic preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/analytic-preview.wav).
-  16 strikes from 761160/761161 train, 11 later strikes from excluded recording
-  761162 development. Expanded and anchored MLPs fit training parameters but
-  fail development: spectral/envelope/attack errors respectively
-  3.11714/2.82105/2.43014 and 1.74364/1.97123/1.01343.
-  Analytic-only control wins at 0.69560/0.33529/0.27242.
+- **Automatic cycle:** [cycle result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/audible-glass-cycle-2026-09-05/result.json).
+  16 train strikes,11 later development strikes. Expanded/anchored MLPs fit
+  training but lose to the analytic-only control; exact errors are in the note.
 - Do not retry size/epoch variants of that supervised parameter MLP. Sparse
   data, nonunique modal targets and parameter/audio-loss mismatch were not
   isolated. More importantly, audio-to-parameter input is the wrong interface

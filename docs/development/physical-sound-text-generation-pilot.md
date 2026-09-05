@@ -898,3 +898,116 @@ diff/local links pass. Executed versions have source hashes in external
 evidence; all 16 extracted WAVs replay exactly with the final tightened guards.
 All jobs terminal;
 no Cargo/ProductCheck or engine audition, since this is external Python work.
+
+## Event-matched impact comparison and physical-control data (2026-09-05)
+
+Playable comparisons: [glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/glass-comparison.wav>),
+[wood](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/wood-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/steel-comparison.wav>).
+Each is 22 seconds, seed314 fixed in advance: base/metal striker, prior/metal,
+base/wooden striker, prior/wooden, with 0.5-second gaps. PCM levels are retained,
+not independently loudness-matched. These are experimental candidates.
+
+The [seven-prompt subset](../../lab/profiles/physical-sound-impact-window-prompts.json)
+repeats six material pairs and bottle fracture at seeds314/2718, 50 FP32 steps,
+five-second conditioning, with the full 29.9537-second decoder output retained.
+The same event rule processes both models and their empty-prompt controls.
+External roots are `tangoflux-impact-window-{base,prior,base-crops,prior-crops}-2026-09-05`.
+All four result/diagnostic sets are complete. No weights were trained here.
+
+| Diagnostic, 14 candidates | Base prefixes | Prior prefixes | Base event crops | Prior event crops |
+|---|---:|---:|---:|---:|
+| Mean target CLAP | .318445 | .317866 | .373407 | .363659 |
+| Target rank1 among seven captions | 6 | 5 | 7 | 8 |
+| Beats equally processed empty prompt | 10 | 10 | 14 | 14 |
+| AST expected tag in top5, ten scored | 8 | 8 | 10 | 10 |
+
+Steel's four cases remain unscored by AST. After matching extraction, prior
+improves target cosine in only **1/14** cases versus 4/14 prefixes; every
+two-seed class mean is lower than base. Rank1 moves in the other direction,
+illustrating why one diagnostic cannot establish perceptual superiority.
+The decision is **retain base, do not promote or repeat this LoRA sweep**.
+Timing affected our earlier comparison but does not establish a learned gain.
+
+Glass/metal seed314 is also late: base crop starts6.67s, prior7.91s. All other
+paired offsets agree, ranging0–12.61s. No padding; all28 crops have subsequent
+above-threshold activity, so these are excerpts, not complete isolated events.
+All six striker-swap margins per model are now positive (base .02198–.06146,
+prior .01986–.06273). This revises the old negative glass margin at314: that
+failure is window-sensitive, not proven striker confusion. Neither positive
+margin nor broad glass tags validate the physical identity of both materials.
+
+Replay against the prior transfer artifacts: prior28/28 candidate mono/stereo
+prefixes match exactly; base26/28 do. Base glass/metal314 differs by at most
+one PCM unit in1150 mono/7015 stereo samples. All192 full/prefix/crop WAVs
+pass SHA256/PCM/rate/dimension/headroom checks, and three comparisons read back
+at22s. Run the earlier full-horizon/extraction commands with this new profile
+for reproduction; add the existing prior-retention step240 adapter for prior.
+
+### Next physical axis: published controlled friction recordings
+
+The [Cluster Haptic Texture Dataset paper, arXiv v4, 6 November2025](https://arxiv.org/html/2407.16206v4)
+describes118 surfaces, a fixed urethane-rubber probe, five commanded velocities
+20–60mm/s, eight directions and0.5/1N loads. This offers measured sliding
+controls, **not** arbitrary impact pairs, fluid parameters or object geometry
+transfer. [Figshare article v5](https://api.figshare.com/v2/articles/29438288/versions/5)
+identifies the files and CC-BY4.0 terms. Attribution is retained with the data.
+The paper distinguishes noise-cancelled mono audio from raw main/machine-noise
+microphone channels and records force/position separately. The two raw channels
+are sensors, not a spatial stereo scene. These sources motivate the experiment;
+they do not prove our eventual model's physical accuracy.
+
+The bounded [acquisition script](../../lab/scripts/physical_sound_texture_probe.py)
+downloads12 disclosed conditions: Nyatoh wood0, stainless steel65, float glass74;
+20/60mm/s ×0.5/1N, direction0, repeat0. It preserves both audio versions and
+force/position CSVs. This is a feasibility/development probe, not a held-out
+test or training run. No existing protected roles were reopened. A bounded
+name/article-ID scan found no prior local references, not a pretraining audit.
+
+Authoritative root: `cluster-texture-controls-canonical-2026-09-05`.
+All50 selected files total19,495,822 bytes and pass member CRC/local SHA256.
+Only ZIP ranges were fetched, not the15.2GB archive. Whole-archive MD5 is NOT
+verified; pinned version metadata, multipart ETag and member hashes are recorded.
+The miniature archive lacks raw audio despite its README: the first acquisition
+failed explicitly. The full archive contains it. A second attempt exposed
+ten-second signed-redirect expiry; the final reader resolves Figshare's canonical
+URL per range. Both failed directories remain, and expired signed query details
+were removed from the failed diagnostic. Do not reuse a resolved signed URL.
+The texture spreadsheet has malformed font-only `&quot` attributes; inspection
+repaired those in memory only, preserving the downloaded original unchanged.
+
+[Recorded friction preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/cluster-texture-controls-canonical-2026-09-05/clean-controls-preview.wav>)
+is46.584s: wood, steel, glass; within each, slow/light, slow/heavy, fast/light,
+fast/heavy. One shared gain78.515 preserves relative levels; this is **recorded,
+not generated** sound. A separate raw two-microphone preview uses gain34.054,
+so its absolute playback level must not be compared with the clean preview.
+Original files are unmodified. `signal-audit.json` records segment order,
+gains and measurements over the central54mm of travel, derived from position.
+
+Measured central speeds are19.755–19.828 and59.459–60.155mm/s; median measured
+forces .529N and1.029–1.049N. Labels therefore remain **commanded**, with sensor
+observations separate. Clean central RMS is−77.19…−65.66dBFS; main-microphone
+RMS−54.52…−41.97dBFS. Faster motion increases clean RMS for all six paired
+conditions; heavier loading increases it in all six pairs. This small probe
+does not distinguish contact response from motion-dependent machine residuals
+or preprocessing. Raw noise channels and repeat/velocity transfer are necessary
+controls before a learned physical-response claim, not reasons to withhold a
+clearly labelled experimental synthesis.
+
+Next end-to-end checkpoint: expand this fixed friction grid to repeated scans
+and intermediate speeds, then produce a conditional neural sound with a
+held-out-speed/repeat comparison and a non-neural baseline. Keep sensor labels,
+machine-noise controls and waveform outputs together; do not add another
+generic caption-only SFT sweep or a separate validator-only milestone.
+This is one missing physical axis of the full goal, not a replacement objective.
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_texture_probe.py \
+  --output /absolute/external/new-texture-probe
+```
+
+Verification:22 focused acquisition/pilot tests pass; Ruff/static/format and
+diff/link checks pass. The four new tests cover the fixed physical grid,
+separate raw channels, malformed audio rejection and silence preservation.
+All jobs terminal. No Cargo/ProductCheck or engine audition: external lab only;
+the base/demo and product contracts remain unchanged.
