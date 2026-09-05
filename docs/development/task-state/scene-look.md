@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05_DONE / GLTF_IMPORTER_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05B_DONE / ITEM_7_POST_OR_ITEM_6_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -48,6 +48,22 @@
   (`tools/textures/generate.py`); the works mesh with box-projected UVs.
   Open: BC compression, anisotropy, the `8 MiB` catalog field limit, the
   glTF importer (next plan of item 5).
+- **Plan 05b done (2026-09-05, item 5 second plan):** the glTF importer:
+  the `mesh-gltf` authoring record (JSON and GLB, buffers and images as
+  declared referenced sources, the default scene's node transform baked,
+  normals, tangents and UVs into the neutral mesh), `xtask gltf-scaffold`
+  (sources, `texture-png`, `material` and `mesh-gltf` records with
+  sequential ids, a placements table), the Khronos `BoxTextured` sample
+  validated in a scratch project, and a synthetic riveted water tank
+  (`tools/gltf/generate.py`) in the reference scene west of the pond
+  (seven static bindings `0x65`-`0x6b`). No contract change. The cost
+  gate fails as frozen because the machine's GPU means moved by an order
+  of magnitude between sessions; the same-session A/B reads `1.04-1.10 x`.
+  Open: the `16 MiB` catalog decode limit for imported textures, JPEG
+  and embedded images, compressed extensions, skins.
+- **Item 5 is done in two plans (05, 05b).** Next by the roadmap: item 7
+  (post: bloom, volumetric fog, grading) or item 6 (environment: terrain,
+  props through the importer, vegetation, a real avatar).
 - **Items 1-4 (engine first, D-L01) are done.** Next by the roadmap: item 5
   (PBR materials: mip chains, linear textures, BC compression, normal maps,
   a glTF importer) and item 7 (post: bloom, volumetric fog, grading); item 6

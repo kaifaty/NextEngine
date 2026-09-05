@@ -45,6 +45,19 @@ pub const REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_by
 /// Plan 39: the lake works (banks, dam, sill, stairs, terraces, walls), the
 /// lake's surface quad and the three stream cells' quads.
 pub const REFERENCE_WATER_WORKS_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe5; 16]);
+/// Scene look L5b (plan `look/05b`): the water tank imported from
+/// `assets/models/water_tank.gltf` (body, lid, pipe, four legs; the
+/// scaffold's order) and its painted-steel material.
+pub const REFERENCE_WATER_TANK_MESH_ASSET_IDS: [AssetId; 7] = [
+    AssetId::from_bytes([0x54; 16]),
+    AssetId::from_bytes([0x55; 16]),
+    AssetId::from_bytes([0x56; 16]),
+    AssetId::from_bytes([0x57; 16]),
+    AssetId::from_bytes([0x58; 16]),
+    AssetId::from_bytes([0x59; 16]),
+    AssetId::from_bytes([0x5a; 16]),
+];
+pub const REFERENCE_WATER_TANK_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x53; 16]);
 pub const REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe6; 16]);
 pub const REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS: [AssetId; 3] = [
     AssetId::from_bytes([0xe7; 16]),

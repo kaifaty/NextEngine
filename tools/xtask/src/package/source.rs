@@ -6,10 +6,17 @@ use super::{
 };
 
 pub(super) const REFERENCE_SOURCE_PATH: &str = "source/reference-alpha";
-pub(super) const REFERENCE_SOURCE_FILES: [&str; 13] = [
+pub(super) const REFERENCE_SOURCE_FILES: [&str; 18] = [
     "ACCEPTANCE.md",
     "NOTICE",
     "assets/humanoid-cc0.catalog.json",
+    // Scene look L5b (plan `look/05b`): the imported water tank's glTF,
+    // buffer and maps.
+    "assets/models/water_tank.bin",
+    "assets/models/water_tank.gltf",
+    "assets/models/water_tank_albedo.png",
+    "assets/models/water_tank_metallic_roughness.png",
+    "assets/models/water_tank_normal.png",
     // Scene look L5 (plan `look/05`): the procedural texture sets the
     // authoring manifest references.
     "assets/textures/concrete_albedo.png",
@@ -30,9 +37,11 @@ pub(super) fn copy_reference_project_source(
 ) -> Result<(), String> {
     let repository_source = repository_root.join("projects/reference-alpha");
     let package_source = package_root.join(REFERENCE_SOURCE_PATH);
-    fs::create_dir_all(package_source.join("assets/textures")).map_err(|error| {
-        format!("NATIVE_GATE_PACKAGE_INVALID: failed to create packaged source: {error}")
-    })?;
+    for directory in ["assets/textures", "assets/models"] {
+        fs::create_dir_all(package_source.join(directory)).map_err(|error| {
+            format!("NATIVE_GATE_PACKAGE_INVALID: failed to create packaged source: {error}")
+        })?;
+    }
     for relative in REFERENCE_SOURCE_FILES {
         let source = repository_source.join(relative);
         if !checked_metadata(&source)?.is_file() {

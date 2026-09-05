@@ -9,7 +9,7 @@
     "license_id": "CC0-1.0",
     "attribution": "Next Engine Frontier Relay original reference content; CC0-1.0",
     "source_identity": "urn:nextengine:reference-alpha:frontier-relay-v1",
-    "license_manifest_sha256": "4f88e2f9eb086ad5eaa609488df6a96dbb26e74d3c4bf04f743456d41fe06b2f",
+    "license_manifest_sha256": "dfd7fb110b5e13ae8ebf1689bc999282b32515b38d559c7c7c6b99d73976404c",
     "referenced_sources": [
       {
         "logical_source": "urn:nextengine:reference-alpha:humanoid-cc0-v1",
@@ -90,8 +90,49 @@
         "license_expression": "CC0-1.0",
         "notice_path": "NOTICE",
         "source_span": { "relative_path": "assets/textures/pad_normal.png", "line": 1, "column": 1 }
+      },
+
+      {
+      "logical_source": "urn:nextengine:reference-alpha:frontier-relay-v1:gltf:water_tank:water_tank.gltf",
+      "relative_path": "assets/models/water_tank.gltf",
+      "sha256": "5a21268099b8c1382a1bbcc6962936874d03a6ef6d55bb823ef0b77b64596563",
+      "license_expression": "CC0-1.0",
+      "notice_path": "NOTICE",
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+      },
+      {
+      "logical_source": "urn:nextengine:reference-alpha:frontier-relay-v1:gltf:water_tank:water_tank.bin",
+      "relative_path": "assets/models/water_tank.bin",
+      "sha256": "0f305c626f6fd3c9b5ce1de2f5fe6acc7dbd96071de160517bc34e5ecfad59ad",
+      "license_expression": "CC0-1.0",
+      "notice_path": "NOTICE",
+      "source_span": { "relative_path": "assets/models/water_tank.bin", "line": 1, "column": 1 }
+      },
+      {
+      "logical_source": "urn:nextengine:reference-alpha:frontier-relay-v1:gltf:water_tank:water_tank_albedo.png",
+      "relative_path": "assets/models/water_tank_albedo.png",
+      "sha256": "f922dd212d913ad1a563996e7639b518775bbbbb528cefa2e84997d08c579766",
+      "license_expression": "CC0-1.0",
+      "notice_path": "NOTICE",
+      "source_span": { "relative_path": "assets/models/water_tank_albedo.png", "line": 1, "column": 1 }
+      },
+      {
+      "logical_source": "urn:nextengine:reference-alpha:frontier-relay-v1:gltf:water_tank:water_tank_metallic_roughness.png",
+      "relative_path": "assets/models/water_tank_metallic_roughness.png",
+      "sha256": "35c8c4acdfb2177845201ed1983ecb385701cc83c3fb48545a7285b91a45283d",
+      "license_expression": "CC0-1.0",
+      "notice_path": "NOTICE",
+      "source_span": { "relative_path": "assets/models/water_tank_metallic_roughness.png", "line": 1, "column": 1 }
+      },
+      {
+      "logical_source": "urn:nextengine:reference-alpha:frontier-relay-v1:gltf:water_tank:water_tank_normal.png",
+      "relative_path": "assets/models/water_tank_normal.png",
+      "sha256": "3004dcaf102623a7ab9ae9f3945986bce5c4441596cd16f32ff2219881a13c85",
+      "license_expression": "CC0-1.0",
+      "notice_path": "NOTICE",
+      "source_span": { "relative_path": "assets/models/water_tank_normal.png", "line": 1, "column": 1 }
       }
-    ],
+],
     "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
   },
   "partition": {
@@ -2011,8 +2052,131 @@
       "fallback_material_asset_id": "86868686868686868686868686868686",
       "fallback_texture_asset_id": "84848484848484848484848484848484",
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+
+    {
+      "kind": "texture-png",
+      "asset_id": "50505050505050505050505050505050",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank_albedo.png",
+      "color_space": "srgb",
+      "alpha": "opaque",
+      "mip_levels": "full",
+      "source_span": { "relative_path": "assets/models/water_tank_albedo.png", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "texture-png",
+      "asset_id": "51515151515151515151515151515151",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank_metallic_roughness.png",
+      "color_space": "linear",
+      "alpha": "opaque",
+      "mip_levels": "full",
+      "source_span": { "relative_path": "assets/models/water_tank_metallic_roughness.png", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "texture-png",
+      "asset_id": "52525252525252525252525252525252",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank_normal.png",
+      "color_space": "linear",
+      "alpha": "opaque",
+      "mip_levels": "full",
+      "source_span": { "relative_path": "assets/models/water_tank_normal.png", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "material",
+      "asset_id": "53535353535353535353535353535353",
+      "record_revision": 1,
+      "texture_asset_id": "50505050505050505050505050505050",
+      "metallic_roughness_texture_asset_id": "51515151515151515151515151515151",
+      "normal_texture_asset_id": "52525252525252525252525252525252",
+      "uv_scale": 1.0,
+      "base_color_rgba_u16": [65535, 65535, 65535, 65535],
+      "metallic_u16": 65535,
+      "roughness_u16": 65535,
+      "emissive_rgb_u16": [0, 0, 0],
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "54545454545454545454545454545454",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 0,
+      "primitive": 0,
+      "node": 0,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "55555555555555555555555555555555",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 1,
+      "primitive": 0,
+      "node": 1,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "56565656565656565656565656565656",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 3,
+      "primitive": 0,
+      "node": 2,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "57575757575757575757575757575757",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 2,
+      "primitive": 0,
+      "node": 3,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "58585858585858585858585858585858",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 2,
+      "primitive": 0,
+      "node": 4,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "59595959595959595959595959595959",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 2,
+      "primitive": 0,
+      "node": 5,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "mesh-gltf",
+      "asset_id": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "record_revision": 1,
+      "relative_path": "assets/models/water_tank.gltf",
+      "mesh": 2,
+      "primitive": 0,
+      "node": 6,
+      "double_sided": false,
+      "source_span": { "relative_path": "assets/models/water_tank.gltf", "line": 1, "column": 1 }
     }
-  ],
+],
   "text_catalogs": [
     {
       "asset_id": "91919191919191919191919191919191",

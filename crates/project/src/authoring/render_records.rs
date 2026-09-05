@@ -139,6 +139,78 @@ pub(super) fn build_render_records(
                 insert_revision(&mut revisions, texture.asset_revision()?)?;
                 records.push(texture.into());
             }
+            AuthoringRenderRecordV1::MeshGltf {
+                asset_id: id,
+                record_revision,
+                relative_path,
+                mesh: mesh_index,
+                primitive,
+                node,
+                double_sided,
+                ..
+            } => {
+                // Scene look L5b: the glTF file and every buffer or image it
+                // names must be declared referenced sources.
+                let document = super::gltf::load_document(
+                    project_directory,
+                    relative_path,
+                    referenced_sources,
+                )?;
+                let geometry = document
+                    .geometry(*mesh_index, *primitive, *node)
+                    .map_err(ProjectAuthoringError::Gltf)?;
+                let mut indices = geometry.indices.clone();
+                if *double_sided {
+                    let reversed = indices
+                        .chunks_exact(3)
+                        .flat_map(|triangle| [triangle[0], triangle[2], triangle[1]])
+                        .collect::<Vec<_>>();
+                    indices.extend(reversed);
+                }
+                let tangents = match &geometry.tangents_snorm16 {
+                    Some(tangents) => Some(
+                        tangents
+                            .iter()
+                            .map(|(components, handedness)| {
+                                NeutralTangentV1::new(*components, *handedness)
+                            })
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                    None => None,
+                };
+                let mesh = NeutralMeshV1::new(
+                    schema_ref(
+                        NEUTRAL_MESH_SCHEMA_ID,
+                        SchemaRoleV1::NeutralContent,
+                        SchemaEncodingV1::CanonicalBinaryV1,
+                    )?,
+                    asset_id(id)?,
+                    *record_revision,
+                    // The neutral bounds are half-open at their maximum.
+                    AabbI64V1::new(
+                        geometry.bounds_min,
+                        geometry.bounds_max.map(|value| value.saturating_add(1)),
+                    )?,
+                    geometry.positions_micrometres.clone(),
+                    geometry.normals_snorm16.clone(),
+                    tangents,
+                    if geometry.uv0_q16.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![geometry.uv0_q16.clone()]
+                    },
+                    indices.clone(),
+                    vec![NeutralMeshPrimitiveV1::new(
+                        MeshPrimitiveTopologyV1::Triangles,
+                        0,
+                        u32::try_from(indices.len())
+                            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                        0,
+                    )?],
+                )?;
+                insert_revision(&mut revisions, mesh.asset_revision()?)?;
+                records.push(mesh.into());
+            }
             AuthoringRenderRecordV1::Material { .. }
             | AuthoringRenderRecordV1::B0Profile { .. }
             | AuthoringRenderRecordV1::BaseSkinningProfile { .. } => {}

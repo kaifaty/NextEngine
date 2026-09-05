@@ -82,6 +82,8 @@ pub(crate) fn fixture_presentation_bindings(
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
     // Scene look L5: the concrete of the works, the pond and the rim.
     let concrete_material = revision(crate::source::REFERENCE_CONCRETE_MATERIAL_ASSET_ID)?;
+    // Scene look L5b: the imported water tank's painted steel.
+    let tank_material = revision(crate::source::REFERENCE_WATER_TANK_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
     let enemy_material = revision(crate::source::REFERENCE_ENEMY_MATERIAL_ASSET_ID)?;
     let defeated_enemy_material =
@@ -350,6 +352,25 @@ pub(crate) fn fixture_presentation_bindings(
         [0, 0, 0],
         IDENTITY_Q30,
     ));
+    // Scene look L5b (plan `look/05b`): the imported water tank west of the
+    // pond, south of the dam, in the falls camera's view. Seven pieces
+    // (the scaffold's order), each with its node transform baked, under
+    // one placement; presentation only.
+    for (piece, mesh_asset_id) in crate::source::REFERENCE_WATER_TANK_MESH_ASSET_IDS
+        .iter()
+        .enumerate()
+    {
+        let (tank_mesh, tank_bounds) = mesh(*mesh_asset_id)?;
+        bindings.push(static_environment(
+            0x65 + u8::try_from(piece).map_err(|_| ReferenceGameError::PresentationAssetMissing)?,
+            10,
+            tank_mesh,
+            tank_material,
+            tank_bounds,
+            [-11_000_000, 0, 9_000_000],
+            IDENTITY_Q30,
+        ));
+    }
     bindings.extend([
         PresentationBindingV1 {
             persistent_id: fixture.r5b_course.static_body_id.subject_id,

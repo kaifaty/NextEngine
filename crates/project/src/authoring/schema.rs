@@ -368,6 +368,21 @@ pub(super) enum AuthoringRenderRecordV1 {
         mip_levels: AuthoringTextureMipLevelsV1,
         source_span: AuthoringSourceSpanV1,
     },
+    /// Scene look L5b (plan `look/05b`): one primitive of a glTF 2.0 file
+    /// among the project's referenced sources, the named node's global
+    /// transform baked into the vertices.
+    MeshGltf {
+        asset_id: String,
+        record_revision: u64,
+        relative_path: String,
+        mesh: usize,
+        primitive: usize,
+        #[serde(default)]
+        node: Option<usize>,
+        #[serde(default)]
+        double_sided: bool,
+        source_span: AuthoringSourceSpanV1,
+    },
     Material {
         asset_id: String,
         record_revision: u64,
@@ -470,6 +485,7 @@ impl AuthoringRenderRecordV1 {
             Self::Mesh { source_span, .. }
             | Self::TextureRgba8 { source_span, .. }
             | Self::TexturePng { source_span, .. }
+            | Self::MeshGltf { source_span, .. }
             | Self::Material { source_span, .. }
             | Self::B0Profile { source_span, .. }
             | Self::BaseSkinningProfile { source_span, .. } => source_span,

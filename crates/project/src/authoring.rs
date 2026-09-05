@@ -7,6 +7,8 @@
 
 mod cognition;
 mod error_impl;
+mod gltf;
+mod gltf_scaffold;
 mod png;
 mod render_records;
 mod schema;
@@ -15,6 +17,9 @@ mod world_services;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Component, Path};
+
+pub use self::gltf::GltfError;
+pub use self::gltf_scaffold::scaffold_gltf;
 
 use self::cognition::build_agent_cognition_catalog;
 use self::render_records::build_render_records;
@@ -73,7 +78,7 @@ use next_contracts::render_content::{
     NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1, NeutralMaterialV1,
     NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralPoseCorrectiveV1,
     NeutralPoseCorrectiveVertexDeltaV1, NeutralRenderJointV1, NeutralRenderRecordV1,
-    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTexelEncodingV1,
+    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTangentV1, NeutralTexelEncodingV1,
     NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
     NeutralTextureMipLevelV1, NeutralTextureV1, POSE_CORRECTIVE_MAX_VERTEX_DELTAS_V1,
     PoseCorrectiveDriverAxisV1, PoseCorrectiveLodClassV1, RenderContentContractError,
@@ -782,4 +787,6 @@ pub enum ProjectAuthoringError {
         actual: u64,
         limit: u64,
     },
+    /// Scene look L5b: a glTF source the `mesh-gltf` record cannot carry.
+    Gltf(gltf::GltfError),
 }

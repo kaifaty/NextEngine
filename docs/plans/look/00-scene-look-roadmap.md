@@ -64,7 +64,7 @@ first, the scene second.
 | --- | --- | --- |
 | Desktop adapter and shaders | HDR target and tone mapping; GGX from roughness; analytic sky with SH ambient; cascaded shadows with PCF; GTAO; TAA with jitter; bloom, volumetric fog, grading LUT | 1, 2, 3, 4, 7 |
 | B0 content profile | today textures are RGBA8 sRGB, 2D, one mip level only; needs mip chains, linear textures for normals and roughness, BC5/BC7 compression, and shading that reads normal, metallic, emissive and occlusion from the material record | 5 |
-| Asset import | no glTF importer into the neutral schema (the only importer is the external Gothic tool, SPEC-10); needs glTF → neutral meshes, materials, textures with tangents | 5, 6 |
+| Asset import | done in plan [`05b`](05b-gltf-import.md): the `mesh-gltf` record and `xtask gltf-scaffold` bring glTF meshes (with tangents), materials and PNG textures into the neutral schema; open there: compressed extensions, embedded and JPEG images, skins, the `16 MiB` catalog decode limit | 5, 6 |
 | World systems | a height-field terrain (content record, physics collider, splat materials in the renderer); vegetation per SPEC-40; local lights (only the sun exists); frustum culling and LOD (everything draws today) | 6 |
 | Checks | the render-performance budget at `960 x 540` for each new pass; fixed-camera captures as evidence; the fallback path when a feature cannot be created | all |
 
