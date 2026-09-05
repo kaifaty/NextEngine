@@ -6,10 +6,21 @@ use super::{
 };
 
 pub(super) const REFERENCE_SOURCE_PATH: &str = "source/reference-alpha";
-pub(super) const REFERENCE_SOURCE_FILES: [&str; 4] = [
+pub(super) const REFERENCE_SOURCE_FILES: [&str; 13] = [
     "ACCEPTANCE.md",
     "NOTICE",
     "assets/humanoid-cc0.catalog.json",
+    // Scene look L5 (plan `look/05`): the procedural texture sets the
+    // authoring manifest references.
+    "assets/textures/concrete_albedo.png",
+    "assets/textures/concrete_metallic_roughness.png",
+    "assets/textures/concrete_normal.png",
+    "assets/textures/ground_albedo.png",
+    "assets/textures/ground_metallic_roughness.png",
+    "assets/textures/ground_normal.png",
+    "assets/textures/pad_albedo.png",
+    "assets/textures/pad_metallic_roughness.png",
+    "assets/textures/pad_normal.png",
     "project.authoring.json",
 ];
 
@@ -19,7 +30,7 @@ pub(super) fn copy_reference_project_source(
 ) -> Result<(), String> {
     let repository_source = repository_root.join("projects/reference-alpha");
     let package_source = package_root.join(REFERENCE_SOURCE_PATH);
-    fs::create_dir_all(package_source.join("assets")).map_err(|error| {
+    fs::create_dir_all(package_source.join("assets/textures")).map_err(|error| {
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create packaged source: {error}")
     })?;
     for relative in REFERENCE_SOURCE_FILES {

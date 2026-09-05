@@ -80,6 +80,8 @@ pub(crate) fn fixture_presentation_bindings(
     let stream_cells = crate::water::reference_water_stream_cell_ids();
     let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
+    // Scene look L5: the concrete of the works, the pond and the rim.
+    let concrete_material = revision(crate::source::REFERENCE_CONCRETE_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
     let enemy_material = revision(crate::source::REFERENCE_ENEMY_MATERIAL_ASSET_ID)?;
     let defeated_enemy_material =
@@ -386,7 +388,7 @@ pub(crate) fn fixture_presentation_bindings(
             incarnation: 0,
             presentation_layer: 16,
             mesh_revision: water_rim_mesh,
-            material_revision: floor_material,
+            material_revision: concrete_material,
             instance_ordinal: 18,
             local_bounds: water_rim_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
@@ -403,7 +405,7 @@ pub(crate) fn fixture_presentation_bindings(
             incarnation: 0,
             presentation_layer: 16,
             mesh_revision: pond_mesh,
-            material_revision: floor_material,
+            material_revision: concrete_material,
             instance_ordinal: 19,
             local_bounds: pond_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
@@ -435,7 +437,7 @@ pub(crate) fn fixture_presentation_bindings(
             incarnation: 0,
             presentation_layer: 16,
             mesh_revision: works_mesh,
-            material_revision: floor_material,
+            material_revision: concrete_material,
             instance_ordinal: 22,
             local_bounds: works_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
@@ -451,7 +453,7 @@ pub(crate) fn fixture_presentation_bindings(
             incarnation: 0,
             presentation_layer: 16,
             mesh_revision: water_crate_mesh,
-            material_revision: floor_material,
+            material_revision: concrete_material,
             instance_ordinal: 21,
             local_bounds: water_crate_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,

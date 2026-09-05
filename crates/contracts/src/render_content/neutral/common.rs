@@ -99,6 +99,18 @@ impl UvTransformV1 {
         self.coefficients_q16_16
     }
 
+    /// Scene look L5 (plan `look/05`): the scale of a pure uniform scale
+    /// (`[s, 0, 0, 0, s, 0]` with `s > 0`), `None` for any other transform.
+    #[must_use]
+    pub const fn uniform_scale_q16_16(&self) -> Option<i32> {
+        let [a, b, tx, c, d, ty] = self.coefficients_q16_16;
+        if a > 0 && a == d && b == 0 && c == 0 && tx == 0 && ty == 0 {
+            Some(a)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn encode(self) -> [u8; 24] {
         let mut bytes = [0_u8; 24];
         for (index, value) in self.coefficients_q16_16.into_iter().enumerate() {

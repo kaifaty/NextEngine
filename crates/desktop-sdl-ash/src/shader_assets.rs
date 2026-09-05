@@ -274,11 +274,11 @@ mod tests {
         );
         assert_eq!(
             hex(sha256(B0_FRAGMENT_SHADER_BYTES)),
-            "c84f3a46c5e127d27677e316ba84a9250a530a41437ca7a4ab5eb2f9f40f1e5b"
+            "0a885138119b5ab302d6f02f55e01f6fd04ea45c262d048fbae446a1750f4da8"
         );
         assert_eq!(
             hex(sha256(B0_NO_SHADOW_FRAGMENT_SHADER_BYTES)),
-            "30f7fd08de462f9788d885a6480955ffe6a9375a4f11bddf911d1c2862eb558c"
+            "363d6a93cb189af56a310e03204c12cbcc9e2c964c185e4196876cddb98b4a8f"
         );
         assert_eq!(
             hex(sha256(SHADOW_VERTEX_SHADER_BYTES)),
@@ -404,7 +404,7 @@ mod tests {
         assert!(B0_SHADER_MANIFEST.contains("\"schema_version\": 1"));
         assert!(B0_SHADER_MANIFEST.contains(
             "\"interface_contract_sha256\": \
-             \"a269a93095e5c1d1440e0b29af98d9d9f0b9ea317ae59273263f73c905c3e24f\""
+             \"860a946d909b88edca130dcaf9c6378916f3c6da7aab01d5b46a92768c1a649a\""
         ));
         assert!(!B0_SHADER_MANIFEST.contains("\"runtime_compilation\""));
     }

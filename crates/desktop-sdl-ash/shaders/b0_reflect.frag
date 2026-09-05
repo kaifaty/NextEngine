@@ -97,6 +97,10 @@ vec3 sky_radiance(vec3 direction) {
 }
 
 layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
+// Scene look L5 (plan look/05): glTF metallic-roughness (G roughness, B
+// metallic) and the tangent-space normal map, flat placeholders when unbound.
+layout(set = 1, binding = 1) uniform sampler2D metallic_roughness_texture;
+layout(set = 1, binding = 2) uniform sampler2D normal_texture;
 layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadow_map;
 
 // Scene look L2 (plan look/02): the sun's visibility from the cascaded
@@ -144,7 +148,10 @@ void main() {
     if (in_world_position.y < frame.camera_world_position.w) {
         discard;
     }
-    vec4 base_color = texture(base_color_texture, in_uv) * draw.base_color_factor;
+    // Scene look L5: the material's uniform UV scale rides the spare lane.
+    vec2 uv = in_uv * draw.material_params.w;
+    vec4 base_color = texture(base_color_texture, uv) * draw.base_color_factor;
+    vec4 metallic_roughness_sample = texture(metallic_roughness_texture, uv);
 
     vec3 face_normal = normalize(cross(dFdx(in_world_position), dFdy(in_world_position)));
     vec3 normal = dot(in_world_normal, in_world_normal) > 0.0001
@@ -152,6 +159,25 @@ void main() {
         : face_normal;
     if (!gl_FrontFacing) {
         normal = -normal;
+    }
+    // Scene look L5: the normal map through the screen-space cotangent frame
+    // (no tangent stream): the derivatives of the position and the UVs give
+    // the tangent basis of the surface at the pixel.
+    {
+        vec3 map = texture(normal_texture, uv).xyz * 2.0 - 1.0;
+        vec3 dp1 = dFdx(in_world_position);
+        vec3 dp2 = dFdy(in_world_position);
+        vec2 duv1 = dFdx(uv);
+        vec2 duv2 = dFdy(uv);
+        vec3 dp2perp = cross(dp2, normal);
+        vec3 dp1perp = cross(normal, dp1);
+        vec3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
+        vec3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
+        float inverse_max = inversesqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
+        if (inverse_max < 1e6 && abs(map.z) > 0.0) {
+            mat3 frame_basis = mat3(tangent * inverse_max, bitangent * inverse_max, normal);
+            normal = normalize(frame_basis * map);
+        }
     }
 
     vec3 light_direction = normalize(-frame.sun_direction_intensity.xyz);
@@ -166,8 +192,8 @@ void main() {
     float n_dot_v = max(dot(normal, view), 1e-4);
     float n_dot_h = max(dot(normal, half_vector), 0.0);
     float v_dot_h = max(dot(view, half_vector), 0.0);
-    float metallic = clamp(draw.material_params.x, 0.0, 1.0);
-    float roughness = clamp(draw.material_params.y, 0.04, 1.0);
+    float metallic = clamp(draw.material_params.x * metallic_roughness_sample.b, 0.0, 1.0);
+    float roughness = clamp(draw.material_params.y * metallic_roughness_sample.g, 0.04, 1.0);
     float alpha = roughness * roughness;
     float alpha2 = alpha * alpha;
     float denominator = n_dot_h * n_dot_h * (alpha2 - 1.0) + 1.0;

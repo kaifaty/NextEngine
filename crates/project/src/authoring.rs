@@ -7,6 +7,7 @@
 
 mod cognition;
 mod error_impl;
+mod png;
 mod render_records;
 mod schema;
 mod world_services;
@@ -22,7 +23,8 @@ use self::schema::{
     AuthoringHumanoidCatalogV2, AuthoringNeutralRecordKindV1, AuthoringPoseCorrectiveDriverAxisV1,
     AuthoringPoseCorrectiveLodClassV1, AuthoringPresentationTargetV1, AuthoringRenderRecordV1,
     AuthoringSourceReferenceV1, AuthoringSourceSpanV1, AuthoringTextureAlphaV1,
-    AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1, ProjectAuthoringManifestV7,
+    AuthoringTextureColorSpaceV1, AuthoringTextureMipLevelsV1, AuthoringWorldRoutineActivityV1,
+    ProjectAuthoringManifestV7,
 };
 use self::world_services::{
     build_world_activity_catalog, build_world_navigation_catalog, build_world_population_catalog,
@@ -199,11 +201,18 @@ fn load_project_authoring_with_override(
     body_schema_asset
         .validate()
         .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let referenced_sources: Vec<String> = manifest
+        .provenance
+        .referenced_sources
+        .iter()
+        .map(|reference| reference.relative_path.clone())
+        .collect();
     let render_records = build_render_records(
         project_directory,
         &manifest.render_records,
         &skeletons,
         &body_schema_asset,
+        &referenced_sources,
     )?;
     let chunks = manifest
         .partition

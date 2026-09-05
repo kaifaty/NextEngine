@@ -26,6 +26,8 @@ pub const REFERENCE_BLADE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd4
 pub const REFERENCE_RELAY_INACTIVE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd5; 16]);
 pub const REFERENCE_RELAY_ACTIVE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd6; 16]);
 pub const REFERENCE_DEFEATED_ENEMY_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd8; 16]);
+/// Scene look L5 (plan `look/05`): the concrete of the works, the pond and the basin rim.
+pub const REFERENCE_CONCRETE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x49; 16]);
 pub const REFERENCE_RELAY_APPROACH_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd9; 16]);
 pub const REFERENCE_INDICATOR_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd7; 16]);
 pub const REFERENCE_WATER_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7c; 16]);

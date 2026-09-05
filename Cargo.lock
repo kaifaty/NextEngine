@@ -1034,6 +1034,7 @@ dependencies = [
 name = "next_project"
 version = "1.0.0"
 dependencies = [
+ "flate2",
  "next_assets",
  "next_contracts",
  "next_reference_game",

@@ -447,7 +447,14 @@ impl UiOverlayGpu {
             height: image.height,
             depth: 1,
         };
-        let texture = TextureResource::new(instance, physical_device, &self.device, extent)?;
+        let texture = TextureResource::new(
+            instance,
+            physical_device,
+            &self.device,
+            extent,
+            vk::Format::R8G8B8A8_SRGB,
+            1,
+        )?;
         let staging = BufferAllocation::new(
             instance,
             physical_device,

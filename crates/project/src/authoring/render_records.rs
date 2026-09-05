@@ -5,6 +5,7 @@ pub(super) fn build_render_records(
     authored: &[AuthoringRenderRecordV1],
     skeletons: &[NeutralSkeletonV1],
     body_schema_asset: &BodySchemaAssetV1,
+    referenced_sources: &[String],
 ) -> Result<Vec<NeutralRenderRecordV1>, ProjectAuthoringError> {
     let mut records = Vec::new();
     let mut revisions = BTreeMap::<AssetId, AssetRevisionRefV1>::new();
@@ -88,6 +89,56 @@ pub(super) fn build_render_records(
                 insert_revision(&mut revisions, texture.asset_revision()?)?;
                 records.push(texture.into());
             }
+            AuthoringRenderRecordV1::TexturePng {
+                asset_id: id,
+                record_revision,
+                relative_path,
+                color_space,
+                alpha,
+                mip_levels,
+                ..
+            } => {
+                // Scene look L5: the file must be a declared referenced
+                // source (its bytes and license ride the composition lock).
+                if !referenced_sources.iter().any(|path| path == relative_path) {
+                    return Err(ProjectAuthoringError::MissingReference(
+                        relative_path.clone(),
+                    ));
+                }
+                let bytes = read_file(&safe_join(project_directory, relative_path)?)?;
+                let decoded = super::png::decode_png(&bytes)
+                    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                let srgb = matches!(color_space, AuthoringTextureColorSpaceV1::Srgb);
+                let levels = match mip_levels {
+                    AuthoringTextureMipLevelsV1::Full => {
+                        super::png::mip_chain(decoded.width, decoded.height, &decoded.rgba8, srgb)
+                    }
+                    AuthoringTextureMipLevelsV1::None => {
+                        vec![([decoded.width, decoded.height, 1], decoded.rgba8.clone())]
+                    }
+                };
+                let texture = NeutralTextureV1::new(
+                    schema_ref(
+                        NEUTRAL_TEXTURE_SCHEMA_ID,
+                        SchemaRoleV1::NeutralContent,
+                        SchemaEncodingV1::CanonicalBinaryV1,
+                    )?,
+                    asset_id(id)?,
+                    *record_revision,
+                    NeutralTextureDimensionV1::D2,
+                    [decoded.width, decoded.height, 1],
+                    1,
+                    texture_color_space(*color_space),
+                    texture_alpha(*alpha),
+                    NeutralTexelEncodingV1::Rgba8Unorm,
+                    levels
+                        .into_iter()
+                        .map(|(extent, texels)| NeutralTextureMipLevelV1::new(extent, texels))
+                        .collect(),
+                )?;
+                insert_revision(&mut revisions, texture.asset_revision()?)?;
+                records.push(texture.into());
+            }
             AuthoringRenderRecordV1::Material { .. }
             | AuthoringRenderRecordV1::B0Profile { .. }
             | AuthoringRenderRecordV1::BaseSkinningProfile { .. } => {}
@@ -98,6 +149,9 @@ pub(super) fn build_render_records(
             asset_id: id,
             record_revision,
             texture_asset_id,
+            metallic_roughness_texture_asset_id,
+            normal_texture_asset_id,
+            uv_scale,
             base_color_rgba_u16,
             metallic_u16,
             roughness_u16,
@@ -107,6 +161,34 @@ pub(super) fn build_render_records(
         } = record
         {
             let texture = revision(&revisions, texture_asset_id)?;
+            // Scene look L5: a uniform UV scale shared by the bindings.
+            if !(*uv_scale > 0.0 && *uv_scale <= 1024.0) {
+                return Err(ProjectAuthoringError::InvalidValue);
+            }
+            let scale_q16_16 = (uv_scale * 65_536.0).round() as i32;
+            let uv_transform = UvTransformV1::new([scale_q16_16, 0, 0, 0, scale_q16_16, 0])?;
+            let mut bindings = vec![NeutralMaterialTextureBindingV1::new(
+                MaterialTextureSlotV1::BaseColor,
+                texture,
+                0,
+                uv_transform,
+            )?];
+            if let Some(map) = metallic_roughness_texture_asset_id {
+                bindings.push(NeutralMaterialTextureBindingV1::new(
+                    MaterialTextureSlotV1::MetallicRoughness,
+                    revision(&revisions, map)?,
+                    0,
+                    uv_transform,
+                )?);
+            }
+            if let Some(map) = normal_texture_asset_id {
+                bindings.push(NeutralMaterialTextureBindingV1::new(
+                    MaterialTextureSlotV1::Normal,
+                    revision(&revisions, map)?,
+                    0,
+                    uv_transform,
+                )?);
+            }
             let material = NeutralMaterialV1::new(
                 schema_ref(
                     NEUTRAL_MATERIAL_SCHEMA_ID,
@@ -127,12 +209,7 @@ pub(super) fn build_render_records(
                 MaterialAlphaModeV1::Opaque,
                 0,
                 *double_sided,
-                vec![NeutralMaterialTextureBindingV1::new(
-                    MaterialTextureSlotV1::BaseColor,
-                    texture,
-                    0,
-                    UvTransformV1::identity(),
-                )?],
+                bindings,
                 Vec::new(),
             )?;
             insert_revision(&mut revisions, material.asset_revision()?)?;

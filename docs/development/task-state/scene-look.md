@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_04_DONE / ITEM_5_OR_7_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05_DONE / GLTF_IMPORTER_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-05 |
 
@@ -40,6 +40,14 @@
   view-projection), `--no-temporal-aa`; no contract change, roots unchanged;
   GPU frame time `1.10 x`; frame-to-frame difference `8.6 %` of the
   jitter-only value.
+- **Plan 05 done (2026-09-05, item 5 first plan):** textured materials:
+  the B0 profile admits mip chains, linear maps and three bindings under a
+  uniform UV scale; `texture-png` sources with a PNG decoder and box-filter
+  mips; normal and metallic-roughness maps in the world programs (cotangent
+  frame); the contract at `b0.v6`; procedural ground, concrete and pad sets
+  (`tools/textures/generate.py`); the works mesh with box-projected UVs.
+  Open: BC compression, anisotropy, the `8 MiB` catalog field limit, the
+  glTF importer (next plan of item 5).
 - **Items 1-4 (engine first, D-L01) are done.** Next by the roadmap: item 5
   (PBR materials: mip chains, linear textures, BC compression, normal maps,
   a glTF importer) and item 7 (post: bloom, volumetric fog, grading); item 6

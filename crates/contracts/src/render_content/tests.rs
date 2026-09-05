@@ -574,7 +574,7 @@ fn typed_schema_dispatch_and_legacy_record_encoding_remain_separate() {
 fn b0_shader_interface_hash_is_a_stable_neutral_golden_vector() {
     assert_eq!(
         b0_shader_interface_manifest_sha256().to_hex(),
-        "a269a93095e5c1d1440e0b29af98d9d9f0b9ea317ae59273263f73c905c3e24f"
+        "860a946d909b88edca130dcaf9c6378916f3c6da7aab01d5b46a92768c1a649a"
     );
 }
 
@@ -673,6 +673,145 @@ fn texture(id: u8) -> NeutralTextureV1 {
         )],
     )
     .expect("texture")
+}
+
+fn linear_texture(id: u8) -> NeutralTextureV1 {
+    NeutralTextureV1::new(
+        schema_ref(NEUTRAL_TEXTURE_SCHEMA_ID),
+        asset(id),
+        1,
+        NeutralTextureDimensionV1::D2,
+        [2, 2, 1],
+        1,
+        NeutralTextureColorSpaceV1::Linear,
+        NeutralTextureAlphaSemanticsV1::Straight,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![
+            NeutralTextureMipLevelV1::new(
+                [2, 2, 1],
+                vec![
+                    128, 128, 255, 255, 128, 128, 255, 255, 128, 128, 255, 255, 128, 128, 255, 255,
+                ],
+            ),
+            NeutralTextureMipLevelV1::new([1, 1, 1], vec![128, 128, 255, 255]),
+        ],
+    )
+    .expect("texture")
+}
+
+fn b0_material_with_bindings(
+    bindings: Vec<NeutralMaterialTextureBindingV1>,
+) -> Result<NeutralMaterialV1, RenderContentContractError> {
+    NeutralMaterialV1::new(
+        schema_ref(NEUTRAL_MATERIAL_SCHEMA_ID),
+        asset(2),
+        1,
+        [u16::MAX; 4],
+        MaterialColorSpaceV1::Linear,
+        0,
+        u16::MAX,
+        [0; 3],
+        MaterialColorSpaceV1::Linear,
+        0,
+        65_536,
+        u16::MAX,
+        MaterialAlphaModeV1::Opaque,
+        0,
+        false,
+        bindings,
+        Vec::new(),
+    )
+}
+
+/// Plan look/05 G3: the profile admits a base, metallic-roughness and normal
+/// binding under one uniform UV scale over a mip-mapped linear texture, and
+/// rejects a duplicate slot, an emissive binding, an sRGB normal map and a
+/// non-uniform scale.
+#[test]
+fn b0_admits_three_bindings_under_a_uniform_scale() {
+    let base = texture(1);
+    let linear = linear_texture(9);
+    let base_ref = base.asset_revision().expect("texture ref");
+    let linear_ref = linear.asset_revision().expect("texture ref");
+    let scale = UvTransformV1::new([2 * 65_536, 0, 0, 0, 2 * 65_536, 0]).expect("scale");
+    let binding = |slot: MaterialTextureSlotV1, texture: AssetRevisionRefV1, transform| {
+        NeutralMaterialTextureBindingV1::new(slot, texture, 0, transform).expect("binding")
+    };
+    let catalog = |material: NeutralMaterialV1| {
+        let profile = B0RenderContentProfileV1::new(
+            schema_ref(B0_RENDER_CONTENT_PROFILE_SCHEMA_ID),
+            asset(4),
+            1,
+            b0_shader_interface_manifest_sha256(),
+            material.asset_revision().expect("material ref"),
+            base_ref,
+        )
+        .expect("profile");
+        RenderContentCatalogV1::new(
+            profile,
+            vec![mesh(
+                3,
+                vec![[0, 0, 0], [1_000_000, 0, 0], [0, 1_000_000, 0]],
+                vec![0, 1, 2],
+            )],
+            vec![material],
+            vec![base.clone(), linear.clone()],
+            Vec::new(),
+        )
+    };
+    let accepted = b0_material_with_bindings(vec![
+        binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+        binding(MaterialTextureSlotV1::MetallicRoughness, linear_ref, scale),
+        binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+    ])
+    .expect("material");
+    assert!(catalog(accepted).is_ok());
+    let rejected = [
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+        ],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Emissive, base_ref, scale),
+        ],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, base_ref, scale),
+        ],
+        vec![binding(
+            MaterialTextureSlotV1::BaseColor,
+            base_ref,
+            UvTransformV1::new([2 * 65_536, 0, 0, 0, 65_536, 0]).expect("scale"),
+        )],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(
+                MaterialTextureSlotV1::Normal,
+                linear_ref,
+                UvTransformV1::identity(),
+            ),
+        ],
+    ];
+    for bindings in rejected {
+        // The record itself refuses a duplicate slot; the profile refuses
+        // the rest.
+        let Ok(material) = b0_material_with_bindings(bindings) else {
+            continue;
+        };
+        assert_eq!(
+            catalog(material),
+            Err(RenderContentContractError::UnsupportedB0Feature)
+        );
+    }
+    assert_eq!(scale.uniform_scale_q16_16(), Some(2 * 65_536));
+    assert_eq!(
+        UvTransformV1::new([65_536, 0, 1, 0, 65_536, 0])
+            .expect("bounded transform")
+            .uniform_scale_q16_16(),
+        None
+    );
 }
 
 #[derive(Clone, Copy)]

@@ -298,3 +298,18 @@ interface is unchanged. Compiled with the same pinned Linux `glslang`
 ```text
 glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o taa.frag.spv taa.frag
 ```
+
+## Textured materials (plan `look/05`, scene look L5)
+
+The B0 interface moves to `b0.v6`: set 1 carries three samplers (base
+colour, glTF metallic-roughness, tangent-space normal) and the push block's
+spare material lane is the material's uniform UV scale. `b0_textured`,
+`b0_textured_no_shadow` and `b0_reflect` read the maps: roughness and
+metallic from the map times the factors, the normal through the
+screen-space cotangent frame. Textures upload every mip in the format their
+encoding and colour space name and are sampled trilinearly. Compiled with
+the same pinned Linux `glslang` 15.1.0:
+
+```text
+glslangValidator --quiet -V --target-env vulkan1.2 -S frag -e main -o <module> <source>
+```

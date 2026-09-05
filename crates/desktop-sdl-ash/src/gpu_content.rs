@@ -31,7 +31,10 @@ use self::pipeline::{
 };
 pub(crate) use self::pipeline::{ProjectionJitterV1, projection_jitter};
 pub(crate) use self::resources::{BufferAllocation, DepthAttachment};
-use self::resources::{DescriptorState, ShadowMap, TextureResource, WhiteTexture, upload_content};
+use self::resources::{
+    DescriptorState, MaterialMapsV1, MaterialPlaceholdersV1, ShadowMap, TextureResource,
+    WhiteTexture, upload_content,
+};
 use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
 use crate::dynamic_surface::DynamicSurfaceShadingV1;
@@ -47,10 +50,10 @@ const DRAW_PUSH_CONSTANT_SIZE: u32 = 96;
 pub(super) const B0_FOG_DENSITY: f32 = 0.006;
 /// Scene look L1: the material lane of a draw whose material record is
 /// unknown (fallback material): dielectric, matte.
-const DEFAULT_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.8, 0.0, 0.0];
+const DEFAULT_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.8, 0.0, 1.0];
 /// Scene look L1: the material lane of a `WaterSurface` ring draw (the
 /// water programs do not read it).
-const WATER_RING_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.05, 0.0, 0.0];
+const WATER_RING_MATERIAL_PARAMS: [f32; 4] = [0.0, 0.05, 0.0, 1.0];
 const MINIMUM_BUFFER_SIZE: vk::DeviceSize = 4;
 
 #[derive(Debug)]
@@ -131,6 +134,13 @@ pub(super) struct B0GpuContent {
     /// Scene look L3: the `1 x 1` white image bound at set 2 binding 1
     /// until the occlusion pass binds its target.
     white: WhiteTexture,
+    /// Scene look L5: the flat placeholders of the material bindings, held
+    /// for the descriptor sets that reference their views.
+    #[allow(
+        dead_code,
+        reason = "owned for the lifetime of the sets that sample it"
+    )]
+    placeholders: Box<MaterialPlaceholdersV1>,
     dynamic_vertices: Vec<BufferAllocation>,
     geometry: BufferAllocation,
     index_buffer_offset: vk::DeviceSize,
@@ -375,7 +385,14 @@ impl B0GpuContent {
 
         let mut textures = BTreeMap::new();
         for texture in &prepared.textures {
-            let resource = TextureResource::new(instance, physical_device, device, texture.extent)?;
+            let resource = TextureResource::new(
+                instance,
+                physical_device,
+                device,
+                texture.mips[0].extent,
+                texture.format,
+                u32::try_from(texture.mips.len()).map_err(|_| B0GpuContentError::CountOverflow)?,
+            )?;
             if textures.insert(texture.revision, resource).is_some() {
                 return Err(B0GpuContentError::InvalidCatalog(
                     "duplicate exact texture revision",
@@ -434,6 +451,38 @@ impl B0GpuContent {
         // Scene look L3: the white placeholder of the occlusion binding.
         let white = WhiteTexture::new(instance, physical_device, device)?;
         resources::initialize_white_texture(device, queue, queue_family_index, &white)?;
+        // Scene look L5: the flat placeholders of the material bindings
+        // (white base, roughness one and metallic zero, a flat normal).
+        let placeholders = Box::new(MaterialPlaceholdersV1 {
+            white: WhiteTexture::solid(
+                instance,
+                physical_device,
+                device,
+                vk::Format::R8G8B8A8_SRGB,
+                [1.0, 1.0, 1.0, 1.0],
+            )?,
+            metallic_roughness: WhiteTexture::solid(
+                instance,
+                physical_device,
+                device,
+                vk::Format::R8G8B8A8_UNORM,
+                [0.0, 1.0, 0.0, 1.0],
+            )?,
+            normal: WhiteTexture::solid(
+                instance,
+                physical_device,
+                device,
+                vk::Format::R8G8B8A8_UNORM,
+                [0.5, 0.5, 1.0, 1.0],
+            )?,
+        });
+        for placeholder in [
+            &placeholders.white,
+            &placeholders.metallic_roughness,
+            &placeholders.normal,
+        ] {
+            resources::initialize_white_texture(device, queue, queue_family_index, placeholder)?;
+        }
         let descriptors = DescriptorState::new(
             device,
             &frame_uniforms,
@@ -441,7 +490,28 @@ impl B0GpuContent {
             &textures,
             shadow_map.as_ref(),
             &white,
+            &prepared.material_maps,
+            &placeholders,
         )?;
+        let with_normal = prepared
+            .material_maps
+            .values()
+            .filter(|maps| maps.normal.is_some())
+            .count();
+        let with_metallic_roughness = prepared
+            .material_maps
+            .values()
+            .filter(|maps| maps.metallic_roughness.is_some())
+            .count();
+        let mip_levels: usize = prepared
+            .textures
+            .iter()
+            .map(|texture| texture.mips.len())
+            .sum();
+        eprintln!(
+            "next_game: MATERIAL_MAPS active materials={} normal={with_normal} metallic_roughness={with_metallic_roughness} mips={mip_levels}",
+            prepared.material_maps.len()
+        );
         // Scene look L1: the sky for the B0 sun; the lighting block is
         // written per frame from it.
         let sun = B0_SUN_DIRECTION_INTENSITY;
@@ -486,6 +556,7 @@ impl B0GpuContent {
             sky,
             materials: prepared.materials,
             white,
+            placeholders,
             dynamic_vertices,
             geometry,
             index_buffer_offset: prepared.index_buffer_offset,
@@ -947,10 +1018,13 @@ impl B0GpuContent {
                     ));
                 }
             }
+            // Scene look L5: the material's set (its maps), else the base
+            // texture's set with the flat placeholders.
             let texture_set = self
                 .descriptors
-                .texture_sets
-                .get(&draw.texture_revision)
+                .material_sets
+                .get(&draw.material_revision)
+                .or_else(|| self.descriptors.texture_sets.get(&draw.texture_revision))
                 .copied()
                 .ok_or(B0GpuContentError::ResourceMissing(
                     "exact base-color texture descriptor",
@@ -1777,10 +1851,17 @@ struct PreparedDrawCommand {
     first_index: u32,
 }
 
-struct PreparedTexture {
-    revision: AssetRevisionRefV1,
+/// Scene look L5: one uploaded mip level.
+struct PreparedMip {
     extent: vk::Extent3D,
     staging_offset: vk::DeviceSize,
+}
+
+struct PreparedTexture {
+    revision: AssetRevisionRefV1,
+    format: vk::Format,
+    /// Level 0 first.
+    mips: Vec<PreparedMip>,
 }
 
 struct PreparedContent {
@@ -1797,6 +1878,8 @@ struct PreparedContent {
     textures: Vec<PreparedTexture>,
     /// Scene look L1: metallic, roughness, emissive intensity per material.
     materials: BTreeMap<AssetRevisionRefV1, [f32; 4]>,
+    /// Scene look L5: the maps each material binds.
+    material_maps: BTreeMap<AssetRevisionRefV1, MaterialMapsV1>,
 }
 
 impl PreparedContent {
@@ -1808,16 +1891,19 @@ impl PreparedContent {
         let mut draw_commands = BTreeMap::new();
         let mut vertex_templates = BTreeMap::new();
         let mut materials = BTreeMap::new();
+        let mut material_maps = BTreeMap::new();
         for material in catalog.materials() {
+            let maps = material_maps_of(material.texture_bindings())?;
             materials.insert(
                 material.asset_revision()?,
                 [
                     f32::from(material.metallic_unorm16()) / f32::from(u16::MAX),
                     f32::from(material.roughness_unorm16()) / f32::from(u16::MAX),
                     material.emissive_intensity_q16_16() as f32 / 65_536.0,
-                    0.0,
+                    maps.uv_scale,
                 ],
             );
+            material_maps.insert(material.asset_revision()?, maps);
         }
 
         for mesh in catalog.meshes() {
@@ -1941,33 +2027,39 @@ impl PreparedContent {
         let geometry_staging_offset = append_aligned(&mut staging_bytes, &geometry_bytes, 4)?;
         let indirect_staging_offset = append_aligned(&mut staging_bytes, &indirect_bytes, 4)?;
         let mut textures = Vec::with_capacity(catalog.textures().len());
+        // Scene look L5: 8-bit 2D textures in their own format with every
+        // mip level.
         for texture in catalog.textures() {
+            let format = texture_format(texture.texel_encoding(), texture.color_space()).ok_or(
+                B0GpuContentError::InvalidCatalog("texture is outside the B0 profile"),
+            )?;
             if texture.dimension() != NeutralTextureDimensionV1::D2
-                || texture.color_space() != NeutralTextureColorSpaceV1::Srgb
-                || texture.texel_encoding() != NeutralTexelEncodingV1::Rgba8Unorm
                 || texture.array_layers() != 1
-                || texture.mip_levels().len() != 1
+                || texture.mip_levels().is_empty()
+                || texture.mip_levels()[0].extent() != texture.extent()
+                || texture.extent()[2] != 1
             {
-                return Err(B0GpuContentError::InvalidCatalog(
-                    "texture is outside the closed B0 RGBA8-sRGB profile",
-                ));
-            }
-            let mip = &texture.mip_levels()[0];
-            let extent = mip.extent();
-            if extent != texture.extent() || extent[2] != 1 {
                 return Err(B0GpuContentError::InvalidCatalog(
                     "texture mip extent does not match the 2D image",
                 ));
             }
-            let staging_offset = append_aligned(&mut staging_bytes, mip.texels(), 4)?;
+            let mut mips = Vec::with_capacity(texture.mip_levels().len());
+            for mip in texture.mip_levels() {
+                let extent = mip.extent();
+                let staging_offset = append_aligned(&mut staging_bytes, mip.texels(), 4)?;
+                mips.push(PreparedMip {
+                    extent: vk::Extent3D {
+                        width: extent[0],
+                        height: extent[1],
+                        depth: 1,
+                    },
+                    staging_offset,
+                });
+            }
             textures.push(PreparedTexture {
                 revision: texture.asset_revision()?,
-                extent: vk::Extent3D {
-                    width: extent[0],
-                    height: extent[1],
-                    depth: 1,
-                },
-                staging_offset,
+                format,
+                mips,
             });
         }
         if staging_bytes.is_empty() {
@@ -1987,6 +2079,7 @@ impl PreparedContent {
             dynamic_vertex_capacity,
             textures,
             materials,
+            material_maps,
         })
     }
 
@@ -2071,6 +2164,63 @@ fn push_normal_snorm16(bytes: &mut Vec<u8>, normal: [i16; 3]) {
         bytes.extend_from_slice(&component.to_le_bytes());
     }
     bytes.extend_from_slice(&0_i16.to_le_bytes());
+}
+
+/// Scene look L5: the Vulkan format of a B0 texture from its encoding and
+/// colour space; `None` outside the profile.
+fn texture_format(
+    encoding: NeutralTexelEncodingV1,
+    color_space: NeutralTextureColorSpaceV1,
+) -> Option<vk::Format> {
+    match (encoding, color_space) {
+        (NeutralTexelEncodingV1::Rgba8Unorm, NeutralTextureColorSpaceV1::Srgb) => {
+            Some(vk::Format::R8G8B8A8_SRGB)
+        }
+        (NeutralTexelEncodingV1::Rgba8Unorm, NeutralTextureColorSpaceV1::Linear) => {
+            Some(vk::Format::R8G8B8A8_UNORM)
+        }
+        (NeutralTexelEncodingV1::Rg8Unorm, NeutralTextureColorSpaceV1::Linear) => {
+            Some(vk::Format::R8G8_UNORM)
+        }
+        (NeutralTexelEncodingV1::R8Unorm, NeutralTextureColorSpaceV1::Linear) => {
+            Some(vk::Format::R8_UNORM)
+        }
+        _ => None,
+    }
+}
+
+/// Scene look L5: the maps of a material from its bindings (the profile
+/// guarantees the base colour first and one uniform UV scale).
+fn material_maps_of(
+    bindings: &[next_contracts::render_content::NeutralMaterialTextureBindingV1],
+) -> Result<MaterialMapsV1, B0GpuContentError> {
+    use next_contracts::render_content::MaterialTextureSlotV1;
+    let base = bindings
+        .first()
+        .filter(|binding| binding.slot() == MaterialTextureSlotV1::BaseColor)
+        .ok_or(B0GpuContentError::InvalidCatalog(
+            "material binds no base colour texture",
+        ))?;
+    let uv_scale = base
+        .uv_transform()
+        .uniform_scale_q16_16()
+        .map_or(1.0, |scale| scale as f32 / 65_536.0);
+    let mut maps = MaterialMapsV1 {
+        base_color: base.texture(),
+        metallic_roughness: None,
+        normal: None,
+        uv_scale,
+    };
+    for binding in &bindings[1..] {
+        match binding.slot() {
+            MaterialTextureSlotV1::MetallicRoughness => {
+                maps.metallic_roughness = Some(binding.texture());
+            }
+            MaterialTextureSlotV1::Normal => maps.normal = Some(binding.texture()),
+            _ => {}
+        }
+    }
+    Ok(maps)
 }
 
 #[cfg(test)]
