@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / MMAUDIO_WATER_AUDITION_COMPLETE / SPARSE_VISUAL_TIMING_NEXT.
+Status: ACTIVE_GOAL / MMAUDIO_IMPACT_TIMING_INCOMPLETE / EXPLICIT_ONSET_CONDITIONING_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,16 +17,16 @@ Status: ACTIVE_GOAL / MMAUDIO_WATER_AUDITION_COMPLETE / SPARSE_VISUAL_TIMING_NEX
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest media:** [MMAudio water video](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-water-audition-2026-09-05/water-generated-full.mp4),8s;
-  sibling`comparison.wav`:text/moving/static,seed42,25steps,CFG4.5,0fit,source-free.
-  AST Water top5 all3+real raw/RMS;video shifts to faucet/sink,not quality win.
-  Silent video ONLY at inference;reference extracted afterward. Container17 opened
-  TRAIN,pretraining overlap unknown. No synchronization/physical-control claim.
+- **Latest media:** [MMAudio glass-panel taps](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/video-generated-full.mp4),8s;
+  sibling`comparison.wav`:text/video/static/+1s. Seed42,25steps,CFG4.5,0fit.
+  Fixed audio-onset diagnostic:video2/9matches+6extras,delayed3/8+2extras at100ms.
+  Not measured visual contacts or calibrated quality. Some timing response,not
+  complete rhythm. Greatest Hits first author Glass demo,CC-BY4,opened development.
+  No target audio at inference;reference only later. Provenance/CLI in pilot note.
   MMAudio CC-BY-NC,Apple CLIP research-only excludes product development:NOT engine
-  candidate weights. Assets/source/dependency overlay external,pinned;4.956GiB GPU.
-  Shared.5 playback gain;raw FLOAT retained,peaks1.0 possible. Initial
-  `mmaudio-water-counterfactual-2026-09-05`failed headroom,terminal;do not resume.
-  Use`water-generated-full.mp4`,not initial3-frame-short composite. CLI in note.
+  candidate weights. Shared.5 playback gain,full FLOAT,19tests;all jobs terminal.
+- **Earlier MMAudio water:** coarse Water top5,not quality win;CLI/results in note.
+  Initial headroom failure terminal;use`water-generated-full.mp4`,not short mux.
 - **Friction corrections closed:** endpoint/fullsampler/level-shape all lose to
   ordinary FM overall. Latest48TRAIN,200updates/arm,72tests/481WAV. Envelope
   FM1.600/new1.605dB,shape2.386/2.406,level1.041/1.112. No loss/weight/epoch sweeps.
@@ -87,10 +87,10 @@ Status: ACTIVE_GOAL / MMAUDIO_WATER_AUDITION_COMPLETE / SPARSE_VISUAL_TIMING_NEX
   limitations AND generator-side loss;not proof that all nonlinearmu mappings fail.
 - **Gradient discriminator:** gain-only insufficient;12TRAIN category gradients
   align. No evidence to introduce PCGrad;no gradient/weight sweeps.
-- **Next:** sparse visible impacts,measure event times and compare moving/static/
-  time-shift conditions. Continuous water cannot validate timing. Reuse pinned
-  research-only MMAudio;no prompt/seed sweeps or deployment claims. Internet data,
-  no author test/protected roles. Exact CLI/evidence in latest pilot note section.
+- **Next:** explicit event-time conditioning. Inspect SyncFusion author code,
+  weight terms and exact text+onset(no target audio) inference before use. README
+  describes editable onset tracks;not yet downloaded/run. Do not assume a visual
+  predictor is needed when physics supplies event times. No MMAudio prompt/seed sweep.
 
 ## Preserve these constraints
 
@@ -101,7 +101,7 @@ Status: ACTIVE_GOAL / MMAUDIO_WATER_AUDITION_COMPLETE / SPARSE_VISUAL_TIMING_NEX
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace audible output. Latest MMAudio generation/AST jobs all terminal;
+  not replace audible output. Latest MMAudio generation/timing jobs all terminal;
   full multi-event goal stays open; familiar auditions are not mandatory approval.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)

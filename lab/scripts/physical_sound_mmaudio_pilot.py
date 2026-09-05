@@ -180,7 +180,35 @@ def prepare(root, water):
     write_json(root / "assets.json", receipt)
 
 
-def render(root, source, output):
+def delayed_video(source, target):
+    """Delay visible action one second without a wraparound event at the boundary."""
+    require_silent_video(source)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-nostdin",
+            "-n",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-an",
+            "-vf",
+            "tpad=start_mode=clone:start_duration=1,trim=duration=8,setpts=PTS-STARTPTS",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "18",
+            str(target),
+        ],
+        check=True,
+    )
+    require_silent_video(target)
+
+
+def render(root, source, output, video_path=None, prompt=None, time_shift=False):
     import torch
     from mmaudio.eval_utils import generate, load_video
     from mmaudio.ext.bigvgan_v2.bigvgan import BigVGAN
@@ -200,10 +228,16 @@ def render(root, source, output):
     for key, item in receipt["assets"].items():
         if digest(root / key) != item["sha256"]:
             raise ValueError(f"Changed asset: {key}")
-    silent = root / "water-silent.mp4"
+    if (video_path is None) != (prompt is None):
+        raise ValueError("Custom silent video and prompt must be supplied together")
+    silent = root / "water-silent.mp4" if video_path is None else video_path
+    if not 0 < silent.stat().st_size <= 20_000_000:
+        raise ValueError("Video must be bounded to 20 MB")
     require_silent_video(silent)
-    if digest(silent) != receipt["water"]["silent_sha256"]:
+    if video_path is None and digest(silent) != receipt["water"]["silent_sha256"]:
         raise ValueError("Changed silent input")
+    if prompt is not None and not 1 <= len(prompt) <= 1000:
+        raise ValueError("Bounded prompt required")
     output.mkdir(parents=True, exist_ok=False)
     result = {
         "status": "running",
@@ -214,7 +248,10 @@ def render(root, source, output):
         "cfg": 4.5,
         "training_updates": 0,
         "reference_audio_input": False,
-        "prompt": "Water is being poured into a glass container.",
+        "prompt": prompt or "Water is being poured into a glass container.",
+        "silent_video": str(silent),
+        "silent_sha256": digest(silent),
+        "time_shift_seconds": 1 if time_shift else None,
         "negative_prompt": "",
         "torch": torch.__version__,
         "arms": {},
@@ -258,6 +295,15 @@ def render(root, source, output):
         )
     features.eval().requires_grad_(False).to("cuda", dtype)
     video = load_video(silent, 8, load_all_frames=False)
+    shifted = None
+    if time_shift:
+        delayed_video(silent, output / "shifted-silent.mp4")
+        shifted = load_video(output / "shifted-silent.mp4", 8, load_all_frames=False)
+        if (
+            shifted.clip_frames.shape != video.clip_frames.shape
+            or shifted.sync_frames.shape != video.sync_frames.shape
+        ):
+            raise ValueError("Shifted video sampling layout mismatch")
     CONFIG_44K.duration = video.duration_sec
     net.update_seq_lengths(
         CONFIG_44K.latent_seq_len, CONFIG_44K.clip_seq_len, CONFIG_44K.sync_seq_len
@@ -265,7 +311,12 @@ def render(root, source, output):
     fm = FlowMatching(min_sigma=0, inference_mode="euler", num_steps=25)
     waves = []
     # Same seed/prompt/sampler. Static preserves first-frame appearance but removes motion.
-    for arm in ("text", "video", "static"):
+    arms = (
+        ("text", "video", "static", "shifted")
+        if time_shift
+        else ("text", "video", "static")
+    )
+    for arm in arms:
         start = time.monotonic()
         clip, sync = None, None
         if arm != "text":
@@ -273,6 +324,8 @@ def render(root, source, output):
             if arm == "static":
                 clip = clip[:1].expand_as(clip)
                 sync = sync[:1].expand_as(sync)
+            elif arm == "shifted":
+                clip, sync = shifted.clip_frames, shifted.sync_frames
             clip, sync = clip.unsqueeze(0), sync.unsqueeze(0)
         with torch.inference_mode():
             audio = generate(
@@ -302,7 +355,11 @@ def render(root, source, output):
         item["seconds"] = time.monotonic() - start
         result["arms"][arm] = item
         waves.append(wave * 0.5)
-        if arm == "video":
+        if arm in ("video", "shifted"):
+            composite_source = (
+                silent if arm == "video" else output / "shifted-silent.mp4"
+            )
+            name = "water" if video_path is None and arm == "video" else arm
             subprocess.run(
                 [
                     "ffmpeg",
@@ -311,9 +368,9 @@ def render(root, source, output):
                     "-nostdin",
                     "-n",
                     "-i",
-                    str(silent),
+                    str(composite_source),
                     "-i",
-                    str(output / "video.wav"),
+                    str(output / f"{arm}.wav"),
                     "-map",
                     "0:v:0",
                     "-map",
@@ -322,7 +379,7 @@ def render(root, source, output):
                     "copy",
                     "-c:a",
                     "aac",
-                    str(output / "water-generated-full.mp4"),
+                    str(output / f"{name}-generated-full.mp4"),
                 ],
                 check=True,
             )
@@ -337,7 +394,7 @@ def render(root, source, output):
     result.update(
         status="complete",
         cuda_peak_gib=torch.cuda.max_memory_allocated() / 2**30,
-        comparison_order=["text", "video", "static"],
+        comparison_order=list(arms),
         claim="Playable counterfactual, not quality/physical calibration or test generalization",
     )
     write_json(output / "result.json", result)
@@ -409,6 +466,11 @@ def main():
     parser.add_argument("--water", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--video", type=Path, help="Custom silent video, <=20 MB")
+    parser.add_argument("--prompt", help="Required with --video")
+    parser.add_argument(
+        "--time-shift", action="store_true", help="Add a fixed +1s visual delay arm"
+    )
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
     for path in (args.root, args.output):
@@ -423,7 +485,14 @@ def main():
         # Do not leave a terminal failure mislabeled as a live run.
         existed = args.output.exists()
         try:
-            render(args.root, args.source, args.output)
+            render(
+                args.root,
+                args.source,
+                args.output,
+                args.video,
+                args.prompt,
+                args.time_shift,
+            )
         except Exception as exc:
             result_path = args.output / "result.json"
             if not existed and result_path.exists():

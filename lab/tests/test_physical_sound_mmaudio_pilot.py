@@ -1,3 +1,4 @@
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,50 @@ import physical_sound_mmaudio_pilot as pilot
 
 
 class PilotTests(unittest.TestCase):
+    def test_delay_is_one_second_and_preserves_silent_boundary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source, target = Path(temp) / "source.mp4", Path(temp) / "delayed.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-nostdin",
+                    "-n",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=black:s=16x16:r=25:d=8",
+                    "-vf",
+                    "drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='gte(t,2)'",
+                    "-c:v",
+                    "libx264",
+                    str(source),
+                ],
+                check=True,
+            )
+            pilot.delayed_video(source, target)
+            frames = np.frombuffer(
+                subprocess.check_output(
+                    [
+                        "ffmpeg",
+                        "-v",
+                        "error",
+                        "-i",
+                        str(target),
+                        "-f",
+                        "rawvideo",
+                        "-pix_fmt",
+                        "rgb24",
+                        "pipe:1",
+                    ]
+                ),
+                dtype=np.uint8,
+            ).reshape(-1, 16, 16, 3)
+            self.assertEqual(len(frames), 200)
+            self.assertLess(frames[:75].max(), 5)
+            self.assertGreater(frames[75:].min(), 250)
+
     def test_input_rejects_audio_even_if_silent(self):
         for streams in (
             [],

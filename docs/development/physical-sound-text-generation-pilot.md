@@ -4913,3 +4913,72 @@ identity checks,silent-input/full-composite streams. No Cargo,host-check,
 ProductCheck,roadmap/demo promotion. All jobs terminal. Next:sparse visible
 impacts with measured event times and moving/static/time-shift controls. Do not
 start water seed/prompt sweeps or assume this research encoder is deployable.
+
+## MMAudio sparse impact timing discriminator — 2026-09-05
+
+[Generated glass-panel taps with video](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/video-generated-full.mp4),
+[one-second delayed scene and generated audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/shifted-generated-full.mp4),
+[four-arm audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/comparison.wav):
+text,moving,static,+1s delayed. Same frozen MMAudio/seed42/25Euler/CFG4.5/BF16,
+prompt `A drumstick taps a glass panel.`,empty negative,shared.5 playback gain.
+All4 complete,raw FLOAT preserved,no clipping/headroom failure.0training updates.
+
+Two source-order already-opened EPIC TRAIN candidates were visually unsuitable:
+P01_04_23 has obscured contacts;P01_05_134 is cap manipulation then faucet activity.
+Preserved both8s previews rather than treating audio annotations as contact times.
+Bounded primary-source search then identified
+[Greatest Hits](https://andrewowens.com/vis/) by Owens,Isola,McDermott,Torralba,
+Adelson,Freeman. The authors publish videos of drumstick interactions and label
+their [gallery](https://andrewowens.com/vis/hits.html) examples as recorded sounds,
+not model predictions;project links CC-BY4.0. Selected the first Glass gallery
+video,first8s,without listening to/selecting generated candidates.
+
+Downloaded only3.1MB author demonstration `2015-03-27-23-30-55_denoised_thumb.mp4`:
+obsolete MIT hostname failed DNS;university archive had an incomplete TLS chain;
+same media path on the current author domain returned200 with verified TLS.
+No certificate bypass or20/50GB archive acquisition. Author's denoised thumbnail
+is not raw sensor audio. Source e104350f2004a12e5ec61dfb689fb9ef3c9d4eda16fc3a41febe279b0f75bc68;
+silent48bc6261d31b9c77f5c21592de7d0d278417a0c2fc756e36f931077e1309306d.
+Full provenance/rejected alternatives in external`mmaudio-impact-source-2026-09-05/source.json`.
+Public demonstration is opened development,not clean test;foundation overlap
+unknown. Glass category comes from author gallery;exact composition/force/size
+not measured. Inspected frames show stick motion across a cabinet panel.
+
+Extended existing renderer with paired`--video SILENT --prompt TEXT` and
+`--time-shift`. Fixed+1s delay holds first frame,then plays original;no wraparound.
+Generated composites retain full video/audio streams. Synthetic black→white
+video test verifies25-frame shift at25FPS and absence of audio. Main render:
+`physical_sound_mmaudio_pilot.py render --root MMAUDIO_ASSETS --source UPSTREAM
+--video SOURCE/glass-silent.mp4 --prompt 'A drumstick taps a glass panel.'
+--time-shift --output NEW_EXTERNAL`,with previous pinned overlay/HF offline.
+
+Post-generation`physical_sound_mmaudio_timing.py --generated RESULT
+--reference-video SOURCE/greatest-hits-glass.mp4` extracts real audio only for
+evaluation. Fixed10ms RMS/5ms hop positive flux,15% maximum height,10% prominence,
+100ms separation;one-to-one matching within100ms. No thresholds fitted to outcomes.
+This is an audio-attack proxy,not independently measured visual contact times;
+quiet events and multiple attacks can affect counts. Synthetic impulse/delay/gain
+and silence/duplicate-assignment controls pass;not a calibrated realism judge.
+
+| Conditions | Expected timeline | Matched / reference | Extra detected attacks |
+|---|---|---|---|
+| Text | Original |5/9 |26 |
+| Moving video | Original |2/9 |6 |
+| Static frame | Original |1/9 |4 |
+| Delayed video | +1s |3/8 |2 |
+
+Moving video against the wrong delayed timeline0/8;delayed audio against original
+1/9. Some response to timing exists,but the fixed diagnostic does not establish
+complete rhythm reproduction. High text recall with26extras is not success.
+Do not interpret30–39ms mean error of the few matched events as overall accuracy.
+No model/prompt/seed sweep or promotion from this single public demo.
+
+Checks:19focused tests(8MMAudio/timing+11text),Ruff,diff/link checks;all full/PCM
+waves finite,matched sample count and explicit gain;video streams inspected.
+All jobs terminal. No runtime,roadmap,ProductCheck or physical-calibration claim.
+Next:explicit onset/event-time conditioning,with a pretrained generator that can
+consume event times without target audio. The inspected
+[SyncFusion authors' implementation](https://github.com/mcomunita/syncfusion)
+describes editable onset tracks plus text/audio conditioning;code/weights/terms
+and exact text-only inference path need inspection before use. Do not assume
+its visual onset predictor or audio-reference branch is required by our goal.
