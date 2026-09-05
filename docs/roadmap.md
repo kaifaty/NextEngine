@@ -2313,8 +2313,11 @@ local normalization drift (KL 1.11e-7). Closed fixed-buffer controls show that
 holding the source LR at 1e-5 reduces peak minibatch mean KL from 0.02339 to
 0.00681, with exact adaptive replay and no candidate output. This is local
 numerical evidence, not a repaired walking policy. Next: specify a bounded
-schedule intervention with prospective physical validation/checkpoint retention,
-not another unchanged run or retrospective checkpoint choice.
+schedule intervention with prospective physical validation/checkpoint retention.
+[ADR-112](architecture/adr/112-prospective-validated-walking-training.md) now
+admits one fresh V8 run, fixed 1e-5 learning rate, 100-update native validation
+and first full five-episode pass retention/stop. Implementation/preflight must
+pass before launch; this is not an unchanged retry or an old checkpoint choice.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

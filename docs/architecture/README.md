@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.78 |
+| Версия | 2.79 |
 | Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.77; predeclares ADR-111's separate final-weight evaluation |
+| Заменяет | INDEX-001 2.78; admits ADR-112's prospectively validated walking run |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -318,6 +318,7 @@ traceability — навигационная карта, не admission authority
 | ADR-109 | [Observable sole lift and return](adr/109-observable-sole-lift-and-return.md) | Accepted one diagnosed V7 canonical successor with observed sole geometry, phase-height costs and predeclared longer run; unchanged physical and final quality gates |
 | ADR-110 | [Applied-command stop window](adr/110-applied-command-stop-window.md) | Accepted V8 schedule repair; evaluation restriction narrowly superseded by ADR-111; V7 stays frozen |
 | ADR-111 | [Final-weight corrected walking evaluation](adr/111-final-weight-corrected-walking-evaluation.md) | Accepted separate V8 matrix using only closed V7 final weights; exact loaded support plus free-foot release, no optimizer or runtime admission |
+| ADR-112 | [Prospective validated walking training](adr/112-prospective-validated-walking-training.md) | Accepted separate fresh V8 run, fixed learning rate and first full native-validation pass retention; old results frozen, no runtime admission |
 
 ## Proposed tracks
 

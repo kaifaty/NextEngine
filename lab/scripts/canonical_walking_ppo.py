@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from collections import Counter, deque
+from contextlib import nullcontext
 from dataclasses import fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +26,7 @@ from next_lab.isaac_training import (
     sha256_file,
 )
 from next_lab.motor_lab_client import MotorLabClient
+from next_lab.ppo_diagnostics import observe_ppo_update, summarize_update
 from rsl_rl.modules import ActorCritic
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -274,7 +276,10 @@ def artifact_hashes(output):
     }
 
 
-def train(headless, descriptor, profile, output):
+def train(headless, descriptor, profile, output, auditor=None):
+    validation = profile.get("validation")
+    if validation and auditor is None:
+        raise ValueError("prospective validation requires native auditor")
     random.seed(profile["seed"])
     np.random.seed(profile["seed"])
     torch.manual_seed(profile["seed"])
@@ -341,7 +346,11 @@ def train(headless, descriptor, profile, output):
                         ] += 1
                 algorithm.compute_returns(obs)
             collect_end = time.monotonic()
-            losses = algorithm.update()
+            observer = (
+                observe_ppo_update(algorithm) if validation else nullcontext(None)
+            )
+            with observer as update_records:
+                losses = algorithm.update()
             finite_policy(policy)
             if not all(np.isfinite(float(value)) for value in losses.values()):
                 raise RuntimeError("non-finite PPO loss")
@@ -374,6 +383,8 @@ def train(headless, descriptor, profile, output):
                 * profile["steps_per_env"]
                 / (time.monotonic() - tick_start),
             }
+            if update_records is not None:
+                record["ppo_update"] = summarize_update(update_records)
             with (output / "metrics.jsonl").open("a") as stream:
                 stream.write(json.dumps(record, sort_keys=True, allow_nan=False) + "\n")
             print(json.dumps(record, sort_keys=True), flush=True)
@@ -390,13 +401,45 @@ def train(headless, descriptor, profile, output):
                     },
                     checkpoint,
                 )
+            if validation and (iteration + 1) % validation["interval"] == 0:
+                from lab.scripts.validate_walking_checkpoint import validate_checkpoint
+
+                evaluation = validate_checkpoint(
+                    policy,
+                    headless,
+                    auditor,
+                    descriptor,
+                    profile,
+                    output / f"validation-{iteration}",
+                    checkpoint,
+                )
+                if time.monotonic() - start > profile["wall_seconds"]:
+                    raise TimeoutError("frozen wall budget exhausted during validation")
+                print(
+                    json.dumps({"validation_iteration": iteration, **evaluation}),
+                    flush=True,
+                )
+                if evaluation["status"] == "passed":
+                    atomic_write_json(
+                        output / "selection.json",
+                        {
+                            "rule": validation["selection"],
+                            "iteration": iteration,
+                            "checkpoint": checkpoint.name,
+                            "checkpoint_sha256": sha256_file(checkpoint),
+                            "validation": f"validation-{iteration}/evaluation.json",
+                        },
+                    )
+                    atomic_write_json(output / "evaluation.json", evaluation)
+                    return evaluation
             if iteration in profile.get("diagnostic_evaluation_iterations", []):
                 # Predeclared report-only milestones. Never select weights or
                 # stop early based on these; restore policy training mode.
                 diagnostic_evaluation(
                     policy, headless, descriptor, profile, output, iteration
                 )
-        evaluation = evaluate(policy, headless, descriptor, profile, output)
+        if not validation:
+            evaluation = evaluate(policy, headless, descriptor, profile, output)
         atomic_write_json(output / "evaluation.json", evaluation)
         return evaluation
     finally:
@@ -411,6 +454,7 @@ def main():
     parser.add_argument("--profile", type=Path, default=PROFILE)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--generation-index", type=Path)
+    parser.add_argument("--auditor", type=Path)
     args = parser.parse_args()
     headless = args.headless.resolve(strict=True)
     descriptor_path = require_external_path(args.descriptor, ROOT, label="descriptor")
@@ -422,9 +466,24 @@ def main():
         PROFILE,
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v2.json",
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v3.json",
+        ROOT / "lab/profiles/canonical-rsl-rl-walking.v4.json",
     ):
         raise ValueError("only repository-admitted canonical profiles are supported")
     profile = json.loads(profile_path.read_text())
+    auditor = None
+    if profile.get("validation"):
+        if args.auditor is None:
+            raise ValueError("prospective validation requires native auditor")
+        auditor = args.auditor.resolve(strict=True)
+        if sha256_file(auditor) != profile["validation"]["auditor_sha256"]:
+            raise ValueError("frozen auditor hash mismatch")
+        if sha256_file(headless) != profile["validation"]["headless_sha256"]:
+            raise ValueError("frozen headless hash mismatch")
+        if (
+            profile["validation"]["interval"] != profile["save_interval"]
+            or profile["iterations"] % profile["validation"]["interval"] != 0
+        ):
+            raise ValueError("validation/checkpoint/budget cadence mismatch")
     if sha256_file(descriptor_path) != profile["descriptor_sha256"]:
         raise ValueError("frozen descriptor file hash mismatch")
     descriptor = json.loads(descriptor_path.read_text())
@@ -452,6 +511,8 @@ def main():
         "headless_sha256": sha256_file(headless),
         "dependencies": versions,
     }
+    if auditor is not None:
+        closure["auditor_sha256"] = sha256_file(auditor)
     generation = None
     if args.mode == "train":
         if args.generation_index is None:
@@ -498,12 +559,16 @@ def main():
             "nextengine.canonical-rsl-rl.walking.v1": "ADR-107",
             "nextengine.canonical-rsl-rl.walking.v2": "ADR-108",
             "nextengine.canonical-rsl-rl.walking.v3": "ADR-109",
+            "nextengine.canonical-rsl-rl.walking.v4": "ADR-112",
         }[profile["profile_id"]]
         + " bounded R&D; no mirror or runtime promotion; no resume",
     }
     if generation is not None:
         manifest["generation_index_sha256"] = sha256_file(index_path)
         manifest["generation_manifest_sha256"] = sha256_file(generation_path)
+    if auditor is not None:
+        manifest["auditor_path"] = str(auditor)
+        manifest["auditor_sha256"] = sha256_file(auditor)
     atomic_write_json(output / "run-manifest.json", manifest)
     try:
         manifest["adapter_control"] = adapter_control(headless, descriptor, profile)
@@ -528,7 +593,7 @@ def main():
             )
         if args.mode == "train":
             manifest["evaluation_status"] = train(
-                headless, descriptor, profile, output
+                headless, descriptor, profile, output, auditor
             )["status"]
         manifest["status"] = "completed"
     except BaseException as error:

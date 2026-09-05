@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-109](109-observable-sole-lift-and-return.md) |
 | Supersedes | ADR-109's unchanged-command requirement only for the separately identified V8 schedule repair; V7 and all old gates/runs remain frozen |
-| Superseded by | [ADR-111](111-final-weight-corrected-walking-evaluation.md), only the corrected learned-evaluation exclusion |
+| Superseded by | [ADR-111](111-final-weight-corrected-walking-evaluation.md), corrected learned evaluation; [ADR-112](112-prospective-validated-walking-training.md), separate successor optimizer/selection exclusion only |
 
 ## Evidence and decision
 

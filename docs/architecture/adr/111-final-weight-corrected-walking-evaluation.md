@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-110](110-applied-command-stop-window.md) |
 | Supersedes | ADR-110's exclusion of corrected learned evaluation only; raw contact-presence support proxy only in the separately identified matrix below; no old run or result changes |
-| Superseded by | none |
+| Superseded by | [ADR-112](112-prospective-validated-walking-training.md), successor optimizer/selection exclusion only; this final-only matrix remains frozen |
 
 ## Evidence and bounded decision
 

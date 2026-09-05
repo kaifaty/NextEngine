@@ -19,9 +19,9 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Specify a bounded schedule intervention with prospective
-  physical validation/checkpoint retention, not an unchanged restart. Exact
-  fixed-buffer controls are [closed](../r8b-final-policy-regression-research-2026-09-05.md); no new training is admitted here.
+- **Next action:** Freeze and launch ADR-112's fresh V8/fixed-1e-5 run after
+  native validation/adapter controls. Every 100 updates, test all five episodes;
+  retain the first full pass and stop. Old runs remain failed, not reselected.
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
   `f0c15bd4`; no optimizer is active. All five final model 9999 episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
@@ -188,7 +188,7 @@ not clean-commit generation/run manifests.
   KL 1.11e-7 versus target 0.008, zero ratio clipping; local drift is too small.
 - **Gradient control:** Adaptive LR peaks at 5.0625e-5; minibatch mean KL
   peaks at 0.02339. Exact-buffer fixed 1e-5 lowers that peak to 0.00681.
-- **Next:** Validate a bounded schedule intervention; cumulative shift/objective mismatch remain unresolved. No walking fix proven.
+- **Next:** [ADR-112](../../architecture/adr/112-prospective-validated-walking-training.md) admits one fresh V8/fixed-LR run; cumulative shift/objective mismatch remain unresolved. No walking fix proven.
 
 ## Retained safety and mirror hypotheses
 

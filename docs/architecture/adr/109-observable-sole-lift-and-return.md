@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-108](108-observable-periodic-walking-credit.md) |
 | Supersedes | ADR-108's one-run restriction for one diagnosed V7 successor; no frozen V6 semantics or quality/safety gates |
-| Superseded by | none |
+| Superseded by | ADR-110 for the separate V8 schedule; [ADR-112](112-prospective-validated-walking-training.md) for the separate successor run/selection only; this run remains frozen |
 
 ## Evidence and decision
 
