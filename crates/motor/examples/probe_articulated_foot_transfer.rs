@@ -24,7 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut args: Vec<_> = std::env::args().skip(1).collect();
     let sampled_damping = args.last().is_some_and(|arg| arg == "--body-v9");
-    if sampled_damping {
+    let screened_damping = args.last().is_some_and(|arg| arg == "--body-v10");
+    if sampled_damping || screened_damping {
         args.pop();
     }
     if args.is_empty()
@@ -36,7 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let neutral_toe = args.len() == 2;
     let side = &args[0];
-    let body = if sampled_damping {
+    let body = if screened_damping {
+        next_motor::biomechanics_humanoid_body_schema_v10()
+    } else if sampled_damping {
         next_motor::biomechanics_humanoid_body_schema_v9()
     } else {
         next_motor::biomechanics_humanoid_body_schema_v8()
@@ -45,18 +48,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let base = &compiled.base.base;
     let mut world = compiled.create_world()?;
     let mut state = world.capture()?;
-    let standing = if sampled_damping {
+    let standing = if screened_damping {
+        BiomechanicsProceduralStandingControllerV3::new_screened_damping(&compiled, &state)?
+    } else if sampled_damping {
         BiomechanicsProceduralStandingControllerV3::new_sampled_damping(&compiled, &state)?
     } else {
         BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?
     };
     let mut safety = BiomechanicsSafetyController::new(base)?;
-    let mut contacts = if sampled_damping {
+    let mut contacts = if screened_damping {
+        BiomechanicsContactClassifierV2::new_screened_damping(&compiled)?
+    } else if sampled_damping {
         BiomechanicsContactClassifierV2::new_sampled_damping(&compiled)?
     } else {
         BiomechanicsContactClassifierV2::new(&compiled)?
     };
-    let terminal_constructor = if sampled_damping {
+    let terminal_constructor = if screened_damping {
+        BiomechanicsTerminalEvaluator::new_screened_damping
+    } else if sampled_damping {
         BiomechanicsTerminalEvaluator::new_sampled_damping
     } else {
         BiomechanicsTerminalEvaluator::new_articulated

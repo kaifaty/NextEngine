@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `EIGHT_DAMPING_CANDIDATES_SCREENED / V8_NOMINAL / NO_NEW_TRAINING` |
+| Status | `V10_NATIVE_STANDING_FAILED / V8_NOMINAL / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -23,7 +23,8 @@
   User authorizes separate Isaac Sim6 install on RTX3080 (3090 later); no driver/training change.
   [Isaac6 installed separately](../r8b-isaac6-install-2026-09-05.md): CUDA/smoke120 steps/Gain Tuner3.5.2 load PASS; old5.1 preserved.
   [Isaac6 angular-unit patch](../r8b-gain-tuner6-one-dof-research-2026-09-06.md):13 tests/24 force traces pass; acceleration motion criterion fails. Stock preserved.
-- [Latest whole-body screen](../r8b-whole-body-gain-calibration-2026-09-06.md):100 individual plus4 matched-origin combined traces; eight literal D candidates improve both boundaries. Fixed pelvis/no ground/implicit drives only. General-pose tuner inertia suspect; no auto-ratio1 for all joints. Next canonical explicit-PD candidate with new identity/full safety, not training.
+- [Whole-body screen](../r8b-whole-body-gain-calibration-2026-09-06.md):100 individual plus4 matched-origin combined implicit-drive traces; eight D candidates improve the tested channels. Fixed pelvis/no ground only. General-pose tuner inertia suspect; no auto-ratio1 for all joints.
+- [Latest native V10 test](../r8b-native-gain-calibration-2026-09-06.md), ADR-121: fixed eight-D transfer fails standing at22/240s, left MTP9.533921rad/s>8.001; exact repeat/V8 historical control. Fresh review independently matches550/180000 efforts and first-failure precedence; C2 REFUTED. No loaded-prefix reruns. Source/evidence seal `a68934d4…` in `body-gain-native-JLdDAO`;155 native tests and scoped checks pass. Next native K+D bandwidth correction with coupled local preflight and actual ROM-interior responses; D-only transfer is insufficient. Full25-channel/load/disturbance calibration remains open.
 - Old origin-line plot omitted torso/head. V4:170cm stature,86.5cm hip,
   139.65cm shoulder,40.8cm thigh,39.6cm shank. Do not shorten legs from that plot.
 - Opt-in physical BodySchema V5/V6/V7 is implemented under ADR-114/115/117. Existing
@@ -158,6 +159,7 @@
 21. [V9 damping-only implementation and native rejection](../r8b-body-sampled-damping-candidate-2026-09-05.md)
     and [ADR-120](../../architecture/adr/120-stiffness-proportional-damping-diagnostic.md).
 22. [Cold reference startup comparison](../r8b-standing-startup-ramp-research-2026-09-05.md).
+23. [Native V10 rejection and full-calibration requirements](../r8b-native-gain-calibration-2026-09-06.md), [ADR-121](../../architecture/adr/121-screened-damping-native-diagnostic.md).
 
 ## Decision and remaining uncertainty
 
@@ -203,17 +205,10 @@
   implemented. No environment/default/runtime authority changes.
 - Historical V5/V6/force-schedule native and host checks passed; exact records
   remain in reports6–8. Current body/contact checks are in reports15–17.
-- External V5 descriptor/image: `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
-- V6 descriptor and both original standing outputs are in `body-v6-01`.
-  New `upright-reference-01` includes every-step joints, effort, raw contacts
-  and root pose/velocities, failed references, one-flag TGS experiment and
-  `standing-tgs-comparison.png`. Full zero-offset JSON repeats byte-exactly
-  after the temporary flag is reverted. Exact hashes / reproducible temporary
-  patch are in that report. `profiled-*.json` now records the real opt-in
-  implementation and rejected reference cases; hashes are in the newer report.
-- New outer compiled V6 hash:
-  `66d6a5b01ea1a26294b92e050bbdc79556cffd63cabdd7382d15ea0543d6c7ed`.
-  Use explicit Cargo SDK feature invocation, not the shared unhashed debug
+- Historical V5/V6/source-force artifacts remain under
+  `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05`;
+  exact hashes and commands live in reports4–8. Do not rerun unchanged ancestors.
+- Use explicit Cargo SDK feature invocation, not the shared unhashed debug
   binary during host-check: its no-SDK configuration can replace that path.
 - Build with `NEXTENGINE_PHYSX_SDK_DIR=/home/kaifaty/.cache/nextengine/physx/sdk/f259d3da157cc6120b378b53ee14c10805be89698242b03d7417f699ca711c3b`.
   Global active SDK has a different build profile and is correctly rejected;

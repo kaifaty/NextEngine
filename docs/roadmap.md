@@ -2027,6 +2027,15 @@ fails both V8/V9 at the identical first-step knee-ROM boundary. User-requested
 now pauses the next reset experiment and recommends an upstream human-imitation
 control before further tuning. This is a proposal, not a selected framework or
 changed admission criterion. No new mass/geometry, safety, training or default selection.
+The user-authorized [Gain Tuner calibration](development/r8b-whole-body-gain-calibration-2026-09-06.md)
+now has100 individual and4 combined implicit-drive traces. The eight-D candidate
+is implemented as opt-in [V10](architecture/adr/121-screened-damping-native-diagnostic.md),
+but its [native standing test](development/r8b-native-gain-calibration-2026-09-06.md)
+fails at substep22 on left MTP velocity9.533921rad/s (limit8.001). Repeat and V8
+historical control are exact;155 native motor tests and scoped checks pass.
+The full-calibration goal remains open. Next address native K+D bandwidth and
+actual multi-channel response before loaded transfer/disturbances; do not infer
+native readiness from the Isaac screen or retry an unchanged damping-only route.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

@@ -18,6 +18,8 @@ pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3: &str =
     "nextengine.motor.procedural-standing-reference.v3";
 pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4: &str =
     "nextengine.motor.procedural-standing-reference.v4";
+pub const PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5: &str =
+    "nextengine.motor.procedural-standing-reference.v5";
 pub const PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1: &str =
     "nextengine.motor.procedural-walking-reference.v1";
 
@@ -300,11 +302,18 @@ impl BiomechanicsProceduralStandingControllerV2 {
     }
 }
 
-/// V8-bound diagnostic standing: retained upright law, neutral MTP targets.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArticulatedStandingProfile {
+    Original,
+    SampledDamping,
+    ScreenedDamping,
+}
+
+/// Exact-body-bound diagnostic standing: retained upright law, neutral MTP targets.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsProceduralStandingControllerV3 {
     base: BiomechanicsProceduralStandingControllerV2,
-    sampled_damping: bool,
+    profile: ArticulatedStandingProfile,
 }
 
 impl BiomechanicsProceduralStandingControllerV3 {
@@ -318,7 +327,7 @@ impl BiomechanicsProceduralStandingControllerV3 {
                 reset_snapshot,
                 &crate::biomechanics_humanoid_body_schema_v8(),
             )?,
-            sampled_damping: false,
+            profile: ArticulatedStandingProfile::Original,
         })
     }
 
@@ -333,25 +342,48 @@ impl BiomechanicsProceduralStandingControllerV3 {
                 reset_snapshot,
                 &crate::biomechanics_humanoid_body_schema_v9(),
             )?,
-            sampled_damping: true,
+            profile: ArticulatedStandingProfile::SampledDamping,
         })
     }
 
     #[must_use]
     pub const fn profile_id(&self) -> &'static str {
-        if self.sampled_damping {
-            PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4
-        } else {
-            PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3
+        match self.profile {
+            ArticulatedStandingProfile::Original => PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3,
+            ArticulatedStandingProfile::SampledDamping => {
+                PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4
+            }
+            ArticulatedStandingProfile::ScreenedDamping => {
+                PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5
+            }
         }
+    }
+
+    /// Explicit V10 admission; identical equations, distinct reference identity.
+    pub fn new_screened_damping(
+        compiled: &crate::CompiledBodySchemaV4,
+        reset_snapshot: &CanonicalPhysXSnapshotV2,
+    ) -> Result<Self, ProceduralStandingError> {
+        Ok(Self {
+            base: BiomechanicsProceduralStandingControllerV2::new_with_schema(
+                compiled,
+                reset_snapshot,
+                &crate::biomechanics_humanoid_body_schema_v10(),
+            )?,
+            profile: ArticulatedStandingProfile::ScreenedDamping,
+        })
     }
 
     #[must_use]
     pub fn contact_profile_hash(&self) -> ContentHash {
-        if self.sampled_damping {
-            crate::sampled_damping_contact_profile_hash()
-        } else {
-            crate::articulated_foot_contact_profile_hash()
+        match self.profile {
+            ArticulatedStandingProfile::Original => crate::articulated_foot_contact_profile_hash(),
+            ArticulatedStandingProfile::SampledDamping => {
+                crate::sampled_damping_contact_profile_hash()
+            }
+            ArticulatedStandingProfile::ScreenedDamping => {
+                crate::screened_damping_contact_profile_hash()
+            }
         }
     }
 
@@ -364,10 +396,16 @@ impl BiomechanicsProceduralStandingControllerV3 {
 
     #[must_use]
     pub fn state_root(&self) -> ContentHash {
-        let mut bytes = if self.sampled_damping {
-            b"nextengine.humanoid-procedural-standing.v4\0".to_vec()
-        } else {
-            b"nextengine.humanoid-procedural-standing.v3\0".to_vec()
+        let mut bytes = match self.profile {
+            ArticulatedStandingProfile::Original => {
+                b"nextengine.humanoid-procedural-standing.v3\0".to_vec()
+            }
+            ArticulatedStandingProfile::SampledDamping => {
+                b"nextengine.humanoid-procedural-standing.v4\0".to_vec()
+            }
+            ArticulatedStandingProfile::ScreenedDamping => {
+                b"nextengine.humanoid-procedural-standing.v5\0".to_vec()
+            }
         };
         bytes.extend_from_slice(self.profile_id().as_bytes());
         bytes.extend_from_slice(self.base.state_root().as_bytes());

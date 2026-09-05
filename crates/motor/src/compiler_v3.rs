@@ -62,6 +62,12 @@ impl CompiledBodySchemaV3 {
                 return Err(MotorCompileError::UnsupportedMaterialProfile);
             }
             4
+        } else if schema.schema_id.as_str() == "nextengine.body.humanoid-biomechanics-raja-1700.v10"
+        {
+            if *schema != crate::biomechanics_humanoid_body_schema_v10() {
+                return Err(MotorCompileError::UnsupportedMaterialProfile);
+            }
+            4
         } else {
             2
         };

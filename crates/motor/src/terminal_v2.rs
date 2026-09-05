@@ -124,6 +124,23 @@ impl BiomechanicsTerminalEvaluator {
         )
     }
 
+    pub fn new_screened_damping(
+        compiled: &crate::CompiledBodySchemaV4,
+        skill_profile: BiomechanicsSkillContactProfileV1,
+        maximum_episode_motor_ticks: u64,
+    ) -> Result<Self, BiomechanicsTerminalError> {
+        let subject = compiled
+            .screened_damping_subject()
+            .map_err(|_| BiomechanicsTerminalError::InvalidProfile)?;
+        Self::new_articulated_bound(
+            compiled,
+            subject,
+            crate::screened_damping_contact_profile_hash(),
+            skill_profile,
+            maximum_episode_motor_ticks,
+        )
+    }
+
     fn new_articulated_bound(
         compiled: &crate::CompiledBodySchemaV4,
         subject: next_contracts::ids::PersistentId,

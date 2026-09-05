@@ -61,7 +61,7 @@ pub use biomechanics::{
     biomechanics_humanoid_body_schema_v3, biomechanics_humanoid_body_schema_v4,
     biomechanics_humanoid_body_schema_v5, biomechanics_humanoid_body_schema_v6,
     biomechanics_humanoid_body_schema_v7, biomechanics_humanoid_body_schema_v8,
-    biomechanics_humanoid_body_schema_v9,
+    biomechanics_humanoid_body_schema_v9, biomechanics_humanoid_body_schema_v10,
 };
 pub use biomechanics_standing::{
     BIOMECHANICS_FORWARD_START_STOP_ACTION_LAYOUT_ID,
@@ -145,6 +145,7 @@ pub use contact_classifier::{
     HUMANOID_GROUND_ACTOR_TOKEN, HUMANOID_GROUND_SHAPE_TOKEN,
     HUMANOID_SAFETY_CONTACT_PROFILE_SHA256, LOW_IMPULSE_GRACE_SUBSTEPS,
     articulated_foot_contact_profile_hash, sampled_damping_contact_profile_hash,
+    screened_damping_contact_profile_hash,
 };
 pub use control::{
     ACTUATOR_CAPABILITY_CLAMPED, ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED,
@@ -162,7 +163,8 @@ pub use mirror_v2::{
     biomechanics_body_diagnostic_descriptor_json_v6,
     biomechanics_body_diagnostic_descriptor_json_v7,
     biomechanics_body_diagnostic_descriptor_json_v8,
-    biomechanics_body_diagnostic_descriptor_json_v9, biomechanics_isaac_mirror_descriptor_json_v1,
+    biomechanics_body_diagnostic_descriptor_json_v9,
+    biomechanics_body_diagnostic_descriptor_json_v10, biomechanics_isaac_mirror_descriptor_json_v1,
     biomechanics_isaac_mirror_descriptor_json_v2, biomechanics_isaac_mirror_descriptor_json_v3,
     biomechanics_isaac_mirror_descriptor_json_v4,
 };
@@ -192,8 +194,8 @@ pub use procedural_standing::{
     BiomechanicsProceduralStandingControllerV3, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
     PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V2,
     PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V3, PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V4,
-    PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS, PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1,
-    ProceduralStandingError,
+    PROCEDURAL_STANDING_REFERENCE_PROFILE_ID_V5, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
+    PROCEDURAL_WALKING_REFERENCE_PROFILE_ID_V1, ProceduralStandingError,
 };
 pub use reference_baseline::{ReferenceBaselineError, biomechanics_reference_baseline_json_v1};
 pub use reference_pose_audit::{

@@ -8,7 +8,7 @@
 | Decision date | 2026-09-05 |
 | Dependencies | [SPEC-35](../35-deterministic-humanoid-training-substrate.md), ADR-069/115/116/117/118/119 |
 | Supersedes | ADR-118 exact-V8-only four-sole admission and ADR-119 exact-V8-only consumer admission through explicit V9 constructors; ADR-119 harness mode restriction for a separately labeled diagnostic startup input; all predecessor profiles/no-ramp outputs remain frozen |
-| Superseded by | none |
+| Superseded by | [ADR-121](121-screened-damping-native-diagnostic.md), additive exact-V10 diagnostic admission; V9 unchanged |
 
 ## Decision and scope
 

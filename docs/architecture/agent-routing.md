@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.59 |
-| Последняя проверка | 2026-09-05 |
+| Версия | 2.60 |
+| Последняя проверка | 2026-09-06 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For screened-eight BodySchema V10 diagnostics, additionally read
+[ADR-121](adr/121-screened-damping-native-diagnostic.md), SPEC-35 and
+ADR-069/115/116/117/118/119/120. Check exact eight-D/identity-only delta and
+Q16 rounding, full compiled/subject/reset admission, unchanged contact laws
+and byte-exact V8 control. Run native motor/example tests, Clippy/format,
+boundary/content/play/replay and frozen BODY-GAIN-NATIVE-01 conditional budget.
+No implicit-drive result admits native balance, training or full calibration.
 
 For stiffness-proportional BodySchema V9 diagnostics, additionally read
 [ADR-120](adr/120-stiffness-proportional-damping-diagnostic.md), SPEC-35 and

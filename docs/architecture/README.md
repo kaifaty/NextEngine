@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.87 |
-| Последняя проверка | 2026-09-05 |
-| Заменяет | INDEX-001 2.86; adds V9 damping diagnostic under ADR-120 |
+| Версия | 2.88 |
+| Последняя проверка | 2026-09-06 |
+| Заменяет | INDEX-001 2.87; adds V10 screened-damping diagnostic under ADR-121 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -327,6 +327,7 @@ traceability — навигационная карта, не admission authority
 | ADR-118 | [Articulated volumetric foot body](adr/118-articulated-volumetric-foot-body.md) | Accepted opt-in V8 anatomy/kinematic diagnostic; finite-volume toe inertia, exact four-sole material closure; contact/standing diagnostics separately admitted by ADR-119 |
 | ADR-119 | [Articulated-foot standing diagnostics](adr/119-articulated-foot-standing-diagnostics.md) | Accepted exact-V8 contact aggregation and standing V3 diagnostic; old profiles unchanged, no robust-balance or training admission |
 | ADR-120 | [Stiffness-proportional damping diagnostic](adr/120-stiffness-proportional-damping-diagnostic.md) | Accepted opt-in V9 damping-only body and explicit diagnostic consumers; no training/default selection |
+| ADR-121 | [Screened damping native diagnostic](adr/121-screened-damping-native-diagnostic.md) | Accepted opt-in V10 eight-D native comparison; unchanged safety and old profiles, no calibrated-body/default selection |
 
 ## Proposed tracks
 

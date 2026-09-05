@@ -34,12 +34,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let first_step = args == ["--first-step"];
     let sampled_damping = args == ["--body-v9"];
-    if !args.is_empty() && !first_step && !sampled_damping {
+    let screened_damping = args == ["--body-v10"];
+    if !args.is_empty() && !first_step && !sampled_damping && !screened_damping {
         return Err(
             "expected no arguments (FOOT-SERVO-01) or --first-step (FOOT-RESPONSE-01)".into(),
         );
     }
-    let body = if sampled_damping {
+    let body = if screened_damping {
+        next_motor::biomechanics_humanoid_body_schema_v10()
+    } else if sampled_damping {
         next_motor::biomechanics_humanoid_body_schema_v9()
     } else {
         next_motor::biomechanics_humanoid_body_schema_v8()
@@ -117,7 +120,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let initial = encode(&state);
-            let standing = if sampled_damping {
+            let standing = if screened_damping {
+                BiomechanicsProceduralStandingControllerV3::new_screened_damping(&compiled, &state)?
+            } else if sampled_damping {
                 BiomechanicsProceduralStandingControllerV3::new_sampled_damping(&compiled, &state)?
             } else {
                 BiomechanicsProceduralStandingControllerV3::new(&compiled, &state)?
