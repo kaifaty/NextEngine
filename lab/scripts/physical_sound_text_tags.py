@@ -225,10 +225,20 @@ def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = Fa
     for row in manifest["rows"] + manifest["controls"]:
         if "wav" in row:
             key = manifest["cases"][row["case"]]["id"] if "case" in row else row["id"]
+            diagnostic_id = (
+                manifest["cases"][row["case"]].get("diagnostic_id", key)
+                if "case" in row
+                else key
+            )
             inputs.append(
                 (
                     key,
-                    {"wav": row["wav"], "sha256": row["sha256"], "seed": row["seed"]},
+                    {
+                        "wav": row["wav"],
+                        "sha256": row["sha256"],
+                        "seed": row["seed"],
+                        "diagnostic_id": diagnostic_id,
+                    },
                     load_audio(Path(row["wav"]), row["sha256"]),
                 )
             )
@@ -265,7 +275,8 @@ def run(source: Path, output: Path, real_glass: list[Path], with_clap: bool = Fa
         for key, metadata, audio in inputs:
             features = extractor(audio, sampling_rate=pilot.RATE, return_tensors="pt")
             scores = model(**features).logits[0].sigmoid().numpy()
-            record = {"id": key, **metadata, **summarize(scores, labels, EXPECTED[key])}
+            expected = EXPECTED.get(metadata.get("diagnostic_id", key), ())
+            record = {"id": key, **metadata, **summarize(scores, labels, expected)}
             report["rows"].append(record)
             print(json.dumps({"id": key, "top3": record["top10"][:3]}), flush=True)
     if with_clap:

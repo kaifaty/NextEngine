@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / PRIOR_RETENTION_PARTIAL_GAIN / GENERALIZATION_NEXT / BASE_RETAINED.
+Status: ACTIVE_GOAL / TRANSFER_MIXED / SILENT_EVENT_DISCRIMINATOR_NEXT / BASE_RETAINED.
 
 ## Resume in 60 seconds
 
@@ -12,34 +12,35 @@ Status: ACTIVE_GOAL / PRIOR_RETENTION_PARTIAL_GAIN / GENERALIZATION_NEXT / BASE_
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [rain/pouring water/drops, base -> prior-retained](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/comparison.wav)
-  (33 s, seed 42, text-only inference); [glass base -> unregularized -> retained](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/glass-retention.wav)
-  (12 s, both seeds). Step 0/40/240, seeds 42/123, regression/empty controls,
-  96 WAVs and automatic AST/CLAP retained. Rain/drops alignment improves on both
-  seeds; glass/wood recover partially, not to base. No promotion/demo change.
+- **Latest primary artifacts:** [new light/heavy rain and drops, base -> prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/water-comparison.wav)
+  (33 s); [glass impacts, scraping and rolling, base -> prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/interaction-comparison.wav)
+  (44 s). First fixed seed 314, no selection; seed 2718 also retained.
+  136 WAVs, 88-second full previews and automatic AST/CLAP. Mixed transfer,
+  not a broad gain; keep the base and liked demo unchanged.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest fit is `tangoflux-prior-retention-2026-09-05`; unregularized comparator
-  is `tangoflux-water-rain-fit-2026-09-05`; sources are
-  `esc50-water-rain-2026-09-05`, under
+  Latest roots are `tangoflux-transfer-base-2026-09-05` and
+  `tangoflux-transfer-prior-2026-09-05`; prior fit/source roots remain under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
-  Fit/stage JSONs, adapters, comparisons, `prior.safetensors` and
-  `field-audit/result.json`; sources retain CSV/LICENSE/WAVs/`real-clap.json`.
-- **Retention discriminator:** real full-MSE plus weight-1 base-field MSE,
-  160 paired conditional/unconditional states from 16 seed-7 trajectories,
-  captured at steps 0,5,...,45. 121 states visited; synthetic rehearsal, not
-  real labels or evaluation seeds. Sources/posteriors/240 sample indices and
-  24 baseline WAVs match the comparator. FP32 replay/zero-LoRA controls pass.
-  Same 240 updates; development active/full MSE improves 25.01%/16.29%.
-  Mean CLAP base -> prior: rain .46055 -> .47141; pour .35234 -> .32604;
-  drops .41781 -> .44119; glass .25277 -> .19148; wood .39026 -> .36727.
-  AST returns to 10/10 from unregularized 9/10; CLAP top1 still 6/10 vs base
-  8/10, both pours prefer drops. Overall .35948 vs base .37475/unregularized
-  .33191. Training-bank audit: branch drift -80.25%, CFG4.5 drift -65.20%.
-- **Codec discriminator:** official posterior sampling matches our formula and
-  retains CLAP 0.371–0.464, spectral error within -.01160/+.01456 of the mean,
-  padding -100…-95 dBFS. Three mean WAVs replay exactly. No gross sampling
-  corruption in these controls; do not retry glass merely switching to means.
+  Each transfer root has `result.json`, `ast-clap.json`, all WAVs and snapshots.
+- **Transfer evidence:** 16 prompts (3 unchanged, 13 exact-new), seeds 314/2718,
+  50 FP32 steps, CFG 4.5, five seconds. Mean CLAP .369675 -> .370049;
+  14/32 improve, new descriptions 11/26. Top1 19/32 -> 17/32; AST 21/28 ->
+  22/28, four steel sounds unscored. New roof-rain captions improve, new
+  tap/puddle drops worsen. Glass striker-pair margin fails on seed 314 in both.
+  Heavy/light rain RMS ordering holds, but is not calibrated physical control.
+- **New decisive failure:** bottle fracture seed 314 is effectively silent
+  in both models (-99.64/-99.39 dBFS). Seed 2718 has breaking/glass tags,
+  -14.57/-14.10 dBFS. The exact prompt is in the committed transfer profile.
+  No full-horizon decode has yet been inspected. Do not equate nonzero PCM
+  with an audible event, normalize codec noise, or select away this failure.
+- **Prior fit remains:** `tangoflux-prior-retention-2026-09-05`, step 240,
+  full real MSE + weight-1 base-field rehearsal, seed7/160 paired states.
+  42/123 gains were local: overall CLAP .35948 vs base .37475/unregularized
+  .33191. Branch drift -80.25%, guided drift -65.20%; not a broad quality gain.
+  Sources/posteriors/order/baseline/teacher controls passed; details in note.
+- **Codec discriminator:** mean replays and sampled controls reject gross
+  sampling corruption; do not retry glass merely switching to posterior means.
 - **Corpus:** ESC-50 `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`,
   117 WAVs/100 sources, 93 train folds 1–4 / 24 disclosed development fold 5,
   source-ID-disjoint. Rain/pour/drops 40/37/40; generic captions, physical
@@ -47,10 +48,8 @@ Status: ACTIVE_GOAL / PRIOR_RETENTION_PARTIAL_GAIN / GENERALIZATION_NEXT / BASE_
   CC-BY-NC 3.0/individual notices retained; CC-Sampling+ IDs 67152/79220/126433
   unfetched. Ten full-scale PCM sources. Bounded prior-ID screen found no
   collisions; foundation pretraining independence is unknown.
-- **Prior glass fits:** CLAP base/balanced/uniform .35858/.33929/.34063;
-  AST 10/10 throughout, despite improved fit. Exact source/posterior/order/
-  baseline controls match. Frozen base/T5/VAE, rank-8 q/v LoRA, AdamW 1e-4,
-  BF16 train/FP32 inference; details in the note.
+- **Prior glass fits:** balanced/uniform objectives improve fit, not generation;
+  exact controls match. Do not repeat; details and frozen configuration in note.
 - **Counterfactuals already run:** 28 WAVs, duration 1.5/5 s, CFG 1/2/4.5,
   base-unconditional branch. None repairs glass; do not repeat. Four historical
   WAV and upstream latent replays pass; scores replay within 1e-6.
@@ -58,20 +57,20 @@ Status: ACTIVE_GOAL / PRIOR_RETENTION_PARTIAL_GAIN / GENERALIZATION_NEXT / BASE_
   over knife/glass in the current wording-confounded caption bank. Their true
   target cosines are 0.38–0.46, above generated examples; ranks cannot establish
   striker identity. Steel remains unscored, and no perceptual risk is calibrated.
-- **Next action:** new-seed/unseen-wording/composition comparison of base and
-  retained-prior adapter, including regression events, before another fit.
-  Test transfer beyond two known seeds; do not turn localized CLAP gains into
-  calibrated quality or physical-control claims. Pour/drop confusion remains.
-  Guided-field preservation is a possible later discriminator, not permission
-  for a weight/epoch sweep. Existing trainer supports `--prior-weight 1`.
-  No glass-only fits, model shopping, modal-MLP restart, invented labels or
-  protected reuse; no new training stack.
+- **Next action:** base-model timing/prompt discriminator before another fit:
+  retain the entire decoded 30-second horizon with the SAME five-second
+  condition, replay failed fracture seed314, compare positive seed2718 and
+  minimal wording changes (remove `empty`, simplify event sequence). Separate
+  an out-of-window event, total omission and prompt sensitivity; emit WAVs.
+  Current CLI supports `--prompts lab/profiles/physical-sound-transfer-prompts.json`
+  and `--diagnostics`. No new SFT/regularizer sweep, glass-only fit, model
+  shopping, modal-MLP restart, invented labels, protected reuse or new stack.
 - **Hardware/runtime:** RTX 3080 10 GiB, working CUDA, `lab/.venv/bin/python`,
   Torch 2.13.0+cu130, datasets 2.21.0/fsspec 2024.6.1, peft 0.12.0. Offline
   inference loads hash-reviewed code, verifies weights/T5 alias. Old sandbox
   GPU failures are stale; exact pinned libraries are in the pilot note.
-- **Verification:** 96 WAVs, three 24-second previews, 33/12-second comparisons
-  pass signal/hash checks; adapters and teacher bank match. 45 focused tests and
+- **Verification:** 136 WAVs, two 88-second previews, 33/44-second comparisons
+  pass signal/hash checks, not audibility acceptance. 47 focused tests and
   Ruff/diff/local-link checks pass. All jobs terminal. No Cargo/ProductCheck
   or engine audition: external Python lab only. Reproduction is in the note.
 - **All goal requirements remain open beyond this baseline:** independent

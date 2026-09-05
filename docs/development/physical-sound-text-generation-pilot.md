@@ -705,3 +705,98 @@ duration/non-silence/headroom checks; three 24-second stage previews and the
 checked before the separate audit. All jobs are terminal. Existing AST
 frontend/pretraining/proxy limitations remain. No Cargo/ProductCheck or engine
 audition was run: external-only Python code and artifacts, no product change.
+
+## New prompts and seeds: transfer check (2026-09-05)
+
+[Light rain, heavy rain, individual drops: base -> prior-retained](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/water-comparison.wav)
+(33 seconds) and [metal/wood rod on glass, scraping, rolling: base -> prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/interaction-comparison.wav)
+(44 seconds) use the first fixed seed 314, not a selected best seed. The full
+88-second previews and individual seed-2718 sounds remain in each external run.
+
+The generator now accepts `--prompts` and optional `--diagnostics`; the default
+12-case behavior remains available. The committed
+[transfer prompt file](../../lab/profiles/physical-sound-transfer-prompts.json)
+contains three unchanged training captions and 13 exact-new descriptions.
+Cases request different rain intensity, a jug/bowl, a tap/puddle, metal versus
+wooden rods on the same jar/board/pipe, scraping, rolling and bottle fracture.
+These are requested conditions, **not measured physical ground truth**. None
+of the 13 descriptions matches the prior bank; both new seeds 314/2718 differ
+from training/rehearsal and earlier evaluation. Foundation pretraining overlap
+is still unknown. No fitting or candidate selection uses these outputs.
+
+Both models use identical prompt-file hashes, 50 FP32 steps, CFG 4.5 and five
+seconds. Each produces 32 candidate sounds and two empty-prompt controls, at
+44.1-kHz stereo and 16-kHz mono: 136 individual WAVs total. Generation takes
+263.06 seconds for base and 271.69 for prior, excluding the following automatic
+AST/CLAP pass. The already-published prior step-240 adapter is loaded through
+the existing hash/config/tensor checks.
+
+**Result: mixed transfer, no broad improvement.** Mean target CLAP is
+0.369675 -> 0.370049; only 14/32 paired sounds improve. On the three original
+captions with new seeds, 3/6 improve and mean change is -0.005058. On the
+13 new descriptions, 11/26 improve with mean change +0.001628. Top-1 among
+the 16 closely related prompts falls 19/32 -> 17/32; this bank includes near
+synonyms, so the count is not a calibrated accuracy or naturalness measure.
+Both versions beat their empty-prompt control on 28/32 cases.
+
+| New description, mean target CLAP | Base | Prior |
+|---|---:|---:|
+| Light rain on roof | 0.45005 | 0.47299 |
+| Heavy rain on roof | 0.45805 | 0.48262 |
+| Drops from tap into puddle | 0.37526 | 0.35646 |
+| Metal rod on glass jar | 0.25660 | 0.28145 |
+| Glass marble on wooden table | 0.30691 | 0.32388 |
+
+AST coarse expected-tag coverage is 21/28 -> 22/28; four steel outputs are
+unscored, not accepted. The extra match is light rain seed 314. Both models
+miss the requested glass/metal tag at seed 314 and the exact scraping/rolling
+tags on both seeds. Scraping is tagged Rub/Wood/Filing, which illustrates the
+ontology limitation rather than proving that it sounds wrong. Glass striker
+swap CLAP margin is negative for seed 314 in both models (-0.02040/-0.01510),
+positive for seed 2718 (0.06883/0.06866). Wood and steel paired margins are
+positive, but neither CLAP nor AST establishes the true striker material.
+
+Both models have positive light/heavy-rain swap margins on both seeds. Heavy
+rain also has greater raw RMS: +12.76/+11.57 dB for base and +10.27/+10.35 dB
+for prior. This is a qualitative response in these samples, not calibrated
+rainfall rate, realism, or evidence that the fine-tune created the capability.
+
+The bottle-fracture case exposes an important failure beyond fitting: seed
+314 is effectively silent in both models, at -99.64/-99.39 dBFS native RMS,
+and AST agrees with the silence control. Seed 2718 produces breaking/glass
+tags at -14.57/-14.10 dBFS. A numerically nonzero WAV is **not** proof of an
+audible event. Keep the failed outputs; do not normalize their codec noise into
+an apparent sound or choose the other seed to declare success.
+
+Next: a bounded timing/prompt discriminator on the base, before another fit.
+Retain the whole decoded 30-second horizon with the same five-second duration
+condition, replay the failed seed exactly, and compare the positive seed and
+minimal wording counterfactuals (e.g. removing `empty` or simplifying the event
+sequence). This distinguishes an event outside the cropped window, failure
+to generate it at all, and prompt sensitivity. Until that is inspected, do
+not assert which is causal or launch another SFT/regularizer sweep. No adapter
+promotion or change to the liked demo follows from this transfer check.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --prompts lab/profiles/physical-sound-transfer-prompts.json \
+  --seeds 314 2718 --output /absolute/external/new-transfer-base --diagnostics
+# Repeat with a different output and the existing --adapter checkpoint option.
+```
+
+Prompt files are bounded to 64 KiB/32 cases/512 printable characters per
+description, with unique safe IDs and no audio-input fields. An optional
+`diagnostic_id` selects a known coarse tag group; otherwise unknown IDs are
+explicitly unscored by AST, while CLAP still compares their text. Tests cover
+defaults, valid custom cases, traversal/duplicate/reserved IDs, unknown fields,
+bad captions and diagnostic groups. A final guard-only change also bounds
+whitespace-padded descriptions; the executed snapshots preserve the exact run
+code, and all experimental prompts satisfy both versions of the guard.
+
+Verification: 47 focused tests, Ruff formatting/static checks and diff/local
+links pass. All 136 WAVs have matching hashes, dimensions, rates, durations,
+PCM types and headroom; two 88-second previews and 33/44-second comparisons
+were read back. This is signal-integrity verification, not an audibility or
+quality acceptance. Both jobs and diagnostic passes are terminal. No Cargo,
+ProductCheck or engine audition was run; this remains an external Python lab.

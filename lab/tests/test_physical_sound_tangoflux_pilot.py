@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,45 @@ import physical_sound_tangoflux_pilot as tango
 
 
 class TangoTest(unittest.TestCase):
+    def test_custom_prompt_cases_and_default_compatibility(self):
+        self.assertEqual(
+            tango.load_cases(None),
+            [{"id": k, "prompt": p} for k, p in tango.pilot.CASES],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "prompts.json"
+            rows = [
+                {
+                    "id": "jar",
+                    "prompt": "A wooden rod taps a glass jar.",
+                    "diagnostic_id": "glass-wood",
+                }
+            ]
+            path.write_text(json.dumps(rows))
+            self.assertEqual(tango.load_cases(path), rows)
+
+    def test_bad_prompt_file_rejected_before_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "prompts.json"
+            valid = {"id": "jar", "prompt": "Glass."}
+            for rows in (
+                {},
+                [],
+                [valid] * 33,
+                [valid, valid],
+                [{**valid, "id": "../escape"}],
+                [{**valid, "id": "empty-prompt"}],
+                [{**valid, "prompt": " "}],
+                [{**valid, "prompt": "x" * 513}],
+                [{**valid, "prompt": "x" + " " * 512}],
+                [{**valid, "prompt": "x\ny"}],
+                [{**valid, "diagnostic_id": "invented"}],
+                [{**valid, "audio": "forbidden.wav"}],
+            ):
+                path.write_text(json.dumps(rows))
+                with self.assertRaises(ValueError):
+                    tango.load_cases(path)
+
     def test_adapter_is_complete_finite_and_cannot_replace_base_weights(self):
         expected = {"transformer.to_q.lora_A.default.weight": torch.zeros(8, 16)}
         tango.validate_adapter_weights(expected, expected)

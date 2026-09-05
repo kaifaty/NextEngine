@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import re
 import shutil
 import time
 from pathlib import Path
@@ -24,6 +25,44 @@ MODEL = "declare-lab/TangoFlux"
 REVISION = "367005e963cb3a9fb2e03a46104d7de23e34ceea"
 CODE_HASH = "209cfe8de77e39e935668b4e13ddb226ea2842b01d56d59898f970067de3481d"
 RATE = 44100
+
+
+def load_cases(path: Path | None):
+    if path is None:
+        return [{"id": key, "prompt": prompt} for key, prompt in pilot.CASES]
+    if not 0 < path.stat().st_size <= 65536:
+        raise ValueError("bounded prompt file required")
+    rows = json.loads(path.read_text())
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 32:
+        raise ValueError("one to 32 prompt cases required")
+    seen = {"empty-prompt"}
+    for row in rows:
+        if not isinstance(row, dict) or set(row) - {"id", "prompt", "diagnostic_id"}:
+            raise ValueError("unknown prompt fields")
+        key, prompt = row.get("id"), row.get("prompt")
+        if (
+            not isinstance(key, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", key)
+            or key in seen
+        ):
+            raise ValueError("unique safe case identifiers required")
+        if (
+            not isinstance(prompt, str)
+            or not prompt.strip()
+            or len(prompt) > 512
+            or not prompt.isprintable()
+        ):
+            raise ValueError("nonempty bounded printable prompt required")
+        if "diagnostic_id" in row:
+            from physical_sound_text_tags import EXPECTED
+
+            if (
+                not isinstance(row["diagnostic_id"], str)
+                or row["diagnostic_id"] not in EXPECTED
+            ):
+                raise ValueError("unknown diagnostic category")
+        seen.add(key)
+    return rows
 
 
 def verify_weight_keys(missing: list[str], unexpected: list[str]):
@@ -189,6 +228,8 @@ def run(
     seeds: tuple[int, ...],
     seconds: float,
     adapter: Path | None = None,
+    prompts: Path | None = None,
+    diagnostics: bool = False,
 ):
     import torch
 
@@ -197,8 +238,14 @@ def run(
         raise ValueError("artifacts must remain outside the repository")
     if not 1 <= seconds <= 10 or not 1 <= steps <= 100:
         raise ValueError("bounded duration/steps required")
-    if not 1 <= len(seeds) <= 8 or len(set(seeds)) != len(seeds) or min(seeds) < 0:
+    if (
+        not 1 <= len(seeds) <= 8
+        or len(set(seeds)) != len(seeds)
+        or min(seeds) < 0
+        or max(seeds) >= 2**32
+    ):
         raise ValueError("unique nonnegative seeds required")
+    cases = load_cases(prompts)
     output.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(4)
     torch.manual_seed(0)
@@ -220,7 +267,10 @@ def run(
         "guidance_scale": 4.5,
         "precision": "float32",
         "negative_prompt": None,
-        "cases": [{"id": key, "prompt": prompt} for key, prompt in pilot.CASES],
+        "cases": cases,
+        "prompt_file_sha256": hashlib.sha256(prompts.read_bytes()).hexdigest()
+        if prompts
+        else None,
         "rows": [],
         "controls": [],
     }
@@ -237,7 +287,10 @@ def run(
         report["load_seconds"] = time.monotonic() - started
         preview = []
         for seed in seeds:
-            for index, (key, prompt) in enumerate((*pilot.CASES, ("empty-prompt", ""))):
+            for index, case in enumerate(
+                (*cases, {"id": "empty-prompt", "prompt": ""})
+            ):
+                key, prompt = case["id"], case["prompt"]
                 tick = time.monotonic()
                 torch.manual_seed(seed)
                 np.random.seed(seed)
@@ -265,7 +318,7 @@ def run(
                 record.update(
                     {"seed": seed, "inference_seconds": time.monotonic() - tick}
                 )
-                if index < len(pilot.CASES):
+                if index < len(cases):
                     report["rows"].append({"case": index, **record})
                     if seed == seeds[0]:
                         preview.extend(
@@ -306,6 +359,13 @@ def run(
         pilot.save_report(output / "result.json", report)
         raise
     pilot.save_report(output / "result.json", report)
+    if diagnostics:
+        import physical_sound_text_tags as tags
+
+        del model, vae
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        tags.run(output / "result.json", output / "ast-clap.json", [], with_clap=True)
     print(
         json.dumps(
             {key: report[key] for key in ("status", "elapsed_seconds", "preview")}
@@ -321,9 +381,23 @@ if __name__ == "__main__":
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 123])
     parser.add_argument("--seconds", type=float, default=5.0)
     parser.add_argument(
+        "--prompts",
+        type=Path,
+        help="JSON array of id/prompt cases; optional diagnostic_id",
+    )
+    parser.add_argument("--diagnostics", action="store_true")
+    parser.add_argument(
         "--adapter",
         type=Path,
         help="External adapter checkpoint from the bounded training experiment",
     )
     args = parser.parse_args()
-    run(args.output, args.steps, tuple(args.seeds), args.seconds, args.adapter)
+    run(
+        args.output,
+        args.steps,
+        tuple(args.seeds),
+        args.seconds,
+        args.adapter,
+        args.prompts,
+        args.diagnostics,
+    )
