@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / FRESH_V8_V4_TRAINING / NO_RUNTIME_AUTHORITY` |
+| Status | `BOUNDED_WALKING_ARTIFACT_VERIFIED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -19,11 +19,11 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** ADR-113 permits [explicit known-candidate reuse](../r8b-known-candidate-reuse-2026-09-05.md)
-  of closed model 3999 on the unchanged V8 matrix. First validate it closed-loop.
-  Fresh run/session **23866**, PID **2309530**, continues; never restart on timeout.
+- **Result/next:** [Known candidate 3999](../r8b-known-candidate-reuse-2026-09-05.md) passes all five V8
+  episodes: 20 s, 6.14566 m, 24 support switches and valid stop; full video checked.
+  User's bounded walking goal is met. No live optimizer; future scope needs a new request.
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
-  `f0c15bd4`; the distinct V8/v4 optimizer is now active. All V7 final episodes fail
+  `f0c15bd4`; the distinct V8/v4 run was intentionally interrupted. V7 final episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
   final-only evaluation also fails, with exact V7/V8 physical arrays.
 - **Controls:** Zeroing only arm residuals still fails at 170, now shank/shank
@@ -188,7 +188,7 @@ not clean-commit generation/run manifests.
   KL 1.11e-7 versus target 0.008, zero ratio clipping; local drift is too small.
 - **Gradient control:** Adaptive LR peaks at 5.0625e-5; minibatch mean KL
   peaks at 0.02339. Exact-buffer fixed 1e-5 lowers that peak to 0.00681.
-- **Next:** [ADR-112](../../architecture/adr/112-prospective-validated-walking-training.md) admits one fresh V8/fixed-LR run; cumulative shift/objective mismatch remain unresolved. No walking fix proven.
+- **Resolved artifact:** ADR-113's separately selected model 3999 passes the full V8 matrix. Historical regression mechanism remains unresolved; do not confuse artifact success with old-run convergence.
 
 ## Retained safety and mirror hypotheses
 
@@ -233,18 +233,18 @@ has now failed walking quality; do not repeat it or alter safety to hide that.
 ## Verification and remaining work
 
 - V6 motor tests (120), five headless tests, and full Linux host-check pass.
-  Current diagnostic work passes 26 focused Python tests, Ruff, formatting
-  and native example clippy. Old V5 descriptor stays byte-exact. The separate
+  Final candidate/adapter/telemetry/video work passes 70 focused Python tests,
+  Ruff, formatting and document-link checks. Old V5 descriptor stays byte-exact. The separate
   optional PhysX runtime replay bootstrap-profile issue remains unresolved.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining: resolve the closed final-policy regression; V7 and corrected V8
-  both fail quality. Native controls and 54 evaluator/adapter/video tests pass;
-  the full failed 152-frame video is retained outside Git.
+- Remaining beyond this goal: style/heading, robustness and runtime promotion.
+  Old final-policy failures remain exact; the separately selected 3999 artifact
+  passes all nominal V8 gates and its full 1,200-frame video is retained externally.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
 - Generation-02 completed but failed walking quality. Full Linux host-check
   passes; optional PhysX runtime replay still has the separate bootstrap
-  profile-closure issue. The user has authorized necessary fixes and training;
-  the remaining blocker is technical evidence, not missing permission.
+  profile-closure issue. These are separate runtime/mirror matters, not an
+  instruction to restart learning after the verified nominal walking result.

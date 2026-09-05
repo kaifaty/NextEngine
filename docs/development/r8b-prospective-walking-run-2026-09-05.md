@@ -1,6 +1,6 @@
 # R8b prospective validated walking run
 
-Status: `TRAINING_ACTIVE / PREFLIGHT_PASSED / NO_LEARNED_QUALITY_CLAIM`.
+Status: `INTENTIONALLY_INTERRUPTED / ARTIFACTS_CLOSED / NO_LEARNED_QUALITY_CLAIM`.
 Authority: [ADR-112](../architecture/adr/112-prospective-validated-walking-training.md).
 
 ## Decision
@@ -38,9 +38,10 @@ only in the new profile; old profile execution remains unchanged.
   `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v4/evidence/validation-control-01`.
 - PASS: clean-commit generation freeze at `11ecd99f`; native multi-slot
   control matches 5,120 transitions, including 399 terminals/autoresets.
-- RUNNING: fresh optimizer has emitted finite metric rows through update 12
-  (53,248 transitions) at initial observation; fixed LR is exactly 1e-5.
-  First complete native checkpoint validation is scheduled at update 99.
+- INTERRUPTED: after the separately reused candidate passed all physical/video
+  checks, the redundant fresh run received SIGINT and exited 130. It retains
+  918 complete metric rows / 3,760,128 recorded transitions and checkpoints
+  through `model_899.pt`. An interrupted subsequent update is not completed work.
 - No new Rust/public/physics contract: retain ADR-110's prior passing native
   routing and Linux host-check; broad host-check is not repeated for private
   Python callbacks.
@@ -55,11 +56,14 @@ The profile closes all three hashes. The clean-commit generation is frozen at
 `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v4/generation-01`;
 its manifest SHA-256 is
 `c35e5b31678a19ae2434834ea81a3b9b5415f840fe582eb9474e15135e9c442b`.
-Its sole live run is `runs/TRAIN-1`, unified exec session **23866**, PID
-**2309530** at launch. Revalidate this handle/process before reporting state;
-never restart because observation timed out. Source code is `11ecd99f`, even
-if later documentation-only commits advance HEAD. No runtime activation or
-held-out robustness claim follows from this nominal lesson.
+Its sole run is `runs/TRAIN-1`, unified exec session **23866**, PID
+**2309530** at launch; both the parent and all eight native workers are now
+closed. Source code is `11ecd99f`. The existing failure handler records status
+`failed`, error `KeyboardInterrupt: `; this is the intentional interruption,
+not a numerical fault or completed training result. All artifacts verify under
+manifest `32df1d1d525bd8d1f700fe75b66b5e3da1acb7b618e333f6f9b9f7695101c084`.
+No runtime activation or held-out robustness claim follows from this run.
+See the [separate verified walking artifact](r8b-known-candidate-reuse-2026-09-05.md).
 
 Initial update KL includes changing fresh normalizers: the first update has
 mean-minibatch KL up to 0.1568, while by update 11 it is 0.00125. The earlier

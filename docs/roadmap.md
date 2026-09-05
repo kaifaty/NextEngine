@@ -2317,15 +2317,21 @@ schedule intervention with prospective physical validation/checkpoint retention.
 [ADR-112](architecture/adr/112-prospective-validated-walking-training.md) now
 admits one fresh V8 run, fixed 1e-5 learning rate, 100-update native validation
 and first full five-episode pass retention/stop. The [new run](development/r8b-prospective-walking-run-2026-09-05.md)
-is now active at clean `11ecd99f`, after 65 focused tests and exact 5,120-transition/
-399-reset native control. No new learned-quality result is available yet;
+was started at clean `11ecd99f`, after 65 focused tests and exact 5,120-transition/
+399-reset native control, then intentionally interrupted after a separate candidate passed;
 this is not an unchanged retry or an old checkpoint choice within that run.
 [ADR-113](architecture/adr/113-explicit-known-walking-candidate-reuse.md) also
 admits a separate, explicitly known-result-selected evaluation of model 3999
 on the same complete V8 physical matrix. This pragmatic reuse cannot relabel
-the old failed final-only result or establish held-out/runtime quality.
+the old failed final-only result or establish held-out/runtime quality. That
+[candidate now passes](development/r8b-known-candidate-reuse-2026-09-05.md)
+all five closed-loop V8 episodes: 20 s, 6.14566 m, 24 support switches,
+velocity MAE 0.10641 m/s and stop speed MAE 0.08325 m/s. Full native replays and
+1,200-frame video verify. This closes the practical first bounded walking
+artifact, not R8 release, natural-style, robust command or runtime readiness.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
-No quality gate is advanced or weakened.
+No physical threshold is weakened; the separately selected nominal walking
+matrix passes, while old final-only failures and broader promotion gates remain.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
 an independent promotion gate. R8a fracture and embodiment
 expansion is deferred, and the stopped R141 reference-tracking lineage remains
