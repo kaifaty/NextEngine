@@ -80,7 +80,9 @@ def spectrum(wave: np.ndarray) -> np.ndarray:
     return (10 * np.log10(np.maximum(power, 1e-18))).astype(np.float32)
 
 
-def synthesize(db: np.ndarray, seconds: float, seed: int) -> np.ndarray:
+def synthesize(
+    db: np.ndarray, seconds: float, seed: int, rate: int = RATE
+) -> np.ndarray:
     if (
         db.shape != (513,)
         or not np.isfinite(db).all()
@@ -89,19 +91,20 @@ def synthesize(db: np.ndarray, seconds: float, seed: int) -> np.ndarray:
         or not np.isfinite(seconds)
         or not 0.25 <= seconds <= 10
         or not 0 <= seed < 2**32
+        or rate not in (22050, 48000)
     ):
         raise ValueError("invalid synthesis request")
-    n = round(seconds * RATE)
-    freq = np.fft.rfftfreq(n, 1 / RATE)
-    power = 10 ** (np.interp(freq, np.fft.rfftfreq(FFT, 1 / RATE), db) / 10)
-    transfer = np.sqrt(power * RATE / 2)
+    n = round(seconds * rate)
+    freq = np.fft.rfftfreq(n, 1 / rate)
+    power = 10 ** (np.interp(freq, np.fft.rfftfreq(FFT, 1 / rate), db) / 10)
+    transfer = np.sqrt(power * rate / 2)
     transfer[0] = 0  # No DC component.
     if n % 2 == 0:
         transfer[-1] *= np.sqrt(2)
     wave = np.fft.irfft(
         np.fft.rfft(np.random.default_rng(seed).normal(size=n)) * transfer, n
     )
-    fade = np.linspace(0, 1, round(0.01 * RATE))
+    fade = np.linspace(0, 1, round(0.01 * rate))
     wave[: len(fade)] *= fade
     wave[-len(fade) :] *= fade[::-1]
     return wave.astype(np.float32)

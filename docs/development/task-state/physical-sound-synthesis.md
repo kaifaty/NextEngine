@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / FRICTION_GAIN_NOT_ROBUST / MEASURED_RAIN_SOURCE_LOCATED.
+Status: ACTIVE_GOAL / RAIN_WAVEFORM_BASELINE / TEMPORAL_STRUCTURE_MISSING.
 
 ## Resume in 60 seconds
 
@@ -12,14 +12,15 @@ Status: ACTIVE_GOAL / FRICTION_GAIN_NOT_ROBUST / MEASURED_RAIN_SOURCE_LOCATED.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest primary artifact:** [neural rubber-on-glass friction](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-neural-rank4-glass-40-2026-09-05/generated.wav)
-  (2s), generated from surface74/speed40mm/s/force0.5N, noise seed2718;
-  standalone inference needs no recording. [Latest cross-speed comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-cross-speed50-2026-09-05/glass-cross-speed-comparison.wav):
-  real -> neural -> interpolation at30, then50mm/s. Separate model per fold;
-  same0.5N/seed314 and shared gain100. Six seconds, not a promoted model.
+- **Latest primary artifact:** [neural rain](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2mm-2026-09-05/generated.wav),
+  8s/48kHz,2mm accumulated over5min/seed2718; no recording at inference.
+  Stationary forest soundscape, not isolated rain or unseen-intensity evidence.
+  [Rain comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/rain-short-comparison.wav):
+  real -> neural -> reference-spectrum control at0.4, then6.2mm/5min,51s.
+  Shared gain0.980778, no individual matching. Friction/demo/base unchanged.
 - **Exact current evidence and reproduction:**
   [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Latest roots: `texture-cross-speed{30,50}-2026-09-05`, under
+  Latest roots: `amazon-rain-neural{,-2mm}-2026-09-05`, under
   `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
 - **Matched impact result:** prior improves only1/14 event crops, all seven
   class means decline. Retain base; no LoRA sweep. Positive striker margins
@@ -31,54 +32,53 @@ Status: ACTIVE_GOAL / FRICTION_GAIN_NOT_ROBUST / MEASURED_RAIN_SOURCE_LOCATED.
 - **Physical-control source:** `cluster-texture-training-grid-2026-09-05`,
   Figshare29438288v5, CC-BY4.0,60 records/242 files/86.69MB: wood0/steel65/glass74,
   urethane probe,20/30/40/50/60mm/s ×0.5/1N, direction0/repeats0/1. Hash checked.
-  Train24 repeat0 at20/30/50/60;12 scans40mm/s unseen-speed development;
-  other24 repeat1 development. Same surfaces, not new objects/protected tests.
-  Keep raw two-mic/force/position; commanded and measured controls separate.
+  Train24 repeat0 at20/30/50/60;12 scans40mm/s and24 repeat1 development.
+  Same surfaces, not new objects. Keep measured and commanded controls separate.
   Mini has no raw audio; full ZIP range reader must resolve canonical Figshare
   URL per request (signed redirect expires after10s). No full-archive MD5 check.
-  Earlier failed acquisitions are not authoritative; no protected evidence reused.
 - **Crossed-velocity result:** fixed rank4/4,804params/1500steps. Neural versus
   interpolation spectrum RMSE30:1.904/1.759;40:1.690/1.729;50:1.850/1.788dB.
   Pooled1.815/1.758,11/36 wins. Stop this three-surface capacity/epoch/basis
   tuning; the apparent40mm/s gain is not robust. All folds disclosed development.
   No pretraining; physical inputs -> stationary Gaussian texture, not impacts.
-- **Counterchecks:** repeat scatter contributes13–17% of observed neural MSE;
-  most deviation remains relative to the two-repeat mean (not population truth).
+- **Counterchecks:** repeat scatter contributes13–17% of neural MSE.
   Matched speed/load surface retrieval is30/30 for BOTH clean and machine-mic
   spectra. That score is not independent quality validation. It does not prove
   the generator uses only noise. Upstream noncausal NLMS inspected, not executed;
   no exact archive-preprocessing replay. Audit JSON in speed50 root.
-- **Next source:** `amazon-rain-source-probe-2026-09-05`, DataSuds DOI
-  10.23708/I0QYNM V2, CC-BY4.0. Metadata/README/notebook plus three original
-  no/light/heavy rain WAVs60s/48kHz mono; five files MD5/SHA verified.
-  No numeric intensity inferred. `total_rain` means accumulated mm/5min;
-  notebook qualitative classes relabel isolated0.2mm as no rain. Do not run it.
-  Training spectra48,208 rows/file43944, cross-site43958/43957 unfetched.
-  Only three full WAVs; spectra alone cannot prove waveform realism.
-- **Prior fit:** prior-retention step240 gains are local, not broad; evidence in note.
-- **Codec controls:** reject gross sampling corruption; no posterior-mean retry.
-- **ESC-50:**117 WAVs/100 sources,93 train/24 development, source-disjoint.
-  Generic labels, physical attributes null; terms/exclusions/revision in note.
-- **Prior glass fits:** balanced/uniform objectives improve fit, not generation;
-  exact controls match. Do not repeat; details and frozen configuration in note.
-- **Do not repeat:** prior glass duration1.5/5s, CFG1/2/4.5 and base-unconditional
-  sweeps. Exact controls passed; none repaired the old prefix scores.
-- **Validator limitation:** caption bank misranks known real/VAE striker controls;
-  no material-identity or calibrated perceptual claim. Steel remains unscored.
-- **Next action:** acquire rain training spectral table, match source filenames,
-  validate frequency grid/units by reconstructing the three WAV spectra; then
-  generate a report-only rain sound conditioned on measured accumulation.
-  Keep cross-site tables out of tuning, group temporal development by storm/day.
-  Source discriminator and audible output belong in one checkpoint, not a new
-  protocol/validator-only milestone. Friction defaults/artifacts remain unchanged.
+- **Rain source:** `amazon-rain-source-probe-2026-09-05`, DataSuds DOI
+  10.23708/I0QYNM V2, CC-BY4.0. Three60s/48kHz WAVs match0/.4/6.2mm/5min;
+  original CSV43944 `?format=original`,381270141bytes, MD5d91a06cecf3af48a205bdf43c48abee1.
+  Converted TSV exceeded publisher size; incomplete `.part` is rejected/unused.
+  48,208 rows,513 linear rawPCM16²/Hz bins; divide32768², then10log10.
+  Welch1024 matches all three WAVs within0.000020dB.33 filenames start seconds
+  after their valid table minute, not sample-level gauge alignment. No class
+  relabeling. Cross-site43958/43957 unfetched; only three full WAVs published.
+- **Rain fit:**1,384params/rank8,seed41/2000steps,948wet+948dry selected train.
+  Day split and adjacent-day guards; May10 development. Wet364 development
+  rows/19days: neural/interpolation7.469/7.580dB,191 wins. Small spectral gain,
+  not quality or unseen-intensity proof. Rows/model/results external, note below.
+- **Rain discriminator:** AST misses BOTH real wet clips; not an acceptance
+  validator here. Exact8s stationary-spectrum control loses10ms envelope
+  variation (light0.301 versus real0.854); temporal reference restores0.845.
+  [Representation comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/light-rain-temporal-comparison.wav),25.5s,
+  real -> stationary -> temporal. Reference-dependent reconstruction, NOT neural
+  generation/quality acceptance; heavy temporal crest overshoots9.10 versus3.78.
+- **Prior controls:** codec checks reject gross corruption. No posterior-mean,
+  duration/CFG or caption-bank threshold retries; exact evidence in pilot note.
+  ESC-50 physical attributes are null; no material-identity validation for steel.
+- **Next action:** acquire a broader FULL-WAVEFORM source with trustworthy
+  physical controls and train temporal/event structure; produce new playable
+  neural audio, not only a validator. Three rain WAVs/spectral tables cannot
+  establish this. No rain spectrum MLP width/epoch sweep or AST threshold tuning.
+  Preserve reference-dependent controls as controls. Keep cross-site tables out
+  of tuning; group temporal evidence by storm/day, not adjacent random rows.
   No repeated generic-caption/glass SFT sweeps, modal-MLP restart, invented labels,
   protected reuse or new stack. Demo/base unchanged; no product admission.
-- **Hardware/runtime:** RTX3080 10GiB, working CUDA, `lab/.venv/bin/python`.
-  Offline weights/code verified; exact libraries in note. Old GPU blockers stale.
-- **Verification:**50 new WAVs plus6s comparison and five rain-source files
-  verified.30 focused tests,
-  Ruff/diff/local-link checks pass. All jobs terminal. No Cargo/ProductCheck
-  or engine audition: external Python lab only. Reproduction is in the note.
+- **Verification:** rain fit/inference/AST/temporal probe terminal;34 focused
+  tests and Ruff pass. Source units/hashes, no-reference inference and WAV
+  checks verified; exact evidence in pilot note. No Cargo/ProductCheck
+  or engine audition: external Python lab only.
 - **All goal requirements remain open beyond this baseline:** independent
   robust validation, robust audible gains from learning, broader physical
   controls, demonstrated new-condition generalization and engine integration.

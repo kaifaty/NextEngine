@@ -1213,3 +1213,117 @@ Do not use the two cross-site tables for tuning; keep any temporal splits
 storm/day-grouped rather than assuming adjacent rows are independent. Only
 three full WAVs means temporal realism will remain under-validated; that limits
 claims, not the ability to produce a report-only audible experiment.
+
+## Measured-rain neural waveform and representation check (2026-09-05)
+
+[Standalone neural rain, 2mm accumulated over five minutes](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2mm-2026-09-05/generated.wav>)
+is eight seconds at48kHz, generated from model weights, accumulation and
+noise seed2718, **without a reference recording**. This is a stationary forest
+soundscape baseline, not isolated droplets, a physical rainfall calibration,
+or demonstrated generation of unseen intensities/surfaces. The three source
+example times are development-only; an excluded day is not an unseen condition.
+[Rain comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/rain-short-comparison.wav>)
+plays real -> neural -> reference-spectrum control at0.4, then6.2mm/5min,
+eight seconds each with0.5s gaps. Shared gain0.980778; no individual matching.
+All interpolation controls remain in the102s full comparison and individual WAVs.
+
+### Source, fit and measured result
+
+The preceding acquisition status is superseded: original file43944 was obtained
+with `https://dataverse.ird.fr/api/access/datafile/43944?format=original`.
+`amazon-rain-source-probe-2026-09-05/psds_training.csv` is381,270,141 bytes,
+publisher MD5 `d91a06cecf3af48a205bdf43c48abee1`, verified before fitting.
+Default access returned converted TSV exceeding its published size; that
+incomplete `.part` is rejected and unused. Original CSV has48,208 rows,
+190 days,1,679 nonzero measurements, and513 LINEAR raw-PCM16 power densities.
+Divide by32768² before converting to dB. Frequency names are rounded labels
+for the exact48kHz/1024 FFT grid, not the grid itself. Welch1024 reproduces
+all three full60s WAV spectra within0.000020dB.33 filename timestamps start
+seconds after their table minute; identities are unique and their minute bins
+match. This does not establish sample-level alignment with the rain gauge.
+No qualitative class relabeling was applied. Cross-site43958/43957 stay unfetched.
+
+Source attribution remains Xavier, Fleischmann, Gosset, Maciel, do Nascimento,
+Ramalho and Bicudo, DataSuds DOI10.23708/I0QYNM V2, CC-BY4.0. Source metadata,
+README/notebook and originals remain outside Git. The [source study](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2024GL108210)
+uses sound to estimate rainfall; it does not validate this forward generator.
+
+`physical_sound_rain_pilot.py`: log1p(accumulation) ->32 ->32 ->8 coefficients
+of a training-only PCA log-spectrum basis;1,384 learned parameters. Seed41,
+2,000 AdamW updates,128-row batches,lr0.001. All948 wet training rows plus
+948 randomly selected dry rows determine fitting AND the interpolation control.
+Day hashing yields104 eligible training days/25,397 rows,35 development
+days/9,259 rows, and51 adjacent guard days/13,552 rows. May10 is explicitly
+development. Guard days are excluded from optimization; multi-day storm
+independence is not established. The report's `train` aggregate includes
+unselected dry rows, not just the1,896 actual optimizer examples.
+
+| Disclosed development | Neural mean spectrum RMSE,dB | Interpolation | Neural wins |
+|---|---:|---:|---:|
+| All9,259 recordings | 7.61800 | 7.61738 | 4,239 |
+| Wet364 recordings across19 days | 7.46889 | 7.57973 | 191 |
+
+The wet-row difference is-0.11083dB; a5,000-resample day-cluster bootstrap
+gives[-0.28139,-0.01032]dB. This is descriptive same-site development evidence,
+not a protected test, perceptual acceptance or independence from multi-day
+storms. `result.json`, `rows.json` and `audit.json` in
+`amazon-rain-neural-2026-09-05` preserve the exact membership and results.
+
+### Why neither the spectral score nor AST accepts this model
+
+The existing frozen AST diagnostic was run without text input on all12 clips,
+the standalone clip, silence, noise and a tone. It identifies the simple
+controls, but neither REAL wet clip has a rain tag in its top5. It calls the
+real clips boat/vehicle-like and most synthesized clips noise-like. Therefore
+it fails the relevant positive control and cannot decide rain naturalness.
+The NumPy frontend also warns about zero mel filters; AudioSet pretraining
+disjointness is unestablished. Exact model revision and scores are in `tags.json`.
+Do not lower thresholds or treat a higher synthetic rain tag as improvement.
+
+A separate reference-dependent probe removes the60s-versus8s spectrum mismatch:
+Welch1024 of the SAME first8s drives stationary synthesis, compared with
+the complete time-varying STFT magnitudes (1024 samples/hop256;32 alternating
+consistency/magnitude projections, noise seed314). Exact original-phase inverse
+STFT round-trip passes<1e-12. Control RMS is matched to the original, then ONE
+shared gain0.415226 prevents clipping. This probe is NOT neural inference.
+
+| 10ms RMS coefficient of variation | Real | Exact8s stationary spectrum | Temporal reference |
+|---|---:|---:|---:|
+| No rain | 0.1133 | 0.0927 | 0.1116 |
+| 0.4mm/5min | 0.8544 | 0.3011 | 0.8450 |
+| 6.2mm/5min | 0.4121 | 0.3093 | 0.4166 |
+
+[Light-rain representation comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/light-rain-temporal-comparison.wav>)
+is real -> exact stationary spectrum -> temporal reference,25.5s total.
+`temporal-probe.json` records all nine clips and measurements. Preserving a
+target spectrogram naturally improves its reconstruction metrics; this is
+evidence of information loss, NOT perceptual superiority or learned transfer.
+Temporal reconstruction also overshoots the heavy clip's crest factor
+(9.10 versus3.78), so it is not an artifact-free decoder solution.
+
+This motivates the next change rather than another capacity/epoch sweep:
+use full waveforms and learn temporal event/envelope structure. The publisher's
+pinned inventory contains only three WAVs; the other tables cannot supply that
+missing structure. A broader waveform source with trustworthy physical labels
+is needed before making a generalization claim. This direction is consistent
+with [McDermott and Simoncelli,2011](https://mcdermottlab.mit.edu/papers/McDermott_Simoncelli_2011_sound_texture_synthesis.pdf):
+their experiments distinguish power-only synthesis from representations with
+envelope statistics and cross-channel dependencies. This probe is not a
+reimplementation of their auditory model or a reason to abandon neural generation.
+
+Reproduce fitting (fresh external output required):
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_rain_pilot.py \
+  --source /home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-source-probe-2026-09-05 \
+  --output /absolute/external/new-rain-fit
+lab/.venv/bin/python lab/scripts/physical_sound_rain_pilot.py \
+  --render-model /absolute/external/new-rain-fit --amount 2 --seed 2718 \
+  --output /absolute/external/new-rain-render
+```
+
+Verification:34 focused Python tests and Ruff pass. WAV hashes/formats/headroom
+are checked; source units, selected training membership and standalone no-audio
+input are verified.48kHz synthesis is opt-in; friction's22.05kHz default is
+unchanged. The fit's script hash precedes whitespace-only Ruff formatting.
+No Cargo/ProductCheck, engine audition, demo replacement or production promotion.
