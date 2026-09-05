@@ -19,6 +19,7 @@ from next_lab.motion_math import collider_minimum_y, quaternion_to_matrix
 from next_lab.motor_lab_client import normalized_action_to_raw
 
 from lab.scripts.canonical_walking_ppo import seed_root
+from lab.scripts.native_body_geometry import physical_geometry
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -509,58 +510,18 @@ def plot(descriptor, evaluation, trace, clearance, impulses, output):
     chosen = np.linspace(0, len(trace["frames"][0]) - 1, 6, dtype=int)
     fig, axes = plt.subplots(2, 6, figsize=(16, 6))
     for column, tick in enumerate(chosen):
-        pose = {
-            link["body_token"]: np.asarray(link["position_um"]) / 1e6
-            for link in trace["frames"][0][tick]["links"]
-        }
-        links = {link["body_token"]: link for link in trace["frames"][0][tick]["links"]}
-        bodies = descriptor["bodies"]
-        origin = pose[bodies[0]["body_token"]]
+        shapes, origins = physical_geometry(descriptor, trace["frames"][0][tick])
+        origin = origins["body.pelvis"]
         for row, horizontal in enumerate((0, 2)):
             ax = axes[row, column]
-            for body in bodies:
-                parent = body["parent_body_slot"]
-                if parent is None:
-                    continue
-                a, b = pose[bodies[parent]["body_token"]], pose[body["body_token"]]
-                color = (
-                    "#2684d9"
-                    if ".left-" in body["body_id"]
-                    else "#e6699b"
-                    if ".right-" in body["body_id"]
-                    else "#d8a600"
-                )
+            for shape in shapes:
+                segments = shape["segments"]
                 ax.plot(
-                    [
-                        a[horizontal] - origin[horizontal],
-                        b[horizontal] - origin[horizontal],
-                    ],
-                    [a[1], b[1]],
-                    color=color,
-                    linewidth=3,
+                    (segments[:, :, horizontal] - origin[horizontal]).T,
+                    segments[:, :, 1].T,
+                    color=shape["color"],
+                    linewidth=0.8,
                 )
-                if body["body_id"] in ("body.left-ankle-roll", "body.right-ankle-roll"):
-                    corners, _, _, _ = foot_box(body, links[body["body_token"]])
-                    for first, second in (
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 0),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 4),
-                        (0, 4),
-                        (1, 5),
-                        (2, 6),
-                        (3, 7),
-                    ):
-                        ax.plot(
-                            corners[[first, second], horizontal] - origin[horizontal],
-                            corners[[first, second], 1],
-                            color=color,
-                            linewidth=1,
-                        )
             ax.axhline(0, color="gray", linewidth=1)
             ax.set(
                 xlim=(-0.7, 0.7),
@@ -573,15 +534,26 @@ def plot(descriptor, evaluation, trace, clearance, impulses, output):
                 ax.set_yticks([])
             else:
                 ax.set_ylabel("Front / Y, m" if row == 0 else "Side / Y, m")
-    fig.suptitle(
-        "Native body origins + actual sole collider boxes (not a surface mesh)"
-    )
+    fig.suptitle("All actual physical colliders in native poses (not a skin mesh)")
     fig.tight_layout()
     fig.savefig(output / "native-frames.png", dpi=130)
     plt.close(fig)
 
     # A close-up is necessary: full-body scaling hides millimetre heel/toe gaps.
     fig, axes = plt.subplots(2, 6, figsize=(15, 5), sharey=True)
+    # One shared range must include every selected foot, including the swing.
+    # The old fixed 100 mm ceiling cut off lifted toes and hid their shape.
+    selected_heights = []
+    for tick in chosen:
+        links = {link["body_token"]: link for link in trace["frames"][0][tick]["links"]}
+        for body in descriptor["bodies"]:
+            if body["body_id"] in ("body.left-ankle-roll", "body.right-ankle-roll"):
+                corners, _, _, _ = foot_box(body, links[body["body_token"]])
+                selected_heights.extend(corners[:, 1] * 1000)
+    sole_ylim = (
+        min(-8, min(selected_heights) - 5),
+        max(100, max(selected_heights) + 5),
+    )
     for row, side in enumerate(("left", "right")):
         body = next(
             b for b in descriptor["bodies"] if b["body_id"] == f"body.{side}-ankle-roll"
@@ -632,7 +604,7 @@ def plot(descriptor, evaluation, trace, clearance, impulses, output):
             ax.axhline(0, color="gray", linewidth=1)
             ax.set(
                 xlim=(-160, 160),
-                ylim=(-8, 100),
+                ylim=sole_ylim,
                 aspect="equal",
                 title=f"{(tick + 1) / 60:.2f} s",
             )

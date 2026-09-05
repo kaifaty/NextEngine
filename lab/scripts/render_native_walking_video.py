@@ -14,6 +14,7 @@ from next_lab.isaac_training import (
 )
 
 from lab.scripts.cpu_walking_contact_audit import foot_box
+from lab.scripts.native_body_geometry import physical_geometry
 
 ROOT = Path(__file__).resolve().parents[2]
 EDGES = (
@@ -192,7 +193,10 @@ def render(descriptor, frames, support, record, output):
     preview_indices = {0, len(frames) // 2, len(frames) - 1}
     with writer.saving(fig, str(output / "walking.mp4"), dpi=100):
         for index, (frame, load) in enumerate(zip(frames, support, strict=True)):
-            segments, colors, feet, root = frame_geometry(frame, descriptor)
+            _, _, feet, root = frame_geometry(frame, descriptor)
+            shapes, _ = physical_geometry(descriptor, frame)
+            segments = np.concatenate([shape["segments"] for shape in shapes])
+            colors = [shape["color"] for shape in shapes for _ in shape["segments"]]
             for view, horizontal in enumerate((2, 0)):
                 artists[view].set_segments(segments[:, :, [horizontal, 1]])
                 artists[view].set_color(colors)
@@ -213,7 +217,7 @@ def render(descriptor, frames, support, record, output):
             stance = load["lift_qualified_stance_side_report_only"]
             stance_label = "left" if stance == 0 else "right" if stance == 1 else "none"
             heading.set_text(
-                f"{record['checkpoint_label']} | native body origins + physical sole boxes (not a surface mesh)\n"
+                f"{record['checkpoint_label']} | all physical colliders (not a skin mesh)\n"
                 f"{frame['tick'] / 60:.2f} s | command {frame['command_raw'][1] / 1e6:.2f} m/s | "
                 f"lift-qualified stance: {stance_label}\n"
                 f"Full episode, seed {record['seed']} | result: {'PASS' if record['passed'] else 'FAIL'} | {record['terminal_reason']}"
@@ -256,6 +260,10 @@ def main():
             "all_native_frames_included": True,
             "interpolated": False,
             "tool_sha256": sha256_file(Path(__file__)),
+            "geometry_tool_sha256": sha256_file(
+                Path(__file__).with_name("native_body_geometry.py")
+            ),
+            "geometry": "all declared boxes and spheres; no body-origin skeleton",
             "artifacts": {
                 p.name: sha256_file(p) for p in output.iterdir() if p.is_file()
             },
