@@ -21,8 +21,8 @@
   isolated schema fix now discovers26 links/25DOFs; mass queries/control pass.
   [One-DOF oracle](../r8b-gain-tuner-one-dof-research-2026-09-05.md) refutes inertia/UI units; independent controls pass.
   User authorizes separate Isaac Sim6 install on RTX3080 (3090 later); no driver/training change.
-  Install NOT_STARTED: root has16GiB free (`df`, Sep5); uv cache70GiB includes shared hardlinks.
-  Next: obtain cache-cleanup approval, recheck actual free space, then install; old env/results preserved.
+  Install NOT_STARTED: root16GiB free; cache cleanup authorized but blocked by active build123d MCP uv locks.
+  `uv cache clean` cancelled without deletion: CAD runs inside cache. Next obtain CAD-stop approval; no `--force` while active.
 - Missing torso/head in the old origin-line plot caused the apparent
   leg/trunk disproportion. All 19 physical colliders are now drawn.
 - Initial V4 measures 170 cm stature, 86.5 cm hip, 139.65 cm shoulder,
