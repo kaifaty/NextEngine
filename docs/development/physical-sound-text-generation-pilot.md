@@ -800,3 +800,101 @@ PCM types and headroom; two 88-second previews and 33/44-second comparisons
 were read back. This is signal-integrity verification, not an audibility or
 quality acceptance. Both jobs and diagnostic passes are terminal. No Cargo,
 ProductCheck or engine audition was run; this remains an external Python lab.
+
+## Late-event diagnosis and extraction (2026-09-05)
+
+[Recovered bottle-fracture candidate, same seed 314](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/break-glass-seed314.wav)
+is a five-second excerpt of the **same generated full horizon**, with no new
+training or reference recording. [Failed prefix -> recovered event](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/comparison.wav)
+is 11 seconds; its first five seconds are intentionally almost silent.
+
+The bounded research tested three explanations: an event outside our crop,
+total omission, and wording sensitivity. An upstream user reported problems
+with sub-ten-second duration conditioning in
+[TangoFlux issue 31, 6 January 2026](https://github.com/declare-lab/TangoFlux/issues/31).
+That report is not a confirmed diagnosis of our run. The
+[official demo](https://huggingface.co/spaces/declare-lab/TangoFlux/blob/main/app.py)
+also takes a prefix of the requested length; our old prefix convention was
+not an independently validated event-timing guarantee.
+
+`--keep-full-horizon` now retains the decoder's actual 29.9537415-second
+output while leaving duration conditioning at five seconds. The
+[three-prompt control](../../lab/profiles/physical-sound-fracture-timing-prompts.json)
+uses the original bottle description, removes `empty`, or simplifies the
+sequence to a bottle shattering on a stone floor. Seeds 314 and 2718 retain
+the failure and positive control. Eight generations including empty prompts
+take 73.09 seconds before automatic diagnostics; all full and prefix WAVs stay
+in `tangoflux-fracture-timing-2026-09-05`.
+
+**The tested failure is an out-of-window event, not total omission.**
+
+| Seed 314 wording | First 5 s RMS, dBFS | Remaining horizon RMS, dBFS | Peak time, s |
+|---|---:|---:|---:|
+| Original | -99.64 | -20.25 | 18.170 |
+| Without `empty` | -99.67 | -20.91 | 17.534 |
+| Direct fracture | -99.76 | -21.37 | 12.667 |
+
+Over 99.9999997% of the raw energy is after five seconds in all three cases.
+Their first detected activity is around 12.66 s. Removing an adjective or
+simplifying the sequence does not fix timing at this seed. Seed 2718 instead
+peaks at 1.67–1.68 s and contains audible breaking in the original prefix.
+The prior seed-2718 mono/stereo WAVs replay exactly. Seed 314 remains at the
+codec-noise floor but is not bit-exact: 67 mono and 868 stereo samples differ
+by at most one PCM16 unit. This does not explain the approximately 80-dB
+head/tail difference; no exact-replay claim or retry-to-green test is made.
+
+Added `--extract-events SOURCE_RESULT` as a separate offline postprocessor.
+It reads hash-checked generated full-horizon PCM and finds a candidate onset
+using 10-ms RMS blocks, threshold `max(-50 dBFS, 0.1 * peak block RMS)`, and
+50-ms pre-roll. It copies a requested-length window without amplification or
+time stretching, records its source offset, any zero-padding, and whether
+above-threshold activity remains after the window. The threshold is an
+experimental energy heuristic, **not** calibrated perceptual acceptance.
+Below-threshold outputs are reported as undetected; partial matrices do not
+run the complete-matrix diagnostic. File/type/hash/bounds errors fail closed.
+This is for discrete-event candidates, not a general policy for rain or water.
+
+Final evidence is `tangoflux-fracture-event-matched-2026-09-05`. Both prompted
+and empty-prompt controls use the same extraction rule. An initial directory
+`tangoflux-fracture-event-window-2026-09-05` kept the old empty prefixes; its
+empty-control comparison is superseded and must not be used. All files remain
+available. The corrected extraction selects offsets 12.61 s for seed 314 and
+0.70 s for seed 2718, without padding. All six candidates still have later
+activity: these are useful excerpts, not proven complete isolated fractures.
+
+AST expected glass tags improve from 3/6 prefixes to 6/6 excerpts; Breaking
+is the top tag for every extracted candidate. Mean target CLAP rises
+0.28179 -> 0.43874. The formerly failed original prompt rises 0.16196 ->
+0.47726 at seed 314, with excerpt RMS -20.37 dBFS. All six exceed equally
+processed empty controls. This is an extraction gain from an existing neural
+generation, not a learned weight improvement or proof of exact physical
+response. Crops use already headroom-attenuated full-horizon PCM; levels are
+not force/energy calibration.
+
+Next, reassess discrete-event base/prior differences with identical event-aware
+processing before attributing every prefix-score regression to forgotten
+timbre. Keep raw prefixes and full horizons as controls. Continuous events
+need a different window policy. The model's duration/sequence control is still
+unrepaired, and no runtime integration or model promotion follows from this.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --prompts lab/profiles/physical-sound-fracture-timing-prompts.json \
+  --seeds 314 2718 --keep-full-horizon --diagnostics \
+  --output /absolute/external/new-fracture-timing
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --extract-events /absolute/external/new-fracture-timing/result.json \
+  --output /absolute/external/new-event-windows --diagnostics
+```
+
+Verification: 51 focused tests pass, including late-event versus silence,
+sample-preserving crops, noise rejection, padding/truncation flags, matched
+empty-control extraction and source-hash rejection. All 48 authoritative
+generation/extraction WAVs pass hash/PCM/shape/rate/length/headroom checks;
+the 11-second comparison was read back. Ruff formatting/static checks and
+diff/local links pass. Executed versions have source hashes in external
+evidence; all 16 extracted WAVs replay exactly with the final tightened guards.
+All jobs terminal;
+no Cargo/ProductCheck or engine audition, since this is external Python work.

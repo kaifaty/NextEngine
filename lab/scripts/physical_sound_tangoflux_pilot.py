@@ -222,6 +222,157 @@ def publish(output: Path, name: str, wave: np.ndarray) -> tuple[dict, np.ndarray
     }, mono * record["pcm_gain"]
 
 
+def horizon_metrics(wave, seconds, rate=RATE):
+    count = int(seconds * rate)
+    if (
+        wave.ndim != 2
+        or wave.shape[0] != 2
+        or not 0 < count < wave.shape[1]
+        or not np.isfinite(wave).all()
+    ):
+        raise ValueError("finite stereo horizon with head and tail required")
+    power = np.mean(wave.astype(np.float64) ** 2, axis=0)
+    total = float(power.sum())
+    return {
+        "decoded_seconds": wave.shape[1] / rate,
+        "requested_seconds": seconds,
+        "head_rms": float(np.sqrt(power[:count].mean())),
+        "tail_rms": float(np.sqrt(power[count:].mean())),
+        "tail_energy_fraction": float(power[count:].sum() / total) if total else None,
+        "peak_time_seconds": int(np.argmax(power)) / rate,
+        "one_second_rms": [
+            float(np.sqrt(power[i : i + rate].mean()))
+            for i in range(0, len(power), rate)
+        ],
+    }
+
+
+def event_window(wave, seconds, rate=RATE):
+    """Report-only onset crop. Threshold detects energy, not semantic quality."""
+    horizon_metrics(wave, seconds, rate)
+    hop = max(1, int(rate * 0.01))
+    power = np.mean(wave.astype(np.float64) ** 2, axis=0)
+    envelope = np.array(
+        [np.sqrt(power[i : i + hop].mean()) for i in range(0, len(power), hop)]
+    )
+    threshold = max(10 ** (-50 / 20), float(envelope.max()) * 0.1)
+    active = np.flatnonzero(envelope >= threshold)
+    if not len(active):
+        return None, {"status": "no_detected_event", "rms_threshold": threshold}
+    start = max(0, int(active[0]) * hop - int(rate * 0.05))
+    count = int(seconds * rate)
+    end = start + count
+    clip = wave[:, start:end].copy()
+    padding = count - clip.shape[1]
+    clip = np.pad(clip, ((0, 0), (0, padding)))
+    return clip, {
+        "status": "candidate_not_quality_accepted",
+        "crop_start_seconds": start / rate,
+        "rms_threshold": threshold,
+        "hop_seconds": hop / rate,
+        "padding_samples": padding,
+        "active_after_window": bool((int(active[-1]) + 1) * hop > end),
+    }
+
+
+def extract_events(source: Path, output: Path, diagnostics=False):
+    """Extract candidates from previously generated full horizons; no new model."""
+    source = source.resolve()
+    output = output.resolve()
+    if output.exists() or output.is_relative_to(Path(__file__).resolve().parents[2]):
+        raise ValueError("new external output required")
+    if not 0 < source.stat().st_size <= 2 * 1024**2:
+        raise ValueError("bounded generation report required")
+    manifest = json.loads(source.read_text())
+    if (
+        manifest["status"] != "complete"
+        or not manifest.get("keep_full_horizon")
+        or (manifest["model"], manifest["revision"]) != (MODEL, REVISION)
+    ):
+        raise ValueError("completed compatible full-horizon generation required")
+    seconds = manifest["seconds"]
+    if not 1 <= seconds <= 10:
+        raise ValueError("bounded event duration required")
+    if not 1 <= len(manifest["rows"]) <= 256 or len(manifest["controls"]) > 8:
+        raise ValueError("bounded generation matrix required")
+    output.mkdir(parents=True)
+    started = time.monotonic()
+    report = {
+        **manifest,
+        "status": "running",
+        "keep_full_horizon": False,
+        "rows": [],
+        "controls": [],
+        "rejected": [],
+        "postprocess": {
+            "source": str(source),
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "method": "10ms RMS onset, max(-50dBFS, 0.1 peak RMS), 50ms preroll; no amplification or time stretch",
+            "controls": "same extraction policy as candidates",
+        },
+    }
+    for key in ("elapsed_seconds", "load_seconds", "preview"):
+        report.pop(key, None)
+    preview = []
+    try:
+        for row in manifest["rows"] + manifest["controls"]:
+            if type(row["seed"]) is not int or not 0 <= row["seed"] < 2**32:
+                raise ValueError("bounded integer seed required")
+            identity = {k: row[k] for k in ("case", "id", "seed") if k in row}
+            full = row["full_horizon"]
+            path = Path(full["native_wav"]).resolve()
+            if (
+                not path.is_relative_to(source.parent)
+                or not 0 < path.stat().st_size <= 8 * 1024**2
+                or hashlib.sha256(path.read_bytes()).hexdigest()
+                != full["native_sha256"]
+            ):
+                raise ValueError("invalid source horizon path/size/hash")
+            rate, pcm = wavfile.read(path)
+            if (
+                rate != RATE
+                or pcm.dtype != np.int16
+                or pcm.ndim != 2
+                or pcm.shape[1] != 2
+                or not seconds * rate < len(pcm) <= 31 * rate
+            ):
+                raise ValueError("invalid full-horizon PCM")
+            clip, metadata = event_window(pcm.T.astype(np.float32) / 32767, seconds)
+            if clip is None:
+                report["rejected"].append({**identity, **metadata})
+                continue
+            key = manifest["cases"][row["case"]]["id"] if "case" in row else row["id"]
+            if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", key):
+                raise ValueError("invalid event identifier")
+            record, mono = publish(output, f"{key}-seed{row['seed']}", clip)
+            report["rows" if "case" in row else "controls"].append(
+                {
+                    **identity,
+                    **record,
+                    "event_window": metadata,
+                    "source_horizon_sha256": full["native_sha256"],
+                }
+            )
+            if "case" in row and row["seed"] == manifest["seeds"][0]:
+                preview.extend((mono, np.zeros(pilot.RATE // 2, dtype=np.float32)))
+        report["status"] = "partial" if report["rejected"] else "complete"
+        report["elapsed_seconds"] = time.monotonic() - started
+        if preview:
+            pilot.write_audio(output / "preview.wav", np.concatenate(preview))
+            report["preview"] = str(output / "preview.wav")
+    except BaseException as error:
+        report.update(status="failed", error=f"{type(error).__name__}: {error}")
+        pilot.save_report(output / "result.json", report)
+        raise
+    pilot.save_report(output / "result.json", report)
+    if diagnostics and report["status"] == "complete":
+        import physical_sound_text_tags as tags
+
+        tags.run(output / "result.json", output / "ast-clap.json", [], with_clap=True)
+    return report
+
+
 def run(
     output: Path,
     steps: int,
@@ -230,6 +381,7 @@ def run(
     adapter: Path | None = None,
     prompts: Path | None = None,
     diagnostics: bool = False,
+    keep_full_horizon: bool = False,
 ):
     import torch
 
@@ -260,6 +412,7 @@ def run(
         "license": "non-commercial research only; no engine redistribution",
         "status": "running",
         "reference_audio_input": False,
+        "keep_full_horizon": keep_full_horizon,
         "local_training_steps": 0,
         "steps": steps,
         "seconds": seconds,
@@ -307,14 +460,17 @@ def run(
                     model.to("cpu")
                     if device == "cuda":
                         torch.cuda.empty_cache()
-                    wave = (
-                        vae.decode(latents.transpose(2, 1))
-                        .sample[0, :, : int(seconds * RATE)]
-                        .cpu()
-                        .numpy()
-                    )
+                    decoded = vae.decode(latents.transpose(2, 1)).sample[0]
+                    if keep_full_horizon:
+                        full_wave = decoded.cpu().numpy()
+                    wave = decoded[:, : int(seconds * RATE)].cpu().numpy()
                     model.to(device)
                 record, mono = publish(output, f"{key}-seed{seed}", wave)
+                if keep_full_horizon:
+                    record["full_horizon"], _ = publish(
+                        output, f"{key}-seed{seed}-full", full_wave
+                    )
+                    record["timing"] = horizon_metrics(full_wave, seconds)
                 record.update(
                     {"seed": seed, "inference_seconds": time.monotonic() - tick}
                 )
@@ -377,6 +533,11 @@ def run(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--extract-events",
+        type=Path,
+        help="Postprocess a completed full-horizon result.json, without generation or training",
+    )
     parser.add_argument("--steps", type=int, default=50)
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 123])
     parser.add_argument("--seconds", type=float, default=5.0)
@@ -387,17 +548,26 @@ if __name__ == "__main__":
     )
     parser.add_argument("--diagnostics", action="store_true")
     parser.add_argument(
+        "--keep-full-horizon",
+        action="store_true",
+        help="Retain full decoder output as a timing diagnostic without changing duration conditioning",
+    )
+    parser.add_argument(
         "--adapter",
         type=Path,
         help="External adapter checkpoint from the bounded training experiment",
     )
     args = parser.parse_args()
-    run(
-        args.output,
-        args.steps,
-        tuple(args.seeds),
-        args.seconds,
-        args.adapter,
-        args.prompts,
-        args.diagnostics,
-    )
+    if args.extract_events:
+        extract_events(args.extract_events, args.output, args.diagnostics)
+    else:
+        run(
+            args.output,
+            args.steps,
+            tuple(args.seeds),
+            args.seconds,
+            args.adapter,
+            args.prompts,
+            args.diagnostics,
+            args.keep_full_horizon,
+        )
