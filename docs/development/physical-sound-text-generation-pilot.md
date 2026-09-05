@@ -4776,3 +4776,71 @@ should separate level and spectral-shape learning on TRAIN with full source-free
 generation and unchanged controls/evaluation,not change global gain or sweep loss
 weights. Missing descriptors remain a separate unproven limitation. Preserve the
 liked water example and use familiar events for later human-facing auditions.
+
+## Separating spectral shape from level during fitting (2026-09-05)
+
+The preceding gradient/level audit justified one algebraic discriminator: remove
+the frequency-constant offset from each log-power spectrum before computing the
+spectral training penalty. The20ms log-energy penalty is unchanged. This avoids
+treating a uniform gain change as spectral-shape error above the existing1e-12
+numerical floor. No waveform filtering or normalization is added to inference.
+The ordinary/full-sampler arms retain their original default objective and
+metadata compatibility. This is a changed training objective,not a relaxed
+acceptance metric or a claim to have separated the model into independent heads.
+
+The synthetic successful control doubles waveform amplitude: the new spectral
+penalty is below1e-12 while envelope penalty remains ln(4). A low-pass altered
+signal still has nonzero spectral-shape error; differentiating that penalty
+with respect to uniform gain gives magnitude below1e-10 in float64. These
+checks cover signals above the numerical floor,not an unrestricted invariance
+claim about silence or all quantized recordings.
+
+[New source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-2026-09-05/requested-comparison.wav>)
+plays base/FM-only/separated,3.15s each,glass40mm/s,.5N,90mm,seed314. The new
+candidate uses exactly48TRAIN records,200updates,weight.02,AdamW1e-4,seed23 and
+full64-step differentiable generation as in the previous sampled arm. The same
+auxiliary32-frame interval/8-frame margins and record-linked crop-mode limitation
+remain. First gradient norm to output weight1.8941553; forward sampler parity0.
+Training takes104.69s after preparation. A CUDA allocation warning occurs but the
+same process completes all200updates without restart/truncation/changed scope.
+Checkpoint SHA256 `f1282bd4e387240f4e5d81c003190f883771c0a5b67e75e27effd59360982a95`.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-2026-09-05/result.json>)
+retains the36-event/two-seed/three-arm disclosed development set and all original
+full-event/central-band metrics.144 base/FM PCM controls and the FM-only checkpoint
+reproduce the previous experiment exactly. No development-driven early selection.
+
+| Scope | Shape RMSE FM→separated,dB | Level absolute error FM→separated,dB | Full-envelope MAE FM→separated,dB |
+|---|---|---|---|
+| Old anchors |2.3052→2.3253 |.7510→.7670 |1.4580→1.4354 |
+| Oak |2.0654→2.0788 |1.5588→1.4971 |1.5670→1.5249 |
+| Steel |2.6638→2.6964 |1.6027→1.6776 |2.0367→2.0784 |
+| Frosted glass |2.6689→2.6863 |.8316→1.1989 |1.6218→1.7218 |
+| All |2.3856→2.4062 |1.0410→1.1124 |1.5999→1.6052 |
+
+Versus ordinary FM,shape improves18/72,level25/72,envelope38/72. Versus the prior
+unseparated sampled arm,those counts are39/72,47/72,42/72: partial recovery from
+that failed candidate is not an overall improvement over the appropriate control.
+Mean onset .00611→.00583s; uncensored offset .13200→.13267s. No admission or
+replacement of the retained neural/hybrid or liked water examples.
+
+Reproduce with existing script `physical_sound_texture_acoustic.py --lab-root
+ROOT --separate-level-shape --output NEW_EXTERNAL`. This implies full sampling;
+format `texture-acoustic-level-shape-v1` selects the explicit `level_shape` arm.
+`--render-model MODEL --output NEW_EXTERNAL` requires no dataset and rejects
+objective overrides. [Standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-standalone-2026-09-05/requested-comparison.wav>)
+reproduces both PCM files and every full FLOAT audio sample exactly; no full-file
+FLOAT SHA equality claim. Both jobs terminal.72 focused tests,Ruff and481 WAV
+SHA/layout/finite/headroom checks pass. No Cargo/host-check,ProductCheck,perceptual
+admission,runtime/demo or roadmap promotion.
+
+Decision: the tested endpoint,full-sampler and separated-objective corrections
+do not beat the ordinary control overall. Stop this bounded friction-loss family;
+do not sweep weights,epochs,windows or task projections. This does not establish
+that every acoustic objective or neural generator must fail. Honour the user's
+preference for familiar auditions: the next bounded research direction is
+visual/event-conditioned generation for water/impacts,asking whether appearance
+and motion supply useful conditions missing from coarse material/coefficient
+inputs. Inspect primary-source capabilities,terms,resources and available scene
+data before downloads or fitting. This is a lab hypothesis,not a new architecture,
+physical-calibration claim or narrower replacement of the full goal.

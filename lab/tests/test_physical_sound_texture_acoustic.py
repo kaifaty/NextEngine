@@ -55,6 +55,9 @@ class AcousticTests(unittest.TestCase):
     def test_objective_identity_is_explicit(self):
         self.assertEqual(acoustic.candidate_arm(acoustic.FORMAT), "acoustic")
         self.assertEqual(acoustic.candidate_arm(acoustic.SAMPLED_FORMAT), "sampled")
+        self.assertEqual(
+            acoustic.candidate_arm(acoustic.SEPARATED_FORMAT), "level_shape"
+        )
         with self.assertRaises(ValueError):
             acoustic.candidate_arm("unknown")
 
@@ -79,6 +82,18 @@ class AcousticTests(unittest.TestCase):
             acoustic.acoustic_parts(
                 torch.full((1, 2, 65536), float("nan")), torch.zeros(1, 2, 65536)
             )
+
+    def test_separated_shape_ignores_gain_but_envelope_keeps_it(self):
+        wave = torch.tensor(np.random.default_rng(17).normal(0, 0.01, (1, 2, 65536)))
+        loss = acoustic.acoustic_parts(wave * 2, wave, separate=True)
+        self.assertLess(float(loss["spectrum"]), 1e-12)
+        self.assertAlmostEqual(float(loss["envelope"]), np.log(4), places=10)
+        filtered = torch.nn.functional.avg_pool1d(wave, 9, stride=1, padding=4)
+        gain = torch.tensor(1.5, dtype=wave.dtype, requires_grad=True)
+        changed = acoustic.acoustic_parts(filtered * gain, wave, separate=True)
+        self.assertGreater(float(changed["spectrum"].detach()), 0.1)
+        derivative = torch.autograd.grad(changed["spectrum"], gain)[0]
+        self.assertLess(abs(float(derivative)), 1e-10)
 
     def test_loader_rejects_training_or_weight_identity_before_device_use(self):
         parent = {

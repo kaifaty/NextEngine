@@ -26,6 +26,7 @@ STEPS = 200
 WEIGHT = 0.02
 FORMAT = "texture-acoustic-endpoint-v1"
 SAMPLED_FORMAT = "texture-acoustic-full-sampler-v1"
+SEPARATED_FORMAT = "texture-acoustic-level-shape-v1"
 
 
 def candidate_arm(model_format):
@@ -33,6 +34,8 @@ def candidate_arm(model_format):
         return "acoustic"
     if model_format == SAMPLED_FORMAT:
         return "sampled"
+    if model_format == SEPARATED_FORMAT:
+        return "level_shape"
     raise ValueError("unknown acoustic experiment format")
 
 
@@ -70,7 +73,7 @@ def shared_band(wave):
     return F.conv1d(wave.mean(1, keepdim=True), kernel, stride=2, padding=20)[:, 0]
 
 
-def acoustic_parts(candidate, reference):
+def acoustic_parts(candidate, reference, *, separate=False):
     if candidate.shape != reference.shape or candidate.shape[-1] != 32 * flow.HOP:
         raise ValueError("matching32-frame waveform windows required")
     if not torch.isfinite(candidate).all() or not torch.isfinite(reference).all():
@@ -85,7 +88,12 @@ def acoustic_parts(candidate, reference):
             frames = x.unfold(-1, size, size // 2)
             frames = frames - frames.mean(-1, keepdim=True)
             power = torch.fft.rfft(frames * window).abs().square().mean(1)
-            spectra.append(power[:, 1:].clamp_min(1e-12).log())
+            log_power = power[:, 1:].clamp_min(1e-12).log()
+            if separate:
+                # Training objective only: remove uniform log-spectral offset.
+                # Gain invariance applies above the unchanged numerical floor.
+                log_power = log_power - log_power.mean(-1, keepdim=True)
+            spectra.append(log_power)
         spectral.append((spectra[0] - spectra[1]).abs().mean())
     energies = [
         x.unfold(-1, 441, 441).square().mean(-1).clamp_min(1e-12).log() for x in (a, b)
@@ -112,7 +120,11 @@ def training_records(records):
     return selected
 
 
-def fit(model, vae, records, acoustic, output, report, *, sampled=False):
+def fit(
+    model, vae, records, acoustic, output, report, *, sampled=False, separate=False
+):
+    if separate and not sampled:
+        raise ValueError("level/shape separation requires the full-sampler arm")
     training = training_records(records)
     device = next(model.parameters()).device
     torch.manual_seed(23)
@@ -165,7 +177,7 @@ def fit(model, vae, records, acoustic, output, report, *, sampled=False):
                 training[index]["wave"][start : start + 32 * flow.HOP].T[None],
                 device=device,
             )
-            parts = acoustic_parts(decoded, truth)
+            parts = acoustic_parts(decoded, truth, separate=separate)
             auxiliary = parts["spectrum"] + parts["envelope"]
             if step == 0:
                 destination = model.output.weight if sampled else prediction
@@ -195,6 +207,8 @@ def fit(model, vae, records, acoustic, output, report, *, sampled=False):
         history.append({**values, "gradient_norm": float(norm)})
         if (step + 1) % 20 == 0:
             name = ("sampled" if sampled else "acoustic") if acoustic else "fm_only"
+            if acoustic and separate:
+                name = "level_shape"
             report["training_progress"] = {
                 "arm": name,
                 "step": step + 1,
@@ -368,7 +382,8 @@ def evaluate(models, vae, records, output, report):
     )
 
 
-def run(root, output, existing=None, *, sampled=False):
+def run(root, output, existing=None, *, sampled=False, separate=False):
+    sampled = sampled or separate
     torch.set_num_threads(4)
     root = root.resolve()
     source = root / "cluster-surface-transfer-grid-2026-09-05" / "result.json"
@@ -417,7 +432,11 @@ def run(root, output, existing=None, *, sampled=False):
             models.update(candidates)
         else:
             meta = {
-                "format": SAMPLED_FORMAT if sampled else FORMAT,
+                "format": SEPARATED_FORMAT
+                if separate
+                else SAMPLED_FORMAT
+                if sampled
+                else FORMAT,
                 "parent": parent_meta,
                 "steps_per_arm": STEPS,
                 "acoustic_weight": WEIGHT,
@@ -425,7 +444,7 @@ def run(root, output, existing=None, *, sampled=False):
                 "learning_rate": 1e-4,
                 "training_ids": [r["row"]["id"] for r in training_records(records)],
             }
-            for arm in ("fm_only", "sampled" if sampled else "acoustic"):
+            for arm in ("fm_only", candidate_arm(meta["format"])):
                 model = copy.deepcopy(models["base"])
                 history = fit(
                     model,
@@ -435,6 +454,7 @@ def run(root, output, existing=None, *, sampled=False):
                     output,
                     report,
                     sampled=sampled,
+                    separate=separate,
                 )
                 path = output / f"{arm}.safetensors"
                 save_file(model.state_dict(), path)
@@ -463,14 +483,28 @@ if __name__ == "__main__":
     parser.add_argument("--evaluate-model", type=Path)
     parser.add_argument("--render-model", type=Path)
     parser.add_argument("--sampled-loss", action="store_true")
+    parser.add_argument("--separate-level-shape", action="store_true")
     args = parser.parse_args()
     if args.render_model:
-        if args.lab_root or args.evaluate_model or args.sampled_loss:
+        if (
+            args.lab_root
+            or args.evaluate_model
+            or args.sampled_loss
+            or args.separate_level_shape
+        ):
             parser.error("standalone rendering takes no dataset/evaluation inputs")
         render(args.render_model, args.output)
     elif args.lab_root:
-        if args.sampled_loss and args.evaluate_model:
-            parser.error("evaluation uses the saved objective, not --sampled-loss")
-        run(args.lab_root, args.output, args.evaluate_model, sampled=args.sampled_loss)
+        if (args.sampled_loss or args.separate_level_shape) and args.evaluate_model:
+            parser.error(
+                "evaluation uses the saved objective, not an objective override"
+            )
+        run(
+            args.lab_root,
+            args.output,
+            args.evaluate_model,
+            sampled=args.sampled_loss,
+            separate=args.separate_level_shape,
+        )
     else:
         parser.error("--lab-root or --render-model required")

@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SIGNED_GAIN_GRADIENT_PROBE_COMPLETE / NO_PCGRAD_ADMISSION.
+Status: ACTIVE_GOAL / LEVEL_SHAPE_CORRECTION_REJECTED / FAMILIAR_EVENT_CONDITIONING_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,10 +17,10 @@ Status: ACTIVE_GOAL / SIGNED_GAIN_GRADIENT_PROBE_COMPLETE / NO_PCGRAD_ADMISSION.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest trained WAV:** [base/FM-only/full-sampler glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/requested-comparison.wav),3.15s each,source-free. Same48TRAIN,200updates/arm,seed23.
-  Full64-step gradient,weight.02;sampler parity exact,gradient1.63347. Envelope
-  base1.650/FM1.600/sampled1.627dB;helps wood,hurt steel/glass. Endpoint arm1.664.
-  Neither promoted.69tests/481WAV pass;both jobs terminal.144 old PCM controls exact.
+- **Latest trained WAV:** [base/FM-only/level-shape glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-2026-09-05/requested-comparison.wav),3.15s each,source-free. Same48TRAIN,200updates/arm,seed23.
+  Centered log spectra during fit only;full64-step gradient,weight.02. Envelope
+  FM1.600/new1.605dB,shape2.386/2.406,level1.041/1.112. Not promoted.
+  Endpoint/full-sampler/separated corrections closed;72tests/481WAV pass,terminal.
   Standalone CLI `--render-model` takes no dataset: both PCM files exact;
   full FLOAT data exact,PEAK metadata differs. No full-file SHA equality claim.
 - **Windowed inference rejected:** shape2.350→2.352,envelope1.651→1.656dB.
@@ -90,8 +90,10 @@ Status: ACTIVE_GOAL / SIGNED_GAIN_GRADIENT_PROBE_COMPLETE / NO_PCGRAD_ADMISSION.
 - **Gradient discriminator:** sampled level-.449±.247dB vsFM,69/72quieter;
   residual after gain fit22.8%,not pure gain.12TRAIN local envelope/gain cosine
   median.986;category gradients all align. No evidence to introduce PCGrad.
-- **Next:** test separating level from spectral-shape learning on TRAIN,not
-  another global correction/weight/epoch sweep. Keep full generation/evaluation.
+- **Next:** return to familiar water/impacts; bounded research on visual/event-
+  conditioned audio as alternative to the spent friction-loss family. Inspect
+  official capabilities,terms,local resource needs and available scene data before
+  downloads/fits. No assumed physical calibration or new product architecture.
 
 ## Preserve these constraints
 
@@ -102,7 +104,7 @@ Status: ACTIVE_GOAL / SIGNED_GAIN_GRADIENT_PROBE_COMPLETE / NO_PCGRAD_ADMISSION.
   unknown/incompatible redistribution terms exclude distribution.
 - Generate playable media at each meaningful experiment checkpoint. Keep all
   candidates and honest failures; protocols, inventories and validators do
-  not replace audible output. Latest probe10WAV/71tests,0fit,all terminal;
+  not replace audible output. Latest separated fit481WAV/72tests,all terminal;
   full multi-event goal stays open; familiar auditions are not mandatory approval.
 - This broad goal does not authorize runtime neural weights or gameplay
   authority changes. [SPEC-45](../../architecture/45-physical-sound-synthesis-and-acoustic-presentation.md)
