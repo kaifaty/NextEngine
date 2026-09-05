@@ -1,8 +1,10 @@
 # R8b corrected final walking evaluator
 
-Status: `IMPLEMENTED / CONTROLS_PASS / WAITING_FOR_CLOSED_FINAL_SOURCE`.
+Status: `IMPLEMENTED / CONTROLS_PASS / FINAL_EVALUATION_COMPLETED_AND_FAILED`.
 Authority: [ADR-111](../architecture/adr/111-final-weight-corrected-walking-evaluation.md).
-This is not a learned V8 evaluation result or an optimizer admission.
+The admitted final evaluation is complete; it does not admit another optimizer.
+All five episodes fail at 152 ticks on right forearm/head self-collision.
+See the [closed final result and diagnosis](r8b-final-policy-regression-research-2026-09-05.md).
 
 ## Implementation and claim boundary
 
@@ -60,17 +62,15 @@ of the training binary:
   conversion, source closure/escape/corruption, final selection, compatibility,
   partial/short/safety episodes, 179-zero rejection and unchanged numeric gates.
   Ruff, formatting, CLI import/help and diff checks pass.
-- NOT RUN: learned V8 matrix, new optimizer, runtime/export. Broad host-check
+- FAILED: learned V8 final matrix. NOT RUN: new optimizer, runtime/export. Broad host-check
   is not repeated for localized Python evaluation/adapter work; ADR-110's native
   routing host-check still covers the unchanged Rust implementation.
 
-## Smallest next action
+## Executed final evaluation
 
-Wait for existing V7 PID 2071350 to complete and close final model 9999 and all
-source artifacts. Use the pinned external Isaac Python, `PYTHONPATH=lab`, and
-the clean commit containing this evaluator. Invoke
-`python -m lab.scripts.evaluate_corrected_walking check-inputs` then `evaluate`
-with these exact paths:
+V7 PID 2071350 exited normally after closing final model 9999 and all source
+artifacts. With pinned external Isaac Python, `PYTHONPATH=lab`, and clean
+commit `11c73c1b`, `check-inputs` passed and `evaluate` completed using:
 
 - `--run`: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`
 - `--generation`: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/generation-manifest.json`
@@ -78,9 +78,9 @@ with these exact paths:
 - `--headless` / `--auditor`: the two isolated binaries above.
 - `--output`: external root's fresh `final-evaluation-01` directory.
 
-Verify all five final episodes, their closed hashes and visual motion before
-claiming learned walking. Retain the original V7 failed-gate identity. No extra
-intermediate evaluations or restarts are justified while that source is live.
+All five final episodes and hashes verify; all physical arrays equal the old
+V7 final trajectory. Both quality matrices fail. Retain those identities and
+diagnose regression before any new optimizer or checkpoint-selection rule.
 
 ## Full-episode video preparation
 
@@ -103,9 +103,10 @@ External root's `video-control-01/control-manifest.json` SHA-256 is
 `0ced95921b4636f147c9f0eb0ee6c2de46d07be7d49ffb08b050edf3a24d9718`;
 its `walking.mp4` is
 `78b4acd95b02db902b5eb2e3b899893c336fda5ca9c6d62c4488813deb73dc4f`.
-The control is explicitly captioned **not final policy**. Final video remains
-NOT RUN until the completed final evaluation exists. After that, invoke
-`python -m lab.scripts.render_native_walking_video` with `--evaluation` pointing
-to external `final-evaluation-01`, `--output` to fresh `final-video-01`, and
-default seed 1001; inspect the resulting whole video and retained preview frames.
+The control is explicitly captioned **not final policy**. The final video now
+exists in `final-video-01`, from closed `final-evaluation-01`, seed 1001.
+All 152 frames are retained (60 fps, 2.533333 s), confirmed by ffprobe and
+artifact hashes; the final preview was inspected. It is explicitly a failed
+episode, not a complete 20-second walking demonstration. Exact video/source
+hashes are in the linked final regression report.
 PASS: 54 combined focused evaluator/adapter/contact/video tests, Ruff and format.

@@ -2282,14 +2282,14 @@ side/persistent lift in synthetic phase controls. Native V7 integration now
 passes paired physics/safety and geometric-cost checks with 88 observations
 and 13 bounded reward components. ADR-109 admits one separately frozen 40.96M
 run with fixed milestones and unchanged final walking gates. Preflight and
-Linux host-check pass; generation-01/TRAIN-1 is now live at clean `f0c15bd4`.
+Linux host-check pass; generation-01/TRAIN-1 completed at clean `f0c15bd4`.
 Diagnostic 999 fails (406 ticks, 0.166 m, no single support, ankle hard ROM).
 Diagnostic 3999 survives 1,200 ticks, travels 6.135 m and repeatedly lifts whole
 feet 41.6/76.8 mm, but the frozen support/stop matrix fails. Exact replay exposes
 contact presence without loaded support and an independent schedule defect:
-only 179 final applied zero commands, not 180. The active run continues unchanged
-to its final checkpoint as a learning experiment; before any successor, repair
-the schedule under a new identity and correct the evaluation observables.
+only 179 final applied zero commands, not 180. The run continued unchanged
+to its final checkpoint; the schedule and evaluation observables were corrected
+separately, without relabeling the old matrix.
 The full-tick classified-load discriminator now observes 24 >=8-tick switches
 on the same diagnostic tape; zero/left/right controls and 1,515-frame exact
 non-regression pass. It does not replace the frozen gate or select a checkpoint.
@@ -2301,8 +2301,14 @@ final model 9999, with no optimizer. Full-tick load plus actual free-foot releas
 retains the 24 switches in the existing control; exact integer geometry and
 grounded/partial/short-run negatives pass. The [evaluation executor](development/r8b-corrected-walking-evaluator-2026-09-05.md)
 now verifies final-source closure and exact descriptor compatibility; 51 Python
-tests, 5,120 multi-slot and 1,200 full-tape V8 adapter controls pass. It waits
-for completed V7 final weights; no learned V8 evaluation has run.
+tests, 5,120 multi-slot and 1,200 full-tape V8 adapter controls pass. The closed
+40.96M-transition V7 final model 9999 now fails both original and corrected
+V8 matrices: all five episodes terminate at 152 ticks on forearm/head collision,
+with -0.176714 m travel. Exact physical trajectories agree. The [final regression
+investigation](development/r8b-final-policy-regression-research-2026-09-05.md)
+also rejects arm masking and stochastic inference as sufficient fixes. No
+optimizer is active; next is update/normalization diagnosis with passive
+telemetry controls, not another unchanged run or retrospective checkpoint choice.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains

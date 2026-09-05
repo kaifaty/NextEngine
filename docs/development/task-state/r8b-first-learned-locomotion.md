@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / V7_TRAINING_RUNNING / NO_RUNTIME_AUTHORITY` |
+| Status | `ACTIVE_R&D / V7_AND_V8_FINAL_QUALITY_FAILED / NO_RUNTIME_AUTHORITY` |
 | Updated | 2026-09-05 |
 | Task key | `r8b-first-learned-locomotion` |
 | Scope | First learned standing, then bounded forward start/stop on a physically meaningful humanoid |
@@ -11,28 +11,24 @@
 
 ## Resume in 60 seconds
 
-- **Implemented:** Walking V4 removes absolute forward-position feedback.
-  Walking V5 adds BodySchema V4's narrower thigh/shank/knee collision proxies
-  and a bounded fourfold residual. Old standing and walking identities remain
-  intact. V5 is a Proposed fresh-weight recipe, not an active training run.
+- **Implemented:** Walking V4 removes origin feedback; V5 adds BodySchema V4's
+  narrower leg proxies and fourfold residual. Older identities remain intact.
 - **Measured:** CPU zero/left/right probes survive 105 ticks. Left/right
   continuous single support lasts 31/34 ticks. This is foot-release
   reachability, not a complete alternating gait.
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Finish existing V7 TRAIN-1 (PID 2071350) unchanged and inspect
-  final model 9999. V8's schedule repair passes native controls and host-check.
-  ADR-111 final-only executor is implemented; 54 tests, 5,120 multi-slot and
-  1,200 full-tape V8 adapter controls pass. Run it only after source closure.
-  Full-episode 60-fps video output is prepared; paths are in the executor report.
-  Run: `/home/kaifaty/NextEngine-training/r8b-canonical-walking-v3/generation-01/runs/TRAIN-1`.
-  Do not restart on observation timeout or initialize old weights.
-- **Training:** V5 failed; ADR-108 V6 completed 4,096,000 samples at `88b6a43d`.
-  All final episodes end on contact impact at 382, after only 0.092032 m,
-  without single support. V7 now trains from fresh weights at clean `f0c15bd4`;
-  finite PPO updates confirmed. It has 88 observations, 13 reward components,
-  unchanged physics/actions/safety, and a 40.96M-transition / 14,400 s budget.
+- **Next action:** Diagnose final-policy regression before another optimizer:
+  inspect update/normalization behavior and specify passive KL/clip/gradient
+  telemetry with unchanged-output controls. See the [closed final result](../r8b-final-policy-regression-research-2026-09-05.md).
+- **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
+  `f0c15bd4`; no optimizer is active. All five final model 9999 episodes fail
+  at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
+  final-only evaluation also fails, with exact V7/V8 physical arrays.
+- **Controls:** Zeroing only arm residuals still fails at 170, now shank/shank
+  collision. Only 3/16 fixed stochastic trials survive 1,200 ticks, each below
+  1.8 m; none completes the task. Neither intervention is a sufficient fix.
 - **Milestones:** 999 fails on ankle ROM at 406. Exact replay of 3999 survives
   1,200 ticks, travels 6.135 m and repeatedly lifts whole feet 41.6/76.8 mm.
   Its contact-presence support gate still fails (15/3 ticks, zero switches).
@@ -42,7 +38,8 @@
 - **Support measured:** Existing classified contacts show 24 >=8-tick switches
   with exclusive load over all four substeps; raw flags hide 419 such ticks.
   Actual free-foot release preserves all 24 switches; 3,030 V7/V8 frames have
-  exact integer height verification. New matrix is implemented, not run yet.
+  exact integer height verification. Corrected final model has only 4/0 ticks
+  and zero switches; controls do not replace a failed final policy.
 - **Soles:** Old sticks omitted foot boxes. Initial feet are nearly flat;
   learned left heel later rises 10.18 mm, but whole-foot clearance stays
   below 5 mm on both sides. Visualization is corrected, not the controller.
@@ -75,6 +72,7 @@
 10. [V8 schedule correction](../r8b-applied-stop-window-2026-09-05.md), ADR-110 and
     [ADR-111 final evaluation](../../architecture/adr/111-final-weight-corrected-walking-evaluation.md)
     and [executor paths/controls](../r8b-corrected-walking-evaluator-2026-09-05.md).
+11. [Closed final failure and regression research](../r8b-final-policy-regression-research-2026-09-05.md).
 
 ## Current evidence
 
@@ -97,31 +95,19 @@ not clean-commit generation/run manifests.
 
 ## D-016 — Correct action and geometry, retain the failed paired gate
 
-- **Observation:** Origin feedback changes ankle action meaning with travel;
-  old thigh/shank collision proxies have neutral gaps below the pinned
-  40 mm pair contact distance. Broad residual probes encounter leg
-  self-contact before a useful swing.
-- **Evidence:** ADR-106 and the exact current action report. Body V4 changes
-  six proxies only; tests preserve all other body fields, joints, actuators,
-  materials, exclusions, effectors and mass properties.
-- **Conclusion:** These are concrete action/reference and proxy defects.
-  Correcting them enables bilateral CPU foot release but does not repair
+- **Evidence:** ADR-106/current action report isolates origin-anchored ankle
+  feedback and inadequate leg-proxy clearance. Body V4 changes six proxies;
+  tests preserve every other body/action/material/safety field.
+- **Decision:** Retain the separate V4/V5 identities and bilateral CPU release
+  evidence. Two independent swings do not establish alternating gait or repair
   the independent Isaac discrepancy.
-- **Decision:** Keep V4/V5 as separately hashed diagnostics. Use the smaller
-  `WALKING-ACTION-REACHABILITY-P0` only to establish foot release; do not
-  substitute two independent swings for the original within-episode
-  alternation criterion or full correspondence.
-- **Rejected alternatives:** Retuning PPO before an executable action control,
-  selecting a shorter green prefix, transferring standing weights into a
-  fourfold action range/new body, or redefining contact/safety tolerances.
-- **Consequences:** No gait-reward implementation or optimizer run yet.
-  Fix report defects and localize the first physical divergence.
-- **Uncertainty:** Which loaded scene/solver/version difference causes the
-  remaining mismatch. Damping is a real missing explicit parameter but its
-  isolated correction was insufficient.
-- **Reconsider when:** One causal mirror correction passes the original
-  paired reproduction and standing non-regression; then test alternation
-  and isolate duration-aware gait reward before a small fresh run.
+- **Rejected:** Shorter green prefixes, incompatible standing weights and
+  contact/safety tolerance changes.
+- **Consequences:** Later ADR-107 admits direct CPU learning independently;
+  it does not close the mirror discrepancy.
+- **Uncertainty:** Loaded scene/solver/version cause; damping alone failed.
+- **Reconsider mirror when:** One causal correction passes the original
+  paired reproduction and standing non-regression.
 
 ## D-017 — Learn directly on canonical physics
 
@@ -191,6 +177,19 @@ not clean-commit generation/run manifests.
   independent cost checks (geometry difference <1 um), plus 5,120 adapter
   transitions/399 resets. See the integration report for exact identities.
 
+## D-020 — Final regression is real, not repaired by arms or noise
+
+- **Evidence:** Closed final model `108e372c…28de`, source manifest
+  `3bcd5ee7…6e9e`, corrected matrix `f21a9e6b…bc0`; exact paths, complete hashes
+  and the two report-only interventions are in the final regression report.
+- **Decision:** Retain V7/V8 failures. No unchanged restart, retrospective
+  model-3999 selection, arm freeze, stochastic deployment or safety relaxation.
+- **Uncertainty:** Missing KL/clip/gradient records prevent attributing the
+  regression to update size; normalization/distribution shift and objective
+  mismatch remain unresolved. Finite losses and higher return are insufficient.
+- **Next/reconsider:** Inspect pinned update/normalization code; define passive
+  telemetry and an exact non-regression control before a new bounded experiment.
+
 ## Retained safety and mirror hypotheses
 
 The [foot-return discriminator](../r8b-walking-step-credit-2026-09-05.md)
@@ -240,8 +239,9 @@ has now failed walking quality; do not repeat it or alter safety to hide that.
 - Isaac audit now has an external result supervisor: the real failed tape
   returns exit 4. Do not rely on Kit's raw exit status; fast shutdown can
   return zero, while the tested non-fast shutdown segfaults on this host.
-- Remaining: complete the live V7 run and its admitted final learned evaluation;
-  its native controls, Python tests, clippy and broad Linux host-check pass.
+- Remaining: resolve the closed final-policy regression; V7 and corrected V8
+  both fail quality. Native controls and 54 evaluator/adapter/video tests pass;
+  the full failed 152-frame video is retained outside Git.
   A demonstrated mirror correction remains separately necessary for Isaac
   correspondence and promotion, not this direct CPU experiment.
 - Generation-02 completed but failed walking quality. Full Linux host-check
