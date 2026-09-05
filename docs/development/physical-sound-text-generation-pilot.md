@@ -5712,3 +5712,91 @@ source-free numeric-condition variants, not add another survey or training plan.
 NISR/VibraVerse rediscovery supplies no changed lineage evidence: existing
 [V46 D0 rejection](physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md)
 stands; their dataset payloads remain unopened.
+
+## Published Neural Resonator — audible numeric controls, 2026-09-06
+
+[Listen to seven neural impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-replay-2026-09-06/comparison.wav)
+(10.5s). Order: base, lower density, higher density, higher Young's modulus,
+more damping, off-centre contact, narrower shape. One shared model, no target
+recording or synthetic reference at inference; no model training in this run.
+This closes the preceding supporting-only checkpoint with actual neural WAVs.
+
+[Diaz et al., 2022](https://arxiv.org/abs/2210.15306v2) is explicitly a synthetic
+2D shape/material model, not a real-object or universal physical-sound result.
+At repository revisionceab3770d88caae1c9ee208bea127ec0d0a1e763 the published
+`data/ethereal_dust-317-2.ckpt` is55,382,281bytes, Gitblob
+c65c26716af29065949a8fe7f537855965b1442c, SHA
+fa46fa2291ed595ec1daf07c5aa290aabb763d8e4e61aa8a3421cf0e7aa6e232.
+Small reviewed source files, checkpoint and Apache2 LICENSE retained externally
+in`neuralresonator-assets-2026-09-06/source.json`; no dataset payload downloaded.
+This is not blanket clearance for engine redistribution of all dependencies.
+
+[Runnable pilot](../../lab/scripts/physical_sound_neuralresonator_pilot.py):
+
+```bash
+HF_HUB_OFFLINE=1 \
+PYTHONPATH=/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-python-2026-09-05 \
+lab/.venv/bin/python lab/scripts/physical_sound_neuralresonator_pilot.py \
+  --assets /home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-assets-2026-09-06 \
+  --output /absolute/external/new-output
+```
+
+Initial default weights-only inspection correctly rejected embedded Python
+globals. All11exact nonstandard names are subsequently mapped to our inert data
+carrier under `weights_only=True`; none invokes the saved class/function/partial,
+Lightning module, optimizer, logger or hook. SHA checked before deserialization.
+Reviewed source definitions are hash-pinned and extracted without package imports.
+EfficientNetB0 instantiated with`weights=None`; encoder and MLP state loadstrictly,
+including saved pole/zero offsets. Only training-only`criterion.fb` unused.
+Checkpoint`global_step=0` is reported as serialized metadata, not a measured
+training count. Torch2.13/torchvision0.28 existing overlay; no environment changes.
+
+Own64×64 convex octagon mask, centre(.5,.5), unit impulse into32parallel branches
+with2cascaded learned biquads each. No image recognition label/text prompt/audio
+reference is substituted for numeric conditions. Published result-notebook ranges
+(not an independently verified training manifest) used for material normalization:
+rho500–15000, E8e9–5e10, nu.1–.4, alpha1–10, beta3e-7–2e-6. Base
+(7750,2.9e10,.25,5.5,1.15e-6). Other interventions change onlyrho1500/rho14000,
+E4.5e10, beta1.8e-6, contact(.65,.5), or horizontal mask extent. These are numeric
+synthetic materials, not validated named glass/wood/steel objects.
+
+| Intervention | Dominant peak Hz | Observed/base | Undamped expected ratio |
+|---|---:|---:|---:|
+| Base |785|1|1|
+| Lower density |1785|2.273885|2.273030|
+| Higher density |584|.743949|.744024|
+| Stiffer |976|1.243312|1.245682|
+| More damping |766|—|—|
+| Off-centre |785|—|—|
+| Narrower shape |913|—|—|
+
+Expected ratios follow from the reviewed teacher's generalized eigenproblem:
+fixed shape/nu gives omega proportional tosqrt(E/rho). This inference concerns
+undamped corresponding modes, not an exact law for a damped spectrum's dominant
+peak. Measured relative discrepancies+.0376%/−.0100%/−.1903%, with1HzFFTbins.
+More damping shortens energy centroid7.602→5.367ms. All six interventions change
+PCM. These are useful descriptive relations on one shape, **not** a calibrated
+realism validator, independent numerical reference comparison or proof of broad
+generalization. Exact training-shape overlap is not established.
+
+Full1s32kmono per case retained as raw float64 and playback float32 WAV. Shared
+gain1.1130707314488486 gives globalpeak.5; no per-case normalization, EQ, gates,
+tail cropping or sampled transient. SciPy SOS recursion equals the upstream
+recurrence exactly for the checked first128samples; all learned pole radii<1
+(maximum.9995175032). CPU4threads37–63ms/case including diagnostic work, excluding
+model startup; not an engine performance admission claim.
+First output`neuralresonator-audition-2026-09-06`; second process
+`neuralresonator-replay-2026-09-06` adds descriptive observations with unchanged
+model/conditions.7/7coefficients and WAVs, including comparison, are byte-exact.
+ComparisonSHAa2fe1ff9980c83d65bbf76bf4fe9e6cf8488099dde6cc8a463ba1b0f83d2fde9.
+Strace openat/connect: no connection calls; audio reads only newly written own
+WAVs for hashing, no source audio/dataset. Six focused tests, Ruff, finite/raw/PCM/
+shared-gain/headroom/full-layout/hash/replay checks pass; all jobs terminal.
+Cargo/host-check/ProductChecks not run: no runtime/demo/contracts/roadmap changes.
+
+Next: compare neural and numerical output on several own new shapes and numeric
+conditions, with playable pairs and fixed mode/spectrum observations. Preserve
+the author's clamped-boundary2D displacement-proxy limitation; this does not yet
+model3D acoustic radiation, two-body materials, measured size/force/speed, friction,
+rolling, destruction, water or rain. Do not launch per-material fitting, expand a
+metric suite, or promote this model before that direct reference discriminator.

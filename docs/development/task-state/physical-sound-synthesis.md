@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SONICGAUSS_SCALE_INPUT_COLLISION / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / NEURAL_RESONATOR_AUDIBLE_NUMERIC_CONDITIONS / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -17,7 +17,19 @@ Status: ACTIVE_GOAL / SONICGAUSS_SCALE_INPUT_COLLISION / NO_LIVE_JOBS.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
-- **Latest audible:**`syncfusion-extended-audition-2026-09-06`,4comparisons
+- **Latest neural audible:**[seven numeric-condition impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-replay-2026-09-06/comparison.wav),10.5s.
+  Neural Resonator published checkpoint,NOT trainedhere. Own64x64octagon+contact+
+  rho/E/nu/alpha/beta→EfficientNetB0+MLP→32parallel×2IIR. No targetaudio/dataset.
+  Base785Hz;lowerdensity1785,higher584,stiffer976. Ratios within.191%ofundamped
+  sqrt(E/rho)relation onthisshape;damping shortensenergycentroid7.60→5.37ms.
+  NOTrealism/new-object/size/striker/force/3D validation. Seven1s32kmonoWAVs;
+  .5s gaps,one sharedgain1.11307073,no gates/tailcrop/EQ.7/7coefficient+PCM
+  crossprocessreplayEXACT,allpolesstable,6tests/Ruff/media/stracechecks pass.
+  `neuralresonator-assets-2026-09-06`:55MBckptSHAfa46fa22…;sourcepin below.
+  Safeweights-only load maps11nonstandardglobals to inertdatacarriers,NOTobjects.
+  Strict model+encoderload;onlycriterion.fbunused;global_step0isserializedmetadata,
+  not measuredtrainingcount. CPU4threads37–63ms/case excludingmodelstartup.
+- **Previous:**`syncfusion-extended-audition-2026-09-06`,4comparisons
   glass/wood/glassrigid/metal:real→retained→expanded.490TRAINvs239,glass11recordsvs5;
   original307rows/roles/embeddings EXACT.4WAV,16/16attacks,1EXTRAglassrigid.
   Fixedold references shape improves3/4,woodworse;held68embedding.15514→.15912worse.
@@ -46,14 +58,15 @@ Status: ACTIVE_GOAL / SONICGAUSS_SCALE_INPUT_COLLISION / NO_LIVE_JOBS.
 - **Contact diagnostic:**`syncfusion-contact-localization-2026-09-06`,3 ORIGINAL
   recorded-audio videos,not generation. Motion tracks shaft,not tip;no croptraining.
   Public contact pixel labels not located;not proof lost. No TLS bypass/val/test.
-- **Next primary artifact:** inspect/load published Neural Resonator checkpoint
-  and render several numeric-material/contact conditions without target audio.
+- **Next primary artifact:** compare this shared model with the declared2D
+  elasticity solver on several ownnewshapes/contact/material combinations;
+  neural/reference WAV pairs and numericalmode/spectrumerrors. No training sweep
+  before that discriminator. Authorclamped-boundary2Dvolume displacementproxy
+  is not3D radiatedsound;keep fullmulti-processgoal. No protecteddata reopening.
   Repo`rodrigodzf/neuralresonator`,revceab3770d88caae1c9ee208bea127ec0d0a1e763;
-  `data/ethereal_dust-317-2.ckpt`55382281bytes,not downloaded yet. README,models,
-  training,configs,result notebook read;2D synthetic,not real-object validation.
-  Use weights-only safe loading;do not execute Lightning pickle/default logger.
-  This audit is one supporting-only checkpoint;next checkpoint must emit actual
-  new neural WAVs or a concrete executable blocker,not another survey/metric fit.
+  source/model/dsp/utilities/modal/data/shape/resultnotebook read;assets external.
+  CLI`physical_sound_neuralresonator_pilot.py --assets ... --output NEW` usesexisting
+  `mmaudio-python-2026-09-05`PYTHONPATH(torchvision0.28);noenvchanges/Lightning/loggers.
 - **Retained source-free learned media:** [five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
   Adapter17,088params,200steps,seed42,not decoder training. Material+motion+times;
   .4/.9/1.7/3/4.7s schedule5/5,0extras;openat confirms no data/audio reference reads.
