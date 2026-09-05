@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `BODY_V8_NOMINAL_STANDING / HEEL_RISE_AND_DISTURBANCE_OPEN` |
+| Status | `BODY_V8_NOMINAL_STANDING / LOADED_TRANSFER_FAILED / SERVO_RESEARCH_NEXT` |
 | Updated | 2026-09-05 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
@@ -100,6 +100,12 @@
   MTP velocity RMS0.0247/0.1112rad/s still has near-Nyquist power: do not infer
   quiet joints or retune from a picture. Next loaded heel-rise/re-contact, then
   disturbances. Old V7 output remains byte-exact; no training selection.
+- Loaded transfer now fails both coupled ankle/MTP and ankle-only inputs:
+  v1 stops at1305/1324 on active-side MTP velocity; v2 at2042/1810 on left ankle /
+  opposite MTP. No heel-rise interval; both zero controls exact (report17).
+  Next bounded unloaded/loaded toe-servo research, not another pulse/gain sweep.
+  Actual joint position oscillates too; velocity-report artifacts alone cannot
+  explain it. Preserve observed tolerance1000urad/s and all safety limits.
 
 ## Required context
 
@@ -132,6 +138,7 @@
     and [ADR-118](../../architecture/adr/118-articulated-volumetric-foot-body.md).
 16. [Articulated contact/standing result](../r8b-articulated-standing-2026-09-05.md)
     and [ADR-119](../../architecture/adr/119-articulated-foot-standing-diagnostics.md).
+17. [Failed loaded-transfer discriminators and next research boundary](../r8b-loaded-foot-transfer-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -175,14 +182,8 @@
 
 - Rust V6 body and mass-frame repair plus opt-in compiled V4 force schedule
   implemented. No environment/default/runtime authority changes.
-- Motor native library tests: 132 passed, including old profile regression,
-  V5/V6 axis directions, V2–V6 neutral geometry and full tensor reconstruction.
-- `play`, `persistence-replay`, `content-package`, format and links pass.
-  Full host-check for `ba84b9a0` completed PASS, session 71889 is closed.
-  New native motor suite: 134 passed; native FFI 3 and mock lifecycle 6 passed.
-  Current host-check completed PASS; session 10364 is closed. Workspace and
-  native-feature all-target clippy passed;
-  play/replay/content and platform portable contract pass, SDL/ash not run.
+- Historical V5/V6/force-schedule native and host checks passed; exact records
+  remain in reports6–8. Current body/contact checks are in reports15–17.
 - External descriptor and comparison image are in
   `/home/kaifaty/NextEngine-training/r8b-human-body-mass-2026-09-05/body-v5-01`.
 - V6 descriptor and both original standing outputs are in `body-v6-01`.

@@ -1998,6 +1998,11 @@ stays below0.15 degrees. All149 native motor tests pass and V7 output is exact.
 This is nominal support only: loaded heel-rise/re-contact and disturbances remain
 next, before training. Toe velocity spectra still have high-frequency content;
 do not claim every joint is quiet from the flat final pose.
+A [bounded loaded-transfer test](development/r8b-loaded-foot-transfer-2026-09-05.md)
+now fails on both sides: coupled ankle/MTP input triggers toe velocity violations;
+ankle-only input delays/moves the failure but never establishes loaded heel rise.
+Both zero controls are exact. Next separate sampled toe-servo/rate-limit behavior
+from contact/whole-body transfer before another similar controller or gain change.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 
