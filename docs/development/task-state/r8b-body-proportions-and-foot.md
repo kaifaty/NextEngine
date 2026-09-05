@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `GAIN_TUNER_ANGULAR_UNITS_FIXED / V8_NOMINAL / NO_NEW_TRAINING` |
+| Status | `EIGHT_DAMPING_CANDIDATES_SCREENED / V8_NOMINAL / NO_NEW_TRAINING` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
 
 ## Resume in 60 seconds
 
-- Latest result: whole-body sampled damping V9 is implemented as an opt-in
+- Native baseline: whole-body sampled damping V9 is implemented as an opt-in
   diagnostic (ADR-120), **not selected**. Independent local-model preflight
   passes but native stance fails at18/240s, both ankle-pitch velocities>8.001rad/s.
   All loaded-transfer cases fail before the input starts. V8 controls exact;
@@ -22,11 +22,10 @@
   [One-DOF oracle](../r8b-gain-tuner-one-dof-research-2026-09-05.md) refutes inertia/UI units; independent controls pass.
   User authorizes separate Isaac Sim6 install on RTX3080 (3090 later); no driver/training change.
   [Isaac6 installed separately](../r8b-isaac6-install-2026-09-05.md): CUDA/smoke120 steps/Gain Tuner3.5.2 load PASS; old5.1 preserved.
-  [Isaac6 angular-unit patch/evidence](../r8b-gain-tuner6-one-dof-research-2026-09-06.md): isolated overlay fixed;13 tests/24 force traces pass. Acceleration control misses motion criterion; linear/coupled calibration unproven. Next body-level force check; no training/PR.
-- Missing torso/head in the old origin-line plot caused the apparent
-  leg/trunk disproportion. All 19 physical colliders are now drawn.
-- Initial V4 measures 170 cm stature, 86.5 cm hip, 139.65 cm shoulder,
-  40.8 cm thigh and 39.6 cm shank. Do not shorten legs to repair that picture.
+  [Isaac6 angular-unit patch](../r8b-gain-tuner6-one-dof-research-2026-09-06.md):13 tests/24 force traces pass; acceleration motion criterion fails. Stock preserved.
+- [Latest whole-body screen](../r8b-whole-body-gain-calibration-2026-09-06.md):100 individual plus4 matched-origin combined traces; eight literal D candidates improve both boundaries. Fixed pelvis/no ground/implicit drives only. General-pose tuner inertia suspect; no auto-ratio1 for all joints. Next canonical explicit-PD candidate with new identity/full safety, not training.
+- Old origin-line plot omitted torso/head. V4:170cm stature,86.5cm hip,
+  139.65cm shoulder,40.8cm thigh,39.6cm shank. Do not shorten legs from that plot.
 - Opt-in physical BodySchema V5/V6/V7 is implemented under ADR-114/115/117. Existing
   environments/checkpoints still use V4; full goal remains active and no
   optimizer is running. Do not treat the V5 diagnostic as a learned fix.
