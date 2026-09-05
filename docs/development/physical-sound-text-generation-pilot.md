@@ -3010,3 +3010,115 @@ pass. Affine standalone CLI byte-replays its first-audition, SHA256
 Full-training coverage exactly replays the earlier first/middle training clips.
 All jobs terminal. All artifacts remain external local research; no runtime/
 default/roadmap changes. Cargo/ProductChecks NOT_RUN: external Python lab only.
+
+## Frozen generator numerical bridge and TRAIN-mean counterfactual — 2026-09-05
+
+Implemented `lab/scripts/physical_sound_pouring_bridge.py`: eleven numerical
+controls -> Linear11/128,SiLU,Linear128/2048,265728 trainable parameters. A
+zero-initialized output adjusts positive text-token and pooled conditioning of
+the cached TangoFlux generator. Duration token and unconditional CFG row remain
+unchanged. Transformer/T5/codec and original glass/wood/rain paths stay frozen.
+This implements the preceding bounded experiment, not a promoted engine model.
+
+`pouring-tango-bridge-2026-09-05` uses the same93 TRAIN recordings/279 crops.
+It re-encodes each4.08s crop as44.1k dual mono padded to upstream30s, producing
+native645x64 posteriors. It does NOT substitute the old normalized88-frame
+cache into the pretrained model. Native posterior SHA256
+`20850122c2d963cd8a3d7cf84a02a140524aefd8474bd515f283e128869c23ce`.
+Cached loss exactly matches upstream0.4048370122909546 with matched random draws.
+Training: seed53,200 updates,AdamW1e-4,weight decay0.01,gradient clip1,
+BF16 training autocast/FP32 weights; full-horizon original flow-matching loss,
+no classifier reward.147 distinct crops/82 TRAIN recordings visited. First/last
+20-update mean loss1.6717/1.5969 is not a perceptual success criterion.
+
+Bridge SHA256 `2370690789d087fdec079f67239d42734f52db480a81697c0cb29db4361009ea`.
+Full Tango model state digest before/after training is unchanged:
+`23ee7758b8b637389e8d0378484b79c326a362f1069d760c3344df641224b258`.
+Zero bridge equals baseline PCM in both formats. Generation uses fixed text,
+4.08s,50 steps,CFG4.5,seeds314/2718, four hypothetical control profiles:
+glass10cm/glass16cm/PET10cm/glass10cm with shorter pour-duration proxy. Native
+output uses the full645-frame trajectory and is decoded before trimming.
+No reference recording or posterior is an inference input.
+
+| Eight profile/seed rows | Base | Full bridge | Centered bridge |
+|---|---:|---:|---:|
+| Raw AST Water/Pour top5 | 8 | 4 | 8 |
+| AST with classifier-input RMS0.005 | 8 | 3 | 8 |
+| Original six-prompt CLAP | 8 | 8 | 8 |
+| Same harder13-prompt CLAP | 8 | 1 | 8 |
+
+Base rows contain only TWO unique waveforms, repeated across profiles; do not
+treat them as eight independent generations. Full bridge is rejected: crunch,
+toothbrushing or rattling wins seven harder-CLAP comparisons. Evaluation remains
+diagnostic, not a calibrated gate or independent physical validation.
+
+`conditioning-variation.json` finds98.397% of bridge-output energy in its common
+TRAIN-mean component: RMS0.050223 common versus0.006410 varying. One post-hoc
+counterfactual subtracts the mean over ALL279 TRAIN control vectors; no training
+repeat, dev-fitted offset or strength sweep. Pairwise embedding differences are
+unchanged algebraically, but physical waveform differences are not guaranteed.
+`pouring-tango-bridge-centered-2026-09-05` saves eight new WAV pairs and the frozen
+offset, SHA256 `c237816597393b13f9834632f9e6866d0e1343bb1e2c3686c41d2465f699bb9d`.
+[Listen: base/full/centered](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav>),
+13.74s,glass10/seed2718, published PCM concatenation without extra gain.
+This restores water recognition, not yet calibrated material/geometry response.
+
+Export/replay failures were preserved rather than counted as successes:
+
+- Initial fit finished all200 updates and generated16 evaluation rows, then
+  comparison export rejected a float32 value0.980000019 above its guard.
+  Fixed by concatenating exact published PCM, not an epsilon or relaxed guard.
+  A focused test also caught and removed one-LSB re-quantization.
+- First recovery used identical weights but unfrozen parameter flags and failed
+  glass byte replay. Same-process counterfactuals isolate generator parameter
+  flags: requires_grad=True differs,False restores exactness; VAE flags alone
+  do not. No specific backend-kernel cause is asserted. `generate` now explicitly
+  freezes both models before inference; a regression test covers this setting.
+- `failed-export.json`, `unfrozen-reload.json` and the mismatched WAVs remain.
+  Final recovery reran export/regression only, not training. All three adapter-off
+  glass/wood/rain before/after pairs now match both mono/native SHA256 exactly.
+
+Standalone `render --model BRIDGE --controls <11 floats> --output NEW` byte-replays
+the full bridge. Optional `--offset CENTERED_DIRECTORY` also byte-replays centered
+glass10/seed2718 in both formats. The loader checks bounded files, tensor shape,
+finite FP32, bridge/full-model/TRAIN-posterior identities and offset hash. Default
+bridge state/checkpoint behavior is unchanged; no source/cache argument needed.
+All72 WAVs across the fit, centering, flag controls and both CLI runs pass PCM16,
+rate/layout/headroom checks; published result rows pass mono/native hashes.
+Native peaks can exceed1 (full bridge up to1.5297); recorded attenuation gains
+make audition PCM safe. This is NOT calibrated loudness/force evidence.
+
+136 focused tests, Ruff lint/format pass. No Cargo/ProductCheck/runtime/default
+or roadmap promotion. Sources and model notices remain external local research.
+The subsequent discriminator is complete in
+`pouring-tango-bridge-development-2026-09-05`: first source-order recording of
+each already-disclosed excluded container18/30, first/middle phases,seeds314/2718.
+Eight centered generations, two unique base generations and four real controls;
+other-object/same-phase generated audio is reused for the swapped-control
+comparison. All eleven controls are swapped together, not just material.
+No extra fitting or seed selection. Real audio enters comparison metrics only.
+[Listen: excluded glass/PET](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle phase,real/base/matched/swapped,seed2718.
+Each clip retains its published gain; quiet real PET is not boosted to match.
+
+| Disclosed development,8 matched target/seed pairs | Base | Matched | Swapped |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 18.915 | 18.845 | 19.050 |
+| Level-centered spectrum shape RMSE,dB | 7.756 | 7.687 | 7.813 |
+
+Matched shape error beats base5/8 and swapped6/8; mean improvements0.070 and
+0.126dB are marginal. Seed variation is larger (for example glass-first base
+9.711 versus7.018dB). Two objects and correlated phases/seeds do not establish
+physical calibration or independent generalization. Material, geometry, duration
+and recording/acquisition effects are not isolated. Water identity survives:
+raw and RMS0.005 AST plus harder CLAP all give real4/4,base2/2,centered8/8.
+Twenty-five additional WAVs and result-row hashes pass the same audit,97 total.
+
+Decision: retain centered bridge as an audible, reference-free experimental
+candidate, not a physical-response success. Before another fit, measure matched
+versus fixed swapped TRAIN-control velocity errors with identical posterior,
+noise and time draws; compare base/full/centered and active88 versus full645
+frames. This distinguishes conditional learning from a common domain shift;
+do not assume padded silence dominates merely because it occupies most frames.
+Include a TRAIN-real audible control. No offset-strength, epoch or seed sweep.
+All jobs terminal; broad multi-event user goal remains active.

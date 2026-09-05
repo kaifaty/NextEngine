@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SCRATCH_FLOW_REJECTED / FROZEN_PRIOR_CONDITIONING_NEXT.
+Status: ACTIVE_GOAL / CENTERED_BRIDGE_WATER_RETAINED / PHYSICAL_RESPONSE_UNPROVEN.
 
 ## Resume in 60 seconds
 
@@ -12,10 +12,12 @@ Status: ACTIVE_GOAL / SCRATCH_FLOW_REJECTED / FROZEN_PRIOR_CONDITIONING_NEXT.
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free fit:** [base/plain/affine comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-affine-evaluation-2026-09-05/ablation-comparison.wav),
-  13.74s,glass10/seed2718/gain1. Affine2000-step coupling does not rescue water:
-  AST and harder CLAP0/30. Full TRAIN coverage of strongest10000-step model
-  also fails broadly (harder CLAP6/279). No source/cache at inference/promotion.
+- **Latest reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
+  13.74s,glass10/seed2718,published PCM. Centered frozen-generator bridge retains
+  water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
+  [Excluded-object comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-development-2026-09-05/comparison.wav)
+  is36.64s: glass18 then PET30,middle phase,real/base/matched/swapped,seed2718.
+  References enter metrics only. No promotion or source/cache at generation.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** Figshare29438288v5/CC-BY4,60 records; neural/interpolation
@@ -38,12 +40,8 @@ Status: ACTIVE_GOAL / SCRATCH_FLOW_REJECTED / FROZEN_PRIOR_CONDITIONING_NEXT.
 - **AST:** raw and RMS0.005 retained; CUDA/CPU correspondence checked, mel
   warning remains. No threshold/seed tuning. Codec checks reject gross corruption;
   ESC-50 physical attributes null. No posterior-mean/duration/CFG retries.
-- **Pitch diagnostic:** classical ridge tracks noise; frozen Sound of Water
-  teacher falling-tone error1382 cents/same corpus, not independent validation.
-- **Head:** `pouring-resonance-head-2026-09-05`, OOF277.5 vs357cents,6/13 wins.
-  Moving-band/144param adapters and temporal-noise decoder fail. No retraining/
-  head/adapter/filter/noise/phase sweeps; exact teacher/provenance in note.
-- **Phase oracle:** exact magnitude AST0->6/6 after consistency; CLAP6/6 both. See note.
+- **Pitch/head:** teacher falling-tone error1382cents, same corpus; moving-band,
+  144param and temporal-noise paths fail. No head/filter/noise/phase sweeps.
 - **CVAE:** posterior/prior and rec/critic continuations fail; phase2/32 no rescue.
   No CVAE/critic/capacity/epoch/phase sweeps; exact evidence in pilot note.
 - **Codec:** cached TangoFlux rev367005e9/Oobleck SHA d73619a1;16k resampled
@@ -51,38 +49,41 @@ Status: ACTIVE_GOAL / SCRATCH_FLOW_REJECTED / FROZEN_PRIOR_CONDITIONING_NEXT.
 - **Cache:** `pouring-oobleck-cache-2026-09-05`,279TRAIN posteriors; normalization
   includes posterior variance. Earlier original/plain/skip2000 dev AST0/12;
   don't repeat. Target-injected late trajectories are NOT source-free; see note.
-- **Variance:** all64 channels >90% mean-signal fraction, average95.18%,rank54/61.
-  No mostly-unused-channel/PCA/mean-mode explanation or training from this.
-- **Single-crop control PASSES:** `pouring-latent-single-crop-2026-09-05`, row0,
-  2000steps, same normalization. Oracle and learned AST/CLAP3/3; memorization,
-  NOT novel conditions. Analytic irreducible MSE0.2495 vs learned0.5645, excess
-  field error0.3182; not converged. Evaluation stores comparison/analytic-field.
-- **Long:** `pouring-latent-gaussian-long-2026-09-05`,8000 new steps,total10000,
-  fresh AdamW/RNG; not exact resume. Dev spectrum7.305/CVerror0.180,AST0/12.
-- **Evaluator confound:** original CLAP novel12/12 is misleading. Adding seven
-  AST-motivated scratch/crunch/etc prompts gives2/12, paired2/18; real6/6,
-  retained base30/30 and single oracle/learned3/3 remain positive. Post-hoc
-  diagnostic in long-evaluation/clap-hard-negatives.json, NOT a retuned gate.
-- **Solver:** `pouring-latent-solver-probe-2026-09-05`,Euler64/midpoint128/256
-  no rescue (novel AST1/12 throughout). No step sweep/default change; see note.
-- **Affine path rejected:** `pouring-latent-affine-2026-09-05`, same279cache/
-  plain/zero output/2000steps/seed53/RNG draws, posterior affine coupling only.
-  No AST/harder-CLAP gains; no further coupling/epoch/seed sweep. Details in note.
+- **Scratch flow rejected:** single-crop control learns water but full279 TRAIN
+  coverage of10000-step model gives AST11/harder CLAP6/both2. Affine2000 coupling
+  gives AST/harder CLAP0/30. Solver Euler64/midpoint128/256 does not rescue it.
+  No mostly-unused-channel/PCA/mean-mode, epoch/seed/coupling/step sweeps; see note.
+- **Evaluator confound:** six-prompt CLAP hides scratch/crunch. Keep the disclosed
+  harder13-prompt diagnostic and raw/RMS0.005 AST; no threshold/prompt retuning.
 - **All-TRAIN audit:** `pouring-training-codec-audit-2026-09-05`,279 real/posterior
   pairs. Raw AST252/216; harder CLAP267/232. Codec loses35 source positives,
   especially late phases, but most targets retain water. No filtering/codec fit.
-- **Coverage:** `pouring-long-training-coverage-2026-09-05`, all279 controls,
-  seed2718,frozen10000-step model: AST11,harder CLAP6,both2. Not just unseen
-  conditions or one unrepresentative record; small scratch flow remains unusable.
-- **Next action:** zero-initialized numerical conditioning bridge to cached,
-  frozen TangoFlux GENERATOR, not only its codec. Keep q/v/backbone/T5/codec
-  frozen; no generic-caption LoRA repeat/video input. Verify zero/bypass exact
-  baseline then train and emit matched WAVs in one checkpoint. Reconcile upstream
-  duration/latent coordinates: normalized88-frame cache is not automatically
-  compatible. Same11 published controls/TRAIN-only roles; condition-swap and
-  audio quality checks, old glass/wood/rain regression paths unchanged. Prior
-  art/limits and implementation entry points in pilot note. Bridge not yet built.
-- **Verification:**110 tests, Ruff, affine CLI exact replay; all jobs terminal.
+- **Bridge:** `pouring-tango-bridge-2026-09-05`,265728params,200steps,seed53,
+  unchanged TangoFlux367005e9/T5/codec. Native645x64 TRAIN posteriors, NOT old
+  normalized88 cache. SHA2370690789d087fdec079f67239d42734f52db480a81697c0cb29db4361009ea.
+  Full bridge rejected: raw AST4/8,RMS-controlled3/8,harder CLAP1/8.
+- **Centering:**98.397% of correction energy is common TRAIN mean. Subtracting
+  that fixed mean (all279controls, no refit/sweep) restores all three8/8 checks.
+  Offset SHA c237816597393b13f9834632f9e6866d0e1343bb1e2c3686c41d2465f699bb9d.
+  CLI `physical_sound_pouring_bridge.py render --model BRIDGE --offset CENTERED
+  --controls <11 floats> --output NEW` byte-replays both formats; source-free.
+- **Development:** first source-order recording of each excluded container18/30,
+  first/middle,seeds314/2718. Raw/RMS AST and harder CLAP8/8,real4/4,base2/2.
+  Matched shape RMSE7.687 versus base7.756/swapped7.813dB; wins5/8 and6/8.
+  Marginal, correlated evidence; no calibrated response/generalization claim.
+  Joint object-control swap does not isolate material; level also uncalibrated.
+- **Failures preserved:** initial comparison export failed at float32 .98 boundary;
+  now exact published PCM concatenation, no guard relaxation. First reload
+  mismatch caused by generator requires_grad flags in paired control; explicit
+  frozen flags restore byte replay. No kernel-cause claim/training repeat.
+  Original failed reports/WAVs retained; glass/wood/rain bypass exact afterfix.
+- **Next action:** inspect whether the fitted bridge learns conditional training
+  signal versus a shared domain shift: matched versus fixed swapped TRAIN
+  controls, identical posterior/noise/time draws, active88 versus full645-frame
+  velocity errors. Include base/full/centered and a TRAIN-real audible control.
+  Do not assume silent padding dominates until measured; no further strength,
+  epoch/seed sweep. Use that result to choose the next actual conditioning fit.
+- **Verification:**136 tests, Ruff, full/centered CLI exact;97 WAVs PCM audited.
   No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
 
 ## Preserve these constraints
