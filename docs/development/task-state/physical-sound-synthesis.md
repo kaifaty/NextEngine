@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / PHASE_ONLY_REPAIR_REJECTED / STRUCTURED_LATENT_DECODER_NEXT.
+Status: ACTIVE_GOAL / CVAE_RECONSTRUCTION_AND_PRIOR_REJECTED / DECODER_DETAIL_NEXT.
 
 ## Resume in 60 seconds
 
@@ -12,11 +12,11 @@ Status: ACTIVE_GOAL / PHASE_ONLY_REPAIR_REJECTED / STRUCTURED_LATENT_DECODER_NEX
   learn from internet data, improve through automatic training/validation
   without per-sound human approval, and eventually supply engine-usable sound.
   Reconstructing an input recording does not satisfy this objective.
-- **Latest reference-free experiment:** [phase-refined decoder](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/glass10-refined-2718.wav),
-  H10cm/diameter7cm/duration15s/start0.1, excitation seed2718, gain1.
-  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/comparison.wav):
-  glass10/glass16/PET10/glass10fast; native/refined,36.64s. REJECTED:
-  classified as noise, not water. No recording/teacher/base needed at inference.
+- **Latest reference-free experiment:** [CVAE prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-2026-09-05/first-audition/prior.wav),
+  H10cm/diameter7cm/duration15s/start0.1, latent2718/phase314, gain1.
+  [Four-profile comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/comparison.wav):
+  glass10/glass16/PET10/glass10fast; base/prior,36.64s. REJECTED:
+  AST/CLAP novel0/12. No recording/teacher/base needed at inference.
 - **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 - **Impacts:** prior improves1/14 matched crops; no LoRA sweep/material claim.
 - **Friction:** `cluster-texture-training-grid-2026-09-05`, Figshare29438288v5/
@@ -58,33 +58,33 @@ Status: ACTIVE_GOAL / PHASE_ONLY_REPAIR_REJECTED / STRUCTURED_LATENT_DECODER_NEX
   `pouring-sow-pitch-probe-2026-09-05` full-sequence pseudo-targets, not confidence.
   `pouring-resonance-head-2026-09-05`:4993params/13 records/1000 updates,
   OOF277.5 vs simple357.0 cents,6/13 wins. Do not retrain; overlap is not clean.
-- **Fixed output band rejected:** spectrum9.918->11.101dB; privileged teacher
-  also worsens9.238->9.873. Predictor-only explanation insufficient; see note.
-- **Input adapter rejected:**144 parameters, matched/shuffled600-step fits,
-  spectrum7.655/8.026/8.086dB,0/12 wins each. Privileged teacher does not rescue
-  it. Exact evidence in note; no tiny-adapter/epoch sweep or retraining.
-- **Temporal decoder:** `pouring-temporal-decoder-2026-09-05`,63619 trainable/
-  4993 frozen params,93 records/1200 steps,65 noise bands/resonance, Gaussian
-  excitation. Synthetic positive control passes; real quality fails (see note).
-- **Real rejection:** base/temporal spectrum7.655/8.256, CV error0.441/0.791.
-  Temporal AST development/novel0/12; CLAP novel0/12 vs base12/12 and real4/4.
-- **Single-record probe:** `pouring-temporal-decoder-fit-check-retry-2026-09-05`:
-  CV error0.840->0.390, AST still0/6. Failed first attempt preserved; do not retrain.
-- **Phase oracle:** `pouring-phase-oracle-2026-09-05`, same first TRAINING record,
-  FFT1024, two phases ×three CPU seeds. Exact magnitude/noise phase AST0/6;
-  32 phase iterations6/6, spectrum1.253->0.332, CV error0.159->0.045. CLAP6/6
-  for both: disagreement retained. Coarse65 AST0/6, CLAP6/6; not sole-cause proof.
-- **Source-free repair rejected:** `pouring-phase-refinement-2026-09-05` reuses
-  full63619-param decoder, applies32 phase iterations. Spectrum8.256->8.259,
-  CV error0.791->0.791; AST development/novel0/12, CLAP novel0/12, before AND
-  after. No new training. Do not sweep phase iterations or smooth noise bands.
-- **Next action:** conditional latent spectrogram decoder/prior preserving
-  detailed time-local structure, with phase-consistent reconstruction. Reference
-  audio may enter training posterior ONLY; inference samples from conditions.
-  Compare posterior reconstruction and source-free prior WAVs in the same run,
-  preserving base controls; neither reconstruction nor KL alone is success.
-  CVAE is a research hypothesis, not a validated fix (paper/evidence in note).
-- **Verification:**90 tests, Ruff,86 WAVs; jobs terminal, no ProductCheck/promotion.
+- **Prior renderer rejects:** fixed moving-band and144-parameter input adapter
+  worsen spectra even with privileged teacher guidance. No tiny-adapter/filter
+  sweep or retraining; exact runs/provenance in the pilot note.
+- **Temporal noise decoder rejected:** `pouring-temporal-decoder-2026-09-05` and
+  its single-record fit both fail water semantics despite better partial metrics.
+  `pouring-phase-refinement-2026-09-05` also fails; no smooth-noise/phase sweep.
+- **Phase oracle:** `pouring-phase-oracle-2026-09-05`: exact magnitude needs phase
+  consistency for AST0->6/6; CLAP already6/6 at both. Disagreement retained.
+- **CVAE fit:** `pouring-cvae-2026-09-05`,690449 parameters,93 records/2000 steps;
+  latent8x32x16, learned posterior/prior, full512x256 spectrogram. Last rec/KL
+  0.2102/0.4710;2 differentiable phase updates in loss,32 at sampling. Completed;
+  do not retrain. Separate evaluation in `pouring-cvae-evaluation-2026-09-05`.
+- **Both modes fail:** development base/posterior/prior spectrum7.655/5.613/8.626,
+  CV error0.441/0.435/0.697. AST posterior/prior0/12 at both levels; training0/6
+  too. CLAP dev posterior0/12/prior1/12; novel prior0/12. Not merely a prior gap.
+- **Codec discriminator:** `pouring-cvae-codec-probe-2026-09-05`,first training
+  record/two phases/three phase seeds. Exact encoded spectrum AST6/6; posterior,
+  time-coarsened, frequency-coarsened and both-coarsened all0/6. Preprocessing
+  positive control works. Coarsening is not a proof of latent capacity limits.
+- **Next action:** one decoder-only adversarial/feature-matching fine-tune,
+  retaining reconstruction and frozen encoder/prior. Tests whether current latent
+  can support perceptual detail; satisfactory representation is NOT established.
+  Train critic only on train data; AST/CLAP remain external checks, not losses.
+  Evaluate posterior AND reference-free prior; no KL/capacity/epoch sweep first.
+  RAVE motivates this discriminator, not a success guarantee; source in note.
+- **Verification:**94 tests, Ruff,121 WAVs and CLI exact replay; all jobs terminal.
+  No runtime/default/ProductCheck promotion. Full multi-event goal remains open.
 
 ## Preserve these constraints
 

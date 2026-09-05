@@ -2390,3 +2390,100 @@ FULL_MODEL --output NEW_REFINEMENT --device cuda`. Pure inference function
 33 oracle and53 refinement WAVs pass hash/PCM16/16kHz/finite/headroom checks.
 90 focused tests, Ruff, local links and `git diff --check` pass. All jobs terminal;
 no training, downloads, runtime/default promotion, Cargo or ProductCheck run.
+
+### Conditional latent model: posterior and source-free prior both rejected
+
+[First reference-free prior sample](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-2026-09-05/first-audition/prior.wav>)
+and [four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/comparison.wav>)
+are generated from object/event controls and randomness, without a recording,
+teacher or base model at inference. Comparison36.64s: glass10/glass16/PET10/
+glass10fast, each base/prior, latent2718/phase314, gain1. These remain rejected
+candidates. [Reconstruction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/reconstruction-comparison.wav>)
+is36.64s: glass18/PET30 middle, each real/base/posterior/prior. Posterior explicitly
+requires the original recording; neither that path nor its metrics meet the goal.
+
+`physical_sound_pouring_cvae.py` implements690449 parameters. Four stride2
+convolutional blocks16/32/64/128 map a512x256 encoded magnitude to an8x32x16
+Gaussian latent. Posterior and prior heads output means/log variances, bounded
+[-6,2]; the prior sees only11 controls plus frequency/time coordinates. No skip
+connections carry target audio to the decoder. Bilinear upsampling/convolutional
+blocks restore512x256; a2*tanh(output/2) bounds the encoded output. FFT1024/hop256,
+16kHz,4.08s, DC removed; normalization follows the prior fixed[-100,0]dB range.
+
+One fit uses all93 training recordings/13 containers, uniform record/crop draws,
+batch6,2000 AdamW updates, seed53, lr3e-4, wd1e-4, gradient clip1. Reconstruction
+loss is encoded L1 plus0.25 times re-encoded waveform L1 after TWO differentiable
+phase-consistency iterations. KL is the mean analytic Gaussian posterior/prior
+divergence; beta linearly rises to0.01 by step500. First/last100-update means are
+reconstruction0.6222/0.2102, KL0.4219/0.4710. This bounded fit is not proof of
+convergence. At inference, sample a latent and reconstruct with32 phase updates;
+phase seed314 is fixed across the three latent seeds. Full-fit checkpoint SHA256
+`ce216d80add22ba62dca0eed324f6dfc295c79574e6c8b99c1a8507a787e0351` is preserved.
+
+The first training record and first source-order recordings of disclosed excluded
+objects18/30 are each evaluated in first/middle phases, seeds314/2718/1618. These
+are one training object and TWO development objects, not an independent test.
+
+| Development mean,12 clips | Base | Posterior | Prior |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 5.613 | 8.626 |
+| Centered spectrum RMSE,dB | 5.990 | 2.558 | 5.284 |
+| CV absolute error | 0.441 | 0.435 | 0.697 |
+| AST water top5,raw | 10/12 | 0/12 | 0/12 |
+| AST water top5,RMS0.005 | 12/12 | 0/12 | 0/12 |
+| Fixed-six-prompt CLAP water margin>0 | 12/12 | 0/12 | 1/12 |
+
+Training-side base/posterior/prior spectrum6.339/5.115/7.154, centered5.572/1.837/
+4.015, CV error0.315/0.423/0.657. Both AST levels and CLAP give6/0/0 of6.
+Four hypothetical profiles ×three seeds give base/prior12/0 of12 for both AST
+levels and CLAP. All six real controls pass both classifiers. No seed or threshold
+selection. Classifier corpus overlap remains unknown; semantic tags are not
+physical calibration or a complete naturalness test. Their agreement rejects a
+quality claim here. The failure is not only a posterior-to-prior distribution gap:
+even reconstruction is not recognized as water despite better spectral metrics.
+
+The source-dependent `pouring-cvae-codec-probe-2026-09-05` uses the first training
+record/container1, two phases, three phase seeds. It fixes posterior latent seed53
+and compares exact encoded target, posterior output and target log magnitudes
+area-reduced/bilinearly-expanded on time only(512x16), frequency only(32x256),
+or both(32x16). Every variant uses32 identical phase updates. This is a simple
+information-removal control, NOT an equivalence to a learned multichannel latent.
+
+| Codec control,6 clips | Exact | Posterior | Coarse time | Coarse frequency | Coarse both |
+|---|---:|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 0.341 | 5.087 | 6.310 | 3.445 | 7.261 |
+| Centered spectrum RMSE,dB | 0.331 | 1.923 | 1.782 | 2.402 | 2.764 |
+| CV absolute error | 0.053 | 0.420 | 0.434 | 0.086 | 0.540 |
+| AST water top5,both levels | 6/6 | 0/6 | 0/6 | 0/6 | 0/6 |
+
+Real2/2. The exact preprocessing/reconstruction path is a positive control;
+dropping details on either axis damages recognition. This supports investigating
+detail preservation rather than blaming only the phase algorithm or the prior.
+It does not isolate architecture from the reconstruction objective, undertraining
+or latent regularization, nor justify a latent-size/epoch/KL sweep.
+
+Bounded research: [RAVE,v2,section3.1.2](https://arxiv.org/html/2111.05011v2)
+freezes an encoder after representation learning and fine-tunes its decoder with
+adversarial, feature-matching and spectral reconstruction terms. This motivates
+one reversible decoder-only experiment here, not a claim that our representation
+is already sufficient or that this spectrogram CVAE reproduces RAVE's waveform
+architecture. The paper reports much longer training; our2000 updates cannot be
+presented as equivalent evidence. Keep encoder/prior fixed, retain reconstruction,
+and learn the critic only from training audio. AST/CLAP must remain separate
+diagnostics, never generator training losses. Compare posterior and SOURCE-FREE
+prior WAVs in the same run; any improvement still requires control/generalization
+evidence before promotion. Do not silently switch to reconstruction-only success.
+
+CLI subcommands: `train --source --output`; `evaluate --source --model --base
+--output`; source-free `render --model --controls ELEVEN_VALUES --output`; and
+source-dependent `probe --source --model --output`. Render accepts optional seed
+and device, and no source argument. Training is separate from evaluation so a
+later evaluation failure never requires retraining a completed checkpoint.
+Source integrity/roles and unspecified redistribution terms remain unchanged;
+all audio, weights and reports stay external. No new dataset or model download.
+
+94 focused tests, Ruff, diff and link checks pass.121 WAVs pass original-writer
+hash/PCM16/16kHz/finite/headroom checks: one first prior,86 evaluation/comparison,
+one standalone CLI replay and33 codec probes. CLI reproduces the first-prior hash
+exactly. Both inference separation and differentiable reconstruction/KL gradients
+are tested. All jobs terminal, no runtime/default/roadmap or ProductCheck promotion.
