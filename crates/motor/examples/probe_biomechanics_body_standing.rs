@@ -1,4 +1,8 @@
 #[cfg(feature = "physx-sdk")]
+#[path = "support/effort_response.rs"]
+mod effort_response;
+
+#[cfg(feature = "physx-sdk")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use next_contracts::ids::PersistentId;
     use next_contracts::motor::MotorTerminalDispositionV1;
@@ -36,6 +40,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actuator_probe = std::env::args()
         .nth(6)
         .unwrap_or_else(|| "unchanged".to_owned());
+    let measure_response = match std::env::args().nth(7).as_deref() {
+        None => false,
+        Some("response") => true,
+        _ => return Err("optional final mode must be response".into()),
+    };
+    if measure_response
+        && (revision != "6"
+            || !per_iteration
+            || actuator_probe != "shoulder-yaw-gain-16"
+            || reference_mode != "baseline"
+            || ankle_offset != 0
+            || hip_offset != 0)
+    {
+        return Err("response contract requires V6 baseline per-iteration shoulder-yaw-gain-16 without offsets".into());
+    }
     if !matches!(
         actuator_probe.as_str(),
         "unchanged" | "shoulder-yaw-near-passive" | "shoulder-yaw-gain-16"
@@ -47,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !(-140_000..=140_000).contains(&ankle_offset)
         || !(0..=150_000).contains(&hip_offset)
-        || std::env::args().len() > 7
+        || std::env::args().len() > 8
     {
         return Err("offset bounds: ankle +/-140000; hip 0..150000 microradians".into());
     }
@@ -117,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut reason = String::from("incomplete");
     let mut substeps = 0_u64;
     let mut substep_samples = Vec::new();
+    let mut effort_history = Vec::new();
     let envelopes = safety.default_skill_envelopes();
     'episode: for tick in 1..=1_800_u64 {
         let mut reference = standing.reference_targets(&snapshot)?;
@@ -160,6 +180,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 applied[dof as usize] = effort.effort_micronewton_metres;
             }
             snapshot = world.apply_efforts_and_step(&applied)?;
+            if measure_response {
+                effort_history.push(applied);
+            }
             substeps += 1;
             let root = snapshot
                 .links
@@ -216,7 +239,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .to_owned();
             break;
         }
+        if measure_response && substeps == 240 {
+            reason = "diagnostic.response-prefix".to_owned();
+            break;
+        }
     }
+    let response = if measure_response {
+        if reason != "diagnostic.response-prefix" {
+            return Err("standing prefix terminated before response measurement".into());
+        }
+        Some(effort_response::measure(
+            &successor,
+            &snapshot,
+            &effort_history,
+        )?)
+    } else {
+        None
+    };
     println!(
         "{}",
         serde_json::to_string(&json!({
@@ -241,6 +280,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "scope": "nominal procedural standing diagnostic, not learned quality",
             "samples": samples,
             "substep_samples": substep_samples,
+            "response_probe": response,
         }))?
     );
     Ok(())

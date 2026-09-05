@@ -54,8 +54,15 @@
   oscillation remains. With the same k=2 hip feedback, left-foot impulse is
   6.952268 N s at substep2229; termination at2232. Shoulder repair alone is not
   the balance fix. These are newly hashed diagnostic schemas, not selected V7.
-- Next: measure coupled effort/velocity response at exactly reconstructed
-  standing states before changing torso/leg control, then foot mechanics and a separately
+- Coupled response experiment v1 is complete and independently reviewed:
+  94 reconstructions and zero controls are exact, but 0.01/0.02 N m central
+  maps differ by 73.302%, failing the frozen 5% criterion. Final velocity
+  rounding cannot explain this (0.001725 bound vs1.420739 difference norm).
+  All trials retain four loaded points per foot; friction/constraint/solver
+  sensitivity is unresolved. Do not fit gains/inverse mass from this matrix.
+- Next: compare cold-start same joint pose/zero velocities with/without ground
+  contact via an explicitly identified vertical translation, then torso/leg
+  control, foot mechanics and a separately
   identified learning environment. Do not repeat the finished mass audit,
   axis-sign investigation or diagonalization to tune the leaning symptom.
   All runtime changes need new identities and native checks before training.
@@ -78,6 +85,7 @@
 8. [Implemented force-schedule profile and rejected reference follow-up](../r8b-force-schedule-profile-2026-09-05.md)
    and [ADR-116](../../architecture/adr/116-explicit-per-iteration-force-scheduling.md).
 9. [Shoulder actuator discriminator and remaining coupled response](../r8b-actuator-oscillation-discriminator-2026-09-05.md).
+10. [Rejected local coupled map and independent correspondence](../r8b-coupled-effort-response-2026-09-05.md).
 
 ## Decision and remaining uncertainty
 
@@ -155,6 +163,11 @@
   only a local controlled-motion candidate. Do not tune shoulders further to
   repair the remaining leg/trunk mode. Native example test, five Python tests
   and focused clippy/Ruff pass; no new training/body default selected.
+- `coupled-response-01/response.json` SHA42d87748… and `analysis.json` hold the
+  exact signed 23-DOF response experiment. Independent native rerun is byte
+  exact, with no load-bearing review defect. Two native example tests and
+  three Python tests plus focused clippy/Ruff pass. Do not retry amplitudes
+  under v1; the next experiment changes contact boundary/cold-start apparatus.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.
