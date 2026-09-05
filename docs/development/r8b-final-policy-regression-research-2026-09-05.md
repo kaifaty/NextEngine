@@ -98,13 +98,15 @@ restart unchanged, switch to stochastic deployment, freeze arms as a presumed
 fix, or retrospectively select model 3999. No current evidence requires new
 body geometry, an all-phase flat-foot constraint or a different RL algorithm.
 
-Passive telemetry and a local normalization discriminator now pass, as below.
-Next: predeclare one bounded fixed-buffer gradient diagnostic with explicit
-source weights, optimizer initialization, RNG and buffer/return closure; it is
-not a resume or another full walking budget. The unresolved choice is
-whether update instability, normalization/distribution shift, or an objective
-that rewards unreliable behavior dominates. A subsequent bounded experiment
-must discriminate those, rather than merely adding samples or reward terms.
+Passive telemetry, local normalization and fixed-buffer gradient diagnostics
+are now closed, as below. Adaptive scheduling increases the measured local
+policy jump; holding the source learning rate fixed reduces it. This supports
+a bounded schedule intervention, not a claim that the full regression is fixed.
+Next: specify a prospective bounded training comparison with regular physical
+validation and checkpoint retention, before spending another training budget.
+Do not repeat the closed numerical probes unchanged or substitute model 3999
+for the failed frozen final result. Objective mismatch and cumulative effects
+remain unresolved; judge any intervention by native walking, not KL alone.
 
 ## Passive update instrumentation and normalization discriminator
 
@@ -196,6 +198,51 @@ arm's post-update KL/clipping should rise while zero-LR keeps exact policy
 state and pre/post distribution metrics. If both stay small, this specific
 local-update explanation is weakened; cumulative degradation and reward/task
 mismatch remain. A large gradient norm alone is not proof of harmful updates.
+
+## Closed gradient and fixed-learning-rate controls
+
+The predeclared gradient probe completed in 55.59 s. Its 4,096-sample buffer
+contains 2,081 moving-command samples; the independent reverse-GAE comparison
+has zero maximum error. The zero-effective-LR arm preserves parameters and
+pre/post distribution metrics exactly. The adaptive arm raises learning rate
+from 1e-5 to 5.0625e-5 within the update, before reducing it again.
+
+The separately frozen `canonical-ppo-fixed-lr-diagnostic.v1.json` restores the
+exact saved buffer, normalizers, source model and Adam state. Its first arm
+reproduces the entire original adaptive result exactly, including every
+minibatch metric. Only then does its second arm disable adaptive scheduling,
+retaining the checkpoint learning rate 1e-5. It completes in 1.23 s, performs
+zero native steps, and saves no candidate weights.
+
+| Measurement | Source adaptive LR | Fixed source LR |
+| --- | ---: | ---: |
+| Maximum minibatch mean analytic KL | 0.02338829 | 0.00680990 |
+| Maximum minibatch ratio clip fraction | 0.34765625 | 0.09765625 |
+| Post-update whole-buffer mean KL | 0.00953742 | 0.00704291 |
+| Post-update whole-buffer ratio clip fraction | 0.13574219 | 0.09887695 |
+
+The configured desired KL is 0.008, not a guaranteed hard bound. This control
+supports a causal contribution of within-update LR adaptation to the local
+jump. It does not prove that this mechanism caused the historical 3999-to-9999
+quality regression, that fixed LR is optimal for fresh training, or that the
+updated policy walks. No updated copy was applied to the environment.
+
+Under the corrected/diagnostic root below, exact evidence is:
+
+- `final-gradient-probe-01/run-manifest.json`:
+  `934e370de9473678bc765ff1924385e85af9d71861c668c598e13a4a932dbd04`.
+- Its `buffer.npz`:
+  `6e3f9cae5499ffef052e4c068dff66362147661103bb1a16be4cd22548d94d07`.
+- `final-fixed-lr-probe-01/run-manifest.json`:
+  `a2708fa09cf4fa866b1fd02ba959e5b4761a16470d6fecb60dfc7ab87a53b7dd`.
+- Its `fixed-source-lr.json`:
+  `edcae31fa16a297df42e1c6732396719d41507dad76fcf1a893d3096312b7e6c`.
+
+PASS: all declared artifact hashes and independent full adaptive-result
+equality. Twelve observer/gradient-probe tests passed at `e7ae4e3c`; this
+result update is documentation only. New full training and post-update native
+quality evaluation are NOT RUN. The toe-standing diagnosis concerns the older
+V6 trajectory; it must not be presented as a measurement of the V7 final model.
 
 ## Exact external evidence and verification
 

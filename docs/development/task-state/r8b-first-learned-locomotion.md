@@ -19,9 +19,9 @@
 - **Blocker:** Exact actions and initial targets agree, but physical states
   differ from tick 1. Isaac GPU ends on joint safety at tick 96; Isaac CPU
   does so at tick 105. Explicit canonical damping does not close the gap.
-- **Next action:** Predeclare one bounded fixed-buffer gradient diagnostic,
-  not a resume/full budget. Passive KL/clip/gradient telemetry now preserves
-  exact CPU/CUDA outputs. See the [closed result and probes](../r8b-final-policy-regression-research-2026-09-05.md).
+- **Next action:** Specify a bounded schedule intervention with prospective
+  physical validation/checkpoint retention, not an unchanged restart. Exact
+  fixed-buffer controls are [closed](../r8b-final-policy-regression-research-2026-09-05.md); no new training is admitted here.
 - **Training:** V7 completed all 40.96M transitions / 10,000 updates at clean
   `f0c15bd4`; no optimizer is active. All five final model 9999 episodes fail
   at 152 ticks, -0.176714 m, right forearm/head self-collision. Corrected V8
@@ -186,9 +186,9 @@ not clean-commit generation/run manifests.
   model-3999 selection, arm freeze, stochastic deployment or safety relaxation.
 - **Measured:** Final-policy 128 × 32 no-optimizer rollout gives normalization
   KL 1.11e-7 versus target 0.008, zero ratio clipping; local drift is too small.
-- **Uncertainty:** Actual update size, cumulative shift and objective mismatch.
-- **Next/reconsider:** Close a bounded gradient probe; its new passive observer
-  passes 33 tests, including exact full-size CUDA update/state/RNG controls.
+- **Gradient control:** Adaptive LR peaks at 5.0625e-5; minibatch mean KL
+  peaks at 0.02339. Exact-buffer fixed 1e-5 lowers that peak to 0.00681.
+- **Next:** Validate a bounded schedule intervention; cumulative shift/objective mismatch remain unresolved. No walking fix proven.
 
 ## Retained safety and mirror hypotheses
 

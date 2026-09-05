@@ -2309,8 +2309,12 @@ investigation](development/r8b-final-policy-regression-research-2026-09-05.md)
 also rejects arm masking and stochastic inference as sufficient fixes. No
 optimizer is active. Passive update telemetry now passes exact CPU/CUDA and
 full-size network controls; a 4,096-transition no-optimizer probe finds tiny
-local normalization drift (KL 1.11e-7). Next is a bounded measured gradient
-diagnostic, not another unchanged run or retrospective checkpoint choice.
+local normalization drift (KL 1.11e-7). Closed fixed-buffer controls show that
+holding the source LR at 1e-5 reduces peak minibatch mean KL from 0.02339 to
+0.00681, with exact adaptive replay and no candidate output. This is local
+numerical evidence, not a repaired walking policy. Next: specify a bounded
+schedule intervention with prospective physical validation/checkpoint retention,
+not another unchanged run or retrospective checkpoint choice.
 See the [native diagnostic evidence](development/r8b-native-lift-return-2026-09-05.md).
 No quality gate is advanced or weakened.
 The ceiling remains `NO_AUTHORITY`, and mirror repair remains
