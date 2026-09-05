@@ -93,3 +93,74 @@ Checks: script compilation, two bounded executions, summary controls and
 independent review PASS; unmodified live damping comparison FAIL. Repository
 diff/local links PASS. Native ProductChecks NOT_RUN: external tool experiment
 and documentation-only repository changes. No simulator process remains active.
+
+## Upstream research — 2026-09-06
+
+Read-only web/source investigation requested after the measured result; no
+new numerical experiment, vendor patch, training or upstream submission.
+Competing explanations: missing angular-unit conversion; legitimate API-specific
+units; force/velocity saturation or imported-asset problems; backend-specific
+motion. The existing isolated PhysX fixture discriminates the latter two from
+the measured gain mapping, without ruling them out for other robots.
+
+### History and current public source
+
+[NVIDIA changelog](https://github.com/isaac-sim/IsaacSim/blob/045ca8b59622b99a408092124377c66346e8d9c2/source/extensions/isaacsim.robot_setup.gain_tuner/docs/CHANGELOG.md):
+3.1.5 (2025-12-16) explicitly repaired axis inertia, fixed chains and radians
+to degrees for stored stiffness. 3.5.1 (2026-05-07) repaired damping-ratio
+readback and natural-frequency damping updates to use radian-equivalent
+stiffness. 3.5.3 (2026-06-09) lists lint/docstring/documentation changes, not a
+damping-unit repair. These are related historical fixes, not confirmation that
+NVIDIA has acknowledged our exact reproducer.
+
+Public Isaac6.0.1 commit `045ca8b59622b99a408092124377c66346e8d9c2`
+(2026-06-22) still has the inconsistent mapping in
+[gain_tuner_drive_math.py](https://github.com/isaac-sim/IsaacSim/blob/045ca8b59622b99a408092124377c66346e8d9c2/source/extensions/isaacsim.robot_setup.gain_tuner/isaacsim/robot_setup/gain_tuner/gain_tuner_drive_math.py):
+`stiffness_stored_and_damping_from_natural_frequency_revolute_position`
+multiplies K by DEG_TO_RAD, but returns SI D without that factor. Its
+damping-ratio setter has the same mismatch. The corresponding
+[UI writer](https://github.com/isaac-sim/IsaacSim/blob/045ca8b59622b99a408092124377c66346e8d9c2/source/extensions/isaacsim.robot_setup.gain_tuner/isaacsim/robot_setup/gain_tuner/ui/joint_table_widget.py)
+stores D directly in USD. This is source inspection, NOT a6.0.1 runtime test.
+The official rigging documentation linked above requires pi/180 for BOTH
+angular USD gains; tensor API gains use SI. Therefore the conversion belongs
+at that API boundary, not in all BodySchema gains or prismatic drives.
+
+### Why existing tests need not catch this path
+
+In the same pinned [upstream tests](https://github.com/isaac-sim/IsaacSim/blob/045ca8b59622b99a408092124377c66346e8d9c2/source/extensions/isaacsim.robot_setup.gain_tuner/isaacsim/robot_setup/gain_tuner/tests/test_gain_tuner.py),
+`_measure_pd_step_response` computes gains with test helpers, converts BOTH
+K and D with `_revolute_drive_stiffness_damping_si_to_usd`, and directly authors
+USD. This motion harness does not exercise the faulty UI conversion path.
+Separately, `_assert_oscillation_ok` conditionally skips a severe frequency
+mismatch when readback matches design and at least three peaks exist. The
+changelog describes that skip as PhysX triage. A coverage gap is a supported
+explanation for how this particular test can miss the bug; the actual CI
+history or reason the defect shipped has NOT been established. Do not claim
+the skip caused our damping error or that every upstream test bypasses UI.
+
+### Similar reports, different causes
+
+- [Issue104](https://github.com/isaac-sim/IsaacSim/issues/104), opened2025-08-04:
+  tracking failed despite tuning. Maintainer suggested checking maximum force
+  and joint velocity; the reporter confirmed resolution on2025-08-20. Not an
+  angular damping-unit reproducer.
+- [Issue681](https://github.com/isaac-sim/IsaacSim/issues/681), opened2026-06-23:
+  initially blamed Newton and suggested gain retuning. The author's
+  [July3 correction](https://github.com/isaac-sim/IsaacSim/issues/681#issuecomment-4875411716)
+  identifies an old SolidWorks-derived USD asset; reconversion with official
+  urdf-usd-converter0.2.0 restored original gains on both backends. The author
+  explicitly retracts the earlier retuning workaround. Maintainer closed the
+  issue on2026-08-07. Do not reuse its early workaround as a confirmed fix.
+
+Search covered NVIDIA documentation/forums, IsaacSim GitHub gain/damping/unit
+issues and the pinned implementation/changelog; issue comments were read via
+GitHub API. No exact public180/pi damping reproducer or confirmed ready-made
+fix was found in this bounded search. One final API query returned403, so this
+is not an exhaustive issue-index claim.
+
+Conclusion: documentation, source and our existing isolated measurement support
+a mixed SI/USD-unit defect, consistent with incomplete earlier repairs. No
+evidence here calls for another anatomy edit or an untested upgrade. Retain
+the scoped unit-boundary correction as the next proposed action; validate the
+real UI-to-live-gain path and reverse readback, then body-level response. Revisit
+if NVIDIA publishes a repair or an end-to-end control contradicts this mapping.
