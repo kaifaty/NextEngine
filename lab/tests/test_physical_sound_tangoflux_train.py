@@ -11,6 +11,25 @@ import physical_sound_tangoflux_train as train
 
 
 class TangoTrainTest(unittest.TestCase):
+    def test_prior_error_is_zero_at_teacher_and_has_student_gradient(self):
+        target = torch.ones(2, 4, 3)
+        student = target.clone().requires_grad_()
+        self.assertEqual(float(train.prior_error(student, target).detach()), 0)
+        error = train.prior_error(student * 2, target)
+        error.backward()
+        self.assertTrue((student.grad > 0).all())
+        self.assertIsNone(target.grad)
+
+    def test_prior_rejects_mutable_nonfinite_or_mismatched_targets(self):
+        student = torch.zeros(2, 4, 3)
+        for target in (
+            student.clone().requires_grad_(),
+            student[:1],
+            student + float("nan"),
+        ):
+            with self.assertRaises(ValueError):
+                train.prior_error(student, target)
+
     def test_multi_event_corpus_roles_and_captions(self):
         rows = [
             {

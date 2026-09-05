@@ -613,3 +613,95 @@ test command failed because an existing test imports a sibling by bare name;
 the corrected invocation uses `PYTHONPATH=lab/tests`. No code workaround or
 test exclusion was needed. Cargo/ProductCheck and engine audition were not run:
 this is an external Python experiment with no runtime/public-contract change.
+
+## Base-behavior retention discriminator (2026-09-05)
+
+[Rain/pouring water/drops: base -> retained-prior fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/comparison.wav)
+is a 33-second seed-42 comparison. [Glass: base -> unregularized -> retained,
+for seeds 42 then 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/glass-retention.wav)
+is 12 seconds. All candidates remain available, including the weaker ones.
+
+The bounded research separated three hypotheses: unrestricted SFT forgets
+useful base behavior; coarse water captions leave event ambiguity; and the
+diagnostics are imperfect proxies for naturalness. The previous exact source,
+loss and PCM controls argue against an accidental input/precision change.
+[Diffusers 0.30.3 prior-preservation documentation](https://huggingface.co/docs/diffusers/v0.30.3/training/dreambooth#prior-preservation-loss)
+describes retaining learned image behavior with model-generated examples.
+This motivates, but does not establish, an analogous audio experiment.
+[TangoFlux v2, 10 April 2025](https://arxiv.org/html/2412.21037v2) also distinguishes
+flow training from preference alignment and explicitly treats CLAP as a proxy.
+Neither source proves our proposed regularizer or makes CLAP a physical judge.
+
+Implemented one reversible `--prior-weight 1` control in the existing trainer.
+Before adding LoRA, capture ten states (steps 0,5,...,45 of 50) from each of
+16 base trajectories: current five prompts, nonduplicate original pilot
+prompts, and empty prompt. Use seed 7 only, CFG 4.5, both unconditional and
+conditional branches. The 160 paired targets are frozen BF16 field predictions
+on FP32 base trajectories, not real recordings, labels, or physical velocities.
+They are stored externally in `prior.safetensors` (135,536,048 bytes) with
+prompt/seed/duration/step metadata. This is field-distillation regularization,
+not an exact DreamBooth implementation, KL loss, or preference optimization.
+
+Each update adds one randomly sampled prior-field MSE gradient to the real
+audio full-horizon MSE gradient, before their shared clipping/optimizer step.
+The prior RNG is separate; it visits 121/160 paired states in 240 updates.
+The real sources, posterior tensors, all 240 source indices and 24 baseline
+WAVs match the unregularized run exactly. Captured FP32 replay matches exactly
+at the first state of every prompt; the zero-initialized LoRA also reproduces
+the first BF16 teacher target exactly. Evaluation seeds 42/123 never enter the
+prior bank. Prompts overlap intentionally: this is not unseen-prompt evidence.
+
+Result: **partial retention and localized alignment gains, not promotion**.
+Development active/full MSE improves 25.01%/16.29% versus base, so the penalty
+does not simply prevent fitting. Runtime including diagnostics: 639.24 seconds;
+peak Torch CUDA allocation 4,654,928,384 bytes. The five-prompt comparison is:
+
+| Mean target CLAP, two seeds | Base | Unregularized 240 | Prior 240 |
+|---|---:|---:|---:|
+| Rain | 0.46055 | 0.45653 | 0.47141 |
+| Pouring water | 0.35234 | 0.31383 | 0.32604 |
+| Water drops | 0.41781 | 0.44578 | 0.44119 |
+| Glass | 0.25277 | 0.10684 | 0.19148 |
+| Wood | 0.39026 | 0.33657 | 0.36727 |
+
+Rain and drops each gain versus base on both seeds. AST expected-tag coverage
+returns from the unregularized 9/10 to 10/10, including glass seed 123. However,
+glass/wood remain below base alignment, both pour outputs still prefer the
+drop caption, and top-1 remains 6/10 versus base 8/10. Overall mean target
+CLAP is 0.37475 / 0.33191 / 0.35948 for base/unregularized/prior. All ten
+outputs beat their empty-prompt controls. Step 40 remains near baseline.
+No claim of calibrated perceptual quality, exact striker material, flow rate,
+unseen-object generalization or engine readiness follows from these numbers.
+
+A separate post-fit reload audit compares both saved adapters on all 160
+frozen bank states (`field-audit/result.json`). Branch full-horizon MSE drops
+0.0106062 -> 0.00209489 (80.25%); active-region MSE drops 80.07%. Recombine
+branch errors using the actual sampler formula, `delta_u + 4.5*(delta_c-delta_u)`:
+guided full-horizon MSE drops 0.0267267 -> 0.00929973 (65.20%), and active
+MSE drops 0.0425852 -> 0.0156231 (63.31%). Thus retention acts on its intended
+quantity, but residual guided drift and imperfect semantic targets remain.
+This audit reuses disclosed training states, not independent evidence.
+
+Before another fit, test the candidate against the base on new seeds and
+unseen prompt wording/combinations, including regression events. Retain the
+existing water/pour distinction as an explicit failure. A larger regularizer
+or guided-field penalty is only a candidate if further evidence warrants it;
+do not launch a weight/epoch sweep or present the two-seed gains as the full
+goal. The base and liked demo stay unchanged.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --corpus /absolute/external/esc50-water-rain-2026-09-05 \
+  --output /absolute/external/new-prior-fit --steps 240 \
+  --objective full --prior-weight 1 --diagnostics
+```
+
+Verification: 45 focused tests pass, including frozen-target, nonfinite/shape
+rejection and student-gradient cases. Ruff formatting/static analysis,
+diff/local-link checks pass. All 96 individual WAVs pass hash/shape/type/rate/
+duration/non-silence/headroom checks; three 24-second stage previews and the
+33/12-second comparisons were read back. Teacher and adapter hashes were
+checked before the separate audit. All jobs are terminal. Existing AST
+frontend/pretraining/proxy limitations remain. No Cargo/ProductCheck or engine
+audition was run: external-only Python code and artifacts, no product change.

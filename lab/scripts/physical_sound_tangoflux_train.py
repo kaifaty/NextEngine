@@ -248,6 +248,104 @@ def evaluate_flow(
     }
 
 
+def prior_error(prediction, target):
+    if prediction.shape != target.shape or target.requires_grad:
+        raise ValueError("matching frozen prior targets required")
+    if not torch.isfinite(target).all():
+        raise ValueError("nonfinite prior target")
+    return (prediction.float() - target.float()).square().mean()
+
+
+def prior_velocity(model, entry):
+    return model.transformer(
+        **{k: v.to("cuda") for k, v in entry["inputs"].items()},
+        guidance=None,
+        return_dict=False,
+    )[0]
+
+
+def cache_prior(model, cases, durations, output):
+    """Frozen field targets on base trajectories, never evaluation seeds/audio."""
+    from safetensors.torch import save_file
+
+    bank, metadata = [], []
+    seen = {key for key, _ in cases}
+    prompts = list(zip(cases, durations, strict=True))
+    prompts.extend((case, 5.0) for case in pilot.CASES if case[0] not in seen)
+    prompts.append((("empty-prompt", ""), 5.0))
+    model.eval().to("cuda")
+    with torch.no_grad(), torch.random.fork_rng(devices=[0]):
+        for (key, prompt), duration in prompts:
+            captured, calls = [], 0
+
+            def capture(module, args, kwargs, result, destination=captured):
+                nonlocal calls
+                if calls % 5 == 0:
+                    destination.append(
+                        {
+                            "inputs": {
+                                k: v.detach().cpu().clone()
+                                for k, v in kwargs.items()
+                                if isinstance(v, torch.Tensor)
+                            },
+                            "fp32": result[0].detach().cpu().clone(),
+                            "index": calls,
+                        }
+                    )
+                calls += 1
+
+            hook = model.transformer.register_forward_hook(capture, with_kwargs=True)
+            try:
+                torch.manual_seed(7)
+                model.inference_flow(
+                    prompt,
+                    num_inference_steps=50,
+                    guidance_scale=4.5,
+                    duration=duration,
+                    disable_progress=True,
+                )
+            finally:
+                hook.remove()
+            if calls != 50 or len(captured) != 10:
+                raise ValueError("unexpected base trajectory shape")
+            # Exact FP32 replay catches wrong guidance branch/input capture.
+            torch.testing.assert_close(
+                prior_velocity(model, captured[0]).cpu(),
+                captured[0]["fp32"],
+                rtol=0,
+                atol=0,
+            )
+            for entry in captured:
+                del entry["fp32"]
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    entry["target"] = prior_velocity(model, entry).float().cpu()
+                if not torch.isfinite(entry["target"]).all():
+                    raise ValueError("invalid prior field")
+                metadata.append(
+                    {
+                        "case": key,
+                        "prompt": prompt,
+                        "duration": duration,
+                        "seed": 7,
+                        "trajectory_step": entry.pop("index"),
+                    }
+                )
+                bank.append(entry)
+    tensors = {}
+    for index, entry in enumerate(bank):
+        tensors[f"{index}.target"] = entry["target"].contiguous()
+        for key, value in entry["inputs"].items():
+            tensors[f"{index}.{key}"] = value.contiguous()
+    path = output / "prior.safetensors"
+    save_file(tensors, path)
+    return bank, {
+        "rows": metadata,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "scope": "synthetic base field rehearsal; seed 7 only; not real audio evidence",
+        "fp32_replay": "exact for first state of every prompt",
+    }
+
+
 def render(model, vae, output, step, cases=CASES, durations=None):
     output.mkdir()
     model.eval().to("cuda")
@@ -320,6 +418,7 @@ def run(
     objective="balanced",
     corpus=None,
     diagnostics=False,
+    prior_weight=0.0,
 ):
     from diffusers.training_utils import compute_density_for_timestep_sampling
     from peft import LoraConfig
@@ -334,6 +433,10 @@ def run(
         raise ValueError("unknown training objective")
     if (source_root is None) == (corpus is None):
         raise ValueError("exactly one source collection required")
+    if not np.isfinite(prior_weight) or not 0 <= prior_weight <= 10:
+        raise ValueError("bounded nonnegative prior weight required")
+    if prior_weight and corpus is None:
+        raise ValueError("prior discriminator requires the multi-event corpus")
     output.mkdir(parents=True)
     shutil.copyfile(__file__, output / "executed-script.py")
     started = time.monotonic()
@@ -359,6 +462,7 @@ def run(
             else "upstream uniform full-horizon MSE; no CLAP reward"
         ),
         "objective": objective,
+        "prior_weight": prior_weight,
         "scope": "disclosed recording-disjoint development, not unseen objects or physical controls",
         "checkpoints": [],
         "training": [],
@@ -440,11 +544,22 @@ def run(
                 "upstream": float(upstream),
                 "cached": float(cached),
             }
+        prior_bank = []
+        if prior_weight:
+            prior_bank, report["prior"] = cache_prior(model, cases, durations, output)
         config = LoraConfig(
             r=8, lora_alpha=8, target_modules=["to_q", "to_v"], init_lora_weights=True
         )
         model.transformer.add_adapter(config)
         model.transformer.enable_gradient_checkpointing()
+        if prior_bank:
+            with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+                torch.testing.assert_close(
+                    prior_velocity(model, prior_bank[0]).float().cpu(),
+                    prior_bank[0]["target"],
+                    rtol=0,
+                    atol=0,
+                )
         parameters = [p for p in model.parameters() if p.requires_grad]
         names = [name for name, p in model.named_parameters() if p.requires_grad]
         if not names or any("lora_" not in name for name in names):
@@ -460,6 +575,7 @@ def run(
         torch.cuda.empty_cache()
         optimizer = torch.optim.AdamW(parameters, lr=lr, weight_decay=0.01)
         rng = torch.Generator().manual_seed(2026)
+        prior_rng = torch.Generator().manual_seed(8128)
         checkpoints = {0, min(40, steps), steps}
         for step in range(steps + 1):
             if step in checkpoints:
@@ -518,6 +634,20 @@ def run(
             if not torch.isfinite(loss):
                 raise ValueError("nonfinite training loss")
             loss.backward()
+            prior_loss = torch.tensor(0.0)
+            prior_index = None
+            if prior_bank:
+                prior_index = int(
+                    torch.randint(len(prior_bank), (1,), generator=prior_rng)
+                )
+                entry = prior_bank[prior_index]
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    prior_loss = prior_error(
+                        prior_velocity(model, entry), entry["target"].to("cuda")
+                    )
+                if not torch.isfinite(prior_loss):
+                    raise ValueError("nonfinite prior loss")
+                (prior_weight * prior_loss).backward()
             norm = torch.nn.utils.clip_grad_norm_(
                 parameters, 1.0, error_if_nonfinite=True
             )
@@ -528,6 +658,8 @@ def run(
                     "source_index": index,
                     "loss": float(loss.detach()),
                     "grad_norm": float(norm),
+                    "prior_loss": float(prior_loss.detach()),
+                    "prior_index": prior_index,
                 }
             )
             report["steps_completed"] = step + 1
@@ -576,6 +708,7 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=120)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--objective", choices=("balanced", "full"), default="balanced")
+    parser.add_argument("--prior-weight", type=float, default=0.0)
     parser.add_argument(
         "--diagnostics",
         action="store_true",
@@ -590,4 +723,5 @@ if __name__ == "__main__":
         args.objective,
         args.corpus,
         args.diagnostics,
+        args.prior_weight,
     )
