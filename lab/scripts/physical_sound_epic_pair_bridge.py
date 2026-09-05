@@ -630,14 +630,23 @@ def run(root, output, expanded=None):
         raise
 
 
-def event_matrix(directory, output):
+def material_prompt(label):
+    controls(label)
+    first, second = label.removesuffix(" collision").split(" / ")
+    # Same six strings already disclosed in the real-positive CLAP diagnostic;
+    # no search, ranking or tuning of prompt wording.
+    return f"The sound of an object made of {first} colliding with an object made of {second}."
+
+
+def event_matrix(directory, output, text_control=False):
     """Re-evaluate an existing checkpoint with matched onset extraction; no fitting."""
     torch.set_num_threads(4)
     bridge, meta = load_bridge(directory)
     output = b.flow.c.v.phase.d.fresh_output(output)
     report = {
         "status": "running",
-        "format": FORMAT + "-event-evaluation",
+        "format": FORMAT + ("-text-control" if text_control else "-event-evaluation"),
+        "bridge_applied": not text_control,
         "checkpoint_result": str(directory / "result.json"),
         "checkpoint_result_sha256": hashlib.sha256(
             (directory / "result.json").read_bytes()
@@ -650,6 +659,9 @@ def event_matrix(directory, output):
         "steps": 50,
         "guidance_scale": 4.5,
         "prompt": PROMPT,
+        "material_prompts": [material_prompt(label) for label in source.CLASSES]
+        if text_control
+        else None,
         "policy": "same full-horizon 10ms RMS onset extraction for base and all pairs; no amplification or seed selection",
         "development_rows": meta["development_rows"],
     }
@@ -673,13 +685,19 @@ def event_matrix(directory, output):
                     vae,
                     output,
                     f"pair{i}-{seed}",
-                    bridge,
+                    None if text_control else bridge,
                     label,
                     seed,
+                    prompt=material_prompt(label) if text_control else PROMPT,
                     event_matched=True,
                 )
                 report["rows"].append(
-                    {**row, "kind": "matched", "training_pair": label != HELD_PAIR}
+                    {
+                        **row,
+                        "kind": "matched",
+                        "training_pair": None if text_control else label != HELD_PAIR,
+                        "conditioning": "material_text" if text_control else "bridge",
+                    }
                 )
                 save()
         compare_development(output, report, meta["development_rows"])
@@ -701,6 +719,11 @@ if __name__ == "__main__":
     p.add_argument("--seed", type=int, default=2718)
     p.add_argument("--event-matrix", action="store_true")
     p.add_argument(
+        "--text-control",
+        action="store_true",
+        help="matrix only: frozen material-text prompts, adapter disabled",
+    )
+    p.add_argument(
         "--expanded",
         type=Path,
         help="completed broader TRAIN source; excludes held pair and P04/P07",
@@ -717,6 +740,8 @@ if __name__ == "__main__":
         help="save first seconds only; not impact-quality evidence",
     )
     a = p.parse_args()
+    if a.text_control and not a.event_matrix:
+        raise ValueError("text control requires --event-matrix")
     if a.expanded is not None and a.source is None:
         raise ValueError("expanded data requires --source training")
     if a.source and (a.event_matrix or a.event_window or a.prefix_diagnostic):
@@ -726,7 +751,7 @@ if __name__ == "__main__":
     elif a.event_matrix:
         if a.pair is not None or a.event_window or a.prefix_diagnostic:
             raise ValueError("matrix fixes all pairs and applies event extraction")
-        event_matrix(a.model, a.output)
+        event_matrix(a.model, a.output, a.text_control)
     else:
         if a.pair is None or not 0 <= a.seed < 2**32:
             raise ValueError("pair and uint32 seed required")

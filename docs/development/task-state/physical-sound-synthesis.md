@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-05. Working context, not architecture authority.
-Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
+Status: ACTIVE_GOAL / IMPACT_HYPOTHESES_TESTED / CONTROLLED_CODEC_NEXT.
 
 ## Resume in 60 seconds
 
@@ -17,6 +17,18 @@ Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
   or amplify codec noise. Seed314 can start after11s despite a3s request. This
   known bug was repeated when absent from compact state; corrected without fit.
   Event detection is not quality acceptance; continuous water/rain differ.
+- **Latest source-free control:** [fixed material-text matrix](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/comparison.wav),
+  71.552s,real/generic-base/material-text/wrong-text for six pairs,seed2718. Bridge
+  OFF; six already-frozen prompts, no new training/wording/seed search. Shape7.694
+  vs bridge5.946, wins1/14, all-pair top1 3/14. AST metal/glass leads Glass/Clink,
+  others inconsistent. Spectrum to unmatched objects is NOT sole quality truth.
+- **Signal audit:** `epic-impact-signal-summary-2026-09-05` corrects preview assembly
+  only; original477-case report/100WAVs retained.154TRAIN×3sigma FP32 plus15 BF16
+  controls. Attack/body improve.000525/.000507; padded tail worsens.00000674.
+  Correct condition beats ALL wrong only73/462 attack,77/459 body. Silence-learning
+  hypothesis contradicted; no new attack/tail-weight sweep. FP32/BF16 same15-case
+  rank1 counts2/15 attack,3/15 body: no precision rescue or precision-training sweep.
+  Source-aided one-step preview is diagnosis, NOT source-free generation.
 - **Latest learned impacts:** [real/previous/expanded](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav),
   six unordered pairs,fixedseed2718. Expanded source154TRAIN/19participants,
   same10240-parameter bridge/200updates,113 distinct sampled rows. All wood/glass
@@ -32,8 +44,7 @@ Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
   --pair 'wood / glass collision' --seed 314 --output NEW` defaults to full/event;
   `--event-matrix` evaluates all14 without fitting. Zero/upstream-loss/full-model/
   water+rain/old-base guards and CLI PCM exact; identities/checks in pilot note.
-  Original `epic-pair-bridge-2026-09-05` prefix evaluations are superseded,
-  preserved unchanged; do not reuse their quiet-seed metrics for quality claims.
+  Old prefix evaluations are superseded; never score their codec-noise prefixes.
 - **Retained reference-free result:** [base/full/centered bridge comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),
   13.74s,glass10/seed2718,published PCM. Centered frozen-generator bridge retains
   water (raw/RMS-controlled AST and harder CLAP8/8), not physical calibration.
@@ -43,13 +54,9 @@ Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
   1.815/1.758dB,11/36 wins. No capacity/epoch/basis sweeps; details in note.
 - **Rain:** DataSuds10.23708/I0QYNM V2/CC-BY4.0; CSV verified,TSV rejected.
   Stationary model loses temporal structure, AST fails real wet. No MLP sweep.
-- **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al.,
-  HF `bpiyush/sound-of-water` revision12575460ee39d6adaebbe5aff531a5f4a24a627b.
-  Dataset redistribution unspecified; do NOT inherit separate software MIT.
-  Local research only.123 verified full48kHz WAVs, annotation-only clean/constant/
-  water selection. Author Test I/II/III and YouTube not used; no foreign code run.
-  93 train recordings/13 objects; whole containers18(glass13),30(PET17) excluded.
-  Approximate constant flow is not measured ml/s or exact liquid level.
+- **Pouring source:** `sound-of-water-source-2026-09-05`, Bagad et al., local research
+  only; dataset terms unspecified, NOT software MIT. Author tests unopened;
+  containers18/30 excluded. Approximate flow is not measured ml/s/level. See note.
 - **Closed pouring families:** STFT/envelope/EQ, pitch heads, CVAE/critic,
   scratch flow/affine coupling and solver/noise/phase retries do not transfer.
   Full279TRAIN audit gives scratch AST11/hardCLAP6/both2; target injection is not
@@ -60,35 +67,28 @@ Status: ACTIVE_GOAL / EXPANDED_EPIC_WAVS / MATERIAL_SIGNAL_DIAGNOSIS_NEXT.
   Differentiable centering, audio-AdaLN modulation and separate setting branch
   did not improve transfer. No13-container capacity/epoch/layer/setting/seed sweeps.
   Water CLI/profile/weight identities and failed output receipts are in the note.
-- **Water information:** within-object ridge3.630 vs global4.390dB; leave-object
-  5.351 vs4.601. Setting-only4.062, correlated not measured room/mic causality.
-  No precise physical/level calibration, evaluator acceptance or new-object claim.
+- **Water information:** ridge fails new-object transfer; setting association is
+  not measured room causality. No physical/level calibration; details in note.
 - **Preserved guards:** publish exact PCM, never weaken.98 headroom.
   `requires_grad=False` is required for exact frozen-generator replay despite
   no_grad; no kernel-cause claim. Keep failures rather than overwrite/retry green.
-- **New source:** `epic-information-2026-09-05`,161TRAIN clips/19participants/84videos,
-  counts30/34/7/35/33/22 for metal/glass,metal/wood,wood/glass,metal/plastic,
-  metal/ceramic,plastic/wood. First12 participants/pair,first3 eligible clips each,
-  no overlap,0.25–3s,P04/P07 excluded.114new acquisitions,324 referenced WAVs verified.
-  [Real preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/preview.wav),12.443s;
-  all-source237.350125s. CC-BY-NC4/local research, same57a922f0 revision, no author
-  val/test. Object IDs/striker/geometry/force/velocity unknown; don't invent them.
-- **Supervised probe:** TRAIN leave-participant-out,fold-only scaling,C1 logistic,
-  fixed raw AST768/RMS.005/spectrum256/duration+gain3 features. Macro recalls
- 24.30/20.11/25.47/21.45%; rawAST wood/glass0/7.32within-participant label
-  permutations mean16.53%,max21.72%,exploratoryp1/33. Some association, NOT a
-  qualified material judge/reward. No tuning from these predictions; see note.
+- **EPIC source/probe:** `epic-information-2026-09-05`,161TRAIN/19participants/84videos,
+  CC-BY-NC4 local research; P04/P07 excluded,no author val/test. Only7 wood/glass.
+  No object IDs/striker/geometry/force/velocity. Fixed leave-participant-out C1 probe
+  macro recall AST24.30%,RMS20.11%,spectrum25.47%,duration/gain21.45%; glass pair0/7
+  for AST.32label permutations mean16.53%,max21.72%. NOT qualified judge/reward;
+  no threshold/prompt tuning. Exact selection, hashes, source previews in note.
 - **Pair validator:** frozen CLAP4/24 on six fixed prompts (chance expectation4).
   Not qualified as sole material validator/reward; don't tune prompts or drop
   failures. One sequential-vs-seek decode matches except4 one-LSB samples.
   Whole remote MP4 MD5 unverified (partial access), local WAV SHA checks pass.
-- **Next:** bounded research/counterfactual on matched/wrong/disabled conditioning,
-  paired TRAIN posterior/noise, separating attack/decay/silent-tail signal. Does
-  the optimization improve material-dependent ACTIVE audio? Water signal audit
-  is not evidence for impacts. No third similar run; keep playable/all-pair controls.
-  No material-validator claim from CLAP/probe. Stop13-container adapter family.
-- **Verification:** focused Python tests/Ruff and exact replay; details in note.
-  All jobs terminal. No runtime/default/ProductCheck promotion; full goal open.
+- **Next:** controlled friction grid codec feasibility: does frozen Oobleck preserve
+  paired speed/load response? Use known commanded/measured fields separately,
+  clean/main/machine controls and ONE disclosed shared gain. No new source needed.
+  Publish audible codec comparison plus reference-free controlled examples. Do not
+  repeat stationary-PSD/PCA/crossed-speed/epoch variants or EPIC bridge/prompt sweeps.
+  See the focused friction sections in the pilot note before implementing.
+- **Verification:** tests/Ruff/PCM checks in note; all jobs terminal, no promotion.
 
 ## Preserve these constraints
 

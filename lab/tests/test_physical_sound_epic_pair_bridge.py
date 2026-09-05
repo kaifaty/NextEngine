@@ -195,11 +195,33 @@ class PairTests(unittest.TestCase):
                 patch.object(e, "compare_development"),
             ):
                 e.event_matrix(checkpoint, root / "out")
+                e.event_matrix(checkpoint, root / "text", text_control=True)
             report = json.loads((root / "out" / "result.json").read_text())
-            self.assertEqual(generation.call_count, 14)
+            self.assertEqual(generation.call_count, 28)
             self.assertEqual(report["status"], "complete")
             self.assertFalse(report["training_performed"])
             self.assertEqual({r["seed"] for r in report["rows"]}, {314, 2718})
+            text_report = json.loads((root / "text" / "result.json").read_text())
+            self.assertFalse(text_report["bridge_applied"])
+            self.assertTrue(
+                all(
+                    r["training_pair"] is None
+                    for r in text_report["rows"]
+                    if r["kind"] == "matched"
+                )
+            )
+            for call in generation.call_args_list[14:]:
+                if len(call.args) > 4:
+                    self.assertIsNone(call.args[4])
+                    self.assertEqual(
+                        call.kwargs["prompt"], e.material_prompt(call.args[5])
+                    )
+            self.assertEqual(
+                e.material_prompt(e.HELD_PAIR),
+                "The sound of an object made of wood colliding with an object made of glass.",
+            )
+            with self.assertRaises(ValueError):
+                e.material_prompt("unknown")
 
     def test_expanded_data_keeps_pair_and_participant_exclusions(self):
         with tempfile.TemporaryDirectory() as directory:

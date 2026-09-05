@@ -3739,3 +3739,116 @@ part of the horizon. The earlier water signal audit is not evidence for impacts.
 Keep these WAVs as inspectable controls; the next learned change needs a causal
 discriminator and playable same-policy comparison, not another protocol package.
 Full goal active; no runtime, roadmap or ProductCheck promotion.
+
+## Impact-region signal and fixed material-text counterfactual — 2026-09-05
+
+The bounded research cycle tests three explanations before another fit: padded
+silence dominates the learned change; BF16 evaluation hides material differences;
+or the custom conditioning route suppresses useful pretrained semantics.
+[TangoFlux v1](https://arxiv.org/html/2412.21037v1),§§2.1–2.4, describes the frozen
+audio VAE, text/duration conditions and flow objective. Its preference-optimization
+discussion also cautions that ranking margins alone do not ensure better winning
+audio. No CRPO/CLAP reward is imported: our real-positive material evaluator failed.
+[PyTorch numerical accuracy](https://docs.pytorch.org/docs/2.14/notes/numerical_accuracy.html),
+updated1 June2026, motivates measuring precision effects rather than assuming
+identical floating-point outcomes. The runtime remains the existing2.13.0+cu130;
+the2.13 documentation URL was unavailable, no library/backend upgrade was made.
+
+`physical_sound_epic_signal.py --model EXPANDED_PAIR_RUN --output NEW` audits
+ALL154 TRAIN rows with the same saved native posterior cache and bridge. CPU
+seed10000+row draws one posterior sample and noise shared across sigmas.2/.5/.8
+and base plus all six material conditions.462 row/time cases use FP32; the first
+source-order row per fitted pair provides15 matched BF16 precision controls.
+No training, gradients, parameter updates, new source acquisition or protected
+roles. Small-sample precision controls are not compared to the different full
+FP32 population. Error accumulation is FP64 for both modes.
+
+Source-relative onset uses10ms RMS blocks and.1 peak threshold, not an audibility
+gate. Latent frame centers are mapped with2048/44100s stride. Regions partition
+all645 frames: before onset, first100ms of activity, remaining annotated body,
+250ms post-annotation transition and remaining zero-padded support. The body may
+contain repeated strikes, not a pure physical decay. Encoder receptive fields and
+posterior noise limit exact waveform attribution. These are operational masks,
+not measured acoustic modes or gradients of physical parameters.
+
+| FP32 velocity MSE | Base | Matched bridge | Mean wrong condition |
+| --- | ---: | ---: | ---: |
+| Attack,462 cases |1.401358181|1.400833318|1.402299973|
+| Body,459 nonempty cases |1.347309249|1.346801777|1.348154655|
+| Padded tail,462 |1.594076463|1.594083199|1.594090533|
+| Full horizon,462 |1.582913589|1.582902174|1.582957486|
+
+Matched controls beat ALL five wrong alternatives only73/462 attack cases and
+77/459 body cases. Full-horizon improvement is.000011415; weighted attack/body
+contributions are+.000001723/+.000015952, while padded tail contributes
+−.000006519. All region contributions reconstruct the full gain, accounting for
+empty regions with the full-case denominator. The silent-tail-learning hypothesis
+is contradicted: the achieved improvement is in active audio, but very small and
+not reliably material-specific. This does NOT justify a new attack-weight sweep.
+
+On the SAME15 precision controls, attack correct-condition rank1 is2/15 in both
+FP32 and BF16; body3/15 in both. Tiny aggregate signs do change: full base-minus-
+matched is−.000034884 in FP32 and+.000015941 in BF16. Thus numeric precision matters
+when quoting tiny gains, but FP32 does not rescue material discrimination here.
+This is a saved-offset forward diagnostic, not proof about every training gradient
+or a reason to run a precision-only training sweep.
+
+`epic-impact-signal-2026-09-05` completed477 numeric cases and20 individual media
+entries, then failed only when the borrowed pouring preview helper required
+seed2718. Actual diagnostic seeds are10000+row; they were NOT relabelled or retried.
+The fixed diagnostic concatenator keeps all20 entries and verifies published PCM.
+`epic-impact-signal-summary-2026-09-05` verifies exact matrix coverage and retains
+the source-report hash, corrected weighted summary and assembled preview. The
+failed report remains unchanged; no neural inference was repeated to repair it.
+
+[Reference-aided diagnostic preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-impact-signal-summary-2026-09-05/comparison.wav>),
+61.04625s: first TRAIN clip per fitted pair, source/posterior/base-one-step/matched-
+one-step at sigma.5. All decoded horizons/prefixes/event windows are retained.
+The one-step estimate uses noisy target audio: this is NOT reference-free output
+or a new trained generator. No gain increase is applied to any published clip.
+
+The next discriminator produces source-free audio through the unmodified text
+path. `physical_sound_epic_pair_bridge.py --model EXPANDED_PAIR_RUN --event-matrix
+--text-control --output NEW` disables the bridge and uses exactly the six strings
+already frozen for the earlier real-positive CLAP diagnostic. Template:
+“The sound of an object made of MATERIAL colliding with an object made of MATERIAL.”
+No wording/seed/CFG/duration search or training. All14 cases retain full horizons
+and matched onset windows, with the same3s/50steps/CFG4.5 and seeds314/2718.
+Generic base controls remain byte-exact to the learned experiment.
+
+`epic-material-text-control-2026-09-05` completes. Spectral shape mean7.693776 versus
+learned bridge5.945757/base5.975546; direct text wins1/14 against either. Wood/glass
+is8.770939 versus bridge7.080724,0/4 wins; all-pair rank1 remains3/14. This does NOT
+prove worse perceptual/material fidelity: coarse AST changes from largely
+Breaking/Door to more differentiated categories. Metal/glass seed2718 leads with
+Glass(.341),Chink/clink(.274); ceramic prompts also produce clink categories,
+while several other pairs remain inconsistent. No score threshold is introduced.
+Unmatched kitchen recordings lack object geometry/striker identity, so their
+spectral distance is not a sole physical-quality judge. The supervised real-positive
+probe and zero-shot CLAP remain unqualified for pair acceptance.
+
+[Source-free fixed-text comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/comparison.wav>),
+71.552s, six groups real/generic-base/material-text/wrong-material-text,seed2718.
+[Metal/glass text control](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/pair0-2718.wav>)
+is separately playable, without an inference reference. The executed report's
+legacy `training_pair` field describes the unused reference bridge, not foundation
+pretraining; `bridge_applied=false` is decisive. Future text reports set it null
+and name their conditioning explicitly. Pretraining overlap remains unknown.
+
+193 new diagnostic/control WAVs pass identity/rate/layout/headroom checks.
+74 focused tests pass; Ruff lint/format and diff/local-link checks pass. Tests
+cover temporal partitioning, weighted gain accounting with empty regions, all-
+wrong ranking, preserved diagnostic seeds/PCM and disabled-bridge text routing.
+No demo/runtime/roadmap/default changes, no model promotion. This checkpoint
+includes source-free neural WAVs but no new learned weights. The full goal remains
+active. Retain these controls, not another nominal win from a tiny loss difference.
+
+Next: stop the present EPIC material-only bridge/prompt variant family. Return to
+the already acquired controlled friction grid, whose commanded speed/load and
+separate measured force/position are known. Before any new learned decoder, test
+whether the frozen audio codec preserves these paired physical responses, with
+clean/main/machine-channel controls and one disclosed shared gain. Use TRAIN roles
+and already-open development honestly; do not repeat the rejected stationary-PSD
+network/PCA/epoch/width or crossed-velocity family. The next checkpoint must include
+an audible codec comparison and reference-free controlled examples, not a new
+source inventory. This addresses a missing physical axis, not a smaller goal.
