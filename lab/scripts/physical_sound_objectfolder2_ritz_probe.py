@@ -171,6 +171,15 @@ def generate(args):
 
     bases["neural"] = save("neural-ritz", neural, neural_seconds)
     bases["p1"] = save("p1-ritz", p1, p1_seconds)
+    graph_info = None
+    if args.graph_fit is not None:
+        from physical_sound_objectfolder2_graph_fit import generate_correction
+
+        corrected, baseline, graph_info = generate_correction(
+            args.graph_fit, receipt["weights_sha256"], neural, k, m, points, rigid
+        )
+        bases["graph"] = save("graph-ritz", corrected, graph_info["graph_seconds"])
+        bases["relax"] = save("relax-ritz", baseline, graph_info["classical_seconds"])
     begin = time.monotonic()
     factor = splu((k + 1e-4 * m).tocsc())
     factor_seconds = time.monotonic() - begin
@@ -189,6 +198,7 @@ def generate(args):
             "script_sha256": source.sha(Path(__file__)),
             "geometry_assembly_seconds": geometry_seconds,
             "shared_factor_seconds": factor_seconds,
+            "graph_correction": graph_info,
             "total_seconds": time.monotonic() - started,
             "scope": "fresh geometry-only P2 operators; frozen NN vs freshly solved P1 initialization;32vectors,oneidenticalinversecorrectioneach; no targetacoustics; P1 has additional eigensolve cost, not equal total runtime; openDEV88 only",
         },
@@ -262,6 +272,14 @@ def assess(args):
         )
     before = "previous-neural-inverse1" if args.baseline_generated else "standalone"
     order = ["reference", before, "neural-inverse1", "p1-inverse1"]
+    if "graph-inverse1" in waves:
+        order = [
+            "reference",
+            "neural-inverse1",
+            "graph-inverse1",
+            "relax-inverse1",
+            "p1-inverse1",
+        ]
     for contact in (0, 24, 47):
         for name in waves:
             wavfile.write(
@@ -294,6 +312,7 @@ if __name__ == "__main__":
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--generated", type=Path)
     parser.add_argument("--fit", type=Path)
+    parser.add_argument("--graph-fit", type=Path)
     parser.add_argument("--baseline-generated", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
