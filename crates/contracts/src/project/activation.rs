@@ -4,7 +4,6 @@ use super::lock::ProjectLockV3;
 use super::schema::SchemaRegistryManifestV2;
 use super::world_partition::WorldPartitionManifestV1;
 use crate::body::{BODY_SCHEMA_ASSET_SCHEMA_ID, BodySchemaAssetV1};
-use crate::canonical::CanonicalDecodeLimits;
 use crate::cognition::AgentCognitionCatalogV1;
 use crate::render_content::{NeutralRenderRecordV1, RenderContentCatalogV1};
 use crate::world_activity::WorldActivityCatalogV1;
@@ -222,9 +221,11 @@ impl ActivatedProjectV8 {
             .render_content_catalog
             .canonical_bytes()
             .map_err(|_| ProjectContractError::HashMismatch)?;
+        // Scene look L6a (plan `look/06a`): the catalog's texture field
+        // outgrows the default limits.
         let decoded_catalog = RenderContentCatalogV1::from_canonical_bytes(
             &catalog_bytes,
-            CanonicalDecodeLimits::default(),
+            crate::render_content::RENDER_CONTENT_DECODE_LIMITS,
         )
         .map_err(|_| ProjectContractError::HashMismatch)?;
         if decoded_catalog != self.render_content_catalog {

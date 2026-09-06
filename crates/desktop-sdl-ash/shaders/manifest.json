@@ -14,7 +14,7 @@
   "reflection_suite": "b0_reflect",
   "gbuffer_suite": "gbuffer",
   "tonemap_suite": "tonemap",
-  "interface_contract_sha256": "860a946d909b88edca130dcaf9c6378916f3c6da7aab01d5b46a92768c1a649a",
+  "interface_contract_sha256": "0c1cece9abc2942f24dc8321255cf93de23b57048121fe200e12da72e228eacd",
   "source_language": {
     "name": "GLSL",
     "version": "450"
@@ -222,16 +222,16 @@
     {
       "stage": "fragment",
       "source": "b0_textured.frag",
-      "source_sha256": "7081975fd8465fe6d7535b4099669dc4cc577aafa8c01953fc2423ab60241147",
+      "source_sha256": "c93e3a84b302bcb6c0dc0b880d817a2003f3960aedb54dffbd6ec6210d939d10",
       "module": "b0_textured.frag.spv",
-      "module_sha256": "0a885138119b5ab302d6f02f55e01f6fd04ea45c262d048fbae446a1750f4da8"
+      "module_sha256": "2633ba6061234bd0c811a3ba365aece32c7d236cfd81886cb86d5d91e696a9e0"
     },
     {
       "stage": "fragment",
       "source": "b0_textured_no_shadow.frag",
-      "source_sha256": "6904f9127d7f4363731e4a343f7173cabb0f17163e8d6e0b8b9352c2ef1958de",
+      "source_sha256": "db41de3343a408e86e19aa8a09f3f3cbf91bf9ce34ed3a8f31fe3a11ce0604aa",
       "module": "b0_textured_no_shadow.frag.spv",
-      "module_sha256": "363d6a93cb189af56a310e03204c12cbcc9e2c964c185e4196876cddb98b4a8f"
+      "module_sha256": "e650e9822c81b874d915aaabe9f062d6b89713152c17dd3f48530eb374481c62"
     },
     {
       "stage": "vertex",
@@ -378,9 +378,9 @@
     {
       "stage": "fragment",
       "source": "b0_reflect.frag",
-      "source_sha256": "ce5e770f010d5fa5f3c9818fa5a45e045a57a6b584abd3d22bd6b9aa75855696",
+      "source_sha256": "1fa3048da146e7823d619772c0b78697162906affb6983d0241ee5d99c491413",
       "module": "b0_reflect.frag.spv",
-      "module_sha256": "3c1bb998c90053ea6c39588df4be581fa848b347037cc9297389b4287a430c54"
+      "module_sha256": "078a6915a3572d95a723bb57c503e9a1a16193e740949bbe2f899949ac3d6d91"
     },
     {
       "stage": "vertex",
@@ -392,9 +392,9 @@
     {
       "stage": "fragment",
       "source": "gbuffer.frag",
-      "source_sha256": "652bd71722d5692a10723ca10eadfbbce5d3aa3fa20aaea94d7442b2afddc3df",
+      "source_sha256": "9bb83635d2a603b0ee54a587cf80d7310860c5b3f7a1489b50bd3eef2793c29c",
       "module": "gbuffer.frag.spv",
-      "module_sha256": "cfdafeab6c84478a4246942226724d5c67058855b4b87d259a3874184ca98835"
+      "module_sha256": "d5a8cb0e1eb16943697492d4c9b12eaedfc515561fef3b0f64fe5650c6dc2f83"
     },
     {
       "stage": "fragment",

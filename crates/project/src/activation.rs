@@ -500,9 +500,11 @@ fn activate_pinned_project(
     {
         return Err(ProjectActivationError::HashMismatch);
     }
+    // Scene look L6a (plan `look/06a`): the catalog's texture field
+    // outgrows the default limits.
     let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
         required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
-        limits,
+        next_contracts::render_content::RENDER_CONTENT_DECODE_LIMITS,
     )?;
     if published_catalog != render_content_catalog {
         return Err(ProjectActivationError::HashMismatch);

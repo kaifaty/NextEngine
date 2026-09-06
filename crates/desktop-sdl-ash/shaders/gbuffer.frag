@@ -22,7 +22,24 @@ layout(set = 0, binding = 0, std140) uniform GBufferUniforms {
     vec4 jitter;
 } frame;
 
-layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
+layout(set = 1, binding = 0) uniform sampler2DArray base_color_texture;
+// Scene look L6a: the splat control map (layer weights) at uv0.
+layout(set = 1, binding = 3) uniform sampler2D splat_control;
+
+
+// Scene look L6a (plan look/06a): a splat material (a negative uv scale)
+// blends up to four array layers by the control map at uv0; a plain
+// material reads layer 0.
+vec4 sample_material(sampler2DArray map, vec2 uv, vec4 weights, bool splat) {
+    if (!splat) {
+        return texture(map, vec3(uv, 0.0));
+    }
+    vec4 sum = vec4(0.0);
+    for (int layer = 0; layer < 4; ++layer) {
+        sum += texture(map, vec3(uv, float(layer))) * weights[layer];
+    }
+    return sum;
+}
 
 layout(push_constant, std430) uniform DrawPushConstants {
     mat4 model;
@@ -32,7 +49,16 @@ layout(push_constant, std430) uniform DrawPushConstants {
 } draw;
 
 void main() {
-    vec4 base_color = texture(base_color_texture, in_uv) * draw.base_color_factor;
+    bool splat = draw.material_params.w < 0.0;
+    vec4 weights = vec4(1.0, 0.0, 0.0, 0.0);
+    if (splat) {
+        // RGB weigh layers 0 to 2, layer 3 takes the remainder.
+        vec3 first = texture(splat_control, in_uv).rgb;
+        weights = vec4(first, max(1.0 - first.r - first.g - first.b, 0.0));
+        weights /= max(dot(weights, vec4(1.0)), 1e-4);
+    }
+    vec4 base_color = sample_material(base_color_texture, in_uv * abs(draw.material_params.w), weights, splat)
+        * draw.base_color_factor;
     vec3 normal = dot(in_world_normal, in_world_normal) > 0.0001
         ? normalize(in_world_normal)
         : vec3(0.0, 1.0, 0.0);

@@ -80,7 +80,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         first.project_lock.project_lock_sha256
     );
     assert_eq!(activated.content_manifest.body.root_assets.len(), 51);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 159);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 160);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -176,7 +176,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     );
     assert_eq!(activated.render_content_catalog.meshes().len(), 31);
     assert_eq!(activated.render_content_catalog.materials().len(), 14);
-    assert_eq!(activated.render_content_catalog.textures().len(), 19);
+    assert_eq!(activated.render_content_catalog.textures().len(), 20);
     assert_eq!(
         activated
             .render_content_catalog
@@ -210,10 +210,19 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         .iter()
         .find(|mesh| mesh.asset_id() == AssetId::from_bytes([0x81; 16]))
         .expect("floor mesh");
-    assert_eq!(
-        floor.normals_snorm16(),
-        Some([[0, i16::MAX, 0]; 16].as_slice())
-    );
+    // Scene look L6a (plan `look/06a`): the floor is a height field, flat
+    // across the play area (an up normal at the origin) and rising at the
+    // rim (every normal keeps a positive up component).
+    let floor_normals = floor.normals_snorm16().expect("height-field normals");
+    assert_eq!(floor_normals.len(), floor.positions_micrometres().len());
+    assert!(floor_normals.iter().all(|normal| normal[1] > 20_000));
+    let origin = floor
+        .positions_micrometres()
+        .iter()
+        .position(|position| position[0] == 0 && position[2] == 0)
+        .expect("origin vertex");
+    assert_eq!(floor.positions_micrometres()[origin][1], 100_000);
+    assert_eq!(floor_normals[origin], [0, i16::MAX, 0]);
     let humanoid = activated
         .render_content_catalog
         .meshes()

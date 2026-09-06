@@ -9,6 +9,7 @@ mod cognition;
 mod error_impl;
 mod gltf;
 mod gltf_scaffold;
+mod heightfield;
 mod png;
 mod render_records;
 mod schema;

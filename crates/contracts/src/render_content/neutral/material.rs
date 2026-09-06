@@ -69,6 +69,10 @@ pub enum MaterialTextureSlotV1 {
     Normal = 3,
     Occlusion = 4,
     Emissive = 5,
+    /// Scene look L6a (plan `look/06a`): the layer weights of a splat
+    /// material (`RGBA8` linear, opaque: `RGB` weigh layers 0 to 2 and
+    /// layer 3 takes the remainder).
+    SplatControl = 6,
 }
 
 impl MaterialTextureSlotV1 {
@@ -79,6 +83,7 @@ impl MaterialTextureSlotV1 {
             3 => Ok(Self::Normal),
             4 => Ok(Self::Occlusion),
             5 => Ok(Self::Emissive),
+            6 => Ok(Self::SplatControl),
             _ => Err(RenderContentContractError::InvalidMaterial),
         }
     }

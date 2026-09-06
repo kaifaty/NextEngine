@@ -5,10 +5,10 @@
     "project_id": "org.nextengine.creator-smoke",
     "project_revision": 1,
     "authoring_sha256": "b80e7d162b5f195c94ef9e62b831b4f9f4bfcbae3783587c81ce96b495df720b",
-    "project_lock_sha256": "5e84a69aa01c42b1b2cd0ea917d38f34a12e866aad54e904d882d4fecc72ab07",
+    "project_lock_sha256": "9aaf3a4ddcbdb4ff856e910289f09b3a52d3df786229e27dcdc31829c7c2ce64",
     "schema_registry_sha256": "73d81f227c760b2372a5f69f85624f89d8ca5c01c674a530c7aa8ed0d87214e1",
-    "content_manifest_sha256": "8c4f50db4f8ed0f53329572eff95c0d74355aa23442a65dcbc29fc60bf5bb41c",
-    "world_partition_sha256": "643024ec852dfe42d03301fceb373c88f18627e0bc5b12089940e1a849236d0c",
+    "content_manifest_sha256": "11c60ed71fff32174f24031cf01d1614b638857dfd19cf2545cace1d7abc2190",
+    "world_partition_sha256": "867c6b851491781337bfb211ad4e4d56b3d0bc3a0b58b82f1232857115a8f9e3",
     "mechanics_lock_sha256": "e2ef7d2e3142630aafcabd240769a9822140415e093c3652614b83852d1fb1df"
   },
   "limits": {
@@ -32,22 +32,22 @@
     {
       "probe": "command-archive-root",
       "assertion_id": "archive-root",
-      "expected": "8decd0bb315bfde962701baab2d48a028f13b3ae13df06e319953e1bfd36a594"
+      "expected": "f3aebe3b9a7ba02d987865705f932417c7172e4340fa8e860908ef165091b0ec"
     },
     {
       "probe": "final-save-generation-hash",
       "assertion_id": "final-save",
-      "expected": "2d143fc02f63912cd9311f358aff137fb2d4842a1ddd4633d239c26759bedfce"
+      "expected": "d45e18cae7ea03c872f5c48e791a0ec17166a758a121be3a9addb6fb025344a4"
     },
     {
       "probe": "command-identity-index-root",
       "assertion_id": "identity-index",
-      "expected": "2eb49c093d63277999bd8751284f91b7d5000da645bf0fc15fae1b6747a99be7"
+      "expected": "4f7b0b17a177345f5de31882ee68aa226f06dfa5de8986cdd1b6c19424cf2e51"
     },
     {
       "probe": "command-ledger-hash",
       "assertion_id": "ledger-hash",
-      "expected": "d60c5fdc59520f679f85f46363d01560b7e2d89653f89636b95f21ae14c18e92"
+      "expected": "afd2d116295859d6a91d54ff8a1444138c297be60da62685b6f56823274a661e"
     },
     {
       "probe": "events",
@@ -67,7 +67,7 @@
     {
       "probe": "authoritative-state-root",
       "assertion_id": "runtime-state-root",
-      "expected": "651de0f5ade7c9dee7ee5432e350ffff7749968fbaea69d0d9a88c499ec1db81"
+      "expected": "1fc6a90f970ec7cb77f7a413f66bdfe823f40fe83da14f5f87f0e0cb17baba72"
     },
     {
       "probe": "ticks",

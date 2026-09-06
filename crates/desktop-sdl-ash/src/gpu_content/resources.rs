@@ -334,13 +334,63 @@ impl TextureResource {
         format: vk::Format,
         mip_levels: u32,
     ) -> Result<Self, B0GpuContentError> {
-        let image = ImageAllocation::new_mipped(
+        Self::new_with_view(
+            instance,
+            physical_device,
+            device,
+            extent,
+            format,
+            mip_levels,
+            1,
+            vk::ImageViewType::TYPE_2D,
+        )
+    }
+
+    /// Scene look L6a (plan `look/06a`): a material texture is a 2D array
+    /// (one layer for a plain texture), viewed as such.
+    pub(super) fn new_array(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        extent: vk::Extent3D,
+        format: vk::Format,
+        mip_levels: u32,
+        array_layers: u32,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_view(
+            instance,
+            physical_device,
+            device,
+            extent,
+            format,
+            mip_levels,
+            array_layers,
+            vk::ImageViewType::TYPE_2D_ARRAY,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Vulkan ownership inputs are explicit at the private adapter boundary"
+    )]
+    fn new_with_view(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        extent: vk::Extent3D,
+        format: vk::Format,
+        mip_levels: u32,
+        array_layers: u32,
+        view_type: vk::ImageViewType,
+    ) -> Result<Self, B0GpuContentError> {
+        let image = ImageAllocation::new_with_levels(
             instance,
             physical_device,
             device,
             extent,
             format,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            array_layers,
             mip_levels,
         )?;
         let subresource = vk::ImageSubresourceRange::default()
@@ -348,10 +398,10 @@ impl TextureResource {
             .base_mip_level(0)
             .level_count(mip_levels)
             .base_array_layer(0)
-            .layer_count(1);
+            .layer_count(array_layers);
         let view_info = vk::ImageViewCreateInfo::default()
             .image(image.image)
-            .view_type(vk::ImageViewType::TYPE_2D)
+            .view_type(view_type)
             .format(format)
             .subresource_range(subresource);
         // SAFETY: image is live, format-compatible, and remains owned by this
@@ -779,13 +829,13 @@ pub(super) fn upload_content(
             unsafe { device.cmd_pipeline_barrier2(command_buffer, &dependency) };
         }
 
-        // Scene look L5: every mip level of every texture.
+        // Scene look L5: every mip level of every texture; L6a: every layer.
         let subresource_range = vk::ImageSubresourceRange::default()
             .aspect_mask(vk::ImageAspectFlags::COLOR)
             .base_mip_level(0)
             .level_count(vk::REMAINING_MIP_LEVELS)
             .base_array_layer(0)
-            .layer_count(1);
+            .layer_count(vk::REMAINING_ARRAY_LAYERS);
         let to_transfer = prepared
             .textures
             .iter()
@@ -828,7 +878,7 @@ pub(super) fn upload_content(
                                 .aspect_mask(vk::ImageAspectFlags::COLOR)
                                 .mip_level(level as u32)
                                 .base_array_layer(0)
-                                .layer_count(1),
+                                .layer_count(texture.layers),
                         )
                         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
                         .image_extent(mip.extent)
@@ -968,9 +1018,10 @@ impl WhiteTexture {
             format,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
         )?;
+        // Scene look L6a: a one-layer array view, as every material texture.
         let view_info = vk::ImageViewCreateInfo::default()
             .image(image.image())
-            .view_type(vk::ImageViewType::TYPE_2D)
+            .view_type(vk::ImageViewType::TYPE_2D_ARRAY)
             .format(format)
             .subresource_range(
                 vk::ImageSubresourceRange::default()
@@ -1114,6 +1165,8 @@ pub(super) struct MaterialMapsV1 {
     pub(super) base_color: AssetRevisionRefV1,
     pub(super) metallic_roughness: Option<AssetRevisionRefV1>,
     pub(super) normal: Option<AssetRevisionRefV1>,
+    /// Scene look L6a: the splat control map of a splat material.
+    pub(super) splat_control: Option<AssetRevisionRefV1>,
     pub(super) uv_scale: f32,
 }
 
@@ -1122,6 +1175,8 @@ pub(super) struct MaterialPlaceholdersV1 {
     pub(super) white: WhiteTexture,
     pub(super) metallic_roughness: WhiteTexture,
     pub(super) normal: WhiteTexture,
+    /// Scene look L6a: the control map of a plain material (layer 0).
+    pub(super) splat_control: WhiteTexture,
 }
 
 impl DescriptorState {
@@ -1189,8 +1244,9 @@ impl DescriptorState {
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT),
         ];
-        // Scene look L5: base colour, metallic-roughness and normal maps.
-        let texture_bindings = [0, 1, 2].map(|binding| {
+        // Scene look L5: base colour, metallic-roughness and normal maps;
+        // L6a: the splat control map.
+        let texture_bindings = [0, 1, 2, 3].map(|binding| {
             vk::DescriptorSetLayoutBinding::default()
                 .binding(binding)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -1286,7 +1342,7 @@ impl DescriptorState {
             pool_sizes.push(vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 descriptor_count: material_set_count
-                    .checked_mul(3)
+                    .checked_mul(4)
                     .and_then(|value| value.checked_add(shadow_count * 2))
                     .ok_or(B0GpuContentError::CountOverflow)?,
             });
@@ -1389,9 +1445,15 @@ impl DescriptorState {
         let write_material_set = |set: vk::DescriptorSet,
                                   base: vk::ImageView,
                                   metallic_roughness: vk::ImageView,
-                                  normal: vk::ImageView| {
-            let infos = [info(base), info(metallic_roughness), info(normal)];
-            let writes = [0, 1, 2].map(|binding| {
+                                  normal: vk::ImageView,
+                                  splat_control: vk::ImageView| {
+            let infos = [
+                info(base),
+                info(metallic_roughness),
+                info(normal),
+                info(splat_control),
+            ];
+            let writes = [0, 1, 2, 3].map(|binding| {
                 vk::WriteDescriptorSet::default()
                     .dst_set(set)
                     .dst_binding(binding)
@@ -1412,6 +1474,7 @@ impl DescriptorState {
                 texture.view,
                 placeholders.metallic_roughness.view(),
                 placeholders.normal.view(),
+                placeholders.splat_control.view(),
             );
             texture_sets.insert(*revision, descriptor_set);
         }
@@ -1434,6 +1497,7 @@ impl DescriptorState {
                     placeholders.metallic_roughness.view(),
                 ),
                 view_of(maps.normal, placeholders.normal.view()),
+                view_of(maps.splat_control, placeholders.splat_control.view()),
             );
             material_sets.insert(*revision, descriptor_set);
         }

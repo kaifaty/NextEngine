@@ -93,30 +93,53 @@ pub(super) fn build_render_records(
                 asset_id: id,
                 record_revision,
                 relative_path,
+                layers,
                 color_space,
                 alpha,
                 mip_levels,
                 ..
             } => {
-                // Scene look L5: the file must be a declared referenced
-                // source (its bytes and license ride the composition lock).
-                if !referenced_sources.iter().any(|path| path == relative_path) {
-                    return Err(ProjectAuthoringError::MissingReference(
-                        relative_path.clone(),
-                    ));
-                }
-                let bytes = read_file(&safe_join(project_directory, relative_path)?)?;
-                let decoded = super::png::decode_png(&bytes)
-                    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                // Scene look L5: every file must be a declared referenced
+                // source (its bytes and license ride the composition lock);
+                // L6a: further files are the array layers.
                 let srgb = matches!(color_space, AuthoringTextureColorSpaceV1::Srgb);
-                let levels = match mip_levels {
-                    AuthoringTextureMipLevelsV1::Full => {
-                        super::png::mip_chain(decoded.width, decoded.height, &decoded.rgba8, srgb)
+                let mut layer_levels: Vec<Vec<super::png::MipLevel>> = Vec::new();
+                let mut extent = [0_u32; 3];
+                for path in std::iter::once(relative_path).chain(layers.iter()) {
+                    if !referenced_sources.iter().any(|source| source == path) {
+                        return Err(ProjectAuthoringError::MissingReference(path.clone()));
                     }
-                    AuthoringTextureMipLevelsV1::None => {
-                        vec![([decoded.width, decoded.height, 1], decoded.rgba8.clone())]
+                    let bytes = read_file(&safe_join(project_directory, path)?)?;
+                    let decoded = super::png::decode_png(&bytes)
+                        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                    if layer_levels.is_empty() {
+                        extent = [decoded.width, decoded.height, 1];
+                    } else if extent != [decoded.width, decoded.height, 1] {
+                        return Err(ProjectAuthoringError::InvalidValue);
                     }
-                };
+                    layer_levels.push(match mip_levels {
+                        AuthoringTextureMipLevelsV1::Full => super::png::mip_chain(
+                            decoded.width,
+                            decoded.height,
+                            &decoded.rgba8,
+                            srgb,
+                        ),
+                        AuthoringTextureMipLevelsV1::None => {
+                            vec![([decoded.width, decoded.height, 1], decoded.rgba8.clone())]
+                        }
+                    });
+                }
+                // A level's texels hold every layer in order.
+                let level_count = layer_levels[0].len();
+                let mut levels = Vec::with_capacity(level_count);
+                for level in 0..level_count {
+                    let level_extent = layer_levels[0][level].0;
+                    let mut texels = Vec::new();
+                    for layer in &layer_levels {
+                        texels.extend_from_slice(&layer[level].1);
+                    }
+                    levels.push(NeutralTextureMipLevelV1::new(level_extent, texels));
+                }
                 let texture = NeutralTextureV1::new(
                     schema_ref(
                         NEUTRAL_TEXTURE_SCHEMA_ID,
@@ -126,18 +149,82 @@ pub(super) fn build_render_records(
                     asset_id(id)?,
                     *record_revision,
                     NeutralTextureDimensionV1::D2,
-                    [decoded.width, decoded.height, 1],
-                    1,
+                    extent,
+                    u32::try_from(layer_levels.len())
+                        .map_err(|_| ProjectAuthoringError::InvalidValue)?,
                     texture_color_space(*color_space),
                     texture_alpha(*alpha),
                     NeutralTexelEncodingV1::Rgba8Unorm,
-                    levels
-                        .into_iter()
-                        .map(|(extent, texels)| NeutralTextureMipLevelV1::new(extent, texels))
-                        .collect(),
+                    levels,
                 )?;
                 insert_revision(&mut revisions, texture.asset_revision()?)?;
                 records.push(texture.into());
+            }
+            AuthoringRenderRecordV1::MeshHeightfield {
+                asset_id: id,
+                record_revision,
+                relative_path,
+                origin_micrometres,
+                cell_micrometres,
+                height_range_micrometres,
+                holes,
+                ..
+            } => {
+                // Scene look L6a: the height PNG must be a declared
+                // referenced source.
+                if !referenced_sources.iter().any(|path| path == relative_path) {
+                    return Err(ProjectAuthoringError::MissingReference(
+                        relative_path.clone(),
+                    ));
+                }
+                let bytes = read_file(&safe_join(project_directory, relative_path)?)?;
+                let (columns, rows, samples) = match super::png::decode_png_grey16(&bytes) {
+                    Ok(decoded) => decoded,
+                    Err(_) => {
+                        let decoded = super::png::decode_png(&bytes)
+                            .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                        let samples = decoded
+                            .rgba8
+                            .chunks_exact(4)
+                            .map(|texel| u16::from(texel[0]) * 257)
+                            .collect();
+                        (decoded.width, decoded.height, samples)
+                    }
+                };
+                let field = super::heightfield::build_heightfield(
+                    &samples,
+                    columns,
+                    rows,
+                    *origin_micrometres,
+                    *cell_micrometres,
+                    *height_range_micrometres,
+                    holes,
+                )
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                let mesh = NeutralMeshV1::new(
+                    schema_ref(
+                        NEUTRAL_MESH_SCHEMA_ID,
+                        SchemaRoleV1::NeutralContent,
+                        SchemaEncodingV1::CanonicalBinaryV1,
+                    )?,
+                    asset_id(id)?,
+                    *record_revision,
+                    AabbI64V1::new(field.bounds_min, field.bounds_max)?,
+                    field.positions_micrometres.clone(),
+                    Some(field.normals_snorm16.clone()),
+                    None,
+                    vec![field.uv0_q16.clone()],
+                    field.indices.clone(),
+                    vec![NeutralMeshPrimitiveV1::new(
+                        MeshPrimitiveTopologyV1::Triangles,
+                        0,
+                        u32::try_from(field.indices.len())
+                            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                        0,
+                    )?],
+                )?;
+                insert_revision(&mut revisions, mesh.asset_revision()?)?;
+                records.push(mesh.into());
             }
             AuthoringRenderRecordV1::MeshGltf {
                 asset_id: id,
@@ -223,6 +310,7 @@ pub(super) fn build_render_records(
             texture_asset_id,
             metallic_roughness_texture_asset_id,
             normal_texture_asset_id,
+            splat_control_texture_asset_id,
             uv_scale,
             base_color_rgba_u16,
             metallic_u16,
@@ -256,6 +344,15 @@ pub(super) fn build_render_records(
             if let Some(map) = normal_texture_asset_id {
                 bindings.push(NeutralMaterialTextureBindingV1::new(
                     MaterialTextureSlotV1::Normal,
+                    revision(&revisions, map)?,
+                    0,
+                    uv_transform,
+                )?);
+            }
+            // Scene look L6a: the control map makes it a splat material.
+            if let Some(map) = splat_control_texture_asset_id {
+                bindings.push(NeutralMaterialTextureBindingV1::new(
+                    MaterialTextureSlotV1::SplatControl,
                     revision(&revisions, map)?,
                     0,
                     uv_transform,

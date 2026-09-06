@@ -363,9 +363,27 @@ pub(super) enum AuthoringRenderRecordV1 {
         asset_id: String,
         record_revision: u64,
         relative_path: String,
+        /// Scene look L6a (plan `look/06a`): further PNG files of the same
+        /// size and format, the array layers `1..`.
+        #[serde(default)]
+        layers: Vec<String>,
         color_space: AuthoringTextureColorSpaceV1,
         alpha: AuthoringTextureAlphaV1,
         mip_levels: AuthoringTextureMipLevelsV1,
+        source_span: AuthoringSourceSpanV1,
+    },
+    /// Scene look L6a (plan `look/06a`): a height field from a grey PNG
+    /// among the referenced sources (rows along `z`, columns along `x`),
+    /// as a neutral mesh with smooth normals and `uv0` over the field.
+    MeshHeightfield {
+        asset_id: String,
+        record_revision: u64,
+        relative_path: String,
+        origin_micrometres: [i64; 2],
+        cell_micrometres: i64,
+        height_range_micrometres: [i64; 2],
+        #[serde(default)]
+        holes: Vec<[i64; 4]>,
         source_span: AuthoringSourceSpanV1,
     },
     /// Scene look L5b (plan `look/05b`): one primitive of a glTF 2.0 file
@@ -394,6 +412,10 @@ pub(super) enum AuthoringRenderRecordV1 {
         /// Scene look L5: the tangent-space normal map, linear.
         #[serde(default)]
         normal_texture_asset_id: Option<String>,
+        /// Scene look L6a: the splat control map (layer weights), linear;
+        /// makes the material a splat material over layered textures.
+        #[serde(default)]
+        splat_control_texture_asset_id: Option<String>,
         /// Scene look L5: a uniform UV scale shared by the bindings.
         #[serde(default = "default_uv_scale")]
         uv_scale: f64,
@@ -486,6 +508,7 @@ impl AuthoringRenderRecordV1 {
             | Self::TextureRgba8 { source_span, .. }
             | Self::TexturePng { source_span, .. }
             | Self::MeshGltf { source_span, .. }
+            | Self::MeshHeightfield { source_span, .. }
             | Self::Material { source_span, .. }
             | Self::B0Profile { source_span, .. }
             | Self::BaseSkinningProfile { source_span, .. } => source_span,

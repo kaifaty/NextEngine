@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Task | Bring the reference scene from script-generated boxes under Lambert light to a modern look, presentation only |
-| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05B_AND_07_DONE / ITEM_6_ENVIRONMENT_NEXT` |
+| Status | `ACTIVE / ENGINE_FIRST (D-L01) / PLANS_01_TO_05B_07_06A_DONE / ITEM_6_PROPS_VEGETATION_AVATAR_NEXT` |
 | Branch | `codex/water-research` |
 | Last updated | 2026-09-06 |
 
@@ -72,9 +72,18 @@
   half resolution with one tap (the frozen chain cost `2.2 x`). Cost
   `1.23 / 1.28 / 1.25 x` in a release build (spawn / lake / falls);
   roots unchanged. Open: the shafts do not read at this density.
-- **Item 5 is done in two plans (05, 05b).** Item 7 is done. Next by the roadmap: item 6
-  (environment: terrain, props through the importer, vegetation, a real
-  avatar).
+- **Plan 06a done (2026-09-06, item 6 first plan, revision 1):** the
+  terrain presentation: the `mesh-heightfield` record from a 16-bit PNG
+  (flat `0.1 m` across the play area, a `2.5 m` rise at the rim, the pond
+  hole), the splat material (SPEC-24 3.4: the `SplatControl` slot, B0
+  `v7` texture arrays of up to four layers, the fourth weight as the
+  remainder), the render catalog decode limits raised to `64 / 48 MiB`
+  (the plan 05 `8 MiB` finding closes), the ground as grass, dirt, rock
+  and sand layers under a painted control map. Physics unchanged (the
+  four floor boxes). Cost `1.20 / 1.17 / 1.19 x` (release A/B). Open:
+  the tiling repetition, the pale rim, the physics floor under the rises.
+- **Item 5 is done in two plans (05, 05b).** Item 7 is done; item 6 has its terrain (06a). Next: props through
+  the importer, vegetation (SPEC-40), a real avatar.
 - **Items 1-4 (engine first, D-L01) are done.** Next by the roadmap: item 5
   (PBR materials: mip chains, linear textures, BC compression, normal maps,
   a glTF importer) and item 7 (post: bloom, volumetric fog, grading); item 6

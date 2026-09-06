@@ -94,12 +94,29 @@ vec3 sky_radiance(vec3 direction) {
     return max(rgb, vec3(0.0)) * lighting.sky_params.z;
 }
 
-layout(set = 1, binding = 0) uniform sampler2D base_color_texture;
+layout(set = 1, binding = 0) uniform sampler2DArray base_color_texture;
 // Scene look L5 (plan look/05): glTF metallic-roughness (G roughness, B
 // metallic) and the tangent-space normal map, flat placeholders when unbound.
-layout(set = 1, binding = 1) uniform sampler2D metallic_roughness_texture;
-layout(set = 1, binding = 2) uniform sampler2D normal_texture;
+layout(set = 1, binding = 1) uniform sampler2DArray metallic_roughness_texture;
+layout(set = 1, binding = 2) uniform sampler2DArray normal_texture;
+// Scene look L6a: the splat control map (layer weights) at uv0.
+layout(set = 1, binding = 3) uniform sampler2D splat_control;
 
+
+
+// Scene look L6a (plan look/06a): a splat material (a negative uv scale)
+// blends up to four array layers by the control map at uv0; a plain
+// material reads layer 0.
+vec4 sample_material(sampler2DArray map, vec2 uv, vec4 weights, bool splat) {
+    if (!splat) {
+        return texture(map, vec3(uv, 0.0));
+    }
+    vec4 sum = vec4(0.0);
+    for (int layer = 0; layer < 4; ++layer) {
+        sum += texture(map, vec3(uv, float(layer))) * weights[layer];
+    }
+    return sum;
+}
 
 layout(push_constant, std430) uniform DrawPushConstants {
     mat4 model;
@@ -110,9 +127,17 @@ layout(push_constant, std430) uniform DrawPushConstants {
 void main() {
 
     // Scene look L5: the material's uniform UV scale rides the spare lane.
-    vec2 uv = in_uv * draw.material_params.w;
-    vec4 base_color = texture(base_color_texture, uv) * draw.base_color_factor;
-    vec4 metallic_roughness_sample = texture(metallic_roughness_texture, uv);
+    bool splat = draw.material_params.w < 0.0;
+    vec2 uv = in_uv * abs(draw.material_params.w);
+    vec4 weights = vec4(1.0, 0.0, 0.0, 0.0);
+    if (splat) {
+        // RGB weigh layers 0 to 2, layer 3 takes the remainder.
+        vec3 first = texture(splat_control, in_uv).rgb;
+        weights = vec4(first, max(1.0 - first.r - first.g - first.b, 0.0));
+        weights /= max(dot(weights, vec4(1.0)), 1e-4);
+    }
+    vec4 base_color = sample_material(base_color_texture, uv, weights, splat) * draw.base_color_factor;
+    vec4 metallic_roughness_sample = sample_material(metallic_roughness_texture, uv, weights, splat);
 
     vec3 face_normal = normalize(cross(dFdx(in_world_position), dFdy(in_world_position)));
     vec3 normal = dot(in_world_normal, in_world_normal) > 0.0001
@@ -125,7 +150,7 @@ void main() {
     // (no tangent stream): the derivatives of the position and the UVs give
     // the tangent basis of the surface at the pixel.
     {
-        vec3 map = texture(normal_texture, uv).xyz * 2.0 - 1.0;
+        vec3 map = sample_material(normal_texture, uv, weights, splat).xyz * 2.0 - 1.0;
         vec3 dp1 = dFdx(in_world_position);
         vec3 dp2 = dFdy(in_world_position);
         vec2 duv1 = dFdx(uv);

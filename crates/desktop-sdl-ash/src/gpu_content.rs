@@ -389,13 +389,14 @@ impl B0GpuContent {
 
         let mut textures = BTreeMap::new();
         for texture in &prepared.textures {
-            let resource = TextureResource::new(
+            let resource = TextureResource::new_array(
                 instance,
                 physical_device,
                 device,
                 texture.mips[0].extent,
                 texture.format,
                 u32::try_from(texture.mips.len()).map_err(|_| B0GpuContentError::CountOverflow)?,
+                texture.layers,
             )?;
             if textures.insert(texture.revision, resource).is_some() {
                 return Err(B0GpuContentError::InvalidCatalog(
@@ -479,11 +480,19 @@ impl B0GpuContent {
                 vk::Format::R8G8B8A8_UNORM,
                 [0.5, 0.5, 1.0, 1.0],
             )?,
+            splat_control: WhiteTexture::solid(
+                instance,
+                physical_device,
+                device,
+                vk::Format::R8G8B8A8_UNORM,
+                [1.0, 0.0, 0.0, 0.0],
+            )?,
         });
         for placeholder in [
             &placeholders.white,
             &placeholders.metallic_roughness,
             &placeholders.normal,
+            &placeholders.splat_control,
         ] {
             resources::initialize_white_texture(device, queue, queue_family_index, placeholder)?;
         }
@@ -516,6 +525,21 @@ impl B0GpuContent {
             "next_game: MATERIAL_MAPS active materials={} normal={with_normal} metallic_roughness={with_metallic_roughness} mips={mip_levels}",
             prepared.material_maps.len()
         );
+        // Scene look L6a: the splat materials and their layer count.
+        let splat_materials = prepared
+            .material_maps
+            .values()
+            .filter(|maps| maps.splat_control.is_some())
+            .count();
+        if splat_materials > 0 {
+            let layers = prepared
+                .textures
+                .iter()
+                .map(|texture| texture.layers)
+                .max()
+                .unwrap_or(1);
+            eprintln!("next_game: TERRAIN active materials={splat_materials} layers={layers}");
+        }
         // Scene look L1: the sky for the B0 sun; the lighting block is
         // written per frame from it.
         let sun = B0_SUN_DIRECTION_INTENSITY;
@@ -1891,6 +1915,8 @@ struct PreparedMip {
 struct PreparedTexture {
     revision: AssetRevisionRefV1,
     format: vk::Format,
+    /// Scene look L6a: the array layers (one for a plain texture).
+    layers: u32,
     /// Level 0 first.
     mips: Vec<PreparedMip>,
 }
@@ -1931,7 +1957,12 @@ impl PreparedContent {
                     f32::from(material.metallic_unorm16()) / f32::from(u16::MAX),
                     f32::from(material.roughness_unorm16()) / f32::from(u16::MAX),
                     material.emissive_intensity_q16_16() as f32 / 65_536.0,
-                    maps.uv_scale,
+                    // Scene look L6a: a negative scale marks a splat material.
+                    if maps.splat_control.is_some() {
+                        -maps.uv_scale
+                    } else {
+                        maps.uv_scale
+                    },
                 ],
             );
             material_maps.insert(material.asset_revision()?, maps);
@@ -2065,7 +2096,7 @@ impl PreparedContent {
                 B0GpuContentError::InvalidCatalog("texture is outside the B0 profile"),
             )?;
             if texture.dimension() != NeutralTextureDimensionV1::D2
-                || texture.array_layers() != 1
+                || texture.array_layers() > next_contracts::render_content::B0_MAX_SPLAT_LAYERS
                 || texture.mip_levels().is_empty()
                 || texture.mip_levels()[0].extent() != texture.extent()
                 || texture.extent()[2] != 1
@@ -2090,6 +2121,7 @@ impl PreparedContent {
             textures.push(PreparedTexture {
                 revision: texture.asset_revision()?,
                 format,
+                layers: texture.array_layers(),
                 mips,
             });
         }
@@ -2240,6 +2272,7 @@ fn material_maps_of(
         base_color: base.texture(),
         metallic_roughness: None,
         normal: None,
+        splat_control: None,
         uv_scale,
     };
     for binding in &bindings[1..] {
@@ -2248,6 +2281,7 @@ fn material_maps_of(
                 maps.metallic_roughness = Some(binding.texture());
             }
             MaterialTextureSlotV1::Normal => maps.normal = Some(binding.texture()),
+            MaterialTextureSlotV1::SplatControl => maps.splat_control = Some(binding.texture()),
             _ => {}
         }
     }

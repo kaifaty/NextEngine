@@ -24,6 +24,84 @@ pub(crate) enum PngDecodeError {
 const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 
 /// Decodes a PNG into `RGBA8`.
+/// Scene look L6a: a 16-bit grey PNG (height fields) to its samples, row
+/// major, big-endian samples decoded to `u16`.
+pub(crate) fn decode_png_grey16(bytes: &[u8]) -> Result<(u32, u32, Vec<u16>), PngDecodeError> {
+    let (width, height, bit_depth, color_type, compressed) = parse_chunks(bytes)?;
+    if bit_depth != 16 || color_type != 0 {
+        return Err(PngDecodeError::Unsupported("not a 16-bit grey PNG"));
+    }
+    let mut raw = Vec::new();
+    flate2::read::ZlibDecoder::new(compressed.as_slice())
+        .read_to_end(&mut raw)
+        .map_err(|_| PngDecodeError::Corrupt("zlib stream"))?;
+    let stride = width as usize * 2;
+    if raw.len() != (stride + 1) * height as usize {
+        return Err(PngDecodeError::Corrupt("decompressed size"));
+    }
+    let mut previous = vec![0_u8; stride];
+    let mut current = vec![0_u8; stride];
+    let mut samples = Vec::with_capacity(width as usize * height as usize);
+    for row in 0..height as usize {
+        let start = row * (stride + 1);
+        let filter = raw[start];
+        current.copy_from_slice(&raw[start + 1..start + 1 + stride]);
+        unfilter_row(filter, &mut current, &previous, 2)?;
+        for sample in current.chunks_exact(2) {
+            samples.push(u16::from_be_bytes([sample[0], sample[1]]));
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    Ok((width, height, samples))
+}
+
+/// The IHDR fields and the concatenated IDAT stream.
+fn parse_chunks(bytes: &[u8]) -> Result<(u32, u32, u8, u8, Vec<u8>), PngDecodeError> {
+    if bytes.len() < 8 || bytes[..8] != SIGNATURE {
+        return Err(PngDecodeError::NotPng);
+    }
+    let mut position = 8;
+    let mut header: Option<(u32, u32, u8, u8)> = None;
+    let mut compressed = Vec::new();
+    while position + 8 <= bytes.len() {
+        let length = u32::from_be_bytes([
+            bytes[position],
+            bytes[position + 1],
+            bytes[position + 2],
+            bytes[position + 3],
+        ]) as usize;
+        let kind = &bytes[position + 4..position + 8];
+        let body_start = position + 8;
+        let body_end = body_start
+            .checked_add(length)
+            .ok_or(PngDecodeError::Corrupt("chunk length"))?;
+        if body_end + 4 > bytes.len() {
+            return Err(PngDecodeError::Corrupt("chunk overruns the file"));
+        }
+        let body = &bytes[body_start..body_end];
+        match kind {
+            b"IHDR" => {
+                if body.len() != 13 {
+                    return Err(PngDecodeError::Corrupt("IHDR length"));
+                }
+                header = Some((
+                    u32::from_be_bytes([body[0], body[1], body[2], body[3]]),
+                    u32::from_be_bytes([body[4], body[5], body[6], body[7]]),
+                    body[8],
+                    body[9],
+                ));
+            }
+            b"IDAT" => compressed.extend_from_slice(body),
+            b"IEND" => break,
+            _ => {}
+        }
+        position = body_end + 4;
+    }
+    let (width, height, bit_depth, color_type) =
+        header.ok_or(PngDecodeError::Corrupt("no IHDR"))?;
+    Ok((width, height, bit_depth, color_type, compressed))
+}
+
 pub(crate) fn decode_png(bytes: &[u8]) -> Result<DecodedPngV1, PngDecodeError> {
     if bytes.len() < 8 || bytes[..8] != SIGNATURE {
         return Err(PngDecodeError::NotPng);
@@ -60,7 +138,9 @@ pub(crate) fn decode_png(bytes: &[u8]) -> Result<DecodedPngV1, PngDecodeError> {
                 if body[12] != 0 {
                     return Err(PngDecodeError::Unsupported("interlaced image"));
                 }
-                if bit_depth != 8 {
+                // Scene look L6a (plan `look/06a`): 16-bit grey for height
+                // fields; every other form is 8-bit.
+                if bit_depth != 8 && !(bit_depth == 16 && color_type == 0) {
                     return Err(PngDecodeError::Unsupported("bit depth other than 8"));
                 }
                 if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
@@ -80,7 +160,13 @@ pub(crate) fn decode_png(bytes: &[u8]) -> Result<DecodedPngV1, PngDecodeError> {
         }
         position = body_end + 4;
     }
-    let (width, height, _, color_type) = header.ok_or(PngDecodeError::Corrupt("no IHDR"))?;
+    let (width, height, bit_depth, color_type) =
+        header.ok_or(PngDecodeError::Corrupt("no IHDR"))?;
+    if bit_depth == 16 {
+        return Err(PngDecodeError::Unsupported(
+            "16-bit samples need decode_png_grey16",
+        ));
+    }
     let channels = match color_type {
         0 => 1,
         2 => 3,

@@ -10,7 +10,10 @@ mod neutral;
 mod profile;
 mod skinning;
 
-pub use catalog::{B0CookedMeshV1, B0MeshletV1, RenderContentCatalogV1};
+pub use catalog::{
+    B0_MAX_SPLAT_LAYERS, B0CookedMeshV1, B0MeshletV1, RENDER_CONTENT_DECODE_LIMITS,
+    RenderContentCatalogV1,
+};
 pub use error::RenderContentContractError;
 pub use neutral::{
     AabbI64V1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,

@@ -9,7 +9,7 @@
     "license_id": "CC0-1.0",
     "attribution": "Next Engine Frontier Relay original reference content; CC0-1.0",
     "source_identity": "urn:nextengine:reference-alpha:frontier-relay-v1",
-    "license_manifest_sha256": "dfd7fb110b5e13ae8ebf1689bc999282b32515b38d559c7c7c6b99d73976404c",
+    "license_manifest_sha256": "4d37205f7131c5f92e2be69aa093819d2df276b8c36258b20ebe015b9fc5835d",
     "referenced_sources": [
       {
         "logical_source": "urn:nextengine:reference-alpha:humanoid-cc0-v1",
@@ -131,6 +131,94 @@
       "license_expression": "CC0-1.0",
       "notice_path": "NOTICE",
       "source_span": { "relative_path": "assets/models/water_tank_normal.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:dirt-albedo",
+        "relative_path": "assets/textures/dirt_albedo.png",
+        "sha256": "122b7f8b9c8b67de20afd4c59dd216cdfd0aa95f979d242097f772a8712eae1d",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/dirt_albedo.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:dirt-metallic_roughness",
+        "relative_path": "assets/textures/dirt_metallic_roughness.png",
+        "sha256": "634a70e40e208a81ab72d56e816e007cbb15507d576cdc592c18b569367a8333",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/dirt_metallic_roughness.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:dirt-normal",
+        "relative_path": "assets/textures/dirt_normal.png",
+        "sha256": "a2ddc7426725392a7c71da3f2058dc20c05181f05976cc314d204a57d79cee23",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/dirt_normal.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:rock-albedo",
+        "relative_path": "assets/textures/rock_albedo.png",
+        "sha256": "86d175d75cd2955f3e3f4b216efea7038268f63cf19f3e30a18cbb644030d53b",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/rock_albedo.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:rock-metallic_roughness",
+        "relative_path": "assets/textures/rock_metallic_roughness.png",
+        "sha256": "0765faea79ee0abffd1bc11d8c36734b62fd5d0b03a0c881386b9f2cb8defcf0",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/rock_metallic_roughness.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:rock-normal",
+        "relative_path": "assets/textures/rock_normal.png",
+        "sha256": "49a4cf411319ef5f5cda85bf837990fc0935560013c5139f5ac6db363d92f7de",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/rock_normal.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:sand-albedo",
+        "relative_path": "assets/textures/sand_albedo.png",
+        "sha256": "adc0a624cb081e0c64bdc01745b9e94d89ee8ff2283d10e7697f582bc8ce865f",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/sand_albedo.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:sand-metallic_roughness",
+        "relative_path": "assets/textures/sand_metallic_roughness.png",
+        "sha256": "830d9d25afef2b42eaf7b70878490e426c7932b9c17d47c22646f0d86dc55f23",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/sand_metallic_roughness.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:sand-normal",
+        "relative_path": "assets/textures/sand_normal.png",
+        "sha256": "8c3dd82fc14aadd5393f7c5e6dcbdf1df4837f8d23a4b6970f1528ac7493a708",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/sand_normal.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:terrain-control",
+        "relative_path": "assets/textures/terrain_control.png",
+        "sha256": "5282727856475d3908898fcd6e31f15e61ce18d01dab7d0f8a09c0cfd9d418a6",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/terrain_control.png", "line": 1, "column": 1 }
+      },
+      {
+        "logical_source": "urn:nextengine:reference-alpha:procedural-textures-v1:terrain-height",
+        "relative_path": "assets/textures/terrain_height.png",
+        "sha256": "8631040f12bb6b060020466d705e45aaffbca1d36208dc846179be5e6fc126a6",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": { "relative_path": "assets/textures/terrain_height.png", "line": 1, "column": 1 }
       }
 ],
     "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
@@ -1286,16 +1374,14 @@
   ],
   "render_records": [
     {
-      "kind": "mesh",
+      "kind": "mesh-heightfield",
       "asset_id": "81818181818181818181818181818181",
-      "record_revision": 4,
-      "bounds_min": [-30000000, 99999, -30000000],
-      "bounds_max": [30000001, 100001, 30000001],
-      "positions_micrometres": [[-30000000,100000,-30000000],[-30000000,100000,5000000],[30000000,100000,5000000],[30000000,100000,-30000000],[-30000000,100000,9500000],[-30000000,100000,30000000],[30000000,100000,30000000],[30000000,100000,9500000],[-30000000,100000,5000000],[-30000000,100000,9500000],[-9000000,100000,9500000],[-9000000,100000,5000000],[1000000,100000,5000000],[1000000,100000,9500000],[30000000,100000,9500000],[30000000,100000,5000000]],
-      "uv0_q16": [[0,0],[0,2293760],[3932160,2293760],[3932160,0],[0,2588672],[0,3932160],[3932160,3932160],[3932160,2588672],[0,2293760],[0,2588672],[1376256,2588672],[1376256,2293760],[2031616,2293760],[2031616,2588672],[3932160,2588672],[3932160,2293760]],
-      "normals_snorm16": [[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0],[0,32767,0]],
-      "indices": [0,1,2,0,2,3,4,5,6,4,6,7,8,9,10,8,10,11,12,13,14,12,14,15],
-      "double_sided": false,
+      "record_revision": 5,
+      "relative_path": "assets/textures/terrain_height.png",
+      "origin_micrometres": [-30000000, -30000000],
+      "cell_micrometres": 500000,
+      "height_range_micrometres": [100000, 2600000],
+      "holes": [[-9000000, 5000000, 1000000, 9500000]],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
     {
@@ -1793,8 +1879,9 @@
     {
       "kind": "texture-png",
       "asset_id": "40404040404040404040404040404040",
-      "record_revision": 1,
+      "record_revision": 2,
       "relative_path": "assets/textures/ground_albedo.png",
+      "layers": ["assets/textures/dirt_albedo.png","assets/textures/rock_albedo.png","assets/textures/sand_albedo.png"],
       "color_space": "srgb",
       "alpha": "opaque",
       "mip_levels": "full",
@@ -1803,8 +1890,9 @@
     {
       "kind": "texture-png",
       "asset_id": "41414141414141414141414141414141",
-      "record_revision": 1,
+      "record_revision": 2,
       "relative_path": "assets/textures/ground_metallic_roughness.png",
+      "layers": ["assets/textures/dirt_metallic_roughness.png","assets/textures/rock_metallic_roughness.png","assets/textures/sand_metallic_roughness.png"],
       "color_space": "linear",
       "alpha": "opaque",
       "mip_levels": "full",
@@ -1813,8 +1901,9 @@
     {
       "kind": "texture-png",
       "asset_id": "42424242424242424242424242424242",
-      "record_revision": 1,
+      "record_revision": 2,
       "relative_path": "assets/textures/ground_normal.png",
+      "layers": ["assets/textures/dirt_normal.png","assets/textures/rock_normal.png","assets/textures/sand_normal.png"],
       "color_space": "linear",
       "alpha": "opaque",
       "mip_levels": "full",
@@ -1881,13 +1970,24 @@
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
     {
+      "kind": "texture-png",
+      "asset_id": "5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b",
+      "record_revision": 1,
+      "relative_path": "assets/textures/terrain_control.png",
+      "color_space": "linear",
+      "alpha": "opaque",
+      "mip_levels": "full",
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
       "kind": "material",
       "asset_id": "85858585858585858585858585858585",
-      "record_revision": 4,
+      "record_revision": 5,
       "texture_asset_id": "40404040404040404040404040404040",
       "metallic_roughness_texture_asset_id": "41414141414141414141414141414141",
       "normal_texture_asset_id": "42424242424242424242424242424242",
-      "uv_scale": 0.5,
+      "splat_control_texture_asset_id": "5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b",
+      "uv_scale": 30.0,
       "base_color_rgba_u16": [65535, 65535, 65535, 65535],
       "metallic_u16": 0,
       "roughness_u16": 65535,
