@@ -45,6 +45,7 @@ def solve(
     *,
     mode_count=MODES,
     sample_points=None,
+    contact_response=False,
 ):
     # Imports stay out of standalone neural rendering.
     from scipy.sparse.linalg import eigsh
@@ -101,6 +102,11 @@ def solve(
         "max_residual": float(residual.max()),
         "dofs": basis.N,
     }
+    if contact_response:
+        # Positive collocated residues are needed for mechanical feedback;
+        # the existing signed force-to-probe gains are not self-admittance.
+        result["self_gains"] = sampled[:-1] ** 2
+        result["probe_self_gains"] = sampled[-1] ** 2
     if sample_points is not None:
         samples = np.asarray(sample_points)
         if (

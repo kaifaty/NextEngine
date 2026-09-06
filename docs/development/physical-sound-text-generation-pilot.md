@@ -7097,3 +7097,104 @@ input-audio read; the read-path/source audit distinguishes those operations.
 Both jobs are terminal. No runtime/demo, roadmap, license or admission change;
 no Cargo/host-check/ProductCheck. `maintain-task-context` preserves the partial
 quality verdict and next missing physical input rather than another tuning loop.
+
+## 2026-09-06 — Both-material/velocity impact driver and feedback discriminator
+
+Previous checkpoint was progress (one shared corrected-teacher fit, partial
+quality gain). This checkpoint adds a source-free physical excitation path to
+that unchanged neural resonator, then tests its one-way assumption. It does
+not train a new network or identify real material labels.
+
+### Bounded research and mechanical counterexample
+
+[Stoelinga and Lutfi, 2011](https://pmc.ncbi.nlm.nih.gov/articles/PMC3155581/)
+give Hertz contact stiffness from both bodies' elastic properties and separate
+local indentation from whole-body motion. Their simplified impact-sound model
+also relates contact force/time to velocity; its acoustic evaluation is indirect,
+not an exhaustive real-sphere validation. The full article was read.
+[Zheng and James, 2011](https://www.cs.cornell.edu/projects/Sound/mc/)
+explain why ignoring vibration during contact misses energy exchange and
+secondary contact phenomena. The project abstract was read; PDF retrieval
+failed, so their solver is not claimed to have been reproduced.
+
+Competing hypotheses: (1) replacing the arbitrary pulse with material/velocity
+mechanics suffices; (2) vibration feedback materially changes the contact;
+(3) the existing neural transfer representation itself cannot serve as a
+mechanical contact response. The third has a direct counterexample: on the
+first exposed DEV body, querying the network at force=probe=(1,.5) gives three
+negative collocated residues, including -26.624 for mode8. Real collocated
+mass-normalized modal residues are squared mode displacements and nonnegative.
+Signed force-to-different-probe transfer gains are legitimate, but are not a
+self-admittance. Taking absolute values or clipping would hide the defect.
+
+`solve(contact_response=True)` now optionally returns actual FEM self/probe
+residues; default outputs and the old neural weights are unchanged. A focused
+test verifies positivity and cross_gain²=self_gain*probe_gain. No new training
+corpus or feedback-capable neural checkpoint is implied by this solver output.
+
+### Executed experiment and playable output
+
+`physical_sound_modal3d_impact.py render --fit <existing-fit> --output <new-root>`
+computes elastic sphere/half-space contact from both E/Poisson parameters,
+striker radius/density and initial speed: F=k*delta^1.5, m*x_ddot=-F. Indentation
+is positive into the surface; signs follow this explicit Newton convention.
+No duration or impulse is manually assigned. Continuous force convolution
+uses 64-point Gauss quadrature, avoiding audio-sample quantization of the
+8–74 microsecond pulses. Body frequencies/gains remain neural; Hertz contact,
+Rayleigh damping and material/size scaling remain analytical.
+
+External `modal3d-impact-render-2026-09-06` contains eleven 2 s impacts and four
+7.5 s galleries, all gain1. Fixed base: R3mm, striker rho2500 kg/m³, E70GPa,
+nu.3, speed .5m/s; first DEV target with L.18m, E64GPa, rho2230, nu.24, contact
+(.55,.35), clamped support/fixed +z velocity probe. Change one declared input
+at a time: striker E2/200GPa, speed .1/1m/s, rho1000/7800, R1/5mm, target
+E16/200GPa. These are numerical elastic inputs, NOT calibrated steel/rubber.
+
+Listen to [striker stiffness E2→70→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/striker-stiffness.wav),
+[speed .1→.5→1m/s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/impact-speed.wav),
+or [target stiffness E16→64→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/target-stiffness.wav).
+Each contains three full sounds starting at 0/2.5/5 s. Base contact duration
+23.99us, peak21.677N, impulse .0002827Ns. Softer striker E2GPa gives74.42us /
+6.989N at the same impulse; faster1m/s gives20.89us /49.800N /double impulse.
+Thus speed changes temporal/spectral excitation, not just playback gain.
+
+### Independent coupled control and allowed conclusion
+
+`assess --generated <render-root> --output <new-root>` computes a separate
+mesh4 FEM reference once, with positive contact self-residues. Its ODE couples
+sphere motion to eight damped target modes through indentation=x_s-u_contact.
+First separation ends contact; subsequent free ringing is retained, but later
+microcollisions, friction, plasticity and material-specific losses are absent.
+This is a finite-mode numerical discriminator, not measured pressure or a
+continuum contact-accuracy claim. Local Hertz contact radii are under 2% of
+target thickness in this grid; no yield-stress/material-law admission follows.
+
+External `modal3d-impact-assessment-2026-09-06` retains all eleven
+coupledFEM→one-wayFEM→one-wayNN comparisons and both force histories. The
+pre-run approximation check requires duration, peak force and impulse each
+within5%, plus spectral error<=.05 on the same FEM resonator. Ten cases pass.
+R5mm fails: one-way impulse is5.253% high and spectral error .051928. Listen
+to the retained [R5mm failure comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-assessment-2026-09-06/radius-5mm-comparison.wav),7.5s.
+Base impulse error is1.176%, spectral .011692; R1mm errors are .0444%/.000444.
+
+Mean one-wayFEM/coupled spectral error .015645, versus one-wayNN/coupled
+.322732. Hence contact approximation is not the leading remaining neural
+error in this tested grid; further pulse/Hertz parameter tuning is not a neural
+quality fix. The physical-input path is new, but no improved NN or realism is
+claimed. Next: learn a shared passive contact/probe response suitable for
+coupling, with an audible neural impact and the existing interpolator baseline.
+Geometry/radiation and internet-recorded bodies remain necessary for full-goal
+validation; the other event families remain open.
+
+Twenty focused tests PASS: previous13 plus Hertz energy/momentum and independent
+closed-form duration, velocity/both-modulus scalings, negative-residue rejection,
+zero-feedback control, coupled energy/convolution-vs-modal-state agreement,
+quadrature/zero force, FEM positivity/reciprocity and invalid/gate controls.
+All26 full WAVs finite/headroom-safe; peaks .074753 generated/.085615 comparisons,
+all gains1. Eleven standalone and eleven coupled reference replays are exact.
+64→128 quadrature relative PCM difference<1.2e-8; maximum coupled energy-balance
+error1.13e-9, momentum error2.51e-10. Source hashes, WAV hashes and render trace
+PASS: no target recording/FEM/network reads (own WAVs read for hashes only).
+Ruff format/check PASS; jobs terminal. No runtime, roadmap, data-license,
+model promotion or ProductCheck change. `maintain-task-context` preserves the
+negative-residue counterexample and rules out hiding it with abs/clamping.

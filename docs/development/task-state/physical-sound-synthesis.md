@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SHARED_TEACHER_CORRECTION_AUDIBLE / PARTIAL_QUALITY_GAIN_ONLY.
+Status: ACTIVE_GOAL / HERTZ_NEURAL_IMPACTS_AUDIBLE / PASSIVE_CONTACT_RESPONSE_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,10 +10,12 @@ Status: ACTIVE_GOAL / SHARED_TEACHER_CORRECTION_AUDIBLE / PARTIAL_QUALITY_GAIN_O
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `modal3d-teacher-effect-2026-09-06`,198WAVs:54standalone,
-  96baselinecomparisons+48 [mesh4→oldNN→correctedNN triples](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-teacher-effect-2026-09-06/case-00-contact-0-teacher-effect.wav),7.5s.
-  Alljobs terminal,13focusedtestsPASS;570fullfiniteWAVs acrossdata/effectroots;
-  48newNNreplays/segmentsEXACT;12bodies'frequenciescontact-invariant.
+- **Latest primary:** `modal3d-impact-render-2026-09-06`,15source-freeWAVs:
+  [striker E2→70→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/striker-stiffness.wav),
+  [speed .1→.5→1m/s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/impact-speed.wav),7.5s each;
+  radius/target-stiffnessgalleries+11singleimpacts. Samebaaa9af5…NN,NOnewfit.
+  `modal3d-impact-assessment-2026-09-06`:11coupledFEM→weakFEM→weakNNtriples.
+  Alljobs terminal,20testsPASS,26fullfiniteWAVs/gain1,22replaysEXACT,noinputaudio/FEM/networkrenderreads.
 - **OneSHAREDcorrectedfit:** `modal3d-teacher-effect-2026-09-06/fit`,10000params,
   unchanged1500Adamsteps/lr.001/seed42,weightsbaaa9af5e55adc52e51648acfad437366abc4d65324a1336fd2a33c167b1c516.
   36own3Dclampedcuboids×9contacts,324TRAIN;12×4exposedDEVinterpolation.
@@ -26,21 +28,27 @@ Status: ACTIVE_GOAL / SHARED_TEACHER_CORRECTION_AUDIBLE / PARTIAL_QUALITY_GAIN_O
   gain.369016. NNstillnotbetteroverall;automaticall-fiveoldcomparisonFALSE,
   baselineverdictREPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED.
   Olde426a289…checkpointandoriginalaudio unchanged;no modelpromotion.
-- **Physicscontrols:** actual3DFEMtestconfirmsomega∝sqrt(E/rho)/L,gain∝1/(rho L³).
-  All12neuralbodiesfrequenciesEXACTsameacross4contacts;impulse2×givesPCM2×,0silence.
-  No stochastic output sampling. Numericmaterialnotnamedglass/steel;softpulse≠strikerID.
 - **Familyteacher:** `modal3d-corrected-data-2026-09-06`,pairedmesh3/4all48,
   144NPZ/372fullcontactWAVpairs. TRAINmesh3/DEVmesh4fixedbeforefit,noexclusions.
   43/48localstable:all12DEV;TRAIN2/11/20/29/32failONLYspectrum(.05–.063).
   Allfirst8modesinorder,maxfreqchange.429%;notcontinuum/realismproof.
   Priorone-shape4levels/8vs12testclosed:coarsegriderror,notmodalpermutation;
   no more mesh-level/NNloss/epoch/capacity sweeps to beat interpolation.
-- **Next primary:** bounded research/experiment on second-body material and
-  impact-velocity coupling to the learned resonator, with a source-free WAV.
-  Currenthalf-sinepulse/Rayleighdamping/size-E-rhoscalingareANALYTICAL;probeis
-  velocityNOTpressure;no strikermaterial/contactsolver/real-objectcalibration.
-  Do not renamepulsewidth asrubber/steel. Geometry/radiation/internetrecordings
-  remain necessary;do notsubstitutecuboid-onlyqualityforthefullgoal.
+- **Contactdriver:** analyticalHertzF=kδ^1.5,kusesBOTH E/nu,m=4πrhoR³/3,
+  initialvelocitydrivesforce. 64pointcontinuousquadrature handles8–74us pulses;
+  128pointcountercheckrelPCM<1.2e-8. Target(.14,.055,.24),L.18,rho2230,onecontact.
+  Separate8modepositive-self-residueFEMfeedbackfirstseparation,energyerror<1.13e-9,
+  momentum<2.51e-10. Weakcontactrule10/11PASS;R5mmFAILimpulse+5.253%,spectrum.05193.
+  MeanweakFEM/coupled spectrum.015645vsweakNN/coupled.322732:forcefix≠NNqualityfix.
+  NumericalelasticpropertiesNOTidentifiedsteel/rubber;no real losses/yield/radiation.
+- **Decisive mechanical limit:** sameNNqueryatforce=probe(1,.5)has3negative
+  residues,includingmode8−26.624. SignedcrossgainsareNOTself-admittance;NOabs/clamprepair.
+  `solve(contact_response=True)` nowreturnsactualself_gains/probe_self_gains,
+  nonnegativeandcross²=self*probe. Defaultoutputunchanged. No newteacherTRAINyet.
+- **Next primary:** sharedpassivecontact/proberesponse representation+audible
+  coupledneuralimpact;research/compare againstretainedinterpolator,not oldpulse/
+  epoch/capacitysweeps. CurrentNNstillvelocityNOTpressure;geometry/radiation/
+  internet-recordedbodies andremainingeventfamilies necessary forfullgoal.
   Reuseexternal`neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2.
 - **Prior common-noise:** `sonicgauss-{common-noise-render,separation}-2026-09-06`:
   contact/noise.11851/.04639/latent.01302;identityreal8/10vsgen6/10;notrealism;see pilot.
@@ -71,19 +79,11 @@ Status: ACTIVE_GOAL / SHARED_TEACHER_CORRECTION_AUDIBLE / PARTIAL_QUALITY_GAIN_O
   Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
   Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;
   stracerenderreadsNOreference/corpus/network. DiagnosisonlyreadsDEVafterfit.
-- SonicGauss50steps/seed0/noCFG/full131072stereo44100/gain1;cachedreplayexact,
-  fullGSreencodingdrift.0019566→.0037788wave,causenotproven;see pilot.
-  Previous`sonicgauss-conditioning-report-2026-09-06`:geometry/appearanceaffectoutput;
-  originalfusionONEpositionkey,Q/K/Vgrad0/0/.05807,attentioncan'tselectGS tokens,
-  butfullresidual+decoderSTILLcanlearnposition. NewresidualdidNOTprovequalityfix.
-- Source`sonicgauss-source-2026-09-06`,assets`sonicgauss-assets-2026-09-06`unchanged;
-  pilotpins17sources+5weights(HF57b06047),strictloads,noT5/pickle/network.
-- Reproduce`physical_sound_sonicgauss_shared_fit.py`fit/render/assess/diagnose;see--help.
-  PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
-  HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4.
-  NativeSDPA/segment_reduce;DON'Tdisableflash(PTv3patch1024→128);fullGSreplay≠cached,no perfclaim.
-- Prior2DNeuralResonator sharedfit improves12/16spectra but worsensphysicalratios;
-  2DFEM/phasehybrids/scaleinputcollision remain limited;see pilot. No2Dsweeps.
+- SonicGauss pins/reproduction/environment:see pilot and`physical_sound_sonicgauss_shared_fit.py`.
+  CachedreplayEXACT≠GSreencode;single-position-keyfusionisNOTsolecause;
+  newresidualdidNOTfixquality. Keepstrict17source/5weightpins,noT5/pickle/network.
+  KeepnativeSDPA/flash:disablingchangesPTv3patch1024→128;no perfclaim.
+- Prior2DNeuralResonator fit improves12/16spectra but worsensphysicalratios;see pilot.No2Dsweeps.
 - **SonicGauss scale collision:** own8Gaussianfixture doubledgeometry/contact/
   logscales producesEXACTsame8preprocessednetworkinputs. Positivecontrolsrelative
   contact/shape/appearancechange. `sonicgauss-input-probe-2026-09-06`,4tests.
