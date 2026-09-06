@@ -668,6 +668,7 @@ fn step_world(
             target_gameplay_tick: gameplay_tick,
             direction_q15,
         }],
+        external_impulses: Vec::new(),
     };
     world.step(&input).map_err(|error| {
         PhysicalGameplayConformanceErrorV1::new("step reference physics", error.to_string())

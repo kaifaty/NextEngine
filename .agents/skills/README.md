@@ -24,6 +24,7 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 | `nextengine-training-diagnostics` | Deterministic artifact, safety, PPO and evaluation diagnosis with one-variable next experiments |
 | `nextengine-isaac-correspondence` | CPU-canonical/Isaac-mirror identity and MODEL-MIRROR-P1/P2 evidence audit |
 | `maintain-task-context` | Bounded, Git-tracked resume context and decision rationale for long-running or approach-changing work |
+| `investigate-with-hypotheses` | Falsifiable competing explanations and bounded experiments for uncertain causes |
 
 These skills are native NextEngine guidance. Their workflow design applies the
 useful parts of the imported deep-RL, experiment-tracking and determinism
@@ -61,7 +62,7 @@ skill; Lean, LeanExplore, CAS and Wolfram remain optional backends.
 
 ## Third-Party Attribution
 
-The three `tachyon-beep/skillpacks` skills above are unmodified copies from the
+The four `tachyon-beep/skillpacks` skills above are locally adapted copies from the
 recorded commit, attributed to the upstream authors and redistributed under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Their exact
 source directories and commit are linked in the table. Preserve the upstream
@@ -70,7 +71,7 @@ and [license addendum](https://github.com/tachyon-beep/skillpacks/blob/a86e7855a
 when redistributing these skills; they are not relicensed under the engine's
 Apache-2.0 license.
 
-`cli-creator` is an unmodified copy from the recorded OpenAI Skills commit. Its
+`cli-creator` is a locally adapted copy from the recorded OpenAI Skills commit. Its
 upstream Apache-2.0 license text is preserved at
 `cli-creator/LICENSE.txt`.
 
@@ -80,4 +81,14 @@ upstream Apache-2.0 license text is preserved at
   skills pass the current Codex skill validator.
 - Removed TerminalSkills `_scores.json` files because their content hashes no
   longer match the locally adapted `SKILL.md` files.
-- The four newly installed third-party skills are currently unmodified.
+- On 2026-09-05, adapted all 16 entrypoints to the
+  [shared Astra execution guidance](astra-guidance.md). Replaced mandatory
+  interviews, repeated authorization requests and generic artifact campaigns
+  with scoped workflows. Rust, workspace, replay and RL routers now load only
+  relevant topic references. Technical reference files and scripts retain their
+  upstream content; their process examples are subordinate to the entrypoint,
+  shared guidance and repository contracts.
+- Source commits in the table identify the imported baseline, not a claim that
+  the current entrypoints are byte-identical to upstream. These adaptations
+  preserve each upstream license, including CC BY-SA 4.0 for the four
+  `tachyon-beep/skillpacks` skills.

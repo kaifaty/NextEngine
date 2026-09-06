@@ -131,6 +131,7 @@ impl InteractiveSimulationWorkerV1 {
         })?;
         Ok(InteractiveMainSnapshotReadV1 {
             snapshot: published.snapshot,
+            water: published.water,
             lock_wait,
             processed_callbacks: self
                 .processed_callbacks
@@ -706,6 +707,10 @@ fn run_interactive_simulation_session_worker(
                                 next_snapshot.snapshot_epoch,
                                 next_snapshot.snapshot_sequence,
                             );
+                            // Plan 09: the water presentation frame of the
+                            // committed checkpoint rides next to the snapshot.
+                            let next_water = application
+                                .latest_water_presentation_frame(next_snapshot.snapshot_sequence);
                             let publication_started = metrics.as_ref().map(|_| Instant::now());
                             match presentation_mailbox.lock() {
                                 Ok(mut mailbox) => {
@@ -725,6 +730,7 @@ fn run_interactive_simulation_session_worker(
                                     mailbox.publish_latest(InteractivePublishedSnapshotV1 {
                                         snapshot: next_snapshot,
                                         callback_sequence: Some(callback_sequence),
+                                        water: next_water.clone(),
                                     });
                                 }
                                 Err(_) => record_interactive_worker_failure(
@@ -822,6 +828,7 @@ fn prepare_interactive_worker(
     mailbox.publish_latest(InteractivePublishedSnapshotV1 {
         snapshot: Arc::clone(&initial_snapshot),
         callback_sequence: None,
+        water: application.latest_water_presentation_frame(initial_snapshot.snapshot_sequence),
     });
     drop(mailbox);
     if let Some(metrics) = metrics {

@@ -20,6 +20,10 @@ metadata:
 
 # Blender Scripting
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
+Use the installed, project-pinned Blender version and the requested output. The examples below are recipes, not a sequence to execute. Preserve the source scene and make the requested edit; inspect the affected geometry and one representative export before extending a batch. Do not run every example or render unrelated scenes.
+
 ## Overview
 
 Automate Blender tasks and create 3D models procedurally using Python and the `bpy` API. Run scripts headlessly from the terminal to manipulate scenes, build geometry with bmesh, apply modifiers, batch process files, and import/export models.

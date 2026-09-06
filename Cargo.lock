@@ -932,10 +932,13 @@ dependencies = [
 name = "next_game"
 version = "1.0.0"
 dependencies = [
+ "crc32fast",
+ "flate2",
  "next_application",
  "next_assets",
  "next_contracts",
  "next_desktop_sdl_ash",
+ "next_physics_physx_ffi",
  "next_project",
  "next_reference_game",
  "serde",
@@ -1032,6 +1035,7 @@ dependencies = [
 name = "next_project"
 version = "1.0.0"
 dependencies = [
+ "flate2",
  "next_assets",
  "next_contracts",
  "next_reference_game",
@@ -2445,7 +2449,9 @@ dependencies = [
  "next_cli",
  "next_continuum_water",
  "next_contracts",
+ "next_desktop_sdl_ash",
  "next_motor",
+ "next_physics_physx_ffi",
  "next_presentation",
  "next_project",
  "next_reference_game",

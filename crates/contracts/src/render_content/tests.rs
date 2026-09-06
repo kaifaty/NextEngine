@@ -6,6 +6,7 @@ use crate::project::{
     AssetRevisionRefV1, SchemaEncodingV1, SchemaRefV1, SchemaRoleV1, domain_hash,
 };
 
+use super::RENDER_CONTENT_DECODE_LIMITS;
 use super::{
     AabbI64V1, B0CookedMeshV1, B0RenderContentProfileV1, BaseSkinningFallbackV1,
     BaseSkinningMethodV1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,
@@ -470,13 +471,6 @@ fn b0_admission_rejects_semantics_the_backend_does_not_represent() {
         b0_material(
             texture_ref,
             B0MaterialOverrides {
-                metallic_unorm16: 1,
-                ..B0MaterialOverrides::default()
-            },
-        ),
-        b0_material(
-            texture_ref,
-            B0MaterialOverrides {
                 double_sided: true,
                 ..B0MaterialOverrides::default()
             },
@@ -581,7 +575,7 @@ fn typed_schema_dispatch_and_legacy_record_encoding_remain_separate() {
 fn b0_shader_interface_hash_is_a_stable_neutral_golden_vector() {
     assert_eq!(
         b0_shader_interface_manifest_sha256().to_hex(),
-        "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c"
+        "0c1cece9abc2942f24dc8321255cf93de23b57048121fe200e12da72e228eacd"
     );
 }
 
@@ -682,6 +676,145 @@ fn texture(id: u8) -> NeutralTextureV1 {
     .expect("texture")
 }
 
+fn linear_texture(id: u8) -> NeutralTextureV1 {
+    NeutralTextureV1::new(
+        schema_ref(NEUTRAL_TEXTURE_SCHEMA_ID),
+        asset(id),
+        1,
+        NeutralTextureDimensionV1::D2,
+        [2, 2, 1],
+        1,
+        NeutralTextureColorSpaceV1::Linear,
+        NeutralTextureAlphaSemanticsV1::Straight,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![
+            NeutralTextureMipLevelV1::new(
+                [2, 2, 1],
+                vec![
+                    128, 128, 255, 255, 128, 128, 255, 255, 128, 128, 255, 255, 128, 128, 255, 255,
+                ],
+            ),
+            NeutralTextureMipLevelV1::new([1, 1, 1], vec![128, 128, 255, 255]),
+        ],
+    )
+    .expect("texture")
+}
+
+fn b0_material_with_bindings(
+    bindings: Vec<NeutralMaterialTextureBindingV1>,
+) -> Result<NeutralMaterialV1, RenderContentContractError> {
+    NeutralMaterialV1::new(
+        schema_ref(NEUTRAL_MATERIAL_SCHEMA_ID),
+        asset(2),
+        1,
+        [u16::MAX; 4],
+        MaterialColorSpaceV1::Linear,
+        0,
+        u16::MAX,
+        [0; 3],
+        MaterialColorSpaceV1::Linear,
+        0,
+        65_536,
+        u16::MAX,
+        MaterialAlphaModeV1::Opaque,
+        0,
+        false,
+        bindings,
+        Vec::new(),
+    )
+}
+
+/// Plan look/05 G3: the profile admits a base, metallic-roughness and normal
+/// binding under one uniform UV scale over a mip-mapped linear texture, and
+/// rejects a duplicate slot, an emissive binding, an sRGB normal map and a
+/// non-uniform scale.
+#[test]
+fn b0_admits_three_bindings_under_a_uniform_scale() {
+    let base = texture(1);
+    let linear = linear_texture(9);
+    let base_ref = base.asset_revision().expect("texture ref");
+    let linear_ref = linear.asset_revision().expect("texture ref");
+    let scale = UvTransformV1::new([2 * 65_536, 0, 0, 0, 2 * 65_536, 0]).expect("scale");
+    let binding = |slot: MaterialTextureSlotV1, texture: AssetRevisionRefV1, transform| {
+        NeutralMaterialTextureBindingV1::new(slot, texture, 0, transform).expect("binding")
+    };
+    let catalog = |material: NeutralMaterialV1| {
+        let profile = B0RenderContentProfileV1::new(
+            schema_ref(B0_RENDER_CONTENT_PROFILE_SCHEMA_ID),
+            asset(4),
+            1,
+            b0_shader_interface_manifest_sha256(),
+            material.asset_revision().expect("material ref"),
+            base_ref,
+        )
+        .expect("profile");
+        RenderContentCatalogV1::new(
+            profile,
+            vec![mesh(
+                3,
+                vec![[0, 0, 0], [1_000_000, 0, 0], [0, 1_000_000, 0]],
+                vec![0, 1, 2],
+            )],
+            vec![material],
+            vec![base.clone(), linear.clone()],
+            Vec::new(),
+        )
+    };
+    let accepted = b0_material_with_bindings(vec![
+        binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+        binding(MaterialTextureSlotV1::MetallicRoughness, linear_ref, scale),
+        binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+    ])
+    .expect("material");
+    assert!(catalog(accepted).is_ok());
+    let rejected = [
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, linear_ref, scale),
+        ],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Emissive, base_ref, scale),
+        ],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(MaterialTextureSlotV1::Normal, base_ref, scale),
+        ],
+        vec![binding(
+            MaterialTextureSlotV1::BaseColor,
+            base_ref,
+            UvTransformV1::new([2 * 65_536, 0, 0, 0, 65_536, 0]).expect("scale"),
+        )],
+        vec![
+            binding(MaterialTextureSlotV1::BaseColor, base_ref, scale),
+            binding(
+                MaterialTextureSlotV1::Normal,
+                linear_ref,
+                UvTransformV1::identity(),
+            ),
+        ],
+    ];
+    for bindings in rejected {
+        // The record itself refuses a duplicate slot; the profile refuses
+        // the rest.
+        let Ok(material) = b0_material_with_bindings(bindings) else {
+            continue;
+        };
+        assert_eq!(
+            catalog(material),
+            Err(RenderContentContractError::UnsupportedB0Feature)
+        );
+    }
+    assert_eq!(scale.uniform_scale_q16_16(), Some(2 * 65_536));
+    assert_eq!(
+        UvTransformV1::new([65_536, 0, 1, 0, 65_536, 0])
+            .expect("bounded transform")
+            .uniform_scale_q16_16(),
+        None
+    );
+}
+
 #[derive(Clone, Copy)]
 struct B0MaterialOverrides {
     base_color_space: MaterialColorSpaceV1,
@@ -750,4 +883,182 @@ const fn asset(value: u8) -> AssetId {
 
 const fn hash(value: u8) -> ContentHash {
     ContentHash::from_bytes([value; 32])
+}
+
+fn layered_texture(
+    id: u8,
+    layers: u32,
+    color_space: NeutralTextureColorSpaceV1,
+) -> NeutralTextureV1 {
+    let texel = |value: u8| [value, 128, 255, 255];
+    let mut level0 = Vec::new();
+    for layer in 0..layers {
+        for _ in 0..4 {
+            level0.extend_from_slice(&texel(layer as u8 * 40));
+        }
+    }
+    let mut level1 = Vec::new();
+    for layer in 0..layers {
+        level1.extend_from_slice(&texel(layer as u8 * 40));
+    }
+    NeutralTextureV1::new(
+        schema_ref(NEUTRAL_TEXTURE_SCHEMA_ID),
+        asset(id),
+        1,
+        NeutralTextureDimensionV1::D2,
+        [2, 2, 1],
+        layers,
+        color_space,
+        NeutralTextureAlphaSemanticsV1::Straight,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![
+            NeutralTextureMipLevelV1::new([2, 2, 1], level0),
+            NeutralTextureMipLevelV1::new([1, 1, 1], level1),
+        ],
+    )
+    .expect("texture")
+}
+
+/// Plan look/06a G3: the profile admits a four-layer splat material (colour,
+/// roughness and normal arrays with a one-layer control map) and rejects a
+/// splat material with mismatched layer counts, a layered control map and a
+/// layered texture on a plain material.
+#[test]
+fn b0_admits_a_four_layer_splat_material() {
+    let base = texture(1);
+    let color = layered_texture(20, 4, NeutralTextureColorSpaceV1::Srgb);
+    let roughness = layered_texture(21, 4, NeutralTextureColorSpaceV1::Linear);
+    let normal = layered_texture(22, 4, NeutralTextureColorSpaceV1::Linear);
+    let control = linear_texture(23);
+    let three = layered_texture(24, 3, NeutralTextureColorSpaceV1::Linear);
+    let layered_control = layered_texture(25, 2, NeutralTextureColorSpaceV1::Linear);
+    let textures = vec![
+        base.clone(),
+        color.clone(),
+        roughness.clone(),
+        normal.clone(),
+        control.clone(),
+        three.clone(),
+        layered_control.clone(),
+    ];
+    let scale = UvTransformV1::new([30 * 65_536, 0, 0, 0, 30 * 65_536, 0]).expect("scale");
+    let binding = |slot: MaterialTextureSlotV1, texture: &NeutralTextureV1| {
+        NeutralMaterialTextureBindingV1::new(
+            slot,
+            texture.asset_revision().expect("texture ref"),
+            0,
+            scale,
+        )
+        .expect("binding")
+    };
+    let catalog = |material: NeutralMaterialV1| {
+        let profile = B0RenderContentProfileV1::new(
+            schema_ref(B0_RENDER_CONTENT_PROFILE_SCHEMA_ID),
+            asset(4),
+            1,
+            b0_shader_interface_manifest_sha256(),
+            material.asset_revision().expect("material ref"),
+            material.texture_bindings()[0].texture(),
+        )
+        .expect("profile");
+        RenderContentCatalogV1::new(
+            profile,
+            vec![mesh(
+                3,
+                vec![[0, 0, 0], [1_000_000, 0, 0], [0, 1_000_000, 0]],
+                vec![0, 1, 2],
+            )],
+            vec![material],
+            textures.clone(),
+            Vec::new(),
+        )
+    };
+    let splat = b0_material_with_bindings(vec![
+        binding(MaterialTextureSlotV1::BaseColor, &color),
+        binding(MaterialTextureSlotV1::MetallicRoughness, &roughness),
+        binding(MaterialTextureSlotV1::Normal, &normal),
+        binding(MaterialTextureSlotV1::SplatControl, &control),
+    ])
+    .expect("material");
+    assert_eq!(catalog(splat).err(), None);
+    let mismatched = b0_material_with_bindings(vec![
+        binding(MaterialTextureSlotV1::BaseColor, &color),
+        binding(MaterialTextureSlotV1::Normal, &three),
+        binding(MaterialTextureSlotV1::SplatControl, &control),
+    ])
+    .expect("material");
+    assert_eq!(
+        catalog(mismatched).err(),
+        Some(RenderContentContractError::UnsupportedB0Feature)
+    );
+    let layered = b0_material_with_bindings(vec![
+        binding(MaterialTextureSlotV1::BaseColor, &color),
+        binding(MaterialTextureSlotV1::SplatControl, &layered_control),
+    ])
+    .expect("material");
+    assert_eq!(
+        catalog(layered).err(),
+        Some(RenderContentContractError::UnsupportedB0Feature)
+    );
+    let plain_layered =
+        b0_material_with_bindings(vec![binding(MaterialTextureSlotV1::BaseColor, &color)])
+            .expect("material");
+    assert_eq!(
+        catalog(plain_layered).err(),
+        Some(RenderContentContractError::UnsupportedB0Feature)
+    );
+}
+
+/// Plan look/06a G3: a catalog whose texture field exceeds the default
+/// decode limits round-trips under the render content limits.
+#[test]
+fn render_content_limits_admit_a_large_texture_field() {
+    let side = 2_048_u32;
+    let texels = vec![200_u8; (side * side * 4) as usize];
+    let large = NeutralTextureV1::new(
+        schema_ref(NEUTRAL_TEXTURE_SCHEMA_ID),
+        asset(30),
+        1,
+        NeutralTextureDimensionV1::D2,
+        [side, side, 1],
+        1,
+        NeutralTextureColorSpaceV1::Srgb,
+        NeutralTextureAlphaSemanticsV1::Straight,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![NeutralTextureMipLevelV1::new([side, side, 1], texels)],
+    )
+    .expect("texture");
+    let large_ref = large.asset_revision().expect("texture ref");
+    let material = b0_material(large_ref, B0MaterialOverrides::default());
+    let profile = B0RenderContentProfileV1::new(
+        schema_ref(B0_RENDER_CONTENT_PROFILE_SCHEMA_ID),
+        asset(4),
+        1,
+        b0_shader_interface_manifest_sha256(),
+        material.asset_revision().expect("material ref"),
+        large_ref,
+    )
+    .expect("profile");
+    let catalog = RenderContentCatalogV1::new(
+        profile,
+        vec![mesh(
+            3,
+            vec![[0, 0, 0], [1_000_000, 0, 0], [0, 1_000_000, 0]],
+            vec![0, 1, 2],
+        )],
+        vec![material],
+        vec![large],
+        Vec::new(),
+    )
+    .expect("catalog");
+    let bytes = catalog.canonical_bytes().expect("bytes");
+    assert!(bytes.len() > 16 * 1024 * 1024);
+    assert!(
+        RenderContentCatalogV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .is_err()
+    );
+    let decoded =
+        RenderContentCatalogV1::from_canonical_bytes(&bytes, RENDER_CONTENT_DECODE_LIMITS)
+            .expect("decodes under the render limits");
+    assert_eq!(decoded, catalog);
 }

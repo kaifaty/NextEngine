@@ -201,7 +201,7 @@ interest/residency admission and eviction remain future concepts.
 | Check | Current evidence |
 |---|---|
 | focused project/contracts tests | canonical four-region/64-chunk ordering, bounds, unknown-field, duplicate ID, wrong class and dependency mismatch failures |
-| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed body-schema/routine/population/navigation/cognition/activity catalogs and 122 packaged entries |
+| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed body-schema/routine/population/navigation/cognition/activity catalogs and 125 packaged entries |
 | `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation/re-fetch and the separate population/activity/Agent/Memory/physical-animation segments complete with the uninterrupted ten-owner root |
 | `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
 | `performance --scenario r3-multiregion-streaming --mode report` | 1,000 transitions cycle over the canonical 64-chunk route with production default two workers; only `streaming_world` is authoritative and the scenario remains report-only |

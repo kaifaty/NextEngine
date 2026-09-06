@@ -1,4 +1,5 @@
 mod articulated;
+mod buoyancy;
 mod catalog;
 mod codec;
 mod contact;
@@ -10,7 +11,18 @@ mod profiles;
 mod query;
 mod snapshot;
 mod step;
+mod water;
+mod water_flow;
+mod water_lattice;
 
+pub use buoyancy::{
+    ExternalImpulseV1, MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS, WATER_BUOYANCY_EDGE_PROFILE_ID,
+    WATER_BUOYANCY_EXCHANGE_NAMESPACE, WATER_BUOYANCY_MAX_RECORDS, WATER_BUOYANCY_PROFILE_ID,
+    WATER_EXCHANGE_DESTINATION_OWNER, WATER_EXCHANGE_SOURCE_OWNER, WaterBuoyancyBatchV1,
+    WaterBuoyancyBoundsRuleV1, WaterBuoyancyProfileV1, WaterBuoyancyRecordV1,
+    WaterExchangeContextV1, WaterExchangeTupleV1, validate_external_impulses,
+    velocity_delta_micrometres_per_second, water_currents,
+};
 pub use catalog::{
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,
     PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldDescriptorV1,
@@ -20,7 +32,8 @@ pub use contact::{
     derive_physics_contact_id,
 };
 pub use descriptors::{
-    PhysicsBodyDescriptorV1, PhysicsMaterialDescriptorV1, PhysicsShapeDescriptorV1,
+    MAXIMUM_BODY_MASS_MICROKILOGRAMS, PhysicsBodyDescriptorV1, PhysicsMaterialDescriptorV1,
+    PhysicsShapeDescriptorV1,
 };
 pub use error::PhysicsContractError;
 pub use material::{
@@ -46,6 +59,15 @@ pub use snapshot::{PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsWorldC
 pub use step::{
     AcceptedLocomotionIntentV2, AppliedLocomotionResultV1, PhysicalCommandV1, PhysicalEventV1,
     PhysicsStepInputV2, PhysicsStepResultV1,
+};
+pub use water::{
+    MAX_WATER_VOLUMES, WATER_POSITION_LIMIT_MICROMETRES, WATER_VOLUME_CAPABILITY_ID,
+    WATER_VOLUME_COMMAND_KIND_ID, WATER_VOLUME_COMMAND_SCHEMA_ID,
+    WATER_VOLUME_COMMAND_SCHEMA_VERSION, WATER_VOLUME_EVENT_SCHEMA_ID,
+    WATER_VOLUME_EVENT_SCHEMA_VERSION, WATER_VOLUME_PRIORITY_CLASS, WATER_VOLUME_SCHEMA_VERSION,
+    WaterLevelRampV1, WaterSubmersionClassV1, WaterSubmersionV1, WaterVolumeChangedV1,
+    WaterVolumeCommandV1, WaterVolumeDefinitionV1, WaterVolumeRejectionV1, WaterVolumeSetV1,
+    WaterVolumeStateV1,
 };
 
 pub const PHYSICAL_COMMAND_SCHEMA_ID: &str = "nextengine.command.physical";
@@ -76,10 +98,10 @@ pub const PHYSICS_SNAPSHOT_OWNER_ID: &str = "nextengine.physics";
 pub const PHYSICS_SNAPSHOT_SCHEMA_ID: &str = "nextengine.physics-canonical-snapshot";
 pub const PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v2";
 pub const LEGACY_PHYSICS_SNAPSHOT_SEGMENT_ID: &str = "v1";
-pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION: u16 = 4;
 pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID: &str = "nextengine.physics-world-checkpoint";
-pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v1";
-pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 2;
+pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v4";
+pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 3;
 pub const CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUERY_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUERY_BATCH_SCHEMA_VERSION: u16 = 1;
@@ -108,4 +130,17 @@ pub use articulated::{
     PhysicsBodyDescriptorV3, PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1,
     PhysicsJointDescriptorV2, PhysicsJointKindV1, PhysicsStepInputV3, PhysicsStepResultV2,
     PhysicsSubstepActuationV1, PhysicsWorldCatalogV2, PhysicsWorldCheckpointV2,
+};
+pub use water_flow::{
+    MAX_WATER_FLOW_EDGES, MAX_WATER_FLOW_RATE_CUBIC_MILLIMETRES_PER_SECOND,
+    WATER_FLOW_CAPABILITY_ID, WATER_FLOW_COMMAND_KIND_ID, WATER_FLOW_COMMAND_SCHEMA_ID,
+    WATER_FLOW_COMMAND_SCHEMA_VERSION, WATER_FLOW_EVENT_SCHEMA_ID, WATER_FLOW_EVENT_SCHEMA_VERSION,
+    WATER_FLOW_GRAVITY_MICROMETRES_PER_SECOND_SQUARED, WATER_FLOW_PRIORITY_CLASS,
+    WATER_FLOW_SCHEMA_VERSION, WaterFlowActivityV1, WaterFlowCellStateV1, WaterFlowChangedV1,
+    WaterFlowCommandV1, WaterFlowEdgeKindV1, WaterFlowEdgeStateV1, WaterFlowEdgeV1,
+    WaterFlowNetworkV1, WaterFlowRejectionV1, WaterFlowStepStatsV1, WaterFlowStepV1,
+    cell_area_square_millimetres, isqrt_i128, level_from_volume, volume_from_level,
+};
+pub use water_lattice::{
+    WATER_LATTICE_CELL_ID_DOMAIN, WATER_LATTICE_EDGE_ID_DOMAIN, WaterLatticeRegionV1,
 };

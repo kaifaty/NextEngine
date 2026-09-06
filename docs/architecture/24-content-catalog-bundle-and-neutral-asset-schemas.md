@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 3.3 |
-| Последняя проверка | 2026-08-28 |
+| Версия | 3.4 |
+| Последняя проверка | 2026-09-06 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.1 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V3.3 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
-| Заменяет | SPEC-24 3.2; adds one optional exact BodySchema-bound functional-anatomy profile to the current asset while creator projects without a consumer omit it |
+| Дополнительные зависимости V3.4 | plan [`look/06a`](../plans/look/06a-terrain-presentation.md) (scene look L6a) |
+| Заменяет | SPEC-24 3.3; adds the `SplatControl` material texture slot (tag 6), the B0 `v7` profile rule for up to four texture array layers under a splat material, and the render content catalog decode limits (`RENDER_CONTENT_DECODE_LIMITS`, 64 MiB total, 48 MiB a field) at the activation round trips |
 
 ## Scope
 
@@ -107,6 +108,16 @@ The implemented specialized neutral records are:
 
 - `NeutralMeshV1`, `NeutralMaterialV1`, `NeutralTextureV1` and
   `B0RenderContentProfileV1`, cooked into `RenderContentCatalogV1`;
+  V3.4 (plan `look/06a`): `MaterialTextureSlotV1` gains `SplatControl`
+  (tag 6, an `RGBA8` linear opaque map whose `RGB` weigh texture array
+  layers 0 to 2 and whose fourth layer takes the remainder); the B0
+  profile (`b0.v7`) admits 2D textures with one to four array layers, a
+  material binding a one-layer `SplatControl` map is a splat material
+  whose colour, metallic-roughness and normal textures carry the same two
+  to four layers, and a plain material binds one-layer textures; the
+  published `RenderContentCatalogV1` decodes under
+  `RENDER_CONTENT_DECODE_LIMITS` (64 MiB total, 48 MiB a field) at both
+  activation round trips, the other segments under the defaults;
 - `NeutralBaseSkinningProfileV1`, binding one exact mesh, source skeleton and
   `BodySchemaAssetV1` revision to stable render-joint IDs, explicit animation-
   joint/body-semantic mappings, bounded LBS influences, sparse authored pose

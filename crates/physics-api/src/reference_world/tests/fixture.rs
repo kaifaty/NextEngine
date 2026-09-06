@@ -211,9 +211,17 @@ pub(super) fn body(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: if motion_kind == PhysicsMotionKindV1::Dynamic {
+            FIXTURE_DYNAMIC_MASS_MICROKILOGRAMS
+        } else {
+            0
+        },
         shapes: BTreeMap::from([(shape.shape_id, shape)]),
     }
 }
+
+/// `20 kg`: the mass of every fixture dynamic box (WR1).
+pub(super) const FIXTURE_DYNAMIC_MASS_MICROKILOGRAMS: u64 = 20_000_000;
 
 pub(super) fn shape(
     shape_id: PhysicsShapeIdV1,
@@ -283,6 +291,7 @@ pub(super) fn step_input(
             .expect("test physics tick remains bounded"),
         physics_substeps: world.tick_rate_profile().physics_substeps_per_gameplay_tick,
         accepted_intents,
+        external_impulses: Vec::new(),
     }
 }
 

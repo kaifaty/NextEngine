@@ -291,6 +291,14 @@ fn shader_hashes(root: &Path) -> Result<BTreeMap<String, String>, String> {
         "sky_gradient.frag.spv",
         "ui_overlay.vert.spv",
         "ui_overlay.frag.spv",
+        "fluid_splat.vert.spv",
+        "fluid_splat.frag.spv",
+        "fluid_screen.vert.spv",
+        "fluid_filter.frag.spv",
+        "fluid_composite.frag.spv",
+        "fluid_thickness.frag.spv",
+        "fluid_spray.vert.spv",
+        "fluid_spray.frag.spv",
     ] {
         let bytes = fs::read(root.join("crates/desktop-sdl-ash/shaders").join(name))
             .map_err(|error| error.to_string())?;

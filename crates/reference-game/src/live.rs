@@ -91,6 +91,9 @@ pub struct ReferenceGameDriverV2 {
     audio_cue_bindings: Arc<Vec<AudioEventCueBindingV1>>,
     audio_listener_binding: AudioListenerBindingV1,
     audio_mixer: AudioMixerV1,
+    /// Plan 34: the water clips and the presentation-only water audio memory.
+    water_audio_clips: crate::water_audio::WaterAudioClipsV1,
+    water_audio: crate::water_audio::WaterAudioStateV1,
     #[cfg(feature = "physical-sound-lab")]
     physical_sound_lab: ExperimentalPhysicalSoundMixer,
     #[cfg(feature = "physical-sound-lab")]
@@ -116,6 +119,7 @@ struct PreparedReferenceGameState {
     presentation_bindings: Vec<PresentationBindingV1>,
     presentation_extractor: PresentationExtractorV1,
     audio_mixer: AudioMixerV1,
+    water_audio: crate::water_audio::WaterAudioStateV1,
     #[cfg(feature = "physical-sound-lab")]
     physical_sound_lab: ExperimentalPhysicalSoundMixer,
     audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
@@ -202,6 +206,44 @@ impl ValidatedReferenceGameAdvance {
 }
 
 impl ReferenceGameDriverV2 {
+    /// Plan 36: the gate lever's prompt when the avatar stands in its reach.
+    pub fn gate_prompt_for(
+        &self,
+        snapshot: &PhysicsCanonicalSnapshotV2,
+        network: &next_contracts::physics::WaterFlowNetworkV1,
+    ) -> Result<Option<crate::water_gate::WaterGatePromptV1>, ReferenceGameError> {
+        if !crate::water_gate::lever_in_reach(
+            snapshot,
+            self.fixture.physics_body_id,
+            crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID,
+        )? {
+            return Ok(None);
+        }
+        Ok(
+            crate::water_gate::gate_state(network, crate::water::REFERENCE_WATER_FLOW_GATE_ID)
+                .map(|state| crate::water_gate::gate_prompt(&state)),
+        )
+    }
+
+    /// Presentation-only water frame (plan 09) for the committed physics
+    /// checkpoint at the next tick; a pure function of that checkpoint and
+    /// the presentation frame index, never read by gameplay.
+    #[must_use]
+    pub fn water_presentation_frame(
+        &self,
+        frame_index: u64,
+    ) -> crate::water_presentation::WaterPresentationFrameV1 {
+        let checkpoint = self.runtime.physics_checkpoint();
+        crate::water_presentation::compute_water_presentation_frame(
+            &checkpoint.water_volumes,
+            &checkpoint.water_flow,
+            &crate::water_presentation::reference_water_surface_bindings(),
+            &crate::water_presentation::floating_boxes(checkpoint),
+            self.runtime.next_tick(),
+            frame_index,
+        )
+    }
+
     pub fn new(
         package: next_project::ActivatedProjectPackage,
         include_interaction: bool,
@@ -215,14 +257,34 @@ impl ReferenceGameDriverV2 {
 
     pub fn new_with_presentation_epoch(
         package: next_project::ActivatedProjectPackage,
+        include_interaction: bool,
+        snapshot_epoch: ContentHash,
+    ) -> Result<Self, ReferenceGameError> {
+        Self::new_with_presentation_epoch_and_spawn(
+            package,
+            include_interaction,
+            snapshot_epoch,
+            None,
+        )
+    }
+
+    /// As [`Self::new_with_presentation_epoch`] with a launch-time spawn
+    /// override (capsule translation and initial camera orbit).
+    pub fn new_with_presentation_epoch_and_spawn(
+        package: next_project::ActivatedProjectPackage,
         _include_interaction: bool,
         snapshot_epoch: ContentHash,
+        spawn: Option<crate::session::ReferenceSpawnOverrideV1>,
     ) -> Result<Self, ReferenceGameError> {
         let next_project::ActivatedProjectPackage {
             project: activated_project,
             content_generation,
         } = package;
-        let fixture = build_reference_game_session(activated_project)?;
+        let fixture = crate::session::build_reference_game_session_with_options(
+            activated_project,
+            false,
+            spawn,
+        )?;
         let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
         let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
             fixture.bootstrap.clone(),
@@ -262,6 +324,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
         let presentation_extractor =
             PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
@@ -278,6 +342,8 @@ impl ReferenceGameDriverV2 {
             &fixture.activated_project,
         )?);
         let audio_listener_binding = crate::audio::reference_audio_listener_binding(&fixture);
+        let water_audio_clips =
+            crate::audio::reference_water_audio_clips(&fixture.activated_project)?;
         let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
         let audio_scene = extract_audio_scene(
             snapshot_epoch,
@@ -307,6 +373,8 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings,
             audio_listener_binding,
             audio_mixer,
+            water_audio_clips,
+            water_audio: crate::water_audio::WaterAudioStateV1::default(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab: physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]
@@ -318,8 +386,9 @@ impl ReferenceGameDriverV2 {
             next_logical_frame_sequence: 0,
             events: 0,
             rpg_events: 0,
-            camera_yaw_millidegrees: 0,
-            camera_pitch_millidegrees: -15_000,
+            camera_yaw_millidegrees: spawn.map_or(0, |spawn| spawn.camera_yaw_millidegrees),
+            camera_pitch_millidegrees: spawn
+                .map_or(-15_000, |spawn| spawn.camera_pitch_millidegrees),
             camera_cut: true,
             ui_screen: ReferenceUiScreenV1::None,
             dialogue: ReferenceDialogueUiV1::Closed,
@@ -417,6 +486,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
         let (presentation_extractor, persisted_snapshot) =
             PresentationExtractorV1::begin_authoritative_recovery_from_bytes(
@@ -444,6 +515,8 @@ impl ReferenceGameDriverV2 {
         // Authoritative recovery resets the presentation-only mixer: in-flight
         // one-shots may be omitted after a restart but never replayed
         // (SPEC-30 consumption recovery semantics).
+        let water_audio_clips =
+            crate::audio::reference_water_audio_clips(&fixture.activated_project)?;
         let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
         let audio_scene = extract_audio_scene(
             presentation_extractor.snapshot_epoch(),
@@ -473,6 +546,8 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings,
             audio_listener_binding,
             audio_mixer,
+            water_audio_clips,
+            water_audio: crate::water_audio::WaterAudioStateV1::default(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab: physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]
@@ -549,6 +624,7 @@ impl ReferenceGameDriverV2 {
         let mut physical_animation = self.physical_animation.clone();
         let mut presentation_extractor = self.presentation_extractor.clone();
         let mut audio_mixer = self.audio_mixer.clone();
+        let mut water_audio = self.water_audio.clone();
         #[cfg(feature = "physical-sound-lab")]
         let mut physical_sound_lab = self.physical_sound_lab.clone();
         let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
@@ -580,6 +656,9 @@ impl ReferenceGameDriverV2 {
         let mut ui_suspend_causal_hash = None;
         let mut strip_interaction_movement = false;
         let mut inject_interact = false;
+        // Plan 36: the interact edge for the gate lever, decided against the
+        // committed state before the staged tick.
+        let mut interact_started = false;
         if let Some(resolved) = &input.resolved {
             update_camera_state(
                 &resolved.frame,
@@ -594,12 +673,13 @@ impl ReferenceGameDriverV2 {
             // A committed `interact` press that targets the reference NPC opens
             // the dialogue instead of reaching the runtime: the press and the
             // frame's movement are consumed by the modal (S4, Q2A).
+            interact_started = resolved.frame.actions.iter().any(|action| {
+                action.action_id.as_str() == CORE_INTERACT_ACTION_ID
+                    && action.phase == PlayerActionPhaseV1::Started
+                    && action.value == PlayerActionValueV1::Digital(true)
+            });
             if dialogue == ReferenceDialogueUiV1::Closed
-                && resolved.frame.actions.iter().any(|action| {
-                    action.action_id.as_str() == CORE_INTERACT_ACTION_ID
-                        && action.phase == PlayerActionPhaseV1::Started
-                        && action.value == PlayerActionValueV1::Digital(true)
-                })
+                && interact_started
                 && self
                     .runtime
                     .interaction_availability(
@@ -648,6 +728,29 @@ impl ReferenceGameDriverV2 {
             self.runtime.physics_snapshot(),
         )?;
         let root_motion_command = motor_frame.root_motion_command;
+        // Plan 36: the gate lever's toggle, one flow command on the water-gate
+        // stream when the interact edge fires within reach with no dialogue.
+        let mut tick_commands: Vec<next_contracts::command::WorldCommand> =
+            root_motion_command.into_iter().collect();
+        if interact_started
+            && dialogue == ReferenceDialogueUiV1::Closed
+            && crate::water_gate::lever_in_reach(
+                self.runtime.physics_snapshot(),
+                self.fixture.physics_body_id,
+                crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID,
+            )?
+            && let Some(state) = crate::water_gate::gate_state(
+                &self.runtime.physics_checkpoint().water_flow,
+                crate::water::REFERENCE_WATER_FLOW_GATE_ID,
+            )
+        {
+            tick_commands.push(crate::water_gate::toggle_command(
+                &state,
+                self.fixture.water_gate_stream_id,
+                &self.fixture.water_gate_principal,
+                self.runtime.next_tick(),
+            )?);
+        }
         if let Some(sample) = crate::dialogue::dialogue_runtime_sample(
             input.resolved.as_ref(),
             &self.input,
@@ -660,7 +763,7 @@ impl ReferenceGameDriverV2 {
         }
         let mut prepared_runtime = runtime_preparation
             .prepare_with_world_services_cognition_and_activity(
-                root_motion_command,
+                tick_commands,
                 &self.world_routine,
                 &self.world_population,
                 &self.world_activity,
@@ -715,13 +818,28 @@ impl ReferenceGameDriverV2 {
             ui_screen,
             dialogue,
             ui_suspend_causal_hash,
-            self.current_audio_subtitle(prepared_runtime.next_tick()),
+            crate::ui::LiveHudStatusV1 {
+                active_subtitle: self.current_audio_subtitle(prepared_runtime.next_tick()),
+                player_water: crate::water::player_submersion(
+                    &self.fixture,
+                    prepared_runtime.physics_snapshot(),
+                    &prepared_runtime.physics_checkpoint().water_volumes,
+                    prepared_runtime.next_tick(),
+                )?
+                .class,
+                gate_prompt: self.gate_prompt_for(
+                    prepared_runtime.physics_snapshot(),
+                    &prepared_runtime.physics_checkpoint().water_flow,
+                )?,
+            },
         )?;
         let presentation_bindings = fixture_presentation_bindings(
             &self.fixture,
             &prepared_runtime.rpg_snapshot(),
             &physical_animation,
             prepared_runtime.physics_snapshot(),
+            &prepared_runtime.physics_checkpoint().water_volumes,
+            prepared_runtime.next_tick(),
         )?;
         let skinning_records = fixture_character_skinning_records(
             &self.fixture,
@@ -745,17 +863,54 @@ impl ReferenceGameDriverV2 {
             ui_records,
             skinning_records,
         )?;
+        // Plan 34: the tick's water records as emitters and cues, the
+        // listener's submersion as the low-pass.
+        let water_checkpoint = prepared_runtime.physics_checkpoint();
+        let water_inputs = crate::water_audio::WaterAudioInputsV1 {
+            edges: crate::water_presentation::water_audio_edge_records(
+                &water_checkpoint.water_volumes,
+                &water_checkpoint.water_flow,
+                prepared_runtime.next_tick(),
+            ),
+            boxes: crate::water_presentation::floating_boxes_with_ids(water_checkpoint),
+        };
+        let mut water_emitters =
+            crate::water_audio::flow_emitters(&water_inputs.edges, &self.water_audio_clips);
+        let crate::water_audio::WaterSplashRecordsV1 {
+            emitters: splash_emitters,
+            cues: splash_cues,
+            facts: splash_facts,
+        } = crate::water_audio::splash_records(
+            &water_inputs.boxes,
+            &water_checkpoint.water_volumes,
+            prepared_runtime.next_tick(),
+            self.audio_listener_binding.listener_id,
+            &self.water_audio_clips,
+            &mut water_audio,
+        )?;
+        water_emitters.extend(splash_emitters);
         let audio_scene = extract_audio_scene(
             presentation_extractor.snapshot_epoch(),
             self.next_audio_sequence,
             prepared_runtime.next_tick(),
             &self.audio_listener_binding,
-            &[],
+            &water_emitters,
             &self.audio_cue_bindings,
             prepared_runtime.events(),
             prepared_runtime.physics_snapshot(),
         )?;
-        let audio_pcm = audio_mixer.mix_tick(&audio_scene, &self.audio_clips);
+        let audio_scene =
+            crate::water_audio::scene_with_water(audio_scene, splash_cues, splash_facts)?;
+        let mut audio_pcm = audio_mixer.mix_tick(&audio_scene, &self.audio_clips);
+        crate::water_audio::low_pass_in_place(
+            &mut audio_pcm,
+            crate::water_audio::listener_submerged(
+                &water_checkpoint.water_volumes,
+                camera.current_result_sample.pose.translation_micrometres,
+                prepared_runtime.next_tick(),
+            ),
+            &mut water_audio,
+        );
         #[cfg(feature = "physical-sound-lab")]
         let audio_pcm = {
             let excitations = if self.physical_sound_lab_enabled {
@@ -806,6 +961,7 @@ impl ReferenceGameDriverV2 {
                 presentation_bindings,
                 presentation_extractor,
                 audio_mixer,
+                water_audio,
                 #[cfg(feature = "physical-sound-lab")]
                 physical_sound_lab,
                 audio_scene,
@@ -870,6 +1026,7 @@ impl ReferenceGameDriverV2 {
         self.presentation_bindings = validated.state.presentation_bindings;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.audio_mixer = validated.state.audio_mixer;
+        self.water_audio = validated.state.water_audio;
         #[cfg(feature = "physical-sound-lab")]
         {
             self.physical_sound_lab = validated.state.physical_sound_lab;

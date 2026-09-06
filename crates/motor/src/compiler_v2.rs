@@ -203,6 +203,7 @@ impl CompiledBodySchemaV2 {
                 initial_linear_velocity_micrometres_per_second: [0; 3],
                 initial_angular_velocity_q16: [0; 3],
                 active: true,
+                mass_microkilograms: body.solver_mass_microkilograms,
                 shapes: descriptor_shapes,
             };
             bodies.insert(

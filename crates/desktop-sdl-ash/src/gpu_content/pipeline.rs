@@ -19,6 +19,13 @@ enum ShaderSuite {
     WorldNoShadow,
     Ui,
     Sky,
+    /// Plan `continuum-water/12`: the water material of `WaterSurface` rings.
+    WaterSurface,
+    /// Plan `continuum-water/15`: the mirrored reflection pass (B0 with a
+    /// plane clip, front-face culling).
+    Reflection,
+    /// Plan `continuum-water/18`: the G-buffer suite (four attachments).
+    GBuffer,
 }
 
 /// Fixed raster state for one checked-in shader suite. World, sky and UI use
@@ -47,10 +54,83 @@ pub(super) const UI_OVERLAY_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixed
     cull_mode: vk::CullModeFlags::NONE,
 };
 
+/// Reflection pass: the world state with front-face culling, because the
+/// mirror flips the winding of every triangle.
+pub(super) const REFLECTION_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: false,
+    depth_test_enable: true,
+    depth_write_enable: true,
+    cull_mode: vk::CullModeFlags::FRONT,
+};
+
+/// Water surface: opaque, depth-tested and depth-writing like the world,
+/// but drawn from both sides.
+pub(super) const WATER_SURFACE_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: false,
+    depth_test_enable: true,
+    depth_write_enable: true,
+    cull_mode: vk::CullModeFlags::NONE,
+};
+
 pub(super) struct FrameRasterState {
     pub(super) view_projection_bytes: [u8; FRAME_UNIFORM_SIZE as usize],
+    /// Scene look L2: the camera's world position the cascades centre on.
+    pub(super) camera_position: [f32; 3],
+    /// The (jittered) view-projection written into the frame block; plan
+    /// 18 hands it to the G-buffer pass.
+    pub(super) view_projection: [f32; 16],
     pub(super) viewport: vk::Viewport,
     pub(super) scissor: vk::Rect2D,
+}
+
+/// Plan 18: the sub-pixel projection jitter of one rendered frame, as pixel
+/// offsets (`+x` right, `+y` down) and as the NDC offsets applied to the
+/// projection.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ProjectionJitterV1 {
+    pub(crate) pixels: [f32; 2],
+    pub(crate) ndc: [f32; 2],
+}
+
+/// The Halton radical inverse of `index` (one-based) in `base`.
+pub(crate) fn halton(index: u32, base: u32) -> f32 {
+    let mut result = 0.0_f64;
+    let mut fraction = 1.0_f64 / f64::from(base);
+    let mut value = index;
+    while value > 0 {
+        result += fraction * f64::from(value % base);
+        value /= base;
+        fraction /= f64::from(base);
+    }
+    result as f32
+}
+
+/// Plan 18: the Halton(2, 3) jitter of `rendered_frame_index` over a period
+/// of `PROJECTION_JITTER_PERIOD` frames for a target of `extent`.
+pub(crate) fn projection_jitter(
+    rendered_frame_index: u64,
+    extent: vk::Extent2D,
+) -> ProjectionJitterV1 {
+    let index =
+        u32::try_from(rendered_frame_index % u64::from(PROJECTION_JITTER_PERIOD)).unwrap_or(0) + 1;
+    let pixels = [halton(index, 2) - 0.5, halton(index, 3) - 0.5];
+    let ndc = [
+        2.0 * pixels[0] / extent.width.max(1) as f32,
+        2.0 * pixels[1] / extent.height.max(1) as f32,
+    ];
+    ProjectionJitterV1 { pixels, ndc }
+}
+
+/// Frames per jitter cycle (plan 18).
+pub(crate) const PROJECTION_JITTER_PERIOD: u32 = 16;
+
+/// Applies an NDC jitter to a column-major perspective projection: the `z`
+/// column's `x` and `y` lanes (`[8]`, `[9]`) shift clip `x`/`y` by
+/// `-jitter * z_view = jitter * w_clip`, a constant NDC offset after the
+/// perspective divide.
+fn apply_projection_jitter(projection: &mut [f64; 16], jitter_ndc: [f32; 2]) {
+    projection[8] -= f64::from(jitter_ndc[0]);
+    projection[9] -= f64::from(jitter_ndc[1]);
 }
 
 fn raster_depth_state(
@@ -109,6 +189,97 @@ impl PipelineState {
         )
     }
 
+    /// Builds the mirrored reflection suite (plan 15) on the world layout.
+    pub(super) fn new_reflection(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: vk::DescriptorSetLayout,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_fixed_state(
+            device,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
+            frame_layout,
+            texture_layout,
+            Some(shadow_layout),
+            REFLECTION_RASTER_FIXED_STATE,
+            ShaderSuite::Reflection,
+        )
+    }
+
+    /// Builds the water surface suite: the world layout, opaque depth-tested
+    /// and depth-writing, without culling so the surface reads from below.
+    pub(super) fn new_water_surface(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: vk::DescriptorSetLayout,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_fixed_state(
+            device,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
+            frame_layout,
+            texture_layout,
+            Some(shadow_layout),
+            WATER_SURFACE_RASTER_FIXED_STATE,
+            ShaderSuite::WaterSurface,
+        )
+    }
+
+    /// Plan 18: the G-buffer suite over its own set 0 and the B0 texture
+    /// set, a `96`-byte push block and four colour attachments.
+    pub(super) fn new_gbuffer(
+        device: &ash::Device,
+        color_formats: &[vk::Format],
+        depth_format: vk::Format,
+        gbuffer_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        fixed: RasterFixedStateV1,
+    ) -> Result<Self, B0GpuContentError> {
+        let set_layouts = [gbuffer_layout, texture_layout];
+        let push_constant_ranges = [vk::PushConstantRange {
+            stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+            offset: 0,
+            size: super::gbuffer::GBUFFER_PUSH_CONSTANT_SIZE,
+        }];
+        let layout_info = vk::PipelineLayoutCreateInfo::default()
+            .set_layouts(&set_layouts)
+            .push_constant_ranges(&push_constant_ranges);
+        // SAFETY: descriptor layouts are live and the push range fits
+        // Vulkan's minimum guaranteed 128-byte capacity.
+        let layout = unsafe { device.create_pipeline_layout(&layout_info, None) }?;
+        match create_graphics_pipeline_multi(
+            device,
+            color_formats,
+            depth_format,
+            layout,
+            fixed,
+            ShaderSuite::GBuffer,
+        ) {
+            Ok(pipeline) => Ok(Self {
+                device: device.clone(),
+                pipeline,
+                layout,
+            }),
+            Err(error) => {
+                // SAFETY: no pipeline depends on the layout after failed
+                // pipeline construction.
+                unsafe { device.destroy_pipeline_layout(layout, None) };
+                Err(error)
+            }
+        }
+    }
+
     /// Builds the semantic UI overlay suite with straight-alpha blending, no
     /// depth testing and no culling.
     pub(super) fn new_ui_overlay(
@@ -136,9 +307,12 @@ impl PipelineState {
         device: &ash::Device,
         color_format: vk::Format,
         depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
     ) -> Result<Self, B0GpuContentError> {
-        let layout_info = vk::PipelineLayoutCreateInfo::default();
-        // SAFETY: the sky shaders have no descriptors or push constants.
+        // Scene look L1: the sky reads the frame and lighting blocks (set 0).
+        let set_layouts = [frame_layout];
+        let layout_info = vk::PipelineLayoutCreateInfo::default().set_layouts(&set_layouts);
+        // SAFETY: the frame layout is live; the sky shaders push nothing.
         let layout = unsafe { device.create_pipeline_layout(&layout_info, None) }?;
         let fixed = RasterFixedStateV1 {
             blend_enable: false,
@@ -243,11 +417,34 @@ fn create_graphics_pipeline(
     fixed: RasterFixedStateV1,
     shader_suite: ShaderSuite,
 ) -> Result<vk::Pipeline, B0GpuContentError> {
+    create_graphics_pipeline_multi(
+        device,
+        &[color_format],
+        depth_format,
+        layout,
+        fixed,
+        shader_suite,
+    )
+}
+
+/// One pipeline over several colour attachments (plan 18's G-buffer); the
+/// blend state repeats per attachment.
+fn create_graphics_pipeline_multi(
+    device: &ash::Device,
+    color_formats: &[vk::Format],
+    depth_format: vk::Format,
+    layout: vk::PipelineLayout,
+    fixed: RasterFixedStateV1,
+    shader_suite: ShaderSuite,
+) -> Result<vk::Pipeline, B0GpuContentError> {
     let modules = match shader_suite {
         ShaderSuite::World => crate::shader_assets::b0_shader_modules(),
         ShaderSuite::WorldNoShadow => crate::shader_assets::b0_no_shadow_shader_modules(),
         ShaderSuite::Ui => crate::shader_assets::ui_shader_modules(),
         ShaderSuite::Sky => crate::shader_assets::sky_shader_modules(),
+        ShaderSuite::WaterSurface => crate::shader_assets::water_surface_shader_modules(),
+        ShaderSuite::Reflection => crate::shader_assets::reflection_shader_modules(),
+        ShaderSuite::GBuffer => crate::shader_assets::gbuffer_shader_modules(),
     }
     .map_err(B0GpuContentError::ShaderAsset)?;
     let vertex_info = vk::ShaderModuleCreateInfo::default().code(&modules.vertex);
@@ -280,7 +477,11 @@ fn create_graphics_pipeline(
         let world_binding = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: match shader_suite {
-                ShaderSuite::World | ShaderSuite::WorldNoShadow => VERTEX_STRIDE,
+                ShaderSuite::World
+                | ShaderSuite::WorldNoShadow
+                | ShaderSuite::WaterSurface
+                | ShaderSuite::Reflection
+                | ShaderSuite::GBuffer => VERTEX_STRIDE,
                 ShaderSuite::Ui => UI_VERTEX_STRIDE,
                 ShaderSuite::Sky => 0,
             },
@@ -288,9 +489,12 @@ fn create_graphics_pipeline(
         }];
         let empty_bindings: [vk::VertexInputBindingDescription; 0] = [];
         let bindings = match shader_suite {
-            ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::Ui => {
-                world_binding.as_slice()
-            }
+            ShaderSuite::World
+            | ShaderSuite::WorldNoShadow
+            | ShaderSuite::Ui
+            | ShaderSuite::WaterSurface
+            | ShaderSuite::Reflection
+            | ShaderSuite::GBuffer => world_binding.as_slice(),
             ShaderSuite::Sky => empty_bindings.as_slice(),
         };
         let world_attributes = [
@@ -316,7 +520,11 @@ fn create_graphics_pipeline(
         let ui_attributes = [world_attributes[0], world_attributes[1]];
         let empty_attributes: [vk::VertexInputAttributeDescription; 0] = [];
         let attributes = match shader_suite {
-            ShaderSuite::World | ShaderSuite::WorldNoShadow => world_attributes.as_slice(),
+            ShaderSuite::World
+            | ShaderSuite::WorldNoShadow
+            | ShaderSuite::WaterSurface
+            | ShaderSuite::Reflection
+            | ShaderSuite::GBuffer => world_attributes.as_slice(),
             ShaderSuite::Ui => ui_attributes.as_slice(),
             ShaderSuite::Sky => empty_attributes.as_slice(),
         };
@@ -341,7 +549,7 @@ fn create_graphics_pipeline(
         let multisample = vk::PipelineMultisampleStateCreateInfo::default()
             .rasterization_samples(vk::SampleCountFlags::TYPE_1);
         let depth_stencil = raster_depth_state(fixed);
-        let blend_attachments = [vk::PipelineColorBlendAttachmentState::default()
+        let blend_attachment = vk::PipelineColorBlendAttachmentState::default()
             .blend_enable(fixed.blend_enable)
             .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
@@ -349,14 +557,14 @@ fn create_graphics_pipeline(
             .src_alpha_blend_factor(vk::BlendFactor::ONE)
             .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
             .alpha_blend_op(vk::BlendOp::ADD)
-            .color_write_mask(vk::ColorComponentFlags::RGBA)];
+            .color_write_mask(vk::ColorComponentFlags::RGBA);
+        let blend_attachments = vec![blend_attachment; color_formats.len()];
         let color_blend =
             vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend_attachments);
         let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
         let dynamic = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
-        let color_formats = [color_format];
         let mut rendering = vk::PipelineRenderingCreateInfo::default()
-            .color_attachment_formats(&color_formats)
+            .color_attachment_formats(color_formats)
             .depth_attachment_format(depth_format);
         let create_info = vk::GraphicsPipelineCreateInfo::default()
             .stages(&stages)
@@ -414,6 +622,15 @@ pub(super) fn frame_raster_state(
     camera: Option<&B0CameraFrameV1>,
     target_extent: vk::Extent2D,
 ) -> Result<FrameRasterState, B0GpuContentError> {
+    frame_raster_state_jittered(camera, target_extent, None)
+}
+
+/// The frame raster state with plan 18's optional projection jitter.
+pub(super) fn frame_raster_state_jittered(
+    camera: Option<&B0CameraFrameV1>,
+    target_extent: vk::Extent2D,
+    jitter: Option<ProjectionJitterV1>,
+) -> Result<FrameRasterState, B0GpuContentError> {
     if target_extent.width == 0 || target_extent.height == 0 {
         return Err(invalid_frame_plan("render extent must be non-zero"));
     }
@@ -422,19 +639,84 @@ pub(super) fn frame_raster_state(
         Some(camera) => {
             validate_camera_frame(camera)?;
             let (viewport, scissor) = camera_raster_region(camera.viewport, target_extent)?;
-            let matrix = camera_view_projection_matrix(camera, viewport)?;
+            let matrix = camera_view_projection_matrix_jittered(camera, viewport, jitter)?;
             let camera_position = micrometres_to_metres_f32(
                 camera.current_result_sample.pose.translation_micrometres,
             )?;
             let shadow_matrix = shadow_view_projection_matrix(camera_position)?;
             Ok(FrameRasterState {
                 view_projection_bytes: frame_uniform_bytes(matrix, shadow_matrix, camera_position),
+                camera_position,
+                view_projection: matrix,
                 viewport,
                 scissor,
             })
         }
         None => fallback_raster_state(target_extent),
     }
+}
+
+/// Plan 15: the raster state of the camera mirrored about the horizontal
+/// plane `y = plane_height_metres`: `P * V * R`, the mirrored eye for the
+/// view-dependent terms with the plane height in the spare `w` lane (read
+/// only by the `b0_reflect` suite), and the true camera's shadow matrix.
+pub(super) fn mirrored_frame_raster_state(
+    camera: &B0CameraFrameV1,
+    target_extent: vk::Extent2D,
+    plane_height_metres: f32,
+    jitter: Option<ProjectionJitterV1>,
+) -> Result<FrameRasterState, B0GpuContentError> {
+    if target_extent.width == 0 || target_extent.height == 0 {
+        return Err(invalid_frame_plan("render extent must be non-zero"));
+    }
+    validate_camera_frame(camera)?;
+    let (viewport, scissor) = camera_raster_region(camera.viewport, target_extent)?;
+    let (view, projection, _, _, _, _) =
+        camera_view_and_projection_jittered(camera, viewport, jitter)?;
+    let h = f64::from(plane_height_metres);
+    // Column-major reflection about y = h: T(0, h, 0) S(1, -1, 1) T(0, -h, 0).
+    let reflect = [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        2.0 * h,
+        0.0,
+        1.0,
+    ];
+    let matrix = f64_matrix_to_f32(multiply_column_major_4x4(
+        projection,
+        multiply_column_major_4x4(view, reflect),
+    ))?;
+    let camera_position =
+        micrometres_to_metres_f32(camera.current_result_sample.pose.translation_micrometres)?;
+    let shadow_matrix = shadow_view_projection_matrix(camera_position)?;
+    let mirrored_position = [
+        camera_position[0],
+        2.0 * plane_height_metres - camera_position[1],
+        camera_position[2],
+    ];
+    Ok(FrameRasterState {
+        view_projection_bytes: frame_uniform_bytes_with_camera_lane(
+            matrix,
+            shadow_matrix,
+            mirrored_position,
+            plane_height_metres,
+        ),
+        camera_position,
+        view_projection: matrix,
+        viewport,
+        scissor,
+    })
 }
 
 fn fallback_raster_state(
@@ -477,6 +759,8 @@ fn fallback_raster_state(
             shadow_view_projection_matrix([0.0, 0.0, 0.0])?,
             [0.0, 0.0, 0.0],
         ),
+        camera_position: [0.0, 0.0, 0.0],
+        view_projection: fallback,
         viewport,
         scissor,
     })
@@ -504,7 +788,7 @@ fn validate_camera_frame(camera: &B0CameraFrameV1) -> Result<(), B0GpuContentErr
         .map_err(|_| invalid_frame_plan("camera current result sample is invalid"))
 }
 
-fn camera_raster_region(
+pub(super) fn camera_raster_region(
     viewport: CameraViewportV1,
     target_extent: vk::Extent2D,
 ) -> Result<(vk::Viewport, vk::Rect2D), B0GpuContentError> {
@@ -592,10 +876,74 @@ fn scissor_ceil(value: f64, limit: u32) -> Result<u32, B0GpuContentError> {
     Ok(value.ceil() as u32)
 }
 
-fn camera_view_projection_matrix(
+/// Sun direction (xyz) and intensity shared by the B0 frame block and the
+/// ADR-102 particle surface pass.
+pub(crate) const B0_SUN_DIRECTION_INTENSITY: [f32; 4] = [-0.45, -0.82, -0.35, 0.95];
+
+/// Separate view/projection parts of the B0 camera transform for passes
+/// that reconstruct view-space positions from depth (ADR-102).
+pub(super) struct CameraMatricesV1 {
+    pub(super) view: [f32; 16],
+    pub(super) projection: [f32; 16],
+    pub(super) near: f32,
+    pub(super) far: f32,
+    pub(super) tan_half_x: f32,
+    pub(super) tan_half_y: f32,
+}
+
+/// The camera matrices with plan 18's optional projection jitter.
+pub(super) fn camera_matrices_jittered(
     camera: &B0CameraFrameV1,
     viewport: vk::Viewport,
+    jitter: Option<ProjectionJitterV1>,
+) -> Result<CameraMatricesV1, B0GpuContentError> {
+    let (view, projection, near, far, tan_half_fov, aspect) =
+        camera_view_and_projection_jittered(camera, viewport, jitter)?;
+    Ok(CameraMatricesV1 {
+        view: f64_matrix_to_f32(view)?,
+        projection: f64_matrix_to_f32(projection)?,
+        near: near as f32,
+        far: far as f32,
+        tan_half_x: (tan_half_fov * aspect) as f32,
+        tan_half_y: tan_half_fov as f32,
+    })
+}
+
+fn camera_view_projection_matrix_jittered(
+    camera: &B0CameraFrameV1,
+    viewport: vk::Viewport,
+    jitter: Option<ProjectionJitterV1>,
 ) -> Result<[f32; 16], B0GpuContentError> {
+    let (view, projection, _, _, _, _) =
+        camera_view_and_projection_jittered(camera, viewport, jitter)?;
+    f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
+}
+
+#[allow(
+    clippy::type_complexity,
+    reason = "the private tuple keeps the exact matrix construction in one place"
+)]
+fn camera_view_and_projection_jittered(
+    camera: &B0CameraFrameV1,
+    viewport: vk::Viewport,
+    jitter: Option<ProjectionJitterV1>,
+) -> Result<([f64; 16], [f64; 16], f64, f64, f64, f64), B0GpuContentError> {
+    let (view, mut projection, near, far, tan_half_fov, aspect) =
+        camera_view_and_projection(camera, viewport)?;
+    if let Some(jitter) = jitter {
+        apply_projection_jitter(&mut projection, jitter.ndc);
+    }
+    Ok((view, projection, near, far, tan_half_fov, aspect))
+}
+
+#[allow(
+    clippy::type_complexity,
+    reason = "the private tuple keeps the exact matrix construction in one place"
+)]
+fn camera_view_and_projection(
+    camera: &B0CameraFrameV1,
+    viewport: vk::Viewport,
+) -> Result<([f64; 16], [f64; 16], f64, f64, f64, f64), B0GpuContentError> {
     let eye = micrometres_to_metres(camera.current_result_sample.pose.translation_micrometres);
     let focus = micrometres_to_metres(camera.current_result_sample.focus_point_micrometres);
     let forward = normalize3(subtract3(focus, eye))
@@ -671,7 +1019,7 @@ fn camera_view_projection_matrix(
         depth_translation,
         0.0,
     ];
-    f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
+    Ok((view, projection, near, far, tan_half_fov, aspect))
 }
 
 fn micrometres_to_metres(values: [i64; 3]) -> [f64; 3] {
@@ -752,6 +1100,15 @@ fn frame_uniform_bytes(
     shadow_matrix: [f32; 16],
     camera_position: [f32; 3],
 ) -> [u8; FRAME_UNIFORM_SIZE as usize] {
+    frame_uniform_bytes_with_camera_lane(matrix, shadow_matrix, camera_position, 1.0)
+}
+
+fn frame_uniform_bytes_with_camera_lane(
+    matrix: [f32; 16],
+    shadow_matrix: [f32; 16],
+    camera_position: [f32; 3],
+    camera_lane: f32,
+) -> [u8; FRAME_UNIFORM_SIZE as usize] {
     let mut bytes = [0_u8; FRAME_UNIFORM_SIZE as usize];
     write_f32_values(&mut bytes[..64], matrix);
     write_f32_values(&mut bytes[64..128], shadow_matrix);
@@ -761,10 +1118,10 @@ fn frame_uniform_bytes(
             camera_position[0],
             camera_position[1],
             camera_position[2],
-            1.0,
+            camera_lane,
         ],
     );
-    write_f32_values(&mut bytes[144..160], [-0.45, -0.82, -0.35, 0.95]);
+    write_f32_values(&mut bytes[144..160], B0_SUN_DIRECTION_INTENSITY);
     write_f32_values(&mut bytes[160..176], [0.48, 0.62, 0.78, 0.0]);
     write_f32_values(&mut bytes[176..192], [0.18, 0.20, 0.22, 0.0]);
     write_f32_values(&mut bytes[192..208], [0.20, 0.29, 0.40, 0.035]);
@@ -774,14 +1131,72 @@ fn frame_uniform_bytes(
 /// Fixed 32x32 metre orthographic light volume centred near the active
 /// camera. The projected centre is snapped to one 2048² texel so small camera
 /// motion does not shimmer the outdoor shadow footprint.
+/// Scene look L2 (plan `look/02`): the cascade extents in metres; near,
+/// far and the eye distance scale with the extent (`extent / 8`,
+/// `1.5 x extent`, `0.75 x extent`).
+pub(super) const SHADOW_CASCADE_EXTENTS_METRES: [f64; 3] = [12.0, 36.0, 108.0];
+
+/// The frame block's shadow matrix: the first cascade.
 fn shadow_view_projection_matrix(
     camera_position: [f32; 3],
 ) -> Result<[f32; 16], B0GpuContentError> {
-    const EXTENT_METRES: f64 = 32.0;
+    shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[0])
+}
+
+/// Scene look L2: the three cascade matrices for the lighting block.
+pub(super) fn shadow_cascade_matrices(
+    camera_position: [f32; 3],
+) -> Result<[[f32; 16]; 3], B0GpuContentError> {
+    Ok([
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[0])?,
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[1])?,
+        shadow_cascade_matrix(camera_position, SHADOW_CASCADE_EXTENTS_METRES[2])?,
+    ])
+}
+
+/// Scene look L2: the CPU mirror of the programs' cascade rule (the first
+/// cascade whose projection holds the point inside a `2 %` margin), for
+/// the plan's unit gate; `None` when no cascade holds it.
+#[cfg(test)]
+pub(super) fn shadow_cascade_index(
+    camera_position: [f32; 3],
+    point: [f32; 3],
+) -> Result<Option<usize>, B0GpuContentError> {
+    for (cascade, matrix) in shadow_cascade_matrices(camera_position)?.iter().enumerate() {
+        let clip = transform_point_column_major(matrix, point);
+        let x = clip[0] / clip[3] * 0.5 + 0.5;
+        let y = clip[1] / clip[3] * 0.5 + 0.5;
+        let z = clip[2] / clip[3];
+        if (0.02..=0.98).contains(&x) && (0.02..=0.98).contains(&y) && (0.0..=1.0).contains(&z) {
+            return Ok(Some(cascade));
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(test)]
+fn transform_point_column_major(matrix: &[f32; 16], point: [f32; 3]) -> [f32; 4] {
+    let mut out = [0.0_f32; 4];
+    for (row, value) in out.iter_mut().enumerate() {
+        *value = matrix[row] * point[0]
+            + matrix[4 + row] * point[1]
+            + matrix[8 + row] * point[2]
+            + matrix[12 + row];
+    }
+    out
+}
+
+/// One orthographic cascade of `extent_metres` centred on the camera's
+/// plan position, snapped to its texel along the light's axes.
+pub(super) fn shadow_cascade_matrix(
+    camera_position: [f32; 3],
+    extent_metres: f64,
+) -> Result<[f32; 16], B0GpuContentError> {
     const SHADOW_RESOLUTION: f64 = 2_048.0;
-    const EYE_DISTANCE: f64 = 24.0;
-    const NEAR: f64 = 4.0;
-    const FAR: f64 = 48.0;
+    let extent = extent_metres;
+    let eye_distance = 0.75 * extent;
+    let near = extent / 8.0;
+    let far = 1.5 * extent;
 
     let centre = [
         f64::from(camera_position[0]),
@@ -793,7 +1208,7 @@ fn shadow_view_projection_matrix(
     let side = normalize3(cross3(forward, [0.0, 1.0, 0.0]))
         .ok_or_else(|| invalid_frame_plan("shadow light basis is invalid"))?;
     let up = cross3(side, forward);
-    let texel = EXTENT_METRES / SHADOW_RESOLUTION;
+    let texel = extent / SHADOW_RESOLUTION;
     let projected_x = dot3(side, centre);
     let projected_y = dot3(up, centre);
     let snapped_x = (projected_x / texel).round() * texel;
@@ -804,9 +1219,9 @@ fn shadow_view_projection_matrix(
         centre[2] + side[2] * (snapped_x - projected_x) + up[2] * (snapped_y - projected_y),
     ];
     let eye = [
-        snapped_centre[0] - forward[0] * EYE_DISTANCE,
-        snapped_centre[1] - forward[1] * EYE_DISTANCE,
-        snapped_centre[2] - forward[2] * EYE_DISTANCE,
+        snapped_centre[0] - forward[0] * eye_distance,
+        snapped_centre[1] - forward[1] * eye_distance,
+        snapped_centre[2] - forward[2] * eye_distance,
     ];
     let view = [
         side[0],
@@ -826,7 +1241,7 @@ fn shadow_view_projection_matrix(
         dot3(forward, eye),
         1.0,
     ];
-    let inverse_half_extent = 2.0 / EXTENT_METRES;
+    let inverse_half_extent = 2.0 / extent;
     let projection = [
         inverse_half_extent,
         0.0,
@@ -838,11 +1253,11 @@ fn shadow_view_projection_matrix(
         0.0,
         0.0,
         0.0,
-        1.0 / (NEAR - FAR),
+        1.0 / (near - far),
         0.0,
         0.0,
         0.0,
-        NEAR / (NEAR - FAR),
+        near / (near - far),
         1.0,
     ];
     f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
@@ -855,7 +1270,7 @@ fn write_f32_values<const N: usize>(destination: &mut [u8], values: [f32; N]) {
     }
 }
 
-fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentError> {
+pub(super) fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentError> {
     let metres = micrometres_to_metres(values);
     let mut converted = [0.0_f32; 3];
     for (target, value) in converted.iter_mut().zip(metres) {
@@ -871,19 +1286,27 @@ fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentE
 pub(super) fn draw_push_constant_bytes(
     transform: QuantizedPresentationTransformV1,
     base_color_rgba_unorm16: [u16; 4],
+    material_params: [f32; 4],
 ) -> [u8; DRAW_PUSH_CONSTANT_SIZE as usize] {
     let model = model_matrix(transform);
     let mut bytes = [0_u8; DRAW_PUSH_CONSTANT_SIZE as usize];
     for (destination, value) in bytes[..64].chunks_exact_mut(4).zip(model) {
         destination.copy_from_slice(&value.to_le_bytes());
     }
-    for (destination, value) in bytes[64..].chunks_exact_mut(4).zip(base_color_rgba_unorm16) {
+    for (destination, value) in bytes[64..80]
+        .chunks_exact_mut(4)
+        .zip(base_color_rgba_unorm16)
+    {
         destination.copy_from_slice(&(f32::from(value) / f32::from(u16::MAX)).to_le_bytes());
+    }
+    // Scene look L1: metallic, roughness, emissive intensity, spare.
+    for (destination, value) in bytes[80..].chunks_exact_mut(4).zip(material_params) {
+        destination.copy_from_slice(&value.to_le_bytes());
     }
     bytes
 }
 
-fn model_matrix(transform: QuantizedPresentationTransformV1) -> [f32; 16] {
+pub(super) fn model_matrix(transform: QuantizedPresentationTransformV1) -> [f32; 16] {
     let q = transform
         .orientation_q30
         .map(|component| component as f32 / (1_u32 << 30) as f32);

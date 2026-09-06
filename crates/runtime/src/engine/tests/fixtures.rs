@@ -21,7 +21,7 @@ pub(super) fn fixture() -> Fixture {
 }
 
 pub(super) fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixture {
-    let profile = RuntimeDeterminismBundleV1::core_r5c()
+    let profile = RuntimeDeterminismBundleV1::core_r8d()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(
@@ -94,7 +94,7 @@ pub(super) fn clipped_physical_fixture() -> PhysicalFixture {
 
 fn physical_fixture_with_wall(include_wall: bool) -> PhysicalFixture {
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([13; 16]));
-    let profile = RuntimeDeterminismBundleV1::core_r5c()
+    let profile = RuntimeDeterminismBundleV1::core_r8d()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(
@@ -230,6 +230,7 @@ fn grounded_test_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(capsule_shape_id, capsule_shape)]),
     };
     let floor_body_id = PhysicsBodyIdV1 {
@@ -265,6 +266,7 @@ fn grounded_test_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(floor_shape_id, floor_shape)]),
     };
     let mut bodies = BTreeMap::from([(capsule_body_id, capsule), (floor_body_id, floor)]);
@@ -303,6 +305,7 @@ fn grounded_test_checkpoint(
                 initial_linear_velocity_micrometres_per_second: [0; 3],
                 initial_angular_velocity_q16: [0; 3],
                 active: true,
+                mass_microkilograms: 0,
                 shapes: BTreeMap::from([(wall_shape_id, wall_shape)]),
             },
         );

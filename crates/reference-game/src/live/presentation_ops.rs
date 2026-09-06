@@ -43,7 +43,20 @@ impl ReferenceGameDriverV2 {
             self.ui_screen,
             self.dialogue,
             None,
-            self.current_audio_subtitle(self.runtime.next_tick()),
+            crate::ui::LiveHudStatusV1 {
+                active_subtitle: self.current_audio_subtitle(self.runtime.next_tick()),
+                player_water: crate::water::player_submersion(
+                    &self.fixture,
+                    self.runtime.physics_snapshot(),
+                    &self.runtime.physics_checkpoint().water_volumes,
+                    self.runtime.next_tick(),
+                )?
+                .class,
+                gate_prompt: self.gate_prompt_for(
+                    self.runtime.physics_snapshot(),
+                    &self.runtime.physics_checkpoint().water_flow,
+                )?,
+            },
         )?;
         let skinning_records = fixture_character_skinning_records(
             &self.fixture,

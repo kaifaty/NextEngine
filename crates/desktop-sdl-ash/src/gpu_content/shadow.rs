@@ -2,7 +2,7 @@ use ash::vk;
 use next_render::B0FramePlanV1;
 
 use super::pipeline::{draw_push_constant_bytes, frame_raster_state};
-use super::resources::{SHADOW_MAP_EXTENT, ShadowMap};
+use super::resources::{SHADOW_CASCADES, SHADOW_MAP_EXTENT, ShadowMap};
 use super::{
     B0GpuContent, B0GpuContentError, DRAW_PUSH_CONSTANT_SIZE, INDIRECT_COMMAND_STRIDE,
     VERTEX_STRIDE,
@@ -43,7 +43,7 @@ pub(super) fn initialize_shadow_map(
             .base_mip_level(0)
             .level_count(1)
             .base_array_layer(0)
-            .layer_count(1);
+            .layer_count(SHADOW_CASCADES);
         let barriers = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(vk::PipelineStageFlags2::NONE)
             .src_access_mask(vk::AccessFlags2::NONE)
@@ -248,7 +248,7 @@ impl B0GpuContent {
             .base_mip_level(0)
             .level_count(1)
             .base_array_layer(0)
-            .layer_count(1);
+            .layer_count(SHADOW_CASCADES);
         let to_depth = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(vk::PipelineStageFlags2::FRAGMENT_SHADER)
             .src_access_mask(vk::AccessFlags2::SHADER_SAMPLED_READ)
@@ -279,106 +279,168 @@ impl B0GpuContent {
                 stencil: 0,
             },
         };
-        let depth_attachment = vk::RenderingAttachmentInfo::default()
-            .image_view(shadow.view())
-            .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .clear_value(clear);
-        let render_area = vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent: vk::Extent2D {
-                width: SHADOW_MAP_EXTENT,
-                height: SHADOW_MAP_EXTENT,
-            },
-        };
-        let rendering = vk::RenderingInfo::default()
-            .render_area(render_area)
-            .layer_count(1)
-            .depth_attachment(&depth_attachment);
-        let viewports = [vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: SHADOW_MAP_EXTENT as f32,
-            height: SHADOW_MAP_EXTENT as f32,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = [render_area];
-        let vertex_buffers = [self.geometry.buffer];
-        let vertex_offsets = [0];
-        let frame_sets = [frame_set];
-        // SAFETY: all resources belong to the recording device, the depth
-        // attachment is in the declared layout, and fixed ranges match the
-        // checked-in depth-only shader interface.
-        unsafe {
-            self.geometry
-                .device
-                .cmd_begin_rendering(command_buffer, &rendering);
-            self.geometry.device.cmd_bind_pipeline(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline.pipeline,
-            );
-            self.geometry
-                .device
-                .cmd_set_viewport(command_buffer, 0, &viewports);
-            self.geometry
-                .device
-                .cmd_set_scissor(command_buffer, 0, &scissors);
-            self.geometry.device.cmd_bind_vertex_buffers(
-                command_buffer,
-                0,
-                &vertex_buffers,
-                &vertex_offsets,
-            );
-            self.geometry.device.cmd_bind_index_buffer(
-                command_buffer,
-                self.geometry.buffer,
-                self.index_buffer_offset,
-                vk::IndexType::UINT32,
-            );
-            self.geometry.device.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline.layout,
-                0,
-                &frame_sets,
-                &[],
-            );
-        }
-        for draw in plan.draws.iter().filter(|draw| draw.casts_shadow) {
-            let draw_key = super::DrawKey {
-                mesh_revision: draw.mesh_revision,
-                first_index: draw.first_index,
-                index_count: draw.index_count,
+        // Scene look L2: one rendering instance per cascade layer; the
+        // cascade index rides the spare lane of the draw push block.
+        for cascade in 0..SHADOW_CASCADES as usize {
+            let layer_view =
+                shadow
+                    .layer_view(cascade)
+                    .ok_or(B0GpuContentError::ResourceMissing(
+                        "shadow cascade layer view",
+                    ))?;
+            let depth_attachment = vk::RenderingAttachmentInfo::default()
+                .image_view(layer_view)
+                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .clear_value(clear);
+            let render_area = vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: vk::Extent2D {
+                    width: SHADOW_MAP_EXTENT,
+                    height: SHADOW_MAP_EXTENT,
+                },
             };
-            let indirect_offset = self.draw_offsets.get(&draw_key).copied().ok_or(
-                B0GpuContentError::ResourceMissing("shadow indexed-indirect command"),
-            )?;
-            let push_constants =
-                draw_push_constant_bytes(draw.transform, draw.base_color_rgba_unorm16);
-            // SAFETY: the fixed push range and initialized indirect command
-            // match the depth-only pipeline and uploaded geometry.
+            let rendering = vk::RenderingInfo::default()
+                .render_area(render_area)
+                .layer_count(1)
+                .depth_attachment(&depth_attachment);
+            let viewports = [vk::Viewport {
+                x: 0.0,
+                y: 0.0,
+                width: SHADOW_MAP_EXTENT as f32,
+                height: SHADOW_MAP_EXTENT as f32,
+                min_depth: 0.0,
+                max_depth: 1.0,
+            }];
+            let scissors = [render_area];
+            let vertex_buffers = [self.geometry.buffer];
+            let vertex_offsets = [0];
+            let frame_sets = [frame_set];
+            // SAFETY: all resources belong to the recording device, the depth
+            // attachment is in the declared layout, and fixed ranges match the
+            // checked-in depth-only shader interface.
             unsafe {
-                self.geometry.device.cmd_push_constants(
+                self.geometry
+                    .device
+                    .cmd_begin_rendering(command_buffer, &rendering);
+                self.geometry.device.cmd_bind_pipeline(
                     command_buffer,
-                    pipeline.layout,
-                    vk::ShaderStageFlags::VERTEX,
-                    0,
-                    &push_constants,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    pipeline.pipeline,
                 );
-                self.geometry.device.cmd_draw_indexed_indirect(
+                self.geometry
+                    .device
+                    .cmd_set_viewport(command_buffer, 0, &viewports);
+                self.geometry
+                    .device
+                    .cmd_set_scissor(command_buffer, 0, &scissors);
+                self.geometry.device.cmd_bind_vertex_buffers(
                     command_buffer,
-                    self.indirect.buffer,
-                    indirect_offset,
-                    1,
-                    INDIRECT_COMMAND_STRIDE,
+                    0,
+                    &vertex_buffers,
+                    &vertex_offsets,
+                );
+                self.geometry.device.cmd_bind_index_buffer(
+                    command_buffer,
+                    self.geometry.buffer,
+                    self.index_buffer_offset,
+                    vk::IndexType::UINT32,
+                );
+                self.geometry.device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    pipeline.layout,
+                    0,
+                    &frame_sets,
+                    &[],
                 );
             }
+            for draw in plan.draws.iter().filter(|draw| draw.casts_shadow) {
+                let push_constants = draw_push_constant_bytes(
+                    draw.transform,
+                    draw.base_color_rgba_unorm16,
+                    [0.0, 0.0, 0.0, cascade as f32],
+                );
+                if let Some(binding) =
+                    self.dynamic_draw_binding(draw.mesh_revision, frame_slot_index)
+                {
+                    // SAFETY: the slot ring was refreshed after this slot's fence
+                    // completed, both buffers are live host-visible allocations
+                    // of this device, and the immutable stream is rebound after.
+                    unsafe {
+                        self.geometry.device.cmd_push_constants(
+                            command_buffer,
+                            pipeline.layout,
+                            vk::ShaderStageFlags::VERTEX,
+                            0,
+                            &push_constants,
+                        );
+                        self.geometry.device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &[binding.vertex_buffer],
+                            &[0],
+                        );
+                        self.geometry.device.cmd_bind_index_buffer(
+                            command_buffer,
+                            binding.index_buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        self.geometry.device.cmd_draw_indexed(
+                            command_buffer,
+                            binding.index_count,
+                            1,
+                            0,
+                            0,
+                            0,
+                        );
+                        self.geometry.device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &vertex_buffers,
+                            &vertex_offsets,
+                        );
+                        self.geometry.device.cmd_bind_index_buffer(
+                            command_buffer,
+                            self.geometry.buffer,
+                            self.index_buffer_offset,
+                            vk::IndexType::UINT32,
+                        );
+                    }
+                    continue;
+                }
+                let draw_key = super::DrawKey {
+                    mesh_revision: draw.mesh_revision,
+                    first_index: draw.first_index,
+                    index_count: draw.index_count,
+                };
+                let indirect_offset = self.draw_offsets.get(&draw_key).copied().ok_or(
+                    B0GpuContentError::ResourceMissing("shadow indexed-indirect command"),
+                )?;
+                // SAFETY: the fixed push range and initialized indirect command
+                // match the depth-only pipeline and uploaded geometry.
+                unsafe {
+                    self.geometry.device.cmd_push_constants(
+                        command_buffer,
+                        pipeline.layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        &push_constants,
+                    );
+                    self.geometry.device.cmd_draw_indexed_indirect(
+                        command_buffer,
+                        self.indirect.buffer,
+                        indirect_offset,
+                        1,
+                        INDIRECT_COMMAND_STRIDE,
+                    );
+                }
+            }
+            // SAFETY: one depth-only rendering instance is active and ends here.
+            unsafe { self.geometry.device.cmd_end_rendering(command_buffer) };
         }
-        // SAFETY: one depth-only rendering instance is active and ends here.
-        unsafe { self.geometry.device.cmd_end_rendering(command_buffer) };
 
         let to_sample = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(

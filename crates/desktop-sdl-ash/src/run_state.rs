@@ -63,6 +63,13 @@ pub struct DesktopRunOptions {
     /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
     /// Vulkan timestamp buffer in the same release binary.
     pub frame_profiling_sample_capacity: u32,
+    /// Scene look L4 (plan `look/04`): the temporal resolve over the plan 18
+    /// jitter and motion vectors; `false` renders every frame as it is.
+    pub temporal_aa: bool,
+    /// Scene look L7 (plan `look/07`): the post chain (bloom, volumetric
+    /// height fog with light shafts, grading); `false` keeps the plan 01
+    /// resolve.
+    pub post_chain: bool,
     /// Baseline audio device output (A4): opens the SDL playback stream with
     /// bounded unavailable/silent fallback. Disable for audio-free runs.
     pub audio_output_enabled: bool,
@@ -80,11 +87,131 @@ pub struct DesktopRunOptions {
     /// bounds, so hosts with a fractional logical/pixel scale mismatch fail
     /// closed rather than presenting at an undeclared size.
     pub prefer_borderless_fullscreen_when_display_matches: bool,
+    /// Presentation-only dynamic surfaces declared for the whole run. Each
+    /// entry names one exact catalog mesh revision and a fixed vertex/index
+    /// capacity; the adapter allocates one host-visible ring per frame slot
+    /// once and never rebuilds the render-content catalog to refresh it.
+    pub dynamic_surfaces: Vec<DynamicSurfaceProfileV1>,
+    /// ADR-102: at most one presentation-only particle surface.
+    pub particle_surface: Option<crate::particle_surface::ParticleSurfaceProfileV1>,
+    /// Bounded developer capture of a short burst of rendered frames (SPEC-04
+    /// diagnostics only). The swapchain is created with transfer-source usage
+    /// when set; a surface without that usage fails closed before the first
+    /// frame.
+    pub frame_capture: Option<DesktopFrameCaptureRequestV1>,
+    /// Developer-scripted input pushed into SDL's event queue by run time
+    /// (sorted by time on use); empty for ordinary runs.
+    pub scripted_input: Vec<DesktopScriptedInputV1>,
+    /// Plan `continuum-water/18`: sub-pixel Halton(2, 3) projection jitter
+    /// per rendered frame (for a temporal upscaler); off by default because
+    /// no temporal resolve exists yet.
+    pub projection_jitter: bool,
+}
+
+/// Plan `continuum-water/18`: which image a developer capture reads.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum DesktopCaptureSourceV1 {
+    /// The presented swapchain image (HUD included).
+    #[default]
+    Color,
+    /// The HUD-less scene colour target.
+    Scene,
+    /// Albedo (rgb) and the group mask (`group / 255` in alpha).
+    AlbedoMask,
+    /// World normal `0.5 n + 0.5` (rgb) and roughness (alpha).
+    NormalRoughness,
+    /// Screen motion in pixels (`R16G16_SFLOAT`, raw bytes).
+    Motion,
+    /// View-space depth in metres (`R32_SFLOAT`, raw bytes).
+    LinearDepth,
+    /// Scene look L3: the final ambient occlusion (`R8`, expanded to grey).
+    AmbientOcclusion,
+}
+
+/// A developer-scripted key for [`DesktopScriptedActionV1`] (the movement
+/// keys of the reference game).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DesktopScriptedKeyV1 {
+    W,
+    A,
+    S,
+    D,
+}
+
+/// One scripted input action, injected through SDL's own event queue like
+/// the startup lifecycle probe, so it flows through the ordinary
+/// normalization path with the same identities as real input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DesktopScriptedActionV1 {
+    KeyDown(DesktopScriptedKeyV1),
+    KeyUp(DesktopScriptedKeyV1),
+    /// Relative mouse motion in pixels (camera orbit).
+    MouseMotion {
+        x_relative: i32,
+        y_relative: i32,
+    },
+}
+
+/// A scripted action at a run time in milliseconds since the first
+/// pumped frame (developer diagnostic; never part of a root).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopScriptedInputV1 {
+    pub at_milliseconds: u64,
+    pub action: DesktopScriptedActionV1,
+}
+
+/// Which rendered frames to copy back to host memory.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopFrameCaptureRequestV1 {
+    /// Zero-based index among successfully submitted frames of the first
+    /// captured frame.
+    pub rendered_frame_index: u64,
+    /// Consecutive rendered frames to capture starting at that index;
+    /// clamped to `1..=MAX_FRAME_CAPTURE_BURST`.
+    pub frame_count: u32,
+    /// Plan 18: the image to read; G-buffer sources fall back to the
+    /// swapchain colour when the G-buffer pass is unavailable.
+    pub source: DesktopCaptureSourceV1,
+}
+
+/// Upper bound on consecutive captured frames per run (host memory bound).
+pub const MAX_FRAME_CAPTURE_BURST: u32 = 8;
+
+impl DesktopFrameCaptureRequestV1 {
+    #[must_use]
+    pub const fn burst_length(&self) -> u32 {
+        if self.frame_count == 0 {
+            1
+        } else if self.frame_count > MAX_FRAME_CAPTURE_BURST {
+            MAX_FRAME_CAPTURE_BURST
+        } else {
+            self.frame_count
+        }
+    }
+
+    #[must_use]
+    pub const fn covers(&self, rendered_frame_index: u64) -> bool {
+        rendered_frame_index >= self.rendered_frame_index
+            && rendered_frame_index
+                < self
+                    .rendered_frame_index
+                    .saturating_add(self.burst_length() as u64)
+    }
+}
+
+/// One rendered frame in tightly packed sRGB-encoded RGBA8, top row first.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesktopCapturedFrameV1 {
+    pub rendered_frame_index: u64,
+    pub extent: [u32; 2],
+    pub rgba8: Vec<u8>,
 }
 
 impl Default for DesktopRunOptions {
     fn default() -> Self {
         Self {
+            temporal_aa: true,
+            post_chain: true,
             title: "Next Engine — Cooked Offline RPG Slice".to_owned(),
             initial_extent: [960, 540],
             maximum_frames: None,
@@ -103,6 +230,11 @@ impl Default for DesktopRunOptions {
             audio_output_enabled: true,
             ui_subtitles_enabled: true,
             prefer_borderless_fullscreen_when_display_matches: false,
+            dynamic_surfaces: Vec::new(),
+            frame_capture: None,
+            particle_surface: None,
+            scripted_input: Vec::new(),
+            projection_jitter: false,
         }
     }
 }
@@ -119,9 +251,16 @@ pub struct DesktopFrameTimingSample {
     pub image_acquire_wait_microseconds: u64,
     pub swapchain_image_wait_microseconds: u64,
     pub frame_plan_microseconds: u64,
+    /// Host-visible dynamic surface ring refresh for this frame slot,
+    /// including the per-surface hash check that skips an unchanged ring.
+    pub dynamic_surface_upload_microseconds: u64,
+    /// Declared surfaces whose ring was actually rewritten in this frame.
+    pub dynamic_surface_uploads: u64,
     pub command_record_microseconds: u64,
     pub queue_submit_microseconds: u64,
     pub present_wait_microseconds: u64,
+    /// GPU time of the ADR-102 particle surface pass (zero when not recorded).
+    pub particle_surface_gpu_microseconds: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -180,6 +319,32 @@ pub struct DesktopRunReport {
     pub audio_device_reopens: u64,
     /// Whether a live audio stream existed at report time.
     pub audio_output_active: bool,
+    /// Frame-source publications accepted for declared dynamic surfaces.
+    pub dynamic_surface_publications: u64,
+    /// Host-visible ring refreshes performed across all frame slots.
+    pub dynamic_surface_uploads: u64,
+    /// Bytes copied into dynamic surface rings across the whole run.
+    pub dynamic_surface_upload_bytes: u64,
+    /// Draws in the last submitted frame that consumed a dynamic ring instead
+    /// of the immutable catalog geometry.
+    pub dynamic_surface_draws: u64,
+    /// Canonical hash of the current update per declared surface at exit.
+    pub dynamic_surface_hashes: Vec<(AssetRevisionRefV1, ContentHash)>,
+    /// The requested developer captures in rendered-frame order; a frame is
+    /// present only when it was submitted and its copy completed.
+    pub captured_frames: Vec<DesktopCapturedFrameV1>,
+    /// ADR-102: whether the declared particle surface pass was constructed.
+    pub particle_surface_available: bool,
+    /// Frame-source publications accepted for the particle surface.
+    pub particle_surface_publications: u64,
+    /// Particle buffer refreshes across all frame slots.
+    pub particle_surface_uploads: u64,
+    /// Bytes copied into particle buffers across the whole run.
+    pub particle_surface_upload_bytes: u64,
+    /// Frames in which the particle surface pass was recorded.
+    pub particle_surface_frames: u64,
+    /// Plan 33: frames rendered with the eye under a water ring's level.
+    pub submerged_frames: u64,
 }
 
 #[derive(Debug, Default)]

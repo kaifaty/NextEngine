@@ -5,6 +5,8 @@ description: "Diagnose NextEngine humanoid PPO runs from hash-closed manifests, 
 
 # NextEngine training diagnostics
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Diagnose the first broken boundary before tuning the optimizer. Treat dashboards
 and plots as views over closed run artifacts, never as the source of truth.
 

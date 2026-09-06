@@ -5,6 +5,8 @@ description: Build a composable CLI for Codex from API docs, an OpenAPI spec, ex
 
 # CLI Creator
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Create a real CLI that future Codex threads can run by command name from any working directory.
 
 This skill is for durable tools, not one-off scripts. If a short script in the current repo solves the task, write the script there instead.
@@ -41,7 +43,7 @@ Then choose the least surprising toolchain:
 - Use **TypeScript/Node** when the official SDK, auth helper, browser automation library, or existing repo tooling is the reason the CLI can be better.
 - Use **Python** when the source is data science, local file transforms, notebooks, SQLite/CSV/JSON analysis, or Python-heavy admin tooling that can still be installed as a durable command.
 
-Do not pick a language that adds setup friction unless it materially improves the CLI. If the best language is not installed, either install the missing toolchain with the user's approval or choose the next-best installed option.
+Do not pick a language that adds setup friction unless it materially improves the CLI. If the best language is not installed, prefer an adequate installed option. Install a missing toolchain only within existing authorization; ask only when that additional setup is necessary and not already authorized.
 
 State the choice in one sentence before scaffolding, including the reason and the installed toolchain you found.
 
@@ -91,9 +93,9 @@ Use screenshots to infer workflow, UI vocabulary, fields, and confirmation point
 4. Implement `doctor`, discovery, resolve, read commands, one narrow draft or dry-run write path if requested, and the raw escape hatch.
 5. Install the CLI on PATH so `tool-name ...` works outside the source folder.
 6. Smoke test from another repo or `/tmp`, not only with `cargo run` or package-manager wrappers. Run `command -v <tool-name>`, `<tool-name> --help`, and `<tool-name> --json doctor`.
-7. Run format, typecheck/build, unit tests for request builders, pagination/request-body builders, no-auth `doctor`, help output, and at least one fixture, dry-run, or live read-only API call.
+7. Run format and typecheck/build plus focused checks for the behavior implemented: for example pagination, request encoding or no-auth `doctor`. Verify a representative fixture, dry-run or read-only API path. Do not add tests that merely restate help text or rerun unaffected suites.
 
-If a live write is needed for confidence, ask first and make it reversible or draft-only.
+Prefer fixtures, previews or read-only checks. Use a live verification write only when the user has authorized that action and target; reuse existing authorization. If authorization is missing, prepare the exact draft or dry-run result before asking.
 
 When the source is an existing script or shell history, split the working invocation into real phases: setup, discovery, download/export, transform/index, draft, upload, poll, live write. Preserve the flags, paths, and environment variables the user already relies on, then wrap the repeatable phases with stable IDs, bounded JSON, and file outputs.
 
@@ -143,7 +145,7 @@ Add a `Makefile` target such as `make install-local` that installs the command o
 
 ## Companion Skill
 
-After the CLI works, create or update a small skill for it. Use `$skill-creator` when it is available. Use `$CODEX_HOME/skills/<tool-name>/SKILL.md` for a personal companion skill unless the user names a repo-local `.codex/skills/...` path or another skill repo.
+After the CLI works, create or update a small skill for it. Use `$skill-creator` when it is available. Use `$CODEX_HOME/skills/<tool-name>/SKILL.md` for a personal companion skill unless the user names a repository location; use `.agents/skills/...` for this project.
 
 Write the companion skill in the order a future Codex thread should use the CLI, not as a tour of every feature. Explain:
 

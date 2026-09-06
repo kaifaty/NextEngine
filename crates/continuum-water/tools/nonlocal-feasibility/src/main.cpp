@@ -5,6 +5,7 @@
 #include "tiny_corpus.hpp"
 
 #include <exception>
+#include <csignal>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -77,6 +78,14 @@ void print_usage() {
                  "--runs 96\n"
               << "       nonlocal-feasibility --p2-decision <profile-id> --warmup 64 "
                  "--runs 512\n"
+              << "       nonlocal-feasibility --game-quality-smoke\n"
+              << "       nonlocal-feasibility --game-visual-corpus\n"
+              << "       nonlocal-feasibility --game-visual-corpus --frames <prefix>\n"
+              << "       nonlocal-feasibility --game-surface-prototype\n"
+              << "       nonlocal-feasibility --game-surface-prototype --frames <prefix>\n"
+              << "       nonlocal-feasibility --game-surface-stream --lane <4k|16k|48k|48k-dam|spill|spill-narrow|spill-pipe> "
+                 "[--steps 960] [--every 4] [--cycles 1] [--workers 3] "
+                 "[--extractor cpu|gpu|verify] [--surface-model sphere|closing] [--dump-particles <prefix>] [--boundary-layers 0|1|2] [--boundary-support full|density] [--boundary-lid 1|0] [--spill-lip margin|flush|open] [--iterations 0..50] [--surface-components largest|all]\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -149,6 +158,101 @@ int main(int argc, char** argv) {
         }
         if (argc == 2 && std::string(argv[1]) == "--self-test") {
             const auto report = nextengine::nonlocal::run_cuda_self_test();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--game-quality-smoke") {
+            const auto report = nextengine::nonlocal::run_cuda_game_quality_smoke();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--game-visual-corpus") {
+            const auto report = nextengine::nonlocal::run_cuda_game_visual_corpus();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--game-visual-corpus"
+            && std::string(argv[2]) == "--frames") {
+            const auto report =
+                nextengine::nonlocal::run_cuda_game_visual_corpus(argv[3]);
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc >= 4 && std::string(argv[1]) == "--game-surface-stream") {
+            std::string lane;
+            int steps = 960;
+            int every = 4;
+            int cycles = 1;
+            int workers = 3;
+            std::string extractor = "cpu";
+            std::string surface_model = "sphere";
+            std::string particle_dump;
+            int boundary_layers = 0;
+            std::string boundary_support = "full";
+            bool boundary_lid = true;
+            std::string spill_lip = "margin";
+            int iterations_override = 0;
+            std::string surface_components = "largest";
+            for (int index = 2; index + 1 < argc; index += 2) {
+                const std::string key = argv[index];
+                const std::string value = argv[index + 1];
+                if (key == "--lane") {
+                    lane = value;
+                } else if (key == "--steps") {
+                    steps = std::stoi(value);
+                } else if (key == "--every") {
+                    every = std::stoi(value);
+                } else if (key == "--cycles") {
+                    cycles = std::stoi(value);
+                } else if (key == "--workers") {
+                    workers = std::stoi(value);
+                } else if (key == "--extractor") {
+                    extractor = value;
+                } else if (key == "--surface-model") {
+                    surface_model = value;
+                } else if (key == "--dump-particles") {
+                    particle_dump = value;
+                } else if (key == "--boundary-layers") {
+                    boundary_layers = std::stoi(value);
+                } else if (key == "--boundary-support") {
+                    boundary_support = value;
+                } else if (key == "--boundary-lid") {
+                    boundary_lid = value == "1" || value == "true";
+                } else if (key == "--spill-lip") {
+                    spill_lip = value;
+                } else if (key == "--iterations") {
+                    iterations_override = std::stoi(value);
+                } else if (key == "--surface-components") {
+                    surface_components = value;
+                } else {
+                    print_usage();
+                    return 2;
+                }
+            }
+            if (argc % 2 != 0 || lane.empty()) {
+                print_usage();
+                return 2;
+            }
+            // A consumer that stops reading closes the pipe; report that as
+            // a bounded `stream_closed` frame failure instead of dying.
+            std::signal(SIGPIPE, SIG_IGN);
+            const auto report = nextengine::nonlocal::run_cuda_game_surface_stream(
+                lane, steps, every, cycles, workers, extractor, surface_model, std::cout,
+                particle_dump, boundary_layers, boundary_support, boundary_lid, spill_lip,
+                iterations_override, surface_components);
+            std::cerr << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--game-surface-prototype") {
+            const auto report =
+                nextengine::nonlocal::run_cuda_game_surface_prototype();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--game-surface-prototype"
+            && std::string(argv[2]) == "--frames") {
+            const auto report =
+                nextengine::nonlocal::run_cuda_game_surface_prototype(argv[3]);
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

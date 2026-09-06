@@ -53,6 +53,15 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 return Err(ReferencePhysicsError::StepInputMismatch);
             }
         }
+        // ADR-105: every external impulse targets a dynamic box of this world.
+        if input.external_impulses.iter().any(|impulse| {
+            !self
+                .dynamic_boxes
+                .iter()
+                .any(|binding| binding.body_id == impulse.body_id)
+        }) {
+            return Err(ReferencePhysicsError::StepInputMismatch);
+        }
         let Some(capsule_body_id) = self.capsule_body_id else {
             if !input.accepted_intents.is_empty() {
                 return Err(ReferencePhysicsError::StepInputMismatch);
@@ -93,8 +102,13 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .accepted_intents
                 .first()
                 .map_or([0, 0], |intent| intent.direction_q15);
+            let impulses = if substep == 0 {
+                input.external_impulses.as_slice()
+            } else {
+                &[]
+            };
             let integrated =
-                self.integrate_capsule_substep(&mut staged, &body_before, direction)?;
+                self.integrate_capsule_substep(&mut staged, &body_before, direction, impulses)?;
             let mut body_after = integrated.body_after;
 
             if body_after.pose != body_before.pose
@@ -262,7 +276,16 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     ) -> Result<PhysicsStepResultV1, ReferencePhysicsError> {
         let before_snapshot_hash = self.snapshot_hash()?;
         let mut staged = self.checkpoint.snapshot.clone();
-        for _ in 0..input.physics_substeps {
+        for substep in 0..input.physics_substeps {
+            // WR1: dynamic boxes fall without an avatar as well.
+            let dynamic_before = self.prepare_dynamic_states(&mut staged)?;
+            let impulses = if substep == 0 {
+                input.external_impulses.as_slice()
+            } else {
+                &[]
+            };
+            self.integrate_dynamic_boxes(&mut staged, None, impulses)?;
+            self.finish_dynamic_states(&mut staged, dynamic_before)?;
             staged.physics_tick = staged
                 .physics_tick
                 .checked_add(1)
@@ -464,6 +487,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     }
 
     pub(super) fn validate_activation_snapshot(&self) -> Result<(), ReferencePhysicsError> {
+        self.validate_dynamic_boxes_apart()?;
         let Some(capsule_body_id) = self.capsule_body_id else {
             if self
                 .checkpoint
@@ -513,20 +537,6 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 }
             }
         }
-        for dynamic in &dynamic_boxes {
-            for fixed in self.static_boxes.iter().filter(|fixed| {
-                grounded_capsule_collision_filter(
-                    dynamic.collision_layer,
-                    dynamic.collision_mask,
-                    fixed,
-                )
-            }) {
-                if boxes_penetrate(dynamic, fixed) {
-                    return Err(ReferencePhysicsError::SnapshotPenetrating);
-                }
-            }
-        }
-
         for contact in self
             .checkpoint
             .snapshot
@@ -562,6 +572,38 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         // identities, features, ticks and solver references; this adapter only
         // needs to prove that every contact belongs to its supported capsule/box
         // collision graph.
+        Ok(())
+    }
+}
+
+impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
+    /// WR1: no two dynamic boxes that collide with each other penetrate at
+    /// activation, and no dynamic box penetrates a static solid.
+    fn validate_dynamic_boxes_apart(&self) -> Result<(), ReferencePhysicsError> {
+        let dynamic_boxes = self.current_dynamic_boxes(&self.checkpoint.snapshot)?;
+        for (index, dynamic) in dynamic_boxes.iter().enumerate() {
+            for fixed in self.static_boxes.iter().filter(|fixed| {
+                grounded_capsule_collision_filter(
+                    dynamic.collision_layer,
+                    dynamic.collision_mask,
+                    fixed,
+                )
+            }) {
+                if boxes_penetrate(dynamic, fixed) {
+                    return Err(ReferencePhysicsError::SnapshotPenetrating);
+                }
+            }
+            for other in dynamic_boxes.iter().skip(index + 1) {
+                if grounded_capsule_collision_filter(
+                    dynamic.collision_layer,
+                    dynamic.collision_mask,
+                    other,
+                ) && boxes_penetrate(dynamic, other)
+                {
+                    return Err(ReferencePhysicsError::SnapshotPenetrating);
+                }
+            }
+        }
         Ok(())
     }
 }

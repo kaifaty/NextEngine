@@ -53,6 +53,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         composition_root: CompositionRootV1::Headless,
         presentation_target: PresentationTargetKindV1::None,
         platform_capability_set: None,
+        spawn_override: None,
     };
     let mut application =
         ApplicationCoordinator::launch_or_resume(launch).map_err(AppFailure::application)?;

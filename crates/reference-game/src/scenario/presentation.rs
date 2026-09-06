@@ -14,6 +14,8 @@ pub(crate) fn fixture_presentation_bindings(
     rpg: &RpgSnapshotV2,
     _physical_animation: &PhysicalAnimationOwnerV1,
     physics: &PhysicsCanonicalSnapshotV2,
+    water: &next_contracts::physics::WaterVolumeSetV1,
+    tick: u64,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {
         fixture
@@ -54,7 +56,34 @@ pub(crate) fn fixture_presentation_bindings(
         mesh(crate::source::REFERENCE_FOCUS_RING_MESH_ASSET_ID)?;
     let (quest_marker_mesh, quest_marker_bounds) =
         mesh(crate::source::REFERENCE_QUEST_MARKER_MESH_ASSET_ID)?;
+    let (water_surface_mesh, water_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_SURFACE_MESH_ASSET_ID)?;
+    let (vessel_a_surface_mesh, vessel_a_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID)?;
+    let (vessel_b_surface_mesh, vessel_b_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID)?;
+    let (water_crate_mesh, water_crate_bounds) =
+        mesh(crate::source::REFERENCE_WATER_CRATE_MESH_ASSET_ID)?;
+    let (water_rim_mesh, water_rim_bounds) =
+        mesh(crate::source::REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID)?;
+    let (pond_mesh, pond_bounds) = mesh(crate::source::REFERENCE_WATER_POND_MESH_ASSET_ID)?;
+    let (pond_surface_mesh, pond_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID)?;
+    let (works_mesh, works_bounds) = mesh(crate::source::REFERENCE_WATER_WORKS_MESH_ASSET_ID)?;
+    let (lake_surface_mesh, lake_surface_bounds) =
+        mesh(crate::source::REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID)?;
+    let stream_surface_meshes = [
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[0])?,
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[1])?,
+        mesh(crate::source::REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS[2])?,
+    ];
+    let stream_cells = crate::water::reference_water_stream_cell_ids();
+    let water_material = revision(crate::source::REFERENCE_WATER_MATERIAL_ASSET_ID)?;
     let floor_material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
+    // Scene look L5: the concrete of the works, the pond and the rim.
+    let concrete_material = revision(crate::source::REFERENCE_CONCRETE_MATERIAL_ASSET_ID)?;
+    // Scene look L5b: the imported water tank's painted steel.
+    let tank_material = revision(crate::source::REFERENCE_WATER_TANK_MATERIAL_ASSET_ID)?;
     let player_material = revision(crate::source::REFERENCE_PLAYER_MATERIAL_ASSET_ID)?;
     let enemy_material = revision(crate::source::REFERENCE_ENEMY_MATERIAL_ASSET_ID)?;
     let defeated_enemy_material =
@@ -323,6 +352,25 @@ pub(crate) fn fixture_presentation_bindings(
         [0, 0, 0],
         IDENTITY_Q30,
     ));
+    // Scene look L5b (plan `look/05b`): the imported water tank west of the
+    // pond, south of the dam, in the falls camera's view. Seven pieces
+    // (the scaffold's order), each with its node transform baked, under
+    // one placement; presentation only.
+    for (piece, mesh_asset_id) in crate::source::REFERENCE_WATER_TANK_MESH_ASSET_IDS
+        .iter()
+        .enumerate()
+    {
+        let (tank_mesh, tank_bounds) = mesh(*mesh_asset_id)?;
+        bindings.push(static_environment(
+            0x65 + u8::try_from(piece).map_err(|_| ReferenceGameError::PresentationAssetMissing)?,
+            10,
+            tank_mesh,
+            tank_material,
+            tank_bounds,
+            [-11_000_000, 0, 9_000_000],
+            IDENTITY_Q30,
+        ));
+    }
     bindings.extend([
         PresentationBindingV1 {
             persistent_id: fixture.r5b_course.static_body_id.subject_id,
@@ -355,6 +403,87 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
         PresentationBindingV1 {
+            // Plan 16: the authored rim of the basin.
+            persistent_id: crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: water_rim_mesh,
+            material_revision: concrete_material,
+            instance_ordinal: 18,
+            local_bounds: water_rim_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // Plan 32: the pond interior follows its static body.
+            // Plan 16: the authored rim of the basin.
+            persistent_id: crate::water::REFERENCE_WATER_POND_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: pond_mesh,
+            material_revision: concrete_material,
+            instance_ordinal: 19,
+            local_bounds: pond_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_POND_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // ADR-105: the floating crate follows its dynamic body pose.
+            persistent_id: crate::water::REFERENCE_WATER_CRATE_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
+            incarnation: 0,
+            presentation_layer: 15,
+            mesh_revision: water_crate_mesh,
+            material_revision: relay_active_material,
+            instance_ordinal: 17,
+            local_bounds: water_crate_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_CRATE_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // Plan 39: the lake works follow their static body.
+            persistent_id: crate::water::REFERENCE_WATER_WORKS_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: works_mesh,
+            material_revision: concrete_material,
+            instance_ordinal: 22,
+            local_bounds: works_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_WORKS_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            // Plan 36: the gate lever follows its static body.
+            persistent_id: crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 16,
+            mesh_revision: water_crate_mesh,
+            material_revision: concrete_material,
+            instance_ordinal: 21,
+            local_bounds: water_crate_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
             persistent_id: fixture.carried_load_id,
             presentation_role: next_contracts::presentation::PresentationRoleV1::Item,
             incarnation: 0,
@@ -375,6 +504,102 @@ pub(crate) fn fixture_presentation_bindings(
             visible: true,
         },
     ]);
+    // ADR-100 still-surface fallback: the basin quad follows the exact
+    // authoritative level. Presentation reads the committed water table and
+    // never feeds anything back; a later ADR-101 ring may animate the same
+    // catalog mesh without touching this binding's identity or bounds.
+    bindings.push(PresentationBindingV1 {
+        persistent_id: crate::water::REFERENCE_WATER_BASIN_ID,
+        presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+        incarnation: 0,
+        presentation_layer: 14,
+        mesh_revision: water_surface_mesh,
+        material_revision: water_material,
+        instance_ordinal: 14,
+        local_bounds: water_surface_bounds,
+        feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+        physics_body_id: None,
+        fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+            translation_micrometres: crate::water::water_surface_translation(water, tick)?,
+            orientation_q30: IDENTITY_Q30,
+        },
+        visible: true,
+    });
+    // ADR-103 vessels: the same still-surface rule per flow cell; the
+    // presentation stage of plan 09 may animate these quads through rings.
+    for (object_id, volume_id, mesh_revision, bounds, ordinal) in [
+        (
+            crate::water::REFERENCE_WATER_VESSEL_A_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_VESSEL_A_ID,
+            vessel_a_surface_mesh,
+            vessel_a_surface_bounds,
+            15,
+        ),
+        (
+            crate::water::REFERENCE_WATER_VESSEL_B_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_VESSEL_B_ID,
+            vessel_b_surface_mesh,
+            vessel_b_surface_bounds,
+            16,
+        ),
+        // Plan 32: the pond's surface quad.
+        (
+            crate::water::REFERENCE_WATER_POND_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_POND_ID,
+            pond_surface_mesh,
+            pond_surface_bounds,
+            20,
+        ),
+        // Plan 39: the lake and the stream cells.
+        (
+            crate::water::REFERENCE_WATER_LAKE_SURFACE_OBJECT_ID,
+            crate::water::REFERENCE_WATER_LAKE_ID,
+            lake_surface_mesh,
+            lake_surface_bounds,
+            23,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[0],
+            stream_cells[0],
+            stream_surface_meshes[0].0,
+            stream_surface_meshes[0].1,
+            24,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[1],
+            stream_cells[1],
+            stream_surface_meshes[1].0,
+            stream_surface_meshes[1].1,
+            25,
+        ),
+        (
+            crate::water::REFERENCE_WATER_STREAM_SURFACE_OBJECT_IDS[2],
+            stream_cells[2],
+            stream_surface_meshes[2].0,
+            stream_surface_meshes[2].1,
+            26,
+        ),
+    ] {
+        bindings.push(PresentationBindingV1 {
+            persistent_id: object_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 14,
+            mesh_revision,
+            material_revision: water_material,
+            instance_ordinal: ordinal,
+            local_bounds: bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: None,
+            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+                translation_micrometres: crate::water::volume_surface_translation(
+                    water, volume_id, tick,
+                )?,
+                orientation_q30: IDENTITY_Q30,
+            },
+            visible: true,
+        });
+    }
     if let Some(focus_body_id) = focus_body_id {
         bindings.push(PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x75; 16]),

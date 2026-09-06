@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::canonical::{CanonicalDecodeLimits, encode_canonical_segment};
-use crate::ids::{ContentHash, PhysicsWorldId, SchemaId, content_hash_from_bytes};
+use crate::ids::{ContentHash, PersistentId, PhysicsWorldId, SchemaId, content_hash_from_bytes};
 use crate::input::TickRateProfileV1;
 
 use super::codec::field_u16;
@@ -195,5 +195,551 @@ fn complete_material_and_combine_contracts_round_trip_and_hash_every_field() {
     assert_ne!(
         combine.profile_hash().expect("combine hash"),
         changed.profile_hash().expect("changed combine hash")
+    );
+}
+
+#[test]
+fn water_volume_set_round_trips_queries_and_commands() {
+    use super::{
+        WaterLevelRampV1, WaterSubmersionClassV1, WaterVolumeCommandV1, WaterVolumeDefinitionV1,
+        WaterVolumeRejectionV1, WaterVolumeSetV1,
+    };
+    use crate::canonical::CanonicalDecodeLimits;
+    use crate::ids::PersistentId;
+
+    let basin = WaterVolumeDefinitionV1 {
+        volume_id: PersistentId::from_bytes([0x21; 16]),
+        minimum_micrometres: [0, 0, 0],
+        maximum_micrometres: [4_000_000, 2_000_000, 2_000_000],
+        initial_level_micrometres: 500_000,
+        swimming_depth_micrometres: 1_200_000,
+        level_ramp: Some(WaterLevelRampV1 {
+            start_tick: 10,
+            end_tick: 20,
+            start_level_micrometres: 500_000,
+            end_level_micrometres: 1_500_000,
+        }),
+        profile_revision: 1,
+    };
+    let set = WaterVolumeSetV1::from_definitions([basin.clone()]).expect("valid basin");
+    let bytes = set.canonical_record().expect("encode");
+    let decoded =
+        WaterVolumeSetV1::from_record(&bytes, CanonicalDecodeLimits::default()).expect("decode");
+    assert_eq!(decoded, set);
+    assert_eq!(
+        set.set_hash().expect("hash"),
+        decoded.set_hash().expect("hash")
+    );
+
+    // Ramp: exact integer interpolation, clamped outside the window.
+    assert_eq!(set.effective_level(basin.volume_id, 0), Some(500_000));
+    assert_eq!(set.effective_level(basin.volume_id, 15), Some(1_000_000));
+    assert_eq!(set.effective_level(basin.volume_id, 99), Some(1_500_000));
+    let probe = set.submersion_at([1_000_000, 0, 1_000_000], 15);
+    assert_eq!(probe.depth_micrometres, 1_000_000);
+    assert_eq!(probe.class, WaterSubmersionClassV1::Wading);
+    assert_eq!(
+        set.submersion_at([9_000_000, 0, 0], 0).class,
+        WaterSubmersionClassV1::Dry
+    );
+
+    // A committed command suspends the ramp and bumps the record revision.
+    let (next, event) = set
+        .apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 0,
+                level_micrometres: 1_800_000,
+            },
+            15,
+        )
+        .expect("commit");
+    assert_eq!(event.previous_level_micrometres, 1_000_000);
+    assert_eq!(event.record_revision, 1);
+    assert_eq!(next.effective_level(basin.volume_id, 15), Some(1_800_000));
+    assert_eq!(
+        next.submersion_at([1_000_000, 0, 1_000_000], 15).class,
+        WaterSubmersionClassV1::Swimming
+    );
+    assert_eq!(
+        next.apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 0,
+                level_micrometres: 1_000_000,
+            },
+            16,
+        )
+        .expect_err("stale"),
+        WaterVolumeRejectionV1::RevisionStale
+    );
+    assert_eq!(
+        next.apply_command(
+            &WaterVolumeCommandV1::SetLevel {
+                volume_id: basin.volume_id,
+                expected_record_revision: 1,
+                level_micrometres: 2_000_001,
+            },
+            16,
+        )
+        .expect_err("out of extent"),
+        WaterVolumeRejectionV1::LevelOutOfExtent
+    );
+
+    // Overlapping volumes reject; command and event payloads round-trip.
+    let mut overlapping = basin.clone();
+    overlapping.volume_id = PersistentId::from_bytes([0x22; 16]);
+    assert!(WaterVolumeSetV1::from_definitions([basin.clone(), overlapping]).is_err());
+    let command = WaterVolumeCommandV1::SetLevel {
+        volume_id: basin.volume_id,
+        expected_record_revision: 3,
+        level_micrometres: -7,
+    };
+    let command_bytes = command.canonical_payload_bytes().expect("command bytes");
+    assert_eq!(
+        WaterVolumeCommandV1::from_canonical_payload_bytes(
+            &command_bytes,
+            CanonicalDecodeLimits::default()
+        )
+        .expect("command decode"),
+        command
+    );
+    let event_bytes = event.canonical_payload_bytes().expect("event bytes");
+    assert_eq!(
+        super::WaterVolumeChangedV1::from_canonical_payload_bytes(&event_bytes).expect("event"),
+        event
+    );
+}
+
+#[test]
+fn body_descriptor_mass_follows_the_motion_kind_and_round_trips() {
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material_id = SchemaId::new("nextengine.physics.material.test-zero").expect("material id");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: material_id.clone(),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x31; 16]),
+        body_slot: 0,
+    };
+    let shape_id = PhysicsShapeIdV1 {
+        body_id,
+        shape_slot: 0,
+    };
+    let shape = PhysicsShapeDescriptorV1 {
+        shape_id,
+        descriptor_revision: 1,
+        local_pose: PhysicsPoseV1::default(),
+        geometry: PhysicsGeometryV1::Box {
+            half_extents_micrometres: [200_000, 300_000, 200_000],
+        },
+        material_id,
+        collision_layer: 1,
+        collision_mask: u64::MAX,
+        participation: PhysicsParticipationV1::Solid,
+        contact_reporting: PhysicsContactReportingV1::Disabled,
+    };
+    let body = |motion_kind, mass_microkilograms| PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [0, 300_000, 0],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms,
+        shapes: BTreeMap::from([(shape_id, shape.clone())]),
+    };
+    for (motion_kind, mass) in [
+        (PhysicsMotionKindV1::Dynamic, 0),
+        (
+            PhysicsMotionKindV1::Dynamic,
+            MAXIMUM_BODY_MASS_MICROKILOGRAMS + 1,
+        ),
+        (PhysicsMotionKindV1::Static, 1),
+        (PhysicsMotionKindV1::Kinematic, 20_000_000),
+    ] {
+        assert_eq!(
+            body(motion_kind, mass).validate(),
+            Err(PhysicsContractError::InvalidDescriptor)
+        );
+    }
+    let dynamic = body(PhysicsMotionKindV1::Dynamic, 20_000_000);
+    dynamic.validate().expect("20 kg dynamic body");
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([2; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(body_id, dynamic)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog with one dynamic body");
+    let bytes = catalog.canonical_bytes().expect("catalog encode");
+    let decoded =
+        PhysicsWorldCatalogV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("catalog decode");
+    assert_eq!(decoded, catalog);
+    assert_eq!(decoded.bodies[&body_id].mass_microkilograms, 20_000_000);
+}
+
+#[test]
+fn buoyancy_batch_is_exact_and_rides_the_step_input() {
+    use super::buoyancy::{
+        MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS, WaterBuoyancyBatchV1, WaterBuoyancyProfileV1,
+        WaterExchangeContextV1, velocity_delta_micrometres_per_second,
+    };
+    use super::water::{WaterVolumeDefinitionV1, WaterVolumeSetV1};
+
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material_id = SchemaId::new("nextengine.physics.material.test-zero").expect("material id");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: material_id.clone(),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let body = |byte: u8, translation: [i64; 3], half: i64| {
+        let body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([byte; 16]),
+            body_slot: 0,
+        };
+        let shape_id = PhysicsShapeIdV1 {
+            body_id,
+            shape_slot: 0,
+        };
+        (
+            body_id,
+            PhysicsBodyDescriptorV1 {
+                body_id,
+                descriptor_revision: 1,
+                motion_kind: PhysicsMotionKindV1::Dynamic,
+                initial_pose: PhysicsPoseV1 {
+                    translation_micrometres: translation,
+                    ..PhysicsPoseV1::default()
+                },
+                initial_linear_velocity_micrometres_per_second: [0; 3],
+                initial_angular_velocity_q16: [0; 3],
+                active: true,
+                mass_microkilograms: 50_000_000,
+                shapes: BTreeMap::from([(
+                    shape_id,
+                    PhysicsShapeDescriptorV1 {
+                        shape_id,
+                        descriptor_revision: 1,
+                        local_pose: PhysicsPoseV1::default(),
+                        geometry: PhysicsGeometryV1::Box {
+                            half_extents_micrometres: [half; 3],
+                        },
+                        material_id: material_id.clone(),
+                        collision_layer: 1,
+                        collision_mask: u64::MAX,
+                        participation: PhysicsParticipationV1::Solid,
+                        contact_reporting: PhysicsContactReportingV1::Disabled,
+                    },
+                )]),
+            },
+        )
+    };
+    // The crate: a 0.5 m cube resting on the basin floor (level 0.5 m).
+    let (crate_id, crate_body) = body(0x41, [6_500_000, 250_000, 2_000_000], 250_000);
+    // A body outside every volume.
+    let (dry_id, dry_body) = body(0x42, [20_000_000, 250_000, 0], 250_000);
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([3; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(crate_id, crate_body), (dry_id, dry_body)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog");
+    let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, &tick, &numeric, &quantization)
+        .expect("snapshot");
+    let basin_id = PersistentId::from_bytes([0x7a; 16]);
+    let volumes = WaterVolumeSetV1::from_definitions([WaterVolumeDefinitionV1 {
+        volume_id: basin_id,
+        minimum_micrometres: [4_500_000, 0, 1_000_000],
+        maximum_micrometres: [8_500_000, 2_000_000, 3_000_000],
+        initial_level_micrometres: 500_000,
+        swimming_depth_micrometres: 1_200_000,
+        level_ramp: None,
+        profile_revision: 1,
+    }])
+    .expect("water set");
+    let profile = WaterBuoyancyProfileV1::reference_v1().expect("profile");
+    let context = WaterExchangeContextV1 {
+        world_id: snapshot.world_id,
+        source_revision: 0,
+        source_root: volumes.set_hash().expect("water hash"),
+        destination_revision: snapshot.world_revision,
+        destination_root: snapshot.snapshot_hash().expect("snapshot hash"),
+    };
+    let batch = WaterBuoyancyBatchV1::compute(
+        &profile, &volumes, None, &catalog, &snapshot, 7, 30, &context,
+    )
+    .expect("batch");
+    assert_eq!(batch.records.len(), 1);
+    let record = batch.record(crate_id).expect("crate record");
+    assert!(batch.record(dry_id).is_none());
+    // The whole cube is under the 0.5 m level: 0.125 m^3.
+    assert_eq!(record.displaced_volume_cubic_millimetres, 125_000_000);
+    assert_eq!(record.volume_id, basin_id);
+    // rho g V dt = 1000 * 9.81 * 0.125 / 30 N s = 40.875 N s = 40_875_000 uN s.
+    assert_eq!(
+        record.impulse.impulse_micronewton_seconds,
+        [0, 40_875_000, 0]
+    );
+    assert_eq!(
+        record.impulse.application_point_micrometres,
+        [6_500_000, 250_000, 2_000_000]
+    );
+    // 40.875 N s on 50 kg: 0.8175 m/s.
+    assert_eq!(
+        velocity_delta_micrometres_per_second(40_875_000, 50_000_000).expect("delta"),
+        817_500
+    );
+    // Drag: a 1 m/s downward velocity on the fully immersed cube gives
+    // -k rho V v dt = -(2 * 1000 * 0.125 * -1) / 30 = +8.333 N s.
+    let mut moving = snapshot.clone();
+    moving
+        .sorted_body_states
+        .get_mut(&crate_id)
+        .expect("crate state")
+        .linear_velocity_micrometres_per_second = [0, -1_000_000, 0];
+    let moving_batch =
+        WaterBuoyancyBatchV1::compute(&profile, &volumes, None, &catalog, &moving, 7, 30, &context)
+            .expect("batch");
+    assert_eq!(
+        moving_batch.records[0].impulse.impulse_micronewton_seconds,
+        [0, 40_875_000 + 8_333_333, 0]
+    );
+
+    // The batch rides the step input, round-trips and is hashed.
+    let input = PhysicsStepInputV2 {
+        schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
+        world_id: snapshot.world_id,
+        expected_world_revision: snapshot.world_revision,
+        expected_snapshot_hash: context.destination_root,
+        expected_catalog_hash: catalog.catalog_hash().expect("catalog hash"),
+        gameplay_tick: 7,
+        first_physics_tick: 1,
+        physics_substeps: tick.physics_substeps_per_gameplay_tick,
+        accepted_intents: Vec::new(),
+        external_impulses: batch.external_impulses(),
+    };
+    input.validate().expect("input with a batch validates");
+    let bytes = input.canonical_bytes().expect("input encode");
+    assert_eq!(
+        PhysicsStepInputV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("input decode"),
+        input
+    );
+    // G7 rejections: duplicate body, overflowed impulse, wrong tick binding.
+    let mut duplicate = input.clone();
+    duplicate
+        .external_impulses
+        .push(input.external_impulses[0].clone());
+    assert_eq!(
+        duplicate.validate(),
+        Err(PhysicsContractError::NonCanonicalOrder)
+    );
+    let mut overflow = input.clone();
+    overflow.external_impulses[0].impulse_micronewton_seconds[1] =
+        MAX_EXTERNAL_IMPULSE_MICRONEWTON_SECONDS + 1;
+    assert_eq!(
+        overflow.validate(),
+        Err(PhysicsContractError::WaterBuoyancyInvalid)
+    );
+    let mut stale = input.clone();
+    stale.external_impulses[0].exchange.destination_revision += 1;
+    assert_eq!(stale.validate(), Err(PhysicsContractError::ProfileMismatch));
+}
+
+/// ADR-105 revision 1.1 (plan `continuum-water/37`): the currents of a
+/// flowing two-cell lattice and the drag they exert on a still box.
+#[test]
+fn flowing_lattice_gives_both_cells_a_current_and_a_still_box_drifts_with_it() {
+    use super::buoyancy::{
+        WaterBuoyancyBatchV1, WaterBuoyancyProfileV1, WaterExchangeContextV1, water_currents,
+    };
+    use super::water_lattice::WaterLatticeRegionV1;
+    let region = WaterLatticeRegionV1 {
+        region_id: PersistentId::from_bytes([0x4f; 16]),
+        origin_micrometres: [0; 3],
+        cell_size_micrometres: [2_000_000, 2_000_000],
+        columns: 2,
+        rows: 1,
+        ceiling_micrometres: 3_000_000,
+        floor_micrometres: vec![0, 0],
+        initial_level_micrometres: vec![1_000_000, 500_000],
+        sill_coefficient_permille: 600,
+        profile_revision: 1,
+    };
+    let (mut volumes, mut network) = region.build(30).expect("lattice");
+    let still = water_currents(&volumes, &network, 0, 30).expect("currents");
+    assert!(still.is_empty(), "no flux before the first step");
+    network.step_in_place(&mut volumes).expect("step");
+    let (edge_id, edge) = network.edges.iter().next().expect("the sill edge");
+    let flux = network.edge_flux(*edge_id).expect("flux");
+    assert!(flux > 0, "water flows from the higher cell");
+    let currents = water_currents(&volumes, &network, 1, 30).expect("currents");
+    assert_eq!(currents.len(), 2);
+    let cell_b = edge.cell_b.expect("two cells");
+    for (cell, depth) in [
+        (
+            edge.cell_a,
+            volumes.effective_level(edge.cell_a, 1).expect("level a"),
+        ),
+        (cell_b, volumes.effective_level(cell_b, 1).expect("level b")),
+    ] {
+        let expected = i128::from(flux) * 30 * 1_000_000_000 / (i128::from(depth) * 2_000_000);
+        let current = currents[&cell];
+        assert_eq!(
+            current[0],
+            i64::try_from(expected).expect("fits"),
+            "cell {cell:?}"
+        );
+        assert_eq!(current[1], 0);
+        assert_eq!(current[2], 0);
+    }
+    // A still box in the source cell is dragged along +x by the current.
+    let tick = TickRateProfileV1::at_30_hz();
+    let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");
+    let numeric =
+        AuthoritativeNumericProfileV1::capsule_reference_v1(&quantization).expect("numeric");
+    let material = PhysicsMaterialDescriptorV1 {
+        material_id: SchemaId::new("nextengine.physics.material.test-zero").expect("material id"),
+        descriptor_revision: 1,
+        static_friction_q16: 0,
+        dynamic_friction_q16: 0,
+        restitution_q16: 0,
+        canonical_material_tags: Vec::new(),
+    };
+    let crate_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x87; 16]),
+        body_slot: 0,
+    };
+    let crate_shape_id = PhysicsShapeIdV1 {
+        body_id: crate_id,
+        shape_slot: 0,
+    };
+    let crate_body = PhysicsBodyDescriptorV1 {
+        body_id: crate_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Dynamic,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [1_000_000, 300_000, 1_000_000],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms: 50_000_000,
+        shapes: BTreeMap::from([(
+            crate_shape_id,
+            PhysicsShapeDescriptorV1 {
+                shape_id: crate_shape_id,
+                descriptor_revision: 1,
+                local_pose: PhysicsPoseV1::default(),
+                geometry: PhysicsGeometryV1::Box {
+                    half_extents_micrometres: [250_000; 3],
+                },
+                material_id: material.material_id.clone(),
+                collision_layer: 1,
+                collision_mask: u64::MAX,
+                participation: PhysicsParticipationV1::Solid,
+                contact_reporting: PhysicsContactReportingV1::Disabled,
+            },
+        )]),
+    };
+    let catalog = PhysicsWorldCatalogV1::new(
+        PhysicsWorldId::from_bytes([3; 16]),
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: PhysicsCoordinateProfileV1::reference_v1().expect("coordinate"),
+            limits: PhysicsLimitsProfileV1::reference_v1().expect("limits"),
+            solver: PhysicsSolverSemanticsProfileV1::grounded_capsule_v1().expect("solver"),
+            tick_rate_hash: tick.profile_hash().expect("tick hash"),
+            authoritative_numeric_hash: numeric.profile_hash().expect("numeric hash"),
+            quantization_hash: quantization.profile_hash().expect("quantization hash"),
+        },
+        BTreeMap::from([(material.material_id.clone(), material)]),
+        BTreeMap::from([(crate_id, crate_body)]),
+        BTreeMap::new(),
+    )
+    .expect("catalog");
+    let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, &tick, &numeric, &quantization)
+        .expect("snapshot");
+    let profile = WaterBuoyancyProfileV1::reference_v1().expect("profile");
+    let context = WaterExchangeContextV1 {
+        world_id: snapshot.world_id,
+        source_revision: 0,
+        source_root: volumes.set_hash().expect("water hash"),
+        destination_revision: snapshot.world_revision,
+        destination_root: snapshot.snapshot_hash().expect("snapshot hash"),
+    };
+    let batch = WaterBuoyancyBatchV1::compute(
+        &profile,
+        &volumes,
+        Some(&network),
+        &catalog,
+        &snapshot,
+        1,
+        30,
+        &context,
+    )
+    .expect("batch");
+    let record = batch.record(crate_id).expect("crate record");
+    let volume = i128::from(record.displaced_volume_cubic_millimetres);
+    let expected_drag = i128::from(profile.damping_permille_per_second)
+        * i128::from(profile.water_density_kilograms_per_cubic_metre)
+        * volume
+        * i128::from(currents[&edge.cell_a][0])
+        / (1_000_000_000 * 1_000 * 30);
+    assert_eq!(
+        i128::from(record.impulse.impulse_micronewton_seconds[0]),
+        expected_drag
+    );
+    assert!(record.impulse.impulse_micronewton_seconds[0] > 0);
+    assert_eq!(record.impulse.impulse_micronewton_seconds[2], 0);
+    let still_batch = WaterBuoyancyBatchV1::compute(
+        &profile, &volumes, None, &catalog, &snapshot, 1, 30, &context,
+    )
+    .expect("batch");
+    assert_eq!(
+        still_batch
+            .record(crate_id)
+            .expect("record")
+            .impulse
+            .impulse_micronewton_seconds[0],
+        0
     );
 }

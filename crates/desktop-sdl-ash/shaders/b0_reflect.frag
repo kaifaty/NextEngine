@@ -1,0 +1,243 @@
+#version 450
+
+// Water look L5 (plan continuum-water/15): the B0 material for the mirrored
+// reflection pass; fragments below the mirror plane (the `w` lane of the
+// camera position, written only for this pass) are discarded. Scene look
+// L1 shading otherwise identical to `b0_textured`.
+layout(location = 0) in vec2 in_uv;
+layout(location = 1) in vec3 in_world_position;
+layout(location = 2) in vec3 in_world_normal;
+layout(location = 0) out vec4 out_color;
+
+layout(set = 0, binding = 0, std140) uniform FrameUniforms {
+    mat4 view_projection;
+    mat4 shadow_view_projection;
+    vec4 camera_world_position;
+    vec4 sun_direction_intensity;
+    vec4 hemisphere_sky_color;
+    vec4 hemisphere_ground_color;
+    vec4 fog_color_density;
+} frame;
+
+// Scene look L1 (plan look/01): the lighting block. The sun in irradiance
+// units (normal to the sun), the sky's SH2 radiance, the fog's radiance at
+// the horizon, and the Preetham sky's coefficients for the reflected sky.
+layout(set = 0, binding = 1, std140) uniform LightingUniforms {
+    mat4 inverse_view_projection;
+    vec4 sun_radiance;          // rgb irradiance normal to the sun, w exposure
+    vec4 sky_sh[9];             // SH2 radiance coefficients (rgb)
+    vec4 fog;                   // rgb radiance at the horizon, w density per metre
+    vec4 sky_zenith;            // zenith x, y, Y (raw), sun disc cos inner
+    vec4 sky_perez_x[2];
+    vec4 sky_perez_y[2];
+    vec4 sky_perez_luminance[2];
+    vec4 sky_params;            // ground albedo, turbidity, luminance scale, sun disc cos outer
+    mat4 shadow_cascades[3];    // plan look/02: the cascade view-projections
+    vec4 shadow_extents;        // cascade extents in metres, spare
+} lighting;
+
+const float LIGHTING_PI = 3.14159265;
+
+// Irradiance at a normal from the SH2 radiance (Ramamoorthi and Hanrahan).
+vec3 sh_irradiance(vec3 n) {
+    const float c1 = 0.429043;
+    const float c2 = 0.511664;
+    const float c3 = 0.743125;
+    const float c4 = 0.886227;
+    const float c5 = 0.247708;
+    vec3 l00 = lighting.sky_sh[0].rgb;
+    vec3 l1m1 = lighting.sky_sh[1].rgb;
+    vec3 l10 = lighting.sky_sh[2].rgb;
+    vec3 l11 = lighting.sky_sh[3].rgb;
+    vec3 l2m2 = lighting.sky_sh[4].rgb;
+    vec3 l2m1 = lighting.sky_sh[5].rgb;
+    vec3 l20 = lighting.sky_sh[6].rgb;
+    vec3 l21 = lighting.sky_sh[7].rgb;
+    vec3 l22 = lighting.sky_sh[8].rgb;
+    float x = n.x;
+    float y = n.y;
+    float z = n.z;
+    vec3 e = c1 * l22 * (x * x - y * y) + c3 * l20 * z * z + c4 * l00 - c5 * l20
+        + 2.0 * c1 * (l2m2 * x * y + l21 * x * z + l2m1 * y * z)
+        + 2.0 * c2 * (l11 * x + l1m1 * y + l10 * z);
+    return max(e, vec3(0.0));
+}
+
+float sky_perez(vec4 a, vec4 b, float cos_theta, float gamma) {
+    return (1.0 + a.x * exp(a.y / max(cos_theta, 0.01)))
+        * (1.0 + a.z * exp(a.w * gamma) + b.x * cos(gamma) * cos(gamma));
+}
+
+// The Preetham sky's radiance along a direction (linear sRGB, the same
+// units as the lighting block); below the horizon the horizon's value.
+vec3 sky_radiance(vec3 direction) {
+    vec3 sun = normalize(-frame.sun_direction_intensity.xyz);
+    float cos_theta = max(direction.y, 0.01);
+    float gamma = acos(clamp(dot(direction, sun), -1.0, 1.0));
+    float theta_s = acos(clamp(sun.y, -1.0, 1.0));
+    float x = lighting.sky_zenith.x
+        * sky_perez(lighting.sky_perez_x[0], lighting.sky_perez_x[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_x[0], lighting.sky_perez_x[1], 1.0, theta_s);
+    float y = lighting.sky_zenith.y
+        * sky_perez(lighting.sky_perez_y[0], lighting.sky_perez_y[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_y[0], lighting.sky_perez_y[1], 1.0, theta_s);
+    float big_y = lighting.sky_zenith.z
+        * sky_perez(lighting.sky_perez_luminance[0], lighting.sky_perez_luminance[1], cos_theta, gamma)
+        / sky_perez(lighting.sky_perez_luminance[0], lighting.sky_perez_luminance[1], 1.0, theta_s);
+    big_y = max(big_y, 0.0);
+    y = max(y, 1e-4);
+    float big_x = x * big_y / y;
+    float big_z = (1.0 - x - y) * big_y / y;
+    vec3 rgb = vec3(
+        3.2406 * big_x - 1.5372 * big_y - 0.4986 * big_z,
+        -0.9689 * big_x + 1.8758 * big_y + 0.0415 * big_z,
+        0.0557 * big_x - 0.2040 * big_y + 1.0570 * big_z
+    );
+    return max(rgb, vec3(0.0)) * lighting.sky_params.z;
+}
+
+layout(set = 1, binding = 0) uniform sampler2DArray base_color_texture;
+// Scene look L5 (plan look/05): glTF metallic-roughness (G roughness, B
+// metallic) and the tangent-space normal map, flat placeholders when unbound.
+layout(set = 1, binding = 1) uniform sampler2DArray metallic_roughness_texture;
+layout(set = 1, binding = 2) uniform sampler2DArray normal_texture;
+// Scene look L6a: the splat control map (layer weights) at uv0.
+layout(set = 1, binding = 3) uniform sampler2D splat_control;
+layout(set = 2, binding = 0) uniform sampler2DArrayShadow shadow_map;
+
+// Scene look L2 (plan look/02): the sun's visibility from the cascaded
+// shadow map: the first cascade holding the receiver (moved along its
+// normal by 1.5 texels) inside a 2% margin, a slope-scaled bias over the
+// cascade's depth range, a 3x3 kernel of linear compare taps.
+const float SHADOW_MAP_TEXELS = 2048.0;
+
+float sun_visibility(vec3 world_position, vec3 normal, float n_dot_l) {
+    for (int cascade = 0; cascade < 3; ++cascade) {
+        float extent = lighting.shadow_extents[cascade];
+        float texel_metres = extent / SHADOW_MAP_TEXELS;
+        vec3 receiver = world_position + normal * texel_metres * 1.5;
+        vec4 clip = lighting.shadow_cascades[cascade] * vec4(receiver, 1.0);
+        vec3 coord = clip.xyz / clip.w;
+        coord.xy = coord.xy * 0.5 + 0.5;
+        if (any(lessThan(coord.xy, vec2(0.02))) || any(greaterThan(coord.xy, vec2(0.98)))
+            || coord.z < 0.0 || coord.z > 1.0) {
+            continue;
+        }
+        float range_scale = 44.0 / (1.375 * extent);
+        float bias = max(0.0007 * (1.0 - n_dot_l), 0.00025) * range_scale;
+        vec2 texel = vec2(1.0 / SHADOW_MAP_TEXELS);
+        float visibility = 0.0;
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                visibility += texture(
+                    shadow_map,
+                    vec4(coord.xy + vec2(x, y) * texel, float(cascade), coord.z - bias)
+                );
+            }
+        }
+        return visibility / 9.0;
+    }
+    return 1.0;
+}
+
+
+// Scene look L6a (plan look/06a): a splat material (a negative uv scale)
+// blends up to four array layers by the control map at uv0; a plain
+// material reads layer 0.
+vec4 sample_material(sampler2DArray map, vec2 uv, vec4 weights, bool splat) {
+    if (!splat) {
+        return texture(map, vec3(uv, 0.0));
+    }
+    vec4 sum = vec4(0.0);
+    for (int layer = 0; layer < 4; ++layer) {
+        sum += texture(map, vec3(uv, float(layer))) * weights[layer];
+    }
+    return sum;
+}
+
+layout(push_constant, std430) uniform DrawPushConstants {
+    mat4 model;
+    vec4 base_color_factor;
+    vec4 material_params;   // metallic, roughness, emissive intensity, 0
+} draw;
+
+void main() {
+    if (in_world_position.y < frame.camera_world_position.w) {
+        discard;
+    }
+    // Scene look L5: the material's uniform UV scale rides the spare lane.
+    bool splat = draw.material_params.w < 0.0;
+    vec2 uv = in_uv * abs(draw.material_params.w);
+    vec4 weights = vec4(1.0, 0.0, 0.0, 0.0);
+    if (splat) {
+        // RGB weigh layers 0 to 2, layer 3 takes the remainder.
+        vec3 first = texture(splat_control, in_uv).rgb;
+        weights = vec4(first, max(1.0 - first.r - first.g - first.b, 0.0));
+        weights /= max(dot(weights, vec4(1.0)), 1e-4);
+    }
+    vec4 base_color = sample_material(base_color_texture, uv, weights, splat) * draw.base_color_factor;
+    vec4 metallic_roughness_sample = sample_material(metallic_roughness_texture, uv, weights, splat);
+
+    vec3 face_normal = normalize(cross(dFdx(in_world_position), dFdy(in_world_position)));
+    vec3 normal = dot(in_world_normal, in_world_normal) > 0.0001
+        ? normalize(in_world_normal)
+        : face_normal;
+    if (!gl_FrontFacing) {
+        normal = -normal;
+    }
+    // Scene look L5: the normal map through the screen-space cotangent frame
+    // (no tangent stream): the derivatives of the position and the UVs give
+    // the tangent basis of the surface at the pixel.
+    {
+        vec3 map = sample_material(normal_texture, uv, weights, splat).xyz * 2.0 - 1.0;
+        vec3 dp1 = dFdx(in_world_position);
+        vec3 dp2 = dFdy(in_world_position);
+        vec2 duv1 = dFdx(uv);
+        vec2 duv2 = dFdy(uv);
+        vec3 dp2perp = cross(dp2, normal);
+        vec3 dp1perp = cross(normal, dp1);
+        vec3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
+        vec3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
+        float inverse_max = inversesqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
+        if (inverse_max < 1e6 && abs(map.z) > 0.0) {
+            mat3 frame_basis = mat3(tangent * inverse_max, bitangent * inverse_max, normal);
+            normal = normalize(frame_basis * map);
+        }
+    }
+
+    vec3 light_direction = normalize(-frame.sun_direction_intensity.xyz);
+    float n_dot_l = max(dot(normal, light_direction), 0.0);
+    float shadow_visibility = sun_visibility(in_world_position, normal, n_dot_l);
+
+    // Scene look L1: Lambert under the sky's SH irradiance and the sun, and
+    // a Cook-Torrance GGX lobe for the sun (metallic and roughness from the
+    // material record).
+    vec3 view = normalize(frame.camera_world_position.xyz - in_world_position);
+    vec3 half_vector = normalize(light_direction + view);
+    float n_dot_v = max(dot(normal, view), 1e-4);
+    float n_dot_h = max(dot(normal, half_vector), 0.0);
+    float v_dot_h = max(dot(view, half_vector), 0.0);
+    float metallic = clamp(draw.material_params.x * metallic_roughness_sample.b, 0.0, 1.0);
+    float roughness = clamp(draw.material_params.y * metallic_roughness_sample.g, 0.04, 1.0);
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float denominator = n_dot_h * n_dot_h * (alpha2 - 1.0) + 1.0;
+    float distribution = alpha2 / (LIGHTING_PI * denominator * denominator);
+    float visibility = 0.5 / (
+        n_dot_l * sqrt(n_dot_v * n_dot_v * (1.0 - alpha2) + alpha2)
+        + n_dot_v * sqrt(n_dot_l * n_dot_l * (1.0 - alpha2) + alpha2)
+        + 1e-5
+    );
+    vec3 f0 = mix(vec3(0.04), base_color.rgb, metallic);
+    vec3 fresnel = f0 + (1.0 - f0) * pow(1.0 - v_dot_h, 5.0);
+    vec3 specular = distribution * visibility * fresnel;
+    vec3 diffuse_colour = base_color.rgb * (1.0 - metallic);
+    vec3 sun = lighting.sun_radiance.rgb * n_dot_l * shadow_visibility;
+    vec3 lit_color = diffuse_colour / LIGHTING_PI * (sh_irradiance(normal) + sun)
+        + specular * sun
+        + base_color.rgb * draw.material_params.z;
+
+    float world_distance = distance(in_world_position, frame.camera_world_position.xyz);
+    float fog_amount = clamp(1.0 - exp(-world_distance * lighting.fog.w), 0.0, 0.82);
+    out_color = vec4(mix(lit_color, lighting.fog.rgb, fog_amount), base_color.a);
+}

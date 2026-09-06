@@ -3,6 +3,7 @@
 #include "oracle.hpp"
 #include "profiles.hpp"
 
+#include <ostream>
 #include <string>
 
 namespace nextengine::nonlocal {
@@ -106,6 +107,27 @@ CommandReport run_cuda_p2_decision(
     const Profile& profile,
     int warmup,
     int runs);
+CommandReport run_cuda_game_quality_smoke();
+CommandReport run_cuda_game_visual_corpus(
+    const std::string& frame_prefix = {});
+CommandReport run_cuda_game_surface_prototype(
+    const std::string& frame_prefix = {});
+CommandReport run_cuda_game_surface_stream(
+    const std::string& lane,
+    int steps,
+    int every,
+    int cycles,
+    int workers,
+    const std::string& extractor_name,
+    const std::string& surface_model_name,
+    std::ostream& frames,
+    const std::string& particle_dump_prefix = {},
+    int boundary_layers = 0,
+    const std::string& boundary_support = "full",
+    bool boundary_lid = true,
+    const std::string& spill_lip = "margin",
+    int iterations_override = 0,
+    const std::string& surface_components = "largest");
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

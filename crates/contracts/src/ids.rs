@@ -78,14 +78,17 @@ pub const fn command_body_hash_from_bytes(bytes: [u8; 32]) -> CommandBodyHash {
 
 macro_rules! text_id {
     ($name:ident) => {
+        /// Shared text: clones are one reference count (plan
+        /// `continuum-water/08` revision 3), the value, ordering, hashing
+        /// and canonical encoding are those of the text.
         #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-        pub struct $name(String);
+        pub struct $name(std::sync::Arc<str>);
 
         impl $name {
             pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
                 let value = value.into();
                 validate_identifier(&value)?;
-                Ok(Self(value))
+                Ok(Self(std::sync::Arc::from(value)))
             }
 
             #[must_use]

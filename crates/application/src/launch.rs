@@ -20,6 +20,10 @@ pub struct LaunchRequestV1 {
     pub composition_root: CompositionRootV1,
     pub presentation_target: PresentationTargetKindV1,
     pub platform_capability_set: Option<PlatformCapabilitySetV1>,
+    /// A fresh session starts the avatar here instead of the authored
+    /// spawn (diagnostic launches such as `--start-at-water`); `None`
+    /// keeps the reference spawn. Resumed sessions ignore it.
+    pub spawn_override: Option<next_reference_game::ReferenceSpawnOverrideV1>,
 }
 
 impl LaunchRequestV1 {
@@ -36,6 +40,7 @@ impl LaunchRequestV1 {
             composition_root,
             presentation_target,
             platform_capability_set: reference_capability_set(presentation_target),
+            spawn_override: None,
         }
     }
 }

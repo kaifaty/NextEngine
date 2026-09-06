@@ -77,9 +77,11 @@ pressure products close the old element gate but are retained only as a
 fallback because they do not improve the bounded response materially.
 
 See the [NCGA3 evidence](../../development/nonlocal-corrected-gpu-consequence-evidence-2026-08-30.md).
-Independent NCGA3 review, a corrected nonlinear solver, physical trajectories
-and full 50k assembly/solve timing remain open. This follow-up grants no NR4,
-W2 or ProductCheck credit and does not change CPU DFSPH product authority.
+NCGA5--7 retain the raw static-solve precision failures. The separately frozen
+[NCGP1 physical/performance contract](../nonlocal-corrected-gpu-full-step/00-physical-performance-contract.md)
+now authorizes a matrix-free corrected full-step implementation and physical
+trajectory screen before any 50k timing. It does not relabel the old failures,
+grant NR4/W2/ProductCheck credit or change CPU DFSPH product authority.
 
 ## Implementation boundary
 

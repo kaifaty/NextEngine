@@ -6,14 +6,22 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <thread>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
@@ -608,6 +616,174 @@ __global__ void predict_positions(
     const float3 predicted_velocity = add3(velocity[index], multiply3(time_step, gravity));
     predicted[index] = add3(reference[index], multiply3(time_step, predicted_velocity));
     current[index] = predicted[index];
+}
+
+__global__ void clamp_analytic_box_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float3 lower,
+    float3 upper) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    position[index].x = fminf(fmaxf(position[index].x, lower.x), upper.x);
+    position[index].y = fminf(fmaxf(position[index].y, lower.y), upper.y);
+    position[index].z = fminf(fmaxf(position[index].z, lower.z), upper.z);
+}
+
+// NGQ8 spill clamp: interior divider slab with one opening plus a shelf
+// left of the divider. Runs after the outer-box clamp; positional only.
+__global__ void clamp_spill_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float radius,
+    float shelf_top,
+    float wall_x0,
+    float wall_x1,
+    float opening_y0,
+    float opening_y1,
+    float opening_z0,
+    float opening_z1,
+    float lip_margin) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    float3 p = position[index];
+    // NGQ8 revision 8: the opening floor always keeps one radius so it stays
+    // level with the shelf lift; `flush` applies only to the free faces.
+    if (p.x >= wall_x0 && p.x <= wall_x1) {
+        // NGQ8 revision 6: inside the slab a sample can only be in the pipe;
+        // keep it in the opening window instead of pushing it through a face.
+        p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - lip_margin);
+        p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
+    } else if (p.x > wall_x0 - radius && p.x < wall_x1 + radius) {
+        const bool window = p.y > opening_y0 && p.y < opening_y1 && p.z > opening_z0
+            && p.z < opening_z1;
+        if (window) {
+            p.y = fminf(fmaxf(p.y, opening_y0 + radius), opening_y1 - lip_margin);
+            p.z = fminf(fmaxf(p.z, opening_z0 + lip_margin), opening_z1 - lip_margin);
+        } else if (p.x < wall_x0) {
+            p.x = wall_x0 - radius;
+        } else {
+            p.x = wall_x1 + radius;
+        }
+    }
+    if (p.x < wall_x0 && p.y < shelf_top + radius) {
+        p.y = shelf_top + radius;
+    }
+    position[index] = p;
+}
+
+// NGQ8 revision 9: under-floor pipe scene in device units (metres).
+struct SpillPipeDevice {
+    float shelf_top;
+    float wall_x0;
+    float wall_x1;
+    float shaft_x0;
+    float shaft_x1;
+    float duct_y0;
+    float duct_y1;
+    float z0;
+    float z1;
+    float pipe_x1;
+    float pipe_wall;
+};
+
+__device__ inline bool spill_pipe_in_box(float3 p, float3 lo, float3 hi) {
+    return p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y && p.z >= lo.z && p.z <= hi.z;
+}
+
+__device__ inline float3 spill_pipe_clamp_box(float3 p, float3 lo, float3 hi) {
+    return make_float3(
+        fminf(fmaxf(p.x, lo.x), hi.x), fminf(fmaxf(p.y, lo.y), hi.y),
+        fminf(fmaxf(p.z, lo.z), hi.z));
+}
+
+__device__ inline float spill_pipe_dist2(float3 a, float3 b) {
+    const float dx = a.x - b.x;
+    const float dy = a.y - b.y;
+    const float dz = a.z - b.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+// Allowed sample centres: inside a channel shrunk by one radius, or outside
+// every solid expanded by one radius. Channels end one radius past their
+// mouths so they join the free region without a gap.
+__device__ inline bool spill_pipe_allowed(float3 p, const SpillPipeDevice& g, float r) {
+    const float3 shaft_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 shaft_hi = make_float3(g.shaft_x1 - r, g.shelf_top + r, g.z1 - r);
+    const float3 duct_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 duct_hi = make_float3(g.pipe_x1 + r, g.duct_y1 - r, g.z1 - r);
+    if (spill_pipe_in_box(p, shaft_lo, shaft_hi) || spill_pipe_in_box(p, duct_lo, duct_hi)) {
+        return true;
+    }
+    const bool shelf = p.x < g.wall_x0 + r && p.y < g.shelf_top + r;
+    const bool wall = p.x > g.wall_x0 - r && p.x < g.wall_x1 + r;
+    const bool pipe = p.x > g.wall_x1 - r && p.x < g.pipe_x1 + r
+        && p.y > g.duct_y0 - g.pipe_wall - r && p.y < g.duct_y1 + g.pipe_wall + r
+        && p.z > g.z0 - g.pipe_wall - r && p.z < g.z1 + g.pipe_wall + r;
+    return !(shelf || wall || pipe);
+}
+
+// NGQ8 revision 9 clamp: a sample inside a solid moves to the nearest of
+// the channel interiors or the exit faces of the solids that contain it,
+// repeated a few times so a concave corner (shelf under the divider) is
+// left through two short moves instead of one long one. Faces glued to
+// another solid (shelf +x, pipe body -x) are never exits. Positional only.
+__global__ void clamp_spill_pipe_contact(
+    float3* position,
+    const std::uint8_t* fixed,
+    int count,
+    float radius,
+    SpillPipeDevice g) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count || fixed[index] != 0U) {
+        return;
+    }
+    float3 p = position[index];
+    const float r = radius;
+    const float3 shaft_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 shaft_hi = make_float3(g.shaft_x1 - r, g.shelf_top + r, g.z1 - r);
+    const float3 duct_lo = make_float3(g.shaft_x0 + r, g.duct_y0 + r, g.z0 + r);
+    const float3 duct_hi = make_float3(g.pipe_x1 + r, g.duct_y1 - r, g.z1 - r);
+    for (int pass = 0; pass < 4 && !spill_pipe_allowed(p, g, r); ++pass) {
+        float3 best = p;
+        float best_dist = 3.4e38F;
+        const auto consider = [&](float3 candidate) {
+            const float dist = spill_pipe_dist2(p, candidate);
+            if (dist < best_dist) {
+                best_dist = dist;
+                best = candidate;
+            }
+        };
+        consider(spill_pipe_clamp_box(p, shaft_lo, shaft_hi));
+        consider(spill_pipe_clamp_box(p, duct_lo, duct_hi));
+        if (p.x < g.wall_x0 + r && p.y < g.shelf_top + r) {
+            consider(make_float3(p.x, g.shelf_top + r, p.z));
+        }
+        if (p.x > g.wall_x0 - r && p.x < g.wall_x1 + r) {
+            consider(make_float3(g.wall_x0 - r, p.y, p.z));
+            consider(make_float3(g.wall_x1 + r, p.y, p.z));
+        }
+        const float pipe_y0 = g.duct_y0 - g.pipe_wall - r;
+        const float pipe_y1 = g.duct_y1 + g.pipe_wall + r;
+        const float pipe_z0 = g.z0 - g.pipe_wall - r;
+        const float pipe_z1 = g.z1 + g.pipe_wall + r;
+        if (p.x > g.wall_x1 - r && p.x < g.pipe_x1 + r && p.y > pipe_y0 && p.y < pipe_y1
+            && p.z > pipe_z0 && p.z < pipe_z1) {
+            consider(make_float3(g.pipe_x1 + r, p.y, p.z));
+            consider(make_float3(p.x, pipe_y0, p.z));
+            consider(make_float3(p.x, pipe_y1, p.z));
+            consider(make_float3(p.x, p.y, pipe_z0));
+            consider(make_float3(p.x, p.y, pipe_z1));
+        }
+        p = best;
+    }
+    position[index] = p;
 }
 
 template <typename NeighborIndex>
@@ -1258,6 +1434,8 @@ __global__ void accumulate_fused_owner_terms_p1(
     const float* density,
     const int* offsets,
     const NeighborIndex* neighbors,
+    const std::uint8_t* fixed,
+    bool density_only_support,
     float* source,
     float* matrix,
     int count,
@@ -1275,6 +1453,11 @@ __global__ void accumulate_fused_owner_terms_p1(
         "P1 fusion requires a second active post-density term");
     const int particle = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle >= count) {
+        return;
+    }
+    // NGQ7 revision 4: a fixed owner's row is never read back (the update
+    // keeps it at its reference), so density-only support skips it.
+    if (density_only_support && fixed[particle] != 0U) {
         return;
     }
 
@@ -1322,13 +1505,15 @@ __global__ void accumulate_fused_owner_terms_p1(
             density_diagonal += diagonal;
             density_diagonal += diagonal;
         }
+        // NGQ7 revision 2: a fixed boundary sample supports density only.
+        const bool density_only_neighbor = density_only_support && fixed[neighbor] != 0U;
 
         if constexpr (BulkEnabled || ShearEnabled) {
             // Retained O2 specialized viscosity association and add order.
             const float3 reference_delta =
                 subtract3(reference[neighbor], reference[particle]);
             const float viscosity_radius = length3(reference_delta);
-            if (viscosity_radius > CUDA_PAIR_EPSILON) {
+            if (!density_only_neighbor && viscosity_radius > CUDA_PAIR_EPSILON) {
                 const float3 direction = multiply3(1.0F / viscosity_radius, reference_delta);
                 const float components[3] = {direction.x, direction.y, direction.z};
                 const float weight = device_cubic_weight(viscosity_radius, horizon, scale);
@@ -1369,7 +1554,7 @@ __global__ void accumulate_fused_owner_terms_p1(
         if constexpr (SurfaceEnabled) {
             // Retained surface owner association and add order.
             const float surface_radius = length3(subtract3(own, other));
-            if (surface_radius > CUDA_PAIR_EPSILON) {
+            if (!density_only_neighbor && surface_radius > CUDA_PAIR_EPSILON) {
                 const float positive = surface_positive_cuda(surface_radius, spacing);
                 const float negative = surface_negative_cuda(surface_radius, spacing);
                 const float diagonal = surface_coefficient * positive / surface_radius;
@@ -1636,6 +1821,7 @@ struct StageTiming {
     double surface_tension = 0.0;
     double fused_owner_terms = 0.0;
     double local_update = 0.0;
+    double contact = 0.0;
     double state_handoff = 0.0;
     double total = 0.0;
 };
@@ -1683,6 +1869,7 @@ struct EventInterval {
         Surface,
         FusedOwnerTerms,
         Update,
+        Contact,
         Handoff,
     };
 
@@ -1831,6 +2018,10 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
     fixture.iterations = iterations;
     fixture.pair_capacity = profile.max_directed_pairs;
     fixture.grid_margin = profile.grid_margin;
+    fixture.analytic_box_contact = profile.contact == "analytic_box_clamp_gpu_v1";
+    fixture.contact_minimum = profile.basin_min;
+    fixture.contact_maximum = profile.basin_max;
+    fixture.particle_radius = profile.particle_radius;
     fixture.advected = profile.advected;
     fixture.trace_length = profile.trace_length;
     fixture.particles.reserve(profile.samples + profile.static_boundary_samples);
@@ -1910,6 +2101,12 @@ std::string fixture_input_hash(const Fixture& fixture) {
         for (int index : fixture.lattice_index_by_sample) {
             data << index << ',';
         }
+    }
+    if (fixture.analytic_box_contact) {
+        data << "|analytic_box_contact:" << fixture.contact_minimum.x << ','
+             << fixture.contact_minimum.y << ',' << fixture.contact_minimum.z << ';'
+             << fixture.contact_maximum.x << ',' << fixture.contact_maximum.y << ','
+             << fixture.contact_maximum.z << ';' << fixture.particle_radius;
     }
     return sha256_hex(data.str());
 }
@@ -2048,6 +2245,18 @@ public:
         if (count_ <= 0) {
             throw std::invalid_argument("CUDA fixture is empty");
         }
+        if (fixture_.analytic_box_contact
+            && (!finite(fixture_.contact_minimum) || !finite(fixture_.contact_maximum)
+                || !std::isfinite(fixture_.particle_radius)
+                || fixture_.particle_radius <= 0.0
+                || fixture_.contact_maximum.x - fixture_.contact_minimum.x
+                    < 2.0 * fixture_.particle_radius
+                || fixture_.contact_maximum.y - fixture_.contact_minimum.y
+                    < 2.0 * fixture_.particle_radius
+                || fixture_.contact_maximum.z - fixture_.contact_minimum.z
+                    < 2.0 * fixture_.particle_radius)) {
+            throw std::invalid_argument("invalid analytic box contact fixture");
+        }
         if (handoff_mode_ == HandoffMode::PointerSwapO1
             && accumulation_mode_ != AccumulationMode::GatherDirectedR0
             && accumulation_mode_ != AccumulationMode::UniquePairSegmentedO3) {
@@ -2165,6 +2374,18 @@ public:
         cudaFree(neighbor_error_flag_);
         cudaFree(neighbor_anchor_);
         cudaFree(max_displacement_bits_);
+    }
+
+    /// Copies the current published sample positions (the advected reference
+    /// after `execute(_, true)`) without the diagnostic capture path.
+    void download_positions(std::vector<float3>& positions) const {
+        positions.resize(static_cast<std::size_t>(count_));
+        const float3* source = uses_cell_local_storage() ? sorted_reference_ : reference_;
+        check_cuda(cudaMemcpy(
+                       positions.data(), source,
+                       static_cast<std::size_t>(count_) * sizeof(float3),
+                       cudaMemcpyDeviceToHost),
+            "download published positions");
     }
 
     void reset_seed() {
@@ -2423,6 +2644,44 @@ public:
                 }
             });
         }
+        if (fixture_.analytic_box_contact) {
+            timed(intervals, EventInterval::Stage::Contact, [&] {
+                const float radius = static_cast<float>(fixture_.particle_radius);
+                clamp_analytic_box_contact<<<blocks_for(count_), THREADS>>>(
+                    current_, solver_fixed, count_,
+                    make_float3(
+                        static_cast<float>(fixture_.contact_minimum.x) + radius,
+                        static_cast<float>(fixture_.contact_minimum.y) + radius,
+                        static_cast<float>(fixture_.contact_minimum.z) + radius),
+                    make_float3(
+                        static_cast<float>(fixture_.contact_maximum.x) - radius,
+                        static_cast<float>(fixture_.contact_maximum.y) - radius,
+                        static_cast<float>(fixture_.contact_maximum.z) - radius));
+                if (fixture_.spill.enabled && fixture_.spill.under_floor) {
+                    const Fixture::Spill& s = fixture_.spill;
+                    const SpillPipeDevice geometry{
+                        static_cast<float>(s.shelf_top),  static_cast<float>(s.wall_x0),
+                        static_cast<float>(s.wall_x1),    static_cast<float>(s.shaft_x0),
+                        static_cast<float>(s.shaft_x1),   static_cast<float>(s.opening_y0),
+                        static_cast<float>(s.opening_y1), static_cast<float>(s.opening_z0),
+                        static_cast<float>(s.opening_z1), static_cast<float>(s.pipe_x1),
+                        static_cast<float>(s.pipe_wall)};
+                    clamp_spill_pipe_contact<<<blocks_for(count_), THREADS>>>(
+                        current_, solver_fixed, count_, radius, geometry);
+                } else if (fixture_.spill.enabled) {
+                    clamp_spill_contact<<<blocks_for(count_), THREADS>>>(
+                        current_, solver_fixed, count_, radius,
+                        static_cast<float>(fixture_.spill.shelf_top),
+                        static_cast<float>(fixture_.spill.wall_x0),
+                        static_cast<float>(fixture_.spill.wall_x1),
+                        static_cast<float>(fixture_.spill.opening_y0),
+                        static_cast<float>(fixture_.spill.opening_y1),
+                        static_cast<float>(fixture_.spill.opening_z0),
+                        static_cast<float>(fixture_.spill.opening_z1),
+                        fixture_.spill.flush ? 0.0F : radius);
+                }
+            });
+        }
         timed(intervals, EventInterval::Stage::Density, [&] {
             enqueue_density(solver_reference);
         });
@@ -2544,11 +2803,13 @@ private:
 
     template <bool Bulk, bool Shear, bool Surface>
     void enqueue_fused_owner_terms(const float3* solver_reference) {
+        const std::uint8_t* solver_fixed = uses_cell_local_storage() ? sorted_fixed_ : fixed_;
+        const bool density_only_support = fixture_.boundary_density_only;
         if (neighbor_reuse_mode_ == NeighborReuseMode::CertifiedVerletP4) {
             accumulate_fused_owner_terms_p1<std::uint16_t, Bulk, Shear, Surface, true>
                 <<<blocks_for(count_), THREADS>>>(
                     solver_reference, current_, density_, neighbor_offsets_, compact_neighbors_,
-                    source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -2557,7 +2818,7 @@ private:
             accumulate_fused_owner_terms_p1<std::uint16_t, Bulk, Shear, Surface>
                 <<<blocks_for(count_), THREADS>>>(
                     solver_reference, current_, density_, neighbor_offsets_, compact_neighbors_,
-                    source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -2565,8 +2826,8 @@ private:
         } else {
             accumulate_fused_owner_terms_p1<int, Bulk, Shear, Surface>
                 <<<blocks_for(count_), THREADS>>>(
-                    solver_reference, current_, density_, neighbor_offsets_, neighbors_, source_,
-                    matrix_, count_, static_cast<float>(fixture_.rest_density),
+                    solver_reference, current_, density_, neighbor_offsets_, neighbors_,
+                    solver_fixed, density_only_support, source_, matrix_, count_, static_cast<float>(fixture_.rest_density),
                     static_cast<float>(fixture_.kappa), static_cast<float>(fixture_.lambda),
                     static_cast<float>(fixture_.mu), static_cast<float>(fixture_.gamma),
                     static_cast<float>(fixture_.spacing), static_cast<float>(fixture_.horizon),
@@ -2979,6 +3240,9 @@ private:
             break;
         case EventInterval::Stage::Update:
             timing.local_update += milliseconds;
+            break;
+        case EventInterval::Stage::Contact:
+            timing.contact += milliseconds;
             break;
         case EventInterval::Stage::Handoff:
             timing.state_handoff += milliseconds;
@@ -3583,6 +3847,7 @@ void append_timing(std::ostringstream& output, const StageTiming& timing) {
            << ",\"surface_tension_ms\":" << timing.surface_tension
            << ",\"fused_owner_terms_ms\":" << timing.fused_owner_terms
            << ",\"local_update_ms\":" << timing.local_update
+           << ",\"analytic_contact_ms\":" << timing.contact
            << ",\"state_handoff_and_velocity_ms\":" << timing.state_handoff
            << ",\"total_ms\":" << timing.total << '}';
 }
@@ -3650,6 +3915,8 @@ void append_stage_statistics(
     append_statistics(output, collect_statistics(timings, &StageTiming::fused_owner_terms));
     output << ",\"local_update\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::local_update));
+    output << ",\"analytic_contact\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::contact));
     output << ",\"state_handoff_and_velocity\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::state_handoff));
     output << ",\"total\":";
@@ -6360,10 +6627,11 @@ CommandReport run_cuda_p2_check(
     const Profile& profile,
     int iterations) {
     if ((profile.record_version != 1 && profile.record_version != 2
-            && profile.record_version != 3 && profile.record_version != 4)
+            && profile.record_version != 3 && profile.record_version != 4
+            && profile.record_version != 5 && profile.record_version != 6)
         || iterations < 1 || iterations > 100) {
         throw std::invalid_argument(
-            "P2 check requires a v1/v2/v3/v4 profile and 1..=100 iterations");
+            "P2 check requires a v1/v2/v3/v4/v5/v6 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);
@@ -7148,10 +7416,14 @@ CommandReport run_cuda_p2_decision(
     int warmup,
     int runs) {
     if ((profile.id != "nuv-water-50k-coherent.v1"
-            && profile.id != "nuv-water-50k-advected.v1")
+            && profile.id != "nuv-water-50k-advected.v1"
+            && profile.id != "nuv-basin-48k-analytic-contact-game.v5"
+            && profile.id !=
+                "nuv-basin-48k-analytic-contact-game-cap160.v6")
         || warmup != 64 || runs != 512) {
         throw std::invalid_argument(
-            "P2 decision requires exact-50k coherent/advected --warmup 64 --runs 512");
+            "P2 decision requires an admitted coherent/advected/game-contact profile "
+            "with --warmup 64 --runs 512");
     }
     const CommandReport check = run_cuda_p2_check(profile, profile.fixed_iterations);
     const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
@@ -7253,6 +7525,8 @@ CommandReport run_cuda_p2_decision(
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --p2-decision " << profile.id
            << " --warmup 64 --runs 512\",\"conditioning_runs\":" << CONDITIONING_RUNS
+           << ",\"analytic_contact_in_primary_timing\":"
+           << (fixture.analytic_box_contact ? "true" : "false")
            << ",\"warmup_runs\":" << warmup << ",\"measured_runs\":" << runs
            << ",\"correctness\":{\"p2_check_passed\":"
            << (check.passed ? "true" : "false")
@@ -7278,6 +7552,4584 @@ CommandReport run_cuda_p2_decision(
     append_raw_totals(output, timings);
     output << ",\"device\":" << device_json() << '}';
     return {correctness, output.str()};
+}
+
+namespace {
+
+constexpr double GAME_SPACING = 0.05;
+constexpr double GAME_RADIUS = 0.025;
+constexpr double GAME_MASS = 0.125;
+constexpr double GAME_TIME_STEP = 1.0 / 240.0;
+
+struct GameQualityBox {
+    Vec3 minimum;
+    Vec3 maximum;
+    std::array<int, 3> cells;
+};
+
+struct GameContactResult {
+    Vec3 position;
+    Vec3 velocity;
+    std::vector<int> features;
+    double penetration = 0.0;
+};
+
+struct GameScenarioResult {
+    std::string id;
+    bool apparatus_passed = true;
+    bool quality_passed = false;
+    int steps = 0;
+    std::size_t dynamic_samples = 0;
+    std::size_t boundary_samples = 0;
+    std::size_t components = 0;
+    std::size_t satellites = 0;
+    double maximum_penetration = 0.0;
+    double maximum_fixed_displacement = 0.0;
+    double maximum_contact_velocity_error = 0.0;
+    double maximum_speed = 0.0;
+    double maximum_positive_compression = 0.0;
+    double horizontal_com_drift = 0.0;
+    double vertical_com_drift = 0.0;
+    double forward_com_travel = 0.0;
+    double solver_total_ms = 0.0;
+    double solver_maximum_ms = 0.0;
+    Vec3 final_com{};
+    std::string trace_sha256;
+    std::string first_failure;
+};
+
+double game_axis(Vec3 value, int component) {
+    if (component == 0) {
+        return value.x;
+    }
+    if (component == 1) {
+        return value.y;
+    }
+    return value.z;
+}
+
+void set_game_axis(Vec3& value, int component, double scalar) {
+    if (component == 0) {
+        value.x = scalar;
+    } else if (component == 1) {
+        value.y = scalar;
+    } else {
+        value.z = scalar;
+    }
+}
+
+GameContactResult game_sweep_box(
+    Vec3 start,
+    Vec3 tentative,
+    const GameQualityBox& box) {
+    GameContactResult result;
+    result.position = tentative;
+    const float radius = static_cast<float>(GAME_RADIUS);
+    const std::array<double, 3> lower = {
+        static_cast<double>(static_cast<float>(box.minimum.x) + radius),
+        static_cast<double>(static_cast<float>(box.minimum.y) + radius),
+        static_cast<double>(static_cast<float>(box.minimum.z) + radius),
+    };
+    const std::array<double, 3> upper = {
+        static_cast<double>(static_cast<float>(box.maximum.x) - radius),
+        static_cast<double>(static_cast<float>(box.maximum.y) - radius),
+        static_cast<double>(static_cast<float>(box.maximum.z) - radius),
+    };
+    const std::array<int, 3> lower_feature = {0, 2, 4};
+    const std::array<int, 3> upper_feature = {1, 3, 5};
+    for (int component = 0; component < 3; ++component) {
+        const double start_value = game_axis(start, component);
+        const double tentative_value = game_axis(tentative, component);
+        const double displacement = tentative_value - start_value;
+        if (tentative_value <= lower[component] && displacement < 0.0) {
+            set_game_axis(result.position, component, lower[component]);
+            result.features.push_back(lower_feature[component]);
+        } else if (tentative_value >= upper[component] && displacement > 0.0) {
+            set_game_axis(result.position, component, upper[component]);
+            result.features.push_back(upper_feature[component]);
+        }
+    }
+    std::sort(result.features.begin(), result.features.end());
+    result.velocity = (result.position - start) / GAME_TIME_STEP;
+    for (int component = 0; component < 3; ++component) {
+        result.penetration = std::max(result.penetration,
+            std::max(lower[component] - game_axis(result.position, component),
+                game_axis(result.position, component) - upper[component]));
+    }
+    result.penetration = std::max(result.penetration, 0.0);
+    return result;
+}
+
+std::size_t append_game_boundary(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    int layers,
+    bool with_lid = true) {
+    const std::size_t before = fixture.particles.size();
+    const int top = with_lid ? box.cells[1] + layers : box.cells[1];
+    for (int x = -layers; x < box.cells[0] + layers; ++x) {
+        for (int y = -layers; y < top; ++y) {
+            for (int z = -layers; z < box.cells[2] + layers; ++z) {
+                if (x >= 0 && x < box.cells[0] && y >= 0 && y < box.cells[1]
+                    && z >= 0 && z < box.cells[2]) {
+                    continue;
+                }
+                fixture.particles.push_back({
+                    {
+                        box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+                        box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+                        box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+                    },
+                    {},
+                    true,
+                });
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+Fixture game_fixture(
+    const Profile& profile,
+    const std::string& name,
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    int iterations,
+    std::size_t neighbor_capacity = 123U,
+    int boundary_layers = 0,
+    bool boundary_lid = true) {
+    Fixture fixture;
+    fixture.name = name;
+    fixture.rest_density = profile.rest_density;
+    fixture.spacing = GAME_SPACING;
+    fixture.mass = GAME_MASS;
+    fixture.horizon = profile.horizon;
+    fixture.time_step = GAME_TIME_STEP;
+    fixture.gravity = profile.gravity;
+    fixture.kappa = profile.kappa;
+    fixture.lambda = profile.lambda;
+    fixture.mu = profile.mu;
+    fixture.gamma = profile.gamma;
+    fixture.terms = profile.terms;
+    fixture.iterations = iterations;
+    fixture.particles = fluid;
+    const std::size_t boundary =
+        append_game_boundary(fixture, box, boundary_layers, boundary_lid);
+    fixture.pair_capacity = (fluid.size() + boundary) * neighbor_capacity;
+    fixture.analytic_box_contact = true;
+    fixture.contact_minimum = box.minimum;
+    fixture.contact_maximum = box.maximum;
+    fixture.particle_radius = GAME_RADIUS;
+    return fixture;
+}
+
+// NGQ8 revision 9: solid material of the under-floor pipe scene (shelf,
+// divider, protruding pipe body) minus the shaft and duct channels.
+bool spill_pipe_solid(const Vec3& p, const Fixture::Spill& spill) {
+    const bool shaft = p.x > spill.shaft_x0 && p.x < spill.shaft_x1 && p.z > spill.opening_z0
+        && p.z < spill.opening_z1 && p.y > spill.opening_y0;
+    const bool duct = p.y > spill.opening_y0 && p.y < spill.opening_y1 && p.z > spill.opening_z0
+        && p.z < spill.opening_z1 && p.x > spill.shaft_x0 && p.x < spill.pipe_x1;
+    if (shaft || duct) {
+        return false;
+    }
+    const bool shelf = p.x < spill.wall_x0 && p.y < spill.shelf_top;
+    const bool wall = p.x > spill.wall_x0 && p.x < spill.wall_x1;
+    const bool pipe = p.x > spill.wall_x1 && p.x < spill.pipe_x1
+        && p.y > spill.opening_y0 - spill.pipe_wall && p.y < spill.opening_y1 + spill.pipe_wall
+        && p.z > spill.opening_z0 - spill.pipe_wall && p.z < spill.opening_z1 + spill.pipe_wall;
+    return shelf || wall || pipe;
+}
+
+// NGQ8 revision 9: fixed density-only samples in every solid lattice cell
+// within two cells of a non-solid cell (shelf top layers, shaft and duct
+// linings, the whole divider, the pipe body).
+std::size_t append_spill_pipe_solids(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    const Fixture::Spill& spill) {
+    const std::size_t before = fixture.particles.size();
+    const auto centre = [&](int x, int y, int z) {
+        return Vec3{
+            box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+            box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+            box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+        };
+    };
+    const auto solid = [&](int x, int y, int z) {
+        return spill_pipe_solid(centre(x, y, z), spill);
+    };
+    for (int x = 0; x < box.cells[0]; ++x) {
+        for (int y = 0; y < box.cells[1]; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                if (!solid(x, y, z)) {
+                    continue;
+                }
+                bool near_free = false;
+                for (int dx = -2; dx <= 2 && !near_free; ++dx) {
+                    for (int dy = -2; dy <= 2 && !near_free; ++dy) {
+                        for (int dz = -2; dz <= 2 && !near_free; ++dz) {
+                            const int nx = x + dx;
+                            const int ny = y + dy;
+                            const int nz = z + dz;
+                            if (nx < 0 || ny < 0 || nz < 0 || nx >= box.cells[0]
+                                || ny >= box.cells[1] || nz >= box.cells[2]) {
+                                continue;
+                            }
+                            near_free = !solid(nx, ny, nz);
+                        }
+                    }
+                }
+                if (near_free) {
+                    fixture.particles.push_back({centre(x, y, z), {}, true});
+                }
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+// NGQ8 revision 9: depth of one fluid sample inside the pipe-scene solids
+// (distance to the nearest exit face), zero inside a channel or free space.
+double spill_pipe_penetration(const Vec3& p, const Fixture::Spill& spill) {
+    constexpr double e = 1e-5;
+    const bool z_window = p.z >= spill.opening_z0 - e && p.z <= spill.opening_z1 + e;
+    const bool shaft = p.x >= spill.shaft_x0 - e && p.x <= spill.shaft_x1 + e && z_window
+        && p.y >= spill.opening_y0 - e;
+    const bool duct = p.y >= spill.opening_y0 - e && p.y <= spill.opening_y1 + e && z_window
+        && p.x >= spill.shaft_x0 - e && p.x <= spill.pipe_x1 + e;
+    if (shaft || duct) {
+        return 0.0;
+    }
+    double penetration = 0.0;
+    if (p.x < spill.wall_x0 && p.y < spill.shelf_top) {
+        penetration = std::max(penetration, spill.shelf_top - p.y);
+    }
+    if (p.x > spill.wall_x0 && p.x < spill.wall_x1) {
+        penetration = std::max(penetration, std::min(p.x - spill.wall_x0, spill.wall_x1 - p.x));
+    }
+    const double py0 = spill.opening_y0 - spill.pipe_wall;
+    const double py1 = spill.opening_y1 + spill.pipe_wall;
+    const double pz0 = spill.opening_z0 - spill.pipe_wall;
+    const double pz1 = spill.opening_z1 + spill.pipe_wall;
+    if (p.x > spill.wall_x1 && p.x < spill.pipe_x1 && p.y > py0 && p.y < py1 && p.z > pz0
+        && p.z < pz1) {
+        const double depth = std::min(
+            {spill.pipe_x1 - p.x, p.y - py0, py1 - p.y, p.z - pz0, pz1 - p.z});
+        penetration = std::max(penetration, depth);
+    }
+    return penetration;
+}
+
+// NGQ8: fixed density-only samples filling the top two shelf layers and the
+// whole divider slab minus the opening, on the same lattice as the box.
+std::size_t append_spill_solids(
+    Fixture& fixture,
+    const GameQualityBox& box,
+    const Fixture::Spill& spill) {
+    if (spill.under_floor) {
+        return append_spill_pipe_solids(fixture, box, spill);
+    }
+    const std::size_t before = fixture.particles.size();
+    const auto cell = [&](double value, double origin) {
+        return static_cast<int>(std::llround((value - origin) / GAME_SPACING));
+    };
+    const int shelf_y = cell(spill.shelf_top, box.minimum.y);
+    const int wall_x0 = cell(spill.wall_x0, box.minimum.x);
+    const int wall_x1 = cell(spill.wall_x1, box.minimum.x);
+    const int opening_y0 = cell(spill.opening_y0, box.minimum.y);
+    const int opening_y1 = cell(spill.opening_y1, box.minimum.y);
+    const int opening_z0 = cell(spill.opening_z0, box.minimum.z);
+    const int opening_z1 = cell(spill.opening_z1, box.minimum.z);
+    const auto push = [&](int x, int y, int z) {
+        fixture.particles.push_back({
+            {
+                box.minimum.x + GAME_RADIUS + x * GAME_SPACING,
+                box.minimum.y + GAME_RADIUS + y * GAME_SPACING,
+                box.minimum.z + GAME_RADIUS + z * GAME_SPACING,
+            },
+            {},
+            true,
+        });
+    };
+    for (int x = 0; x < wall_x0; ++x) {
+        for (int y = std::max(0, shelf_y - 2); y < shelf_y; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                push(x, y, z);
+            }
+        }
+    }
+    const int ring = spill.open_ring ? 1 : 0;
+    for (int x = wall_x0; x < wall_x1; ++x) {
+        for (int y = 0; y < box.cells[1]; ++y) {
+            for (int z = 0; z < box.cells[2]; ++z) {
+                if (y >= opening_y0 - ring && y < opening_y1 + ring && z >= opening_z0 - ring
+                    && z < opening_z1 + ring) {
+                    continue;
+                }
+                push(x, y, z);
+            }
+        }
+    }
+    return fixture.particles.size() - before;
+}
+
+// Penetration of one fluid sample into the shelf or the divider (outside the
+// opening), zero when the sample is in free space.
+double spill_penetration(const Vec3& p, const Fixture::Spill& spill) {
+    if (spill.under_floor) {
+        return spill_pipe_penetration(p, spill);
+    }
+    double penetration = 0.0;
+    if (p.x < spill.wall_x0 && p.y < spill.shelf_top) {
+        penetration = std::max(penetration, spill.shelf_top - p.y);
+    }
+    if (p.x > spill.wall_x0 && p.x < spill.wall_x1) {
+        // Inclusive with a float-rounding allowance: a flush-clamped sample
+        // sits on the opening face at binary32 precision.
+        constexpr double face_epsilon = 1e-5;
+        const bool window = p.y >= spill.opening_y0 - face_epsilon
+            && p.y <= spill.opening_y1 + face_epsilon && p.z >= spill.opening_z0 - face_epsilon
+            && p.z <= spill.opening_z1 + face_epsilon;
+        if (!window) {
+            penetration = std::max(
+                penetration, std::min(p.x - spill.wall_x0, spill.wall_x1 - p.x));
+        }
+    }
+    return penetration;
+}
+
+Vec3 game_center_of_mass(const std::vector<Particle>& fluid) {
+    Vec3 result{};
+    for (const Particle& particle : fluid) {
+        result += particle.position;
+    }
+    return result / static_cast<double>(fluid.size());
+}
+
+std::pair<std::size_t, std::size_t> game_topology(
+    const std::vector<Particle>& fluid) {
+    const std::size_t count = fluid.size();
+    std::vector<std::uint8_t> visited(count, 0U);
+    std::vector<std::size_t> stack;
+    std::size_t components = 0;
+    std::size_t largest = 0;
+    const double link_distance = 1.75 * GAME_SPACING;
+    for (std::size_t seed = 0; seed < count; ++seed) {
+        if (visited[seed] != 0U) {
+            continue;
+        }
+        ++components;
+        std::size_t component_size = 0;
+        visited[seed] = 1U;
+        stack.clear();
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::size_t owner = stack.back();
+            stack.pop_back();
+            ++component_size;
+            for (std::size_t neighbor = 0; neighbor < count; ++neighbor) {
+                if (visited[neighbor] == 0U
+                    && norm(fluid[owner].position - fluid[neighbor].position)
+                        <= link_distance) {
+                    visited[neighbor] = 1U;
+                    stack.push_back(neighbor);
+                }
+            }
+        }
+        largest = std::max(largest, component_size);
+    }
+    return {components, count - largest};
+}
+
+bool game_finite(const CapturedRun& run, std::size_t fluid_count) {
+    if (run.local_solve_failed || !run.neighbor_build_valid
+        || run.state.next_position.size() < fluid_count
+        || run.state.final_velocity.size() < fluid_count
+        || run.state.density.size() < fluid_count) {
+        return false;
+    }
+    for (std::size_t index = 0; index < fluid_count; ++index) {
+        if (!finite(run.state.next_position[index])
+            || !finite(run.state.final_velocity[index])
+            || !std::isfinite(run.state.density[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Vec3 game_uploaded_position(const Particle& particle) {
+    return {
+        static_cast<double>(static_cast<float>(particle.position.x)),
+        static_cast<double>(static_cast<float>(particle.position.y)),
+        static_cast<double>(static_cast<float>(particle.position.z)),
+    };
+}
+
+void game_accumulate_step(
+    GameScenarioResult& result,
+    const Fixture& fixture,
+    const CapturedRun& run,
+    std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    std::ostringstream& trace) {
+    const bool step_valid = game_finite(run, fluid.size())
+        && run.state.next_position.size() == fixture.particles.size();
+    result.apparatus_passed = result.apparatus_passed && step_valid;
+    result.solver_total_ms += run.timing.total;
+    result.solver_maximum_ms = std::max(result.solver_maximum_ms, run.timing.total);
+    if (!step_valid) {
+        trace << "INVALID_STEP|";
+        return;
+    }
+    for (std::size_t index = fluid.size(); index < fixture.particles.size(); ++index) {
+        result.maximum_fixed_displacement = std::max(
+            result.maximum_fixed_displacement,
+            norm(run.state.next_position[index]
+                - game_uploaded_position(fixture.particles[index])));
+    }
+    for (std::size_t index = 0; index < fluid.size(); ++index) {
+        const GameContactResult contact = game_sweep_box(
+            fluid[index].position, run.state.next_position[index], box);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, contact.penetration);
+        result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        result.maximum_contact_velocity_error = std::max(
+            result.maximum_contact_velocity_error,
+            norm(run.state.final_velocity[index] - contact.velocity));
+        const double positive_compression = std::max(
+            run.state.density[index] / fixture.rest_density - 1.0, 0.0);
+        result.maximum_positive_compression = std::max(
+            result.maximum_positive_compression, positive_compression);
+        fluid[index].position = run.state.next_position[index];
+        fluid[index].velocity = run.state.final_velocity[index];
+    }
+    trace << ordered_output_digest(run.state) << '|';
+    for (const Particle& particle : fluid) {
+        trace << std::setprecision(17)
+              << particle.position.x << ',' << particle.position.y << ','
+              << particle.position.z << ';' << particle.velocity.x << ','
+              << particle.velocity.y << ',' << particle.velocity.z << '|';
+    }
+}
+
+GameScenarioResult run_game_hold(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.1, 0.2, 0.1}, {2, 4, 2}};
+    std::vector<Particle> fluid;
+    for (int x = 0; x < 2; ++x) {
+        for (int y = 0; y < 2; ++y) {
+            for (int z = 0; z < 2; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + y * GAME_SPACING,
+                        GAME_RADIUS + z * GAME_SPACING},
+                    {},
+                    false,
+                });
+            }
+        }
+    }
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    GameScenarioResult result;
+    result.id = "confined_hold";
+    result.steps = 24;
+    result.dynamic_samples = fluid.size();
+    std::ostringstream trace;
+    for (int step = 0; step < result.steps && result.apparatus_passed; ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-confined-hold", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        game_accumulate_step(result, fixture, run, fluid, box, trace);
+    }
+    result.final_com = game_center_of_mass(fluid);
+    result.horizontal_com_drift = std::hypot(
+        result.final_com.x - initial_com.x, result.final_com.z - initial_com.z);
+    result.vertical_com_drift = std::abs(result.final_com.y - initial_com.y);
+    std::tie(result.components, result.satellites) = game_topology(fluid);
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4
+        && result.horizontal_com_drift <= 0.005
+        && result.vertical_com_drift <= GAME_RADIUS
+        && result.maximum_speed <= 1.0
+        && result.components == 1U && result.satellites == 0U;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
+    } else if (result.horizontal_com_drift > 0.005) {
+        result.first_failure = "horizontal_drift";
+    } else if (result.vertical_com_drift > GAME_RADIUS) {
+        result.first_failure = "vertical_drift";
+    } else if (result.maximum_speed > 1.0) {
+        result.first_failure = "speed";
+    } else if (result.components != 1U || result.satellites != 0U) {
+        result.first_failure = "topology";
+    }
+    return result;
+}
+
+GameScenarioResult run_game_release(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.4, 0.3, 0.3}, {8, 6, 6}};
+    std::vector<Particle> fluid;
+    for (int x = 0; x < 4; ++x) {
+        for (int y = 0; y < 4; ++y) {
+            for (int z = 0; z < 4; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + y * GAME_SPACING,
+                        GAME_RADIUS + GAME_SPACING + z * GAME_SPACING},
+                    {0.75, 0.0, 0.0},
+                    false,
+                });
+            }
+        }
+    }
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    GameScenarioResult result;
+    result.id = "release_contact";
+    result.steps = 48;
+    result.dynamic_samples = fluid.size();
+    std::ostringstream trace;
+    for (int step = 0; step < result.steps && result.apparatus_passed; ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-release-contact", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        game_accumulate_step(result, fixture, run, fluid, box, trace);
+    }
+    result.final_com = game_center_of_mass(fluid);
+    result.forward_com_travel = result.final_com.x - initial_com.x;
+    std::tie(result.components, result.satellites) = game_topology(fluid);
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4
+        && result.forward_com_travel >= 0.05
+        && result.maximum_speed <= 3.0
+        && result.components <= 2U && result.satellites <= 4U;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
+    } else if (result.forward_com_travel < 0.05) {
+        result.first_failure = "release_motion";
+    } else if (result.maximum_speed > 3.0) {
+        result.first_failure = "speed";
+    } else if (result.components > 2U || result.satellites > 4U) {
+        result.first_failure = "topology";
+    }
+    return result;
+}
+
+GameScenarioResult run_game_contact(const Profile& profile, int iterations) {
+    const GameQualityBox box{{0.0, 0.0, 0.0}, {0.1, 0.1, 0.1}, {2, 2, 2}};
+    const std::array<Vec3, 2> starts = {
+        Vec3{GAME_RADIUS, 0.075, GAME_RADIUS},
+        Vec3{0.075, 0.075, 0.075},
+    };
+    const std::array<Vec3, 2> velocities = {
+        Vec3{0.0, -120.0, 0.0},
+        Vec3{-120.0, -120.0, -120.0},
+    };
+    const std::array<std::vector<int>, 2> expected = {
+        std::vector<int>{2},
+        std::vector<int>{0, 2, 4},
+    };
+    GameScenarioResult result;
+    result.id = "face_corner_contact";
+    result.steps = 2;
+    result.dynamic_samples = 1;
+    result.components = 1;
+    std::ostringstream trace;
+    bool exact_features = true;
+    for (std::size_t index = 0; index < starts.size(); ++index) {
+        std::vector<Particle> fluid = {{starts[index], velocities[index], false}};
+        const Fixture fixture = game_fixture(
+            profile, "game-face-corner-contact", fluid, box, iterations);
+        result.boundary_samples = fixture.particles.size() - fluid.size();
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        const bool step_valid = game_finite(run, 1U)
+            && run.state.next_position.size() == fixture.particles.size();
+        result.apparatus_passed = result.apparatus_passed && step_valid;
+        if (!step_valid) {
+            trace << "INVALID_STEP|";
+            continue;
+        }
+        const GameContactResult contact = game_sweep_box(
+            starts[index], run.state.next_position.front(), box);
+        exact_features = exact_features && contact.features == expected[index];
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, contact.penetration);
+        result.maximum_speed = std::max(result.maximum_speed, norm(contact.velocity));
+        result.maximum_contact_velocity_error = std::max(
+            result.maximum_contact_velocity_error,
+            norm(run.state.final_velocity.front() - contact.velocity));
+        result.solver_total_ms += run.timing.total;
+        result.solver_maximum_ms = std::max(result.solver_maximum_ms, run.timing.total);
+        for (std::size_t fixed = 1; fixed < fixture.particles.size(); ++fixed) {
+            result.maximum_fixed_displacement = std::max(
+                result.maximum_fixed_displacement,
+                norm(run.state.next_position[fixed]
+                    - game_uploaded_position(fixture.particles[fixed])));
+        }
+        trace << ordered_output_digest(run.state) << '|';
+        for (int feature : contact.features) {
+            trace << feature << ',';
+        }
+        trace << '|';
+    }
+    result.trace_sha256 = sha256_hex(trace.str());
+    result.quality_passed = result.apparatus_passed && exact_features
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_fixed_displacement <= 1.0e-12
+        && result.maximum_contact_velocity_error <= 1.0e-4;
+    if (!result.apparatus_passed) {
+        result.first_failure = "apparatus";
+    } else if (!exact_features) {
+        result.first_failure = "contact_features";
+    } else if (result.maximum_penetration > 1.0e-12) {
+        result.first_failure = "containment";
+    } else if (result.maximum_fixed_displacement > 1.0e-12) {
+        result.first_failure = "fixed_boundary_moved";
+    } else if (result.maximum_contact_velocity_error > 1.0e-4) {
+        result.first_failure = "contact_velocity_correspondence";
+    }
+    return result;
+}
+
+void append_game_scenario(
+    std::ostringstream& output,
+    const GameScenarioResult& result) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << result.id << "\",\"apparatus_passed\":"
+           << (result.apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":"
+           << (result.quality_passed ? "true" : "false")
+           << ",\"first_failure\":\"" << result.first_failure << "\""
+           << ",\"steps\":" << result.steps
+           << ",\"dynamic_samples\":" << result.dynamic_samples
+           << ",\"boundary_samples\":" << result.boundary_samples
+           << ",\"components\":" << result.components
+           << ",\"satellites\":" << result.satellites
+           << ",\"maximum_penetration_m\":" << result.maximum_penetration
+           << ",\"maximum_fixed_displacement_m\":"
+           << result.maximum_fixed_displacement
+           << ",\"maximum_contact_velocity_error_m_s\":"
+           << result.maximum_contact_velocity_error
+           << ",\"maximum_speed_m_s\":" << result.maximum_speed
+           << ",\"maximum_positive_compression\":"
+           << result.maximum_positive_compression
+           << ",\"horizontal_com_drift_m\":" << result.horizontal_com_drift
+           << ",\"vertical_com_drift_m\":" << result.vertical_com_drift
+           << ",\"forward_com_travel_m\":" << result.forward_com_travel
+           << ",\"final_com_m\":[" << result.final_com.x << ','
+           << result.final_com.y << ',' << result.final_com.z << ']'
+           << ",\"solver_total_ms\":" << result.solver_total_ms
+           << ",\"solver_mean_ms\":"
+           << result.solver_total_ms / static_cast<double>(result.steps)
+           << ",\"solver_maximum_ms\":" << result.solver_maximum_ms
+           << ",\"trace_sha256\":\"" << result.trace_sha256 << "\"}";
+}
+
+} // namespace
+
+CommandReport run_cuda_game_quality_smoke() {
+    const Profile& profile = find_profile("nuv-basin-48k-static-support-h3-physical.v4");
+    constexpr std::array<int, 2> ITERATION_LANES = {5, 16};
+    struct Lane {
+        int iterations = 0;
+        GameScenarioResult hold;
+        GameScenarioResult release;
+        GameScenarioResult contact;
+        bool apparatus_passed = false;
+        bool quality_passed = false;
+    };
+    std::array<Lane, ITERATION_LANES.size()> lanes;
+    bool apparatus_passed = true;
+    int selected_iterations = 0;
+    std::ostringstream root;
+    for (std::size_t index = 0; index < lanes.size(); ++index) {
+        Lane& lane = lanes[index];
+        lane.iterations = ITERATION_LANES[index];
+        lane.hold = run_game_hold(profile, lane.iterations);
+        lane.release = run_game_release(profile, lane.iterations);
+        lane.contact = run_game_contact(profile, lane.iterations);
+        lane.apparatus_passed = lane.hold.apparatus_passed
+            && lane.release.apparatus_passed && lane.contact.apparatus_passed;
+        lane.quality_passed = lane.hold.quality_passed
+            && lane.release.quality_passed && lane.contact.quality_passed;
+        apparatus_passed = apparatus_passed && lane.apparatus_passed;
+        if (selected_iterations == 0 && lane.quality_passed) {
+            selected_iterations = lane.iterations;
+        }
+        root << lane.iterations << '|' << lane.apparatus_passed << '|'
+             << lane.quality_passed << '|' << lane.hold.trace_sha256 << '|'
+             << lane.release.trace_sha256 << '|' << lane.contact.trace_sha256 << '|';
+    }
+    root << selected_iterations;
+    const bool quality_passed = apparatus_passed && selected_iterations != 0;
+    const char* semantic_status = !apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+        : (selected_iterations == 5 ? "ORIGINAL_WORK_GAME_QUALITY_CANDIDATE"
+            : (selected_iterations == 16 ? "MORE_ITERATIONS_REQUIRED"
+                                         : "GAME_QUALITY_REFUTED"));
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cuda_game_quality_smoke.v1\""
+           << ",\"status\":\"" << (quality_passed ? "PASS" : "FAIL") << "\""
+           << ",\"apparatus_passed\":"
+           << (apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":" << (quality_passed ? "true" : "false")
+           << ",\"semantic_status\":\"" << semantic_status
+           << "\",\"backend_identity\":"
+              "\"fused-owner-terms-p1+compact-csr-u16-p2\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"observer_timing_in_primary_gpu_step\":false"
+           << ",\"contact_timing_in_primary_gpu_step\":true"
+           << ",\"gates\":{\"hold_horizontal_com_drift_m\":0.005"
+           << ",\"hold_vertical_com_drift_m\":0.025"
+           << ",\"hold_maximum_speed_m_s\":1"
+           << ",\"release_forward_com_travel_m\":0.05"
+           << ",\"release_maximum_speed_m_s\":3"
+           << ",\"maximum_penetration_m\":1e-12"
+           << ",\"maximum_fixed_displacement_m\":1e-12"
+           << ",\"maximum_contact_velocity_error_m_s\":1e-4}"
+           << ",\"lanes\":[";
+    for (std::size_t index = 0; index < lanes.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        const Lane& lane = lanes[index];
+        output << "{\"iterations\":" << lane.iterations
+               << ",\"apparatus_passed\":"
+               << (lane.apparatus_passed ? "true" : "false")
+               << ",\"quality_passed\":"
+               << (lane.quality_passed ? "true" : "false")
+               << ",\"scenarios\":[";
+        append_game_scenario(output, lane.hold);
+        output << ',';
+        append_game_scenario(output, lane.release);
+        output << ',';
+        append_game_scenario(output, lane.contact);
+        output << "]}";
+    }
+    output << "],\"selection\":{\"selected_iterations\":"
+           << selected_iterations
+           << ",\"quality_passed\":"
+           << (selected_iterations != 0 ? "true" : "false")
+           << ",\"performance_campaign_authorized\":"
+           << (quality_passed ? "true" : "false") << '}'
+           << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {quality_passed, output.str()};
+}
+
+namespace {
+
+constexpr double GAME_VISUAL_PIXEL_PITCH = GAME_SPACING / 4.0;
+constexpr std::array<int, 5> GAME_VISUAL_FRAME_STEPS = {0, 24, 48, 72, 96};
+
+struct GameSurfaceFrame {
+    bool valid = false;
+    int step = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::vector<std::uint8_t> wet;
+    std::vector<double> depth;
+    std::uint64_t wet_pixels = 0;
+    std::uint32_t material_components = 0;
+    double largest_component_fraction = 0.0;
+    double satellite_area_fraction = 1.0;
+    double depth_p50 = 0.0;
+    double depth_p95 = 0.0;
+    double minimum_depth = 0.0;
+    double maximum_depth = 0.0;
+    std::string root;
+};
+
+struct GameVisualLaneResult {
+    std::string id;
+    bool executed = false;
+    bool apparatus_passed = false;
+    bool quality_passed = false;
+    int requested_steps = 96;
+    int completed_steps = 0;
+    std::size_t dynamic_samples = 0;
+    std::size_t neighbor_capacity_per_sample = 160U;
+    std::size_t maximum_directed_pairs = 0;
+    std::size_t maximum_degree = 0;
+    std::size_t neighbor_id_bytes = 0;
+    double maximum_penetration = 0.0;
+    double maximum_contact_velocity_error = 0.0;
+    double maximum_speed = 0.0;
+    double maximum_positive_compression = 0.0;
+    double vertical_com_drop = 0.0;
+    double front_advance = 0.0;
+    double wet_area_ratio = 0.0;
+    double depth_p95_drop = 0.0;
+    std::size_t particle_components = 0;
+    std::size_t particle_satellites = 0;
+    double particle_largest_component_fraction = 0.0;
+    std::vector<GameSurfaceFrame> frames;
+    std::vector<double> total_timings;
+    std::vector<double> contact_timings;
+    std::string trace_root;
+    std::string result_root;
+    std::string first_failure;
+    bool montage_written = false;
+};
+
+struct GameVisualObserverControls {
+    bool empty_rejected = false;
+    bool nonfinite_rejected = false;
+    bool mask_mutation_changed_root = false;
+    bool depth_mutation_changed_root = false;
+    std::string root;
+};
+
+struct PresentationSurfaceFrame {
+    bool valid = false;
+    bool passed = false;
+    int step = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::vector<std::uint8_t> wet;
+    std::vector<double> depth;
+    std::uint64_t raw_wet_pixels = 0;
+    /// NGQ9: raw wet pixels kept after the component policy.
+    std::uint64_t retained_pixels = 0;
+    /// NGQ9: raw components kept after the component policy.
+    std::uint64_t retained_components = 0;
+    std::uint64_t wet_pixels = 0;
+    std::uint64_t common_pixels = 0;
+    std::uint64_t filled_pixels = 0;
+    std::uint64_t culled_pixels = 0;
+    std::uint32_t components = 0;
+    bool local_fill_only = false;
+    std::array<std::uint32_t, 4> bounding_box_expansion_pixels{};
+    double area_ratio = 0.0;
+    double common_coverage = 0.0;
+    double depth_rmse = 0.0;
+    double depth_p95_change = 0.0;
+    double maximum_depth_change = 0.0;
+    double isotropic_depth_rmse = 0.0;
+    double isotropic_depth_p95_change = 0.0;
+    double isotropic_maximum_depth_change = 0.0;
+    std::uint64_t mesh_vertices = 0;
+    std::uint64_t mesh_triangles = 0;
+    /// 0 = frozen NGQ5 sphere-cap heights; 1 = NGQ6 revision-2 heights: a
+    /// 5x5 grayscale closing of the sphere-cap height over the unchanged
+    /// sphere mask, before the unchanged NGQ5 pipeline.
+    int model = 0;
+    /// NGQ6 metrics: signed change against the raw sphere height on common
+    /// pixels (median, p95, minimum) and the count of pixels above the local
+    /// 5x5 raw maximum (structurally zero for a closing).
+    double lift_p50 = 0.0;
+    double lift_p95 = 0.0;
+    double lift_min = 0.0;
+    std::uint64_t ceiling_violations = 0;
+    double extraction_ms = 0.0;
+    std::string input_root;
+    std::string root;
+};
+
+/// NGQ6 revision-2 presentation height source. Sphere-cap projection leaves
+/// pits wherever the top layer's circles (radius `r` at spacing `2r`) do not
+/// cover a pixel and a deeper particle shows through. A grayscale closing
+/// (dilation then erosion over the raw wet mask) with a 5x5 element, i.e.
+/// +-2 pixels = +-25 mm, fills pits narrower than the element and leaves
+/// wider structures and fronts unchanged. `height` is the closed field and
+/// `ceiling` the 5x5 local raw maximum, which bounds it structurally.
+/// Revision 1 (a broad dome envelope of support `2 * spacing`) was refuted
+/// by its own gate: it bridged real vertical gaps by up to `0.27 m`.
+struct GameDomeField {
+    bool valid = false;
+    std::vector<double> height;
+    std::vector<double> ceiling;
+};
+
+constexpr int GAME_CLOSING_RADIUS_PIXELS = 2;
+constexpr double GAME_CLOSING_LIFT_P50_LIMIT = GAME_RADIUS;
+
+struct PresentationSurfaceLane {
+    std::string id;
+    bool executed = false;
+    bool passed = false;
+    bool montage_written = false;
+    bool mesh_written = false;
+    double total_extraction_ms = 0.0;
+    std::vector<PresentationSurfaceFrame> frames;
+    std::string raw_trace_root;
+    std::string raw_result_root;
+    std::string result_root;
+    std::string first_failure;
+};
+
+struct PresentationSurfaceControls {
+    bool empty_rejected = false;
+    bool nonfinite_rejected = false;
+    bool mask_mutation_changed_root = false;
+    bool depth_mutation_changed_root = false;
+    std::string root;
+};
+
+double game_percentile(std::vector<double> values, double probability) {
+    if (values.empty()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    std::sort(values.begin(), values.end());
+    const std::size_t rank = static_cast<std::size_t>(
+        std::ceil(probability * static_cast<double>(values.size())));
+    return values[std::max<std::size_t>(1U, rank) - 1U];
+}
+
+std::string game_surface_root(const GameSurfaceFrame& frame) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.game-surface-frame.v1\n"
+             << frame.valid << ':' << frame.step << ':' << frame.width << ':'
+             << frame.height << ':' << frame.wet_pixels << ':'
+             << frame.material_components << ':' << std::hexfloat
+             << frame.largest_component_fraction << ':'
+             << frame.satellite_area_fraction << ':' << frame.depth_p50 << ':'
+             << frame.depth_p95 << ':' << frame.minimum_depth << ':'
+             << frame.maximum_depth << '\n';
+    for (std::size_t pixel = 0; pixel < frame.wet.size(); ++pixel) {
+        material << static_cast<unsigned>(frame.wet[pixel]);
+        if (frame.wet[pixel] != 0U) {
+            material << ':' << frame.depth[pixel];
+        }
+        material << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+GameSurfaceFrame game_surface_frame(
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    int step) {
+    GameSurfaceFrame frame;
+    frame.step = step;
+    if (fluid.empty()) {
+        return frame;
+    }
+    const double extent_x = box.maximum.x - box.minimum.x;
+    const double extent_z = box.maximum.z - box.minimum.z;
+    const double cells_x = extent_x / GAME_VISUAL_PIXEL_PITCH;
+    const double cells_z = extent_z / GAME_VISUAL_PIXEL_PITCH;
+    frame.width = static_cast<std::uint32_t>(std::llround(cells_x));
+    frame.height = static_cast<std::uint32_t>(std::llround(cells_z));
+    if (frame.width == 0U || frame.height == 0U
+        || std::abs(cells_x - static_cast<double>(frame.width)) > 1.0e-12
+        || std::abs(cells_z - static_cast<double>(frame.height)) > 1.0e-12) {
+        return frame;
+    }
+    const std::size_t pixels = static_cast<std::size_t>(frame.width) * frame.height;
+    frame.wet.assign(pixels, 0U);
+    frame.depth.assign(pixels, 0.0);
+    const long double radius_squared =
+        static_cast<long double>(GAME_RADIUS) * GAME_RADIUS;
+    const float radius_f32 = static_cast<float>(GAME_RADIUS);
+    const std::array<double, 3> lower_center = {
+        static_cast<double>(static_cast<float>(box.minimum.x) + radius_f32),
+        static_cast<double>(static_cast<float>(box.minimum.y) + radius_f32),
+        static_cast<double>(static_cast<float>(box.minimum.z) + radius_f32),
+    };
+    const std::array<double, 3> upper_center = {
+        static_cast<double>(static_cast<float>(box.maximum.x) - radius_f32),
+        static_cast<double>(static_cast<float>(box.maximum.y) - radius_f32),
+        static_cast<double>(static_cast<float>(box.maximum.z) - radius_f32),
+    };
+    const std::array<double, 3> observer_lower = {
+        std::min(box.minimum.x + GAME_RADIUS, lower_center[0]),
+        std::min(box.minimum.y + GAME_RADIUS, lower_center[1]),
+        std::min(box.minimum.z + GAME_RADIUS, lower_center[2]),
+    };
+    const std::array<double, 3> observer_upper = {
+        std::max(box.maximum.x - GAME_RADIUS, upper_center[0]),
+        std::max(box.maximum.y - GAME_RADIUS, upper_center[1]),
+        std::max(box.maximum.z - GAME_RADIUS, upper_center[2]),
+    };
+    for (const Particle& particle : fluid) {
+        constexpr double observer_boundary_tolerance = 1.0e-12;
+        if (!finite(particle.position)
+            || particle.position.x
+                < observer_lower[0] - observer_boundary_tolerance
+            || particle.position.y
+                < observer_lower[1] - observer_boundary_tolerance
+            || particle.position.z
+                < observer_lower[2] - observer_boundary_tolerance
+            || particle.position.x
+                > observer_upper[0] + observer_boundary_tolerance
+            || particle.position.y
+                > observer_upper[1] + observer_boundary_tolerance
+            || particle.position.z
+                > observer_upper[2] + observer_boundary_tolerance) {
+            return frame;
+        }
+        const auto minimum_index = [](double value, double origin) {
+            return static_cast<std::int64_t>(std::ceil(
+                (value - GAME_RADIUS - origin) / GAME_VISUAL_PIXEL_PITCH - 0.5));
+        };
+        const auto maximum_index = [](double value, double origin) {
+            return static_cast<std::int64_t>(std::floor(
+                (value + GAME_RADIUS - origin) / GAME_VISUAL_PIXEL_PITCH - 0.5));
+        };
+        const std::int64_t min_x = std::max<std::int64_t>(
+            0, minimum_index(particle.position.x, box.minimum.x));
+        const std::int64_t max_x = std::min<std::int64_t>(
+            frame.width - 1U, maximum_index(particle.position.x, box.minimum.x));
+        const std::int64_t min_z = std::max<std::int64_t>(
+            0, minimum_index(particle.position.z, box.minimum.z));
+        const std::int64_t max_z = std::min<std::int64_t>(
+            frame.height - 1U, maximum_index(particle.position.z, box.minimum.z));
+        for (std::int64_t iz = min_z; iz <= max_z; ++iz) {
+            for (std::int64_t ix = min_x; ix <= max_x; ++ix) {
+                const long double pixel_x = static_cast<long double>(box.minimum.x)
+                    + (static_cast<long double>(ix) + 0.5L)
+                        * GAME_VISUAL_PIXEL_PITCH;
+                const long double pixel_z = static_cast<long double>(box.minimum.z)
+                    + (static_cast<long double>(iz) + 0.5L)
+                        * GAME_VISUAL_PIXEL_PITCH;
+                const long double dx =
+                    static_cast<long double>(particle.position.x) - pixel_x;
+                const long double dz =
+                    static_cast<long double>(particle.position.z) - pixel_z;
+                const long double distance_squared = dx * dx + dz * dz;
+                if (distance_squared > radius_squared) {
+                    continue;
+                }
+                const double depth = static_cast<double>(
+                    static_cast<long double>(particle.position.y)
+                    + std::sqrt(std::max(0.0L, radius_squared - distance_squared)));
+                if (!std::isfinite(depth)) {
+                    return frame;
+                }
+                const std::size_t pixel = static_cast<std::size_t>(iz) * frame.width
+                    + static_cast<std::size_t>(ix);
+                if (frame.wet[pixel] == 0U || depth > frame.depth[pixel]) {
+                    frame.wet[pixel] = 1U;
+                    frame.depth[pixel] = depth;
+                }
+            }
+        }
+    }
+    frame.wet_pixels = static_cast<std::uint64_t>(std::count(
+        frame.wet.begin(), frame.wet.end(), std::uint8_t{1U}));
+    if (frame.wet_pixels == 0U) {
+        return frame;
+    }
+
+    const std::uint32_t absent = std::numeric_limits<std::uint32_t>::max();
+    std::vector<std::uint32_t> labels(pixels, absent);
+    std::vector<std::uint32_t> stack;
+    std::vector<std::uint32_t> component_sizes;
+    for (std::uint32_t seed = 0; seed < pixels; ++seed) {
+        if (frame.wet[seed] == 0U || labels[seed] != absent) {
+            continue;
+        }
+        const std::uint32_t label =
+            static_cast<std::uint32_t>(component_sizes.size());
+        component_sizes.push_back(0U);
+        labels[seed] = label;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::uint32_t pixel = stack.back();
+            stack.pop_back();
+            ++component_sizes[label];
+            const std::int32_t x = static_cast<std::int32_t>(pixel % frame.width);
+            const std::int32_t z = static_cast<std::int32_t>(pixel / frame.width);
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dz == 0) {
+                        continue;
+                    }
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0
+                        || nx >= static_cast<std::int32_t>(frame.width)
+                        || nz >= static_cast<std::int32_t>(frame.height)) {
+                        continue;
+                    }
+                    const std::uint32_t neighbor =
+                        static_cast<std::uint32_t>(nz) * frame.width
+                        + static_cast<std::uint32_t>(nx);
+                    if (frame.wet[neighbor] != 0U && labels[neighbor] == absent) {
+                        labels[neighbor] = label;
+                        stack.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+    std::uint32_t largest = 0U;
+    for (std::uint32_t size : component_sizes) {
+        if (size >= 4U) {
+            ++frame.material_components;
+        }
+        largest = std::max(largest, size);
+    }
+    frame.largest_component_fraction = static_cast<double>(largest)
+        / static_cast<double>(frame.wet_pixels);
+    frame.satellite_area_fraction = 1.0 - frame.largest_component_fraction;
+    std::vector<double> depths;
+    depths.reserve(frame.wet_pixels);
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        if (frame.wet[pixel] != 0U) {
+            depths.push_back(frame.depth[pixel]);
+        }
+    }
+    frame.depth_p50 = game_percentile(depths, 0.50);
+    frame.depth_p95 = game_percentile(depths, 0.95);
+    const auto [minimum, maximum] = std::minmax_element(depths.begin(), depths.end());
+    frame.minimum_depth = *minimum;
+    frame.maximum_depth = *maximum;
+    frame.valid = std::isfinite(frame.depth_p50) && std::isfinite(frame.depth_p95)
+        && frame.minimum_depth >= box.minimum.y
+        && frame.maximum_depth <= observer_upper[1] + GAME_RADIUS + 1.0e-12;
+    frame.root = game_surface_root(frame);
+    return frame;
+}
+
+std::tuple<std::size_t, std::size_t, double> game_csr_topology(
+    const CapturedRun& run,
+    std::size_t count) {
+    if (run.offsets.size() != count + 1U || run.neighbors.empty()) {
+        return {count, count, 0.0};
+    }
+    std::vector<std::uint8_t> visited(count, 0U);
+    std::vector<std::size_t> stack;
+    std::size_t components = 0U;
+    std::size_t largest = 0U;
+    for (std::size_t seed = 0; seed < count; ++seed) {
+        if (visited[seed] != 0U) {
+            continue;
+        }
+        ++components;
+        std::size_t component_size = 0U;
+        visited[seed] = 1U;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::size_t owner = stack.back();
+            stack.pop_back();
+            ++component_size;
+            const int begin = run.offsets[owner];
+            const int end = run.offsets[owner + 1U];
+            if (begin < 0 || end < begin
+                || static_cast<std::size_t>(end) > run.neighbors.size()) {
+                return {count, count, 0.0};
+            }
+            for (int cursor = begin; cursor < end; ++cursor) {
+                const int neighbor = run.neighbors[static_cast<std::size_t>(cursor)];
+                if (neighbor < 0 || static_cast<std::size_t>(neighbor) >= count) {
+                    return {count, count, 0.0};
+                }
+                if (visited[static_cast<std::size_t>(neighbor)] == 0U) {
+                    visited[static_cast<std::size_t>(neighbor)] = 1U;
+                    stack.push_back(static_cast<std::size_t>(neighbor));
+                }
+            }
+        }
+        largest = std::max(largest, component_size);
+    }
+    return {components, count - largest,
+        static_cast<double>(largest) / static_cast<double>(count)};
+}
+
+bool game_frame_prefix_valid(const std::string& prefix) {
+    return std::all_of(prefix.begin(), prefix.end(), [](unsigned char value) {
+        return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z')
+            || (value >= '0' && value <= '9') || value == '/' || value == '.'
+            || value == '_' || value == '-';
+    });
+}
+
+bool write_game_surface_montage(
+    const std::string& path,
+    const std::vector<GameSurfaceFrame>& frames,
+    const GameQualityBox& box) {
+    if (frames.empty() || !frames.front().valid) {
+        return false;
+    }
+    const std::uint32_t frame_width = frames.front().width;
+    const std::uint32_t frame_height = frames.front().height;
+    if (!std::all_of(frames.begin(), frames.end(), [&](const auto& frame) {
+            return frame.valid && frame.width == frame_width
+                && frame.height == frame_height;
+        })) {
+        return false;
+    }
+    std::ofstream stream(path, std::ios::binary);
+    if (!stream) {
+        return false;
+    }
+    const std::uint32_t width =
+        frame_width * static_cast<std::uint32_t>(frames.size());
+    stream << "P6\n" << width << ' ' << frame_height << "\n255\n";
+    for (std::uint32_t row = 0; row < frame_height; ++row) {
+        for (const GameSurfaceFrame& frame : frames) {
+            for (std::uint32_t column = 0; column < frame_width; ++column) {
+                const std::size_t pixel =
+                    static_cast<std::size_t>(row) * frame_width + column;
+                unsigned char red = 12U;
+                unsigned char green = 18U;
+                unsigned char blue = 28U;
+                if (frame.wet[pixel] != 0U) {
+                    const double normalized = std::clamp(
+                        (frame.depth[pixel] - box.minimum.y)
+                            / (box.maximum.y - box.minimum.y),
+                        0.0, 1.0);
+                    red = static_cast<unsigned char>(20.0 + 45.0 * normalized);
+                    green = static_cast<unsigned char>(85.0 + 125.0 * normalized);
+                    blue = static_cast<unsigned char>(160.0 + 95.0 * normalized);
+                }
+                stream.put(static_cast<char>(red));
+                stream.put(static_cast<char>(green));
+                stream.put(static_cast<char>(blue));
+            }
+        }
+    }
+    return static_cast<bool>(stream);
+}
+
+struct SurfaceMaskComponents {
+    std::vector<std::uint32_t> labels;
+    std::vector<std::uint32_t> sizes;
+};
+
+SurfaceMaskComponents label_surface_mask(
+    const std::vector<std::uint8_t>& wet,
+    std::uint32_t width,
+    std::uint32_t height) {
+    SurfaceMaskComponents result;
+    const std::size_t pixels = static_cast<std::size_t>(width) * height;
+    if (width == 0U || height == 0U || wet.size() != pixels) {
+        return result;
+    }
+    const std::uint32_t absent = std::numeric_limits<std::uint32_t>::max();
+    result.labels.assign(pixels, absent);
+    std::vector<std::uint32_t> stack;
+    for (std::uint32_t seed = 0; seed < pixels; ++seed) {
+        if (wet[seed] == 0U || result.labels[seed] != absent) {
+            continue;
+        }
+        const std::uint32_t label = static_cast<std::uint32_t>(result.sizes.size());
+        result.sizes.push_back(0U);
+        result.labels[seed] = label;
+        stack.push_back(seed);
+        while (!stack.empty()) {
+            const std::uint32_t pixel = stack.back();
+            stack.pop_back();
+            ++result.sizes[label];
+            const std::int32_t x = static_cast<std::int32_t>(pixel % width);
+            const std::int32_t z = static_cast<std::int32_t>(pixel / width);
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dz == 0) {
+                        continue;
+                    }
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(width)
+                        || nz >= static_cast<std::int32_t>(height)) {
+                        continue;
+                    }
+                    const std::uint32_t neighbor =
+                        static_cast<std::uint32_t>(nz) * width
+                        + static_cast<std::uint32_t>(nx);
+                    if (wet[neighbor] != 0U && result.labels[neighbor] == absent) {
+                        result.labels[neighbor] = label;
+                        stack.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+std::string presentation_surface_root(const PresentationSurfaceFrame& frame) {
+    std::ostringstream material;
+    if (frame.model != 0) {
+        material << "nextengine.nonlocal.presentation-surface-frame-closing.v2\n"
+                 << std::hexfloat << frame.lift_p50 << ':' << frame.lift_p95 << ':'
+                 << frame.lift_min << ':' << std::defaultfloat
+                 << frame.ceiling_violations << '\n';
+    }
+    material << "nextengine.nonlocal.presentation-surface-frame.v3\n"
+             << frame.valid << ':' << frame.passed << ':' << frame.step << ':'
+             << frame.width << ':' << frame.height << ':' << frame.raw_wet_pixels
+             << ':' << frame.wet_pixels << ':' << frame.common_pixels << ':'
+             << frame.filled_pixels << ':' << frame.culled_pixels << ':'
+             << frame.components << ':' << frame.local_fill_only << ':'
+             << frame.bounding_box_expansion_pixels[0] << ':'
+             << frame.bounding_box_expansion_pixels[1] << ':'
+             << frame.bounding_box_expansion_pixels[2] << ':'
+             << frame.bounding_box_expansion_pixels[3] << ':' << std::hexfloat
+             << frame.area_ratio << ':'
+             << frame.common_coverage << ':' << frame.depth_rmse << ':'
+             << frame.depth_p95_change << ':' << frame.maximum_depth_change << ':'
+             << frame.isotropic_depth_rmse << ':'
+             << frame.isotropic_depth_p95_change << ':'
+             << frame.isotropic_maximum_depth_change << ':'
+             << frame.mesh_vertices << ':' << frame.mesh_triangles << '\n'
+             << frame.input_root << '\n';
+    for (std::size_t pixel = 0; pixel < frame.wet.size(); ++pixel) {
+        material << static_cast<unsigned>(frame.wet[pixel]);
+        if (frame.wet[pixel] != 0U) {
+            material << ':' << frame.depth[pixel];
+        }
+        material << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+GameDomeField game_surface_dome_field(
+    const std::vector<Particle>& fluid,
+    const GameQualityBox& box,
+    const GameSurfaceFrame& raw) {
+    (void)fluid;
+    (void)box;
+    GameDomeField field;
+    const std::size_t pixels = static_cast<std::size_t>(raw.width) * raw.height;
+    if (!raw.valid || raw.wet.size() != pixels || raw.depth.size() != pixels) {
+        return field;
+    }
+    const auto filter = [&](const std::vector<double>& input, bool maximum) {
+        std::vector<double> output(pixels, 0.0);
+        for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+            for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+                const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                    + static_cast<std::size_t>(x);
+                if (raw.wet[pixel] == 0U) {
+                    continue;
+                }
+                double value = input[pixel];
+                for (std::int32_t dz = -GAME_CLOSING_RADIUS_PIXELS;
+                     dz <= GAME_CLOSING_RADIUS_PIXELS; ++dz) {
+                    for (std::int32_t dx = -GAME_CLOSING_RADIUS_PIXELS;
+                         dx <= GAME_CLOSING_RADIUS_PIXELS; ++dx) {
+                        const std::int32_t nx = x + dx;
+                        const std::int32_t nz = z + dz;
+                        if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                            || nz >= static_cast<std::int32_t>(raw.height)) {
+                            continue;
+                        }
+                        const std::size_t neighbor = static_cast<std::size_t>(nz)
+                            * raw.width + static_cast<std::size_t>(nx);
+                        if (raw.wet[neighbor] == 0U) {
+                            continue;
+                        }
+                        value = maximum ? std::max(value, input[neighbor])
+                                        : std::min(value, input[neighbor]);
+                    }
+                }
+                output[pixel] = value;
+            }
+        }
+        return output;
+    };
+    field.ceiling = filter(raw.depth, true);
+    field.height = filter(field.ceiling, false);
+    field.valid = true;
+    return field;
+}
+
+// NGQ9: components with at least this many raw wet pixels survive under the
+// `all` policy (one sphere-cap footprint is ~13 pixels at the 12.5 mm pitch).
+constexpr std::uint32_t GAME_SURFACE_MIN_COMPONENT_PIXELS = 9U;
+
+PresentationSurfaceFrame extract_presentation_surface(
+    const GameSurfaceFrame& raw,
+    const GameQualityBox& box,
+    const GameDomeField* dome = nullptr,
+    bool keep_all_components = false) {
+    const auto begin = std::chrono::steady_clock::now();
+    PresentationSurfaceFrame frame;
+    frame.step = raw.step;
+    frame.width = raw.width;
+    frame.height = raw.height;
+    frame.raw_wet_pixels = raw.wet_pixels;
+    frame.input_root = raw.root;
+    frame.model = dome != nullptr ? 1 : 0;
+    const std::size_t pixels = static_cast<std::size_t>(raw.width) * raw.height;
+    const bool dimensions_valid = raw.width != 0U && raw.height != 0U
+        && raw.wet.size() == pixels && raw.depth.size() == pixels;
+    bool input_valid = raw.valid && dimensions_valid && raw.wet_pixels != 0U
+        && game_surface_root(raw) == raw.root
+        && (dome == nullptr
+            || (dome->valid && dome->height.size() == pixels && dome->ceiling.size() == pixels));
+    const std::vector<double>& height_source = dome != nullptr ? dome->height : raw.depth;
+    if (input_valid) {
+        for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+            input_valid = input_valid && (raw.wet[pixel] == 0U
+                || (std::isfinite(raw.depth[pixel])
+                    && raw.depth[pixel] >= box.minimum.y
+                    && raw.depth[pixel] <= box.maximum.y + 1.0e-12));
+        }
+    }
+    if (!input_valid) {
+        frame.extraction_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - begin).count();
+        frame.root = presentation_surface_root(frame);
+        return frame;
+    }
+
+    const SurfaceMaskComponents raw_components =
+        label_surface_mask(raw.wet, raw.width, raw.height);
+    if (raw_components.sizes.empty()) {
+        frame.extraction_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - begin).count();
+        frame.root = presentation_surface_root(frame);
+        return frame;
+    }
+    const std::uint32_t largest_label = static_cast<std::uint32_t>(std::distance(
+        raw_components.sizes.begin(), std::max_element(
+            raw_components.sizes.begin(), raw_components.sizes.end())));
+    std::vector<std::uint8_t> retained(pixels, 0U);
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        const std::uint32_t label = raw_components.labels[pixel];
+        const bool kept = keep_all_components
+            ? (raw.wet[pixel] != 0U
+                && raw_components.sizes[label] >= GAME_SURFACE_MIN_COMPONENT_PIXELS)
+            : label == largest_label;
+        retained[pixel] = static_cast<std::uint8_t>(kept);
+        frame.retained_pixels += kept ? 1U : 0U;
+    }
+    frame.retained_components = keep_all_components
+        ? static_cast<std::uint64_t>(std::count_if(
+              raw_components.sizes.begin(), raw_components.sizes.end(),
+              [](std::uint32_t size) { return size >= GAME_SURFACE_MIN_COMPONENT_PIXELS; }))
+        : 1U;
+    std::uint32_t raw_min_x = raw.width;
+    std::uint32_t raw_max_x = 0U;
+    std::uint32_t raw_min_z = raw.height;
+    std::uint32_t raw_max_z = 0U;
+    for (std::uint32_t z = 0; z < raw.height; ++z) {
+        for (std::uint32_t x = 0; x < raw.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width + x;
+            if (retained[pixel] != 0U) {
+                raw_min_x = std::min(raw_min_x, x);
+                raw_max_x = std::max(raw_max_x, x);
+                raw_min_z = std::min(raw_min_z, z);
+                raw_max_z = std::max(raw_max_z, z);
+            }
+        }
+    }
+
+    std::vector<std::uint8_t> dilated(pixels, 0U);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            bool any = false;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx >= 0 && nz >= 0
+                        && nx < static_cast<std::int32_t>(raw.width)
+                        && nz < static_cast<std::int32_t>(raw.height)) {
+                        const std::size_t neighbor = static_cast<std::size_t>(nz)
+                            * raw.width + static_cast<std::size_t>(nx);
+                        any = any || retained[neighbor] != 0U;
+                    }
+                }
+            }
+            dilated[static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(any);
+        }
+    }
+    frame.wet.assign(pixels, 0U);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            bool all = true;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    all = all && dilated[neighbor] != 0U;
+                }
+            }
+            frame.wet[static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(all);
+        }
+    }
+
+    std::vector<double> base_depth(pixels, 0.0);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x);
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            if (retained[pixel] != 0U) {
+                base_depth[pixel] = height_source[pixel];
+                continue;
+            }
+            double sum = 0.0;
+            std::uint32_t count = 0U;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    if (retained[neighbor] != 0U) {
+                        sum += height_source[neighbor];
+                        ++count;
+                    }
+                }
+            }
+            if (count == 0U) {
+                frame.extraction_ms = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - begin).count();
+                frame.root = presentation_surface_root(frame);
+                return frame;
+            }
+            base_depth[pixel] = sum / static_cast<double>(count);
+        }
+    }
+
+    frame.depth.assign(pixels, 0.0);
+    std::vector<double> isotropic_depth(pixels, 0.0);
+    for (std::int32_t z = 0; z < static_cast<std::int32_t>(raw.height); ++z) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(raw.width); ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * raw.width
+                + static_cast<std::size_t>(x);
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            double weighted_sum = 0.0;
+            double weight_sum = 0.0;
+            double bilateral_sum = 0.0;
+            double bilateral_weight_sum = 0.0;
+            for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                    const std::int32_t nx = x + dx;
+                    const std::int32_t nz = z + dz;
+                    if (nx < 0 || nz < 0 || nx >= static_cast<std::int32_t>(raw.width)
+                        || nz >= static_cast<std::int32_t>(raw.height)) {
+                        continue;
+                    }
+                    const std::size_t neighbor = static_cast<std::size_t>(nz)
+                        * raw.width + static_cast<std::size_t>(nx);
+                    if (frame.wet[neighbor] == 0U) {
+                        continue;
+                    }
+                    const double weight = static_cast<double>(dx == 0 ? 2 : 1)
+                        * static_cast<double>(dz == 0 ? 2 : 1);
+                    weighted_sum += weight * base_depth[neighbor];
+                    weight_sum += weight;
+                    const double range = base_depth[neighbor] - base_depth[pixel];
+                    const double range_weight = std::exp(
+                        -0.5 * range * range / (GAME_RADIUS * GAME_RADIUS));
+                    bilateral_sum += weight * range_weight * base_depth[neighbor];
+                    bilateral_weight_sum += weight * range_weight;
+                }
+            }
+            isotropic_depth[pixel] = std::clamp(
+                weighted_sum / weight_sum, box.minimum.y, box.maximum.y);
+            frame.depth[pixel] = std::clamp(bilateral_sum / bilateral_weight_sum,
+                box.minimum.y, box.maximum.y);
+        }
+    }
+
+    std::vector<double> depth_changes;
+    std::vector<double> isotropic_depth_changes;
+    std::vector<double> lifts;
+    frame.local_fill_only = true;
+    std::uint32_t surface_min_x = frame.width;
+    std::uint32_t surface_max_x = 0U;
+    std::uint32_t surface_min_z = frame.height;
+    std::uint32_t surface_max_z = 0U;
+    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+        const bool raw_wet = raw.wet[pixel] != 0U;
+        const bool surface_wet = frame.wet[pixel] != 0U;
+        frame.wet_pixels += static_cast<std::uint64_t>(surface_wet);
+        frame.common_pixels += static_cast<std::uint64_t>(raw_wet && surface_wet);
+        frame.filled_pixels += static_cast<std::uint64_t>(!raw_wet && surface_wet);
+        frame.culled_pixels += static_cast<std::uint64_t>(raw_wet && !surface_wet);
+        if (surface_wet) {
+            const std::uint32_t x = static_cast<std::uint32_t>(pixel % frame.width);
+            const std::uint32_t z = static_cast<std::uint32_t>(pixel / frame.width);
+            surface_min_x = std::min(surface_min_x, x);
+            surface_max_x = std::max(surface_max_x, x);
+            surface_min_z = std::min(surface_min_z, z);
+            surface_max_z = std::max(surface_max_z, z);
+            if (retained[pixel] == 0U) {
+                bool retained_neighbor = false;
+                for (std::int32_t dz = -1; dz <= 1; ++dz) {
+                    for (std::int32_t dx = -1; dx <= 1; ++dx) {
+                        const std::int32_t nx = static_cast<std::int32_t>(x) + dx;
+                        const std::int32_t nz = static_cast<std::int32_t>(z) + dz;
+                        if (nx >= 0 && nz >= 0
+                            && nx < static_cast<std::int32_t>(frame.width)
+                            && nz < static_cast<std::int32_t>(frame.height)) {
+                            const std::size_t neighbor = static_cast<std::size_t>(nz)
+                                * frame.width + static_cast<std::size_t>(nx);
+                            retained_neighbor = retained_neighbor
+                                || retained[neighbor] != 0U;
+                        }
+                    }
+                }
+                frame.local_fill_only = frame.local_fill_only && retained_neighbor;
+            }
+        }
+        if (raw_wet && surface_wet && dome != nullptr) {
+            lifts.push_back(frame.depth[pixel] - raw.depth[pixel]);
+            frame.ceiling_violations += static_cast<std::uint64_t>(
+                frame.depth[pixel] > dome->ceiling[pixel] + 1.0e-9);
+        }
+        if (raw_wet && surface_wet) {
+            const double change = std::abs(frame.depth[pixel] - raw.depth[pixel]);
+            const double isotropic_change =
+                std::abs(isotropic_depth[pixel] - raw.depth[pixel]);
+            depth_changes.push_back(change);
+            isotropic_depth_changes.push_back(isotropic_change);
+            frame.depth_rmse += change * change;
+            frame.maximum_depth_change = std::max(frame.maximum_depth_change, change);
+            frame.isotropic_depth_rmse += isotropic_change * isotropic_change;
+            frame.isotropic_maximum_depth_change = std::max(
+                frame.isotropic_maximum_depth_change, isotropic_change);
+        }
+    }
+    if (frame.raw_wet_pixels != 0U) {
+        frame.area_ratio = static_cast<double>(frame.wet_pixels)
+            / static_cast<double>(frame.raw_wet_pixels);
+        frame.common_coverage = static_cast<double>(frame.common_pixels)
+            / static_cast<double>(frame.raw_wet_pixels);
+    }
+    if (!depth_changes.empty()) {
+        frame.depth_rmse = std::sqrt(
+            frame.depth_rmse / static_cast<double>(depth_changes.size()));
+        frame.depth_p95_change = game_percentile(depth_changes, 0.95);
+        frame.isotropic_depth_rmse = std::sqrt(frame.isotropic_depth_rmse
+            / static_cast<double>(isotropic_depth_changes.size()));
+        frame.isotropic_depth_p95_change =
+            game_percentile(isotropic_depth_changes, 0.95);
+    }
+    if (frame.wet_pixels != 0U) {
+        frame.bounding_box_expansion_pixels = {
+            raw_min_x > surface_min_x ? raw_min_x - surface_min_x : 0U,
+            surface_max_x > raw_max_x ? surface_max_x - raw_max_x : 0U,
+            raw_min_z > surface_min_z ? raw_min_z - surface_min_z : 0U,
+            surface_max_z > raw_max_z ? surface_max_z - raw_max_z : 0U,
+        };
+    }
+    frame.components = static_cast<std::uint32_t>(
+        label_surface_mask(frame.wet, frame.width, frame.height).sizes.size());
+    frame.mesh_vertices = frame.wet_pixels;
+    if (frame.width > 1U && frame.height > 1U) {
+        for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+            for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+                const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+                const std::size_t b = a + 1U;
+                const std::size_t d = static_cast<std::size_t>(z + 1U)
+                    * frame.width + x;
+                const std::size_t c = d + 1U;
+                if (frame.wet[a] != 0U && frame.wet[b] != 0U
+                    && frame.wet[c] != 0U && frame.wet[d] != 0U) {
+                    frame.mesh_triangles += 2U;
+                }
+            }
+        }
+    }
+    if (!lifts.empty()) {
+        frame.lift_p50 = game_percentile(lifts, 0.50);
+        frame.lift_p95 = game_percentile(lifts, 0.95);
+        frame.lift_min = *std::min_element(lifts.begin(), lifts.end());
+    }
+    frame.valid = frame.wet_pixels != 0U && frame.common_pixels != 0U
+        && std::all_of(frame.depth.begin(), frame.depth.end(), [](double value) {
+            return std::isfinite(value);
+        });
+    // NGQ9: under the `all` policy the closed mask may hold as many bodies
+    // as the raw mask kept (bodies may merge under the close, never split).
+    const bool mask_passed = frame.valid && frame.components >= 1U
+        && frame.components <= std::max<std::uint64_t>(1U, frame.retained_components)
+        && frame.local_fill_only
+        && *std::max_element(frame.bounding_box_expansion_pixels.begin(),
+               frame.bounding_box_expansion_pixels.end()) <= 1U
+        && frame.area_ratio >= 0.95 && frame.area_ratio <= 1.40
+        && frame.common_coverage >= 0.95 && frame.mesh_vertices != 0U
+        && frame.mesh_triangles != 0U;
+    frame.passed = dome == nullptr
+        ? (mask_passed && frame.depth_rmse <= 0.025 && frame.depth_p95_change <= 0.050)
+        : (mask_passed && frame.lift_p50 <= GAME_CLOSING_LIFT_P50_LIMIT
+            && frame.ceiling_violations == 0U);
+    frame.extraction_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - begin).count();
+    frame.root = presentation_surface_root(frame);
+    return frame;
+}
+
+PresentationSurfaceControls presentation_surface_controls(
+    const GameSurfaceFrame& raw,
+    const GameQualityBox& box) {
+    PresentationSurfaceControls controls;
+    controls.empty_rejected = !extract_presentation_surface({}, box).valid;
+    GameSurfaceFrame nonfinite = raw;
+    const auto wet = std::find(nonfinite.wet.begin(), nonfinite.wet.end(), 1U);
+    if (wet != nonfinite.wet.end()) {
+        const std::size_t pixel = static_cast<std::size_t>(
+            std::distance(nonfinite.wet.begin(), wet));
+        nonfinite.depth[pixel] = std::numeric_limits<double>::infinity();
+        nonfinite.root = game_surface_root(nonfinite);
+        controls.nonfinite_rejected =
+            !extract_presentation_surface(nonfinite, box).valid;
+    }
+    const PresentationSurfaceFrame base = extract_presentation_surface(raw, box);
+    if (base.valid) {
+        PresentationSurfaceFrame mask_mutation = base;
+        const auto surface_wet =
+            std::find(mask_mutation.wet.begin(), mask_mutation.wet.end(), 1U);
+        if (surface_wet != mask_mutation.wet.end()) {
+            *surface_wet = 0U;
+            controls.mask_mutation_changed_root =
+                presentation_surface_root(mask_mutation) != base.root;
+        }
+        PresentationSurfaceFrame depth_mutation = base;
+        const auto depth_wet =
+            std::find(depth_mutation.wet.begin(), depth_mutation.wet.end(), 1U);
+        if (depth_wet != depth_mutation.wet.end()) {
+            const std::size_t pixel = static_cast<std::size_t>(
+                std::distance(depth_mutation.wet.begin(), depth_wet));
+            depth_mutation.depth[pixel] = std::nextafter(
+                depth_mutation.depth[pixel], std::numeric_limits<double>::infinity());
+            controls.depth_mutation_changed_root =
+                presentation_surface_root(depth_mutation) != base.root;
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.presentation-surface-controls.v3\n"
+             << controls.empty_rejected << ':' << controls.nonfinite_rejected << ':'
+             << controls.mask_mutation_changed_root << ':'
+             << controls.depth_mutation_changed_root << '\n';
+    controls.root = sha256_hex(material.str());
+    return controls;
+}
+
+bool write_presentation_surface_montage(
+    const std::string& path,
+    const std::vector<PresentationSurfaceFrame>& frames,
+    const GameQualityBox& box) {
+    if (frames.empty() || !frames.front().valid) {
+        return false;
+    }
+    const std::uint32_t frame_width = frames.front().width;
+    const std::uint32_t frame_height = frames.front().height;
+    if (!std::all_of(frames.begin(), frames.end(), [&](const auto& frame) {
+            return frame.valid && frame.width == frame_width
+                && frame.height == frame_height;
+        })) {
+        return false;
+    }
+    std::ofstream stream(path, std::ios::binary);
+    if (!stream) {
+        return false;
+    }
+    stream << "P6\n" << frame_width * frames.size() << ' ' << frame_height
+           << "\n255\n";
+    constexpr double light_x = -0.30151134457776363;
+    constexpr double light_y = 0.90453403373329089;
+    constexpr double light_z = -0.30151134457776363;
+    for (std::uint32_t z = 0; z < frame_height; ++z) {
+        for (const PresentationSurfaceFrame& frame : frames) {
+            for (std::uint32_t x = 0; x < frame_width; ++x) {
+                const std::size_t pixel = static_cast<std::size_t>(z) * frame_width + x;
+                unsigned char red = 9U;
+                unsigned char green = 16U;
+                unsigned char blue = 27U;
+                if (frame.wet[pixel] != 0U) {
+                    const auto sample = [&](std::int32_t sx, std::int32_t sz) {
+                        const std::int32_t cx = std::clamp<std::int32_t>(
+                            sx, 0, static_cast<std::int32_t>(frame_width) - 1);
+                        const std::int32_t cz = std::clamp<std::int32_t>(
+                            sz, 0, static_cast<std::int32_t>(frame_height) - 1);
+                        const std::size_t index = static_cast<std::size_t>(cz)
+                            * frame_width + static_cast<std::size_t>(cx);
+                        return frame.wet[index] != 0U
+                            ? frame.depth[index] : frame.depth[pixel];
+                    };
+                    const double slope_x = (sample(static_cast<std::int32_t>(x) + 1,
+                        static_cast<std::int32_t>(z))
+                        - sample(static_cast<std::int32_t>(x) - 1,
+                            static_cast<std::int32_t>(z)))
+                        / (2.0 * GAME_VISUAL_PIXEL_PITCH);
+                    const double slope_z = (sample(static_cast<std::int32_t>(x),
+                        static_cast<std::int32_t>(z) + 1)
+                        - sample(static_cast<std::int32_t>(x),
+                            static_cast<std::int32_t>(z) - 1))
+                        / (2.0 * GAME_VISUAL_PIXEL_PITCH);
+                    const double normal_length =
+                        std::sqrt(slope_x * slope_x + 1.0 + slope_z * slope_z);
+                    const double diffuse = std::clamp(
+                        (-slope_x * light_x + light_y - slope_z * light_z)
+                            / normal_length,
+                        0.22, 1.0);
+                    const double height = std::clamp(
+                        (frame.depth[pixel] - box.minimum.y)
+                            / (box.maximum.y - box.minimum.y),
+                        0.0, 1.0);
+                    red = static_cast<unsigned char>(std::clamp(
+                        (20.0 + 38.0 * height) * diffuse, 0.0, 255.0));
+                    green = static_cast<unsigned char>(std::clamp(
+                        (105.0 + 105.0 * height) * diffuse, 0.0, 255.0));
+                    blue = static_cast<unsigned char>(std::clamp(
+                        (185.0 + 65.0 * height) * diffuse, 0.0, 255.0));
+                }
+                stream.put(static_cast<char>(red));
+                stream.put(static_cast<char>(green));
+                stream.put(static_cast<char>(blue));
+            }
+        }
+    }
+    return static_cast<bool>(stream);
+}
+
+bool write_presentation_surface_obj(
+    const std::string& path,
+    const PresentationSurfaceFrame& frame,
+    const GameQualityBox& box) {
+    if (!frame.valid || frame.mesh_vertices == 0U || frame.mesh_triangles == 0U) {
+        return false;
+    }
+    std::ofstream stream(path);
+    if (!stream) {
+        return false;
+    }
+    stream << std::setprecision(17) << "# NextEngine presentation-only water surface\n";
+    std::vector<std::uint64_t> indices(frame.wet.size(), 0U);
+    std::uint64_t vertex = 0U;
+    for (std::uint32_t z = 0; z < frame.height; ++z) {
+        for (std::uint32_t x = 0; x < frame.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * frame.width + x;
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            indices[pixel] = ++vertex;
+            const double world_x = box.minimum.x
+                + (static_cast<double>(x) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            const double world_z = box.minimum.z
+                + (static_cast<double>(z) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            stream << "v " << world_x << ' ' << frame.depth[pixel] << ' '
+                   << world_z << '\n';
+        }
+    }
+    std::uint64_t triangles = 0U;
+    for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+        for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+            const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+            const std::size_t b = a + 1U;
+            const std::size_t d = static_cast<std::size_t>(z + 1U) * frame.width + x;
+            const std::size_t c = d + 1U;
+            if (indices[a] != 0U && indices[b] != 0U && indices[c] != 0U
+                && indices[d] != 0U) {
+                stream << "f " << indices[a] << ' ' << indices[d] << ' '
+                       << indices[c] << '\n';
+                stream << "f " << indices[a] << ' ' << indices[c] << ' '
+                       << indices[b] << '\n';
+                triangles += 2U;
+            }
+        }
+    }
+    return static_cast<bool>(stream) && vertex == frame.mesh_vertices
+        && triangles == frame.mesh_triangles;
+}
+
+PresentationSurfaceLane make_presentation_surface_lane(
+    const GameVisualLaneResult& raw,
+    const GameQualityBox& box,
+    const std::string& frame_prefix) {
+    PresentationSurfaceLane lane;
+    lane.id = raw.id;
+    lane.executed = raw.executed;
+    lane.raw_trace_root = raw.trace_root;
+    lane.raw_result_root = raw.result_root;
+    if (!raw.executed || !raw.apparatus_passed || !raw.quality_passed) {
+        lane.first_failure = "PARENT_LANE_NOT_ACCEPTED";
+    } else {
+        for (const GameSurfaceFrame& raw_frame : raw.frames) {
+            PresentationSurfaceFrame frame =
+                extract_presentation_surface(raw_frame, box);
+            lane.total_extraction_ms += frame.extraction_ms;
+            lane.frames.push_back(std::move(frame));
+            if (!lane.frames.back().passed) {
+                lane.first_failure = "FRAME_" + std::to_string(raw_frame.step);
+                break;
+            }
+        }
+        lane.passed = lane.frames.size() == GAME_VISUAL_FRAME_STEPS.size()
+            && std::all_of(lane.frames.begin(), lane.frames.end(), [](const auto& frame) {
+                return frame.passed;
+            });
+        if (lane.passed && !frame_prefix.empty()) {
+            lane.montage_written = write_presentation_surface_montage(
+                frame_prefix + "-" + lane.id + "-surface.ppm", lane.frames, box);
+            lane.mesh_written = write_presentation_surface_obj(
+                frame_prefix + "-" + lane.id + "-surface.obj", lane.frames.back(), box);
+            // Every accepted keyframe is also exported so the engine-side
+            // presentation bridge can replay a bounded dynamic sequence.
+            for (const PresentationSurfaceFrame& frame : lane.frames) {
+                lane.mesh_written = lane.mesh_written
+                    && write_presentation_surface_obj(
+                        frame_prefix + "-" + lane.id + "-step"
+                            + std::to_string(frame.step) + "-surface.obj",
+                        frame, box);
+            }
+            if (!lane.montage_written || !lane.mesh_written) {
+                lane.passed = false;
+                lane.first_failure = "FILE_OUTPUT";
+            }
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.presentation-surface-lane.v3\n"
+             << lane.id << ':' << lane.executed << ':' << lane.passed << '\n'
+             << lane.raw_trace_root << '\n' << lane.raw_result_root << '\n';
+    for (const PresentationSurfaceFrame& frame : lane.frames) {
+        material << frame.root << '\n';
+    }
+    lane.result_root = sha256_hex(material.str());
+    return lane;
+}
+
+std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z, int lattice_y) {
+    std::vector<Particle> fluid;
+    fluid.reserve(static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y)
+        * lattice_z);
+    for (int x = 0; x < lattice_x; ++x) {
+        for (int y = 0; y < lattice_y; ++y) {
+            for (int z = 0; z < lattice_z; ++z) {
+                fluid.push_back({
+                    {GAME_RADIUS + x * GAME_SPACING,
+                        GAME_RADIUS + 2.0 * GAME_SPACING + y * GAME_SPACING,
+                        GAME_RADIUS + z * GAME_SPACING},
+                    {},
+                    false,
+                });
+            }
+        }
+    }
+    return fluid;
+}
+
+std::vector<Particle> game_visual_particles(int lattice_x, int lattice_z) {
+    return game_visual_particles(lattice_x, lattice_z, 10);
+}
+
+GameVisualObserverControls game_visual_observer_controls(
+    const std::vector<Particle>& initial,
+    const GameQualityBox& box) {
+    GameVisualObserverControls controls;
+    const GameSurfaceFrame base = game_surface_frame(initial, box, 0);
+    controls.empty_rejected = !game_surface_frame({}, box, 0).valid;
+    std::vector<Particle> nonfinite = initial;
+    nonfinite.front().position.y = std::numeric_limits<double>::quiet_NaN();
+    controls.nonfinite_rejected = !game_surface_frame(nonfinite, box, 0).valid;
+    if (base.valid) {
+        GameSurfaceFrame mask_mutation = base;
+        const auto wet = std::find(mask_mutation.wet.begin(), mask_mutation.wet.end(),
+            std::uint8_t{1U});
+        if (wet != mask_mutation.wet.end()) {
+            *wet = 0U;
+            controls.mask_mutation_changed_root =
+                game_surface_root(mask_mutation) != base.root;
+        }
+        GameSurfaceFrame depth_mutation = base;
+        const auto depth_pixel = std::find(depth_mutation.wet.begin(),
+            depth_mutation.wet.end(), std::uint8_t{1U});
+        if (depth_pixel != depth_mutation.wet.end()) {
+            const std::size_t index = static_cast<std::size_t>(
+                std::distance(depth_mutation.wet.begin(), depth_pixel));
+            depth_mutation.depth[index] = std::nextafter(
+                depth_mutation.depth[index], std::numeric_limits<double>::infinity());
+            controls.depth_mutation_changed_root =
+                game_surface_root(depth_mutation) != base.root;
+        }
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.game-surface-controls.v1\n"
+             << controls.empty_rejected << ':' << controls.nonfinite_rejected << ':'
+             << controls.mask_mutation_changed_root << ':'
+             << controls.depth_mutation_changed_root << '\n';
+    controls.root = sha256_hex(material.str());
+    return controls;
+}
+
+GameVisualLaneResult run_game_visual_lane(
+    const Profile& profile,
+    const std::string& id,
+    int lattice_x,
+    int lattice_z,
+    const GameQualityBox& box,
+    const std::string& frame_prefix) {
+    GameVisualLaneResult result;
+    result.id = id;
+    result.executed = true;
+    result.apparatus_passed = true;
+    result.neighbor_capacity_per_sample = profile.max_neighbors;
+    std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z);
+    result.dynamic_samples = fluid.size();
+    const Vec3 initial_com = game_center_of_mass(fluid);
+    const double initial_front = std::max_element(fluid.begin(), fluid.end(),
+        [](const Particle& lhs, const Particle& rhs) {
+            return lhs.position.x < rhs.position.x;
+        })->position.x;
+    result.frames.push_back(game_surface_frame(fluid, box, 0));
+    result.apparatus_passed = result.frames.back().valid;
+    std::ostringstream trace;
+    CapturedRun final_run;
+    std::size_t next_frame = 1U;
+    for (int step = 1; step <= result.requested_steps && result.apparatus_passed;
+         ++step) {
+        const Fixture fixture = game_fixture(
+            profile, "game-visual-" + id, fluid, box, profile.fixed_iterations,
+            result.neighbor_capacity_per_sample);
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        const CapturedRun run = gpu.execute(true);
+        result.maximum_directed_pairs = std::max(
+            result.maximum_directed_pairs, run.state.directed_pairs);
+        result.maximum_degree = std::max(result.maximum_degree, run.state.maximum_degree);
+        result.neighbor_id_bytes = run.neighbor_id_bytes;
+        const bool finite_state_passed = game_finite(run, fluid.size());
+        const bool output_size_passed =
+            run.state.next_position.size() == fluid.size();
+        const bool compact_ids_passed =
+            run.neighbor_id_bytes == sizeof(std::uint16_t);
+        const bool pair_capacity_passed =
+            run.state.directed_pairs <= fixture.pair_capacity;
+        const bool degree_capacity_passed =
+            run.state.maximum_degree <= result.neighbor_capacity_per_sample;
+        const bool step_valid = finite_state_passed && output_size_passed
+            && compact_ids_passed && pair_capacity_passed && degree_capacity_passed;
+        if (!step_valid) {
+            result.apparatus_passed = false;
+            if (run.local_solve_failed) {
+                result.first_failure = "local_solve";
+            } else if (!run.neighbor_build_valid) {
+                result.first_failure = "neighbor_build";
+            } else if (!finite_state_passed) {
+                result.first_failure = "nonfinite_state";
+            } else if (!output_size_passed) {
+                result.first_failure = "output_size";
+            } else if (!compact_ids_passed) {
+                result.first_failure = "compact_neighbor_ids";
+            } else if (!pair_capacity_passed) {
+                result.first_failure = "directed_pair_capacity";
+            } else if (!degree_capacity_passed) {
+                result.first_failure = "neighbor_degree_capacity";
+            } else {
+                result.first_failure = "step_apparatus";
+            }
+            trace << step << ":INVALID:" << result.first_failure << ':'
+                  << run.neighbor_build_valid << ':' << run.local_solve_failed
+                  << ':' << run.state.directed_pairs << ':'
+                  << run.state.maximum_degree << '|';
+            break;
+        }
+        result.total_timings.push_back(run.timing.total);
+        result.contact_timings.push_back(run.timing.contact);
+        for (std::size_t index = 0; index < fluid.size(); ++index) {
+            const GameContactResult contact = game_sweep_box(
+                fluid[index].position, run.state.next_position[index], box);
+            result.maximum_penetration = std::max(
+                result.maximum_penetration, contact.penetration);
+            result.maximum_contact_velocity_error = std::max(
+                result.maximum_contact_velocity_error,
+                norm(run.state.final_velocity[index] - contact.velocity));
+            result.maximum_speed = std::max(
+                result.maximum_speed, norm(run.state.final_velocity[index]));
+            result.maximum_positive_compression = std::max(
+                result.maximum_positive_compression,
+                std::max(run.state.density[index] / fixture.rest_density - 1.0, 0.0));
+            fluid[index].position = run.state.next_position[index];
+            fluid[index].velocity = run.state.final_velocity[index];
+        }
+        ++result.completed_steps;
+        trace << step << ':' << ordered_output_digest(run.state) << '|';
+        final_run = run;
+        if (next_frame < GAME_VISUAL_FRAME_STEPS.size()
+            && step == GAME_VISUAL_FRAME_STEPS[next_frame]) {
+            result.frames.push_back(game_surface_frame(fluid, box, step));
+            if (!result.frames.back().valid) {
+                result.apparatus_passed = false;
+                result.first_failure = "surface_observer";
+                break;
+            }
+            ++next_frame;
+        }
+    }
+    result.trace_root = sha256_hex(trace.str());
+    if (result.apparatus_passed) {
+        result.apparatus_passed = result.completed_steps == result.requested_steps
+            && result.frames.size() == GAME_VISUAL_FRAME_STEPS.size()
+            && result.maximum_penetration <= 1.0e-12
+            && result.maximum_contact_velocity_error <= 1.0e-4;
+        if (!result.apparatus_passed && result.first_failure.empty()) {
+            result.first_failure = "apparatus_closure";
+        }
+    }
+    if (result.completed_steps != 0) {
+        const Vec3 final_com = game_center_of_mass(fluid);
+        result.vertical_com_drop = initial_com.y - final_com.y;
+        const double final_front = std::max_element(fluid.begin(), fluid.end(),
+            [](const Particle& lhs, const Particle& rhs) {
+                return lhs.position.x < rhs.position.x;
+            })->position.x;
+        result.front_advance = final_front - initial_front;
+        std::tie(result.particle_components, result.particle_satellites,
+            result.particle_largest_component_fraction) =
+            game_csr_topology(final_run, fluid.size());
+    }
+    if (result.frames.size() == GAME_VISUAL_FRAME_STEPS.size()) {
+        result.wet_area_ratio = static_cast<double>(result.frames.back().wet_pixels)
+            / static_cast<double>(result.frames.front().wet_pixels);
+        result.depth_p95_drop =
+            result.frames.front().depth_p95 - result.frames.back().depth_p95;
+    }
+    bool frames_coherent = result.frames.size() == GAME_VISUAL_FRAME_STEPS.size();
+    for (const GameSurfaceFrame& frame : result.frames) {
+        frames_coherent = frames_coherent && frame.valid
+            && frame.largest_component_fraction >= 0.98
+            && frame.satellite_area_fraction <= 0.02
+            && frame.material_components <= 4U;
+    }
+    const double particle_satellite_fraction = result.dynamic_samples == 0U
+        ? 1.0
+        : static_cast<double>(result.particle_satellites)
+            / static_cast<double>(result.dynamic_samples);
+    result.quality_passed = result.apparatus_passed
+        && result.maximum_speed <= 10.0
+        && result.vertical_com_drop >= 0.075
+        && result.front_advance >= 0.10
+        && result.wet_area_ratio >= 1.05 && result.wet_area_ratio <= 3.0
+        && frames_coherent
+        && result.particle_largest_component_fraction >= 0.98
+        && particle_satellite_fraction <= 0.02
+        && result.depth_p95_drop >= 0.025;
+    if (result.apparatus_passed && !result.quality_passed) {
+        if (result.maximum_speed > 10.0) {
+            result.first_failure = "speed";
+        } else if (result.vertical_com_drop < 0.075) {
+            result.first_failure = "vertical_motion";
+        } else if (result.front_advance < 0.10) {
+            result.first_failure = "front_advance";
+        } else if (result.wet_area_ratio < 1.05 || result.wet_area_ratio > 3.0) {
+            result.first_failure = "wet_area";
+        } else if (!frames_coherent) {
+            result.first_failure = "surface_topology";
+        } else if (result.particle_largest_component_fraction < 0.98
+            || particle_satellite_fraction > 0.02) {
+            result.first_failure = "particle_topology";
+        } else if (result.depth_p95_drop < 0.025) {
+            result.first_failure = "surface_settling";
+        }
+    }
+    if (!frame_prefix.empty()) {
+        result.montage_written = write_game_surface_montage(
+            frame_prefix + "-" + result.id + ".ppm", result.frames, box);
+    }
+    std::ostringstream root;
+    root << "nextengine.nonlocal.game-visual-lane.v1\n" << result.id << ':'
+         << result.executed << ':' << result.apparatus_passed << ':'
+         << result.quality_passed << ':' << result.completed_steps << ':'
+         << result.dynamic_samples << ':' << result.neighbor_capacity_per_sample
+         << ':' << result.maximum_directed_pairs << ':'
+         << result.maximum_degree << ':' << result.neighbor_id_bytes << ':'
+         << std::hexfloat << result.maximum_penetration << ':'
+         << result.maximum_contact_velocity_error << ':' << result.maximum_speed << ':'
+         << result.maximum_positive_compression << ':' << result.vertical_com_drop << ':'
+         << result.front_advance << ':' << result.wet_area_ratio << ':'
+         << result.depth_p95_drop << ':' << result.particle_components << ':'
+         << result.particle_satellites << ':'
+         << result.particle_largest_component_fraction << '\n'
+         << result.trace_root << '\n';
+    for (const GameSurfaceFrame& frame : result.frames) {
+        root << frame.root << '\n';
+    }
+    result.result_root = sha256_hex(root.str());
+    return result;
+}
+
+void append_game_surface_frame(
+    std::ostringstream& output,
+    const GameSurfaceFrame& frame) {
+    output << std::setprecision(17)
+           << "{\"valid\":" << (frame.valid ? "true" : "false")
+           << ",\"step\":" << frame.step << ",\"width\":" << frame.width
+           << ",\"height\":" << frame.height
+           << ",\"wet_pixels\":" << frame.wet_pixels
+           << ",\"material_components\":" << frame.material_components
+           << ",\"largest_component_fraction\":"
+           << frame.largest_component_fraction
+           << ",\"satellite_area_fraction\":" << frame.satellite_area_fraction
+           << ",\"depth_p50_m\":" << frame.depth_p50
+           << ",\"depth_p95_m\":" << frame.depth_p95
+           << ",\"minimum_depth_m\":" << frame.minimum_depth
+           << ",\"maximum_depth_m\":" << frame.maximum_depth
+           << ",\"frame_root\":\"" << frame.root << "\"}";
+}
+
+void append_game_visual_lane(
+    std::ostringstream& output,
+    const GameVisualLaneResult& lane) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << lane.id << "\",\"executed\":"
+           << (lane.executed ? "true" : "false")
+           << ",\"apparatus_passed\":"
+           << (lane.apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":"
+           << (lane.quality_passed ? "true" : "false")
+           << ",\"first_failure\":\"" << lane.first_failure << "\""
+           << ",\"requested_steps\":" << lane.requested_steps
+           << ",\"completed_steps\":" << lane.completed_steps
+           << ",\"dynamic_samples\":" << lane.dynamic_samples
+           << ",\"neighbor_capacity_per_sample\":"
+           << lane.neighbor_capacity_per_sample
+           << ",\"maximum_directed_pairs\":" << lane.maximum_directed_pairs
+           << ",\"maximum_degree\":" << lane.maximum_degree
+           << ",\"neighbor_id_bytes\":" << lane.neighbor_id_bytes
+           << ",\"maximum_penetration_m\":" << lane.maximum_penetration
+           << ",\"maximum_contact_velocity_error_m_s\":"
+           << lane.maximum_contact_velocity_error
+           << ",\"maximum_speed_m_s\":" << lane.maximum_speed
+           << ",\"maximum_positive_compression\":"
+           << lane.maximum_positive_compression
+           << ",\"vertical_com_drop_m\":" << lane.vertical_com_drop
+           << ",\"front_advance_m\":" << lane.front_advance
+           << ",\"wet_area_ratio\":" << lane.wet_area_ratio
+           << ",\"depth_p95_drop_m\":" << lane.depth_p95_drop
+           << ",\"particle_components\":" << lane.particle_components
+           << ",\"particle_satellites\":" << lane.particle_satellites
+           << ",\"particle_largest_component_fraction\":"
+           << lane.particle_largest_component_fraction
+           << ",\"trace_root\":\"" << lane.trace_root << "\""
+           << ",\"result_root\":\"" << lane.result_root << "\""
+           << ",\"montage_written\":"
+           << (lane.montage_written ? "true" : "false")
+           << ",\"gpu_timing\":";
+    if (lane.total_timings.empty()) {
+        output << "null";
+    } else {
+        const Statistics total = statistics(lane.total_timings);
+        const Statistics contact = statistics(lane.contact_timings);
+        output << "{\"total\":";
+        append_statistics(output, total);
+        output << ",\"analytic_contact\":";
+        append_statistics(output, contact);
+        output << '}';
+    }
+    output << ",\"frames\":[";
+    for (std::size_t index = 0; index < lane.frames.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        append_game_surface_frame(output, lane.frames[index]);
+    }
+    output << "]}";
+}
+
+void append_presentation_surface_frame(
+    std::ostringstream& output,
+    const PresentationSurfaceFrame& frame) {
+    output << std::setprecision(17)
+           << "{\"valid\":" << (frame.valid ? "true" : "false")
+           << ",\"passed\":" << (frame.passed ? "true" : "false")
+           << ",\"step\":" << frame.step << ",\"width\":" << frame.width
+           << ",\"height\":" << frame.height
+           << ",\"raw_wet_pixels\":" << frame.raw_wet_pixels
+           << ",\"presentation_wet_pixels\":" << frame.wet_pixels
+           << ",\"common_pixels\":" << frame.common_pixels
+           << ",\"filled_pixels\":" << frame.filled_pixels
+           << ",\"culled_pixels\":" << frame.culled_pixels
+           << ",\"components\":" << frame.components
+           << ",\"local_fill_only\":"
+           << (frame.local_fill_only ? "true" : "false")
+           << ",\"bounding_box_expansion_pixels\":["
+           << frame.bounding_box_expansion_pixels[0] << ','
+           << frame.bounding_box_expansion_pixels[1] << ','
+           << frame.bounding_box_expansion_pixels[2] << ','
+           << frame.bounding_box_expansion_pixels[3] << ']'
+           << ",\"area_ratio\":" << frame.area_ratio
+           << ",\"common_coverage\":" << frame.common_coverage
+           << ",\"depth_rmse_m\":" << frame.depth_rmse
+           << ",\"depth_p95_change_m\":" << frame.depth_p95_change
+           << ",\"maximum_depth_change_m\":" << frame.maximum_depth_change
+           << ",\"isotropic_control\":{\"depth_rmse_m\":"
+           << frame.isotropic_depth_rmse
+           << ",\"depth_p95_change_m\":" << frame.isotropic_depth_p95_change
+           << ",\"maximum_depth_change_m\":"
+           << frame.isotropic_maximum_depth_change << '}'
+           << ",\"mesh_vertices\":" << frame.mesh_vertices
+           << ",\"mesh_triangles\":" << frame.mesh_triangles
+           << ",\"extraction_ms\":" << frame.extraction_ms
+           << ",\"input_root\":\"" << frame.input_root << "\""
+           << ",\"surface_root\":\"" << frame.root << "\"}";
+}
+
+void append_presentation_surface_lane(
+    std::ostringstream& output,
+    const PresentationSurfaceLane& lane) {
+    output << std::setprecision(17)
+           << "{\"id\":\"" << lane.id << "\",\"executed\":"
+           << (lane.executed ? "true" : "false")
+           << ",\"passed\":" << (lane.passed ? "true" : "false")
+           << ",\"first_failure\":\"" << lane.first_failure << "\""
+           << ",\"raw_trace_root\":\"" << lane.raw_trace_root << "\""
+           << ",\"raw_result_root\":\"" << lane.raw_result_root << "\""
+           << ",\"surface_result_root\":\"" << lane.result_root << "\""
+           << ",\"total_extraction_ms\":" << lane.total_extraction_ms
+           << ",\"montage_written\":"
+           << (lane.montage_written ? "true" : "false")
+           << ",\"mesh_written\":" << (lane.mesh_written ? "true" : "false")
+           << ",\"frames\":[";
+    for (std::size_t index = 0; index < lane.frames.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        append_presentation_surface_frame(output, lane.frames[index]);
+    }
+    output << "]}";
+}
+
+} // namespace
+
+CommandReport run_cuda_game_visual_corpus(const std::string& frame_prefix) {
+    if (!game_frame_prefix_valid(frame_prefix)) {
+        throw std::invalid_argument("frame prefix contains unsupported characters");
+    }
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
+    const GameQualityBox box4k{
+        {0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+    const GameQualityBox box16k{
+        {0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+    const std::vector<Particle> control_particles = game_visual_particles(20, 20);
+    const GameVisualObserverControls controls =
+        game_visual_observer_controls(control_particles, box4k);
+    const bool controls_passed = controls.empty_rejected
+        && controls.nonfinite_rejected && controls.mask_mutation_changed_root
+        && controls.depth_mutation_changed_root;
+    GameVisualLaneResult lane4k = run_game_visual_lane(
+        profile, "falling-dam-4k", 20, 20, box4k, frame_prefix);
+    GameVisualLaneResult lane16k;
+    lane16k.id = "falling-dam-16k";
+    lane16k.first_failure = "NOT_RUN_4K_REJECTED";
+    if (controls_passed && lane4k.apparatus_passed && lane4k.quality_passed) {
+        lane16k = run_game_visual_lane(
+            profile, "falling-dam-16k", 40, 40, box16k, frame_prefix);
+    }
+    const bool apparatus_passed = controls_passed && lane4k.apparatus_passed
+        && (!lane16k.executed || lane16k.apparatus_passed);
+    const bool quality_passed = apparatus_passed && lane4k.quality_passed
+        && lane16k.quality_passed;
+    const char* semantic_status = !controls_passed ? "APPARATUS_INCONCLUSIVE"
+        : (!lane4k.apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+            : (!lane4k.quality_passed ? "DYNAMIC_VISUAL_4K_REFUTED"
+                : (!lane16k.apparatus_passed ? "APPARATUS_INCONCLUSIVE"
+                    : (!lane16k.quality_passed ? "DYNAMIC_VISUAL_16K_REFUTED"
+                        : "ORIGINAL_GPU_DYNAMIC_VISUAL_SUPPORTED_BOUNDED"))));
+    std::ostringstream root;
+    root << "nextengine.nonlocal.game-visual-corpus.v1\n"
+         << controls.root << '\n' << lane4k.result_root << '\n'
+         << lane16k.result_root << '\n' << semantic_status << '\n';
+    const std::string result_root = sha256_hex(root.str());
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cuda_game_visual_corpus.v1\""
+           << ",\"status\":\"" << (quality_passed ? "PASS" : "FAIL") << "\""
+           << ",\"semantic_status\":\"" << semantic_status << "\""
+           << ",\"apparatus_passed\":"
+           << (apparatus_passed ? "true" : "false")
+           << ",\"quality_passed\":" << (quality_passed ? "true" : "false")
+           << ",\"claim_ceiling\":\"finite_game_quality_tool_only\""
+           << ",\"backend_identity\":"
+              "\"fused-owner-terms-p1+compact-csr-u16-p2\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"observer_timing_in_primary_gpu_step\":false"
+           << ",\"contact_timing_in_primary_gpu_step\":true"
+           << ",\"gates\":{\"maximum_speed_m_s\":10"
+           << ",\"minimum_vertical_com_drop_m\":0.075"
+           << ",\"minimum_front_advance_m\":0.10"
+           << ",\"wet_area_ratio_minimum\":1.05"
+           << ",\"wet_area_ratio_maximum\":3.0"
+           << ",\"minimum_largest_component_fraction\":0.98"
+           << ",\"maximum_satellite_fraction\":0.02"
+           << ",\"maximum_material_components\":4"
+           << ",\"minimum_depth_p95_drop_m\":0.025"
+           << ",\"maximum_penetration_m\":1e-12"
+           << ",\"maximum_contact_velocity_error_m_s\":1e-4}"
+           << ",\"observer_controls\":{\"passed\":"
+           << (controls_passed ? "true" : "false")
+           << ",\"empty_rejected\":"
+           << (controls.empty_rejected ? "true" : "false")
+           << ",\"nonfinite_rejected\":"
+           << (controls.nonfinite_rejected ? "true" : "false")
+           << ",\"mask_mutation_changed_root\":"
+           << (controls.mask_mutation_changed_root ? "true" : "false")
+           << ",\"depth_mutation_changed_root\":"
+           << (controls.depth_mutation_changed_root ? "true" : "false")
+           << ",\"root\":\"" << controls.root << "\"}"
+           << ",\"lanes\":[";
+    append_game_visual_lane(output, lane4k);
+    output << ',';
+    append_game_visual_lane(output, lane16k);
+    output << "]"
+           << ",\"result_root\":\"" << result_root << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {quality_passed, output.str()};
+}
+
+namespace {
+
+constexpr char GAME_SURFACE_STREAM_MAGIC[4] = {'N', 'E', 'W', 'S'};
+// Version 2 (NGQ10) appends the fluid particle positions after the indices.
+constexpr std::uint32_t GAME_SURFACE_STREAM_VERSION = 5U;
+// NGQ10 revision 4: anisotropic presentation kernels (Yu and Turk 2010).
+constexpr double GAME_SURFACE_ANISO_RADIUS = 2.0 * GAME_SPACING;
+constexpr double GAME_SURFACE_ANISO_LAMBDA = 0.9;
+constexpr double GAME_SURFACE_ANISO_KR = 4.0;
+constexpr double GAME_SURFACE_ANISO_STRETCH = 2.0;
+constexpr double GAME_SURFACE_ANISO_LONELY_SCALE = 0.5;
+constexpr int GAME_SURFACE_ANISO_NEPS = 8;
+constexpr double GAME_SURFACE_RENDER_RADIUS = 0.035;
+
+struct PresentationKernel {
+    Vec3 smoothed;
+    double g[6];  // xx xy xz yy yz zz of the unit-space map
+};
+
+// One sorted uniform hash grid over a frame's positions, shared by the
+// neighbour count, the cluster sizes and the kernels (cell = the largest
+// query radius; every query walks the 27 surrounding cells).
+struct PresentationGrid {
+    Vec3 minimum{};
+    double inverse = 0.0;
+    int dims[3] = {0, 0, 0};
+    std::vector<std::uint32_t> cell_start;  // dims product + 1 prefix offsets
+    std::vector<std::uint32_t> sorted;      // particle indices by cell
+
+    PresentationGrid(const std::vector<Particle>& particles, double cell) {
+        inverse = 1.0 / cell;
+        if (particles.empty()) {
+            return;
+        }
+        Vec3 maximum = particles[0].position;
+        minimum = maximum;
+        for (const Particle& particle : particles) {
+            minimum.x = std::min(minimum.x, particle.position.x);
+            minimum.y = std::min(minimum.y, particle.position.y);
+            minimum.z = std::min(minimum.z, particle.position.z);
+            maximum.x = std::max(maximum.x, particle.position.x);
+            maximum.y = std::max(maximum.y, particle.position.y);
+            maximum.z = std::max(maximum.z, particle.position.z);
+        }
+        dims[0] = static_cast<int>(std::floor((maximum.x - minimum.x) * inverse)) + 1;
+        dims[1] = static_cast<int>(std::floor((maximum.y - minimum.y) * inverse)) + 1;
+        dims[2] = static_cast<int>(std::floor((maximum.z - minimum.z) * inverse)) + 1;
+        const std::size_t cells = static_cast<std::size_t>(dims[0]) * dims[1] * dims[2];
+        cell_start.assign(cells + 1U, 0U);
+        std::vector<std::uint32_t> cell_of_particle(particles.size());
+        for (std::size_t index = 0; index < particles.size(); ++index) {
+            const std::uint32_t c = linear(cell_of(particles[index].position));
+            cell_of_particle[index] = c;
+            ++cell_start[c + 1U];
+        }
+        for (std::size_t c = 0; c < cells; ++c) {
+            cell_start[c + 1U] += cell_start[c];
+        }
+        sorted.resize(particles.size());
+        std::vector<std::uint32_t> fill(cell_start.begin(), cell_start.end() - 1);
+        for (std::size_t index = 0; index < particles.size(); ++index) {
+            sorted[fill[cell_of_particle[index]]++] = static_cast<std::uint32_t>(index);
+        }
+    }
+
+    std::array<int, 3> cell_of(const Vec3& p) const {
+        return {static_cast<int>(std::floor((p.x - minimum.x) * inverse)),
+            static_cast<int>(std::floor((p.y - minimum.y) * inverse)),
+            static_cast<int>(std::floor((p.z - minimum.z) * inverse))};
+    }
+
+    std::uint32_t linear(const std::array<int, 3>& cell) const {
+        return static_cast<std::uint32_t>((cell[2] * dims[1] + cell[1]) * dims[0] + cell[0]);
+    }
+
+    // Visits every particle of the 27 cells around `p` in cell order.
+    template <typename Visit>
+    void around(const Vec3& p, Visit&& visit) const {
+        const auto cell = cell_of(p);
+        for (int dz = -1; dz <= 1; ++dz) {
+            const int z = cell[2] + dz;
+            if (z < 0 || z >= dims[2]) {
+                continue;
+            }
+            for (int dy = -1; dy <= 1; ++dy) {
+                const int y = cell[1] + dy;
+                if (y < 0 || y >= dims[1]) {
+                    continue;
+                }
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int x = cell[0] + dx;
+                    if (x < 0 || x >= dims[0]) {
+                        continue;
+                    }
+                    const std::uint32_t c = linear({x, y, z});
+                    for (std::uint32_t slot = cell_start[c]; slot < cell_start[c + 1U]; ++slot) {
+                        visit(static_cast<std::size_t>(sorted[slot]));
+                    }
+                }
+            }
+        }
+    }
+};
+
+// Wall time of the presentation block (neighbours, clusters, kernels) per
+// written frame, for the NGQ10 producer-cost gate.
+std::atomic<std::uint64_t> g_presentation_total_us{0U};
+std::atomic<std::uint64_t> g_presentation_max_us{0U};
+std::atomic<std::uint64_t> g_presentation_frames{0U};
+
+// Eigendecomposition of a symmetric 3x3 (cyclic Jacobi); columns of `v`
+// are the eigenvectors of the eigenvalues in `a`.
+void jacobi_symmetric3(double a[3][3], double v[3][3]) {
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            v[i][j] = i == j ? 1.0 : 0.0;
+        }
+    }
+    // Converges to a relative off-diagonal norm of 1e-7 of the trace; the
+    // kernel axes are presentation values, not an authority.
+    const double trace = a[0][0] + a[1][1] + a[2][2];
+    const double tolerance = 1e-14 * trace * trace + 1e-30;
+    for (int sweep = 0; sweep < 8; ++sweep) {
+        double off = 0.0;
+        for (int p = 0; p < 3; ++p) {
+            for (int q = p + 1; q < 3; ++q) {
+                off += a[p][q] * a[p][q];
+            }
+        }
+        if (off < tolerance) {
+            break;
+        }
+        for (int p = 0; p < 2; ++p) {
+            for (int q = p + 1; q < 3; ++q) {
+                if (std::abs(a[p][q]) < 1e-18) {
+                    continue;
+                }
+                const double theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q]);
+                const double t = (theta >= 0.0 ? 1.0 : -1.0)
+                    / (std::abs(theta) + std::sqrt(theta * theta + 1.0));
+                const double c = 1.0 / std::sqrt(t * t + 1.0);
+                const double s = t * c;
+                for (int k = 0; k < 3; ++k) {
+                    const double akp = a[k][p];
+                    const double akq = a[k][q];
+                    a[k][p] = c * akp - s * akq;
+                    a[k][q] = s * akp + c * akq;
+                }
+                for (int k = 0; k < 3; ++k) {
+                    const double apk = a[p][k];
+                    const double aqk = a[q][k];
+                    a[p][k] = c * apk - s * aqk;
+                    a[q][k] = s * apk + c * aqk;
+                }
+                for (int k = 0; k < 3; ++k) {
+                    const double vkp = v[k][p];
+                    const double vkq = v[k][q];
+                    v[k][p] = c * vkp - s * vkq;
+                    v[k][q] = s * vkp + c * vkq;
+                }
+            }
+        }
+    }
+}
+
+// Per-axis standard deviation of a full lattice neighbourhood under the
+// presentation weights; a bulk particle's kernel is normalised by it.
+double presentation_reference_sigma() {
+    static const double value = [] {
+        const int reach = static_cast<int>(std::ceil(GAME_SURFACE_ANISO_RADIUS / GAME_SPACING));
+        double weight_sum = 0.0;
+        double second = 0.0;
+        for (int x = -reach; x <= reach; ++x) {
+            for (int y = -reach; y <= reach; ++y) {
+                for (int z = -reach; z <= reach; ++z) {
+                    if (x == 0 && y == 0 && z == 0) {
+                        continue;
+                    }
+                    const double dx = x * GAME_SPACING;
+                    const double dy = y * GAME_SPACING;
+                    const double dz = z * GAME_SPACING;
+                    const double r = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    if (r >= GAME_SURFACE_ANISO_RADIUS) {
+                        continue;
+                    }
+                    const double t = r / GAME_SURFACE_ANISO_RADIUS;
+                    const double w = 1.0 - t * t * t;
+                    weight_sum += w;
+                    second += w * dx * dx;
+                }
+            }
+        }
+        return weight_sum > 0.0 ? std::sqrt(second / weight_sum) : GAME_SPACING;
+    }();
+    return value;
+}
+
+// Smoothed positions and anisotropic kernels for every particle of a
+// frame (Yu and Turk 2010 with the Particles4All lonely blend), from a
+// uniform hash grid over the frame's own positions.
+struct PresentationAnalysis {
+    std::vector<std::uint8_t> neighbours;
+    std::vector<std::uint16_t> clusters;
+    std::vector<PresentationKernel> kernels;
+};
+
+// One neighbourhood walk per particle yields the neighbour count (radius
+// `neighbour_radius`), the union-find links (`link`) and the kernel sums.
+PresentationAnalysis presentation_analysis(
+    const std::vector<Particle>& particles,
+    const PresentationGrid& grid,
+    double neighbour_radius,
+    double link) {
+    const std::size_t count = particles.size();
+    PresentationAnalysis result;
+    result.neighbours.assign(count, 0U);
+    result.clusters.assign(count, 0U);
+    result.kernels.resize(count);
+    std::vector<PresentationKernel>& kernels = result.kernels;
+    if (count == 0U) {
+        return result;
+    }
+    const double neighbour_squared = neighbour_radius * neighbour_radius;
+    const double link_squared = link * link;
+    std::vector<std::uint32_t> parent(count);
+    for (std::size_t index = 0; index < count; ++index) {
+        parent[index] = static_cast<std::uint32_t>(index);
+    }
+    const auto find = [&](std::uint32_t index) {
+        while (parent[index] != index) {
+            parent[index] = parent[parent[index]];
+            index = parent[index];
+        }
+        return index;
+    };
+    const double radius = GAME_SURFACE_ANISO_RADIUS;
+    const double inverse = 1.0 / radius;
+    const double radius_squared = radius * radius;
+    const double sigma_reference = presentation_reference_sigma();
+    const double render_radius = GAME_SURFACE_RENDER_RADIUS;
+    const double lonely_radius = GAME_SURFACE_ANISO_LONELY_SCALE * render_radius;
+    for (std::size_t index = 0; index < count; ++index) {
+        const Vec3& p = particles[index].position;
+        double weight_sum = 0.0;
+        Vec3 first{};
+        double second[3][3] = {};
+        int neighbours = 0;
+        unsigned neighbour_count = 0U;
+        grid.around(p, [&](std::size_t other) {
+            if (other == index) {
+                return;
+            }
+            const Vec3 d = particles[other].position - p;
+            const double r2 = dot(d, d);
+            if (r2 <= neighbour_squared) {
+                ++neighbour_count;
+            }
+            if (other > index && r2 <= link_squared) {
+                const std::uint32_t a = find(static_cast<std::uint32_t>(index));
+                const std::uint32_t b = find(static_cast<std::uint32_t>(other));
+                if (a != b) {
+                    parent[a] = b;
+                }
+            }
+            if (r2 >= radius_squared) {
+                return;
+            }
+            const double t = std::sqrt(r2) * inverse;
+            const double w = 1.0 - t * t * t;
+            weight_sum += w;
+            first += d * w;
+            const double c[3] = {d.x, d.y, d.z};
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    second[i][j] += w * c[i] * c[j];
+                }
+            }
+            ++neighbours;
+        });
+        result.neighbours[index] = static_cast<std::uint8_t>(std::min(neighbour_count, 255U));
+        PresentationKernel& kernel = kernels[index];
+        const double iso = 1.0 / lonely_radius;
+        if (weight_sum <= 0.0) {
+            kernel.smoothed = p;
+            kernel.g[0] = iso; kernel.g[1] = 0.0; kernel.g[2] = 0.0;
+            kernel.g[3] = iso; kernel.g[4] = 0.0; kernel.g[5] = iso;
+            continue;
+        }
+        const Vec3 mean = first / weight_sum;
+        kernel.smoothed = p + mean * GAME_SURFACE_ANISO_LAMBDA;
+        double cov[3][3];
+        const double m[3] = {mean.x, mean.y, mean.z};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                cov[i][j] = second[i][j] / weight_sum - m[i] * m[j];
+            }
+        }
+        double vectors[3][3];
+        jacobi_symmetric3(cov, vectors);
+        double sigma[3];
+        double largest = 0.0;
+        for (int i = 0; i < 3; ++i) {
+            sigma[i] = std::sqrt(std::max(cov[i][i], 0.0));
+            largest = std::max(largest, sigma[i]);
+        }
+        double axes[3];
+        for (int i = 0; i < 3; ++i) {
+            const double clamped = std::max(sigma[i], largest / GAME_SURFACE_ANISO_KR);
+            axes[i] = std::min(
+                std::max(clamped / sigma_reference * render_radius, 1e-4),
+                GAME_SURFACE_ANISO_STRETCH * render_radius);
+        }
+        // Anisotropic G = V diag(1/a) V^T blended with the lonely isotropic
+        // kernel by the neighbour count.
+        const double low = 0.4 * GAME_SURFACE_ANISO_NEPS;
+        const double high = 1.6 * GAME_SURFACE_ANISO_NEPS;
+        const double u = std::min(std::max((neighbours - low) / (high - low), 0.0), 1.0);
+        const double blend = u * u * (3.0 - 2.0 * u);
+        double g[3][3] = {};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                double aniso = 0.0;
+                for (int k = 0; k < 3; ++k) {
+                    aniso += vectors[i][k] * (1.0 / axes[k]) * vectors[j][k];
+                }
+                const double isotropic = i == j ? iso : 0.0;
+                g[i][j] = isotropic + (aniso - isotropic) * blend;
+            }
+        }
+        kernel.g[0] = g[0][0]; kernel.g[1] = g[0][1]; kernel.g[2] = g[0][2];
+        kernel.g[3] = g[1][1]; kernel.g[4] = g[1][2]; kernel.g[5] = g[2][2];
+    }
+    std::vector<std::uint32_t> component_size(count, 0U);
+    for (std::size_t index = 0; index < count; ++index) {
+        ++component_size[find(static_cast<std::uint32_t>(index))];
+    }
+    for (std::size_t index = 0; index < count; ++index) {
+        result.clusters[index] = static_cast<std::uint16_t>(
+            std::min<std::uint32_t>(component_size[find(static_cast<std::uint32_t>(index))], 65535U));
+    }
+    return result;
+}
+// NGQ10 revision 3: link distance of the presentation connected components
+// appended to every version 4 frame (1.5 spacings).
+constexpr double GAME_SURFACE_CLUSTER_LINK = 1.5 * GAME_SPACING;
+// NGQ10 revision 2: presentation neighbour radius for the per-particle
+// neighbour count appended to every version 3 frame (two spacings).
+constexpr double GAME_SURFACE_NEIGHBOUR_RADIUS = 2.0 * GAME_SPACING;
+
+
+constexpr std::uint64_t GAME_SURFACE_STREAM_AUDIT_FRAMES = 60U;
+
+template <typename T>
+void write_stream_pod(std::ostream& out, T value) {
+    out.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+// Binary little-endian presentation surface frame consumed by the engine
+// developer bridge. Vertex and triangle order match the OBJ writer exactly;
+// indices are zero-based. Host byte order is little-endian on every supported
+// x86_64 host; the reader validates the magic and version.
+bool write_presentation_surface_stream_frame(
+    std::ostream& out,
+    const PresentationSurfaceFrame& frame,
+    const GameQualityBox& box,
+    int cycle,
+    double simulation_seconds,
+    double physics_ms,
+    const std::vector<Particle>& particles) {
+    if (!frame.valid || frame.mesh_vertices == 0U || frame.mesh_triangles == 0U) {
+        return false;
+    }
+    out.write(GAME_SURFACE_STREAM_MAGIC, sizeof(GAME_SURFACE_STREAM_MAGIC));
+    write_stream_pod<std::uint32_t>(out, GAME_SURFACE_STREAM_VERSION);
+    write_stream_pod<std::int32_t>(out, frame.step);
+    write_stream_pod<std::int32_t>(out, cycle);
+    for (double value : {box.minimum.x, box.minimum.y, box.minimum.z,
+             box.maximum.x, box.maximum.y, box.maximum.z}) {
+        write_stream_pod<double>(out, value);
+    }
+    write_stream_pod<std::uint64_t>(out, frame.mesh_vertices);
+    write_stream_pod<std::uint64_t>(out, frame.mesh_triangles);
+    write_stream_pod<double>(out, simulation_seconds);
+    write_stream_pod<double>(out, frame.extraction_ms);
+    write_stream_pod<double>(out, physics_ms);
+    std::vector<std::uint32_t> indices(frame.wet.size(), 0U);
+    std::uint64_t vertex = 0U;
+    for (std::uint32_t z = 0; z < frame.height; ++z) {
+        for (std::uint32_t x = 0; x < frame.width; ++x) {
+            const std::size_t pixel = static_cast<std::size_t>(z) * frame.width + x;
+            if (frame.wet[pixel] == 0U) {
+                continue;
+            }
+            indices[pixel] = static_cast<std::uint32_t>(++vertex);
+            const double world_x = box.minimum.x
+                + (static_cast<double>(x) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            const double world_z = box.minimum.z
+                + (static_cast<double>(z) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            write_stream_pod<double>(out, world_x);
+            write_stream_pod<double>(out, frame.depth[pixel]);
+            write_stream_pod<double>(out, world_z);
+        }
+    }
+    std::uint64_t triangles = 0U;
+    for (std::uint32_t z = 0; z + 1U < frame.height; ++z) {
+        for (std::uint32_t x = 0; x + 1U < frame.width; ++x) {
+            const std::size_t a = static_cast<std::size_t>(z) * frame.width + x;
+            const std::size_t b = a + 1U;
+            const std::size_t d = static_cast<std::size_t>(z + 1U) * frame.width + x;
+            const std::size_t c = d + 1U;
+            if (indices[a] != 0U && indices[b] != 0U && indices[c] != 0U
+                && indices[d] != 0U) {
+                for (std::uint32_t index : {indices[a], indices[d], indices[c],
+                         indices[a], indices[c], indices[b]}) {
+                    write_stream_pod<std::uint32_t>(out, index - 1U);
+                }
+                triangles += 2U;
+            }
+        }
+    }
+    // Version 2: the fluid particle set (binary32 metres) for the ADR-102
+    // screen-space pass; the reader bounds the count.
+    write_stream_pod<std::uint64_t>(out, static_cast<std::uint64_t>(particles.size()));
+    for (const Particle& particle : particles) {
+        write_stream_pod<float>(out, static_cast<float>(particle.position.x));
+        write_stream_pod<float>(out, static_cast<float>(particle.position.y));
+        write_stream_pod<float>(out, static_cast<float>(particle.position.z));
+    }
+    // Versions 3-5: neighbour counts, cluster sizes, smoothed positions and
+    // kernels from one shared grid (cell = the largest query radius).
+    const auto presentation_begin = std::chrono::steady_clock::now();
+    const PresentationGrid grid(particles,
+        std::max(GAME_SURFACE_NEIGHBOUR_RADIUS,
+            std::max(GAME_SURFACE_CLUSTER_LINK, GAME_SURFACE_ANISO_RADIUS)));
+    const PresentationAnalysis analysis = presentation_analysis(
+        particles, grid, GAME_SURFACE_NEIGHBOUR_RADIUS, GAME_SURFACE_CLUSTER_LINK);
+    const std::vector<std::uint8_t>& neighbours = analysis.neighbours;
+    const std::vector<std::uint16_t>& clusters = analysis.clusters;
+    const std::vector<PresentationKernel>& kernels = analysis.kernels;
+    const std::uint64_t presentation_us = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - presentation_begin).count());
+    g_presentation_total_us.fetch_add(presentation_us);
+    g_presentation_frames.fetch_add(1U);
+    std::uint64_t previous = g_presentation_max_us.load();
+    while (previous < presentation_us
+        && !g_presentation_max_us.compare_exchange_weak(previous, presentation_us)) {
+    }
+    // Version 3: one neighbour count per particle in the same order.
+    out.write(reinterpret_cast<const char*>(neighbours.data()),
+        static_cast<std::streamsize>(neighbours.size()));
+    // Version 4: one 16-bit connected-component size per particle.
+    for (std::uint16_t size : clusters) {
+        write_stream_pod<std::uint16_t>(out, size);
+    }
+    // Version 5: smoothed position and symmetric kernel per particle.
+    for (const PresentationKernel& kernel : kernels) {
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.x));
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.y));
+        write_stream_pod<float>(out, static_cast<float>(kernel.smoothed.z));
+        for (double value : kernel.g) {
+            write_stream_pod<float>(out, static_cast<float>(value));
+        }
+    }
+    out.flush();
+    return static_cast<bool>(out) && vertex == frame.mesh_vertices
+        && triangles == frame.mesh_triangles;
+}
+
+/// Depth tolerance for the GPU extractor against the CPU reference. The CPU
+/// observer accumulates in `long double` and the GPU in `double`; at pixels
+/// whose centre is exactly tangent to a particle sphere (the seed lattice
+/// produces such ties) `sqrt(r^2 - d^2)` amplifies rounding noise to tens of
+/// nanometres in either reference, so the frozen equivalence gate is
+/// identical masks and mesh counts plus one micrometre of depth, the
+/// engine's own position quantum.
+constexpr double GAME_SURFACE_GPU_DEPTH_TOLERANCE = 1.0e-6;
+constexpr double GAME_SURFACE_OBSERVER_TOLERANCE = 1.0e-12;
+
+struct GpuSurfaceParams {
+    double box_min[3];
+    double box_max[3];
+    double observer_lower[3];
+    double observer_upper[3];
+    unsigned width;
+    unsigned height;
+};
+
+__global__ void surface_splat_kernel(
+    const float3* positions,
+    int count,
+    GpuSurfaceParams params,
+    unsigned long long* depth_bits,
+    unsigned char* wet,
+    int* error) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= count) {
+        return;
+    }
+    const float3 raw = positions[index];
+    const double px = raw.x;
+    const double py = raw.y;
+    const double pz = raw.z;
+    if (!isfinite(px) || !isfinite(py) || !isfinite(pz)
+        || px < params.observer_lower[0] - GAME_SURFACE_OBSERVER_TOLERANCE
+        || py < params.observer_lower[1] - GAME_SURFACE_OBSERVER_TOLERANCE
+        || pz < params.observer_lower[2] - GAME_SURFACE_OBSERVER_TOLERANCE
+        || px > params.observer_upper[0] + GAME_SURFACE_OBSERVER_TOLERANCE
+        || py > params.observer_upper[1] + GAME_SURFACE_OBSERVER_TOLERANCE
+        || pz > params.observer_upper[2] + GAME_SURFACE_OBSERVER_TOLERANCE) {
+        atomicOr(error, 1);
+        return;
+    }
+    const double radius_squared = GAME_RADIUS * GAME_RADIUS;
+    const long long min_x = max(0LL, static_cast<long long>(ceil(
+        (px - GAME_RADIUS - params.box_min[0]) / GAME_VISUAL_PIXEL_PITCH - 0.5)));
+    const long long max_x = min(static_cast<long long>(params.width) - 1LL,
+        static_cast<long long>(floor(
+            (px + GAME_RADIUS - params.box_min[0]) / GAME_VISUAL_PIXEL_PITCH - 0.5)));
+    const long long min_z = max(0LL, static_cast<long long>(ceil(
+        (pz - GAME_RADIUS - params.box_min[2]) / GAME_VISUAL_PIXEL_PITCH - 0.5)));
+    const long long max_z = min(static_cast<long long>(params.height) - 1LL,
+        static_cast<long long>(floor(
+            (pz + GAME_RADIUS - params.box_min[2]) / GAME_VISUAL_PIXEL_PITCH - 0.5)));
+    for (long long iz = min_z; iz <= max_z; ++iz) {
+        const double pixel_z = params.box_min[2]
+            + (static_cast<double>(iz) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+        const double dz = pz - pixel_z;
+        for (long long ix = min_x; ix <= max_x; ++ix) {
+            const double pixel_x = params.box_min[0]
+                + (static_cast<double>(ix) + 0.5) * GAME_VISUAL_PIXEL_PITCH;
+            const double dx = px - pixel_x;
+            const double distance_squared = dx * dx + dz * dz;
+            if (distance_squared > radius_squared) {
+                continue;
+            }
+            const double depth = py + sqrt(max(0.0, radius_squared - distance_squared));
+            if (!isfinite(depth) || depth < 0.0) {
+                atomicOr(error, 2);
+                return;
+            }
+            const unsigned pixel = static_cast<unsigned>(iz) * params.width
+                + static_cast<unsigned>(ix);
+            // Non-negative doubles order like their bit patterns, so the
+            // maximum height per pixel is one 64-bit atomic.
+            atomicMax(&depth_bits[pixel],
+                static_cast<unsigned long long>(__double_as_longlong(depth)));
+            wet[pixel] = 1U;
+        }
+    }
+}
+
+/// NGQ6 revision-2 grayscale filters over the raw wet mask: `maximum`
+/// selects the dilation, otherwise the erosion. Two passes form the closing.
+__global__ void surface_closing_filter_kernel(
+    const unsigned char* wet,
+    const unsigned long long* input_bits,
+    unsigned width,
+    unsigned height,
+    bool maximum,
+    unsigned long long* output_bits) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    if (wet[pixel] == 0U) {
+        output_bits[pixel] = 0ULL;
+        return;
+    }
+    const int x = static_cast<int>(pixel % width);
+    const int z = static_cast<int>(pixel / width);
+    // Non-negative doubles order like their bit patterns, so max/min on the
+    // bits equals max/min on the heights.
+    unsigned long long value = input_bits[pixel];
+    for (int dz = -GAME_CLOSING_RADIUS_PIXELS; dz <= GAME_CLOSING_RADIUS_PIXELS; ++dz) {
+        for (int dx = -GAME_CLOSING_RADIUS_PIXELS; dx <= GAME_CLOSING_RADIUS_PIXELS; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= static_cast<int>(width)
+                || nz >= static_cast<int>(height)) {
+                continue;
+            }
+            const unsigned neighbor = static_cast<unsigned>(nz) * width
+                + static_cast<unsigned>(nx);
+            if (wet[neighbor] == 0U) {
+                continue;
+            }
+            const unsigned long long candidate = input_bits[neighbor];
+            value = maximum ? max(value, candidate) : min(value, candidate);
+        }
+    }
+    output_bits[pixel] = value;
+}
+
+__device__ bool surface_neighbor_all(
+    const unsigned char* mask, unsigned width, unsigned height, int x, int z) {
+    bool all = true;
+    for (int dz = -1; dz <= 1; ++dz) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= static_cast<int>(width)
+                || nz >= static_cast<int>(height)) {
+                continue;
+            }
+            all = all && mask[static_cast<unsigned>(nz) * width + static_cast<unsigned>(nx)] != 0U;
+        }
+    }
+    return all;
+}
+
+__device__ bool surface_neighbor_any(
+    const unsigned char* mask, unsigned width, unsigned height, int x, int z) {
+    bool any = false;
+    for (int dz = -1; dz <= 1; ++dz) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx >= 0 && nz >= 0 && nx < static_cast<int>(width)
+                && nz < static_cast<int>(height)) {
+                any = any
+                    || mask[static_cast<unsigned>(nz) * width + static_cast<unsigned>(nx)] != 0U;
+            }
+        }
+    }
+    return any;
+}
+
+__global__ void surface_dilate_kernel(
+    const unsigned char* retained, unsigned width, unsigned height, unsigned char* dilated) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    dilated[pixel] = surface_neighbor_any(
+        retained, width, height, static_cast<int>(pixel % width), static_cast<int>(pixel / width));
+}
+
+__global__ void surface_erode_kernel(
+    const unsigned char* dilated, unsigned width, unsigned height, unsigned char* closed) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    closed[pixel] = surface_neighbor_all(
+        dilated, width, height, static_cast<int>(pixel % width), static_cast<int>(pixel / width));
+}
+
+__global__ void surface_base_depth_kernel(
+    const unsigned char* closed,
+    const unsigned char* retained,
+    const unsigned long long* height_bits,
+    unsigned width,
+    unsigned height,
+    double* base_depth,
+    int* error) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    if (closed[pixel] == 0U) {
+        base_depth[pixel] = 0.0;
+        return;
+    }
+    if (retained[pixel] != 0U) {
+        base_depth[pixel] = __longlong_as_double(static_cast<long long>(height_bits[pixel]));
+        return;
+    }
+    const int x = static_cast<int>(pixel % width);
+    const int z = static_cast<int>(pixel / width);
+    double sum = 0.0;
+    unsigned count = 0U;
+    for (int dz = -1; dz <= 1; ++dz) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= static_cast<int>(width)
+                || nz >= static_cast<int>(height)) {
+                continue;
+            }
+            const unsigned neighbor = static_cast<unsigned>(nz) * width
+                + static_cast<unsigned>(nx);
+            if (retained[neighbor] != 0U) {
+                sum += __longlong_as_double(static_cast<long long>(height_bits[neighbor]));
+                ++count;
+            }
+        }
+    }
+    if (count == 0U) {
+        atomicOr(error, 4);
+        base_depth[pixel] = 0.0;
+        return;
+    }
+    base_depth[pixel] = sum / static_cast<double>(count);
+}
+
+__global__ void surface_bilateral_kernel(
+    const unsigned char* closed,
+    const double* base_depth,
+    unsigned width,
+    unsigned height,
+    double floor_depth,
+    double ceiling_depth,
+    double* depth) {
+    const unsigned pixel = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pixel >= width * height) {
+        return;
+    }
+    if (closed[pixel] == 0U) {
+        depth[pixel] = 0.0;
+        return;
+    }
+    const int x = static_cast<int>(pixel % width);
+    const int z = static_cast<int>(pixel / width);
+    double bilateral_sum = 0.0;
+    double bilateral_weight_sum = 0.0;
+    // Same neighbour order as the CPU reference so the double sums match.
+    for (int dz = -1; dz <= 1; ++dz) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int nx = x + dx;
+            const int nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= static_cast<int>(width)
+                || nz >= static_cast<int>(height)) {
+                continue;
+            }
+            const unsigned neighbor = static_cast<unsigned>(nz) * width
+                + static_cast<unsigned>(nx);
+            if (closed[neighbor] == 0U) {
+                continue;
+            }
+            const double weight = static_cast<double>(dx == 0 ? 2 : 1)
+                * static_cast<double>(dz == 0 ? 2 : 1);
+            const double range = base_depth[neighbor] - base_depth[pixel];
+            const double range_weight = exp(-0.5 * range * range / (GAME_RADIUS * GAME_RADIUS));
+            bilateral_sum += weight * range_weight * base_depth[neighbor];
+            bilateral_weight_sum += weight * range_weight;
+        }
+    }
+    const double value = bilateral_sum / bilateral_weight_sum;
+    depth[pixel] = min(max(value, floor_depth), ceiling_depth);
+}
+
+/// GPU port of `game_surface_frame` + `extract_presentation_surface` for the
+/// presentation output only: raw height splat, largest 8-connected component
+/// (labelled on the host from the downloaded mask), 3x3 close, local fill and
+/// the one-pass bilateral. Diagnostics, roots and gates of the CPU reference
+/// are not computed; `verify` mode compares against that reference instead.
+class GpuSurfaceExtractor {
+public:
+    GpuSurfaceExtractor(
+        const GameQualityBox& box,
+        std::size_t particle_capacity,
+        int model,
+        bool keep_all_components)
+        : box_(box), particle_capacity_(particle_capacity), model_(model),
+          keep_all_components_(keep_all_components) {
+        const double cells_x = (box.maximum.x - box.minimum.x) / GAME_VISUAL_PIXEL_PITCH;
+        const double cells_z = (box.maximum.z - box.minimum.z) / GAME_VISUAL_PIXEL_PITCH;
+        width_ = static_cast<unsigned>(std::llround(cells_x));
+        height_ = static_cast<unsigned>(std::llround(cells_z));
+        if (width_ == 0U || height_ == 0U
+            || std::abs(cells_x - static_cast<double>(width_)) > 1.0e-12
+            || std::abs(cells_z - static_cast<double>(height_)) > 1.0e-12
+            || box.minimum.y < 0.0) {
+            throw std::invalid_argument("GPU surface extractor requires a pixel-aligned box above y=0");
+        }
+        pixels_ = static_cast<std::size_t>(width_) * height_;
+        const float radius_f32 = static_cast<float>(GAME_RADIUS);
+        const double lower_center[3] = {
+            static_cast<double>(static_cast<float>(box.minimum.x) + radius_f32),
+            static_cast<double>(static_cast<float>(box.minimum.y) + radius_f32),
+            static_cast<double>(static_cast<float>(box.minimum.z) + radius_f32)};
+        const double upper_center[3] = {
+            static_cast<double>(static_cast<float>(box.maximum.x) - radius_f32),
+            static_cast<double>(static_cast<float>(box.maximum.y) - radius_f32),
+            static_cast<double>(static_cast<float>(box.maximum.z) - radius_f32)};
+        const double box_min[3] = {box.minimum.x, box.minimum.y, box.minimum.z};
+        const double box_max[3] = {box.maximum.x, box.maximum.y, box.maximum.z};
+        for (int axis = 0; axis < 3; ++axis) {
+            params_.box_min[axis] = box_min[axis];
+            params_.box_max[axis] = box_max[axis];
+            params_.observer_lower[axis] = std::min(box_min[axis] + GAME_RADIUS, lower_center[axis]);
+            params_.observer_upper[axis] = std::max(box_max[axis] - GAME_RADIUS, upper_center[axis]);
+        }
+        params_.width = width_;
+        params_.height = height_;
+        check_cuda(cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking),
+            "create surface stream");
+        check_cuda(cudaMalloc(&positions_, particle_capacity * sizeof(float3)), "surface positions");
+        check_cuda(cudaMalloc(&depth_bits_, pixels_ * sizeof(unsigned long long)), "surface depth bits");
+        check_cuda(cudaMalloc(&dome_bits_, pixels_ * sizeof(unsigned long long)), "surface dome bits");
+        check_cuda(cudaMalloc(&ceiling_bits_, pixels_ * sizeof(unsigned long long)), "surface ceiling bits");
+        check_cuda(cudaMalloc(&wet_, pixels_), "surface wet");
+        check_cuda(cudaMalloc(&retained_, pixels_), "surface retained");
+        check_cuda(cudaMalloc(&dilated_, pixels_), "surface dilated");
+        check_cuda(cudaMalloc(&closed_, pixels_), "surface closed");
+        check_cuda(cudaMalloc(&base_depth_, pixels_ * sizeof(double)), "surface base depth");
+        check_cuda(cudaMalloc(&depth_, pixels_ * sizeof(double)), "surface depth");
+        check_cuda(cudaMalloc(&error_, sizeof(int)), "surface error flag");
+        host_positions_.reserve(particle_capacity);
+    }
+
+    GpuSurfaceExtractor(const GpuSurfaceExtractor&) = delete;
+    GpuSurfaceExtractor& operator=(const GpuSurfaceExtractor&) = delete;
+
+    ~GpuSurfaceExtractor() {
+        cudaStreamSynchronize(stream_);
+        cudaFree(positions_);
+        cudaFree(depth_bits_);
+        cudaFree(dome_bits_);
+        cudaFree(ceiling_bits_);
+        cudaFree(wet_);
+        cudaFree(retained_);
+        cudaFree(dilated_);
+        cudaFree(closed_);
+        cudaFree(base_depth_);
+        cudaFree(depth_);
+        cudaFree(error_);
+        cudaStreamDestroy(stream_);
+    }
+
+    /// Fills `frame` (wet, depth, sizes, mesh counts, valid) and `raw_wet`
+    /// with the pre-close observer mask. Returns false with a reason on any
+    /// bounded failure; nothing is retried.
+    bool extract(
+        const std::vector<Particle>& fluid,
+        int step,
+        PresentationSurfaceFrame& frame,
+        std::vector<std::uint8_t>& raw_wet,
+        std::string& failure,
+        std::vector<double>* raw_depth = nullptr) {
+        const auto begin = std::chrono::steady_clock::now();
+        frame = PresentationSurfaceFrame{};
+        frame.step = step;
+        frame.width = width_;
+        frame.height = height_;
+        frame.model = model_;
+        if (fluid.empty() || fluid.size() > particle_capacity_) {
+            failure = "gpu_surface_particle_capacity";
+            return false;
+        }
+        host_positions_.clear();
+        for (const Particle& particle : fluid) {
+            host_positions_.push_back(make_float3(
+                static_cast<float>(particle.position.x),
+                static_cast<float>(particle.position.y),
+                static_cast<float>(particle.position.z)));
+        }
+        const int count = static_cast<int>(fluid.size());
+        check_cuda(cudaMemcpyAsync(positions_, host_positions_.data(),
+                       fluid.size() * sizeof(float3), cudaMemcpyHostToDevice, stream_),
+            "upload surface positions");
+        check_cuda(cudaMemsetAsync(depth_bits_, 0, pixels_ * sizeof(unsigned long long), stream_),
+            "reset surface depth bits");
+        check_cuda(cudaMemsetAsync(wet_, 0, pixels_, stream_), "reset surface wet");
+        check_cuda(cudaMemsetAsync(error_, 0, sizeof(int), stream_), "reset surface error");
+        surface_splat_kernel<<<blocks_for(fluid.size()), THREADS, 0, stream_>>>(
+            positions_, count, params_, depth_bits_, wet_, error_);
+        raw_wet.resize(pixels_);
+        int error = 0;
+        check_cuda(cudaMemcpyAsync(raw_wet.data(), wet_, pixels_, cudaMemcpyDeviceToHost, stream_),
+            "download surface wet");
+        check_cuda(cudaMemcpyAsync(&error, error_, sizeof(int), cudaMemcpyDeviceToHost, stream_),
+            "download surface error");
+        check_cuda(cudaStreamSynchronize(stream_), "surface splat");
+        if (error != 0) {
+            failure = "gpu_surface_observer";
+            return false;
+        }
+        frame.raw_wet_pixels = static_cast<std::uint64_t>(
+            std::count(raw_wet.begin(), raw_wet.end(), std::uint8_t{1U}));
+        if (frame.raw_wet_pixels == 0U) {
+            failure = "gpu_surface_empty";
+            return false;
+        }
+        const SurfaceMaskComponents components = label_surface_mask(raw_wet, width_, height_);
+        if (components.sizes.empty()) {
+            failure = "gpu_surface_components";
+            return false;
+        }
+        const std::uint32_t largest_label = static_cast<std::uint32_t>(std::distance(
+            components.sizes.begin(),
+            std::max_element(components.sizes.begin(), components.sizes.end())));
+        host_retained_.resize(pixels_);
+        frame.retained_pixels = 0U;
+        for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
+            const std::uint32_t label = components.labels[pixel];
+            const bool kept = keep_all_components_
+                ? (raw_wet[pixel] != 0U
+                    && components.sizes[label] >= GAME_SURFACE_MIN_COMPONENT_PIXELS)
+                : label == largest_label;
+            host_retained_[pixel] = static_cast<std::uint8_t>(kept);
+            frame.retained_pixels += kept ? 1U : 0U;
+        }
+        check_cuda(cudaMemcpyAsync(retained_, host_retained_.data(), pixels_,
+                       cudaMemcpyHostToDevice, stream_),
+            "upload surface retained");
+        const int blocks = blocks_for(pixels_);
+        if (model_ != 0) {
+            surface_closing_filter_kernel<<<blocks, THREADS, 0, stream_>>>(
+                wet_, depth_bits_, width_, height_, true, ceiling_bits_);
+            surface_closing_filter_kernel<<<blocks, THREADS, 0, stream_>>>(
+                wet_, ceiling_bits_, width_, height_, false, dome_bits_);
+        }
+        surface_dilate_kernel<<<blocks, THREADS, 0, stream_>>>(retained_, width_, height_, dilated_);
+        surface_erode_kernel<<<blocks, THREADS, 0, stream_>>>(dilated_, width_, height_, closed_);
+        surface_base_depth_kernel<<<blocks, THREADS, 0, stream_>>>(
+            closed_, retained_, model_ != 0 ? dome_bits_ : depth_bits_, width_, height_,
+            base_depth_, error_);
+        surface_bilateral_kernel<<<blocks, THREADS, 0, stream_>>>(
+            closed_, base_depth_, width_, height_, box_.minimum.y, box_.maximum.y, depth_);
+        frame.wet.resize(pixels_);
+        frame.depth.resize(pixels_);
+        if (raw_depth != nullptr || model_ != 0) {
+            host_depth_bits_.resize(pixels_);
+            check_cuda(cudaMemcpyAsync(host_depth_bits_.data(), depth_bits_,
+                           pixels_ * sizeof(unsigned long long), cudaMemcpyDeviceToHost, stream_),
+                "download surface raw depth");
+        }
+        if (model_ != 0) {
+            host_ceiling_bits_.resize(pixels_);
+            check_cuda(cudaMemcpyAsync(host_ceiling_bits_.data(), ceiling_bits_,
+                           pixels_ * sizeof(unsigned long long), cudaMemcpyDeviceToHost, stream_),
+                "download surface ceiling");
+        }
+        check_cuda(cudaMemcpyAsync(frame.wet.data(), closed_, pixels_, cudaMemcpyDeviceToHost, stream_),
+            "download surface closed");
+        check_cuda(cudaMemcpyAsync(frame.depth.data(), depth_, pixels_ * sizeof(double),
+                       cudaMemcpyDeviceToHost, stream_),
+            "download surface depth");
+        check_cuda(cudaMemcpyAsync(&error, error_, sizeof(int), cudaMemcpyDeviceToHost, stream_),
+            "download surface fill error");
+        check_cuda(cudaStreamSynchronize(stream_), "surface extraction");
+        if (error != 0) {
+            failure = "gpu_surface_fill";
+            return false;
+        }
+        const auto bits_to_double = [](std::uint64_t bits) {
+            double value = 0.0;
+            std::memcpy(&value, &bits, sizeof(value));
+            return value;
+        };
+        if (raw_depth != nullptr) {
+            raw_depth->resize(pixels_);
+            for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
+                (*raw_depth)[pixel] = bits_to_double(host_depth_bits_[pixel]);
+            }
+        }
+        if (model_ != 0) {
+            std::vector<double> lifts;
+            lifts.reserve(frame.raw_wet_pixels);
+            for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
+                if (frame.wet[pixel] == 0U || raw_wet[pixel] == 0U) {
+                    continue;
+                }
+                lifts.push_back(frame.depth[pixel] - bits_to_double(host_depth_bits_[pixel]));
+                frame.ceiling_violations += static_cast<std::uint64_t>(
+                    frame.depth[pixel] > bits_to_double(host_ceiling_bits_[pixel]) + 1.0e-9);
+            }
+            if (!lifts.empty()) {
+                // Same nearest-rank definition as `game_percentile` without
+                // the full sort; this runs on every live frame.
+                const auto nearest_rank = [&lifts](double probability) {
+                    const std::size_t rank = static_cast<std::size_t>(
+                        std::ceil(probability * static_cast<double>(lifts.size())));
+                    const std::size_t index = std::max<std::size_t>(1U, rank) - 1U;
+                    std::nth_element(lifts.begin(), lifts.begin() + static_cast<std::ptrdiff_t>(index),
+                        lifts.end());
+                    return lifts[index];
+                };
+                frame.lift_min = *std::min_element(lifts.begin(), lifts.end());
+                frame.lift_p50 = nearest_rank(0.50);
+                frame.lift_p95 = nearest_rank(0.95);
+            }
+        }
+        bool finite_depths = true;
+        for (std::size_t pixel = 0; pixel < pixels_; ++pixel) {
+            const bool surface_wet = frame.wet[pixel] != 0U;
+            frame.wet_pixels += static_cast<std::uint64_t>(surface_wet);
+            frame.common_pixels += static_cast<std::uint64_t>(surface_wet && raw_wet[pixel] != 0U);
+            finite_depths = finite_depths && (!surface_wet || std::isfinite(frame.depth[pixel]));
+        }
+        frame.mesh_vertices = frame.wet_pixels;
+        for (std::uint32_t z = 0; z + 1U < height_; ++z) {
+            for (std::uint32_t x = 0; x + 1U < width_; ++x) {
+                const std::size_t a = static_cast<std::size_t>(z) * width_ + x;
+                const std::size_t b = a + 1U;
+                const std::size_t d = static_cast<std::size_t>(z + 1U) * width_ + x;
+                const std::size_t c = d + 1U;
+                if (frame.wet[a] != 0U && frame.wet[b] != 0U && frame.wet[c] != 0U
+                    && frame.wet[d] != 0U) {
+                    frame.mesh_triangles += 2U;
+                }
+            }
+        }
+        frame.valid = frame.wet_pixels != 0U && frame.common_pixels != 0U && finite_depths
+            && frame.mesh_triangles != 0U;
+        frame.extraction_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - begin).count();
+        if (!frame.valid) {
+            failure = "gpu_surface_invalid";
+            return false;
+        }
+        if (model_ != 0
+            && (frame.lift_p50 > GAME_CLOSING_LIFT_P50_LIMIT || frame.ceiling_violations != 0U)) {
+            failure = "gpu_surface_closing_gate";
+            return false;
+        }
+        return true;
+    }
+
+private:
+    GameQualityBox box_;
+    std::size_t particle_capacity_;
+    int model_ = 0;
+    bool keep_all_components_ = false;
+    unsigned width_ = 0U;
+    unsigned height_ = 0U;
+    std::size_t pixels_ = 0U;
+    GpuSurfaceParams params_{};
+    cudaStream_t stream_{};
+    float3* positions_ = nullptr;
+    unsigned long long* depth_bits_ = nullptr;
+    unsigned long long* dome_bits_ = nullptr;
+    unsigned long long* ceiling_bits_ = nullptr;
+    unsigned char* wet_ = nullptr;
+    unsigned char* retained_ = nullptr;
+    unsigned char* dilated_ = nullptr;
+    unsigned char* closed_ = nullptr;
+    double* base_depth_ = nullptr;
+    double* depth_ = nullptr;
+    int* error_ = nullptr;
+    std::vector<float3> host_positions_;
+    std::vector<std::uint8_t> host_retained_;
+    std::vector<unsigned long long> host_depth_bits_;
+    std::vector<unsigned long long> host_ceiling_bits_;
+};
+
+enum class StreamExtractorMode { Cpu, Gpu, Verify };
+
+StreamExtractorMode parse_stream_extractor_mode(const std::string& value) {
+    if (value == "cpu") {
+        return StreamExtractorMode::Cpu;
+    }
+    if (value == "gpu") {
+        return StreamExtractorMode::Gpu;
+    }
+    if (value == "verify") {
+        return StreamExtractorMode::Verify;
+    }
+    throw std::invalid_argument("stream extractor must be cpu, gpu or verify");
+}
+
+/// Verification accumulators for `verify` mode.
+struct GpuSurfaceVerification {
+    std::uint64_t frames = 0U;
+    std::uint64_t raw_mask_mismatch_pixels = 0U;
+    std::uint64_t closed_mask_mismatch_pixels = 0U;
+    std::uint64_t mesh_count_mismatches = 0U;
+    double maximum_depth_difference = 0.0;
+    double maximum_raw_depth_difference = 0.0;
+    double cpu_total_ms = 0.0;
+    double gpu_total_ms = 0.0;
+};
+
+/// NGQ6 accumulators over streamed frames (CPU or GPU, whichever was emitted).
+struct DomeSurfaceStats {
+    std::uint64_t frames = 0U;
+    std::uint64_t gate_failures = 0U;
+    /// NGQ9: retained raw wet pixels over raw wet pixels, minimum and sum.
+    double minimum_retained_fraction = 1.0;
+    double retained_fraction_sum = 0.0;
+    std::uint64_t retained_frames = 0U;
+    double maximum_lift_p50 = 0.0;
+    double maximum_lift_p95 = 0.0;
+    double minimum_lift = 0.0;
+    std::uint64_t ceiling_violations = 0U;
+};
+
+struct StreamExtractionJob {
+    std::vector<Particle> fluid;
+    int step = 0;
+    int cycle = 0;
+    double physics_ms = 0.0;
+    std::uint64_t sequence = 0U;
+};
+
+/// Runs observer, edge-aware extraction and frame serialization on a small
+/// pool of worker threads so the solver keeps stepping. Jobs carry a
+/// sequence number; finished frames are written strictly in sequence order
+/// by whichever worker completes the next expected frame, so parallelism
+/// never reorders or drops a frame. The bounded queue applies back-pressure
+/// to the solver thread.
+class StreamExtractor {
+public:
+    StreamExtractor(
+        std::ostream& out,
+        const GameQualityBox& box,
+        unsigned workers,
+        StreamExtractorMode mode,
+        std::size_t particle_capacity,
+        int surface_model,
+        bool keep_all_components)
+        : out_(out), box_(box), capacity_(std::max(1U, workers) * 2U), mode_(mode),
+          particle_capacity_(particle_capacity), surface_model_(surface_model),
+          keep_all_components_(keep_all_components) {
+        for (unsigned index = 0; index < std::max(1U, workers); ++index) {
+            workers_.emplace_back([this] { run(); });
+        }
+    }
+
+    GpuSurfaceVerification verification() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return verification_;
+    }
+
+    DomeSurfaceStats dome_stats() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return dome_stats_;
+    }
+
+    StreamExtractor(const StreamExtractor&) = delete;
+    StreamExtractor& operator=(const StreamExtractor&) = delete;
+
+    ~StreamExtractor() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stop_ = true;
+        }
+        condition_.notify_all();
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+    }
+
+    bool submit(StreamExtractionJob job) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return queue_.size() < capacity_ || !failure_.empty(); });
+        if (!failure_.empty()) {
+            return false;
+        }
+        job.sequence = next_sequence_++;
+        queue_.push_back(std::move(job));
+        lock.unlock();
+        condition_.notify_all();
+        return true;
+    }
+
+    /// Waits until every submitted frame has been written.
+    bool drain() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return next_write_ == next_sequence_ || !failure_.empty(); });
+        return failure_.empty();
+    }
+
+    std::string failure() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return failure_;
+    }
+
+    std::uint64_t frames_written() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return frames_written_;
+    }
+
+    double observer_total_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return observer_total_ms_;
+    }
+
+    double extraction_total_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return extraction_total_ms_;
+    }
+
+    double frame_wall_max_ms() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return frame_wall_max_ms_;
+    }
+
+    std::size_t worker_count() const {
+        return workers_.size();
+    }
+
+private:
+    void run() {
+        std::unique_ptr<GpuSurfaceExtractor> gpu;
+        if (mode_ != StreamExtractorMode::Cpu) {
+            try {
+                gpu = std::make_unique<GpuSurfaceExtractor>(
+                    box_, particle_capacity_, surface_model_, keep_all_components_);
+            } catch (const std::exception& error) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                if (failure_.empty()) {
+                    failure_ = std::string("gpu_surface_setup:") + error.what();
+                }
+                condition_.notify_all();
+                return;
+            }
+        }
+        while (true) {
+            StreamExtractionJob job;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this] { return !queue_.empty() || stop_; });
+                if (queue_.empty()) {
+                    return;
+                }
+                job = std::move(queue_.front());
+                queue_.erase(queue_.begin());
+            }
+            condition_.notify_all();
+            const auto frame_begin = std::chrono::steady_clock::now();
+            std::string failure;
+            double observer_ms = 0.0;
+            double extraction_ms = 0.0;
+            GpuSurfaceVerification verified;
+            std::ostringstream serialized;
+            PresentationSurfaceFrame frame;
+            bool frame_ready = false;
+            if (mode_ != StreamExtractorMode::Gpu) {
+                const GameSurfaceFrame raw = game_surface_frame(job.fluid, box_, job.step);
+                observer_ms = std::chrono::duration<double, std::milli>(
+                    std::chrono::steady_clock::now() - frame_begin).count();
+                if (!raw.valid) {
+                    failure = "surface_observer";
+                } else {
+                    GameDomeField dome;
+                    if (surface_model_ != 0) {
+                        const auto dome_begin = std::chrono::steady_clock::now();
+                        dome = game_surface_dome_field(job.fluid, box_, raw);
+                        observer_ms += std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - dome_begin).count();
+                    }
+                    if (surface_model_ != 0 && !dome.valid) {
+                        failure = "surface_dome_field";
+                    } else {
+                        frame = extract_presentation_surface(
+                            raw, box_, surface_model_ != 0 ? &dome : nullptr,
+                            keep_all_components_);
+                        extraction_ms = frame.extraction_ms;
+                        frame_ready = frame.valid;
+                        if (!frame.valid) {
+                            failure = "surface_extraction";
+                        } else if (surface_model_ != 0 && !frame.passed) {
+                            failure = "surface_closing_gate step=" + std::to_string(frame.step)
+                                + " components=" + std::to_string(frame.components)
+                                + " retained_components="
+                                + std::to_string(frame.retained_components)
+                                + " local_fill_only=" + std::to_string(frame.local_fill_only)
+                                + " expansion="
+                                + std::to_string(*std::max_element(
+                                    frame.bounding_box_expansion_pixels.begin(),
+                                    frame.bounding_box_expansion_pixels.end()))
+                                + " area_ratio=" + std::to_string(frame.area_ratio)
+                                + " coverage=" + std::to_string(frame.common_coverage)
+                                + " lift_p50=" + std::to_string(frame.lift_p50)
+                                + " ceiling=" + std::to_string(frame.ceiling_violations);
+                            frame_ready = false;
+                        }
+                    }
+                }
+                if (failure.empty() && mode_ == StreamExtractorMode::Verify) {
+                    PresentationSurfaceFrame gpu_frame;
+                    std::vector<std::uint8_t> gpu_raw_wet;
+                    std::vector<double> gpu_raw_depth;
+                    if (!gpu->extract(
+                            job.fluid, job.step, gpu_frame, gpu_raw_wet, failure, &gpu_raw_depth)) {
+                        frame_ready = false;
+                    } else {
+                        verified.frames = 1U;
+                        verified.cpu_total_ms = observer_ms + extraction_ms;
+                        verified.gpu_total_ms = gpu_frame.extraction_ms;
+                        for (std::size_t pixel = 0; pixel < gpu_raw_wet.size(); ++pixel) {
+                            verified.raw_mask_mismatch_pixels +=
+                                static_cast<std::uint64_t>(gpu_raw_wet[pixel] != raw.wet[pixel]);
+                            if (gpu_raw_wet[pixel] != 0U && raw.wet[pixel] != 0U) {
+                                verified.maximum_raw_depth_difference = std::max(
+                                    verified.maximum_raw_depth_difference,
+                                    std::abs(raw.depth[pixel] - gpu_raw_depth[pixel]));
+                            }
+                            const bool cpu_wet = frame.wet[pixel] != 0U;
+                            const bool gpu_wet = gpu_frame.wet[pixel] != 0U;
+                            verified.closed_mask_mismatch_pixels +=
+                                static_cast<std::uint64_t>(cpu_wet != gpu_wet);
+                            if (cpu_wet && gpu_wet) {
+                                verified.maximum_depth_difference = std::max(
+                                    verified.maximum_depth_difference,
+                                    std::abs(frame.depth[pixel] - gpu_frame.depth[pixel]));
+                            }
+                        }
+                        verified.mesh_count_mismatches = static_cast<std::uint64_t>(
+                            gpu_frame.mesh_vertices != frame.mesh_vertices
+                            || gpu_frame.mesh_triangles != frame.mesh_triangles);
+                        if (verified.closed_mask_mismatch_pixels != 0U
+                            || verified.mesh_count_mismatches != 0U
+                            || !(verified.maximum_depth_difference
+                                <= GAME_SURFACE_GPU_DEPTH_TOLERANCE)) {
+                            failure = "gpu_surface_mismatch";
+                            frame_ready = false;
+                        } else {
+                            // Stream the GPU result so verify mode exercises
+                            // the same bytes that gpu mode would emit.
+                            frame = std::move(gpu_frame);
+                        }
+                    }
+                }
+            } else {
+                std::vector<std::uint8_t> gpu_raw_wet;
+                frame_ready = gpu->extract(job.fluid, job.step, frame, gpu_raw_wet, failure);
+                extraction_ms = frame.extraction_ms;
+            }
+            if (failure.empty() && frame_ready
+                && !write_presentation_surface_stream_frame(
+                    serialized, frame, box_, job.cycle,
+                    static_cast<double>(job.step) * GAME_TIME_STEP, job.physics_ms,
+                    job.fluid)) {
+                failure = "surface_serialization";
+            }
+            const double frame_wall_ms = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - frame_begin).count();
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                observer_total_ms_ += observer_ms;
+                extraction_total_ms_ += extraction_ms;
+                frame_wall_max_ms_ = std::max(frame_wall_max_ms_, frame_wall_ms);
+                if (frame_ready && frame.raw_wet_pixels > 0U) {
+                    const double retained = static_cast<double>(frame.retained_pixels)
+                        / static_cast<double>(frame.raw_wet_pixels);
+                    dome_stats_.minimum_retained_fraction =
+                        std::min(dome_stats_.minimum_retained_fraction, retained);
+                    dome_stats_.retained_fraction_sum += retained;
+                    ++dome_stats_.retained_frames;
+                }
+                if (surface_model_ != 0
+                    && (frame_ready || failure.rfind("surface_closing_gate", 0) == 0
+                        || failure == "gpu_surface_closing_gate")) {
+                    ++dome_stats_.frames;
+                    dome_stats_.gate_failures += static_cast<std::uint64_t>(!frame_ready);
+                    dome_stats_.maximum_lift_p50 =
+                        std::max(dome_stats_.maximum_lift_p50, frame.lift_p50);
+                    dome_stats_.maximum_lift_p95 =
+                        std::max(dome_stats_.maximum_lift_p95, frame.lift_p95);
+                    dome_stats_.minimum_lift = dome_stats_.frames == 1U
+                        ? frame.lift_min
+                        : std::min(dome_stats_.minimum_lift, frame.lift_min);
+                    dome_stats_.ceiling_violations += frame.ceiling_violations;
+                }
+                verification_.frames += verified.frames;
+                verification_.raw_mask_mismatch_pixels += verified.raw_mask_mismatch_pixels;
+                verification_.closed_mask_mismatch_pixels +=
+                    verified.closed_mask_mismatch_pixels;
+                verification_.mesh_count_mismatches += verified.mesh_count_mismatches;
+                verification_.maximum_depth_difference = std::max(
+                    verification_.maximum_depth_difference, verified.maximum_depth_difference);
+                verification_.maximum_raw_depth_difference = std::max(
+                    verification_.maximum_raw_depth_difference,
+                    verified.maximum_raw_depth_difference);
+                verification_.cpu_total_ms += verified.cpu_total_ms;
+                verification_.gpu_total_ms += verified.gpu_total_ms;
+                if (!failure.empty()) {
+                    if (failure_.empty()) {
+                        failure_ = failure;
+                    }
+                } else {
+                    finished_.emplace(job.sequence, serialized.str());
+                    // Flush every frame that is now contiguous with the
+                    // write cursor; the writer holds the lock, so frames
+                    // reach stdout strictly in sequence order.
+                    while (failure_.empty()) {
+                        const auto next = finished_.find(next_write_);
+                        if (next == finished_.end()) {
+                            break;
+                        }
+                        out_.write(next->second.data(),
+                            static_cast<std::streamsize>(next->second.size()));
+                        out_.flush();
+                        finished_.erase(next);
+                        if (!out_) {
+                            failure_ = "stream_closed";
+                            break;
+                        }
+                        ++frames_written_;
+                        ++next_write_;
+                    }
+                }
+            }
+            condition_.notify_all();
+        }
+    }
+
+    std::ostream& out_;
+    GameQualityBox box_;
+    std::size_t capacity_;
+    StreamExtractorMode mode_;
+    std::size_t particle_capacity_;
+    int surface_model_ = 0;
+    bool keep_all_components_ = false;
+    GpuSurfaceVerification verification_;
+    DomeSurfaceStats dome_stats_;
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::vector<StreamExtractionJob> queue_;
+    std::map<std::uint64_t, std::string> finished_;
+    std::uint64_t next_sequence_ = 0U;
+    std::uint64_t next_write_ = 0U;
+    bool stop_ = false;
+    std::string failure_;
+    std::uint64_t frames_written_ = 0U;
+    double observer_total_ms_ = 0.0;
+    double extraction_total_ms_ = 0.0;
+    double frame_wall_max_ms_ = 0.0;
+    std::vector<std::thread> workers_;
+};
+
+} // namespace
+
+CommandReport run_cuda_game_surface_stream(
+    const std::string& lane,
+    int steps,
+    int every,
+    int cycles,
+    int workers,
+    const std::string& extractor_name,
+    const std::string& surface_model_name,
+    std::ostream& frames,
+    const std::string& particle_dump_prefix,
+    int boundary_layers,
+    const std::string& boundary_support,
+    bool boundary_lid,
+    const std::string& spill_lip,
+    int iterations_override,
+    const std::string& surface_components) {
+    if (surface_components != "largest" && surface_components != "all") {
+        throw std::invalid_argument("stream surface components must be largest or all");
+    }
+    const bool keep_all_components = surface_components == "all";
+    if (boundary_support != "full" && boundary_support != "density") {
+        throw std::invalid_argument("stream boundary support must be full or density");
+    }
+    if (iterations_override < 0 || iterations_override > 50) {
+        throw std::invalid_argument("stream iterations override must be 0..50");
+    }
+    if (spill_lip != "margin" && spill_lip != "flush" && spill_lip != "open") {
+        throw std::invalid_argument("stream spill lip must be margin, flush or open");
+    }
+    const StreamExtractorMode extractor_mode = parse_stream_extractor_mode(extractor_name);
+    if (boundary_layers < 0 || boundary_layers > 2) {
+        throw std::invalid_argument("stream boundary layers must be 0, 1 or 2");
+    }
+    if (!particle_dump_prefix.empty() && !game_frame_prefix_valid(particle_dump_prefix)) {
+        throw std::invalid_argument("particle dump prefix contains unsupported characters");
+    }
+    int surface_model = 0;
+    if (surface_model_name == "closing") {
+        surface_model = 1;
+    } else if (surface_model_name != "sphere") {
+        throw std::invalid_argument("stream surface model must be sphere or closing");
+    }
+    if (steps < 1 || steps > 100000 || every < 1 || every > steps || cycles < 0
+        || cycles > 1000000 || workers < 1 || workers > 16) {
+        throw std::invalid_argument(
+            "stream steps/every/cycles/workers are outside the bounded range");
+    }
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
+    GameQualityBox box;
+    int lattice_x = 0;
+    int lattice_y = 10;
+    int lattice_z = 0;
+    Fixture::Spill spill;
+    if (lane == "4k") {
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+        lattice_x = 20;
+        lattice_z = 20;
+    } else if (lane == "16k") {
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+        lattice_x = 40;
+        lattice_z = 40;
+    } else if (lane == "48k") {
+        // SPEC-38 production fixture extent: the 4 x 1 x 2 m sealed basin
+        // with the accepted 80 x 15 x 40 fill (0.75 m deep), released from
+        // the same 0.1 m lift as the visual lanes so it slams and sloshes.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 1.0, 2.0}, {80, 20, 40}};
+        lattice_x = 80;
+        lattice_y = 15;
+        lattice_z = 40;
+    } else if (lane == "48k-dam") {
+        // Same sample count as the production fixture, released as a 2 m
+        // column in a taller 4 x 2 x 2 m box so the dam-break front is
+        // visible at 48k.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {4.0, 2.0, 2.0}, {80, 40, 40}};
+        lattice_x = 40;
+        lattice_y = 30;
+        lattice_z = 40;
+    } else if (lane == "spill-pipe") {
+        // NGQ8 revision 9 (plan 22): the same two tanks, but the divider is
+        // closed and the upper tank drains through a 0.2 x 0.2 m shaft at
+        // its floor centre into a horizontal duct under the floor that
+        // leaves the divider inside a 0.4 m pipe body (0.1 m walls) with
+        // its open end 0.6 m above the lower floor.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {5.0, 2.0, 1.5}, {100, 40, 30}};
+        lattice_x = 40;
+        lattice_y = 10;
+        lattice_z = 30;
+        spill.enabled = true;
+        spill.under_floor = true;
+        spill.shelf_top = 1.0;
+        spill.wall_x0 = 2.0;
+        spill.wall_x1 = 2.2;
+        spill.shaft_x0 = 0.9;
+        spill.shaft_x1 = 1.1;
+        spill.opening_y0 = 0.5;
+        spill.opening_y1 = 0.7;
+        spill.opening_z0 = 0.65;
+        spill.opening_z1 = 0.85;
+        spill.pipe_x1 = 2.6;
+        spill.pipe_wall = 0.1;
+        spill.flush = true;
+        spill.open_ring = false;
+    } else if (lane == "spill" || lane == "spill-narrow") {
+        // NGQ8 two-tank spillway (plan 22): the upper tank sits on a 1 m
+        // shelf left of a 0.2 m divider whose opening drains into the
+        // empty lower tank. Revision 2 narrows the opening to 0.15 x 0.2 m.
+        box = GameQualityBox{{0.0, 0.0, 0.0}, {5.0, 2.0, 1.5}, {100, 40, 30}};
+        lattice_x = 40;
+        lattice_y = 10;
+        lattice_z = 30;
+        spill.enabled = true;
+        spill.shelf_top = 1.0;
+        spill.wall_x0 = 2.0;
+        spill.wall_x1 = 2.2;
+        spill.opening_y0 = 1.0;
+        spill.flush = spill_lip != "margin";
+        spill.open_ring = spill_lip == "open";
+        if (lane == "spill") {
+            spill.opening_y1 = 1.3;
+            spill.opening_z0 = 0.5;
+            spill.opening_z1 = 1.0;
+        } else {
+            spill.opening_y1 = 1.15;
+            spill.opening_z0 = 0.65;
+            spill.opening_z1 = 0.85;
+        }
+    } else {
+        throw std::invalid_argument(
+            "stream lane must be 4k, 16k, 48k, 48k-dam, spill, spill-narrow or spill-pipe");
+    }
+    double spill_maximum_penetration = 0.0;
+    double spill_upper_fraction = 1.0;
+    double spill_upper_at_2s = -1.0;
+    bool spill_arrived_by_480 = false;
+    // Exit-speed diagnostic: per second, head above the shelf, mean speed of
+    // samples just past the divider (from emitted-frame differences), the
+    // free-fall speed for that head and the maximum sample speed anywhere.
+    std::string spill_exit_curve;
+    std::vector<Vec3> spill_previous_positions;
+    double spill_maximum_exit_ratio = 0.0;
+    std::string spill_fast_curve;
+    std::string spill_drain_curve;
+    std::uint64_t completed_steps = 0U;
+    std::uint64_t audits = 0U;
+    int completed_cycles = 0;
+    double total_physics_ms = 0.0;
+    double total_execute_wall_ms = 0.0;
+    double total_wall_ms = 0.0;
+    double maximum_step_wall_ms = 0.0;
+    std::size_t maximum_degree = 0U;
+    std::size_t dynamic_samples = 0U;
+    std::size_t boundary_samples = 0U;
+    std::string first_failure;
+    const auto stream_begin = std::chrono::steady_clock::now();
+    StreamExtractor extractor(
+        frames, box, static_cast<unsigned>(workers), extractor_mode,
+        static_cast<std::size_t>(lattice_x) * static_cast<std::size_t>(lattice_y) * lattice_z,
+        surface_model, keep_all_components);
+    for (int cycle = 0; (cycles == 0 || cycle < cycles) && first_failure.empty();
+         ++cycle) {
+        std::vector<Particle> fluid = game_visual_particles(lattice_x, lattice_z, lattice_y);
+        if (spill.enabled) {
+            for (Particle& particle : fluid) {
+                particle.position.y += spill.shelf_top;
+            }
+        }
+        dynamic_samples = fluid.size();
+        double physics_since_frame_ms = 0.0;
+        const auto emit = [&](int step) {
+            if (!particle_dump_prefix.empty()) {
+                // Research diagnostic only: sample-ordered float positions of
+                // this emitted frame, so velocities follow from differences.
+                std::ofstream dump(
+                    particle_dump_prefix + "-cycle" + std::to_string(cycle) + "-step"
+                        + std::to_string(step) + ".bin",
+                    std::ios::binary);
+                const std::uint64_t count = fluid.size();
+                dump.write(reinterpret_cast<const char*>(&count), sizeof(count));
+                for (const Particle& particle : fluid) {
+                    const float values[3] = {
+                        static_cast<float>(particle.position.x),
+                        static_cast<float>(particle.position.y),
+                        static_cast<float>(particle.position.z)};
+                    dump.write(reinterpret_cast<const char*>(values), sizeof(values));
+                }
+                if (!dump) {
+                    first_failure = "particle_dump";
+                    return false;
+                }
+            }
+            StreamExtractionJob job;
+            job.fluid = fluid;
+            job.step = step;
+            job.cycle = cycle;
+            job.physics_ms = physics_since_frame_ms;
+            physics_since_frame_ms = 0.0;
+            if (!extractor.submit(std::move(job))) {
+                first_failure = extractor.failure();
+                return false;
+            }
+            return true;
+        };
+        if (!emit(0)) {
+            break;
+        }
+        // One persistent solver per cycle: the advected fixture keeps the
+        // particle state on the device and `execute(capture, advance)` hands
+        // the published positions/velocities to the next step without a
+        // host round trip. Host state is refreshed only on emitted frames.
+        // NGQ7: optional fixed lattice complement on all box faces gives the
+        // floor and wall neighbourhoods their density support (D-047).
+        // NGQ8 revision 4: an explicit iteration count is a research
+        // override of the accepted profile, reported in the summary.
+        Fixture fixture = game_fixture(
+            profile, "game-stream-" + lane, fluid, box,
+            iterations_override > 0 ? iterations_override : profile.fixed_iterations,
+            profile.max_neighbors, boundary_layers, boundary_lid && !spill.enabled);
+        if (spill.enabled) {
+            append_spill_solids(fixture, box, spill);
+            fixture.spill = spill;
+            fixture.pair_capacity = fixture.particles.size() * profile.max_neighbors;
+        }
+        boundary_samples = fixture.particles.size() - fluid.size();
+        fixture.boundary_density_only = boundary_support == "density";
+        fixture.advected = true;
+        // The persistent grid is sized once from the initial column; give it
+        // the whole basin so particles never leave the neighbor grid.
+        fixture.grid_margin = std::max(
+            {box.maximum.x - box.minimum.x, box.maximum.y - box.minimum.y,
+                box.maximum.z - box.minimum.z});
+        CudaBaseline gpu(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1,
+            NeighborEncodingMode::CompactU16P2);
+        std::vector<float3> published;
+        std::uint64_t emitted_in_cycle = 0U;
+        for (int step = 1; step <= steps; ++step) {
+            const auto step_begin = std::chrono::steady_clock::now();
+            const bool frame_step = step % every == 0;
+            // The full diagnostic capture (neighbors, energies, topology)
+            // costs far more than the step; audit it once per
+            // GAME_SURFACE_STREAM_AUDIT_FRAMES emitted frames and otherwise
+            // download only the published positions.
+            const bool audit = frame_step
+                && emitted_in_cycle % GAME_SURFACE_STREAM_AUDIT_FRAMES == 0U;
+            const CapturedRun run = gpu.execute(audit, true);
+            total_execute_wall_ms += std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - step_begin).count();
+            bool step_valid = !run.local_solve_failed && run.neighbor_build_valid
+                && run.neighbor_id_bytes == sizeof(std::uint16_t);
+            if (audit) {
+                maximum_degree = std::max(maximum_degree, run.state.maximum_degree);
+                step_valid = step_valid && game_finite(run, fluid.size())
+                    && run.state.next_position.size() == fluid.size() + boundary_samples
+                    && run.state.directed_pairs <= fixture.pair_capacity
+                    && run.state.maximum_degree <= profile.max_neighbors;
+                ++audits;
+            }
+            if (!step_valid) {
+                first_failure = run.local_solve_failed ? "local_solve"
+                    : (!run.neighbor_build_valid ? "neighbor_build" : "step_apparatus");
+                break;
+            }
+            total_physics_ms += run.timing.total;
+            physics_since_frame_ms += run.timing.total;
+            ++completed_steps;
+            if (frame_step) {
+                if (audit) {
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        fluid[index].position = run.state.next_position[index];
+                        fluid[index].velocity = run.state.final_velocity[index];
+                    }
+                } else {
+                    gpu.download_positions(published);
+                    if (published.size() != fluid.size() + boundary_samples) {
+                        first_failure = "output_size";
+                        break;
+                    }
+                    bool finite = true;
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        const float3 value = published[index];
+                        finite = finite && std::isfinite(value.x) && std::isfinite(value.y)
+                            && std::isfinite(value.z);
+                        fluid[index].position = Vec3{value.x, value.y, value.z};
+                    }
+                    if (!finite) {
+                        first_failure = "nonfinite_state";
+                        break;
+                    }
+                }
+                if (spill.enabled) {
+                    std::size_t upper = 0U;
+                    for (const Particle& particle : fluid) {
+                        spill_maximum_penetration = std::max(
+                            spill_maximum_penetration,
+                            spill_penetration(particle.position, spill));
+                        upper += particle.position.x < spill.wall_x0 ? 1U : 0U;
+                        spill_arrived_by_480 = spill_arrived_by_480
+                            || (step <= 480 && particle.position.x > spill.exit_x()
+                                && particle.position.y < 0.2);
+                    }
+                    spill_upper_fraction =
+                        static_cast<double>(upper) / static_cast<double>(fluid.size());
+                    if (step % 240 == 0) {
+                        spill_drain_curve += (spill_drain_curve.empty() ? "" : ",")
+                            + std::to_string(spill_upper_fraction);
+                    }
+                    if (step == 480) {
+                        spill_upper_at_2s = spill_upper_fraction;
+                    }
+                    if (spill_previous_positions.size() == fluid.size()) {
+                        const double frame_seconds = every * GAME_TIME_STEP;
+                        double head_sum = 0.0;
+                        std::size_t head_count = 0U;
+                        double exit_sum = 0.0;
+                        std::size_t exit_count = 0U;
+                        double maximum_speed = 0.0;
+                        for (std::size_t index = 0; index < fluid.size(); ++index) {
+                            const Vec3& p = fluid[index].position;
+                            const Vec3 delta = p - spill_previous_positions[index];
+                            const double speed = norm(delta) / frame_seconds;
+                            maximum_speed = std::max(maximum_speed, speed);
+                            if (p.x < spill.wall_x0) {
+                                head_sum += p.y - spill.shelf_top;
+                                ++head_count;
+                            }
+                            if (p.x > spill.exit_x() && p.x < spill.exit_x() + 0.3
+                                && p.y > spill.opening_y0 - 0.3) {
+                                exit_sum += delta.x / frame_seconds;
+                                ++exit_count;
+                            }
+                        }
+                        if (step % 240 == 0) {
+                            // Revision 5 diagnostic: the five fastest samples
+                            // with their neighbourhoods, plus the sheet degree.
+                            std::vector<std::pair<double, std::size_t>> ranked;
+                            ranked.reserve(fluid.size());
+                            for (std::size_t index = 0; index < fluid.size(); ++index) {
+                                ranked.emplace_back(
+                                    norm(fluid[index].position - spill_previous_positions[index])
+                                        / frame_seconds,
+                                    index);
+                            }
+                            std::partial_sort(
+                                ranked.begin(), ranked.begin() + std::min<std::size_t>(5U, ranked.size()),
+                                ranked.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+                            const double horizon = fixture.horizon;
+                            const auto degrees = [&](const Vec3& centre) {
+                                std::size_t fluid_degree = 0U;
+                                std::size_t fixed_degree = 0U;
+                                for (const Particle& other : fluid) {
+                                    if (norm(other.position - centre) < horizon) {
+                                        ++fluid_degree;
+                                    }
+                                }
+                                for (std::size_t index = fluid.size(); index < fixture.particles.size(); ++index) {
+                                    if (norm(fixture.particles[index].position - centre) < horizon) {
+                                        ++fixed_degree;
+                                    }
+                                }
+                                return std::make_pair(fluid_degree > 0U ? fluid_degree - 1U : 0U, fixed_degree);
+                            };
+                            const auto region = [&](const Vec3& p) {
+                                if (spill.under_floor && p.y < spill.shelf_top
+                                    && p.x < spill.exit_x()) {
+                                    return "pipe";
+                                }
+                                if (p.x < spill.wall_x0) {
+                                    return p.y < spill.shelf_top + 0.2 ? "sheet" : "upper";
+                                }
+                                if (!spill.under_floor && p.x <= spill.wall_x1) {
+                                    return "pipe";
+                                }
+                                if (p.x < spill.exit_x() + 0.3 && p.y > spill.opening_y0 - 0.3) {
+                                    return "exit";
+                                }
+                                return p.y < 0.3 ? "lower" : "air";
+                            };
+                            std::string fast;
+                            for (std::size_t rank = 0; rank < std::min<std::size_t>(5U, ranked.size()); ++rank) {
+                                const Vec3& p = fluid[ranked[rank].second].position;
+                                const auto [fluid_degree, fixed_degree] = degrees(p);
+                                fast += (fast.empty() ? "" : ",") + std::string("{\"speed\":")
+                                    + std::to_string(ranked[rank].first) + ",\"region\":\"" + region(p)
+                                    + "\",\"fluid_degree\":" + std::to_string(fluid_degree)
+                                    + ",\"fixed_degree\":" + std::to_string(fixed_degree)
+                                    + ",\"y\":" + std::to_string(p.y) + "}";
+                            }
+                            double sheet_degree_sum = 0.0;
+                            std::size_t sheet_count = 0U;
+                            for (std::size_t index = 0; index < fluid.size() && sheet_count < 64U; index += 97U) {
+                                const Vec3& p = fluid[index].position;
+                                if (p.x < spill.wall_x0 && p.y < spill.shelf_top + 0.2) {
+                                    sheet_degree_sum += static_cast<double>(degrees(p).first);
+                                    ++sheet_count;
+                                }
+                            }
+                            spill_fast_curve += (spill_fast_curve.empty() ? "" : ",")
+                                + std::string("{\"second\":") + std::to_string(step / 240)
+                                + ",\"sheet_mean_fluid_degree\":"
+                                + std::to_string(sheet_count > 0U ? sheet_degree_sum / static_cast<double>(sheet_count) : 0.0)
+                                + ",\"fastest\":[" + fast + "]}";
+                            // Mean sample height above the shelf is half the
+                            // sheet depth; head = twice the mean, measured
+                            // down to the exit centre for the under-floor pipe.
+                            const double head = (head_count > 0U
+                                ? 2.0 * head_sum / static_cast<double>(head_count) : 0.0)
+                                + (spill.under_floor ? spill.shelf_top - spill.exit_centre_y() : 0.0);
+                            const double free_fall = head > 0.0 ? std::sqrt(2.0 * 9.81 * head) : 0.0;
+                            const double exit_speed = exit_count > 0U
+                                ? exit_sum / static_cast<double>(exit_count) : 0.0;
+                            const double ratio = free_fall > 0.0 ? exit_speed / free_fall : 0.0;
+                            spill_maximum_exit_ratio = std::max(spill_maximum_exit_ratio, ratio);
+                            spill_exit_curve += (spill_exit_curve.empty() ? "" : ",")
+                                + std::string("{\"second\":") + std::to_string(step / 240)
+                                + ",\"head_m\":" + std::to_string(head)
+                                + ",\"exit_speed_mps\":" + std::to_string(exit_speed)
+                                + ",\"free_fall_mps\":" + std::to_string(free_fall)
+                                + ",\"ratio\":" + std::to_string(ratio)
+                                + ",\"exit_samples\":" + std::to_string(exit_count)
+                                + ",\"max_speed_mps\":" + std::to_string(maximum_speed) + "}";
+                        }
+                    }
+                    spill_previous_positions.resize(fluid.size());
+                    for (std::size_t index = 0; index < fluid.size(); ++index) {
+                        spill_previous_positions[index] = fluid[index].position;
+                    }
+                }
+                ++emitted_in_cycle;
+                if (!emit(step)) {
+                    break;
+                }
+            }
+            const double step_wall_ms = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - step_begin).count();
+            total_wall_ms += step_wall_ms;
+            maximum_step_wall_ms = std::max(maximum_step_wall_ms, step_wall_ms);
+        }
+        if (first_failure.empty()) {
+            ++completed_cycles;
+        }
+    }
+    if (first_failure.empty() && !extractor.drain()) {
+        first_failure = extractor.failure();
+    }
+    const std::uint64_t frames_written = extractor.frames_written();
+    const GpuSurfaceVerification verification = extractor.verification();
+    const DomeSurfaceStats dome_stats = extractor.dome_stats();
+    const double total_extraction_ms = extractor.extraction_total_ms();
+    const double total_observer_ms = extractor.observer_total_ms();
+    const double frame_wall_max_ms = extractor.frame_wall_max_ms();
+    const double stream_wall_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - stream_begin).count();
+    const bool passed = first_failure.empty() || first_failure == "stream_closed";
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.game_surface_stream.v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+           << ",\"authority\":\"PRESENTATION_ONLY_TOOL\""
+           << ",\"lane\":\"" << lane << "\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"dynamic_samples\":" << dynamic_samples
+           << ",\"iterations\":" << (iterations_override > 0 ? iterations_override : profile.fixed_iterations)
+           << ",\"boundary_layers\":" << boundary_layers
+           << ",\"boundary_support\":\"" << boundary_support << "\""
+           << ",\"boundary_lid\":" << (boundary_lid ? "true" : "false")
+           << ",\"boundary_samples\":" << boundary_samples
+           << ",\"requested_steps\":" << steps
+           << ",\"frame_every_steps\":" << every
+           << ",\"extraction_workers\":" << extractor.worker_count()
+           << ",\"extractor\":\"" << extractor_name << "\""
+           << ",\"surface_model\":\"" << surface_model_name << "\""
+           << ",\"surface_components\":\"" << surface_components << "\""
+           << ",\"retained_wet_fraction\":{\"frames\":" << dome_stats.retained_frames
+           << ",\"minimum\":" << dome_stats.minimum_retained_fraction
+           << ",\"mean\":" << (dome_stats.retained_frames > 0U
+                  ? dome_stats.retained_fraction_sum / static_cast<double>(dome_stats.retained_frames)
+                  : 0.0) << '}'
+           << ",\"closing_surface\":{\"frames\":" << dome_stats.frames
+           << ",\"gate_failures\":" << dome_stats.gate_failures
+           << ",\"maximum_lift_p50_m\":" << dome_stats.maximum_lift_p50
+           << ",\"maximum_lift_p95_m\":" << dome_stats.maximum_lift_p95
+           << ",\"minimum_lift_m\":" << dome_stats.minimum_lift
+           << ",\"ceiling_violations\":" << dome_stats.ceiling_violations
+           << ",\"lift_p50_limit_m\":" << GAME_CLOSING_LIFT_P50_LIMIT
+           << ",\"closing_radius_pixels\":" << GAME_CLOSING_RADIUS_PIXELS << '}'
+           << ",\"gpu_verification\":{\"frames\":" << verification.frames
+           << ",\"raw_mask_mismatch_pixels\":" << verification.raw_mask_mismatch_pixels
+           << ",\"closed_mask_mismatch_pixels\":" << verification.closed_mask_mismatch_pixels
+           << ",\"mesh_count_mismatches\":" << verification.mesh_count_mismatches
+           << ",\"maximum_depth_difference_m\":" << verification.maximum_depth_difference
+           << ",\"maximum_raw_depth_difference_m\":" << verification.maximum_raw_depth_difference
+           << ",\"depth_tolerance_m\":" << GAME_SURFACE_GPU_DEPTH_TOLERANCE
+           << ",\"cpu_total_ms\":" << verification.cpu_total_ms
+           << ",\"gpu_total_ms\":" << verification.gpu_total_ms << '}'
+           << ",\"requested_cycles\":" << cycles
+           << ",\"completed_cycles\":" << completed_cycles
+           << ",\"completed_steps\":" << completed_steps
+           << ",\"frames_written\":" << frames_written
+           << ",\"audits\":" << audits
+           << ",\"audit_every_frames\":" << GAME_SURFACE_STREAM_AUDIT_FRAMES
+           << ",\"maximum_degree\":" << maximum_degree
+           << ",\"physics_total_ms\":" << total_physics_ms
+           << ",\"execute_wall_total_ms\":" << total_execute_wall_ms
+           << ",\"observer_total_ms\":" << total_observer_ms
+           << ",\"extraction_total_ms\":" << total_extraction_ms
+           << ",\"frame_wall_max_ms\":" << frame_wall_max_ms
+           << ",\"step_wall_total_ms\":" << total_wall_ms
+           << ",\"step_wall_max_ms\":" << maximum_step_wall_ms
+           << ",\"stream_wall_ms\":" << stream_wall_ms
+           << ",\"presentation_frames\":" << g_presentation_frames.load()
+           << ",\"presentation_ms_mean\":"
+           << (g_presentation_frames.load() > 0U
+                  ? static_cast<double>(g_presentation_total_us.load())
+                      / static_cast<double>(g_presentation_frames.load()) / 1000.0
+                  : 0.0)
+           << ",\"presentation_ms_max\":"
+           << static_cast<double>(g_presentation_max_us.load()) / 1000.0
+           << ",\"first_failure\":\"" << first_failure << "\""
+           << ",\"simulation_feedback\":false";
+    if (spill.enabled) {
+        // Discharge coefficient over the first two seconds (480 steps):
+        // drained volume against a free orifice at the mean head 0.45 m.
+        const double opening_area = (spill.opening_y1 - spill.opening_y0)
+            * (spill.opening_z1 - spill.opening_z0);
+        const double drained_fraction_2s = spill_upper_at_2s >= 0.0 ? 1.0 - spill_upper_at_2s : 0.0;
+        const double fluid_volume = static_cast<double>(dynamic_samples) * GAME_SPACING
+            * GAME_SPACING * GAME_SPACING;
+        // Under-floor pipe: mean head over the same two seconds from the
+        // shelf top plus half the mean sheet depth down to the exit centre.
+        const double head_reference = spill.under_floor
+            ? spill.shelf_top + 0.25 * (1.0 + std::max(spill_upper_at_2s, 0.0))
+                - spill.exit_centre_y()
+            : 0.45;
+        const double torricelli_flow = opening_area * std::sqrt(2.0 * 9.81 * head_reference);
+        const double discharge_coefficient =
+            torricelli_flow > 0.0 ? drained_fraction_2s * fluid_volume / 2.0 / torricelli_flow : 0.0;
+        output << ",\"spill\":{\"lip\":\"" << spill_lip << "\""
+               << ",\"under_floor\":" << (spill.under_floor ? "true" : "false")
+               << ",\"head_reference_m\":" << head_reference
+               << ",\"opening_area_m2\":" << opening_area
+               << ",\"discharge_coefficient_2s\":" << discharge_coefficient
+               << ",\"maximum_penetration_m\":" << spill_maximum_penetration
+               << ",\"upper_fraction_final\":" << spill_upper_fraction
+               << ",\"arrived_by_step_480\":" << (spill_arrived_by_480 ? "true" : "false")
+               << ",\"upper_fraction_per_second\":[" << spill_drain_curve << ']'
+               << ",\"maximum_exit_ratio\":" << spill_maximum_exit_ratio
+               << ",\"exit_per_second\":[" << spill_exit_curve << ']'
+               << ",\"fast_per_second\":[" << spill_fast_curve << ']'
+               << ",\"gates\":{\"g2_penetration\":\""
+               << (spill_maximum_penetration <= 1e-4 ? "PASS" : "FAIL")
+               << "\",\"g3_drainage\":\"" << (spill_upper_fraction <= 0.6 ? "PASS" : "FAIL")
+               << "\",\"g4_arrival\":\"" << (spill_arrived_by_480 ? "PASS" : "FAIL")
+               << "\"}}";
+    }
+    output << ",\"device\":" << device_json() << '}';
+    return {passed, output.str()};
+}
+
+CommandReport run_cuda_game_surface_prototype(const std::string& frame_prefix) {
+    if (!game_frame_prefix_valid(frame_prefix)) {
+        throw std::invalid_argument("frame prefix contains unsupported characters");
+    }
+    const Profile& profile =
+        find_profile("nuv-basin-48k-analytic-contact-game-cap160.v6");
+    const GameQualityBox box4k{
+        {0.0, 0.0, 0.0}, {2.0, 0.75, 1.0}, {40, 15, 20}};
+    const GameQualityBox box16k{
+        {0.0, 0.0, 0.0}, {4.0, 0.75, 2.0}, {80, 15, 40}};
+    const std::vector<Particle> control_particles = game_visual_particles(20, 20);
+    const GameVisualObserverControls raw_controls =
+        game_visual_observer_controls(control_particles, box4k);
+    const bool raw_controls_passed = raw_controls.empty_rejected
+        && raw_controls.nonfinite_rejected && raw_controls.mask_mutation_changed_root
+        && raw_controls.depth_mutation_changed_root;
+    GameVisualLaneResult raw4k = run_game_visual_lane(
+        profile, "falling-dam-4k", 20, 20, box4k, {});
+    GameVisualLaneResult raw16k;
+    raw16k.id = "falling-dam-16k";
+    raw16k.first_failure = "NOT_RUN_4K_REJECTED";
+    if (raw_controls_passed && raw4k.apparatus_passed && raw4k.quality_passed) {
+        raw16k = run_game_visual_lane(
+            profile, "falling-dam-16k", 40, 40, box16k, {});
+    }
+    const bool parent_passed = raw_controls_passed && raw4k.apparatus_passed
+        && raw4k.quality_passed && raw16k.apparatus_passed && raw16k.quality_passed;
+    std::ostringstream parent_material;
+    parent_material << "nextengine.nonlocal.game-visual-corpus.v1\n"
+                    << raw_controls.root << '\n' << raw4k.result_root << '\n'
+                    << raw16k.result_root << '\n'
+                    << "ORIGINAL_GPU_DYNAMIC_VISUAL_SUPPORTED_BOUNDED\n";
+    const std::string parent_result_root = sha256_hex(parent_material.str());
+    const bool parent_exact = parent_passed
+        && raw4k.trace_root
+            == "369ac07d797d755abbee8b965e8d6fe635693534938c00cfbc684f75e5a71bbb"
+        && raw4k.result_root
+            == "18f48386fb1c178e8bf22cf1fa74315abf0be4f8decb31ffa15cda97a35278aa"
+        && raw16k.trace_root
+            == "61c45089cf57d41045d7ca1be59657b93845cc4a266173dd121ada2f84578a05"
+        && raw16k.result_root
+            == "8e3e9f9584f91622b274f6635452abe65230cf24b2bf24d1636e735d3fd74f85"
+        && parent_result_root
+            == "c2f1f6e75f1238409298cb6db6f16c2aeb0baca3ad4ebbeff216ba3c39f98274";
+
+    PresentationSurfaceControls controls;
+    if (!raw4k.frames.empty()) {
+        controls = presentation_surface_controls(raw4k.frames.front(), box4k);
+    }
+    const bool controls_passed = controls.empty_rejected
+        && controls.nonfinite_rejected && controls.mask_mutation_changed_root
+        && controls.depth_mutation_changed_root;
+    PresentationSurfaceLane surface4k =
+        make_presentation_surface_lane(raw4k, box4k, frame_prefix);
+    PresentationSurfaceLane surface16k;
+    surface16k.id = "falling-dam-16k";
+    surface16k.first_failure = "NOT_RUN_4K_SURFACE_REJECTED";
+    if (parent_exact && controls_passed && surface4k.passed) {
+        surface16k = make_presentation_surface_lane(raw16k, box16k, frame_prefix);
+    }
+    const bool passed = parent_exact && controls_passed
+        && surface4k.passed && surface16k.passed;
+    const char* semantic_status = !parent_passed || !parent_exact || !controls_passed
+        ? "APPARATUS_INCONCLUSIVE"
+        : (!surface4k.passed || !surface16k.passed
+                ? "PRESENTATION_SURFACE_REFUTED_BOUNDED"
+                : "PRESENTATION_SURFACE_SUPPORTED_BOUNDED");
+    std::ostringstream root_material;
+    root_material << "nextengine.nonlocal.presentation-surface-corpus.v3\n"
+                  << sha256_hex(canonical_profile_json(profile)) << '\n'
+                  << parent_result_root << '\n' << controls.root << '\n'
+                  << surface4k.result_root << '\n' << surface16k.result_root << '\n'
+                  << semantic_status << '\n';
+    const std::string result_root = sha256_hex(root_material.str());
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.presentation_surface_corpus.v3\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\""
+           << ",\"semantic_status\":\"" << semantic_status << "\""
+           << ",\"claim_ceiling\":\"presentation_only_finite_frames\""
+           << ",\"profile_id\":\"" << profile.id << "\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\""
+           << ",\"binary_sha256\":\"" << executable_hash() << "\""
+           << ",\"simulation_feedback\":false"
+           << ",\"extraction_in_primary_gpu_timing\":false"
+           << ",\"filter\":{\"component_policy\":\"largest_8_connected\""
+           << ",\"binary_close\":\"3x3_one_iteration\""
+           << ",\"height_filter\":\"masked_bilateral_3x3_one_pass\""
+           << ",\"range_sigma_m\":" << GAME_RADIUS
+           << ",\"pixel_pitch_m\":" << GAME_VISUAL_PIXEL_PITCH << "}"
+           << ",\"gates\":{\"area_ratio_minimum\":0.95"
+           << ",\"area_ratio_maximum\":1.40"
+           << ",\"maximum_bounding_box_expansion_pixels\":1"
+           << ",\"local_fill_only_required\":true"
+           << ",\"common_coverage_minimum\":0.95"
+           << ",\"depth_rmse_maximum_m\":0.025"
+           << ",\"depth_p95_change_maximum_m\":0.05"
+           << ",\"components\":1}"
+           << ",\"parent\":{\"passed\":"
+           << (parent_passed ? "true" : "false")
+           << ",\"exact\":" << (parent_exact ? "true" : "false")
+           << ",\"result_root\":\"" << parent_result_root << "\"}"
+           << ",\"controls\":{\"passed\":"
+           << (controls_passed ? "true" : "false")
+           << ",\"empty_rejected\":"
+           << (controls.empty_rejected ? "true" : "false")
+           << ",\"nonfinite_rejected\":"
+           << (controls.nonfinite_rejected ? "true" : "false")
+           << ",\"mask_mutation_changed_root\":"
+           << (controls.mask_mutation_changed_root ? "true" : "false")
+           << ",\"depth_mutation_changed_root\":"
+           << (controls.depth_mutation_changed_root ? "true" : "false")
+           << ",\"root\":\"" << controls.root << "\"}"
+           << ",\"lanes\":[";
+    append_presentation_surface_lane(output, surface4k);
+    output << ',';
+    append_presentation_surface_lane(output, surface16k);
+    output << "]"
+           << ",\"result_root\":\"" << result_root << "\""
+           << ",\"device\":" << device_json() << '}';
+    return {passed, output.str()};
 }
 
 } // namespace nextengine::nonlocal

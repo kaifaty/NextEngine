@@ -79,8 +79,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 37);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 123);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 51);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 160);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -174,9 +174,9 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         interaction_definition_hash_v2(accept),
         interaction_definition_hash_v2(unconditioned_accept)
     );
-    assert_eq!(activated.render_content_catalog.meshes().len(), 12);
-    assert_eq!(activated.render_content_catalog.materials().len(), 11);
-    assert_eq!(activated.render_content_catalog.textures().len(), 7);
+    assert_eq!(activated.render_content_catalog.meshes().len(), 31);
+    assert_eq!(activated.render_content_catalog.materials().len(), 14);
+    assert_eq!(activated.render_content_catalog.textures().len(), 20);
     assert_eq!(
         activated
             .render_content_catalog
@@ -210,10 +210,19 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         .iter()
         .find(|mesh| mesh.asset_id() == AssetId::from_bytes([0x81; 16]))
         .expect("floor mesh");
-    assert_eq!(
-        floor.normals_snorm16(),
-        Some([[0, i16::MAX, 0]; 4].as_slice())
-    );
+    // Scene look L6a (plan `look/06a`): the floor is a height field, flat
+    // across the play area (an up normal at the origin) and rising at the
+    // rim (every normal keeps a positive up component).
+    let floor_normals = floor.normals_snorm16().expect("height-field normals");
+    assert_eq!(floor_normals.len(), floor.positions_micrometres().len());
+    assert!(floor_normals.iter().all(|normal| normal[1] > 20_000));
+    let origin = floor
+        .positions_micrometres()
+        .iter()
+        .position(|position| position[0] == 0 && position[2] == 0)
+        .expect("origin vertex");
+    assert_eq!(floor.positions_micrometres()[origin][1], 100_000);
+    assert_eq!(floor_normals[origin], [0, i16::MAX, 0]);
     let humanoid = activated
         .render_content_catalog
         .meshes()
@@ -257,7 +266,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     }));
     assert_eq!(
         activated.project_lock.runtime_determinism_profile_sha256,
-        next_contracts::identity::RuntimeDeterminismBundleV1::core_r5c()
+        next_contracts::identity::RuntimeDeterminismBundleV1::core_r8d()
             .expect("current determinism bundle")
             .runtime_profile_hash(),
     );
@@ -916,7 +925,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .filter(|entry| entry.schema_ref.schema_id.as_str() == NEUTRAL_AUDIO_SCHEMA_ID)
         .collect();
     // Four engine-owned reference clips plus the test clip.
-    assert_eq!(audio_entries.len(), 5);
+    assert_eq!(audio_entries.len(), 7);
     let test_entry = audio_entries
         .iter()
         .find(|entry| entry.asset_revision.asset_id == clip.asset_id)
@@ -936,7 +945,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = activate_project(&store).expect("activate with audio");
-    assert_eq!(activated.audio_clips.len(), 5);
+    assert_eq!(activated.audio_clips.len(), 7);
     assert!(activated.audio_clips.contains(&clip));
     std::fs::remove_dir_all(root).expect("remove audio store");
 

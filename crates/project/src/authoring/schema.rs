@@ -357,10 +357,68 @@ pub(super) enum AuthoringRenderRecordV1 {
         texels: Vec<u8>,
         source_span: AuthoringSourceSpanV1,
     },
+    /// Scene look L5 (plan `look/05`): a PNG file among the project's
+    /// referenced sources, decoded to `RGBA8` with an optional mip chain.
+    TexturePng {
+        asset_id: String,
+        record_revision: u64,
+        relative_path: String,
+        /// Scene look L6a (plan `look/06a`): further PNG files of the same
+        /// size and format, the array layers `1..`.
+        #[serde(default)]
+        layers: Vec<String>,
+        color_space: AuthoringTextureColorSpaceV1,
+        alpha: AuthoringTextureAlphaV1,
+        mip_levels: AuthoringTextureMipLevelsV1,
+        source_span: AuthoringSourceSpanV1,
+    },
+    /// Scene look L6a (plan `look/06a`): a height field from a grey PNG
+    /// among the referenced sources (rows along `z`, columns along `x`),
+    /// as a neutral mesh with smooth normals and `uv0` over the field.
+    MeshHeightfield {
+        asset_id: String,
+        record_revision: u64,
+        relative_path: String,
+        origin_micrometres: [i64; 2],
+        cell_micrometres: i64,
+        height_range_micrometres: [i64; 2],
+        #[serde(default)]
+        holes: Vec<[i64; 4]>,
+        source_span: AuthoringSourceSpanV1,
+    },
+    /// Scene look L5b (plan `look/05b`): one primitive of a glTF 2.0 file
+    /// among the project's referenced sources, the named node's global
+    /// transform baked into the vertices.
+    MeshGltf {
+        asset_id: String,
+        record_revision: u64,
+        relative_path: String,
+        mesh: usize,
+        primitive: usize,
+        #[serde(default)]
+        node: Option<usize>,
+        #[serde(default)]
+        double_sided: bool,
+        source_span: AuthoringSourceSpanV1,
+    },
     Material {
         asset_id: String,
         record_revision: u64,
         texture_asset_id: String,
+        /// Scene look L5: the glTF-style metallic-roughness map (`G`
+        /// roughness, `B` metallic), linear.
+        #[serde(default)]
+        metallic_roughness_texture_asset_id: Option<String>,
+        /// Scene look L5: the tangent-space normal map, linear.
+        #[serde(default)]
+        normal_texture_asset_id: Option<String>,
+        /// Scene look L6a: the splat control map (layer weights), linear;
+        /// makes the material a splat material over layered textures.
+        #[serde(default)]
+        splat_control_texture_asset_id: Option<String>,
+        /// Scene look L5: a uniform UV scale shared by the bindings.
+        #[serde(default = "default_uv_scale")]
+        uv_scale: f64,
         base_color_rgba_u16: [u16; 4],
         metallic_u16: u16,
         roughness_u16: u16,
@@ -448,6 +506,9 @@ impl AuthoringRenderRecordV1 {
         match self {
             Self::Mesh { source_span, .. }
             | Self::TextureRgba8 { source_span, .. }
+            | Self::TexturePng { source_span, .. }
+            | Self::MeshGltf { source_span, .. }
+            | Self::MeshHeightfield { source_span, .. }
             | Self::Material { source_span, .. }
             | Self::B0Profile { source_span, .. }
             | Self::BaseSkinningProfile { source_span, .. } => source_span,
@@ -468,6 +529,18 @@ pub(super) enum AuthoringTextureColorSpaceV1 {
 pub(super) enum AuthoringTextureAlphaV1 {
     Opaque,
     Straight,
+}
+
+/// Scene look L5: whether a PNG texture carries its full mip chain.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum AuthoringTextureMipLevelsV1 {
+    None,
+    Full,
+}
+
+fn default_uv_scale() -> f64 {
+    1.0
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -519,6 +592,17 @@ pub(super) enum AuthoringAudioRecordV1 {
         period: u32,
         source_span: AuthoringSourceSpanV1,
     },
+    /// Plan `continuum-water/34`: flat noise with short fades at both ends
+    /// and a loop region over the whole clip (a flowing-water bed).
+    NoiseLoop {
+        asset_id: String,
+        record_revision: u64,
+        sample_rate_hz: u32,
+        frames: u32,
+        amplitude: i32,
+        seed: u32,
+        source_span: AuthoringSourceSpanV1,
+    },
 }
 
 impl AuthoringAudioRecordV1 {
@@ -526,7 +610,8 @@ impl AuthoringAudioRecordV1 {
         match self {
             Self::NoiseBurst { source_span, .. }
             | Self::TwoTone { source_span, .. }
-            | Self::Thud { source_span, .. } => source_span,
+            | Self::Thud { source_span, .. }
+            | Self::NoiseLoop { source_span, .. } => source_span,
         }
     }
 }

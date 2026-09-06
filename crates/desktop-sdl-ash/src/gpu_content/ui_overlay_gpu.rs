@@ -447,7 +447,14 @@ impl UiOverlayGpu {
             height: image.height,
             depth: 1,
         };
-        let texture = TextureResource::new(instance, physical_device, &self.device, extent)?;
+        let texture = TextureResource::new(
+            instance,
+            physical_device,
+            &self.device,
+            extent,
+            vk::Format::R8G8B8A8_SRGB,
+            1,
+        )?;
         let staging = BufferAllocation::new(
             instance,
             physical_device,
@@ -526,6 +533,7 @@ impl UiOverlayGpu {
         let push_constants = draw_push_constant_bytes(
             QuantizedPresentationTransformV1::default(),
             [u16::MAX, u16::MAX, u16::MAX, u16::MAX],
+            [0.0; 4],
         );
         // SAFETY: all bound objects belong to the same live device, the
         // command buffer is recording inside dynamic rendering, the quad

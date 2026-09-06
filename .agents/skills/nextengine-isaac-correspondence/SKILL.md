@@ -5,6 +5,8 @@ description: "Audit NextEngine canonical CPU PhysX versus Isaac Lab GPU mirror i
 
 # NextEngine Isaac correspondence
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Keep CPU PhysX/headless canonical. Isaac is a replaceable accelerated mirror;
 passing correspondence permits bounded mirror use but never makes GPU replay
 authority.

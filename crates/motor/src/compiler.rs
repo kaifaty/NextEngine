@@ -184,6 +184,7 @@ impl CompiledBodySchemaV1 {
                 initial_linear_velocity_micrometres_per_second: [0; 3],
                 initial_angular_velocity_q16: [0; 3],
                 active: true,
+                mass_microkilograms: body.mass_microkilograms,
                 shapes: BTreeMap::from([(shape_id, shape)]),
             };
             bodies.insert(

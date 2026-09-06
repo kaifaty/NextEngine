@@ -14,6 +14,29 @@ pub struct PresentationReportV1 {
     pub object_count: u64,
 }
 
+/// Plan `continuum-water/28` (ADR-106): the presentation fluid lane of a
+/// run — presence, the probe's fallback reason and bounded statistics.
+/// Strings and integers only; the vendor stays in the game root.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PresentationFluidReportV1 {
+    pub lane: String,
+    pub active: bool,
+    pub fallback_reason: Option<String>,
+    pub frames: u64,
+    pub peak_particles: u64,
+    pub emitted: u64,
+    pub absorbed: u64,
+    pub last_particles: u64,
+    pub cost_mean_us: u64,
+    pub cost_max_us: u64,
+    pub analysis_mean_us: u64,
+    pub inside_colliders_max: u64,
+    pub spray_fraction_max_permille: u32,
+    /// Plan 40: the fluid's recreations after failures.
+    #[serde(default)]
+    pub recoveries: u32,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunReportV1 {
     pub schema_version: u32,
@@ -34,6 +57,9 @@ pub struct RunReportV1 {
     pub command_ledger_hash: String,
     pub interactive_host_object_count: u64,
     pub presentation: Option<PresentationReportV1>,
+    /// Plan 28: absent when no presentation fluid lane was requested.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation_fluid: Option<PresentationFluidReportV1>,
 }
 
 impl RunReportV1 {
@@ -75,6 +101,7 @@ impl RunReportV1 {
             command_ledger_hash: run.command_ledger_hash.to_hex(),
             interactive_host_object_count,
             presentation,
+            presentation_fluid: None,
         })
     }
 
@@ -180,5 +207,64 @@ mod tests {
             panic!("message context");
         };
         assert_eq!(message.len(), 512);
+    }
+}
+
+#[cfg(test)]
+mod presentation_fluid_tests {
+    use super::*;
+
+    fn report() -> RunReportV1 {
+        RunReportV1 {
+            schema_version: 1,
+            status: "PASS".to_owned(),
+            composition_root: "Game".to_owned(),
+            session_id: "00".to_owned(),
+            close_receipt_hash: "00".to_owned(),
+            close_result: "Saved".to_owned(),
+            final_save_generation_hash: None,
+            project_composition_lock_hash: "00".to_owned(),
+            ticks: 1,
+            events: 0,
+            rpg_events: 0,
+            authoritative_revision: 1,
+            authoritative_state_root: "00".to_owned(),
+            command_archive_root: "00".to_owned(),
+            command_identity_index_root: "00".to_owned(),
+            command_ledger_hash: "00".to_owned(),
+            interactive_host_object_count: 0,
+            presentation: None,
+            presentation_fluid: None,
+        }
+    }
+
+    #[test]
+    fn presentation_fluid_round_trips_and_is_absent_when_not_requested() {
+        let plain = report();
+        let json = plain.to_json().expect("serialises");
+        assert!(!json.contains("presentation_fluid"));
+        let back: RunReportV1 = serde_json::from_str(&json).expect("a report without the field");
+        assert_eq!(back, plain);
+        let mut with_lane = report();
+        with_lane.presentation_fluid = Some(PresentationFluidReportV1 {
+            lane: "physx-pbd".to_owned(),
+            active: false,
+            fallback_reason: Some("PhysX GPU library not found".to_owned()),
+            frames: 0,
+            peak_particles: 0,
+            emitted: 0,
+            absorbed: 0,
+            last_particles: 0,
+            cost_mean_us: 0,
+            cost_max_us: 0,
+            analysis_mean_us: 0,
+            inside_colliders_max: 0,
+            spray_fraction_max_permille: 0,
+            recoveries: 0,
+        });
+        let json = with_lane.to_json().expect("serialises");
+        assert!(json.contains("\"presentation_fluid\":{\"lane\":\"physx-pbd\",\"active\":false"));
+        let back: RunReportV1 = serde_json::from_str(&json).expect("deserialises");
+        assert_eq!(back, with_lane);
     }
 }

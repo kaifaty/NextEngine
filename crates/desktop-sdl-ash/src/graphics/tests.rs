@@ -207,3 +207,22 @@ fn completed_slot_fence_aliases_are_retired_before_fence_reuse() {
 fn b0_swapchain_uses_fifo_as_its_only_presentation_pacing_source() {
     assert!(B0_PRESENT_MODE == vk::PresentModeKHR::FIFO);
 }
+
+/// Scene look L1 (plan `look/01`) G6: the HDR chain's declared fallbacks.
+#[test]
+fn hdr_chain_falls_back_for_each_missing_precondition() {
+    use super::hdr_chain_fallback_reason;
+    assert_eq!(hdr_chain_fallback_reason(true, true, true), None);
+    assert_eq!(
+        hdr_chain_fallback_reason(false, true, true),
+        Some("the tonemap suite is missing")
+    );
+    assert_eq!(
+        hdr_chain_fallback_reason(true, false, true),
+        Some("the swapchain admits no offscreen scene target")
+    );
+    assert_eq!(
+        hdr_chain_fallback_reason(true, true, false),
+        Some("R16G16B16A16_SFLOAT is not a blendable sampleable colour attachment")
+    );
+}

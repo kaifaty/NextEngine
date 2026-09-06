@@ -17,6 +17,9 @@ use super::query::{
     validate_reference_shape,
 };
 
+/// WR1 (plan `continuum-water/10`): the bounded profile accepts this many
+/// free-body dynamic boxes.
+pub const MAX_DYNAMIC_BOXES: usize = 16;
 #[derive(Clone, Debug)]
 pub struct GroundedCapsuleWorld<Q> {
     pub(super) checkpoint: PhysicsWorldCheckpointV1,
@@ -38,6 +41,10 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) query: Q,
     memoized_snapshot_hash: OnceLock<Result<ContentHash, CanonicalError>>,
     memoized_catalog_hash: OnceLock<Result<ContentHash, CanonicalError>>,
+    /// Plan 20 (SPEC-38 practice 2): the flow step's activity set. Derived
+    /// state: never canonical, never compared, reset when the table or the
+    /// network is replaced, empty after a restore.
+    water_flow_activity: next_contracts::physics::WaterFlowActivityV1,
 }
 
 // The memoized hashes are derived caches of exact canonical bytes, never
@@ -105,6 +112,14 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             &numeric_profile,
             &quantization_profile,
         )?;
+        // ADR-103 / SPEC-26 2.6: the flow network integrates once per
+        // gameplay tick, so its authored tick rate must equal the world's;
+        // a mismatch rejects before activation or restore.
+        if !checkpoint.water_flow.is_empty()
+            && checkpoint.water_flow.ticks_per_second != tick_rate_profile.gameplay_hz
+        {
+            return Err(PhysicsContractError::WaterFlowInvalid.into());
+        }
 
         let bindings = &checkpoint.catalog.avatar_bindings;
         if bindings.len() > 1 {
@@ -231,6 +246,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                     dynamic_boxes.push(GroundedCapsuleDynamicBox {
                         body_id: *body_id,
                         shape_id: shape.shape_id,
+                        mass_microkilograms: body.mass_microkilograms,
                         local_centre_micrometres: shape.local_pose.translation_micrometres,
                         half_extents_micrometres,
                         contact_reporting: shape.contact_reporting,
@@ -261,7 +277,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         static_boxes.sort_by_key(|shape| shape.shape_id);
         dynamic_boxes.sort_by_key(|shape| shape.shape_id);
         sensor_boxes.sort_by_key(|shape| shape.shape_id);
-        if dynamic_boxes.len() > 1 {
+        if dynamic_boxes.len() > MAX_DYNAMIC_BOXES {
             return Err(ReferencePhysicsError::UnsupportedProfile);
         }
         if checkpoint.catalog.materials.values().any(|material| {
@@ -305,6 +321,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             query,
             memoized_snapshot_hash: OnceLock::new(),
             memoized_catalog_hash: OnceLock::new(),
+            water_flow_activity: next_contracts::physics::WaterFlowActivityV1::default(),
         };
         world.validate_activation_snapshot()?;
         Ok(world)
@@ -338,6 +355,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             return Ok(None);
         };
         Ok(Some(Self {
+            water_flow_activity: next_contracts::physics::WaterFlowActivityV1::default(),
             checkpoint: self.checkpoint.clone(),
             tick_rate_profile: self.tick_rate_profile,
             numeric_profile: self.numeric_profile.clone(),
@@ -405,6 +423,48 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
     ) -> Result<ContentHash, next_contracts::canonical::CanonicalError> {
         self.checkpoint.checkpoint_hash()
+    }
+
+    #[must_use]
+    pub const fn water_volumes(&self) -> &next_contracts::physics::WaterVolumeSetV1 {
+        &self.checkpoint.water_volumes
+    }
+
+    /// The water table is checkpoint field 4, outside the snapshot and the
+    /// catalog: neither derived hash memo is affected.
+    pub fn set_water_volumes(&mut self, water_volumes: next_contracts::physics::WaterVolumeSetV1) {
+        self.checkpoint.water_volumes = water_volumes;
+        self.water_flow_activity = next_contracts::physics::WaterFlowActivityV1::default();
+    }
+
+    #[must_use]
+    pub const fn water_flow(&self) -> &next_contracts::physics::WaterFlowNetworkV1 {
+        &self.checkpoint.water_flow
+    }
+
+    /// The flow network is checkpoint field 5, outside the snapshot and the
+    /// catalog: neither derived hash memo is affected.
+    pub fn set_water_flow(&mut self, water_flow: next_contracts::physics::WaterFlowNetworkV1) {
+        self.checkpoint.water_flow = water_flow;
+        self.water_flow_activity = next_contracts::physics::WaterFlowActivityV1::default();
+    }
+
+    /// Plan 07 revision 2: the exact flow step over fields 4 and 5 in
+    /// place; the snapshot and catalog memos are untouched. On an error the
+    /// two fields may be partially written: the caller discards the world.
+    pub fn step_water_flow_in_place(
+        &mut self,
+    ) -> Result<(), next_contracts::physics::PhysicsContractError> {
+        if self.checkpoint.water_flow.is_empty() {
+            return Ok(());
+        }
+        self.checkpoint
+            .water_flow
+            .step_in_place_with_activity(
+                &mut self.checkpoint.water_volumes,
+                Some(&mut self.water_flow_activity),
+            )
+            .map(|_| ())
     }
 
     pub fn set_checkpoint_revision(&mut self, revision: u64) {

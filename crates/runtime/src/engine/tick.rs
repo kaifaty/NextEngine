@@ -220,6 +220,11 @@ impl PreparedRuntimeTick {
         self.staged.physics.snapshot()
     }
 
+    #[must_use]
+    pub fn physics_checkpoint(&self) -> &next_contracts::physics::PhysicsWorldCheckpointV1 {
+        self.staged.physics.checkpoint()
+    }
+
     /// Staged immutable RPG projection of the prepared tick for read-only
     /// presentation probes at the same publication boundary.
     #[must_use]
@@ -257,6 +262,11 @@ impl ValidatedRuntimeTick {
     #[must_use]
     pub fn physics_snapshot(&self) -> &next_contracts::physics::PhysicsCanonicalSnapshotV2 {
         self.0.physics_snapshot()
+    }
+
+    #[must_use]
+    pub fn physics_checkpoint(&self) -> &next_contracts::physics::PhysicsWorldCheckpointV1 {
+        self.0.physics_checkpoint()
     }
 
     #[must_use]

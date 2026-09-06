@@ -105,6 +105,8 @@ impl ReferenceGameDriverV2 {
             &runtime.rpg_snapshot(),
             &physical_animation,
             runtime.physics_snapshot(),
+            &runtime.physics_checkpoint().water_volumes,
+            runtime.next_tick(),
         )?;
 
         let mut input = self.input.clone();
@@ -163,6 +165,8 @@ impl ReferenceGameDriverV2 {
             audio_cue_bindings: Arc::clone(&self.audio_cue_bindings),
             audio_listener_binding,
             audio_mixer,
+            water_audio_clips: self.water_audio_clips,
+            water_audio: crate::water_audio::WaterAudioStateV1::default(),
             #[cfg(feature = "physical-sound-lab")]
             physical_sound_lab: super::physical_sound_lab::demo_mixer(),
             #[cfg(feature = "physical-sound-lab")]

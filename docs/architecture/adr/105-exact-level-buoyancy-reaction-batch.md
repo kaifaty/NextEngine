@@ -1,0 +1,126 @@
+# ADR-105: Exact-level buoyancy reaction batch (first one-pass coupling consumer)
+
+| Field | Value |
+|---|---|
+| ID | ADR-105 |
+| Status | Accepted |
+| Version | 1.1 |
+| Decision date | 2026-09-03 |
+| Proposal date | 2026-09-03 |
+| Last verified | 2026-09-04 |
+| Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-100](100-authoritative-water-volume-and-presentation-only-gpu-water.md), [ADR-103](103-authoritative-water-flow-network.md), [ADR-104](104-water-v1-authority-is-the-exact-table-and-flow-network.md) |
+| Supersedes | none; narrows the ADR-058 clause "PhysX владеет только private live solver objects" for water by admitting one engine-owned, exact, replayed impulse batch into the canonical physics step input, as ADR-076 required of "a later Accepted ADR narrowing ADR-058" |
+| Superseded by | none |
+
+## Context
+
+ADR-104 names `CONTINUUM-WATER-BUOYANCY-P1` as the coupling check that
+promotes water, and requires that its reaction source is the exact water
+level, never a particle set. ADR-076/081 define the one-pass composite
+step (freeze, solve, one reaction batch, PhysX applies and integrates
+once, publish or nothing) and the exact exchange tuple every
+cross-owner record binds. No reaction record exists yet in the contracts;
+the physics step input carries only accepted locomotion intents.
+
+## Decision
+
+### One exact impulse batch per tick, inside the physics owner
+
+1. **Source.** Before the rigid step of every gameplay tick the physics
+   owner computes, from the committed water table and network levels as
+   staged for that step (the previous tick's flow result plus any level
+   command committed earlier in the same tick) and the committed canonical
+   body poses of the previous tick, a
+   `WaterBuoyancyBatchV1`: for every dynamic body whose canonical
+   axis-aligned bounds intersect a water volume horizontally and lie
+   below its effective level, the displaced volume is the exact integer
+   volume of the bounds clipped by the level plane (cubic millimetres),
+   the buoyancy impulse is `rho_water * g * V * dt` upward at the centroid
+   of the clipped bounds, and the drag impulse is
+   `-k_damp * rho_water * V * v * dt` with `v` the committed linear
+   velocity. `rho_water`, `g`, `k_damp` and the bounds rule are permille
+   profile constants of the batch profile, not code constants. Bodies
+   outside every volume receive no record. Records sort by body id, one
+   per body.
+2. **Delivery.** The batch rides the canonical step input:
+   `PhysicsStepInputV3` adds `external_impulses` (body id, linear impulse
+   in micronewton-seconds, application point in micrometres, exchange
+   tuple), validated like the intents. The reference world and the PhysX
+   backend apply each impulse exactly once at the first substep of the
+   tick; PhysX remains the sole writer of poses and velocities. Because
+   the batch is part of the step input, it is replayed and hashed with
+   the step and needs no floating-point profile (integers only).
+3. **One pass, no delay.** The batch is computed from the frozen
+   previous-tick state and applied in the same tick's rigid step; there
+   is no reaction on the next substep, no iteration and no
+   arrival-order result. The water side never reads the rigid outcome of
+   the tick it feeds. A batch that fails validation (overflow, unknown
+   body, capacity) rejects the whole uncommitted step (invariant fault).
+4. **Exchange tuple.** Each record binds the ADR-081 tuple: namespace,
+   source owner (water), destination owner (physics), world id, expected
+   source revision/root (the highest committed water record revision and
+   the committed water table hash), expected destination revision/root
+   (world revision and snapshot hash), tick, substep `0`, edge profile
+   `nextengine.water-buoyancy.v1`, body id, operation slot `0`.
+5. **Bounds.** At most `64` records per tick (the water-volume bound);
+   a body larger than a cell is clipped to the cell; no coupling to
+   articulated bodies, characters or sensors in this increment.
+
+### What this does not decide
+
+Particle coupling stays research (ADR-104); wake, splash and wetness
+presentation of a floating body is an ADR-102 increment; buoyancy for the
+player capsule is a later consumer.
+
+## Product check
+
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `CONTINUUM-WATER-BUOYANCY-P1` | One `0.5 m` dynamic cube of `50 kg` in the reference basin at level `0.5 m`; step to rest; raise the level by command; save, restore, continue; repeat. | Equilibrium immersion `0.20 +- 0.05 m` within the frozen settling time; the cube follows the raised level; identical roots on `game` and `headless`, live and restored; a body outside every volume gets no record; the batch reads no presentation state; the step input with the batch round-trips byte-exactly. | Absent network and table: no batch, PhysX unchanged. |
+
+### Revision 1.1 (2026-09-04): drag on the relative velocity, currents from the network
+
+Agreed by the user on 2026-09-04 (plan `continuum-water/37`). The drag
+impulse of item 1 acts on the body's velocity relative to the water:
+`-k_damp * rho_water * V * (v - u) * dt` per axis, where `u` is the water
+velocity of the cell holding the largest clipped volume. `u` is zero for
+a cell outside the flow network; for a network node every two-cell edge
+with flux `Q` (cubic millimetres per tick, positive from `a` to `b`)
+contributes to both cells `Q * hz * 10^9 / (depth * width)` micrometres
+per second along the unit plan direction from `a`'s plan centre to
+`b`'s (q15), `depth` the cell's effective level over its floor and
+`width` the cell's plan extent projected across the direction; one-cell
+edges contribute nothing; contributions sum in edge-id order. The batch
+therefore reads the committed network of the same staged state it reads
+the table from; no profile field changes. With this revision the
+canonical world integrates dynamic boxes in three axes (SPEC-26 2.9,
+D-008 amended): a supported box (its downward sweep cut) keeps the
+push-only horizontal rule, an unsupported box drifts and is braked by
+the water. Tilt and rotation remain outside this ADR.
+
+## Consequences
+
+- `PhysicsStepInputV2` moves to schema `3` with the batch field
+  `external_impulses` (the repository keeps type names across schema
+  bumps, as `PhysicsWorldCheckpointV1` does; pinned roots refresh), and
+  `PhysicsWorldCheckpointV1` moves to schema `4` with the optional batch
+  profile `WaterBuoyancyProfileV1` as field 6, so a restored world computes
+  the same batch (WB1, plan `continuum-water/08`).
+- Prerequisite (found 2026-09-03, plan 08): the canonical world had no
+  free rigid dynamics for boxes (no mass, no gravity); WR1 (plan
+  `continuum-water/10`, SPEC-26 2.7) delivered the exact vertical
+  free-body increment for dynamic boxes with `mass_microkilograms` as the
+  impulse divisor; the world applies `J_y / m` once at the first substep
+  and ignores horizontal components in the push-only profile.
+- The reference scene gains one floating crate in the basin (body
+  `0x87`, `0.5 m`, `50 kg`, mesh `0x8d`).
+- SPEC-26 gains the batch record and the step-input field; SPEC-38's
+  coupling section names this ADR as the water V1 coupling path.
+
+## Considered alternatives
+
+- Apply buoyancy as a PhysX force field outside the step input: rejected;
+  it would not be replayed or hashed and would make PhysX read water.
+- Particle-derived pressure forces: rejected by ADR-104.
+- Exact mesh clipping of arbitrary hulls: deferred; the bounds rule is
+  exact and sufficient for the first consumer.

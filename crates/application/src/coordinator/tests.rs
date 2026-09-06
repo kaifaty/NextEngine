@@ -101,6 +101,7 @@ fn independent_project_runs_one_headless_tick_and_closes_without_reference_boots
         composition_root: CompositionRootV1::Headless,
         presentation_target: PresentationTargetKindV1::None,
         platform_capability_set: None,
+        spawn_override: None,
     })
     .expect("launch creator project");
 
@@ -145,6 +146,7 @@ fn independent_project_scenario_advances_world_services_for_three_ticks() {
         composition_root: CompositionRootV1::Headless,
         presentation_target: PresentationTargetKindV1::None,
         platform_capability_set: None,
+        spawn_override: None,
     })
     .expect("launch creator project");
 

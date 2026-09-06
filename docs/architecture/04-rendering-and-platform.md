@@ -4,14 +4,15 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.14 |
-| Последняя проверка | 2026-08-28 |
+| Версия | 2.15 |
+| Последняя проверка | 2026-09-02 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V2.9 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
 | Дополнительные зависимости V2.10 | [ADR-094](adr/094-confidence-gated-relative-warnings.md) |
 | Дополнительные зависимости V2.13 | [ADR-096](adr/096-active-kernel-linux-performance-cohort.md) |
 | Дополнительные зависимости V2.14 | [ADR-097](adr/097-linux-v1-distribution-closure.md) |
-| Заменяет | SPEC-04 2.13; advances the Linux package to V6 distribution closure while preserving the active-kernel methodology-v11 R2 and Vulkan/display authority |
+| Дополнительные зависимости V2.15 | [ADR-101](adr/101-presentation-only-dynamic-surface-ring.md) |
+| Заменяет | SPEC-04 2.14; names the Proposed ADR-101 bounded developer frame capture and dynamic surface ring without changing capability tiers or budgets |
 
 ## Technical authority boundary
 
@@ -44,7 +45,13 @@ extent/format/color metadata из developer-selected capture request. `headless`
 
 Screenshots, video capture, GPU traces and visual comparison MAY be used as
 developer diagnostics or playtesting tools. Their absence does not break the
-product contract and they never become gameplay authority.
+product contract and they never become gameplay authority. Proposed
+[ADR-101](adr/101-presentation-only-dynamic-surface-ring.md) bounds one such
+diagnostic in the desktop adapter: a run may request one rendered frame,
+the swapchain then carries transfer-source usage or the run fails closed,
+and the frame is reported once as sRGB RGBA8 host memory. The same decision
+admits a presentation-private dynamic surface ring for declared catalog
+meshes; both stay outside every root and release artifact.
 
 Future generated-content previews follow
 [SPEC-46](46-generative-content-authoring-and-candidate-promotion.md): a pinned

@@ -28,9 +28,10 @@ mod hud;
 pub use hud::{
     HUD_ACTION_ACCEPT_TEXT_ID, HUD_ACTION_COMBAT_TEXT_ID, HUD_ACTION_COMPLETE_TEXT_ID,
     HUD_ACTION_ELEMENT_ID, HUD_ACTION_EQUIP_TEXT_ID, HUD_ACTION_PICKUP_TEXT_ID,
-    HUD_ACTION_RELAY_TEXT_ID, HUD_ACTION_RETURN_TEXT_ID, HUD_STATUS_PANEL_ID,
-    HUD_SUBTITLE_ELEMENT_ID, HUD_SURFACE_ID, hud_semantic_ui_records,
-    hud_semantic_ui_records_for_ids,
+    HUD_ACTION_RELAY_TEXT_ID, HUD_ACTION_RETURN_TEXT_ID, HUD_GATE_CLOSE_TEXT_ID,
+    HUD_GATE_ELEMENT_ID, HUD_GATE_OPEN_TEXT_ID, HUD_STATUS_PANEL_ID, HUD_SUBTITLE_ELEMENT_ID,
+    HUD_SURFACE_ID, HUD_WATER_ELEMENT_ID, HUD_WATER_SWIMMING_TEXT_ID, HUD_WATER_WADING_TEXT_ID,
+    hud_semantic_ui_records, hud_semantic_ui_records_for_ids,
 };
 
 fn schema_id(value: &str) -> Result<SchemaId, ReferenceGameError> {
@@ -49,6 +50,16 @@ fn schema_id(value: &str) -> Result<SchemaId, ReferenceGameError> {
 /// and never carry action affordances. The dialogue surface publishes only
 /// while the `ReferenceDialogueUiV1` state is open (S4) and carries the
 /// authored choices with their selection and affordances.
+/// Frame-local HUD status projections that are not part of the RPG
+/// snapshot: the active subtitle cue and the player's exact water class.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LiveHudStatusV1 {
+    pub active_subtitle: Option<SchemaId>,
+    pub player_water: next_contracts::physics::WaterSubmersionClassV1,
+    /// Plan 36: the gate lever's prompt while the avatar is in its reach.
+    pub gate_prompt: Option<crate::water_gate::WaterGatePromptV1>,
+}
+
 pub fn live_semantic_ui_records(
     snapshot_epoch: ContentHash,
     fixture: &ReferenceGameSession,
@@ -56,9 +67,73 @@ pub fn live_semantic_ui_records(
     ui_screen: ReferenceUiScreenV1,
     dialogue: ReferenceDialogueUiV1,
     ui_suspend_causal_hash: Option<ContentHash>,
-    active_subtitle: Option<SchemaId>,
+    status: LiveHudStatusV1,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
+    let LiveHudStatusV1 {
+        active_subtitle,
+        player_water,
+        gate_prompt,
+    } = status;
     let mut records = hud_semantic_ui_records(snapshot_epoch, fixture, rpg)?;
+    if let Some(prompt) = gate_prompt {
+        let text_id = match prompt {
+            crate::water_gate::WaterGatePromptV1::Close => HUD_GATE_CLOSE_TEXT_ID,
+            crate::water_gate::WaterGatePromptV1::Open => HUD_GATE_OPEN_TEXT_ID,
+        };
+        records.push(SemanticUiPresentationRecordV1::new(
+            snapshot_epoch,
+            schema_id(HUD_SURFACE_ID)?,
+            schema_id(HUD_STATUS_PANEL_ID)?,
+            domain_hash(
+                "nextengine.ui-source.rpg-snapshot.v1",
+                &rpg.canonical_bytes()?,
+            ),
+            UiSemanticElementV1::new(
+                schema_id(HUD_GATE_ELEMENT_ID)?,
+                UiElementRoleV1::Label,
+                UiStyleRoleV1::Accent,
+                UiAccessibilityRoleV1::Status,
+                true,
+                true,
+                false,
+                Some(UiTextRefV1::new(schema_id(text_id)?, Vec::new())?),
+                UiElementValueV1::None,
+                Vec::new(),
+            )?,
+        )?);
+    }
+    // ADR-100 first consumer: the player's exact submersion class, read from
+    // the committed water table, rides the HUD status panel as a label.
+    let water_text_id = match player_water {
+        next_contracts::physics::WaterSubmersionClassV1::Dry => None,
+        next_contracts::physics::WaterSubmersionClassV1::Wading => Some(HUD_WATER_WADING_TEXT_ID),
+        next_contracts::physics::WaterSubmersionClassV1::Swimming => {
+            Some(HUD_WATER_SWIMMING_TEXT_ID)
+        }
+    };
+    if let Some(text_id) = water_text_id {
+        records.push(SemanticUiPresentationRecordV1::new(
+            snapshot_epoch,
+            schema_id(HUD_SURFACE_ID)?,
+            schema_id(HUD_STATUS_PANEL_ID)?,
+            domain_hash(
+                "nextengine.ui-source.rpg-snapshot.v1",
+                &rpg.canonical_bytes()?,
+            ),
+            UiSemanticElementV1::new(
+                schema_id(HUD_WATER_ELEMENT_ID)?,
+                UiElementRoleV1::Label,
+                UiStyleRoleV1::Accent,
+                UiAccessibilityRoleV1::Status,
+                true,
+                true,
+                false,
+                Some(UiTextRefV1::new(schema_id(text_id)?, Vec::new())?),
+                UiElementValueV1::None,
+                Vec::new(),
+            )?,
+        )?);
+    }
     // Voice-absent subtitle fallback (A5): the active speech cue's localized
     // text rides the HUD as a `Subtitle`-role element. It is presentation
     // projection only; the element never feeds actions or gameplay state.

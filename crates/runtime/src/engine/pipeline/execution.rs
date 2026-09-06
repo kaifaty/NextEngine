@@ -11,7 +11,9 @@ use next_contracts::physical_animation::{
     RootMotionIntentV1, capsule_root_motion_profile_hash_v1,
     capsule_root_motion_step_micrometres_v1,
 };
-use next_contracts::physics::{AcceptedLocomotionIntentV2, PhysicalCommandV1};
+use next_contracts::physics::{
+    AcceptedLocomotionIntentV2, PhysicalCommandV1, WaterFlowRejectionV1, WaterVolumeRejectionV1,
+};
 use next_contracts::rpg::RpgTransactionPlanV1;
 use next_rpg::{
     RpgPlanBuildError, RpgPlanMaterializeError, RpgPlanningContextV1, build_transaction_plan_v1,
@@ -565,6 +567,78 @@ pub(super) fn execute_candidate(
                 &staged.rpg,
             )?;
             (staged.rpg.clone(), vec![event], delta, None)
+        }
+        CommandPayload::WaterVolume(payload) => {
+            // ADR-100: the authoritative water table lives in the physics
+            // owner checkpoint and changes only here.
+            let current = staged.physics.water_volumes().clone();
+            match current.apply_command(payload, context.tick) {
+                Ok((next, changed)) => {
+                    let delta = next.canonical_record()?;
+                    staged.physics.set_water_volumes(next);
+                    let event = DomainEvent::water_volume(
+                        context.tick,
+                        context.phase,
+                        candidate.command_id,
+                        0,
+                        changed,
+                    )?;
+                    (staged.rpg.clone(), vec![event], delta, None)
+                }
+                Err(rejection) => {
+                    let code = match rejection {
+                        WaterVolumeRejectionV1::UnknownVolume => RejectionCode::WaterVolumeUnknown,
+                        WaterVolumeRejectionV1::RevisionStale => {
+                            RejectionCode::WaterVolumeRevisionStale
+                        }
+                        WaterVolumeRejectionV1::LevelOutOfExtent => {
+                            RejectionCode::WaterVolumeLevelOutOfExtent
+                        }
+                        WaterVolumeRejectionV1::RevisionExhausted => {
+                            RejectionCode::WaterVolumeRevisionExhausted
+                        }
+                    };
+                    return finalize_rejection(context, candidate, staged, code);
+                }
+            }
+        }
+        CommandPayload::WaterFlow(payload) => {
+            // ADR-103: the flow network lives next to the water table in the
+            // physics owner checkpoint and changes only here.
+            let current = staged.physics.water_flow().clone();
+            match current.apply_command(payload, context.tick) {
+                Ok((next, changed)) => {
+                    let delta = next.canonical_record()?;
+                    staged.physics.set_water_flow(next);
+                    let event = DomainEvent::water_flow(
+                        context.tick,
+                        context.phase,
+                        candidate.command_id,
+                        0,
+                        changed,
+                    )?;
+                    (staged.rpg.clone(), vec![event], delta, None)
+                }
+                Err(rejection) => {
+                    let code = match rejection {
+                        WaterFlowRejectionV1::UnknownEdge => RejectionCode::WaterFlowEdgeUnknown,
+                        WaterFlowRejectionV1::WrongKind => RejectionCode::WaterFlowEdgeKindMismatch,
+                        WaterFlowRejectionV1::RevisionStale => {
+                            RejectionCode::WaterFlowRevisionStale
+                        }
+                        WaterFlowRejectionV1::OpeningOutOfRange => {
+                            RejectionCode::WaterFlowOpeningOutOfRange
+                        }
+                        WaterFlowRejectionV1::RateOutOfRange => {
+                            RejectionCode::WaterFlowRateOutOfRange
+                        }
+                        WaterFlowRejectionV1::RevisionExhausted => {
+                            RejectionCode::WaterFlowRevisionExhausted
+                        }
+                    };
+                    return finalize_rejection(context, candidate, staged, code);
+                }
+            }
         }
         CommandPayload::AgentCognition(_) => {
             let cognition =

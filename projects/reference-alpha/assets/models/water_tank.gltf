@@ -1,0 +1,449 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "tools/gltf/generate.py (Next Engine, plan look/05b)"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "water_tank",
+      "nodes": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "tank_body",
+      "mesh": 0,
+      "children": [
+        1
+      ]
+    },
+    {
+      "name": "tank_lid",
+      "mesh": 1,
+      "translation": [
+        0.0,
+        2.1,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.258819045,
+        0.0,
+        0.965925826
+      ]
+    },
+    {
+      "name": "tank_pipe",
+      "mesh": 3
+    },
+    {
+      "name": "tank_leg_0",
+      "mesh": 2,
+      "translation": [
+        0.325269,
+        0.0,
+        0.325269
+      ]
+    },
+    {
+      "name": "tank_leg_1",
+      "mesh": 2,
+      "translation": [
+        -0.325269,
+        0.0,
+        0.325269
+      ]
+    },
+    {
+      "name": "tank_leg_2",
+      "mesh": 2,
+      "translation": [
+        -0.325269,
+        0.0,
+        -0.325269
+      ]
+    },
+    {
+      "name": "tank_leg_3",
+      "mesh": 2,
+      "translation": [
+        0.325269,
+        0.0,
+        -0.325269
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "tank_body",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "tank_lid",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "tank_leg",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "tank_pipe",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "painted_steel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "metallicFactor": 1.0,
+        "roughnessFactor": 1.0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 1
+        }
+      },
+      "normalTexture": {
+        "index": 2
+      },
+      "doubleSided": false
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "uri": "water_tank_albedo.png",
+      "mimeType": "image/png"
+    },
+    {
+      "uri": "water_tank_metallic_roughness.png",
+      "mimeType": "image/png"
+    },
+    {
+      "uri": "water_tank_normal.png",
+      "mimeType": "image/png"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 134,
+      "type": "VEC3",
+      "min": [
+        -0.6,
+        0.7,
+        -0.6
+      ],
+      "max": [
+        0.6,
+        2.1,
+        0.6
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 134,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 134,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 384,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 231,
+      "type": "VEC3",
+      "min": [
+        -0.66,
+        0.0,
+        -0.66
+      ],
+      "max": [
+        0.66,
+        0.3,
+        0.66
+      ]
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 231,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 231,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 960,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 48,
+      "type": "VEC3",
+      "min": [
+        -0.1,
+        0.0,
+        -0.1
+      ],
+      "max": [
+        0.1,
+        0.72,
+        0.1
+      ]
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 48,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 48,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 72,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 221,
+      "type": "VEC3",
+      "min": [
+        0.55,
+        0.0,
+        -0.1
+      ],
+      "max": [
+        1.13,
+        1.1,
+        0.1
+      ]
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 221,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 221,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 864,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 1608,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 1608,
+      "byteLength": 1608,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3216,
+      "byteLength": 1072,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4288,
+      "byteLength": 768,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 5056,
+      "byteLength": 2772,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 7828,
+      "byteLength": 2772,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 10600,
+      "byteLength": 1848,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 12448,
+      "byteLength": 1920,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 14368,
+      "byteLength": 576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 14944,
+      "byteLength": 576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 15520,
+      "byteLength": 384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 15904,
+      "byteLength": 144,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 16048,
+      "byteLength": 2652,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 18700,
+      "byteLength": 2652,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 21352,
+      "byteLength": 1768,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 23120,
+      "byteLength": 1728,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 24848,
+      "uri": "water_tank.bin"
+    }
+  ]
+}

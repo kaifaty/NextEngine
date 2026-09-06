@@ -51,6 +51,31 @@ pub enum DesktopAdapterError {
         requested: [u32; 2],
         observed: [u32; 2],
     },
+    DynamicSurfaceInvalid {
+        reason: &'static str,
+    },
+    DynamicSurfaceUndeclared,
+    DynamicSurfaceCapacityExceeded {
+        requested: u32,
+        limit: u32,
+    },
+    DynamicSurfaceSequenceRegressed {
+        previous: u64,
+        actual: u64,
+    },
+    FrameCaptureUnsupported,
+    ParticleSurfaceInvalid {
+        reason: &'static str,
+    },
+    ParticleSurfaceUndeclared,
+    ParticleSurfaceCapacityExceeded {
+        requested: u32,
+        limit: u32,
+    },
+    ParticleSurfaceSequenceRegressed {
+        previous: u64,
+        actual: u64,
+    },
 }
 
 impl DesktopAdapterError {
@@ -94,6 +119,23 @@ impl DesktopAdapterError {
             Self::DeviceRecoveryLimitExceeded { .. } => "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED",
             Self::FullscreenStartExtentUnavailable { .. } => {
                 "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE"
+            }
+            Self::DynamicSurfaceInvalid { .. } => "PRESENTATION_DYNAMIC_SURFACE_INVALID",
+            Self::DynamicSurfaceUndeclared => "PRESENTATION_DYNAMIC_SURFACE_UNDECLARED",
+            Self::DynamicSurfaceCapacityExceeded { .. } => {
+                "PRESENTATION_DYNAMIC_SURFACE_CAPACITY_EXCEEDED"
+            }
+            Self::DynamicSurfaceSequenceRegressed { .. } => {
+                "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID"
+            }
+            Self::FrameCaptureUnsupported => "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED",
+            Self::ParticleSurfaceInvalid { .. } => "PRESENTATION_PARTICLE_SURFACE_INVALID",
+            Self::ParticleSurfaceUndeclared => "PRESENTATION_PARTICLE_SURFACE_UNDECLARED",
+            Self::ParticleSurfaceCapacityExceeded { .. } => {
+                "PRESENTATION_PARTICLE_SURFACE_CAPACITY_EXCEEDED"
+            }
+            Self::ParticleSurfaceSequenceRegressed { .. } => {
+                "PRESENTATION_PARTICLE_SURFACE_SEQUENCE_INVALID"
             }
         }
     }
@@ -187,6 +229,39 @@ impl Display for DesktopAdapterError {
                 formatter,
                 "PLATFORM_FULLSCREEN_START_EXTENT_UNAVAILABLE: borderless fullscreen start settled at {:?} instead of the declared extent {:?}",
                 observed, requested
+            ),
+            Self::DynamicSurfaceInvalid { reason } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_INVALID: {reason}"
+            ),
+            Self::DynamicSurfaceUndeclared => formatter.write_str(
+                "PRESENTATION_DYNAMIC_SURFACE_UNDECLARED: mesh revision is not a declared dynamic surface in the exact catalog",
+            ),
+            Self::DynamicSurfaceCapacityExceeded { requested, limit } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_CAPACITY_EXCEEDED: requested {requested} exceeds declared capacity {limit}"
+            ),
+            Self::DynamicSurfaceSequenceRegressed { previous, actual } => write!(
+                formatter,
+                "PRESENTATION_DYNAMIC_SURFACE_SEQUENCE_INVALID: previous {previous}, got {actual}"
+            ),
+            Self::FrameCaptureUnsupported => formatter.write_str(
+                "PRESENTATION_FRAME_CAPTURE_UNSUPPORTED: the presentation surface does not allow transfer-source swapchain images",
+            ),
+            Self::ParticleSurfaceInvalid { reason } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_INVALID: {reason}"
+            ),
+            Self::ParticleSurfaceUndeclared => formatter.write_str(
+                "PRESENTATION_PARTICLE_SURFACE_UNDECLARED: the run declares no particle surface",
+            ),
+            Self::ParticleSurfaceCapacityExceeded { requested, limit } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_CAPACITY_EXCEEDED: requested {requested} exceeds declared capacity {limit}"
+            ),
+            Self::ParticleSurfaceSequenceRegressed { previous, actual } => write!(
+                formatter,
+                "PRESENTATION_PARTICLE_SURFACE_SEQUENCE_INVALID: previous {previous}, got {actual}"
             ),
         }
     }

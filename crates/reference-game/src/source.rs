@@ -26,8 +26,44 @@ pub const REFERENCE_BLADE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd4
 pub const REFERENCE_RELAY_INACTIVE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd5; 16]);
 pub const REFERENCE_RELAY_ACTIVE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd6; 16]);
 pub const REFERENCE_DEFEATED_ENEMY_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd8; 16]);
+/// Scene look L5 (plan `look/05`): the concrete of the works, the pond and the basin rim.
+pub const REFERENCE_CONCRETE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x49; 16]);
 pub const REFERENCE_RELAY_APPROACH_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd9; 16]);
 pub const REFERENCE_INDICATOR_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0xd7; 16]);
+pub const REFERENCE_WATER_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7c; 16]);
+pub const REFERENCE_WATER_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x7d; 16]);
+/// ADR-103 vessel surface quads (presentation only), sharing the water material.
+pub const REFERENCE_WATER_VESSEL_A_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7e; 16]);
+pub const REFERENCE_WATER_VESSEL_B_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x7f; 16]);
+/// ADR-105: the floating crate cube (`0.5 m`) of the basin.
+pub const REFERENCE_WATER_CRATE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x8d; 16]);
+/// Plan 16: the compound rim mesh around the basin (five boxes).
+pub const REFERENCE_WATER_BASIN_RIM_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x8e; 16]);
+/// Plan 32: the pond interior (walls, floor, steps) and its surface quad.
+pub const REFERENCE_WATER_POND_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9d; 16]);
+pub const REFERENCE_WATER_POND_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x9e; 16]);
+/// Plan 39: the lake works (banks, dam, sill, stairs, terraces, walls), the
+/// lake's surface quad and the three stream cells' quads.
+pub const REFERENCE_WATER_WORKS_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe5; 16]);
+/// Scene look L5b (plan `look/05b`): the water tank imported from
+/// `assets/models/water_tank.gltf` (body, lid, pipe, four legs; the
+/// scaffold's order) and its painted-steel material.
+pub const REFERENCE_WATER_TANK_MESH_ASSET_IDS: [AssetId; 7] = [
+    AssetId::from_bytes([0x54; 16]),
+    AssetId::from_bytes([0x55; 16]),
+    AssetId::from_bytes([0x56; 16]),
+    AssetId::from_bytes([0x57; 16]),
+    AssetId::from_bytes([0x58; 16]),
+    AssetId::from_bytes([0x59; 16]),
+    AssetId::from_bytes([0x5a; 16]),
+];
+pub const REFERENCE_WATER_TANK_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x53; 16]);
+pub const REFERENCE_WATER_LAKE_SURFACE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xe6; 16]);
+pub const REFERENCE_WATER_STREAM_SURFACE_MESH_ASSET_IDS: [AssetId; 3] = [
+    AssetId::from_bytes([0xe7; 16]),
+    AssetId::from_bytes([0xe8; 16]),
+    AssetId::from_bytes([0xe9; 16]),
+];
 
 #[must_use]
 pub fn reference_alpha_project_directory() -> PathBuf {

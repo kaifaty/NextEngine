@@ -168,13 +168,14 @@ impl ApplicationCoordinator {
         if self.live_run.is_some() || self.prepared_run.is_some() {
             return Err(ApplicationError::LiveRunAlreadyActive);
         }
-        let driver = ReferenceGameDriverV2::new_with_presentation_epoch(
+        let driver = ReferenceGameDriverV2::new_with_presentation_epoch_and_spawn(
             self.activated_package(),
             include_interaction,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
                 self.activated_project.project_lock.project_lock_sha256,
             ),
+            self.launch.spawn_override,
         )?;
         let state = driver.state()?;
         let prepared = prepare_live_state(
@@ -319,6 +320,17 @@ impl ApplicationCoordinator {
             presentation,
             materialized_lifecycle_boundary: false,
         })
+    }
+
+    /// Plan 09 water presentation frame of the current live run, if any.
+    #[must_use]
+    pub fn latest_water_presentation_frame(
+        &self,
+        frame_index: u64,
+    ) -> Option<Arc<next_reference_game::WaterPresentationFrameV1>> {
+        self.live_run
+            .as_ref()
+            .map(|driver| Arc::new(driver.water_presentation_frame(frame_index)))
     }
 
     /// Interactive pause menu (S5): while the declared pause suspend was

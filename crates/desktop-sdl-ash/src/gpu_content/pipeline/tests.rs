@@ -19,6 +19,7 @@ fn material_factor_uses_the_full_unorm16_range() {
     let bytes = draw_push_constant_bytes(
         QuantizedPresentationTransformV1::default(),
         [0, u16::MAX, 0, u16::MAX],
+        [0.25, 0.5, 0.0, 0.0],
     );
     assert_eq!(&bytes[64..68], &0.0_f32.to_le_bytes());
     assert_eq!(&bytes[68..72], &1.0_f32.to_le_bytes());
@@ -268,4 +269,136 @@ fn assert_approx(actual: f32, expected: f32) {
         (actual - expected).abs() <= 1.0e-5,
         "expected {expected}, got {actual}"
     );
+}
+
+#[test]
+fn halton_jitter_is_distinct_bounded_and_periodic() {
+    // Plan 18 G2: Halton(2, 3), one-based; sample 1 is (1/2, 1/3).
+    assert_approx(halton(1, 2), 0.5);
+    assert_approx(halton(1, 3), 1.0 / 3.0);
+    assert_approx(halton(2, 2), 0.25);
+    assert_approx(halton(3, 3), 1.0 / 9.0);
+    let extent = vk::Extent2D {
+        width: 960,
+        height: 540,
+    };
+    let mut samples = Vec::new();
+    for frame in 0..u64::from(PROJECTION_JITTER_PERIOD) {
+        let jitter = projection_jitter(frame, extent);
+        assert!(jitter.pixels[0] > -0.5 && jitter.pixels[0] < 0.5);
+        assert!(jitter.pixels[1] > -0.5 && jitter.pixels[1] < 0.5);
+        assert_approx(jitter.ndc[0], 2.0 * jitter.pixels[0] / 960.0);
+        assert_approx(jitter.ndc[1], 2.0 * jitter.pixels[1] / 540.0);
+        assert!(
+            !samples.contains(&jitter.pixels),
+            "jitter samples repeat inside one period"
+        );
+        samples.push(jitter.pixels);
+    }
+    assert_eq!(
+        projection_jitter(0, extent),
+        projection_jitter(u64::from(PROJECTION_JITTER_PERIOD), extent)
+    );
+    assert_approx(projection_jitter(0, extent).pixels[0], 0.0);
+    assert_approx(projection_jitter(0, extent).pixels[1], 1.0 / 3.0 - 0.5);
+}
+
+#[test]
+fn projection_jitter_shifts_ndc_by_a_constant_offset_at_every_depth() {
+    // Plan 18 G2: the jittered projection moves every projected point by
+    // the NDC jitter, independent of its depth, and changes nothing else.
+    let camera = camera_frame(CameraViewportV1::full(0), [0, 0, 3_000_000], [0, 0, 0]);
+    let extent = vk::Extent2D {
+        width: 800,
+        height: 600,
+    };
+    let plain = frame_raster_state_jittered(Some(&camera), extent, None).expect("plain state");
+    let jitter = ProjectionJitterV1 {
+        pixels: [0.25, -0.125],
+        ndc: [2.0 * 0.25 / 800.0, 2.0 * -0.125 / 600.0],
+    };
+    let jittered =
+        frame_raster_state_jittered(Some(&camera), extent, Some(jitter)).expect("jittered state");
+    assert_eq!(
+        plain.view_projection,
+        matrix_from_bytes(plain.view_projection_bytes)
+    );
+    for point in [
+        [0.3, 0.2, 0.0, 1.0],
+        [0.0, 0.0, -7.0, 1.0],
+        [-1.0, 0.5, 2.0, 1.0],
+    ] {
+        let a = transform_homogeneous(plain.view_projection, point);
+        let b = transform_homogeneous(jittered.view_projection, point);
+        assert_approx(b[0] / b[3] - a[0] / a[3], jitter.ndc[0]);
+        assert_approx(b[1] / b[3] - a[1] / a[3], jitter.ndc[1]);
+        assert_approx(b[2] / b[3], a[2] / a[3]);
+        assert_approx(b[3], a[3]);
+    }
+    // Only the shadow-independent view-projection differs: the rest of the
+    // frame block (shadow matrix, camera, lighting) is byte-identical.
+    assert_eq!(
+        &plain.view_projection_bytes[64..],
+        &jittered.view_projection_bytes[64..]
+    );
+}
+
+/// Plan look/02 G3: a point moved by one cascade texel along the light's
+/// side axis lands one texel further in the map; the third cascade holds a
+/// point 50 m out and the first does not; the CPU selection mirrors the
+/// programs' rule.
+#[test]
+fn shadow_cascades_snap_to_texels_and_select_by_extent() {
+    use super::{
+        SHADOW_CASCADE_EXTENTS_METRES, shadow_cascade_index, shadow_cascade_matrix,
+        transform_point_column_major,
+    };
+    let camera = [3.2_f32, 1.7, -4.1];
+    let forward = {
+        let v = [-0.45_f32, -0.82, -0.35];
+        let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        [v[0] / n, v[1] / n, v[2] / n]
+    };
+    let side = {
+        let v = [-forward[2], 0.0, forward[0]];
+        let n = (v[0] * v[0] + v[2] * v[2]).sqrt();
+        [v[0] / n, 0.0, v[2] / n]
+    };
+    let extent = SHADOW_CASCADE_EXTENTS_METRES[0];
+    let matrix = shadow_cascade_matrix(camera, extent).expect("cascade");
+    let texel = (extent / 2_048.0) as f32;
+    let point = [camera[0] + 1.0, 0.3, camera[2] - 2.0];
+    let moved = [
+        point[0] + side[0] * texel,
+        point[1],
+        point[2] + side[2] * texel,
+    ];
+    let a = transform_point_column_major(&matrix, point);
+    let b = transform_point_column_major(&matrix, moved);
+    let delta = (b[0] / b[3] - a[0] / a[3]).abs();
+    assert!((delta - 2.0 / 2_048.0).abs() < 1e-5, "{delta}");
+    let far_point = [camera[0] + 50.0, 0.0, camera[2]];
+    let far_in_first = transform_point_column_major(
+        &shadow_cascade_matrix(camera, SHADOW_CASCADE_EXTENTS_METRES[0]).expect("cascade"),
+        far_point,
+    );
+    assert!((far_in_first[0] / far_in_first[3]).abs() > 1.0);
+    let far_in_third = transform_point_column_major(
+        &shadow_cascade_matrix(camera, SHADOW_CASCADE_EXTENTS_METRES[2]).expect("cascade"),
+        far_point,
+    );
+    assert!((far_in_third[0] / far_in_third[3]).abs() <= 1.0);
+    for (distance, expected) in [
+        (4.0, Some(0)),
+        (15.0, Some(1)),
+        (50.0, Some(2)),
+        (200.0, None),
+    ] {
+        let probe = [camera[0] + distance, 0.0, camera[2]];
+        assert_eq!(
+            shadow_cascade_index(camera, probe).expect("cascades"),
+            expected,
+            "{distance} m"
+        );
+    }
 }

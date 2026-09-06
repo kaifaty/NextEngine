@@ -93,6 +93,9 @@ pub struct ReferenceGameSession {
     pub movement_stream_id: CommandStreamId,
     pub rpg_stream_id: CommandStreamId,
     pub interaction_stream_id: CommandStreamId,
+    /// Plan 36: the water-gate system principal and its stream.
+    pub water_gate_principal: IssuerPrincipal,
+    pub water_gate_stream_id: CommandStreamId,
     pub source_id: InputSourceId,
     pub controller_id: PersistentId,
     pub body_id: PersistentId,
@@ -168,6 +171,80 @@ impl ReferenceGameSession {
     }
 }
 
+/// A launch-time spawn override of the reference session: the capsule's
+/// initial translation and the initial camera orbit. It changes the
+/// bootstrap of that session only (a different state root); the reference
+/// checks never use it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReferenceSpawnOverrideV1 {
+    pub translation_micrometres: [i64; 3],
+    pub camera_yaw_millidegrees: i32,
+    pub camera_pitch_millidegrees: i32,
+}
+
+impl ReferenceSpawnOverrideV1 {
+    /// At the south edge of the reference basin (`x 4.5..8.5 m`,
+    /// `z 1..3 m`), the camera behind the avatar looking along `+z`
+    /// across the water toward the crate, slightly down.
+    #[must_use]
+    pub const fn at_water() -> Self {
+        Self {
+            translation_micrometres: [5_300_000, 900_000, 200_000],
+            camera_yaw_millidegrees: 0,
+            camera_pitch_millidegrees: -12_000,
+        }
+    }
+
+    /// Plan 32: the avatar on the pond floor (`x −9..1 m`, `z 5..9.5 m`,
+    /// floor `−1.5 m`), looking `+x` along the pond and 12 degrees up, so
+    /// the camera 4 m west of the avatar lies inside the pond `0.73 m`
+    /// under its level (the camera focus sits `0.7 m` over the capsule
+    /// centre, at `0.1 m` here).
+    #[must_use]
+    pub const fn in_pond() -> Self {
+        Self {
+            translation_micrometres: [-4_500_000, -600_000, 7_250_000],
+            camera_yaw_millidegrees: -90_000,
+            camera_pitch_millidegrees: 12_000,
+        }
+    }
+
+    /// Plan 39: the avatar south-west of the pond (`x −7.5 m`, `z 3.5 m`),
+    /// looking `+z` over the pond with the stream's terraces and the dam
+    /// to the right of the avatar (a third-person camera hides whatever
+    /// the avatar faces), slightly down.
+    #[must_use]
+    pub const fn at_falls() -> Self {
+        Self {
+            translation_micrometres: [-7_500_000, 900_000, 3_500_000],
+            camera_yaw_millidegrees: 0,
+            camera_pitch_millidegrees: -8_000,
+        }
+    }
+
+    /// Plan 39: the avatar on the west bank's top (`3 m`), looking `+x`
+    /// over the lake toward the dam, slightly down.
+    #[must_use]
+    pub const fn at_lake() -> Self {
+        Self {
+            translation_micrometres: [-20_500_000, 3_900_000, 21_000_000],
+            camera_yaw_millidegrees: -60_000,
+            camera_pitch_millidegrees: -12_000,
+        }
+    }
+
+    /// Plan 24: the avatar south of vessel B (`x 15..17.8 m`, `z 1..2.5 m`),
+    /// looking along `+z` into the vessel where the PhysX water demo pours.
+    #[must_use]
+    pub const fn at_vessels() -> Self {
+        Self {
+            translation_micrometres: [16_400_000, 900_000, -1_500_000],
+            camera_yaw_millidegrees: 0,
+            camera_pitch_millidegrees: -10_000,
+        }
+    }
+}
+
 pub fn build_reference_game_session(
     activated_project: ActivatedProjectV8,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
@@ -177,6 +254,14 @@ pub fn build_reference_game_session(
 pub fn build_reference_game_session_with_profile(
     activated_project: ActivatedProjectV8,
     physx_compatible: bool,
+) -> Result<ReferenceGameSession, ReferenceGameError> {
+    build_reference_game_session_with_options(activated_project, physx_compatible, None)
+}
+
+pub fn build_reference_game_session_with_options(
+    activated_project: ActivatedProjectV8,
+    physx_compatible: bool,
+    spawn: Option<ReferenceSpawnOverrideV1>,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
     let project_id = activated_project
@@ -200,7 +285,16 @@ pub fn build_reference_game_session_with_profile(
     let population_principal = IssuerPrincipal::InternalSystem(SystemId::new(
         next_contracts::world_population::WORLD_POPULATION_SYSTEM_ID,
     )?);
+    let water_gate_principal = IssuerPrincipal::InternalSystem(SystemId::new(
+        crate::water::REFERENCE_WATER_GATE_SYSTEM_ID,
+    )?);
     let mut grants = vec![
+        (
+            water_gate_principal.clone(),
+            vec![CapabilityId::new(
+                next_contracts::physics::WATER_FLOW_CAPABILITY_ID,
+            )?],
+        ),
         (
             principal.clone(),
             vec![
@@ -252,6 +346,9 @@ pub fn build_reference_game_session_with_profile(
     let interaction_stream_id = base
         .stream_for(&interaction_principal)
         .expect("neutral fixture allocates the interaction system stream");
+    let water_gate_stream_id = base
+        .stream_for(&water_gate_principal)
+        .expect("neutral fixture allocates the water-gate system stream");
     let agent_stream_id = base
         .stream_for(&agent_principal)
         .expect("neutral fixture allocates the agent planner stream");
@@ -420,6 +517,9 @@ pub fn build_reference_game_session_with_profile(
         &bootstrap.tick_rate_profile,
         &bootstrap.authoritative_numeric_profile,
         &bootstrap.physics_quantization_profile,
+        spawn.map_or(REFERENCE_SPAWN_TRANSLATION_MICROMETRES, |spawn| {
+            spawn.translation_micrometres
+        }),
     )?;
     let (source_graph_hash, source_clip_hash) =
         crate::physical_animation::reference_root_motion_source_hashes(
@@ -439,6 +539,8 @@ pub fn build_reference_game_session_with_profile(
         movement_stream_id,
         rpg_stream_id,
         interaction_stream_id,
+        water_gate_principal,
+        water_gate_stream_id,
         source_id,
         controller_id,
         body_id,
@@ -481,6 +583,13 @@ pub fn build_reference_game_session_with_profile(
     })
 }
 
+/// The authored spawn of the reference avatar.
+pub const REFERENCE_SPAWN_TRANSLATION_MICROMETRES: [i64; 3] = [0, 900_000, 0];
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the checkpoint builder names every authored input explicitly"
+)]
 fn grounded_capsule_checkpoint(
     world_id: PhysicsWorldId,
     capsule_body_id: PhysicsBodyIdV1,
@@ -488,6 +597,7 @@ fn grounded_capsule_checkpoint(
     tick_rate: &next_contracts::input::TickRateProfileV1,
     numeric: &next_contracts::physics::AuthoritativeNumericProfileV1,
     quantization: &next_contracts::physics::PhysicsQuantizationProfileV1,
+    capsule_translation_micrometres: [i64; 3],
 ) -> Result<PhysicsWorldCheckpointV1, ReferenceGameError> {
     let material_id = SchemaId::new("nextengine.physics.material.reference-zero")?;
     let material = PhysicsMaterialDescriptorV1 {
@@ -529,7 +639,7 @@ fn grounded_capsule_checkpoint(
         CARRIED_LOAD_COLLISION_MASK,
     );
     let capsule_pose = PhysicsPoseV1 {
-        translation_micrometres: [0, 900_000, 0],
+        translation_micrometres: capsule_translation_micrometres,
         ..PhysicsPoseV1::default()
     };
     let capsule = PhysicsBodyDescriptorV1 {
@@ -540,6 +650,7 @@ fn grounded_capsule_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         // R5j's carried load is a fixed local compound shape on the same
         // kinematic body. It therefore has no second transform/save owner.
         shapes: BTreeMap::from([
@@ -551,18 +662,11 @@ fn grounded_capsule_checkpoint(
         subject_id: PersistentId::from_bytes([0x57; 16]),
         body_slot: 0,
     };
-    let floor_shape_id = PhysicsShapeIdV1 {
-        body_id: floor_body_id,
-        shape_slot: 0,
-    };
-    let floor = static_box_descriptor(
+    // Plan 32: the ground as four strips around the pond hole.
+    let floor = static_boxes_descriptor(
         floor_body_id,
-        floor_shape_id,
         &material_id,
-        [0, -100_000, 0],
-        [10_000_000, 100_000, 10_000_000],
-        WORLD_COLLISION_LAYER,
-        WORLD_COLLISION_MASK,
+        &crate::water::REFERENCE_GROUND_STRIPS_MICROMETRES,
     );
     let relay_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x58; 16]),
@@ -675,6 +779,55 @@ fn grounded_capsule_checkpoint(
         (r5b_course.sensor_body_id, course_sensor),
     ]);
     bodies.extend(rock_boxes);
+    // ADR-105: the floating crate of the basin (plan `continuum-water/08`).
+    bodies.insert(
+        crate::water::REFERENCE_WATER_CRATE_BODY_ID,
+        water_crate_descriptor(&material_id),
+    );
+    // Plan 16: the authored rim around the basin.
+    bodies.insert(
+        crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID,
+        water_basin_rim_descriptor(&material_id),
+    );
+    // Plan 32: the pond floor and its steps.
+    bodies.insert(
+        crate::water::REFERENCE_WATER_POND_BODY_ID,
+        static_boxes_descriptor(
+            crate::water::REFERENCE_WATER_POND_BODY_ID,
+            &material_id,
+            &crate::water::REFERENCE_WATER_POND_BOXES_MICROMETRES,
+        ),
+    );
+    // Plan 39: the lake works, one static body of world-space boxes.
+    bodies.insert(
+        crate::water::REFERENCE_WATER_WORKS_BODY_ID,
+        static_boxes_descriptor(
+            crate::water::REFERENCE_WATER_WORKS_BODY_ID,
+            &material_id,
+            &crate::water::reference_water_works_boxes(),
+        ),
+    );
+    // Plan 36: the gate lever, a body posed at the lever (the crate mesh is
+    // authored about its own origin and follows the body pose).
+    {
+        let (translation, half_extents) = crate::water::REFERENCE_WATER_GATE_LEVER_BOX_MICROMETRES;
+        let body_id = crate::water::REFERENCE_WATER_GATE_LEVER_BODY_ID;
+        bodies.insert(
+            body_id,
+            static_box_descriptor(
+                body_id,
+                PhysicsShapeIdV1 {
+                    body_id,
+                    shape_slot: 0,
+                },
+                &material_id,
+                translation,
+                half_extents,
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        );
+    }
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -690,7 +843,101 @@ fn grounded_capsule_checkpoint(
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
     )?;
     let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, tick_rate, numeric, quantization)?;
-    Ok(PhysicsWorldCheckpointV1::new(catalog, snapshot)?)
+    let water_volumes = crate::water::reference_water_volumes()?;
+    let water_flow = crate::water::reference_water_flow(&water_volumes)?;
+    Ok(PhysicsWorldCheckpointV1::with_water_and_buoyancy(
+        catalog,
+        snapshot,
+        water_volumes,
+        water_flow,
+        Some(next_contracts::physics::WaterBuoyancyProfileV1::reference_v1()?),
+    )?)
+}
+
+/// Plan 16: the static rim around the basin, five world-space box shapes
+/// on one identity-pose body.
+fn water_basin_rim_descriptor(material_id: &SchemaId) -> PhysicsBodyDescriptorV1 {
+    static_boxes_descriptor(
+        crate::water::REFERENCE_WATER_BASIN_RIM_BODY_ID,
+        material_id,
+        &crate::water::REFERENCE_WATER_BASIN_RIM_BOXES_MICROMETRES,
+    )
+}
+
+/// World-space box shapes (centre, half extents) on one identity-pose
+/// static body.
+fn static_boxes_descriptor(
+    body_id: PhysicsBodyIdV1,
+    material_id: &SchemaId,
+    boxes: &[([i64; 3], [i64; 3])],
+) -> PhysicsBodyDescriptorV1 {
+    let shapes: BTreeMap<_, _> = boxes
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(shape_slot, (translation, half_extents))| {
+            let shape_id = PhysicsShapeIdV1 {
+                body_id,
+                shape_slot: u32::try_from(shape_slot).expect("bounded rim shape count"),
+            };
+            (
+                shape_id,
+                box_shape_descriptor(
+                    shape_id,
+                    material_id,
+                    translation,
+                    half_extents,
+                    WORLD_COLLISION_LAYER,
+                    WORLD_COLLISION_MASK,
+                ),
+            )
+        })
+        .collect();
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Static,
+        initial_pose: PhysicsPoseV1::default(),
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms: 0,
+        shapes,
+    }
+}
+
+/// ADR-105: one `0.5 m`, `50 kg` dynamic cube resting on the basin floor.
+fn water_crate_descriptor(material_id: &SchemaId) -> PhysicsBodyDescriptorV1 {
+    let body_id = crate::water::REFERENCE_WATER_CRATE_BODY_ID;
+    let shape_id = PhysicsShapeIdV1 {
+        body_id,
+        shape_slot: 0,
+    };
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Dynamic,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres:
+                crate::water::REFERENCE_WATER_CRATE_INITIAL_TRANSLATION_MICROMETRES,
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        mass_microkilograms: crate::water::REFERENCE_WATER_CRATE_MASS_MICROKILOGRAMS,
+        shapes: BTreeMap::from([(
+            shape_id,
+            box_shape_descriptor(
+                shape_id,
+                material_id,
+                [0; 3],
+                crate::water::REFERENCE_WATER_CRATE_HALF_EXTENTS_MICROMETRES,
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        )]),
+    }
 }
 
 fn static_box_descriptor(
@@ -713,6 +960,7 @@ fn static_box_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(
             shape_id,
             box_shape_descriptor(
@@ -808,9 +1056,13 @@ fn r5b_course_static_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes,
     }
 }
+
+/// `20 kg`: the R5b push box mass (plan `continuum-water/10`, WR1).
+pub const REFERENCE_PUSH_BOX_MASS_MICROKILOGRAMS: u64 = 20_000_000;
 
 fn r5b_course_dynamic_descriptor(
     body_id: PhysicsBodyIdV1,
@@ -828,6 +1080,7 @@ fn r5b_course_dynamic_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: REFERENCE_PUSH_BOX_MASS_MICROKILOGRAMS,
         shapes: BTreeMap::from([(
             shape_id,
             box_shape_descriptor(
@@ -867,6 +1120,7 @@ fn r5b_course_sensor_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         shapes: BTreeMap::from([(shape_id, shape)]),
     }
 }
@@ -903,6 +1157,7 @@ fn relay_gate_descriptor(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
+        mass_microkilograms: 0,
         // These four boxes match the authored relay mesh: two pillars, the
         // top beam and the central switch. The former single 20-metre-wide
         // test wall extended far beyond every visible surface.

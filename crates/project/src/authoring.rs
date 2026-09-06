@@ -7,6 +7,10 @@
 
 mod cognition;
 mod error_impl;
+mod gltf;
+mod gltf_scaffold;
+mod heightfield;
+mod png;
 mod render_records;
 mod schema;
 mod world_services;
@@ -15,6 +19,9 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Component, Path};
 
+pub use self::gltf::GltfError;
+pub use self::gltf_scaffold::scaffold_gltf;
+
 use self::cognition::build_agent_cognition_catalog;
 use self::render_records::build_render_records;
 use self::schema::{
@@ -22,7 +29,8 @@ use self::schema::{
     AuthoringHumanoidCatalogV2, AuthoringNeutralRecordKindV1, AuthoringPoseCorrectiveDriverAxisV1,
     AuthoringPoseCorrectiveLodClassV1, AuthoringPresentationTargetV1, AuthoringRenderRecordV1,
     AuthoringSourceReferenceV1, AuthoringSourceSpanV1, AuthoringTextureAlphaV1,
-    AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1, ProjectAuthoringManifestV7,
+    AuthoringTextureColorSpaceV1, AuthoringTextureMipLevelsV1, AuthoringWorldRoutineActivityV1,
+    ProjectAuthoringManifestV7,
 };
 use self::world_services::{
     build_world_activity_catalog, build_world_navigation_catalog, build_world_population_catalog,
@@ -36,7 +44,8 @@ use next_contracts::animation_content::{
     NeutralAnimationValueV1, NeutralSkeletonJointV1, NeutralSkeletonV1, NeutralTransformV1,
 };
 use next_contracts::audio::{
-    AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1, NeutralAudioV1,
+    AudioLoopRegionV1, AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1,
+    NeutralAudioV1,
 };
 use next_contracts::body::{
     BODY_PROJECTION_COMPILER_PROFILE_ID_V1, BODY_SCHEMA_ASSET_VERSION_V1, BodySchemaAssetV1,
@@ -70,7 +79,7 @@ use next_contracts::render_content::{
     NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1, NeutralMaterialV1,
     NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralPoseCorrectiveV1,
     NeutralPoseCorrectiveVertexDeltaV1, NeutralRenderJointV1, NeutralRenderRecordV1,
-    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTexelEncodingV1,
+    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTangentV1, NeutralTexelEncodingV1,
     NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
     NeutralTextureMipLevelV1, NeutralTextureV1, POSE_CORRECTIVE_MAX_VERTEX_DELTAS_V1,
     PoseCorrectiveDriverAxisV1, PoseCorrectiveLodClassV1, RenderContentContractError,
@@ -198,11 +207,18 @@ fn load_project_authoring_with_override(
     body_schema_asset
         .validate()
         .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let referenced_sources: Vec<String> = manifest
+        .provenance
+        .referenced_sources
+        .iter()
+        .map(|reference| reference.relative_path.clone())
+        .collect();
     let render_records = build_render_records(
         project_directory,
         &manifest.render_records,
         &skeletons,
         &body_schema_asset,
+        &referenced_sources,
     )?;
     let chunks = manifest
         .partition
@@ -378,7 +394,28 @@ fn build_audio_records(
         .iter()
         .map(|record| {
             validate_span(project_directory, record.source_span())?;
+            let mut loop_region_or_none = None;
             let (id, revision, sample_rate, samples) = match record {
+                AuthoringAudioRecordV1::NoiseLoop {
+                    asset_id: id,
+                    record_revision,
+                    sample_rate_hz,
+                    frames,
+                    amplitude,
+                    seed,
+                    ..
+                } => {
+                    loop_region_or_none = Some(
+                        AudioLoopRegionV1::new(0, u64::from(*frames))
+                            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                    );
+                    (
+                        id,
+                        *record_revision,
+                        *sample_rate_hz,
+                        synthesize_noise_loop(*frames, *amplitude, *seed),
+                    )
+                }
                 AuthoringAudioRecordV1::NoiseBurst {
                     asset_id: id,
                     record_revision,
@@ -423,7 +460,13 @@ fn build_audio_records(
                     synthesize_thud(*frames, *period, *amplitude),
                 ),
             };
-            build_audio_clip(asset_id(id)?, revision, sample_rate, &samples)
+            build_audio_clip(
+                asset_id(id)?,
+                revision,
+                sample_rate,
+                &samples,
+                loop_region_or_none,
+            )
         })
         .collect()
 }
@@ -745,4 +788,6 @@ pub enum ProjectAuthoringError {
         actual: u64,
         limit: u64,
     },
+    /// Scene look L5b: a glTF source the `mesh-gltf` record cannot carry.
+    Gltf(gltf::GltfError),
 }

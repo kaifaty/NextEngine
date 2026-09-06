@@ -12,15 +12,26 @@ use super::codec::{
 use super::profile::{B0_MAX_MESHLET_TRIANGLES, B0_MAX_MESHLET_VERTICES};
 use super::{
     B0RenderContentProfileV1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,
-    MeshPrimitiveTopologyV1, NeutralBaseSkinningProfileV1, NeutralMaterialV1, NeutralMeshV1,
-    NeutralTexelEncodingV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
-    NeutralTextureV1, RENDER_CONTENT_CATALOG_SCHEMA_ID, RENDER_CONTENT_OWNER_ID,
-    RENDER_CONTENT_SCHEMA_VERSION, RENDER_CONTENT_SEGMENT_ID, RenderContentContractError,
-    UvTransformV1,
+    MeshPrimitiveTopologyV1, NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1,
+    NeutralMaterialV1, NeutralMeshV1, NeutralTexelEncodingV1, NeutralTextureColorSpaceV1,
+    NeutralTextureDimensionV1, NeutralTextureV1, RENDER_CONTENT_CATALOG_SCHEMA_ID,
+    RENDER_CONTENT_OWNER_ID, RENDER_CONTENT_SCHEMA_VERSION, RENDER_CONTENT_SEGMENT_ID,
+    RenderContentContractError,
 };
 
 const COOKED_MESH_SCHEMA_ID: &str = "nextengine.render-content.meshlets";
 const MAX_CATALOG_ASSETS: usize = 1_048_576;
+/// Scene look L6a (plan `look/06a`): the layers a splat material blends.
+pub const B0_MAX_SPLAT_LAYERS: u32 = 4;
+/// Scene look L6a: the decode limits of a published render content
+/// catalog (its texture field outgrows the `8 MiB` default).
+pub const RENDER_CONTENT_DECODE_LIMITS: CanonicalDecodeLimits = CanonicalDecodeLimits {
+    max_total_bytes: 64 * 1024 * 1024,
+    max_identifier_bytes: 4 * 1024,
+    max_fields: 4 * 1024,
+    max_field_payload_bytes: 48 * 1024 * 1024,
+    max_sequence_items: 1024 * 1024,
+};
 const MAX_MESHLETS_PER_MESH: usize = 16_777_216;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -502,6 +513,85 @@ impl RenderContentCatalogV1 {
         )?)
     }
 
+    /// Scene look L5 (plan `look/05`): one to three bindings, `BaseColor`
+    /// at uv set 0 first, then at most one `MetallicRoughness` and one
+    /// `Normal` at uv set 0 over linear textures, every binding's UV
+    /// transform the same uniform scale.
+    /// Scene look L5 (plan `look/05`) and L6a (plan `look/06a`): one to
+    /// four bindings under one uniform UV scale: `BaseColor` first, at most
+    /// one `MetallicRoughness` and one `Normal` (linear), and at most one
+    /// `SplatControl` (2D, one layer, linear) which makes the material a
+    /// splat material whose colour, roughness and normal textures carry
+    /// the same `2..=4` layers; a plain material binds one-layer textures.
+    fn validate_b0_bindings(
+        &self,
+        bindings: &[NeutralMaterialTextureBindingV1],
+    ) -> Result<(), RenderContentContractError> {
+        let Some(first) = bindings.first() else {
+            return Err(RenderContentContractError::UnsupportedB0Feature);
+        };
+        if bindings.len() > 4
+            || first.slot() != MaterialTextureSlotV1::BaseColor
+            || first.uv_set() != 0
+        {
+            return Err(RenderContentContractError::UnsupportedB0Feature);
+        }
+        let scale = first
+            .uv_transform()
+            .uniform_scale_q16_16()
+            .ok_or(RenderContentContractError::UnsupportedB0Feature)?;
+        let mut seen_metallic_roughness = false;
+        let mut seen_normal = false;
+        let mut splat = false;
+        let mut layer_counts = Vec::with_capacity(3);
+        for binding in bindings {
+            let texture = self
+                .texture(binding.texture())
+                .ok_or(RenderContentContractError::MissingReference)?;
+            if binding.uv_set() != 0 || binding.uv_transform().uniform_scale_q16_16() != Some(scale)
+            {
+                return Err(RenderContentContractError::UnsupportedB0Feature);
+            }
+            match binding.slot() {
+                MaterialTextureSlotV1::BaseColor if std::ptr::eq(binding, first) => {
+                    layer_counts.push(texture.array_layers());
+                }
+                MaterialTextureSlotV1::MetallicRoughness if !seen_metallic_roughness => {
+                    seen_metallic_roughness = true;
+                    if texture.color_space() != NeutralTextureColorSpaceV1::Linear {
+                        return Err(RenderContentContractError::UnsupportedB0Feature);
+                    }
+                    layer_counts.push(texture.array_layers());
+                }
+                MaterialTextureSlotV1::Normal if !seen_normal => {
+                    seen_normal = true;
+                    if texture.color_space() != NeutralTextureColorSpaceV1::Linear {
+                        return Err(RenderContentContractError::UnsupportedB0Feature);
+                    }
+                    layer_counts.push(texture.array_layers());
+                }
+                MaterialTextureSlotV1::SplatControl if !splat => {
+                    splat = true;
+                    if texture.color_space() != NeutralTextureColorSpaceV1::Linear
+                        || texture.array_layers() != 1
+                        || texture.texel_encoding() != NeutralTexelEncodingV1::Rgba8Unorm
+                    {
+                        return Err(RenderContentContractError::UnsupportedB0Feature);
+                    }
+                }
+                _ => return Err(RenderContentContractError::UnsupportedB0Feature),
+            }
+        }
+        let layers = layer_counts[0];
+        if layer_counts.iter().any(|count| *count != layers)
+            || (splat && !(2..=B0_MAX_SPLAT_LAYERS).contains(&layers))
+            || (!splat && layers != 1)
+        {
+            return Err(RenderContentContractError::UnsupportedB0Feature);
+        }
+        Ok(())
+    }
+
     fn validate_b0(&self) -> Result<(), RenderContentContractError> {
         let fallback_material = self
             .material(self.profile.fallback_material())
@@ -511,8 +601,8 @@ impl RenderContentCatalogV1 {
         for material in &self.materials {
             if material.alpha_mode() != MaterialAlphaModeV1::Opaque
                 || material.base_color_space() != MaterialColorSpaceV1::Linear
-                || material.metallic_unorm16() != 0
-                || material.roughness_unorm16() != u16::MAX
+                // Scene look L1 (plan `look/01`): the B0 shading reads
+                // metallic and roughness, so the profile admits any value.
                 || material.emissive_rgb_unorm16() != [0; 3]
                 || material.emissive_color_space() != MaterialColorSpaceV1::Linear
                 || material.emissive_intensity_q16_16() != 0
@@ -520,26 +610,31 @@ impl RenderContentCatalogV1 {
                 || material.occlusion_strength_unorm16() != u16::MAX
                 || material.alpha_cutoff_unorm16() != 0
                 || material.double_sided()
-                || material.texture_bindings().len() != 1
-                || material.texture_bindings()[0].slot() != MaterialTextureSlotV1::BaseColor
-                || material.texture_bindings()[0].uv_set() != 0
-                || material.texture_bindings()[0].uv_transform() != UvTransformV1::identity()
                 || !material.feature_tags().is_empty()
             {
                 return Err(RenderContentContractError::UnsupportedB0Feature);
             }
-            self.texture(material.texture_bindings()[0].texture())
-                .ok_or(RenderContentContractError::MissingReference)?;
+            self.validate_b0_bindings(material.texture_bindings())?;
         }
         if fallback_material.texture_bindings()[0].texture() != self.profile.fallback_texture() {
             return Err(RenderContentContractError::MissingReference);
         }
+        // Scene look L5 (plan `look/05`): 2D 8-bit textures in sRGB or
+        // linear space with any mip chain the record admits; L6a (plan
+        // `look/06a`): up to four array layers.
         for texture in &self.textures {
             if texture.dimension() != NeutralTextureDimensionV1::D2
-                || texture.array_layers() != 1
-                || texture.color_space() != NeutralTextureColorSpaceV1::Srgb
-                || texture.texel_encoding() != NeutralTexelEncodingV1::Rgba8Unorm
-                || texture.mip_levels().len() != 1
+                || texture.array_layers() > B0_MAX_SPLAT_LAYERS
+                || !matches!(
+                    texture.color_space(),
+                    NeutralTextureColorSpaceV1::Srgb | NeutralTextureColorSpaceV1::Linear
+                )
+                || !matches!(
+                    texture.texel_encoding(),
+                    NeutralTexelEncodingV1::Rgba8Unorm
+                        | NeutralTexelEncodingV1::Rg8Unorm
+                        | NeutralTexelEncodingV1::R8Unorm
+                )
             {
                 return Err(RenderContentContractError::UnsupportedB0Feature);
             }

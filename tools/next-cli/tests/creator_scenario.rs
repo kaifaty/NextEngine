@@ -93,8 +93,9 @@ fn validate_and_run_are_repeatable_path_free_public_operations() {
     let json = first.to_json().expect("scenario JSON");
     assert!(!json.contains(project.to_string_lossy().as_ref()));
     assert!(!json.contains(scenario.to_string_lossy().as_ref()));
+    let first_debug = format!("{first:?}");
     let CreatorScenarioCommandReportV1::Pass(run) = scenario_report(first) else {
-        panic!("scenario run must pass");
+        panic!("scenario run must pass: {first_debug}");
     };
     let CreatorScenarioDetailsV1::Run {
         runtime,

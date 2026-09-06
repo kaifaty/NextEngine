@@ -16,6 +16,11 @@ impl PreparedRuntimeWorldServicesTickV1 {
         self.runtime.physics_snapshot()
     }
 
+    #[must_use]
+    pub fn physics_checkpoint(&self) -> &next_contracts::physics::PhysicsWorldCheckpointV1 {
+        self.runtime.physics_checkpoint()
+    }
+
     /// Immutable contact candidate at the same prepared publication boundary.
     #[must_use]
     pub fn contact_batch(&self) -> &next_contracts::physics::ClosedPhysicsContactBatchV1 {
@@ -108,6 +113,11 @@ impl ValidatedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub fn physics_snapshot(&self) -> &next_contracts::physics::PhysicsCanonicalSnapshotV2 {
         self.generation.runtime.physics_snapshot()
+    }
+
+    #[must_use]
+    pub fn physics_checkpoint(&self) -> &next_contracts::physics::PhysicsWorldCheckpointV1 {
+        self.generation.runtime.physics_checkpoint()
     }
 
     #[must_use]

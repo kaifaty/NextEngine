@@ -23,6 +23,7 @@ impl ProjectAuthoringError {
             Self::DuplicateIdentity => "CONTENT_ID_DUPLICATE",
             Self::MissingReference(_) => "CONTENT_REFERENCE_MISSING",
             Self::SourceLimitExceeded { .. } => "CONTENT_SOURCE_LIMIT_EXCEEDED",
+            Self::Gltf(_) => "CONTENT_GLTF_INVALID",
         }
     }
 }
@@ -74,6 +75,7 @@ impl Display for ProjectAuthoringError {
                     "authoring source size {actual} exceeds limit {limit}"
                 )
             }
+            Self::Gltf(error) => write!(formatter, "glTF authoring source is invalid: {error}"),
         }
     }
 }

@@ -97,7 +97,7 @@ pub fn prepare_interactive(
         render_content_catalog.clone(),
         options.clone(),
         complete_application_finalization as fn() -> DesktopApplicationFinalization,
-        &mut |_, _, _| Ok(None),
+        &mut |_, _, _| Ok(DesktopFramePublicationV1::default()),
     )?;
     Ok(PreparedDesktopRun {
         preparation_id,
@@ -110,7 +110,7 @@ impl PreparedDesktopRun {
     pub fn run_measured(&mut self) -> Result<DesktopRunMeasurement, DesktopAdapterError> {
         let mut frame_source =
             |_: &[PlatformEventV1], _: Duration, _: &mut audio_output::DesktopAudioOutputV1| {
-                Ok(None)
+                Ok(DesktopFramePublicationV1::default())
             };
         self.core.run_loop(&mut frame_source)?;
         Ok(DesktopRunMeasurement {
@@ -149,22 +149,25 @@ pub(super) fn run_interactive_with_shared_timed_frame_source_and_finalize(
         -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
-    run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+    run_interactive_with_shared_frame_publication_and_finalize(
         snapshot,
         render_content_catalog,
         options,
-        |events, elapsed, _audio| frame_source(events, elapsed),
+        |events, elapsed, _audio| {
+            frame_source(events, elapsed).map(DesktopFramePublicationV1::snapshot_only)
+        },
         finalize_application,
     )
 }
 
-/// Audio-aware variant: the frame source also receives the bounded audio
-/// sink owned by this adapter on every pump (SPEC-08 AUDIO-P1).
+/// Publication-aware variant: the frame source receives the bounded audio
+/// sink owned by this adapter on every pump (SPEC-08 AUDIO-P1) and returns
+/// the snapshot replacement plus declared dynamic surface updates.
 #[allow(
     clippy::too_many_arguments,
-    reason = "the audio-aware entry point keeps the shared snapshot and sink boundary explicit"
+    reason = "the publication entry point keeps the shared snapshot, surface and sink boundary explicit"
 )]
-pub(super) fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+pub(super) fn run_interactive_with_shared_frame_publication_and_finalize(
     snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
@@ -172,8 +175,7 @@ pub(super) fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
         &[PlatformEventV1],
         Duration,
         &mut audio_output::DesktopAudioOutputV1,
-    )
-        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
+    ) -> Result<DesktopFramePublicationV1, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     let mut core = InteractiveRunCore::prepare(
@@ -218,6 +220,7 @@ fn invalid_prepared_run(message: &'static str) -> DesktopAdapterError {
 
 struct InteractiveRunCore<F: FnMut() -> DesktopApplicationFinalization> {
     current_snapshot: RefCell<Arc<PresentationSnapshotV3>>,
+    dynamic_surfaces: RefCell<DynamicSurfaceState>,
     render_content_catalog: RenderContentCatalogV1,
     options: DesktopRunOptions,
     normalizer: Option<lifecycle::DesktopEventNormalizer>,
@@ -232,6 +235,12 @@ struct InteractiveRunCore<F: FnMut() -> DesktopApplicationFinalization> {
     audio: RefCell<audio_output::DesktopAudioOutputV1>,
     events: sdl3::EventPump,
     window: Window,
+    /// Scripted input (sorted by time), the next pending index and the
+    /// clock it runs against (plan `continuum-water/11` diagnostics).
+    scripted_input: Vec<crate::run_state::DesktopScriptedInputV1>,
+    scripted_next: usize,
+    scripted_started: Option<Instant>,
+    event_subsystem: sdl3::EventSubsystem,
     _video: sdl3::VideoSubsystem,
     _sdl: sdl3::Sdl,
 }
@@ -250,6 +259,13 @@ struct InteractiveRunCompletion {
     device_recoveries: u64,
     software_paced_iterations: u64,
     software_pacing_sleep_microseconds: u64,
+    dynamic_surface_uploads: u64,
+    dynamic_surface_upload_bytes: u64,
+    dynamic_surface_draws: u64,
+    particle_surface_uploads: u64,
+    particle_surface_upload_bytes: u64,
+    particle_surface_frames: u64,
+    submerged_frames: u64,
 }
 
 impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
@@ -262,10 +278,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             &[PlatformEventV1],
             Duration,
             &mut audio_output::DesktopAudioOutputV1,
-        ) -> Result<
-            Option<Arc<PresentationSnapshotV3>>,
-            DesktopAdapterError,
-        >,
+        ) -> Result<DesktopFramePublicationV1, DesktopAdapterError>,
     ) -> Result<Self, DesktopAdapterError> {
         // Locals are declared before the finalizer so every partial
         // initialization failure finalizes before reverse-order native drops.
@@ -278,6 +291,11 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
 
         snapshot.validate()?;
         let current_snapshot = RefCell::new(snapshot);
+        let dynamic_surfaces = RefCell::new(DynamicSurfaceState::new(
+            &options.dynamic_surfaces,
+            &render_content_catalog,
+            options.particle_surface,
+        )?);
         if options.initial_extent[0] == 0 || options.initial_extent[1] == 0 {
             return Err(DesktopAdapterError::InvalidExtent);
         }
@@ -335,6 +353,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let mut resume_sink = |events: &[PlatformEventV1], elapsed: Duration| {
                 apply_frame_source_result(
                     &current_snapshot,
+                    &dynamic_surfaces,
                     frame_source,
                     events,
                     elapsed,
@@ -349,10 +368,18 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             )?;
         }
 
+        let event_subsystem = sdl.event().map_err(sdl_error)?;
+        let mut scripted_input = options.scripted_input.clone();
+        scripted_input.sort_by_key(|step| step.at_milliseconds);
         Ok(Self {
             current_snapshot,
+            dynamic_surfaces,
             render_content_catalog,
             options,
+            scripted_input,
+            scripted_next: 0,
+            scripted_started: None,
+            event_subsystem,
             normalizer: Some(normalizer),
             event_stats: Some(event_stats),
             pacing_clock: RefCell::new(InteractivePacingClock::default()),
@@ -374,10 +401,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             &[PlatformEventV1],
             Duration,
             &mut audio_output::DesktopAudioOutputV1,
-        ) -> Result<
-            Option<Arc<PresentationSnapshotV3>>,
-            DesktopAdapterError,
-        >,
+        ) -> Result<DesktopFramePublicationV1, DesktopAdapterError>,
     ) -> Result<(), DesktopAdapterError> {
         if self.run_started {
             return Err(invalid_prepared_run(
@@ -396,6 +420,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
 
         let completion = {
             let current_snapshot = &self.current_snapshot;
+            let dynamic_surfaces = &self.dynamic_surfaces;
             let render_content_catalog = &self.render_content_catalog;
             let options = &self.options;
             let pacing_clock = &self.pacing_clock;
@@ -403,10 +428,15 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let events = &mut self.events;
             let window = &mut self.window;
             let audio = &self.audio;
+            let scripted_input = &self.scripted_input;
+            let scripted_next = &mut self.scripted_next;
+            let scripted_started = &mut self.scripted_started;
+            let event_subsystem = &self.event_subsystem;
             let mut event_sink = |events: &[PlatformEventV1]| {
                 let elapsed = pacing_clock.borrow_mut().elapsed_for_pump(Instant::now());
                 apply_frame_source_result(
                     current_snapshot,
+                    dynamic_surfaces,
                     frame_source,
                     events,
                     elapsed,
@@ -428,6 +458,13 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let mut event_loop_iterations = 0_u64;
             let mut software_paced_iterations = 0_u64;
             let mut software_pacing_sleep_microseconds = 0_u64;
+            let mut dynamic_surface_uploads = 0_u64;
+            let mut dynamic_surface_upload_bytes = 0_u64;
+            let mut dynamic_surface_draws = 0_u64;
+            let mut particle_surface_uploads = 0_u64;
+            let mut particle_surface_upload_bytes = 0_u64;
+            let mut particle_surface_frames = 0_u64;
+            let mut submerged_frames = 0_u64;
 
             'application: loop {
                 let frame_started = Instant::now();
@@ -438,6 +475,26 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 let mut observations = Vec::new();
                 let mut swapchain_dirty = false;
                 let mut fullscreen_toggle_count = 0_u64;
+                if !scripted_input.is_empty() {
+                    let started = *scripted_started.get_or_insert(frame_started);
+                    let run_milliseconds =
+                        u64::try_from(frame_started.duration_since(started).as_millis())
+                            .unwrap_or(u64::MAX);
+                    while let Some(step) = scripted_input.get(*scripted_next)
+                        && step.at_milliseconds <= run_milliseconds
+                    {
+                        // SAFETY: SDL is initialised for the lifetime of this
+                        // run; the call reads the monotonic tick clock.
+                        let timestamp = unsafe { sdl3::sys::timer::SDL_GetTicksNS() };
+                        native_events::push_scripted_action(
+                            event_subsystem,
+                            window.id(),
+                            timestamp,
+                            step.action,
+                        )?;
+                        *scripted_next += 1;
+                    }
+                }
                 let mut native_events: Vec<_> = events.poll_iter().collect();
                 native_events.sort_by_key(native_events::sort_key);
                 for event in native_events {
@@ -680,14 +737,19 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                             .map_err(|_| DesktopAdapterError::CounterOverflow)?
                     };
                 let current_snapshot = current_snapshot.borrow();
+                let current_dynamic_surfaces = dynamic_surfaces.borrow();
                 let render_result = graphics
                     .as_mut()
                     .ok_or(DesktopAdapterError::GraphicsContextMissing)?
                     .render(
                         current_snapshot.as_ref(),
+                        current_dynamic_surfaces.current(),
+                        current_dynamic_surfaces.current_particles(),
                         window,
                         event_and_frame_source_update_microseconds,
+                        rendered_frames,
                     );
+                drop(current_dynamic_surfaces);
                 drop(current_snapshot);
                 let submitted = match render_result {
                     Ok(submitted) => submitted,
@@ -719,6 +781,25 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                     last_frame_plan_hash = Some(submitted.frame_plan_hash);
                     last_drawable_extent = Some(submitted.drawable_extent);
                     last_target_revision = Some(submitted.target_revision);
+                    dynamic_surface_uploads = dynamic_surface_uploads
+                        .checked_add(submitted.dynamic_surface_uploads)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    dynamic_surface_upload_bytes = dynamic_surface_upload_bytes
+                        .checked_add(submitted.dynamic_surface_upload_bytes)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    dynamic_surface_draws = submitted.dynamic_surface_draws;
+                    particle_surface_uploads = particle_surface_uploads
+                        .checked_add(submitted.particle_surface_uploads)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    particle_surface_upload_bytes = particle_surface_upload_bytes
+                        .checked_add(submitted.particle_surface_upload_bytes)
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    particle_surface_frames = particle_surface_frames
+                        .checked_add(u64::from(submitted.particle_surface_recorded))
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
+                    submerged_frames = submerged_frames
+                        .checked_add(u64::from(submitted.submerged))
+                        .ok_or(DesktopAdapterError::CounterOverflow)?;
                     pacing_clock
                         .borrow_mut()
                         .observe_frame_submission(Instant::now());
@@ -751,6 +832,13 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 device_recoveries,
                 software_paced_iterations,
                 software_pacing_sleep_microseconds,
+                dynamic_surface_uploads,
+                dynamic_surface_upload_bytes,
+                dynamic_surface_draws,
+                particle_surface_uploads,
+                particle_surface_upload_bytes,
+                particle_surface_frames,
+                submerged_frames,
             }
         };
         self.completion = Some(completion);
@@ -772,6 +860,8 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             device_allocation_count,
             frame_plan_metrics,
             ui_overlay_counters,
+            captured_frames,
+            particle_surface_available,
         ) = {
             let graphics = self
                 .graphics
@@ -779,12 +869,15 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
             graphics.wait_idle()?;
             let (bytes, allocations) = graphics.device_allocation_stats()?;
+            let captured_frames = graphics.take_captured_frames()?;
             (
                 graphics.take_frame_profiling(),
                 bytes,
                 allocations,
                 graphics.frame_plan_metrics(),
                 graphics.ui_overlay_counters(),
+                captured_frames,
+                graphics.particle_surface_available(),
             )
         };
         let report = DesktopRunReport {
@@ -829,6 +922,18 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             audio_device_faults: self.audio.borrow().device_faults(),
             audio_device_reopens: self.audio.borrow().reopens(),
             audio_output_active: self.audio.borrow().output_active(),
+            dynamic_surface_publications: self.dynamic_surfaces.borrow().publications(),
+            dynamic_surface_uploads: completion.dynamic_surface_uploads,
+            dynamic_surface_upload_bytes: completion.dynamic_surface_upload_bytes,
+            dynamic_surface_draws: completion.dynamic_surface_draws,
+            dynamic_surface_hashes: self.dynamic_surfaces.borrow().current_hashes(),
+            captured_frames,
+            particle_surface_available,
+            particle_surface_publications: self.dynamic_surfaces.borrow().particle_publications(),
+            particle_surface_uploads: completion.particle_surface_uploads,
+            particle_surface_upload_bytes: completion.particle_surface_upload_bytes,
+            particle_surface_frames: completion.particle_surface_frames,
+            submerged_frames: completion.submerged_frames,
         };
         self.finalizer.finish();
         Ok(report)

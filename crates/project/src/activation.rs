@@ -84,7 +84,7 @@ fn activate_pinned_project(
 
     if generation.generation_id != project_lock.project_lock_sha256
         || project_lock.runtime_determinism_profile_sha256
-            != RuntimeDeterminismBundleV1::core_r5c()
+            != RuntimeDeterminismBundleV1::core_r8d()
                 .expect("the engine-owned determinism bundle is canonical")
                 .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()
@@ -500,9 +500,11 @@ fn activate_pinned_project(
     {
         return Err(ProjectActivationError::HashMismatch);
     }
+    // Scene look L6a (plan `look/06a`): the catalog's texture field
+    // outgrows the default limits.
     let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
         required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
-        limits,
+        next_contracts::render_content::RENDER_CONTENT_DECODE_LIMITS,
     )?;
     if published_catalog != render_content_catalog {
         return Err(ProjectActivationError::HashMismatch);

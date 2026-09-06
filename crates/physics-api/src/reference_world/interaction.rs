@@ -39,6 +39,8 @@ impl GroundedCapsuleAttachedBox {
 pub(super) struct GroundedCapsuleDynamicBox {
     pub body_id: PhysicsBodyIdV1,
     pub shape_id: PhysicsShapeIdV1,
+    /// WR1/ADR-105: the impulse divisor of external impulses.
+    pub mass_microkilograms: u64,
     pub local_centre_micrometres: [i64; 3],
     pub half_extents_micrometres: [i64; 3],
     pub contact_reporting: PhysicsContactReportingV1,

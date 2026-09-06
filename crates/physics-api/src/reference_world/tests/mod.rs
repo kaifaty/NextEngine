@@ -1,4 +1,5 @@
 mod fixture;
+mod free_body;
 mod r5b;
 mod r5j;
 
@@ -302,6 +303,7 @@ fn backend_failure_leaves_the_previous_checkpoint_untouched() {
             .tick_rate_profile()
             .physics_substeps_per_gameplay_tick,
         accepted_intents: Vec::new(),
+        external_impulses: Vec::new(),
     };
     assert_eq!(
         failing.step(&input),
@@ -971,4 +973,60 @@ fn scene_query_applies_bilateral_layer_filter_before_geometry() {
             eligible_hit: false
         }
     );
+}
+
+#[test]
+fn water_flow_network_tick_rate_must_match_the_world_profile() {
+    use next_contracts::ids::PersistentId;
+    use next_contracts::physics::{
+        PhysicsWorldCheckpointV1, WaterFlowEdgeKindV1, WaterFlowEdgeV1, WaterFlowNetworkV1,
+        WaterVolumeDefinitionV1, WaterVolumeSetV1,
+    };
+
+    let source = fixture::world(30, 60, [0, 900_000, 0], 0);
+    let checkpoint = source.checkpoint().clone();
+    let cell = PersistentId::from_bytes([0x7e; 16]);
+    let volumes = WaterVolumeSetV1::from_definitions([WaterVolumeDefinitionV1 {
+        volume_id: cell,
+        minimum_micrometres: [40_000_000, 0, 40_000_000],
+        maximum_micrometres: [42_000_000, 2_000_000, 41_500_000],
+        initial_level_micrometres: 500_000,
+        swimming_depth_micrometres: 1_200_000,
+        level_ramp: None,
+        profile_revision: 1,
+    }])
+    .expect("volumes");
+    let network = |ticks_per_second: u32| {
+        WaterFlowNetworkV1::from_edges(
+            ticks_per_second,
+            [WaterFlowEdgeV1 {
+                edge_id: PersistentId::from_bytes([0x81; 16]),
+                cell_a: cell,
+                cell_b: None,
+                kind: WaterFlowEdgeKindV1::Source {
+                    rate_cubic_millimetres_per_second: 1_000,
+                },
+            }],
+            &volumes,
+        )
+        .expect("network")
+    };
+    let build = |ticks_per_second: u32| {
+        let checkpoint = PhysicsWorldCheckpointV1::with_water(
+            checkpoint.catalog.clone(),
+            checkpoint.snapshot.clone(),
+            volumes.clone(),
+            network(ticks_per_second),
+        )
+        .expect("checkpoint");
+        ReferencePhysicsWorld::new(
+            checkpoint,
+            *source.tick_rate_profile(),
+            source.numeric_profile().clone(),
+            source.quantization_profile().clone(),
+        )
+    };
+    assert!(build(30).is_ok(), "the world's gameplay rate is accepted");
+    let mismatch = build(60).expect_err("a different tick rate rejects");
+    assert_eq!(mismatch.stable_code(), "PHYS_WATER_FLOW_INVALID");
 }

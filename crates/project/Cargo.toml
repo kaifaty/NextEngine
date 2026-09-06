@@ -11,6 +11,7 @@ next_assets.workspace = true
 next_contracts.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+flate2.workspace = true
 
 [dev-dependencies]
 next_reference_game.workspace = true

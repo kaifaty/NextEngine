@@ -41,7 +41,7 @@ pub fn build_reference_runtime_bootstrap(
     project_id: &str,
     grants: impl IntoIterator<Item = (IssuerPrincipal, Vec<CapabilityId>)>,
 ) -> Result<ReferenceRuntimeBootstrap, crate::ReferenceGameError> {
-    let profile = RuntimeDeterminismBundleV1::core_r5c()?.runtime_profile();
+    let profile = RuntimeDeterminismBundleV1::core_r8d()?.runtime_profile();
     let world_identity = WorldIdentityManifestV1::new(
         ProjectId::new(project_id)?,
         sha256(format!("nextengine.fixture.nonce:{project_id}").as_bytes()),

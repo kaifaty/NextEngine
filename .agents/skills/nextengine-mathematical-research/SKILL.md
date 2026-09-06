@@ -5,6 +5,8 @@ description: "Prove/refute/bound NextEngine math/numerical claims with counterex
 
 # NextEngine mathematical research
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Resolve one exact mathematical or computational claim inside the architecture
 that NextEngine actually declares. Produce the smallest evidence that can
 falsify or support the claim; do not turn research into a parallel architecture
@@ -222,7 +224,8 @@ certificate. Otherwise use `REFUTED`, `SUPPORTED_BOUNDED`, `INCONCLUSIVE` or
 
 ## Hand off without promotion by implication
 
-End with:
+For a research campaign, cover the following in a concise handoff. For bounded
+triage or a side question, include only the applicable result and limitations:
 
 1. the exact claim status and ceiling;
 2. decisive evidence and independent checks;

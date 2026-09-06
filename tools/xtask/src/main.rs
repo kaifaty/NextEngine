@@ -24,6 +24,13 @@ mod physical_sound_reproduce_command;
 mod physical_sound_steel_search_command;
 mod physx;
 mod visual_smoke;
+mod water_buoyancy_command;
+mod water_flow_command;
+mod water_lattice_command;
+mod water_present_command;
+mod water_preview;
+mod water_stream;
+mod water_volume_command;
 use native_gate_environment::run_output_with_state;
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
@@ -103,7 +110,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-mutations, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, audio-scene, boundary-scan, content-package, continuum, gltf-scaffold, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physical-sound-benchmark, physical-sound-corpus, physical-sound-eval, physical-sound-lab, physical-sound-mutations, physical-sound-registry, physical-sound-reproduce, physical-sound-steel-search, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, water-buoyancy, water-flow, water-present, water-preview, water-volume, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -141,6 +148,15 @@ fn run() -> Result<(), String> {
             println!("{report}");
             Ok(())
         }
+        "gltf-scaffold" => {
+            // Scene look L5b (plan `look/05b`): print the authoring records
+            // of a glTF file among a project's sources.
+            let (project, source, asset_base) = parse_gltf_scaffold_arguments(arguments)?;
+            let fragment = next_project::scaffold_gltf(&root.join(project), &source, asset_base)
+                .map_err(|error| format!("gltf-scaffold: {error}"))?;
+            print!("{fragment}");
+            Ok(())
+        }
         "host-check" => {
             reject_extra_arguments(arguments)?;
             host_check(&root)
@@ -169,6 +185,26 @@ fn run() -> Result<(), String> {
         "performance-codegen" => {
             let request = performance_codegen_command::parse_arguments(arguments)?;
             performance_codegen_command::performance_codegen(&root, &request)
+        }
+        "water-volume" => {
+            reject_extra_arguments(arguments)?;
+            water_volume_command::run()
+        }
+        "water-buoyancy" => {
+            reject_extra_arguments(arguments)?;
+            water_buoyancy_command::run()
+        }
+        "water-flow" => {
+            reject_extra_arguments(arguments)?;
+            water_flow_command::run()
+        }
+        "water-lattice" => {
+            reject_extra_arguments(arguments)?;
+            water_lattice_command::run()
+        }
+        "water-present" => {
+            reject_extra_arguments(arguments)?;
+            water_present_command::run()
         }
         "physical-character" => {
             reject_extra_arguments(arguments)?;
@@ -216,6 +252,10 @@ fn run() -> Result<(), String> {
         "visual-smoke" => {
             let request = visual_smoke::parse_arguments(arguments, &root)?;
             visual_smoke::run(&root, &request)
+        }
+        "water-preview" => {
+            let request = water_preview::parse_arguments(arguments, &root)?;
+            water_preview::run(&request)
         }
         "v1-closure" => {
             reject_extra_arguments(arguments)?;
@@ -959,4 +999,35 @@ fn run_output(root: &Path, program: &str, arguments: &[&str]) -> Result<Output, 
             String::from_utf8_lossy(&output.stderr)
         ))
     }
+}
+
+/// Scene look L5b: `gltf-scaffold --project <dir> --source <relative path>
+/// --asset-base <hex byte>`.
+fn parse_gltf_scaffold_arguments(
+    mut arguments: impl Iterator<Item = String>,
+) -> Result<(String, String, u8), String> {
+    let mut project = None;
+    let mut source = None;
+    let mut asset_base = None;
+    while let Some(flag) = arguments.next() {
+        let value = arguments
+            .next()
+            .ok_or_else(|| format!("gltf-scaffold: {flag} expects a value"))?;
+        match flag.as_str() {
+            "--project" => project = Some(value),
+            "--source" => source = Some(value),
+            "--asset-base" => {
+                let digits = value.trim_start_matches("0x");
+                asset_base = Some(u8::from_str_radix(digits, 16).map_err(|_| {
+                    format!("gltf-scaffold: --asset-base {value} is not a hex byte")
+                })?);
+            }
+            other => return Err(format!("gltf-scaffold: unknown argument {other}")),
+        }
+    }
+    Ok((
+        project.ok_or("gltf-scaffold: --project is required")?,
+        source.ok_or("gltf-scaffold: --source is required")?,
+        asset_base.ok_or("gltf-scaffold: --asset-base is required")?,
+    ))
 }

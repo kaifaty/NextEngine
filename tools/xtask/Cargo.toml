@@ -9,8 +9,13 @@ default-run = "xtask"
 
 [features]
 default = []
-desktop-sdl-ash = ["next_verification/desktop-sdl-ash"]
-physx = ["next_motor/physx-sdk", "next_verification/physx"]
+desktop-sdl-ash = ["dep:next_desktop_sdl_ash", "next_verification/desktop-sdl-ash"]
+physx = [
+    "next_motor/physx-sdk",
+    "next_verification/physx",
+    "dep:next_physics_physx_ffi",
+    "next_physics_physx_ffi/physx-sdk",
+]
 physx-mock = ["next_motor/mock-abi", "next_verification/physx-mock"]
 
 [dependencies]
@@ -22,7 +27,9 @@ next_application.workspace = true
 next_cli.workspace = true
 next_contracts.workspace = true
 next_continuum_water.workspace = true
+next_desktop_sdl_ash = { workspace = true, optional = true }
 next_motor.workspace = true
+next_physics_physx_ffi = { workspace = true, optional = true }
 next_project.workspace = true
 next_presentation.workspace = true
 next_reference_game.workspace = true

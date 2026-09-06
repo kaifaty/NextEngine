@@ -5,6 +5,8 @@ description: "Prepare and execute hash-closed NextEngine humanoid training, init
 
 # NextEngine training runner
 
+Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
+
 Prepare a run only from an exact admitted generation closure. Treat production
 CPU PhysX as canonical, Isaac as an accelerated mirror, and the optimizer as a
 private stochastic tool.
@@ -28,8 +30,10 @@ repository source says something newer.
 
 - **Inspect/preflight:** perform read-only validation. Do not initialize Isaac
   or create a run directory.
-- **Training:** require explicit user intent to spend compute. Fix the run ID,
-  budget and output root before launch.
+- **Training:** a request to start, continue or reproduce training supplies
+  intent to spend compute within its stated scope. Resolve the run ID, budget
+  and output root from that request and the admitted profile. Ask only for a
+  material missing budget/scope decision; do not reconfirm an authorized run.
 - **Initialization:** accept model weights only when a frozen profile explicitly
   binds `initialization.mode`, source profile hash and checkpoint hash.
 - **Resume:** require a trainer-supported complete continuation contract for
@@ -77,8 +81,10 @@ probe CUDA, import Isaac, create directories or launch training.
 
 ## Launch conservatively
 
-1. Confirm the repository commit is clean and recorded. Do not stash, reset or
-   discard unrelated changes to satisfy this condition.
+1. Verify that the source used by the run is clean and its commit is recorded.
+   If unrelated workspace edits prevent this, prepare an isolated checkout of
+   the intended committed source when possible. Do not stash, reset or discard
+   unrelated changes or silently train on a different revision.
 2. Confirm the output is below the selected external generation root and that
    the final run directory does not exist.
 3. Run the exact repository entry point in the pinned Isaac environment. Pass
