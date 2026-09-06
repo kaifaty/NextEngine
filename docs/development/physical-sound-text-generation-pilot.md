@@ -7307,3 +7307,114 @@ recording/FEM or network, only own output WAVs for hashes. Ruff format/check,
 source/WAV hashes and links PASS. All jobs terminal; no ProductCheck/runtime/
 roadmap/admission change. `maintain-task-context` records both the positive
 mechanical result and the remaining frequency/numerical limits.
+
+## 2026-09-06 — Internet guitar fluid/structure pressure discriminator
+
+Primary question: can a non-cuboid internet model supply an actual acoustic
+observable, and is a mechanically passive compact approximation sufficient
+to reproduce it? This is a numerical teacher investigation, **not a newly
+trained neural network or a successful arbitrary-object transfer**.
+
+Primary sources inspected:
+
+- [Rettberg et al., replication data, DaRUS-3248 V1](https://darus.uni-stuttgart.de/dataset.xhtml?persistentId=doi:10.18419/darus-3248),
+  published2023-04-05, CC BY4.0. The complete three-file inventory contains
+  system matrices, an interactive sensitivity plot and a preview; no mesh or
+  recorded audio. Only the3,896,244byte matrix payload was needed.
+- [Published paper,2023](https://doi.org/10.1080/13873954.2023.2173238),
+  modelling/port-Hamiltonian/full-order simulation sections directly read from
+  the university PDF. The authors explicitly use a simplified guitar, with
+  internal air and a sound-hole length correction, not a detailed realism
+  benchmark. Excitation is prescribed bridge force; no strings. Pressure near
+  the sound hole is an observation, not the collocated mechanical power port
+  and not arbitrary-listener far-field radiation. The paper exercises82–320Hz.
+
+External `guitar-fsi-source-2026-09-06` retains matrices, Dataverse metadata,
+published PDF/text and separately labelled2022arXiv PDF/text. Published-file
+MD5 `54e6f82be01f30e4d4a29392615a35c9` matches exactly; SHA256
+`b4a99c4d73bf05e94a456d7e2592a9663d857ed675163d5c197d7f04904578cb`.
+PublishedPDF SHA256
+`08a8190482cac284fb82faf4f066c4cb5e9e3763aa8cf5903bfa4f9c20714441`.
+No downloaded code executes. All numeric MAT fields are finite;11248states,
+`A=(J-D)Q` exact. The file's C row order is **top displacement, back
+displacement, averaged pressure**, not the figure legend order. Pressure
+weights sum to1 and select the pressure-state block. Both displacements must
+not be mistaken for velocity; force-port velocity is independently `B^T Qx`.
+
+### Fixed reduction and failed acoustic fidelity
+
+`lab/scripts/physical_sound_guitar_fsi.py` uses one24frequency complex-response
+basis,60–2000Hz,48real columns. Energy-inner-product projection has
+`W=QV`, `V^T Q^T EV=I`; no neural fit, target waveform, basis/order/seed sweep.
+Response-column energy normalization and Gram whitening handle mixed state
+units without modifying dynamics. Broader-than-paper bandwidth is explicitly
+unvalidated. No inherited claim about real material damping or mesh convergence.
+
+External `guitar-fsi-probe-2026-09-06` initially contains reduced.npz,
+reference.npz, result.json and8WAVs. Reduced energy-orthogonality error1.52e-12,
+largest symmetric-A eigenvalue−1.38e-11, largest pole real part−4.004: stable
+and dissipative, **but not acoustically accurate**. On23 unseen intermediate
+frequency probes relative pressure L2 error1.513; even the82–320Hz subset
+has.1514, so failure is not explained solely by extending the bandwidth.
+
+Independent full-state and reduced-state implicit-midpoint comparisons share
+dt.0001s and a.2s horizon. Relative errors (top,back,pressure):
+
+- Prescribed100Hz/1N sine: .004819, .006494, .042910.
+- Prescribed5ms/1N sin-squared pulse: .003869, .012929, .062656.
+
+The pre-run5% all-channel time criterion is **FAILED**. Stable mechanics and
+small displacement error are insufficient as an acoustic acceptance rule.
+All per-frequency failures remain in reference.npz; no frequency exclusions or
+tolerance changes. No new reduction fit follows this failure.
+
+The8reduced WAVs include [velocity→pressure,5ms pulse](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/velocity-then-pressure-5ms.wav),4.5s,
+and [pressure,2→5→10ms pulses](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/pressure-widths-2-5-10ms.wav),7s.
+They remain labelled rejected-approximation controls. Different units require
+separate gains: pressure.0970915PCM/Pa and velocity8.607224PCM/(m/s), each
+constant across pulse widths. These are timbre comparisons, not loudness or
+microphone calibration. Prescribed pulse duration is not an identified
+striker material, and impulse varies with width at fixed1N peak.
+
+A separate full-matrix causal control at100Hz removes only the skew coupling
+between structural-velocity and pressure blocks of J. Original pressure
+response is approximately−3.23956−.001755iPa/N. Without coupling, pressure and
+back-plate response are exactly zero while the top plate still moves. This
+supports the air-mediated path rather than a mislabeled copy of surface motion.
+
+Reproduction, with source/output paths under the external experiment root:
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_guitar_fsi.py --source SOURCE/pHGuitarSystemMatrices.mat --output OUTPUT`.
+The separate `--full-audio` mode reuses the saved reduction and computes a
+full-state audible reference; it does not retry the failed reduction.
+
+Source limitation changes the next action: this one fixed matrix model cannot
+train a geometry/material family or establish a clean unseen-object test.
+Keep its acoustic-observable failure as a validator control, not a new
+per-guitar fitting program. A useful shared-family teacher needs identifiable
+geometry and acoustic outputs together; current cuboid aspect-ratio inputs
+cannot encode this guitar. Existing neural weights and liked demos unchanged.
+
+### Full-state audible reference and verification
+
+The separate full-audio pass completed without another basis fit. It advances
+all11248states for1s at20kHz, retaining raw physical outputs in full-audio.npz.
+A40kHz/.2s countercheck gives relative changes(top,back,pressure,velocity)
+.004395/.001462/.019970/.013524. This is finite time-step evidence only, not a
+continuum convergence result. ROM/full pressure error on the complete second
+is.061223 at the same20kHz integrator. The reduction remains rejected.
+
+Listen to [full-system velocity→air-pressure](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-velocity-then-pressure-5ms.wav),2.5s,
+or [full→reduced pressure](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-then-reduced-pressure-5ms.wav),2.5s.
+These use the same5ms prescribed pulse and unchanged per-unit gains from the
+first pass. Full physical samples are polyphase-resampled20k→44.1kHz; no EQ,
+learned correction, loop or per-wave normalization. The1s horizon is disclosed,
+not a claim that all residual ringing has ended. There are12WAVs total.
+
+Verification:5focused tests PASS (independent constant-force matrix exponential,
+midpoint refinement, transfer-preserving projection, power identity, zero-input/
+decoupling controls, pulse integral/invalid width, reject altered source before
+parsing). All12complete WAVs finite, hashes/sample counts/headroom PASS;6reduced
+and2full base audio replays exact from retained numerical artifacts. Ruff,
+diff and changed-link checks PASS. No Cargo/host-check/ProductCheck: bounded
+external lab only. `maintain-task-context` preserves the new acoustic failure
+and excludes treating this single fixed source as a shared geometry dataset.

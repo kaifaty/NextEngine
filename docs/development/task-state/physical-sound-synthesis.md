@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SHARED_PASSIVE_COUPLED_NEURAL_AUDIBLE / FREQUENCY_LIMIT_ISOLATED.
+Status: ACTIVE_GOAL / INTERNET_FSI_ACOUSTIC_CONTROL / PASSIVE_REDUCTION_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -10,7 +10,21 @@ Status: ACTIVE_GOAL / SHARED_PASSIVE_COUPLED_NEURAL_AUDIBLE / FREQUENCY_LIMIT_IS
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `modal3d-passive-render-2026-09-06`,63source-freeWAVs:
+- **New pressure control:** `guitar-fsi-source-2026-09-06`,DaRUS-3248V1/CCBY4,
+  exactMD5 54e6f82be01f30e4d4a29392615a35c9;11248state supplied matrices.
+  Inventory hasNOmesh/recording/family. Source/publishedpaper sections read;
+  C rows top/back DISPLACEMENT, averaged near-hole pressure;NOTfar-fieldmic.
+- `guitar-fsi-probe-2026-09-06`:48state energy-projected ROM,24fixedfrequency
+  responses60–2000Hz;NOTneuraltraining/transfer.8rejectedROMWAVs retained.
+  Stable/dissipative but pressurefreqL2=1.513(.1514insidepaper82–320Hz);
+  full/reduced.2s pulse5mspressureerror6.266%,top.387%,back1.293%.
+  Pre-run5%timecriterionFAIL. No nextbasis/order/frequency/epoch sweep.
+  Actual100Hzno-FSIcontrol:pressure/backEXACTzero,topstillmoves.
+  Reproduction/source hashes and full-audio control:see latest pilot section.
+  [Full-state velocity→pressure,2.5s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-velocity-then-pressure-5ms.wav).
+  Fullaudio20kHz/1s,40kHz/.2scheck:pressure2.00%timechange;ROM6.12%error.
+  12WAVs,5tests; no newweights, meshconvergence orrealismclaim. Alljobs terminal.
+- **Latest neural primary:** `modal3d-passive-render-2026-09-06`,63source-freeWAVs:
   48heldcases+11material/speedcontrols+4galleries. [Coupled neural radii1→3→5mm](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-render-2026-09-06/striker-radius.wav),7.5s;
   `modal3d-passive-assessment-2026-09-06`:59FEM→interpolator→oldweakNN→coupledNN,10s.
   Alljobs terminal,25testsPASS,124fullfiniteWAVs incl2factorialcontrols;gain1;
@@ -48,51 +62,39 @@ Status: ACTIVE_GOAL / SHARED_PASSIVE_COUPLED_NEURAL_AUDIBLE / FREQUENCY_LIMIT_IS
 - OldNNcollocatedmode8−26.624 is now nonnegative18.114. All59coupledODEenergy
   errors<7.83e-8. Float32repeat-point amplitudesdiffer2.66e-7relative:bitidentity
   checkFAILED;algebraiccollocation≠bitguarantee,PSD unaffected.No tolerance repair.
-- **Next primary:** move beyondcuboid-only velocityproxy towardnon-cuboid geometry/
-  radiation and attributableinternetrecordings,with an audible end-to-end discriminator.
-  Retainpassivefield+hybridcontrol;do notresume pulse/field/epoch/capacitysweeps.
-  Frequencyfactorialexplainsremaininglocalgap;not a mandateforindefinitetoytuning.
-  Reuseexternal`neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2.
-- **Two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,adaptera4c23b52…,
-  fresh262144sharedresidual/72steps/36TRAIN,2freshnoises/step. Frozenweightsunchanged.
-  FixedDEVaudiblespectrum.961561→.972393(5/24),envelopeworse;rulesREJECT.
-  IndependentDEVenergy4.329549→4.319196(20/24),spectrum1.091254→1.102875(1/24);
-  shapeonly~.34%better. Preflightattenuation32→4of60didNOTsufficeforneuralquality.
-  energy-{render,candidate-render,fixed-render}:360WAV+80comparisons;see pilot.
+- **Next primary:** shared-family inputs needgeometryANDacousticoutputs;
+  fixedguitarmatricescannottrainit,aspectratioNNcannotencodeguitar. Keepthis
+  pressure-vs-mechanicsfailure as validatorcontrol,NOTa per-guitar fittingprogram.
+  Retainpassivefield+hybridcontrol;no cuboidpulse/field/frequency/epochsweeps.
+  Needattributableinternetrecordings;no hardware/per-soundapproval. Reuseskfem12.
+- **SonicGauss two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,
+  adaptera4c23b52…,fixedDEVaudiblespectrum.961561→.972393(5/24),envelopeworse.
+  Freshenergyimproves.24%butshapeonly.34%;notquality.360WAV+80comparisonsinpilot.
   No lossweight/gain/seed/epoch/timing-sweeps,SEDvariants orcodec/inventorycycles.
-- **Previous primary/candidateREJECTED:**`sonicgauss-waveform-{render,assessment}-2026-09-06`,
-  120source-freeWAV+60recorded/base/candidatetriples,gain1,prior20baselinesEXACT.
-  `sonicgauss-waveform-odd-fit-2026-09-06`adapterSHA8d702d11…,72steps/262144params,
-  full50Euler+VAEgrad,oddFFTboundary(keep;evenreflectionsfailed),frozenpublishedweights.
-  DEVraw.82450→.76287andaudible.96156→.87239butlogRMS.43974→.63541;
-  normalizedshape.91139→1.01524(4/24wins),18/24quieterthanreference.
+- **Waveform candidateREJECTED:**`sonicgauss-waveform-odd-fit-2026-09-06`,
+  adapter8d702d11…,72steps/262144params/full50Euler,frozenweights,oddFFTretained.
+  DEVaudible.96156→.87239butlevel.43974→.63541,shape.91139→1.01524(4/24wins);
+  18/24quieter;120WAV+60triplesinpilot. No repeatedloss/gain/phase/fitvariations.
   Wood14level/Plastic97all3metricsregress;oldraw-onlyrulepasses,newcombinedREJECT.
 - 36TRAIN(objects2/6/12/24/66/95),24DEV(14/75/94/97),sixauthor-first/object.
   ALLknownpretrainingTRAIN;localobjectsplit≠pristineunseenobject. Source2.98sfit
   vsfull3sevalexplicit. Absolutephysicalsize/force/strikermaterialstillabsent.
-- **Prior codec:**`sonicgauss-codec-probe-2026-09-06`,AUDIO-INPUT;modebeatsbase60/60,
-  sampleworseaudible. Erasering/keep3Hz:raw.004259vsaudible.890216;notEQrepair.
-- **Prior flowfit:**`sonicgauss-shared-contact-{fit,render,assessment,diagnostic}-2026-09-06`;
-  adapter6c2f1eb1…;flowMSEimprovesbutDEVraw.82450→1.21726(3/24).Noflow/attention/lr/epochsweeps.
+- Codecprobe isAUDIO-INPUT,notgeneration/EQrepair;flowfit6c2f1eb1…REJECTED.
+  See pilot;noflow/attention/lr/epoch/codec/pulse/phase/gain sweeps.
 - `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,pinnedranges/CRC/SHA;fullarchiveSHA NOTverified.
   Datasetrevisione905b8cb…,correctedprojection93d397c1…,range-root`sonicgauss-range-2026-09-06`.
   Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
-  Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;
-  stracerenderreadsNOreference/corpus/network. DiagnosisonlyreadsDEVafterfit.
-- SonicGauss pins/reproduction/environment:see pilot and`physical_sound_sonicgauss_shared_fit.py`.
-  CachedreplayEXACT≠GSreencode;single-position-keyfusionisNOTsolecause;
-  newresidualdidNOTfixquality. Keepstrict17source/5weightpins,noT5/pickle/network.
-  KeepnativeSDPA/flash:disablingchangesPTv3patch1024→128;no perfclaim.
+  Inputs/corpus separated;TRAIN-onlyfit/no-reference-rendertracesinpilot.
+- SonicGauss pins/reproduction:pilot/`physical_sound_sonicgauss_shared_fit.py`.
+  Cachedreplay≠GSreencode;keep17source/5weightpins,noT5/pickle/network.
+  KeepnativeSDPA/flash(disablingchangesPTv3patch1024→128);fusionnotsolecause.
 - Prior2DNeuralResonator fit improves12/16spectra but worsensphysicalratios;see pilot.No2Dsweeps.
-- **SonicGauss scale collision:** own8Gaussianfixture doubledgeometry/contact/
-  logscales producesEXACTsame8preprocessednetworkinputs. Positivecontrolsrelative
-  contact/shape/appearancechange. `sonicgauss-input-probe-2026-09-06`,4tests.
-  Oldmodal-frequency-control.wav is fittedDiffSoundmath, NOTneural/sizeevidence.
+- SonicGauss doubledscale→EXACTsameinputs:`sonicgauss-input-probe-2026-09-06`.
+  Oldmodal-frequency-control.wav isDiffSoundmath,NOTneural/sizeevidence.
 - **Retained:** [water](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),13.74s/glass10seed2718,
   8/8coarseWater,notmaterial/flowcalibrated. [Rubber/glass hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s/40mm/s/.5N/90mm,
   NN+48TRAIN513tapunitDCFIR,notfrictionrealism. User:waternormal;rubber/glassunfamiliar.
-  [Five shared-adapter glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav),
-  seed42/150steps5/5noextra,notgeometry/size/force/striker. OriginaladapterSHA863459fb….
+  [Five glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav),863459fb…;notgeometry/size/force/striker.
 - SyncFusionexpanded490TRAINvs239 failsold68heldembedding.15514→.15912;woodworse,
   oneextraglassrigidattack. No promotion/refit. Bothshards2/3fullyverified,nojobs;
   shard3onlyannotations,notdecoded/trained. No DINO/FOV/crop/ridge/embedding/
