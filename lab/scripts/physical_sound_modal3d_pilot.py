@@ -107,6 +107,7 @@ def solve(
         # the existing signed force-to-probe gains are not self-admittance.
         result["self_gains"] = sampled[:-1] ** 2
         result["probe_self_gains"] = sampled[-1] ** 2
+        result["port_modes"] = sampled
     if sample_points is not None:
         samples = np.asarray(sample_points)
         if (

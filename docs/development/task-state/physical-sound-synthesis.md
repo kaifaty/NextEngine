@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / HERTZ_NEURAL_IMPACTS_AUDIBLE / PASSIVE_CONTACT_RESPONSE_NEXT.
+Status: ACTIVE_GOAL / SHARED_PASSIVE_COUPLED_NEURAL_AUDIBLE / FREQUENCY_LIMIT_ISOLATED.
 
 ## Resume in 60 seconds
 
@@ -10,24 +10,25 @@ Status: ACTIVE_GOAL / HERTZ_NEURAL_IMPACTS_AUDIBLE / PASSIVE_CONTACT_RESPONSE_NE
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `modal3d-impact-render-2026-09-06`,15source-freeWAVs:
-  [striker E2→70→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/striker-stiffness.wav),
-  [speed .1→.5→1m/s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/impact-speed.wav),7.5s each;
-  radius/target-stiffnessgalleries+11singleimpacts. Samebaaa9af5…NN,NOnewfit.
-  `modal3d-impact-assessment-2026-09-06`:11coupledFEM→weakFEM→weakNNtriples.
-  Alljobs terminal,20testsPASS,26fullfiniteWAVs/gain1,22replaysEXACT,noinputaudio/FEM/networkrenderreads.
-- **OneSHAREDcorrectedfit:** `modal3d-teacher-effect-2026-09-06/fit`,10000params,
-  unchanged1500Adamsteps/lr.001/seed42,weightsbaaa9af5e55adc52e51648acfad437366abc4d65324a1336fd2a33c167b1c516.
-  36own3Dclampedcuboids×9contacts,324TRAIN;12×4exposedDEVinterpolation.
-  FittraceEXACT36TRAIN NPZ/noDEV;TRAIN-onlymanifestexcludesnumericaldiagnostics.
-  Renderreadsweights/owngeneratedoutputsforhashes,NOFEM/targetrecordings/network.
-- **Against SAMEmesh4DEV, old→new:** freqmean3.049→.972%(12/12bodies),
-  spectrum.270068→.104900(48/48),gainL1.363995→.371654(18/48wins),
-  envelope.068975→.069988(21/48),level.032171→.038634(22/48).Notallqualityimproves.
-  CorrectedTRAINlinear:freq1.382%,spectrum.085594,env.064100,level.033639,
-  gain.369016. NNstillnotbetteroverall;automaticall-fiveoldcomparisonFALSE,
-  baselineverdictREPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED.
-  Olde426a289…checkpointandoriginalaudio unchanged;no modelpromotion.
+- **Latest primary:** `modal3d-passive-render-2026-09-06`,63source-freeWAVs:
+  48heldcases+11material/speedcontrols+4galleries. [Coupled neural radii1→3→5mm](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-render-2026-09-06/striker-radius.wav),7.5s;
+  `modal3d-passive-assessment-2026-09-06`:59FEM→interpolator→oldweakNN→coupledNN,10s.
+  Alljobs terminal,25testsPASS,124fullfiniteWAVs incl2factorialcontrols;gain1;
+  59standalone replays/frozenfrequencyoutputsEXACT;noinputaudio/FEM/networkrenderreads.
+- **Sharedpassivefit:** `modal3d-passive-fit-2026-09-06`,weights6805a313306362f51015d411f7f758489e1872011355924948d8c9475d5ae297.
+  10000total/5064trainableparams;1500Adam/lr.001/seed42;36TRAIN×9uniquepoints,
+  full9×9residue-matrixloss(no eigenvector sign targets). Frequencyheadfrombaaa9af5…FROZEN.
+  FieldR_i(p,q)=a_i(p)a_i(q):PSD/reciprocity algebraically;self=a²,NOabs/clamp.
+  TRAIN-onlytrain.json/36NPZtrace,noDEVselection. Contact/Hertz/dampingstillANALYTICAL.
+- **48heldcoupled cases:** oldweakNN→newNN meanspectrum.217738→.187262(40/48),
+  env.067359→.063573(34/48),level.047713→.042442(27/48). Interpolator.158063/
+  .083520/.081107. Newmatrixerror.270045vsinterp.414235,selfL1.338186vs1.290869;
+  impulseerror.1196%vsinterp.7074%. quality_advantageFALSE(interpolatorspectrumbetter).
+  Modefreq.972% unchangedvsinterp1.382%;12independentbodies,not48frequencycases.
+- **Posthoc2×2discriminator:** `modal3d-passive-factorial-2026-09-06`,all48:
+  spectral I-freq/I-port.15806,N-freq/N-port.18726,I-freq/N-port.13119,
+  N-freq/I-port.19553. [Reference→NN→diagnostic hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-factorial-2026-09-06/reference-neural-diagnostic-hybrid.wav),7.5s.
+  HybridisNOTanothertrainedmodel;keepasstrongercontrol,no promotion/selection.
 - **Familyteacher:** `modal3d-corrected-data-2026-09-06`,pairedmesh3/4all48,
   144NPZ/372fullcontactWAVpairs. TRAINmesh3/DEVmesh4fixedbeforefit,noexclusions.
   43/48localstable:all12DEV;TRAIN2/11/20/29/32failONLYspectrum(.05–.063).
@@ -41,17 +42,17 @@ Status: ACTIVE_GOAL / HERTZ_NEURAL_IMPACTS_AUDIBLE / PASSIVE_CONTACT_RESPONSE_NE
   momentum<2.51e-10. Weakcontactrule10/11PASS;R5mmFAILimpulse+5.253%,spectrum.05193.
   MeanweakFEM/coupled spectrum.015645vsweakNN/coupled.322732:forcefix≠NNqualityfix.
   NumericalelasticpropertiesNOTidentifiedsteel/rubber;no real losses/yield/radiation.
-- **Decisive mechanical limit:** sameNNqueryatforce=probe(1,.5)has3negative
-  residues,includingmode8−26.624. SignedcrossgainsareNOTself-admittance;NOabs/clamprepair.
-  `solve(contact_response=True)` nowreturnsactualself_gains/probe_self_gains,
-  nonnegativeandcross²=self*probe. Defaultoutputunchanged. No newteacherTRAINyet.
-- **Next primary:** sharedpassivecontact/proberesponse representation+audible
-  coupledneuralimpact;research/compare againstretainedinterpolator,not oldpulse/
-  epoch/capacitysweeps. CurrentNNstillvelocityNOTpressure;geometry/radiation/
-  internet-recordedbodies andremainingeventfamilies necessary forfullgoal.
+- **Newteacher:** `modal3d-port-data-2026-09-06`,same36mesh3TRAIN/12mesh4DEV;
+  addsactualport_modes;all48oldfreq/crossresponsesmatch.No rolechanges/exclusions.
+  Priorcrossgainconvergence isNOTa complete self-port/matrixconvergenceproof.
+- OldNNcollocatedmode8−26.624 is now nonnegative18.114. All59coupledODEenergy
+  errors<7.83e-8. Float32repeat-point amplitudesdiffer2.66e-7relative:bitidentity
+  checkFAILED;algebraiccollocation≠bitguarantee,PSD unaffected.No tolerance repair.
+- **Next primary:** move beyondcuboid-only velocityproxy towardnon-cuboid geometry/
+  radiation and attributableinternetrecordings,with an audible end-to-end discriminator.
+  Retainpassivefield+hybridcontrol;do notresume pulse/field/epoch/capacitysweeps.
+  Frequencyfactorialexplainsremaininglocalgap;not a mandateforindefinitetoytuning.
   Reuseexternal`neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2.
-- **Prior common-noise:** `sonicgauss-{common-noise-render,separation}-2026-09-06`:
-  contact/noise.11851/.04639/latent.01302;identityreal8/10vsgen6/10;notrealism;see pilot.
 - **Two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,adaptera4c23b52…,
   fresh262144sharedresidual/72steps/36TRAIN,2freshnoises/step. Frozenweightsunchanged.
   FixedDEVaudiblespectrum.961561→.972393(5/24),envelopeworse;rulesREJECT.
@@ -73,8 +74,7 @@ Status: ACTIVE_GOAL / HERTZ_NEURAL_IMPACTS_AUDIBLE / PASSIVE_CONTACT_RESPONSE_NE
   sampleworseaudible. Erasering/keep3Hz:raw.004259vsaudible.890216;notEQrepair.
 - **Prior flowfit:**`sonicgauss-shared-contact-{fit,render,assessment,diagnostic}-2026-09-06`;
   adapter6c2f1eb1…;flowMSEimprovesbutDEVraw.82450→1.21726(3/24).Noflow/attention/lr/epochsweeps.
-- `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,89,707,492payloadbytes;
-  68,690,214networkbytes,pinned206ranges/CRC/SHA,fullarchiveSHA NOTverified.
+- `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,pinnedranges/CRC/SHA;fullarchiveSHA NOTverified.
   Datasetrevisione905b8cb…,correctedprojection93d397c1…,range-root`sonicgauss-range-2026-09-06`.
   Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
   Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;

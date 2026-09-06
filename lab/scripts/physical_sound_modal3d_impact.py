@@ -45,18 +45,23 @@ CASES = [
 ]
 
 
-def parameters(radius, density, young, poisson, target_young, velocity):
+def parameters(
+    radius, density, young, poisson, target_young, velocity, target_poisson=SHAPE[2]
+):
     if (
-        not np.isfinite([radius, density, young, poisson, target_young, velocity]).all()
+        not np.isfinite(
+            [radius, density, young, poisson, target_young, velocity, target_poisson]
+        ).all()
         or not 0 < radius <= 0.02
         or not 0 < density <= 20000
         or not 0 < young <= 1e12
         or not 0 <= poisson < 0.5
         or not 0 < target_young <= 1e12
+        or not 0 <= target_poisson < 0.5
         or not 0 < velocity <= 2
     ):
         raise ValueError("bounded positive elastic impact parameters required")
-    effective = 1 / ((1 - poisson**2) / young + (1 - SHAPE[2] ** 2) / target_young)
+    effective = 1 / ((1 - poisson**2) / young + (1 - target_poisson**2) / target_young)
     mass = 4 * np.pi * radius**3 * density / 3
     stiffness = 4 * effective * np.sqrt(radius) / 3
     indentation = (5 * mass * velocity**2 / (4 * stiffness)) ** 0.4

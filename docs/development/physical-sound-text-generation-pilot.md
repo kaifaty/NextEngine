@@ -7198,3 +7198,112 @@ PASS: no target recording/FEM/network reads (own WAVs read for hashes only).
 Ruff format/check PASS; jobs terminal. No runtime, roadmap, data-license,
 model promotion or ProductCheck change. `maintain-task-context` preserves the
 negative-residue counterexample and rules out hiding it with abs/clamping.
+
+## 2026-09-06 — Shared passive field: audible coupled neural impacts
+
+Previous goal turn was progress: material/velocity excitation and a mechanical
+counterexample. This turn learns the missing shared contact response and uses
+it for vibration feedback during impact. It remains a synthetic clamped-cuboid
+velocity model, not measured pressure or full-goal completion.
+
+Bounded prior art: [Neary and Topcu, L4DC2023](https://proceedings.mlr.press/v211/neary23a.html),
+methods sections3–5, enforce energy-related matrix structure inside learned
+systems and compose them through power-conserving interfaces. Our experiment
+uses that structural principle, not their architecture, weights or error bound.
+One shared point field gives each modal residue R_i(p,q)=a_i(p)*a_i(q). With
+positive frequencies/damping, modal equations q_ddot+2d*q_dot+omega²*q=A^T*f
+and point velocities v=A*q_dot obey dH/dt=f^T*v-sum(2d*q_dot²). This argument
+is for fixed object/point configurations; moving contact, fracture and changing
+modal bases need their own treatment. Negative cross-transfers remain allowed,
+while self-residues are squares; no abs/clipping of a bad coefficient.
+
+### One fixed fit and standalone output
+
+`physical_sound_modal3d_port_data.py` adds actual modal point factors to the
+same36mesh3TRAIN/12mesh4DEV teachers. All48 old frequencies/cross-gains match;
+roles and five prior convergence warnings remain unchanged. The new self-port
+matrices do not inherit a full convergence proof from the old cross-gain check.
+External `modal3d-port-data-2026-09-06` contains48NPZ/data.json/TRAIN-onlytrain.json.
+
+`physical_sound_modal3d_passive.py fit` freezes the previous baaa9af5… frequency
+head exactly and trains only one 5→64→64→8 point field: 5064 trainable of10000
+total parameters, 1500Adam steps/lr.001/seed42. The loss is MSE on complete9×9
+TRAIN port residue matrices, normalized by per-mode TRAIN mean-square fields.
+Outer products remove eigenvector-sign gauge ambiguity; the duplicate probe
+row is excluded because that point already occurs among the nine TRAIN points.
+No DEV reads, checkpoint selection, extra epoch run or capacity change.
+`modal3d-passive-fit-2026-09-06` weight SHA256:
+`6805a313306362f51015d411f7f758489e1872011355924948d8c9475d5ae297`.
+
+`render` computes a coupled Hertz collision from learned self/transfer residues
+and writes63WAVs:48 held shape/contact cases,11 separate material/speed controls
+and4galleries. All coefficients come from weights, no target recording or FEM
+at generation. Target Poisson is now explicit in contact mechanics for all
+twelve shapes; the old first-shape default is unchanged. Contact, damping and
+physical size/modulus/density scaling are analytical, not newly learned laws.
+
+Listen to [coupled neural impacts, striker radii1→3→5mm](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-render-2026-09-06/striker-radius.wav),7.5s,
+or [first reference→interpolator→old one-way NN→new coupled NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-assessment-2026-09-06/case-00-contact-0-comparison.wav),10s.
+The new model starts at7.5s in the latter; no best-case selection was made.
+All sounds are full2s, same gain1. Existing checkpoints/audio remain untouched.
+
+### Independent quality assessment and cause discriminator
+
+`physical_sound_modal3d_passive_assess.py` compares against mesh4 coupled FEM,
+convex interpolation of TRAIN2×2 port matrices and the previous one-way NN.
+The interpolated matrices are PSD convex combinations, not an invalid negative
+self-response baseline. All59 generated waves replay exactly; primary means
+use only48 held cases, excluding the eleven extra controls.
+
+| Mean over48 held cases | Old one-way NN | New coupled NN | Interpolation |
+| --- | ---: | ---: | ---: |
+| Audible spectral error | .217738 | .187262 | .158063 |
+| Envelope error | .067359 | .063573 | .083520 |
+| Absolute log-RMS error | .047713 | .042442 | .081107 |
+
+New NN wins40/48 spectra,34/48 envelopes,27/48 levels versus old. Relative port
+matrix error .270045 versus interpolation .414235; contact self L1 .338186
+versus1.290869; impulse error .1196% versus .7074%. Frequency error remains
+.972% versus1.382% (twelve independent bodies, repeated across four contacts).
+However, `quality_advantage=false`: interpolation still wins mean spectrum.
+On the previously rejected R5mm one-way condition, new coupled impulse error
+is1.120% and spectral error .268692 versus old .333059. This is not a measured
+material/pressure claim, and small impulse error does not imply small field error.
+
+A posthoc2×2 frequency/port swap on all48 cases, with no training or selection,
+isolates the remaining local gap:
+
+| Spectral error | Interpolated ports | Neural ports |
+| --- | ---: | ---: |
+| Interpolated frequencies | .158063 | .131190 |
+| Frozen neural frequencies | .195530 | .187262 |
+
+External `modal3d-passive-factorial-2026-09-06` retains all rows and two WAVs.
+[Reference→NN→diagnostic hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-factorial-2026-09-06/reference-neural-diagnostic-hybrid.wav),7.5s,
+uses interpolated frequencies with neural ports last. Hybrid envelope .058642,
+level .042494; not another trained checkpoint or automatic promotion. Reproduce
+the discriminator by crossing the existing `interpolate` frequency/matrix
+outputs with generated NPZ frequencies/port factors and calling `coupled` on
+the same48 configs. The remaining spectral gap is not a reason to keep tuning
+the newly corrected contact field. Next move beyond cuboid-only velocity toward
+non-cuboid/radiated sound and attributable internet-recorded evidence, retaining
+this passive-field and hybrid control. No indefinite toy-frequency/pulse sweep.
+
+Verification:25focused tests PASS; new tests cover untrained PSD/reciprocity,
+collocation algebra, mode-sign invariance, arbitrary multiport power balance,
+PSD interpolation and explicit target-Poisson handling. All124WAVs are full,
+finite and below .98 (generated peak .063931; comparisons .081525). All59
+generated replays and old frequency predictions are exact; frozen frequency
+weights/buffers unchanged. Energy-balance error<7.83e-8 across59 collisions.
+One extra bit-identity check on a repeated point FAILED: trained float32 field
+amplitudes differ by2.66e-7 relative between repeated batched rows. Algebraic
+collocation is not a bitwise floating-point guarantee; computed outer-product
+matrices remain PSD. This discrepancy is recorded, not hidden by loosening
+that check or altering weights. The old negative mode8 collocated residue
+(-26.624) is replaced by a nonnegative square (18.114).
+
+Trace: fit reads36TRAIN NPZs/train.json, no DEV; render reads no teacher/target
+recording/FEM or network, only own output WAVs for hashes. Ruff format/check,
+source/WAV hashes and links PASS. All jobs terminal; no ProductCheck/runtime/
+roadmap/admission change. `maintain-task-context` records both the positive
+mechanical result and the remaining frequency/numerical limits.
