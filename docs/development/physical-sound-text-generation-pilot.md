@@ -8392,3 +8392,132 @@ agreement supports the generator route; material/shape/contact generalization,
 field/radiation validation and all non-impact goal branches remain open.
 The context skill preserves strict failures, explicit approximation, raw-meter
 versus audition units and physical-control versus neural-generation distinction.
+
+## Shared physical fields and geometry-only correction discriminator — 2026-09-06
+
+Outcome: one shared trained model now generates physical-port parameters for
+three TRAIN ceramics and one unseen-by-fit ceramic, but **REJECT quality advantage**.
+A subsequent frozen-network physical correction improves its audio but is beaten
+by a non-neural initialization. This is not a per-object neural fit or a promoted
+engine model. Full physical-sound goal and existing fallback remain unchanged.
+
+Audible [DEV88 reference → standalone NN → NN+physics → P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-ritz-probe-assess-2026-09-06/contact-0-comparison.wav),
+12s. Contacts24/47 have the same comparison next to it. One common meter-to-PCM
+gain across ALL48contacts and variants, not independent loudness repair.
+Standalone [three NN contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-physical-shared-assess-2026-09-06/object-88-three-neural.wav),9s,
+uses the earlier per-comparison gains: do not infer relative contact level from
+that gallery. No personal listening or perceptual acceptance claim.
+
+### Multi-object physical data and shared fit
+
+Existing roles are explicit: TRAIN59/66/78, DEV88. No new source payload or role
+promotion;88 was already open development. The expanded mesh resolver supports
+both existing archive manifests and the same approximate fTetWild settings.
+Meshes66/78/88 respectively:22070/7278/6829nodes,80234/26244/23651tetrahedra;
+volume changes .32705/.20736/.09843%. Geometry checks use2048 evenly spaced
+vertex/centroid samples per direction; all within requested envelopes, not a
+continuous Hausdorff, all-point or field convergence proof. Mesh hashes:
+
+- 66: `d5ce0a19363cc78d2485e5a215b9a9a092074e22e1f979710258b51db5850f13`.
+- 78: `37b6880af918f54c59366e2370ec2f48c3d0158988a4b98b782362c6985a784c`.
+- 88: `2073486ffd53f704dcafca0cae8311779dae538c9cb4c386b4176ca51b6c7a01`.
+
+Same P2 free elasticity, six rigid then32elastic modes, E/rho/nu/Rayleigh constants
+unchanged. 66 exceeds the old200000DOF limit: explicit `--max-dofs 500000`,
+421791DOFs,24GiB virtual-memory process cap,600.81s,16528588KiB peak RSS;
+residual5.53e-8. Default limit stays200000, residual tolerance stays1e-7.
+78:138465DOFs/98.63s/7.35e-9;88:127950DOFs/86.46s/9.25e-9. No P1 substitution.
+Roots `objectfolder2-elastic-{66,78,88}-{wild,geometry,p2}-2026-09-06`.
+All12new FEM WAVs and9coefficient replays, sign/zero/self-residue checks PASS.
+
+`physical_sound_objectfolder2_physical_shared.py` stages prepare/fit/render/assess:
+512deterministic surface points encode shape; first48 define contacts, first32
+TRAIN contacts have labels, last16 are withheld. One fixed outward observation
+at query0; inward impulse. Complete three-component mode vectors at query points,
+not signed AudioNet gains. Per-mode rank-one physical port-matrix loss is globally
+sign invariant; there is no band merging or scalar-energy replacement. Independent
+frequency head predicts dimensionless natural poles; length/E/rho scale analytically.
+Only ceramic nu=.19 trained; no general-material/striker/contact-law/radiation claim.
+
+One74432parameter network,2000Adam steps/lr.001/seed42, no DEV selection. Fit files
+contain only first32TRAIN labels, no held contacts. Weight SHA256
+`73e60eaa195fd40dfac80b48e2aaece1c8a343c8ab6ce6466c69ec85558bba6b`;
+source `459404a6556e1e5f07058198eed2e3f71f8f8bfa8ea51a729ac37287500d406e`.
+Roots `objectfolder2-physical-shared-{data,fit,render,assess}-2026-09-06`.
+Inference reads only geometry and own weights; fit/render traces confirmed.
+52WAV QA,12NN coefficient replays,12triples,4galleries,4NN parameter replays PASS.
+
+Nearest baseline uses normalized-cloud Chamfer and first32 TRAIN field labels
+only, with analytic target-size scaling. TRAIN's own object may be nearest;
+DEV88 selects59. Metrics mean spectrum/envelope/absolute log RMS, lower is better:
+
+| Evaluation | Shared NN | Nearest TRAIN |
+| --- | --- | --- |
+| 59,16held contacts | 2.4112 / 1.9407 / 1.0847 | 2.0696 / 1.8281 / .9430 |
+| 66,16held contacts | .9525 / .8554 / .6012 | 1.1078 / 1.4476 / .7892 |
+| 78,16held contacts | 1.1624 / 1.0987 / .8657 | .6843 / .5575 / .5511 |
+| 88,48whole-DEV contacts | 1.7559 / 1.6172 / .9347 | 1.1457 / .8621 / 1.7898 |
+
+NN mean frequency errors59/66/78=.1053/.08039/.03515%, but88=17.2902%.
+TRAIN interpolation success on66 does not establish object transfer.96cases are
+not96independent objects; all are synthetic displacement, not recorded pressure.
+
+### Bounded research and executed correction discriminator
+
+Competing hypotheses: H1 independent learned poles and sparse surface fields are
+not a physically consistent modal subspace; H2 the frozen subspace is nevertheless
+a useful numerical warm start; H3 numerical correction alone explains any gain.
+[NeuralSound v4](https://arxiv.org/html/2108.07425v4), opened2026-09-06,
+sections4.2.3–4.2.4/A.2/A.3 motivates Ritz extraction, residual-based learning and
+classical refinement of a learned subspace. It also reports poor direct-eigenvector
+regression. This motivates a discriminator, not a claim our point network or
+experiment reproduces that paper's operator-trained sparse U-Net or radiation.
+
+`physical_sound_objectfolder2_ritz_probe.py generate`: openDEV88, freshly assemble
+P2 K/M from geometry; analytically remove six mass-orthonormal rigid fields.
+Evaluate frozen NN at all P2 DOF coordinates (including previously unconstrained
+interior), mass-orthogonalize and Ritz extract32modes. Strong classical control:
+fresh P1 eigensolve on the SAME mesh, exact midpoint prolongation into P2.
+Both receive ONE identical `(K+1e-4 M)^-1 M` step followed by Ritz extraction.
+No target eigenvectors, recordings or cached target operators enter generation;
+trace has10distinct external data paths: geometry, own weights, own output hashes.
+No INET calls. P1's extra eigensolve cost is included, not called equal total work.
+
+Raw NN Ritz has frequencies68.44–173.79kHz and zero audible modes. First assessment
+correctly failed the renderer's no-audible-modes guard. Assessment now records
+that variant as `not_renderable` and compares the remaining variants; no pitch
+shift, fabricated silence or generation rerun. Generation source012777c4… predates
+this assessment-only failure-reporting change; generation algorithm unchanged.
+
+| Method,48DEV contacts | Spectrum | Envelope | Log RMS | Full32 frequency error |
+| --- | ---: | ---: | ---: | ---: |
+| Standalone NN | 1.755913 | 1.617041 | .934690 | 17.2902% |
+| P1 Ritz, no correction | 1.121649 | .697771 | .793854 | 30.0799% |
+| NN + one correction | .652213 | .138112 | .091971 | 23.1006% |
+| P1 + one correction | .140007 | .014458 | .028334 | 2.8095% |
+
+NN correction has27/32audible modes versus32/32P1; frequency means include all32,
+not selectively matched modes. NN spectrum improves despite worse full32 pole
+error. Max residual NN.602 versus P1.130: neither is a converged exact solve.
+Orthogonality errors≤5.64e-13. NN initialization.074s, P1 initialization3.016s,
+shared factorization34.770s, inverse solves3.903/3.894s, geometry assembly23.714s;
+total71.259s. These are one-run CPU measurements, not proven speed advantages.
+One correction from the better classical subspace beats the NN subspace: H1/H3
+supported; H2 quality advantage rejected here, not all learned-solver approaches.
+
+Roots `objectfolder2-ritz-probe-2026-09-06` and
+`objectfolder2-ritz-probe-assess-2026-09-06`; adjacent generation `.trace`.
+Corrected parameters SHA256 NN
+`57419a29928d97dc025220ca5f07183029adfb09dacd5ce16422e81043a9339f`, P1
+`2e3141bb38aeb9bc322ee501ecc9c9c47d1fc5f75a016d95a2c30fa6a55561a8`.
+15WAV QA,12wave replays,3comparisons, hashes/read trace PASS.57focused OF2tests,
+Ruff lint/format PASS. No Cargo/host-check/ProductCheck: bounded Python lab only.
+
+Next experiment must change the physical learning mechanism: shared TRAIN
+operator-consistent subspace prediction through K/M/Ritz/residual, with P1+one
+correction as the control. Do not run frozen-NN iteration-count, point-count,
+epoch/width/seed or per-material sweeps. This diagnostic did NOT train an
+operator-consistent network and did not establish realistic pressure, either
+striker's material, water/rain/friction/rolling/destruction or arbitrary objects.
+The context skill preserves this failure so future work does not mistake physical
+refinement's gain for learned transfer or repeat sparse field-fitting variants.

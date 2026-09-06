@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / NONCUBOID_ELASTIC_CONTROL / SHARED_NEURAL_TRANSFER_OPEN.
+Status: ACTIVE_GOAL / PHYSICAL_SHARED_AND_WARMSTART_REJECTED / OPERATOR_TRAINING_OPEN.
 
 ## Resume in 60 seconds
 
@@ -10,60 +10,62 @@ Status: ACTIVE_GOAL / NONCUBOID_ELASTIC_CONTROL / SHARED_NEURAL_TRANSFER_OPEN.
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest standalone:** [reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s;
-  newDEV37/40(polycarbonatecups)/53(ceramicbowl),samegainpertriple. No target
-  acoustics at either generation. Threeobjects but TWO conservativefamilies.
-- **Latest primary control:** [ceramic59, three physical contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p2-audition.wav),9s;
-  NOT neural/pressure/realism. P2 free FEM, six rigid+32elastic modes, physical
-  input/output residues. Post-generation source frequency mean/max error .1415/.2256%.
-  P1 mean18.265%; P2 residual2.30e-8,147873DOFs,105.9s. Field convergence NOT proven.
-  Strict native59/78 fail self-intersections;59 fTetWild explicit approximate mesh
-  7752nodes/28110tets,9dbbdbf4…;volume change.1832%, sampled distance≤.313mm,
-  requested.404mm envelope; cavity retained, NOT continuous Hausdorff/scale proof.
-  P2 modes ab844a85…; sparse K/M/U retained. Raw displacement meters; audition
-  common gain3029667.438 acrossP1/P2/allcontacts, no per-wave repair. 48tests,
-  16WAVQA/12replays/galleries/residual/mass/sign/zero/geometry-only trace PASS.
+- **Latest audible discriminator:** [reference→standalone NN→NN+physics→P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-ritz-probe-assess-2026-09-06/contact-0-comparison.wav),12s;
+  openDEV88, common gain ALL48contacts/variants. Two other contacts24/47 alongside.
+  NN+physics improves standalone but loses to classical P1+physics: mean spectrum
+  1.7559→.6522 versus.1400; envelope1.6170→.1381 versus.01446. REJECT NN advantage.
+  Generation freshly assembles P2 from geometry, no target K/M/U/audio reads.
+  Same32vectors/one inverse correction each; P1 initialization3.02s versus NN.074s,
+  shared factor34.77s; total71.26s, not equal total costs or a runtime speed claim.
+  Raw NN subspace Ritz frequencies68–174kHz: NO audible modes, rejection retained,
+  no pitch repair. NN correction27/32audible, mean full32frequencyerror23.10%; P1
+  32/32,2.81%. Residualmax NN.602/P1.130, neither converged. Surface-only training
+  does not constrain interior fields; this is NOT a NeuralSound reproduction.
+- **Latest standalone model:** physical-shared73e60eaa…; one74432parameter fit,
+  TRAIN59/66/78,2000Adam.001seed42;32contact labels/body,16withheld. DEV88 remains
+  whole-object opendevelopment, NOT pristineholdout. Geometry→frequency+vectorfield;
+  physical per-mode port-matrix loss, not old bandGram or signedAudioNetg.
+  [Three standalone DEV contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-physical-shared-assess-2026-09-06/object-88-three-neural.wav),9s.
+  Beats nearest on66heldcontacts, loses59/78; DEV88 spectrum1.7559 versus1.1457,
+  frequencyerror17.29%. Reject shared replacement; no per-object NN fit.
+- **Physical data:** explicit approximate fTetWild59/66/78/88, fixed ceramics;
+  P2 sixrigid+32elastic, residuals<1e-7, K/M/U retained externally. 66 requires
+  421791DOFs/600.8s/15.76GiB peakRSS; explicit500000DOF option, default200000 kept.
+  66/78/88 distance checks2048samples/direction, NOT allpoints/Hausdorff; volume
+  differences.3271/.2074/.0984%. Strict59/78 failures preserved, no nativeexactclaim.
+  Physical displacement, NOT pressure/radiation/realism;32modes notfullband.
+  57tests/Ruff PASS; shared52WAVQA/replays/traces, newFEM12WAVQA/replays, Ritz15WAVQA/
+  12replays/3galleries/geometry-onlytrace PASS. All jobs terminal; pins in pilot.
 - Expansion:next256MiB,ten complete pairs,partial archive SHA only;30Iron/96Glass
   unsupported. Eight prepared bodies/32contacts; newTRAIN47/59/72/78/91.
   BEFORE audio reserved37–46cups/53possible54kin;newDEV37/40/53. CombinedDEV6objects,
   FOURfamilies;originalroles unchanged,mod5acquisitionrole separate,noholdoutreuse.
-- Magnitude ef22695e…: frozen81cc9a90… core + positive head,99337total parameters.
-  TRAIN7/23/29/47/59/66/72/75/78/82/91; one2000Adam.001seed42. Full pins in pilot.
-  Spectrum regresses both DEV groups despite level gains: REJECT replacement.
-  Preserve compact5b569809…(.9873/.5622/.6498oldDEV). Not a pure loss ablation.
-- **Prior diagnostic:** objectfolder2-magnitude-diagnostic:11TRAIN, oracle-only;
-  count alone insufficient; poles and fields both remain wrong. No new weights.
-  44tests/66WAVQA/replays/identities/pins/isolated trace PASS; details in pilot.
-- Field-cause11TRAIN oracle: sign/scalar fixes REJECT; signed MSE favors quiet fields.
-  FEM sign invariance exact; OF2 sensitivity is NOT proof of source gauge error.
-- **Size:** `objectfolder2-size-final-2026-09-06`,rawNNfrequencyshiftmean.6165%
-  despite.8/1.25size;required-lawerror22.211%,0/12modecounts. transportlambda/r²
-  andRayleighdecayworkswithoutfit,heldgainsNOTamplitudephysics. Commonbaseline
-  ≤10kHznaturalbandonly,noabove-Nyquistcoverageornewshape/realismproof.
-- **Decay:** publishedOF2Rayleighlaw matches5309fullmodes,maxrelative6.66e-16.
-  rayleigh.py usesdamped→undampedstablelowroot,keepsf/g/maskfixed. Priorchannel
-  f5e5e578…rawDEV3.469/7.347/.838→analytic1.169/1.164/.579,stillREJECT.
+- Magnitude ef22695e… and11TRAIN81cc9a90… regress oldDEV; REJECTreplacement.
+  Preserve compact5b569809…(.9873/.5622/.6498oldDEV); pins/cohort in pilot.
+- Magnitude oracle: count alone insufficient; poles/fields both wrong. Sign/scalar
+  fixes REJECT; signedMSE favorsquietfields, NOTproof of OF2sourcegaugeerror.
+- Size: rawNN fails.8/1.25 law22.211%; analytic transport only≤10kHz, heldgains
+  NOT amplitudephysics. PublishedRayleigh law5309modes matches6.66e-16; decay-only
+  fix stillfailsDEV. No size/count/decay sweeps; exact diagnostics in pilot.
 - **Closed OF2:** bandGram worsens spectrum; noGram/phase/band/decoder/mask/
   capacity/epoch/seed sweeps. Compact all-modes-accounted is lossy; pins in pilot.
 - **Scale:** native mesh/source intervals agree;CSV23=.082 vs .116984,47=1.2 vs
   .191112. No CSV resizing/absolute calibration; scalar xyz span≠AABB longest side.
-- **Next:** existing multi-object TRAIN operator/port generation for ONE shared
-  model, start78 via explicit approximate backend. Preserve DEV families;
-  no per-object neural fit or59 mesh/epoch/sign/phase sweep. Full goal unchanged.
-  External native pytetwild0.4.2 and existing scikit-fem12.0.2 overlays; see pilot.
+- **Next:** smallest shared operator-consistent TRAIN experiment: couple learned
+  subspace to K/M through Ritz/residual, not independent poles and sparse surface
+  labels. Compare against P1+onecorrection; geometry-only new-object inference.
+  No further frozen-NN correction-count, epoch/width/seed/material-by-material
+  sweeps. Reconsider only with a changed physical training mechanism. Full goal
+  unchanged. Existing pytetwild0.4.2/scikit-fem12.0.2 overlays; details in pilot.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:original9pairs/320MiB;
   IDs7/11/23/29/54/66/75/82/88,34–1965modes. **OF2IDs≠SonicGauss/OFRealIDs**.
   Demo23EXACTmatchesarchive;GSOCCBY4/originalmeshtermsretained;23/29URLsNone.
-- `physical_sound_objectfolder2.py`:strictweights_only+numericNumPyallowlist,
-  reviewedhash-pinnedASTdeclarations,noimports/CUDA/optimizerexecution;
-  Authoroutputpeaknormalizationerasesforceandbreakszero;omitted,commonper-object
-  auditiongainused. Trainfromrawcoefficients,NOTaudition-normalizedWAVs.
-  Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamp. Detailsinpilot.
-- Teacher29underflowbit-scalingFAIL;ULPbound27PASS/all9zeroexact;detailsinpilot.
-  Fullpack34–1965modes/32points,512vertices/log3sizes/materialonehot;
-  no target count/poles/audio at standalone inference.
+- Source loader:strictweights_only+numericNumPyallowlist/hash-pinnedASTdeclarations,
+  noimports/CUDA/optimizerexecution. Authorpeaknormalization erasesforce/breakszero;
+  omitted. Train rawcoefficients,NOTauditionPCM. Noauthorqueryclamp. Teacher29
+  underflowbit-scalingFAIL,ULP27PASS/all9zeroexact; fullpack34–1965modes, in pilot.
   TeacherhasNOpressure/radiation/listenerstageorstrikermaterial. SignedAudioNet
   gainsareNOTcontactself-admittance;do notfeedthemintoHertzfeedbackaspositiveports.
 - **Pressure:** guitar-fsi:48stateROM6.12%error; no-FSI→pressure/backzero; fixed

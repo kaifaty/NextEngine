@@ -73,9 +73,13 @@ def geometry(args):
             nodes[faces],
         ),
     ):
+        available = len(p)
+        if args.max_samples is not None and len(p) > args.max_samples:
+            p = p[np.linspace(0, len(p) - 1, args.max_samples).astype(int)]
         d = surface_distances(p, triangles)
         directions[name] = {
             "sample_count": len(p),
+            "available_vertex_centroid_samples": available,
             "max_meters": float(d.max()),
             "rms_meters": float(np.sqrt(np.mean(d * d))),
             "within_requested_envelope": bool(d.max() <= info["envelope_meters"]),
@@ -85,7 +89,7 @@ def geometry(args):
         "mesh_sha256": info["mesh_sha256"],
         "output_surface": structure,
         "distances": directions,
-        "scope": "all boundary vertices and face centroids in both directions; exact nearest triangle for these samples, NOT continuous Hausdorff or acoustic convergence",
+        "scope": "boundary vertex/face-centroid samples, all by default or deterministic evenly-spaced subset with explicit max-samples; exact nearest triangle for samples, NOT continuous Hausdorff or acoustic convergence",
     }
     (args.output / "geometry.json").write_text(json.dumps(result, indent=2) + "\n")
 
@@ -180,7 +184,10 @@ if __name__ == "__main__":
     for key in ("mesh", "coarse", "fine", "reference"):
         parser.add_argument("--" + key, type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--max-samples", type=int)
     args = parser.parse_args()
+    if args.max_samples is not None and args.max_samples < 1:
+        raise ValueError("positive sample budget required")
     if args.output.exists() or args.output.resolve().is_relative_to(
         Path(__file__).resolve().parents[2]
     ):

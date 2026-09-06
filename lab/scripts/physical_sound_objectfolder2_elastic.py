@@ -18,6 +18,28 @@ import physical_sound_objectfolder2 as source
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
+CERAMIC_ROLES = {59: "train", 66: "train", 78: "train", 88: "development"}
+
+
+def source_mesh(manifest, identity):
+    """Existing fixed ceramic TRAIN/DEV identities; no role inference from sound."""
+    if identity not in CERAMIC_ROLES:
+        raise ValueError("fixed ceramic cohort required")
+    if "rows" in manifest:
+        row = next(r for r in manifest["rows"] if r["object_id"] == identity)
+        if row["role"] != CERAMIC_ROLES[identity] or row["material"] != "Ceramic":
+            raise ValueError("ceramic role/material mismatch")
+        return row["files"]["model.obj"]
+    metadata = manifest["object_metadata"][str(identity)]
+    if metadata[3] != "Ceramic":
+        raise ValueError("ceramic material required")
+    row = next(
+        r
+        for r in manifest["files"]
+        if r["member"].split("/")[-2:] == [str(identity), "model.obj"]
+    )
+    return {"path": row["file"], "sha256": row["sha256"]}
+
 
 def surface(path):
     lines = path.read_text().splitlines()
@@ -123,10 +145,7 @@ def mesh(args):
     import tetgen
 
     manifest = json.loads(args.manifest.read_text())
-    row = next(r for r in manifest["rows"] if r["object_id"] == args.object_id)
-    if row["role"] != "train" or row["material"] != "Ceramic":
-        raise ValueError("TRAIN ceramic source required")
-    item = row["files"]["model.obj"]
+    item = source_mesh(manifest, args.object_id)
     path = Path(item["path"])
     if source.sha(path) != item["sha256"]:
         raise ValueError("source geometry changed")
@@ -206,7 +225,7 @@ def mesh(args):
         "boundary_exact": True,
         "mesh_sha256": source.sha(args.output / "mesh.npz"),
         "script_sha256": source.sha(Path(__file__)),
-        "scope": "native TRAIN ceramic geometry only; exact indexed surface, no source acoustics, no repair; not yet elastic solve",
+        "scope": "native fixed-cohort ceramic geometry only; exact indexed surface, no source acoustics, no repair; not yet elastic solve",
     }
     (args.output / "mesh.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
@@ -218,10 +237,7 @@ def wild_mesh(args):
     import PyfTetWildWrapper as wild
 
     data = json.loads(args.manifest.read_text())
-    row = next(r for r in data["rows"] if r["object_id"] == args.object_id)
-    if row["role"] != "train" or row["material"] != "Ceramic":
-        raise ValueError("TRAIN ceramic source required")
-    item = row["files"]["model.obj"]
+    item = source_mesh(data, args.object_id)
     path = Path(item["path"])
     if source.sha(path) != item["sha256"]:
         raise ValueError("source geometry changed")
@@ -278,6 +294,7 @@ def wild_mesh(args):
         "object_id": args.object_id,
         "source_mesh_sha256": item["sha256"],
         "mesh_sha256": source.sha(args.output / "mesh.npz"),
+        "role": CERAMIC_ROLES[args.object_id],
         "script_sha256": source.sha(Path(__file__)),
         "backend": "pytetwild0.4.2 native array API",
         "native_boundary_exact": False,
@@ -300,7 +317,9 @@ def wild_mesh(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--object-id", type=int, choices=(59, 78), default=59)
+    parser.add_argument(
+        "--object-id", type=int, choices=tuple(CERAMIC_ROLES), default=59
+    )
     parser.add_argument("--backend", choices=("strict", "wild"), default="strict")
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)

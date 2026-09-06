@@ -100,7 +100,7 @@ def solve(args):
     basis = Basis(
         mesh, ElementVector(ElementTetP1() if args.order == 1 else ElementTetP2())
     )
-    if basis.N > 200000:
+    if basis.N > args.max_dofs:
         raise ValueError("bounded FEM degrees of freedom exceeded")
     print("assembly", {"order": args.order, "dofs": basis.N}, flush=True)
     lam, mu = lame_parameters(1.0, 0.19)
@@ -205,7 +205,10 @@ if __name__ == "__main__":
     parser.add_argument("--mesh", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--order", type=int, choices=(1, 2), required=True)
+    parser.add_argument("--max-dofs", type=int, default=200000)
     args = parser.parse_args()
+    if not 1 <= args.max_dofs <= 500000:
+        raise ValueError("DOF budget must be in [1,500000]")
     if args.output.exists() or args.output.resolve().is_relative_to(
         Path(__file__).resolve().parents[2]
     ):
