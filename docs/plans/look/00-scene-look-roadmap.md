@@ -72,6 +72,16 @@ Scene work proper is item 6 and half of item 5: terrain authoring,
 props, vegetation, a real avatar, textures for the existing boxes. It
 waits on the importer and the fuller B0 profile.
 
+## Technology verdicts (2026-09-06)
+
+[The modern engine technology research](../../reviews/modern-engine-technology-research-2026-09-06.md)
+records, per technology, whether it is implemented, deferred or left out
+under this roadmap's invariants, the implementation shape each one takes
+(adapter pass, content and profile revision, offline tool, authority
+series) and a proposed order after the terrain: instanced foliage, the
+skinned avatar, block compression, culling and LOD, a render graph,
+local lights with baked probes, then the small lighting plans.
+
 ## How to proceed
 
 Freeze item 1 as `look/01-hdr-chain-and-physical-lighting.md` with

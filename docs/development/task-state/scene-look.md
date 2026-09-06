@@ -107,4 +107,7 @@
 
 ## Related
 
+- Technology research (what to implement, defer or leave out, and how):
+  [`docs/reviews/modern-engine-technology-research-2026-09-06.md`](../../reviews/modern-engine-technology-research-2026-09-06.md).
+
 - Water look series: task-state [`water-volume-authority.md`](water-volume-authority.md), plans `continuum-water/12` to `18`, `33`, `35`, `42`.
