@@ -55,6 +55,7 @@ pub(crate) struct SafetyControlChannel {
 pub struct BiomechanicsSafetyController {
     body_schema_hash: ContentHash,
     compiled_descriptor_hash: ContentHash,
+    support_compiled_hash: Option<ContentHash>,
     pub(crate) channels: Vec<SafetyControlChannel>,
     applied_targets: Vec<i64>,
     previous_efforts: Vec<i64>,
@@ -98,6 +99,7 @@ impl BiomechanicsSafetyController {
         Ok(Self {
             body_schema_hash: compiled.body_schema_hash,
             compiled_descriptor_hash: compiled.compiled_descriptor_hash,
+            support_compiled_hash: None,
             previous_efforts: vec![0; channels.len()],
             positive_work: vec![0; channels.len()],
             channels,
@@ -105,6 +107,18 @@ impl BiomechanicsSafetyController {
             completed_substeps: 0,
             motor_tick_prepared: false,
         })
+    }
+
+    /// ADR-125: exact V11 diagnostic support input, before unchanged safety.
+    pub fn new_bandwidth_support(
+        compiled: &crate::CompiledBodySchemaV4,
+    ) -> Result<Self, MotorSafetyError> {
+        compiled
+            .bandwidth_subject()
+            .map_err(|_| MotorSafetyError::ProfileMismatch)?;
+        let mut controller = Self::new(&compiled.base.base)?;
+        controller.support_compiled_hash = Some(compiled.compiled_descriptor_hash);
+        Ok(controller)
     }
 
     #[must_use]
@@ -247,6 +261,29 @@ impl BiomechanicsSafetyController {
         &mut self,
         joint_states: &[JointControlStateV1],
     ) -> Result<Vec<AppliedActuatorEffortV1>, MotorSafetyError> {
+        self.step_substep_inner(joint_states, None)
+    }
+
+    /// Ordered microNm support request; never bypasses effort or energy limits.
+    pub fn step_substep_with_support_effort(
+        &mut self,
+        joint_states: &[JointControlStateV1],
+        support_efforts_micronewton_metres: &[i64],
+    ) -> Result<Vec<AppliedActuatorEffortV1>, MotorSafetyError> {
+        if self.support_compiled_hash.is_none() {
+            return Err(MotorSafetyError::ProfileMismatch);
+        }
+        if support_efforts_micronewton_metres.len() != self.channels.len() {
+            return Err(MotorSafetyError::ChannelCount);
+        }
+        self.step_substep_inner(joint_states, Some(support_efforts_micronewton_metres))
+    }
+
+    fn step_substep_inner(
+        &mut self,
+        joint_states: &[JointControlStateV1],
+        support: Option<&[i64]>,
+    ) -> Result<Vec<AppliedActuatorEffortV1>, MotorSafetyError> {
         if !self.motor_tick_prepared {
             return Err(MotorSafetyError::TickNotPrepared);
         }
@@ -282,6 +319,9 @@ impl BiomechanicsSafetyController {
             );
             let requested = proportional
                 .checked_sub(damping)
+                .and_then(|value| {
+                    value.checked_add(i128::from(support.map_or(0, |values| values[index])))
+                })
                 .ok_or(MotorSafetyError::NumericOverflow)?;
             let (effort, flags) = intersect_effort_limits(
                 channel,
@@ -372,7 +412,12 @@ impl BiomechanicsSafetyController {
     #[must_use]
     pub fn checkpoint_root(&self) -> ContentHash {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"nextengine.humanoid-safety-checkpoint.v1\0");
+        if let Some(hash) = self.support_compiled_hash {
+            bytes.extend_from_slice(b"nextengine.humanoid-support-safety-checkpoint.v1\0");
+            bytes.extend_from_slice(hash.as_bytes());
+        } else {
+            bytes.extend_from_slice(b"nextengine.humanoid-safety-checkpoint.v1\0");
+        }
         bytes.extend_from_slice(&crate::HUMANOID_SAFETY_CONTACT_PROFILE_SHA256);
         bytes.extend_from_slice(self.body_schema_hash.as_bytes());
         bytes.extend_from_slice(self.compiled_descriptor_hash.as_bytes());

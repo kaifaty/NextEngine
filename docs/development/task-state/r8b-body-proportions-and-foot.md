@@ -2,13 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `V11_TWO_SECOND_RESPONSE_PASS / LOADED_STANDING_FAILED / FULL_CALIBRATION_OPEN / NO_NEW_TRAINING` |
+| Status | `SUPPORT_30S_SURVIVAL / QUIET_GATE_FAILED / NEW_BODY_ENVIRONMENT_IN_PROGRESS / FULL_CALIBRATION_OPEN` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
 
 ## Resume in 60 seconds
 
+- Latest decision supersedes historical next-action text below: user prioritizes corrected-body walking integration. [Support-effort result](../r8b-support-effort-calibration-2026-09-06.md), ADR-125: V11 survives30s, quiet gate fails torso1.675deg and both MTP RMS. Independent557,300 efforts/roots/controls and native repeat agree;161 native tests plus scoped/Linux host checks pass. Do not retune gains or claim calibration complete. Implement explicit25-action environment/adapter and pipeline smoke; old23-action environments/weights remain unchanged. Observed velocity-versus-endpoint-motion discrepancy still needs discrimination; no production velocity substitution or training started.
 - Native baseline: whole-body sampled damping V9 is implemented as an opt-in
   diagnostic (ADR-120), **not selected**. Independent local-model preflight
   passes but native stance fails at18/240s, both ankle-pitch velocities>8.001rad/s.
@@ -238,12 +239,8 @@
   descriptor SHA18de43f4…. Full exact hashes and checks in report13.
   First subject-state collision test failed and was repaired by explicit
   PersistentId binding, not a weaker test; physical trajectory unchanged.
-  Final138 native tests, five example tests, native all-target Clippy,
-  format/diff/links and play/replay/content pass. Broad host-check passed
-  workspace Clippy/tests, failed final source-layout scan on old diagnostic
-  `#[path]`. Replaced with conventional nested modules; all six boundary
-  checks and native example/Clippy revalidation pass. Full wrapper not rerun;
-  exact failed/repaired status is preserved in report13, session32268 closed.
+  Historical V7 check failure/repair is preserved in report13; latest ADR-125
+  Linux host wrapper now passes. Exact old outcomes remain commit-bound.
 - Mass audit is independently `SUPPORTED_BOUNDED`, with no load-bearing
   arithmetic defect. Its entry-script hash omits helper hashes; independent
   recomputation closes this result only. Do not repeatedly rerun/re-review it.

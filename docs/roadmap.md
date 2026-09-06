@@ -2063,6 +2063,14 @@ friction is omitted: this is not a native-impossibility proof. Third-pose solver
 status4 remains INCONCLUSIVE. Next formulate contact-aware support effort before
 the unchanged safety intersection; no constant-bias or contact-free gravity
 shortcut, no native/controller/training admission from the static calculation.
+The [support-effort diagnostic](development/r8b-support-effort-calibration-2026-09-06.md)
+now completes30s on V11 without relaxing safety; independent reconstruction
+and native repeat pass. Quiet-standing gate still fails torso1.675deg and both
+MTP RMS criteria.161 native tests and Linux host/scoped checks pass. This is not
+full calibration. User-directed next work is explicit corrected-body walking
+environment integration (25 actions versus the old adapter's23), reset/contact/
+reward validation and a bounded pipeline smoke. Keep old weights/environments
+unchanged; no new optimizer or selected calibrated-body claim yet.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

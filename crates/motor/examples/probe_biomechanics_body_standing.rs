@@ -1,6 +1,7 @@
 #[cfg(feature = "physx-sdk")]
 mod support {
     pub mod effort_response;
+    pub mod static_support;
 }
 
 #[cfg(feature = "physx-sdk")]
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "baseline".to_owned());
     let hip_feedback_gain = match reference_mode.as_str() {
         "baseline" | "neutral-targets" | "upright-v2" | "articulated-v3" | "sampled-v4"
-        | "screened-v5" | "bandwidth-v6" => 0,
+        | "screened-v5" | "bandwidth-v6" | "support-v1" | "support-zero-v1" => 0,
         "hip-feedback" | "hip-position-feedback" => 2,
         "hip-feedback-4" => 4,
         _ => {
@@ -61,9 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if startup_ramp && !matches!(revision.as_str(), "8" | "9") {
         return Err("startup-ramp requires the exact V8 or V9 standing diagnostic".into());
     }
-    if (revision == "11" || reference_mode == "bandwidth-v6")
+    let support_mode = matches!(reference_mode.as_str(), "support-v1" | "support-zero-v1");
+    if (revision == "11" || reference_mode == "bandwidth-v6" || support_mode)
         && (revision != "11"
-            || reference_mode != "bandwidth-v6"
+            || !(reference_mode == "bandwidth-v6" || support_mode)
             || !per_iteration
             || actuator_probe != "unchanged"
             || ankle_offset != 0
@@ -71,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             || response_mode.is_some())
     {
         return Err(
-            "V11 requires bandwidth-v6, per-iteration, unchanged, no offsets or response mode"
+            "V11 requires bandwidth-v6/support-v1/support-zero-v1, per-iteration, unchanged, no offsets or response mode"
                 .into(),
         );
     }
@@ -208,7 +210,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         PhysXArticulationWorldV3::create(base.physx_scene_profile, &compiled.physx_catalog)?
     };
     let mut snapshot = world.capture()?;
-    let mut safety = BiomechanicsSafetyController::new(base)?;
+    let mut safety = if support_mode {
+        BiomechanicsSafetyController::new_bandwidth_support(&successor)?
+    } else {
+        BiomechanicsSafetyController::new(base)?
+    };
+    let support_model = (reference_mode == "support-v1")
+        .then(support::static_support::SupportModel::new)
+        .transpose()?;
     let mut classifier = BiomechanicsContactClassifier::new(base)?;
     let mut articulated_classifier = if revision == "11" {
         Some(next_motor::BiomechanicsContactClassifierV2::new_bandwidth(
@@ -329,6 +338,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut substeps = 0_u64;
     let mut substep_samples = Vec::new();
     let mut effort_history = Vec::new();
+    let mut support_ticks = Vec::new();
     let envelopes = safety.default_skill_envelopes();
     'episode: for tick in 1..=1_800_u64 {
         let mut reference = if let Some(controller) = &articulated {
@@ -374,6 +384,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *target += hip_offset + feedback;
             }
         }
+        let support_input = support_model
+            .as_ref()
+            .map(|model| model.input(&snapshot))
+            .transpose()?;
+        let support_efforts = support_input.as_ref().map_or_else(
+            || vec![0; reference.len()],
+            |input| input.efforts_unm.clone(),
+        );
+        if support_mode {
+            support_ticks.push(json!({
+                "motor_tick": tick, "input_physics_substeps": substeps,
+                "model": support_input, "efforts_unm": support_efforts,
+                "supported": support_input.as_ref().is_some_and(|input| input.enclosing_triangles > 0),
+            }));
+        }
         let applied_targets = safety
             .begin_motor_tick(&reference, &vec![0; reference.len()], &envelopes)?
             .iter()
@@ -381,7 +406,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>();
         let mut contacts = Vec::with_capacity(4);
         for _ in 0..4 {
-            let efforts = safety.step_substep(&states(&snapshot))?;
+            let efforts = if support_mode {
+                safety.step_substep_with_support_effort(&states(&snapshot), &support_efforts)?
+            } else {
+                safety.step_substep(&states(&snapshot))?
+            };
             let mut applied = vec![0; base.actuator_dof_ordinals.len()];
             for (effort, &dof) in efforts.iter().zip(&base.actuator_dof_ordinals) {
                 applied[dof as usize] = effort.effort_micronewton_metres;
@@ -420,6 +449,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "separation_um": c.separation_micrometres,
                 })).collect::<Vec<_>>()
             }));
+            if support_mode {
+                let mut flags = vec![0_u16; applied.len()];
+                for (effort, &dof) in efforts.iter().zip(&base.actuator_dof_ordinals) {
+                    flags[dof as usize] = effort.clamp_flags;
+                }
+                substep_samples.last_mut().expect("current substep")["applied_effort_flags_by_dof"] =
+                    json!(flags);
+            }
             if let Err(error) = safety.validate_observed_joint_states(&states(&snapshot)) {
                 reason = format!("joint-safety: {error}");
                 samples.push(sample(
@@ -515,6 +552,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         output["reference_state_root"] = json!(controller.state_root().to_hex());
         output["contact_profile_hash"] = json!(controller.contact_profile_hash().to_hex());
         output["hip_feedback_gain"] = json!(2);
+    }
+    if support_mode {
+        output["composite_controller_id"] =
+            json!(format!("diagnostic.standing-v6.{reference_mode}"));
+        output["support_profile_id"] = json!("BODY-SUPPORT-EFFORT-01.r1");
+        output["support_ticks"] = json!(support_ticks);
+        output["support_safety_state_root"] = json!(safety.checkpoint_root().to_hex());
     }
     if startup_ramp {
         output["diagnostic_reference_input"] = json!({

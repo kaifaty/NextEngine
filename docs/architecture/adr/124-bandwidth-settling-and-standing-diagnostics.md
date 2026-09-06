@@ -8,7 +8,7 @@
 | Decision date | 2026-09-06 |
 | Dependencies | SPEC-35, ADR-119/121/122/123 |
 | Supersedes | ADR-123 input set and ADR-122 V11 standing exclusion, additively through exact new diagnostic consumers only |
-| Superseded by | none |
+| Superseded by | [ADR-125](125-support-effort-calibration-diagnostic.md), additively for exact support-effort diagnostic input only |
 
 Add explicit `abduction-tail` to the native bandwidth example: case28,
 BODY-COMBINED-01.r2,200m initial elevation and300 motor ticks. Original census

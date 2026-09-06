@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-28 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-09-06 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 | Дополнительные зависимости V2.4 | [ADR-098](adr/098-bounded-intact-topology-functional-anatomy-condition-vertical.md) |
-| Заменяет | SPEC-27 2.3; admits the current intact-topology directional capability envelope for fixed PD while leaving tensor/policy compatibility and learned injury routes Proposed |
+| Дополнительные зависимости V2.5 | [ADR-125](adr/125-support-effort-calibration-diagnostic.md) |
+| Заменяет | SPEC-27 2.4; distinguishes support-effort calibration from runtime action and fallback contracts |
 
 ## История принятия
 
@@ -21,6 +22,11 @@ runtime implementation. Поддержка evaluator определяется т
 поведением в product checks ниже.
 
 ## Назначение и invariants
+
+ADR-125 admits a separate exact-V11 calibration diagnostic support input before
+unchanged effort safety. Its f64 geometry helper and composite controller are
+not the fixed-point runtime fallback or a learned action profile; this adds no
+runtime action/tensor/checkpoint import contract and does not select a body.
 
 SPEC-27 определяет единственную public boundary между authoritative simulation,
 motor policy evaluation, safety layer и physics actuation.

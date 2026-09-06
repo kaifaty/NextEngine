@@ -38,6 +38,204 @@ fn neutral_states(controller: &BiomechanicsSafetyController) -> Vec<JointControl
         .collect()
 }
 
+fn support_body(subject: u8) -> crate::CompiledBodySchemaV4 {
+    crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v11(),
+        PersistentId::from_bytes([subject; 16]),
+    )
+    .unwrap()
+}
+
+#[test]
+fn support_profile_validates_complete_body_and_survives_reset() {
+    let body = support_body(31);
+    let mut support = BiomechanicsSafetyController::new_bandwidth_support(&body).unwrap();
+    let old = BiomechanicsSafetyController::new(&body.base.base).unwrap();
+    assert_ne!(support.checkpoint_root(), old.checkpoint_root());
+    let other = BiomechanicsSafetyController::new_bandwidth_support(&support_body(32)).unwrap();
+    // Like the compiled descriptor, the safety root is subject-independent;
+    // admission still checks the complete subject-specific compiled value.
+    assert_eq!(support.checkpoint_root(), other.checkpoint_root());
+    let root = support.checkpoint_root();
+    support.reset();
+    assert_eq!(support.checkpoint_root(), root);
+    let mut tampered = body.clone();
+    tampered.base.base.actuator_definitions[0].stiffness_q16 += 1;
+    assert_eq!(
+        BiomechanicsSafetyController::new_bandwidth_support(&tampered),
+        Err(MotorSafetyError::ProfileMismatch)
+    );
+    let wrong = crate::CompiledBodySchemaV4::compile(
+        &crate::biomechanics_humanoid_body_schema_v8(),
+        PersistentId::from_bytes([31; 16]),
+    )
+    .unwrap();
+    assert_eq!(
+        BiomechanicsSafetyController::new_bandwidth_support(&wrong),
+        Err(MotorSafetyError::ProfileMismatch)
+    );
+}
+
+#[test]
+fn support_zero_preserves_old_targets_efforts_and_checkpoint_payload() {
+    let body = support_body(31);
+    let mut support = BiomechanicsSafetyController::new_bandwidth_support(&body).unwrap();
+    let mut old = BiomechanicsSafetyController::new(&body.base.base).unwrap();
+    let (reference, envelopes) = neutral_tick(&mut old);
+    let zero = vec![0; old.channel_count()];
+    let mut states = neutral_states(&old);
+    for state in &mut states {
+        state.velocity_microradians_per_second = 100_000;
+    }
+    for _ in 0..3 {
+        assert_eq!(
+            old.begin_motor_tick(&reference, &zero, &envelopes),
+            support.begin_motor_tick(&reference, &zero, &envelopes)
+        );
+        for _ in 0..4 {
+            assert_eq!(
+                old.step_substep(&states),
+                support.step_substep_with_support_effort(&states, &zero)
+            );
+            assert_eq!(old.checkpoint(), support.checkpoint());
+        }
+    }
+}
+
+#[test]
+fn support_rejections_are_atomic_and_keep_observed_limits() {
+    let body = support_body(31);
+    let mut support = BiomechanicsSafetyController::new_bandwidth_support(&body).unwrap();
+    let mut old = BiomechanicsSafetyController::new(&body.base.base).unwrap();
+    let (reference, envelopes) = neutral_tick(&mut support);
+    let zero = vec![0; support.channel_count()];
+    let mut states = neutral_states(&support);
+    assert_eq!(
+        old.step_substep_with_support_effort(&states, &zero),
+        Err(MotorSafetyError::ProfileMismatch)
+    );
+    assert_eq!(
+        support.step_substep_with_support_effort(&states, &zero),
+        Err(MotorSafetyError::TickNotPrepared)
+    );
+    support
+        .begin_motor_tick(&reference, &zero, &envelopes)
+        .unwrap();
+    let before = support.clone();
+    assert_eq!(
+        support.step_substep_with_support_effort(&states, &zero[..24]),
+        Err(MotorSafetyError::ChannelCount)
+    );
+    assert_eq!(support, before);
+    states[24].position_microradians = support.channels[24].joint.base.limit_max_microradians + 11;
+    assert_eq!(
+        support.step_substep_with_support_effort(&states, &zero),
+        Err(MotorSafetyError::HardRangeViolation)
+    );
+    assert_eq!(support, before);
+    states = neutral_states(&support);
+    states[24].velocity_microradians_per_second = support.channels[24]
+        .joint
+        .base
+        .maximum_velocity_microradians_per_second
+        as i64
+        + 1_001;
+    assert_eq!(
+        support.step_substep_with_support_effort(&states, &zero),
+        Err(MotorSafetyError::VelocityViolation)
+    );
+    assert_eq!(support, before);
+    states = neutral_states(&support);
+    for _ in 0..4 {
+        support
+            .step_substep_with_support_effort(&states, &zero)
+            .unwrap();
+    }
+    let before = support.clone();
+    assert_eq!(
+        support.step_substep_with_support_effort(&states, &zero),
+        Err(MotorSafetyError::TooManySubsteps)
+    );
+    assert_eq!(support, before);
+}
+
+#[test]
+fn signed_support_is_inside_effort_rate_power_and_work_intersection() {
+    for sign in [-1_i64, 1] {
+        let body = support_body(31);
+        let mut controller = BiomechanicsSafetyController::new_bandwidth_support(&body).unwrap();
+        let (reference, envelopes) = neutral_tick(&mut controller);
+        let zero = vec![0; controller.channel_count()];
+        let support = vec![if sign > 0 { i64::MAX } else { i64::MIN }; controller.channel_count()];
+        let mut states = neutral_states(&controller);
+        for (state, channel) in states.iter_mut().zip(&controller.channels) {
+            state.velocity_microradians_per_second =
+                sign * channel.joint.base.maximum_velocity_microradians_per_second as i64;
+        }
+        let mut seen = 0_u16;
+        for _ in 0..24 {
+            controller
+                .begin_motor_tick(&reference, &zero, &envelopes)
+                .unwrap();
+            for _ in 0..4 {
+                let before = controller.checkpoint();
+                let efforts = controller
+                    .step_substep_with_support_effort(&states, &support)
+                    .unwrap();
+                for (index, ((effort, channel), state)) in efforts
+                    .iter()
+                    .zip(&controller.channels)
+                    .zip(&states)
+                    .enumerate()
+                {
+                    let value = effort.effort_micronewton_metres;
+                    seen |= effort.clamp_flags;
+                    assert!(value * sign >= 0);
+                    assert!(
+                        (channel.actuator.minimum_effort_micronewton_metres
+                            ..=channel.actuator.maximum_effort_micronewton_metres)
+                            .contains(&value)
+                    );
+                    let delta = round_div_ties_even(
+                        i128::from(
+                            channel
+                                .actuator
+                                .base
+                                .maximum_effort_rate_micronewton_metres_per_second,
+                        ),
+                        240,
+                    );
+                    assert!(
+                        (i128::from(value)
+                            - i128::from(before.previous_efforts_micronewton_metres[index]))
+                        .abs()
+                            <= delta
+                    );
+                    assert!(
+                        (i128::from(value) * i128::from(state.velocity_microradians_per_second))
+                            .abs()
+                            <= i128::from(channel.actuator.maximum_power_microwatts) * 1_000_000
+                    );
+                    assert!(
+                        controller.checkpoint().positive_work_microjoules[index]
+                            <= channel
+                                .actuator
+                                .maximum_positive_work_microjoules_per_motor_tick
+                    );
+                }
+            }
+        }
+        for flag in [
+            crate::ACTUATOR_EFFORT_CLAMPED,
+            crate::ACTUATOR_RATE_CLAMPED,
+            ACTUATOR_POWER_CLAMPED,
+            ACTUATOR_WORK_CLAMPED,
+        ] {
+            assert_ne!(seen & flag, 0, "corpus must activate each bound");
+        }
+    }
+}
+
 #[test]
 fn reference_reset_sets_first_tick_slew_origin_atomically() {
     let mut controller = controller();

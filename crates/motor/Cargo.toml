@@ -18,5 +18,8 @@ next_physics_physx.workspace = true
 next_physics_physx_ffi.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+serde.workspace = true
+
 [lints]
 workspace = true

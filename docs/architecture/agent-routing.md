@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.63 |
+| Версия | 2.64 |
 | Последняя проверка | 2026-09-06 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -49,6 +49,14 @@ pose validation; run native motor tests and host/content/play/replay checks.
 The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
+
+For contact-aware support-effort calibration additionally read
+[ADR-125](adr/125-support-effort-calibration-diagnostic.md), SPEC-27/35 and
+ADR-069/119/122/124. Check exact compiled identity, support-before-safety,
+atomic rejection, reset/root separation, zero-support correspondence and
+unchanged old outputs. Run native motor/example tests, all-target Clippy/format,
+boundary/content/play/replay and independently reviewed native repeat/control.
+No runtime action, selected body, full-calibration or training admission follows.
 
 For two-second settling or exact V11 standing consumers also read
 [ADR-124](adr/124-bandwidth-settling-and-standing-diagnostics.md), ADR-119/121

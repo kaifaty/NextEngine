@@ -974,6 +974,7 @@ dependencies = [
  "next_cpu_affinity",
  "next_physics_physx",
  "next_physics_physx_ffi",
+ "serde",
  "serde_json",
 ]
 
