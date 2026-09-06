@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / OPERATOR_TRAINING_IMPROVES_HYBRID / TRAIN_SUBSPACE_GAP_OPEN.
+Status: ACTIVE_GOAL / FROZEN_FEATURE_SPAN_INSUFFICIENT / OPERATOR_REPRESENTATION_OPEN.
 
 ## Resume in 60 seconds
 
@@ -10,7 +10,17 @@ Status: ACTIVE_GOAL / OPERATOR_TRAINING_IMPROVES_HYBRID / TRAIN_SUBSPACE_GAP_OPE
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest audible:** [reference→previous NN+physics→operator-trained NN+physics→P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-operator-assess-2026-09-06/contact-0-comparison.wav),12s;
+- **Latest diagnostic:** [P1reference→trained32head→trainedfeatureRitz→untrainedfeatureRitz](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-feature-assess-2026-09-06/object-59-contact-0-comparison.wav),12s;
+  TRAIN59 only here, other66/78 andcontacts24/47 alongside. No newfit/DEV/pressure.
+  Full384non-rigid hidden directions retained in BOTH trained and seed42untrained
+  controls (387columns minus3translations); no numerical-rank capacity mismatch.
+  Head trace/lowerbound59/66/78=5.73/7.73/5.44; optimal frozen-feature Ritz still
+  3.126/3.928/2.956, untrained3.963/5.094/4.800. Thus head bottleneck is partial:
+  frozenfeatures also insufficient, NOTproof architecture can never learn them.
+  Feature spectrum59/66/78=1.0342/.9858/.9590 versus head.9872/.9957/.9991;
+  no consistent audio-quality win. Don't promote feature oracle or reopen head sweeps.
+  63tests/Ruff;45WAVQA/36replays/9galleries/sign/zero/pins/29pathTRAIN-onlytracePASS.
+- **Latest trained audible:** [reference→previous NN+physics→operator-trained NN+physics→P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-operator-assess-2026-09-06/contact-0-comparison.wav),12s;
   openDEV88, common gain ALL48contacts/variants, othercontacts24/47 alongside.
   New spectrum.49258 vs old.65221 (~24%better), envelope.09909 vs.13811;
   levelslightlyworse .09745 vs.09197. Classical still.14001/.01446/.02833:
@@ -26,14 +36,11 @@ Status: ACTIVE_GOAL / OPERATOR_TRAINING_IMPROVES_HYBRID / TRAIN_SUBSPACE_GAP_OPE
   full32freqerror21.72%,maxresidual.458 (old.602); NOT converged. Classical params
   bit-identical to prior. Total69.60sCPU, no speed claim. No target K/M/U/audio reads.
   60tests/RuffPASS;24WAV/21replays/3galleries/sign/zero/pins/tracesPASS. Jobs terminal.
-- **TRAIN gap:** postfit exactP1 trace lowerbounds59/66/78=264.163/155.026/159.130;
-  learned1513.654/1198.853/865.574, ratios5.73/7.73/5.44; low32subspace capture
-  51.0/49.6/56.8%. Failure already onTRAIN, not only generalization. Does NOT yet
-  distinguish limited hidden features from head/optimization failure; no refit.
-  CPU/GPUtrace agreement1.04e-8relative,maxmasserror2.65e-14; details in pilot.
-- Prior73e60eaa… surface-portNN:74432parameters,3TRAIN32contacts/16withheld;
-  beatsnearest66, loses59/78/wholeDEV88. DEV88opendevelopment NOT pristineholdout.
-  Raw frozen Ritz68–174kHz/zeroaudible, correction spectrum.6522 stillfailsP1.1400.
+- TRAIN P1lowerbounds264.163/155.026/159.130; learned low32capture51.0/49.6/56.8%.
+  Failure exists onTRAIN, not only generalization/P1→P2. Feature discriminator above
+  closes head-only remedy; CPU/GPUtrace/mass checks and exact figures in pilot.
+- Prior73e60eaa… surface-portNN loses59/78/DEV88; rawRitzzeroaudible, details inpilot.
+  DEV88 is opendevelopment NOT pristineholdout; its previous roles remain unchanged.
 - **Physical data:** explicit approximate fTetWild59/66/78/88, fixed ceramics;
   P2 sixrigid+32elastic,residuals<1e-7, K/M/U external.66=421791DOFs/15.76GiB,
   explicit500000limit/default200000.66/78/88 distances2048samples/direction,
@@ -42,25 +49,20 @@ Status: ACTIVE_GOAL / OPERATOR_TRAINING_IMPROVES_HYBRID / TRAIN_SUBSPACE_GAP_OPE
 - Expansion:partial256MiB/tenpairs;30Iron/96Glass unsupported. TRAIN47/59/72/78/91;
   reserved37–46cups/53possible54kin BEFOREaudio; newDEV37/40/53. CombinedDEV6objects,
   FOURfamilies; originalroles/mod5acquisitionrole separate, noholdoutreuse.
-- Magnitude ef22695e… and11TRAIN81cc9a90… regress oldDEV; REJECTreplacement.
-  Preserve compact5b569809…(.9873/.5622/.6498oldDEV); pins/cohort in pilot.
-- Magnitude oracle: count alone insufficient; poles/fields both wrong. Sign/scalar
-  fixes REJECT; signedMSE favorsquietfields, NOTproof of OF2sourcegaugeerror.
-- Size: rawNN fails.8/1.25 law22.211%; analytic transport only≤10kHz, heldgains
-  NOT amplitudephysics. PublishedRayleigh law5309modes matches6.66e-16; decay-only
-  fix stillfailsDEV. No size/count/decay sweeps; exact diagnostics in pilot.
-- **Closed OF2:** bandGram worsens spectrum; noGram/phase/band/decoder/mask/
-  capacity/epoch/seed sweeps. Compact all-modes-accounted is lossy; pins in pilot.
+- **Closed signed-OF2 route:** magnitudeef22695e…/11TRAIN81cc9a90… regress;
+  preserve compact5b569809…. Count/sign/scalar/bandGram fixes fail, NOT sourcegaugeproof.
+  Size lawfails22.211%; analytic≤10kHz/Rayleigh correction works but not learned
+  transfer/amplitudephysics. No size/count/decay/Gram/phase/band/decoder/mask/
+  capacity/epoch/seed sweeps. Lossy compact representation; exact evidence in pilot.
 - **Scale:** native mesh/source intervals agree;CSV23=.082 vs .116984,47=1.2 vs
   .191112. No CSV resizing/absolute calibration; scalar xyz span≠AABB longest side.
-- **Next discriminator:** frozen learned hidden-feature Ritz oracle on TRAIN:
-  can its feature span represent the low32 physical subspace better than the
-  learned32-column head? Distinguish representation vs optimization before more
-  epochs/width/loss variants; no per-object neural fit or DEVcheckpointselection.
-  Keep P1+onecorrection control and produce audible comparison. No frozen-NN
-  correction-count/material-by-material sweeps. Full goal unchanged; overlays in pilot.
-- **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
-  `objectfolder2-source-2026-09-06` audited; original9pairs/320MiB manifest inpilot.
+- **Next:** bounded shared operator-aware representation: mesh connectivity/K/M
+  should participate in predicted displacement updates, not only after a global
+  coordinate field. Compare learned update with a same-budget classical update;
+  one shared TRAIN fit, audible geometry-only new-object result. Not yet implemented.
+  No frozen-coordinate feature/head/rank/epoch/width or correction-count sweeps,
+  per-object neural fitting or DEVcheckpointselection. Full goal unchanged.
+- **Source:** audited ObjectFolder2/rhgao3c6cd893…; manifest/fullpins inpilot.
   **OF2IDs≠SonicGauss/OFRealIDs**. GSOCCBY4/originalmeshterms;23/29URLsNone.
 - Source loader:strictweights_only+numericNumPyallowlist/hash-pinnedASTdeclarations,
   noimports/CUDA/optimizerexecution. Authorpeaknormalization erasesforce/breakszero;

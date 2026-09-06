@@ -8613,3 +8613,84 @@ not applicable to this Python lab. No pressure/radiation, material-pair, realist
 water/rain/friction/rolling/destruction or arbitrary-object completion claim.
 The context skill preserves the improved hybrid and the unresolved TRAIN gap;
 the broader objective, product status and authored fallback are unchanged.
+
+## Frozen hidden-feature discriminator: head-only remedy rejected — 2026-09-06
+
+Audible [TRAIN59 P1 reference → learned32-column head → learned-feature Ritz → untrained-feature Ritz](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-feature-assess-2026-09-06/object-59-contact-0-comparison.wav),12s;
+same comparisons for66/78 and contacts24/47. This is a diagnostic sonification,
+not new neural weights, an independent object or a quality-promoted sound.
+The latest trained new-object hybrid remains ce01da5b… from the preceding section.
+
+Competing hypotheses: H1 the frozen hidden representation contains accurate low
+modes but its32-column output head loses them; H2 the frozen feature span itself
+is insufficient; H3 any apparent feature-oracle gain is just a larger numerical
+space rather than learning. The physical subspace formulation in
+[NeuralSound v4 sections4.2.3/A.3](https://arxiv.org/html/2108.07425v4), reopened
+2026-09-06, motivates extracting Ritz pairs from a basis. No new source assets,
+architecture promise or reproduction of that paper's sparse operator U-Net.
+
+`physical_sound_objectfolder2_feature_probe.py`: hook the existing final field
+layer's128hidden activations, append bias, and form the three-component linear
+dictionary (387columns). Reconstruct the head in float64, maximum relative
+difference2.083e-7 from original float32 output; no independently fitted head.
+Preserve its32-dimensional span, project analytic rigid fields, and add the
+resolved complementary feature directions. Fixed relative Gram rank cutoff1e-10,
+no diagonal loading. All six trained/untrained cases retain384directions:
+387minus3translation directions. Smallest retained relative eigenvalue≥8.89e-7,
+well above cutoff; the conclusion is not caused by discarding weak feature modes.
+Mass-orthogonality error≤9.17e-13. Enlarged lowest32 Ritz eigenvalues cannot exceed
+the contained head's bounds; checked for every case and on an exact unit control.
+
+One seed42 untrained network of the SAME architecture is the control, shared
+across the three objects, with no fitting/seed search. Its weight SHA256
+`3a005fa87562b26fec8d0b6e527a6973f7c61b70533bf44dea53e67f3d188457`.
+Trained weights remain `ce01da5bafa38dea63b159c03a9c3ea06c4df68666485000d91bdae13c68d3e9`.
+Generation uses only existing TRAIN P1 operators, geometric query metadata and
+frozen weights; no DEV or reference eigenmodes. Exact P1 references are solved
+separately during assessment after all generated coefficients are saved.
+Extracting384directions costs more than the32-column head; no equal-cost claim.
+Trained/untrained feature spaces DO have the same retained dimension.
+
+| TRAIN body | Exact lowest32 trace | Learned head / bound | Learned features / bound | Untrained features / bound |
+| --- | ---: | ---: | ---: | ---: |
+| 59 | 264.163333 | 5.7300 | 3.1256 | 3.9629 |
+| 66 | 155.026395 | 7.7332 | 3.9275 | 5.0938 |
+| 78 | 159.129938 | 5.4394 | 2.9558 | 4.8001 |
+
+H1 explains part, not all, of the gap: optimal frozen-feature extraction roughly
+halves the learned head's trace, yet remains about3–4times the physical lower
+bound. H2 is supported for THESE frozen features. Learned features improve
+physical trace over untrained features in all three cases, so H3 is not the entire
+explanation. This does not prove the coordinate-network architecture can never
+learn better features, or identify the best successor architecture.
+
+| TRAIN body | Head spectrum / envelope / log RMS | Feature spectrum / envelope / log RMS | Untrained feature spectrum |
+| --- | --- | --- | ---: |
+| 59 | .98719 / .89080 / 2.31492 | 1.03416 / .82940 / 1.61142 | 1.10517 |
+| 66 | .99575 / .99318 / 4.25177 | .98581 / .96619 / 2.78183 | .99274 |
+| 78 | .99906 / .99967 / 7.24760 | .95896 / .95432 / 2.57378 | .95590 |
+
+All48contacts per TRAIN body assessed; one common gain per body across variants
+and contacts, no per-wave level repair. Learned-feature spectrum worsens on59
+versus its head; versus untrained features it is slightly worse on78. Thus
+improved energy bounds are not consistent audio-quality superiority. All keep
+32poles for physical frequency comparisons, while the existing renderer excludes
+non-audible modes. No radiation, realistic pressure or material-pair admission.
+
+Roots `objectfolder2-feature-probe-2026-09-06`, adjacent `.trace`, and
+`objectfolder2-feature-assess-2026-09-06`. Generation source SHA256
+`fe6bc723714e4ba9704f97f51a4a185bf7f2a05b60b84af58b9868373b86b390`
+precedes an assessment-only unused-variable lint rename; generation unchanged.
+63focused OF2tests/Ruff/diff/link checks PASS.45WAV QA,36exact coefficient replays,
+9galleries, physical sign/zero checks and parameter pins PASS. Generation29distinct
+external read paths: TRAIN geometry/operators, frozen weights and own outputs
+only; no INET/DEV/reference modes. All processes terminal. Cargo/ProductChecks
+NOT_RUN: this remains a bounded Python lab, no runtime or roadmap changes.
+
+Decision: do not promote a head-only or frozen-feature-extraction remedy. Next
+bounded model experiment should represent mesh connectivity/physical-operator
+action during displacement prediction, with a same-budget classical update
+control, shared TRAIN weights and an audible new-object result. Do not silently
+convert this into a head/rank/width/epoch sweep or per-object neural fitting.
+The context skill preserves the partial head bottleneck, insufficient current
+features and physical-bound versus waveform-quality distinction. Full goal open.
