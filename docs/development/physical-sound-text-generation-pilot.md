@@ -6158,3 +6158,127 @@ Focused tests14/14 (five new probe, five pilot, four scale-probe), Ruff and full
 media layout/shared-gain/headroom checks PASS. Full geometry re-encoding still
 FAILS bitwise replay; cached-condition replay PASSES within this measured run.
 No runtime/demo/roadmap promotion; Cargo/host-check/ProductChecks NOT_RUN.
+
+## Shared ten-object 3D cohort and contact residual — 2026-09-06
+
+The previous conditioning experiment produced primary media and localized a
+structural limitation; it was progress, not a supporting-only checkpoint. This
+continuation moves to one model across objects, not per-material fitting.
+
+`physical_sound_sonicgauss_cohort.py` acquired the preselected intersection of
+corrected disclosed generator TRAIN and author TRAIN: objects2/6/12/14/24/66/75/
+94/95/97, first six contacts in author order, without audio-based selection.
+Materials are Ceramic/Glass/Wood/Wood/Plastic/Iron/Ceramic/Glass/Glass/Plastic;
+66 is Iron, not a measured steel composition. Prospective local fine-tuning TRAIN
+is2/6/12/24/66/95 (36 contacts); DEV is14/75/94/97 (24). All ten were pretraining
+TRAIN: this split cannot prove pristine unseen-object generalization. Protected
+41/92, quarantined80 and author-validation payload remain untouched.
+
+External `sonicgauss-cohort-data-2026-09-06` contains ten PLYs and sixty reference
+WAVs,70 payloads/89,707,492 uncompressed bytes,68,690,214 network bytes. The pinned
+range reader/directory/author-TRAIN JSON/corrected projection are hash-checked;
+selected ZIP CRC and file SHA are checked, full archive SHA is NOT verified.
+`corpus.json` retains provenance and reference paths; separate `inputs.json`
+excludes reference waveform paths/hashes from contacts. Acquisition is research,
+not blanket source/model/data redistribution clearance; all assets stay external.
+
+Published shared model generated the first two contacts per object (20 full
+stereo WAVs), with no fitting,50 steps/seed0/noCFG/shared gain1. Geometry features
+are cached once per object, together with six normalized contacts and post-encoder
+RNG state. External `sonicgauss-cohort-baseline-2026-09-06` includes these caches,
+individual pairs and a34.722s gallery. `render-openat.log` records no source audio,
+corpus/author-TRAIN JSON or internet access (only an unsuccessful local NVIDIA MPS
+socket connection). Input metadata labels are not additional neural inputs.
+
+External `sonicgauss-cohort-assessment-2026-09-06` retains all20 recorded→generated
+comparisons. Mean full-waveform relative multi-resolution STFT magnitude L1 is
+.853852; correct contact beats the other contact reference in11/20 cases. This
+amplitude-dependent descriptive metric is NOT a realism score or a calibrated
+physical acceptance threshold. Frozen AST diagnostics, both raw and RMS.005,
+classify generated Iron66 and Ceramic75 as Tick instead of the reference ringing
+classes. Glass6/94/95 generates Chink; Wood12/14 generates Tick, as do many wood
+references. These broad tags neither identify both interacting materials nor
+certify contact accuracy. Failure examples are retained, not quality-selected.
+
+### One shared fit, audible evaluation, rejected candidate
+
+`physical_sound_sonicgauss_shared_fit.py` implements separate fit/render/assess/
+diagnose paths. A262144-parameter residual uses the position embedding as a query
+over all64 encoded geometry tokens (rank64 Q/K/V, layer-normalized inputs), maps
+the attended value back to1024 dimensions and adds it to the second half of the
+original fused sequence. Zero output initialization preserves the baseline
+exactly; it does not reverse or modify published attention weights. The tokens
+encode geometry but do not expose explicit local coordinates: this construction
+is not proof of calibrated contact localization. All five published modules are
+frozen; parameter versions/absent gradients are checked after training.
+
+One run:120Adam steps,lr1e-4,batch4,seed42,gradient clip1. No DEV checkpoint
+selection, per-object parameters or subsequent fit. Thirty-six author recordings
+from the six TRAIN objects become stereo2.98s VAE teachers, preserving levels;
+SciPy polyphase resampling is explicit. The posterior MODE is used instead of
+the author's posterior SAMPLE. Conditional logit-normal discrete flow-matching
+MSE trains only the residual; no conditional-dropout/CFG training is added.
+The emitted external `sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors`
+SHA is `6c2f1eb11d949fefe94a8049a85433f791dcd09fa93077db4a5ff7fc0f67f1f7`.
+The fit receipt records the pre-diagnostic/pre-decision script hash; later code
+adds only diagnostic/decision paths, not a second training run.
+
+Fresh-process rendering generated BOTH baseline and candidate for ALL60 contacts:
+120full131072-sample stereo WAVs,50steps/seed0/noCFG,sharedgain1, no level/EQ/crop
+tuning. Each pair has identical diffusion noise; all20 previously rendered
+baseline cases replay exactly from cached geometry. This does not repair the
+known full geometry-encoder nondeterminism. All raw latents/WAV arrays remain in
+`sonicgauss-shared-contact-render-2026-09-06`. Fit's strace reads exactly the36
+TRAIN source paths; render's trace reads no reference WAV/corpus JSON/network.
+
+External `sonicgauss-shared-contact-assessment-2026-09-06` contains sixty
+10.444308s recorded→baseline→candidate comparisons, same gain1 across every
+recording and generation. Full-waveform relative MRSTFT magnitude L1:
+
+| Local role | Baseline | Candidate | Improved contacts |
+|---|---:|---:|---:|
+| TRAIN,36 | .892170 | .897237 |13/36|
+| DEV,24 | .824499 |1.217264|3/24|
+
+All four DEV object means worsen: Wood14 .697482→.705472, Ceramic75
+1.062409→2.570521, Glass94 .818206→.864714, Plastic97 .719899→.728349.
+Correct reference beats cyclic-next-contact reference17→16/36 TRAIN and13→13/24
+DEV; this is not convincing contact discrimination. No realism percentage follows
+from these values. In particular the poor Ceramic75 case remains visible:
+[recorded→baseline→candidate](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-75-contact-0-comparison.wav).
+The first glass DEV contact is also retained without quality selection:
+[Glass94 comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-94-contact-0-comparison.wav).
+
+The automatic conservative non-regression decision is REJECT. Its rule requires
+an improving DEV mean without any per-object mean regression; a passing result
+would still NOT constitute physical-quality validation or runtime promotion.
+The rule was added after this experiment, explicitly recorded in `decision.json`,
+not presented as preregistered evidence. Future assess calls include the decision
+directly. Tests include a subgroup regression hidden by an improving aggregate,
+incomplete evidence and nonfinite values. Original assessment JSON is unchanged.
+
+A no-training paired-objective discriminator is complete in external
+`sonicgauss-shared-contact-diagnostic-2026-09-06`: four fixed matching noise/time
+draws for each of60 contacts, same encoded teachers, no checkpoint selection.
+Flow MSE improves TRAIN .455501→.442313 (36/36 contacts) and DEV
+.470465→.467904 (18/24). Thus the adapter did optimize the flow objective, even
+though decoded spectral similarity worsened. This does not establish that all
+flow-matching methods fail, nor identify subjective realism from MRSTFT; it
+falsifies accepting this candidate from training/flow loss alone. No epochs/lr/
+seed/adapter-width sweep is justified by this result. The next focused step must
+discriminate codec/representation limits and the decoded-audio objective mismatch,
+then test one shared change with audible output and per-object non-regression.
+Missing absolute scale, force and striker descriptors remain separate blockers
+to the full physical-sound goal, not invented from these recordings.
+
+Reproduction uses the two external Python overlays and offline environment above.
+`fit` needs--source/--assets/--data/--baseline/--output; `render` adds--fit;
+`assess` needs--data/--generated/--output; `diagnose` needs the fit/render input
+roots plus--fit/--output. Every output directory must be new and external.
+No runtime/demo/product-roadmap changes or release claims.
+
+Verification:23/23 focused SonicGauss tests, Ruff check/format,70 acquisition
+size/SHA/CRC checks,140 generation WAV hashes,60 full comparison layouts/headroom,
+changed links and`git diff --check` PASS. Cargo/host-check/ProductChecks NOT_RUN:
+this is external report-only model work, not engine integration. Candidate quality
+non-regression FAILS; broad realistic physical generation remains unachieved.

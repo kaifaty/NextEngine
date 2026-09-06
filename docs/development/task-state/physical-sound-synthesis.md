@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / 3D_CONDITIONING_DIAGNOSED / CACHED_DECODER_REPEAT_EXACT / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALITY / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -10,62 +10,61 @@ Status: ACTIVE_GOAL / 3D_CONDITIONING_DIAGNOSED / CACHED_DECODER_REPEAT_EXACT / 
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [original→changed point layout](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/layout-comparison.wav),6.444s;
-  samefolder contact/appearance pairs +6casegallery.9cases,exactinitialnoiseall,
-  full131072stereosamples/gain1/noEQ/crop. Geometry-layout/SHappearance interventions
-  testDEPENDENCY,notcalibratedrealshape/material. No fit/newdata/sourceaudioinput.
-  Geometry/appearance affectwave.7420/.9077relativeRMS;contactB.07055;zeropos.08278.
-  CachedA/fullA/cachedArepeatEXACT throughdecoder+PCM;reencodingAfirstdiffers at
-  Gaussianfeatures(.0019566)→PCM(.0037788). Driftlocalizedtoencoderpath,notexactkernel.
-  Actualfusion hasONEpositionkey:Q/K/Vgradnorm0/0/.05807;zeroqueriesleavesattention
-  unchanged. CannotselectspatialGStokensinTHISattention;residual/decoderstillcan
-  learnposition. Do NOT inferwholemodelignoresgeometry/position or blindlyamplify.
-  Report/probe roots`sonicgauss-conditioning-{report,probe}-2026-09-06`;14testsPASS.
-- **Previous primary:** [3D neural contact A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-pair-2026-09-06/comparison.wav),6.444s.
-  [Recorded A→neural A→recorded B→neural B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-assessment-2026-09-06/reference-generated-comparison.wav),13.944s.
-  Published shared SonicGauss, NO new training. ObjectFolderReal6 glass bowl,
-  disclosed canonical TRAIN parent realimpact-6-bowl--objectfolder-real-object-6.
-  Author TRAIN first two records: contacts16/35, selected before results.
-  3DGS+contact→PTv3→position/fusion→TangoFlux→VAE; no target audio at inference.
-- Source root `sonicgauss-source-2026-09-06`: Sonic7a5687af…, SplatFormer446ffb5…,
-  Pointceptc4aa232…, TangoFluxfb364c2…. Runner pins17sourcefiles/fullfiveweighthashes.
-  Assets`sonicgauss-assets-2026-09-06`: HFmodel57b06047…,2.506GBverified;
-  strict VAE365/Tango243/GS537/position7/fusion12keys.219unusedT5keys explicitly
-  excluded, no tokenizer/pickle/upstreampackageinitializers/download at inference.
-- Datasetrevisione905b8cb…; `sonicgauss-range-2026-09-06` contains bounded ZIP64
-  acquisition scripts, directorymetadata/TRAINJSON/onePLY/two assessmentreferences.
-  HTTP206/ranges,CRC/selectedSHA checked; full24.7GBarchiveSHA NOTverified.
-  PLYSHA92892268d640c54e60482562fb712b0a6b562a15917d6256bb7fe475dd058303,
-  5629642bytes.12250retainedGaussians,12130uniquegrid384voxels. No deduplication.
-  No authorvalJSON/protectedresponse/otherobjectpayload. References acquired only
-  AFTER generation, in assessment; strace freshinference confirms no target reads.
-- Externaloverlay`sonicgauss-python-2026-09-06`: SpConv-cu1182.3.8/Cumm0.7.11,
-  gin0.5/plyfile1.1.3/addict2.4/timm1.0.20; plus existingMMAudiooverlaytorchvision.
-  PTv3retains1024patches,stride2/2/4/4,FP16QKV,serialization/padding. Explicit
-  SDPAforraggedFlashAttention and torch.segment_reduceforCSR compatibility.
-  DO NOT simplydisableflash: upstreamalsochangespatches1024→128. CPUequation
-  controls pass; GPUvsFP64maxabs.00038962/relativeRMS.00026727,notbitwisebackendparity.
-- Seed0/50steps/noCFGsamebothcontacts. Full131072stereosamples/44100Hz=2.972154s,
-  request3s;gain1,noEQ/crop/gates. ASTChink-clinktop1both/raw+RMS.005; references
-  Ding/Clangtop1. Coarseclass only,NOTmaterial/realism/positionvalidation.
-  Source sub20Hzenergy32.7%/54.6%,neural43.5%/45.5%;notgenerator-onlyartifact.
-  Referenceaudiblepeakbins13099/784Hz;generatedboth3896Hz,notfullspectralassessment.
-- **Exact replay FAILS:**A→BrelativeRMS.07017;A→repeatA.0017715(~39.6×smaller).
-  Freshprocessalso differs; raw arrays/latents/failedrepeats retained in
-  `sonicgauss-contact-pair-2026-09-06` and `sonicgauss-contact-replay-2026-09-06`.
-  Duplicate voxels observed but NOTproven driftcause. No retry-to-green.
-  Warm.61–.65s excludesstartup,notruntimeperformance. All jobs terminal.
-- **Next primary:** same-model multi-object audible baseline, then shared contact-
-  awarefit with object-disjoint fine-tuning development; no per-bowl gain/seed/EQ/
-  geometry sweep. Metadata-only correcteddisclosedTRAIN∩authorTRAIN candidates:
-  2/6/12/14/24/66/75/94/95/97 (counts28/39/30/26/33/26/46/40/42/36). No newpayload yet.
-  36/70NOTauthorTRAIN;don'topenauthorval toinclude;80quarantinedUnknown;41/92guarded.
-  All arepretrainedTRAIN,so localobjectsplit≠pristineunseenobject. Trainingpath
-  usesnormalcontact+flowMSE;force/strikerabsent. Sonicstilllackssize/force/striker.
-- Reproduce via `lab/scripts/physical_sound_sonicgauss_pilot.py`:
-  `--source SOURCE --assets ASSETS --input RANGE --output NEW_EXTERNAL`.
-  Above2PYTHONPATHoverlays,HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,
-  OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4. Allgeneratedassets outsideGit.
+- **Latest primary:** 60 recorded→baseline→shared-fit comparisons, each10.444s,
+  in`sonicgauss-shared-contact-assessment-2026-09-06`, e.g.
+  [DEV glass94/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-94-contact-0-comparison.wav),
+  [failed DEV ceramic75/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-75-contact-0-comparison.wav).
+  All120 full stereo generated WAVs +latent/wave NPZ in`sonicgauss-shared-contact-render-2026-09-06`.
+  One262144parameter contact-query→64geometry-token attention residual,zero-init,
+  shared120Adamsteps/lr1e-4/batch4/seed42. Published five models frozen/version-
+  checked/no gradients; no per-object parameters/gain/EQ/seed/checkpoint selection.
+- Fit`sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors` SHA
+  `6c2f1eb11d949fefe94a8049a85433f791dcd09fa93077db4a5ff7fc0f67f1f7`.
+  Teachers2.98s,stereo/no amplitude normalization,SciPy resampling,VAE posterior
+  MODE(authorusesSAMPLE);logit-normal discrete flow MSE,conditional/noCFGdropout.
+  36TRAIN contacts(objects2/6/12/24/66/95),24DEV(14/75/94/97),sixauthor-first/object.
+  All ten KNOWN pretraining TRAIN; localobjectsplit≠pristineunseenobject.
+- **REJECT:** full-wave relativeMRSTFTL1 TRAIN.892170→.897237(13/36wins),
+  DEV.824499→1.217264(3/24wins); ALL4DEVobjectmeansworse,ceramic75 1.06241→2.57052.
+  Matchedvscyclicnextcontact TRAIN17→16/36,DEV13→13/24; notcontactvalidation.
+  `decision.json`automaticallyrejectsanyDEVobjectmeanregression/nooverallimprovement;
+  ruleaddedAFTERthisrun,notpreregistered. PasswouldNOTprovephysicalquality.
+- **Decisive countercheck:** `sonicgauss-shared-contact-diagnostic-2026-09-06`:
+  fourpairedfixednoise/timestepdraws/contact,NOtraining. FlowMSE TRAIN
+  .455501→.442313(36/36wins),DEV.470465→.467904(18/24wins).
+  Optimization worked onitsobjective butdecoded spectralerror worsened; do NOT
+  equateflowlosswithrealism orrepeatattention/lr/epochs/seedsweeps. Changes do not
+  fixmissingabsolute size/force/strikermaterial orcalibratephysicalresponse.
+- **Next primary:** a shared-model improvement must be judged on decoded audio
+  with object-level non-regression, not merely flow loss. Beforeanotherfit,
+  discriminate representation/codec limits and waveform-objective mismatch on
+  this retained cohort; no more data/per-bowl tuning to hide the failure. Need
+  evidence-backed decoded-audio change +new audible pairs, notnewprotocol/roadmap.
+- `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,89,707,492payloadbytes;
+  68,690,214networkbytes,pinned206ranges/CRC/SHA,fullarchiveSHA NOTverified.
+  Datasetrevisione905b8cb…,correctedprojection93d397c1…,range-root`sonicgauss-range-2026-09-06`.
+  Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
+  Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;
+  stracerenderreadsNOreference/corpus/network. DiagnosisonlyreadsDEVafterfit.
+- Published baseline20WAV+10geometrycaches`sonicgauss-cohort-baseline-2026-09-06`;
+  [ten-object gallery](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-cohort-baseline-2026-09-06/gallery.wav),34.722s.
+  ItsassessmentMRSTFT.853852;matched11/20. ASTraw/RMS.005:Iron66/Ceramic75genTick
+  versusrecordedringing;glass6/94/95Chink;wood12/14Tickoftenalsorecorded. NOTjudge.
+- Generation50steps/seed0/noCFG/full131072stereosamples44100/gain1/noEQ/crop.
+  Cached baseline replaysEXACT all20priorcases; originalfullGSreencodingstilldrifts
+  firstatencoder(.0019566features→.0037788wave),notprovenkernel/duplicatevoxelcause.
+  Previous`sonicgauss-conditioning-report-2026-09-06`:geometry/appearanceaffectoutput;
+  originalfusionONEpositionkey,Q/K/Vgrad0/0/.05807,attentioncan'tselectGS tokens,
+  butfullresidual+decoderSTILLcanlearnposition. NewresidualdidNOTprovequalityfix.
+- Source`sonicgauss-source-2026-09-06`:Sonic7a5687af/Splat446ffb5/Pointc4aa232/Tangofb364c2.
+  Assets`sonicgauss-assets-2026-09-06`:HF57b06047,2.506GB;pilotpins17sources+5weights.
+  StrictVAE365/Tango243/GS537/PE7/fusion12;219T5keysunusedexplicitly,nopickle/network.
+- Reproduce `physical_sound_sonicgauss_shared_fit.py` stagesfit/render/assess/diagnose;
+  flags--source/--assets/--data/--baseline/--fit/--generated/--output per--help.
+  PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
+  HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4.
+  NativeSDPA/segment_reducecompat;DO NOTdisableflashbecausePTv3patch1024→128.
+  No livejobs; fullmodel replay≠cached repeatability, no productperformance claim.
 - **Previous learned:** [2D reference→base→fine-tuned](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav).
   Shared328000parameterlastlayer,100Adamsteps,48TRAIN(8ownshapes×3materials×2contacts),
   16DEV(4othermasks×2othernumerictuples×2contacts),sameconvexpolygonfamily.
