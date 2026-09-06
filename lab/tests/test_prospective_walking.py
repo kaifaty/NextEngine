@@ -139,6 +139,7 @@ class TrainingSelectionTests(unittest.TestCase):
     def test_first_pass_stops_and_budget_failure_does_not_select(self):
         class Env:
             num_envs, num_actions = 4, 23
+            sole_height_offset = 86
 
             def __init__(self):
                 self.raw = np.zeros((4, 88))

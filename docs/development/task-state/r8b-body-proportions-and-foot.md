@@ -9,6 +9,7 @@
 
 ## Resume in 60 seconds
 
+- [Adapter foundation](../r8b-corrected-body-adapter-2026-09-06.md) now passes41 Python tests, synthetic25-action PPO update and640 real old-V8 transitions/29 resets with exact direct-worker equality. Joint widths/order/height offsets are descriptor-derived; short responses reject. Native25 environment is NOT implemented, no training started. Next explicit native body/controller/contact/reward successor, not more Python width changes or another gain sweep.
 - Latest decision supersedes historical next-action text below: user prioritizes corrected-body walking integration. [Support-effort result](../r8b-support-effort-calibration-2026-09-06.md), ADR-125: V11 survives30s, quiet gate fails torso1.675deg and both MTP RMS. Independent557,300 efforts/roots/controls and native repeat agree;161 native tests plus scoped/Linux host checks pass. Do not retune gains or claim calibration complete. Implement explicit25-action environment/adapter and pipeline smoke; old23-action environments/weights remain unchanged. Observed velocity-versus-endpoint-motion discrepancy still needs discrimination; no production velocity substitution or training started.
 - Native baseline: whole-body sampled damping V9 is implemented as an opt-in
   diagnostic (ADR-120), **not selected**. Independent local-model preflight

@@ -20,20 +20,39 @@ from next_lab.motor_lab_client import MotorLabClient, normalized_action_to_raw
 
 
 def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
+    width = descriptor.get("action_width")
+    if type(width) is not int or not 1 <= width <= 4096:
+        raise ValueError("invalid canonical action width")
     joints = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    if len(joints) != len(descriptor["joints"]):
+        raise ValueError("duplicate canonical joint identity")
+    actuator_joints = [item["joint_id"] for item in descriptor["actuators"]]
+    if len(actuator_joints) != width or len(set(actuator_joints)) != width:
+        raise ValueError("canonical actuator count/order mismatch")
+    if any(joint not in joints for joint in actuator_joints):
+        raise ValueError("unresolved canonical actuator joint")
     ordered = [joints[item["joint_id"]] for item in descriptor["actuators"]]
     position = [max(map(abs, joint["soft_limit_microradians"])) for joint in ordered]
     velocity = [joint["maximum_velocity_microradians_per_second"] for joint in ordered]
+    # Quaternion + two root velocities + q/v/previous targets + command + feet.
+    # Layout semantics remain profile-owned; only the joint-block width varies.
+    base_width = 15 + 3 * width
+    observation_width = descriptor.get("observation_width")
+    if type(observation_width) is not int:
+        raise ValueError("invalid canonical observation width")
+    extension_width = observation_width - base_width
+    if extension_width not in (0, 2, 4):
+        raise ValueError("invalid canonical observation width")
     clock_scales = []
-    if descriptor.get("observation_width") in (86, 88):
+    if extension_width:
         profiles = descriptor["environment_profiles"]
-        versions = (6,) if descriptor["observation_width"] == 86 else (7, 8)
+        versions = (6,) if extension_width == 2 else (7, 8)
         if len(profiles) != 1 or not profiles[0]["profile_id"].endswith(
             tuple(f"forward-start-stop.v{version}" for version in versions)
         ):
             raise ValueError(f"observation width requires walking V{versions[0]}")
         clock_scales = [1 << 30] * 2
-        if descriptor["observation_width"] == 88:
+        if extension_width == 4:
             clock_scales += [100_000] * 2
     scales = np.asarray(
         [1 << 30] * 4
@@ -47,7 +66,7 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
         dtype=np.float64,
     )
     if (
-        scales.shape != (84 + len(clock_scales),)
+        scales.shape != (observation_width,)
         or not np.isfinite(scales).all()
         or np.any(scales <= 0)
     ):
@@ -78,9 +97,13 @@ class CanonicalVecEnv:
         if shards <= 0 or num_envs <= 0 or num_envs % shards:
             raise ValueError("positive environment count must be divisible by shards")
         self.num_envs = num_envs
-        self.num_actions = 23
         self.device = device
         self.scales = observation_scales(descriptor)
+        self.num_actions = descriptor["action_width"]
+        base_width = 15 + 3 * self.num_actions
+        self.sole_height_offset = (
+            base_width + 2 if len(self.scales) == base_width + 4 else None
+        )
         # Only the explicitly selected command-only environment is accepted.
         matches = [
             item
@@ -99,6 +122,9 @@ class CanonicalVecEnv:
                 "descriptor must contain exactly one walking V5/V6/V7/V8 environment"
             )
         expected = matches[0]
+        for name in ("action_width", "observation_width"):
+            if name in expected and expected[name] != descriptor[name]:
+                raise ValueError(f"canonical profile/descriptor mismatch: {name}")
         self.max_episode_length = expected["maximum_episode_steps"]
         self.cfg = {"environment_profile_id": expected["profile_id"]}
         self.slots_per_shard = num_envs // shards
@@ -154,9 +180,16 @@ class CanonicalVecEnv:
         if [item.vector_slot for item in results] != slots:
             raise RuntimeError("canonical reset order/count mismatch")
         for item in results:
+            self._validate_observation(item.observation_raw)
+        for item in results:
             index = shard * self.slots_per_shard + item.vector_slot
             self.raw[index] = item.observation_raw
             self.ordinals[index] = item.episode_ordinal
+
+    def _validate_observation(self, raw: np.ndarray) -> None:
+        # Never let NumPy broadcast a short native response across joint channels.
+        if np.shape(raw) != self.scales.shape:
+            raise RuntimeError("canonical observation shape mismatch")
 
     def _observations(self, raw: np.ndarray) -> TensorDict:
         values = (raw.astype(np.float64) / self.scales).astype(np.float32)
@@ -175,7 +208,7 @@ class CanonicalVecEnv:
             raise ValueError("canonical action batch shape mismatch")
         # Validate the entire batch before advancing any process.
         raw_actions = normalized_action_to_raw(
-            actions.detach().cpu().numpy(), 23, q1_30=True
+            actions.detach().cpu().numpy(), self.num_actions, q1_30=True
         )
         futures = []
         for shard, client in enumerate(self.clients):
@@ -199,6 +232,7 @@ class CanonicalVecEnv:
                 index = shard * self.slots_per_shard + item.vector_slot
                 if item.episode_ordinal != self.ordinals[index]:
                     raise RuntimeError("canonical episode identity mismatch")
+                self._validate_observation(item.observation_raw)
             results.extend(batch)
         self.last_steps = results
         self.raw[:] = np.stack([item.observation_raw for item in results])

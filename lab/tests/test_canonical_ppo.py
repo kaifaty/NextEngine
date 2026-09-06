@@ -18,7 +18,7 @@ from rsl_rl.modules import ActorCritic
 from tensordict import TensorDict
 
 
-def descriptor():
+def descriptor(width=23):
     hashes = {
         name: "12" * 32
         for name in (
@@ -39,11 +39,11 @@ def descriptor():
                 "soft_limit_microradians": [-100, 200],
                 "maximum_velocity_microradians_per_second": 1000,
             }
-            for i in range(23)
+            for i in range(width)
         ],
-        "actuators": [{"joint_id": str(i)} for i in range(23)],
-        "observation_width": 84,
-        "action_width": 23,
+        "actuators": [{"joint_id": str(i)} for i in range(width)],
+        "observation_width": 15 + 3 * width,
+        "action_width": width,
         "physics_hz": 240,
         "motor_hz": 60,
         "environment_profiles": [
@@ -57,8 +57,10 @@ def descriptor():
 
 
 class FakeClient:
+    action_width = 23
+
     def __init__(self, executable, profile, slots, root):
-        data = descriptor()
+        data = descriptor(self.action_width)
         expected = data["environment_profiles"][0]
         self.descriptor = SimpleNamespace(
             **{
@@ -66,8 +68,8 @@ class FakeClient:
                 for key, value in expected.items()
             },
             slots=slots,
-            observation_width=84,
-            action_width=23,
+            observation_width=data["observation_width"],
+            action_width=self.action_width,
             physics_hz=240,
             motor_hz=60,
         )
@@ -84,7 +86,7 @@ class FakeClient:
             SimpleNamespace(
                 vector_slot=slot,
                 episode_ordinal=self.ordinals[slot],
-                observation_raw=np.full(84, -50),
+                observation_raw=np.full(15 + 3 * self.action_width, -50),
             )
             for slot in slots
         ]
@@ -96,7 +98,7 @@ class FakeClient:
             SimpleNamespace(
                 vector_slot=slot,
                 episode_ordinal=int(ordinal),
-                observation_raw=np.full(84, 100 + slot),
+                observation_raw=np.full(15 + 3 * self.action_width, 100 + slot),
                 reward_total_q16=32768,
                 motor_tick=1,
                 terminated=slot == 0,
@@ -110,6 +112,136 @@ class FakeClient:
 
 
 class CanonicalAdapterTests(unittest.TestCase):
+    def test_descriptor_width_order_and_references_fail_before_worker_creation(self):
+        mutations = [
+            lambda d: d.update(action_width=24),
+            lambda d: d.update(action_width=True),
+            lambda d: d.update(action_width=0),
+            lambda d: d.update(observation_width=85),
+            lambda d: d["joints"].append(d["joints"][0].copy()),
+            lambda d: d["actuators"][-1].update(joint_id="missing"),
+            lambda d: d["actuators"][-1].update(joint_id="0"),
+            lambda d: d["environment_profiles"][0].update(action_width=25),
+            lambda d: d["environment_profiles"][0].update(observation_width=90),
+        ]
+        for mutate in mutations:
+            data = descriptor()
+            mutate(data)
+            with (
+                self.subTest(data=data),
+                patch("next_lab.canonical_ppo.MotorLabClient") as factory,
+            ):
+                with self.assertRaises(ValueError):
+                    self.make_width_env(data, factory)
+                factory.assert_not_called()
+
+    def make_width_env(self, data, factory):
+        return CanonicalVecEnv(
+            Path("unused"),
+            data,
+            num_envs=2,
+            shards=1,
+            run_root="00" * 32,
+            device="cpu",
+            client_factory=factory,
+        )
+
+    def test_25_action_layout_preserves_order_and_rejects_old_action_batches(self):
+        class WideClient(FakeClient):
+            action_width = 25
+
+        data = descriptor(25)
+        # Each channel has a distinguishable scale; descriptor actuator order owns it.
+        data["actuators"].reverse()
+        for i, joint in enumerate(data["joints"]):
+            joint["soft_limit_microradians"] = [-100, 200 + i]
+            joint["maximum_velocity_microradians_per_second"] = 1000 + i
+        env = self.make_width_env(data, WideClient)
+        try:
+            self.assertEqual(env.num_actions, 25)
+            self.assertEqual(env.raw.shape, (2, 90))
+            np.testing.assert_array_equal(env.scales[10:35], np.arange(224, 199, -1))
+            np.testing.assert_array_equal(env.scales[35:60], np.arange(1024, 999, -1))
+            np.testing.assert_array_equal(env.scales[60:85], env.scales[10:35])
+            with self.assertRaisesRegex(ValueError, "shape"):
+                env.step(torch.zeros(2, 23))
+            bad = torch.zeros(2, 25)
+            bad[-1, -1] = torch.nan
+            with self.assertRaisesRegex(ValueError, "finite"):
+                env.step(bad)
+            self.assertEqual(env.clients[0].calls, 0)
+            action = torch.arange(25, dtype=torch.float32).repeat(2, 1) / 32
+            _, _, _, extras = env.step(action)
+            np.testing.assert_array_equal(
+                env.clients[0].actions, np.tile(np.arange(25) * (1 << 25), (2, 1))
+            )
+            self.assertEqual(extras["time_outs"].tolist(), [False, True])
+            self.assertEqual(env.ordinals.tolist(), [1, 1])
+            self.assertTrue(torch.all(extras["terminal_observation"]["policy"] > 0))
+        finally:
+            env.close()
+
+    def test_25_action_descriptor_rejects_23_action_native_handshake(self):
+        clients = []
+
+        def factory(*args):
+            client = FakeClient(*args)
+            clients.append(client)
+            return client
+
+        with self.assertRaisesRegex(ValueError, "descriptor mismatch"):
+            self.make_width_env(descriptor(25), factory)
+        self.assertTrue(clients[0].closed)
+        self.assertEqual(clients[0].reset_calls, [])
+
+    def test_25_action_sole_offsets_follow_joint_blocks(self):
+        data = descriptor(25)
+        data["observation_width"] = 94
+        data["environment_profiles"][0]["profile_id"] = "test.forward-start-stop.v8"
+        scales = observation_scales(data)
+        self.assertEqual(scales.shape, (94,))
+        np.testing.assert_array_equal(scales[90:], [1 << 30, 1 << 30, 100_000, 100_000])
+
+    def test_short_reset_observation_cannot_broadcast_over_25_joints(self):
+        clients = []
+
+        class ShortClient(FakeClient):
+            action_width = 25
+
+            def __init__(self, *args):
+                super().__init__(*args)
+                clients.append(self)
+
+            def reset(self, slots):
+                results = super().reset(slots)
+                results[-1].observation_raw = np.zeros(1, dtype=np.int64)
+                return results
+
+        with self.assertRaisesRegex(RuntimeError, "observation shape"):
+            self.make_width_env(descriptor(25), ShortClient)
+        self.assertTrue(clients[0].closed)
+
+    def test_short_step_observation_preserves_last_valid_adapter_state(self):
+        class ShortClient(FakeClient):
+            action_width = 25
+
+            def step(self, ordinals, actions):
+                results = super().step(ordinals, actions)
+                for result in results:
+                    result.observation_raw = np.zeros(1, dtype=np.int64)
+                return results
+
+        env = self.make_width_env(descriptor(25), ShortClient)
+        try:
+            before = env.raw.copy()
+            with self.assertRaisesRegex(RuntimeError, "observation shape"):
+                env.step(torch.zeros(2, 25))
+            np.testing.assert_array_equal(env.raw, before)
+            self.assertEqual(env.last_steps, [])
+            self.assertEqual(len(env.clients[0].reset_calls), 1)
+        finally:
+            env.close()
+
     def test_lift_return_height_scales_preserve_periodic_channels(self):
         old = descriptor()
         old["observation_width"] = 86
@@ -127,14 +259,19 @@ class CanonicalAdapterTests(unittest.TestCase):
 
     def test_lift_return_heights_survive_terminal_observation_before_reset(self):
         for version in (7, 8):
-            with self.subTest(version=version):
-                self.check_lift_return_terminal_observation(version)
+            for width in (23, 25):
+                with self.subTest(version=version, width=width):
+                    self.check_lift_return_terminal_observation(version, width)
 
-    def check_lift_return_terminal_observation(self, version):
+    def check_lift_return_terminal_observation(self, version, width):
+        height_offset = 17 + 3 * width
+
         class LiftClient(FakeClient):
+            action_width = width
+
             def __init__(self, *args):
                 super().__init__(*args)
-                self.descriptor.observation_width = 88
+                self.descriptor.observation_width = height_offset + 2
 
             def reset(self, slots):
                 results = super().reset(slots)
@@ -152,8 +289,8 @@ class CanonicalAdapterTests(unittest.TestCase):
                     )
                 return results
 
-        data = descriptor()
-        data["observation_width"] = 88
+        data = descriptor(width)
+        data["observation_width"] = height_offset + 2
         data["environment_profiles"][0]["profile_id"] = (
             f"test.forward-start-stop.v{version}"
         )
@@ -167,10 +304,13 @@ class CanonicalAdapterTests(unittest.TestCase):
             client_factory=LiftClient,
         )
         try:
-            obs, _, _, extras = env.step(torch.zeros(2, 23))
-            np.testing.assert_array_equal(obs["policy"][:, 86:], np.zeros((2, 2)))
+            self.assertEqual(env.sole_height_offset, height_offset)
+            obs, _, _, extras = env.step(torch.zeros(2, width))
+            np.testing.assert_array_equal(
+                obs["policy"][:, height_offset:], np.zeros((2, 2))
+            )
             np.testing.assert_allclose(
-                extras["terminal_observation"]["policy"][:, 86:],
+                extras["terminal_observation"]["policy"][:, height_offset:],
                 [[0.6, -0.0001], [0.6, -0.0001]],
             )
             self.assertEqual(extras["time_outs"].tolist(), [False, True])
@@ -355,20 +495,28 @@ class CanonicalAdapterTests(unittest.TestCase):
         self.assertIn("time_outs", extras)
 
     def test_installed_ppo_can_update_with_adapter_contract(self):
-        env = self.make_env()
+        self.check_ppo_update(self.make_env())
+
+    def test_installed_ppo_can_update_with_25_action_adapter(self):
+        class WideClient(FakeClient):
+            action_width = 25
+
+        self.check_ppo_update(self.make_width_env(descriptor(25), WideClient))
+
+    def check_ppo_update(self, env):
         try:
             obs = env.get_observations()
             policy = ActorCritic(
                 obs,
                 {"policy": ["policy"], "critic": ["policy"]},
-                23,
+                env.num_actions,
                 actor_hidden_dims=[8],
                 critic_hidden_dims=[8],
             )
             algorithm = TerminalObservationPPO(
                 policy, device="cpu", num_learning_epochs=1, num_mini_batches=1
             )
-            algorithm.init_storage("rl", 4, 2, obs, [23])
+            algorithm.init_storage("rl", env.num_envs, 2, obs, [env.num_actions])
             with torch.inference_mode():
                 for _ in range(2):
                     obs, reward, done, extras = env.step(algorithm.act(obs))

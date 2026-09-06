@@ -82,10 +82,10 @@ def adapter_control(headless, descriptor, profile):
         rng = np.random.default_rng(193)
         for tick in range(160):
             # Includes zero control and unsafe exploration to exercise independent resets.
-            actions = np.zeros((count, 23), dtype=np.float32)
-            actions[1:] = rng.uniform(-0.8, 0.8, size=(count - 1, 23)).astype(
-                np.float32
-            )
+            actions = np.zeros((count, env.num_actions), dtype=np.float32)
+            actions[1:] = rng.uniform(
+                -0.8, 0.8, size=(count - 1, env.num_actions)
+            ).astype(np.float32)
             ordinals = env.ordinals.copy()
             _obs, rewards, _dones, extras = env.step(torch.from_numpy(actions))
             for shard, control in enumerate(controls):
@@ -326,11 +326,21 @@ def train(headless, descriptor, profile, output, auditor=None):
                             moving_samples += 1
                             moving_step_credit += int(result.reward_components_raw[9])
                             if len(result.reward_components_raw) == 13:
+                                if env.sole_height_offset is None:
+                                    raise RuntimeError(
+                                        "sole-height reward lacks observations"
+                                    )
                                 moving_height_cost += sum(
                                     map(int, result.reward_components_raw[11:])
                                 )
                                 moving_clearance_samples += (
-                                    np.asarray(result.observation_raw[86:88]) > 30_000
+                                    np.asarray(
+                                        result.observation_raw[
+                                            env.sole_height_offset : env.sole_height_offset
+                                            + 2
+                                        ]
+                                    )
+                                    > 30_000
                                 )
                             if int(np.count_nonzero(result.contact_flags)) == 1:
                                 single_support_samples += result.contact_flags
@@ -372,10 +382,10 @@ def train(headless, descriptor, profile, output, auditor=None):
                 else None,
                 "moving_sole_height_cost_mean": moving_height_cost
                 / (65536 * moving_samples)
-                if moving_samples and env.raw.shape[1] == 88
+                if moving_samples and env.sole_height_offset is not None
                 else None,
                 "moving_sole_clearance_above_30mm_samples_report_only": moving_clearance_samples.tolist()
-                if env.raw.shape[1] == 88
+                if env.sole_height_offset is not None
                 else None,
                 "collection_seconds": collect_end - tick_start,
                 "learning_seconds": time.monotonic() - collect_end,
