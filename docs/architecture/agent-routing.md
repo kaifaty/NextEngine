@@ -50,6 +50,13 @@ The standing probe is diagnostic only and does not admit training.
 
 ## Validation scope
 
+For corrected-body walking environment / native25-action training integration,
+read [ADR-126](adr/126-corrected-body-walking-environment.md), SPEC-27/34/35 and
+ADR-107/110/112/122/124/125. Verify native action/target/state equality, anatomical
+feet and heights, reset/terminal/invalid-batch handling, Python Q30/timeout and
+old-V8 controls; native tests/Clippy/format, boundary/content/play/replay and Linux
+host-check. Only the frozen pipeline smoke is admitted, not walking quality.
+
 For contact-aware support-effort calibration additionally read
 [ADR-125](adr/125-support-effort-calibration-diagnostic.md), SPEC-27/35 and
 ADR-069/119/122/124. Check exact compiled identity, support-before-safety,

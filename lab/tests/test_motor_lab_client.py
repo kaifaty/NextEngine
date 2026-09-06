@@ -23,17 +23,18 @@ from next_lab.trajectory_recorder import (
 
 class MotorLabClientTests(unittest.TestCase):
     def test_periodic_walking_actions_are_q1_30_not_microradians(self):
-        for version in (6, 7, 8):
+        for version in (6, 7, 8, 9):
             with self.subTest(version=version):
+                width = 25 if version == 9 else 23
                 client = object.__new__(MotorLabClient)
                 client.descriptor = SimpleNamespace(
                     profile_id=f"nextengine.motor.env.humanoid-biomechanics-forward-start-stop.v{version}",
-                    action_width=23,
+                    action_width=width,
                 )
                 client.step = Mock(return_value=[])
-                client.step_normalized([1], np.full((1, 23), 0.5))
+                client.step_normalized([1], np.full((1, width), 0.5))
                 np.testing.assert_array_equal(
-                    client.step.call_args.args[1], np.full((1, 23), 1 << 29)
+                    client.step.call_args.args[1], np.full((1, width), 1 << 29)
                 )
 
     def test_normalized_adapter_clamps_and_uses_ties_to_even(self) -> None:

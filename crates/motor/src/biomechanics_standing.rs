@@ -6,6 +6,14 @@ use next_contracts::motor::{
 };
 use serde_json::{Value, json};
 
+mod corrected;
+pub(crate) use corrected::corrected_reward_q16;
+pub use corrected::{
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9,
+    biomechanics_forward_start_stop_canonical_descriptor_json_v9,
+    biomechanics_forward_start_stop_environment_manifest_v9,
+};
+
 use crate::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
     BIOMECHANICS_WORLD_BOUND_MICROMETRES, CompiledBodySchemaV3, MotorCompileError,
@@ -362,23 +370,24 @@ pub fn biomechanics_forward_start_stop_reward_q16_v2(
     compiled: &CompiledBodySchemaV3,
     facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
 ) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
-    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, false)
+    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, false, 23)
 }
 
 pub fn biomechanics_forward_start_stop_reward_q16_v3(
     compiled: &CompiledBodySchemaV3,
     facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
 ) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
-    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, true)
+    biomechanics_forward_start_stop_reward_q16_v2_or_v3(compiled, facts, true, 23)
 }
 
 fn biomechanics_forward_start_stop_reward_q16_v2_or_v3(
     compiled: &CompiledBodySchemaV3,
     facts: &BiomechanicsForwardStartStopRewardFactsV1<'_>,
     dense_tracking: bool,
+    expected_width: usize,
 ) -> Result<([i64; 11], i64), crate::TrainingEnvironmentError> {
     let width = compiled.base.actuator_definitions.len();
-    if width != 23
+    if width != expected_width
         || facts.applied_targets_microradians.len() != width
         || facts.previous_applied_targets_microradians.len() != width
         || facts.contacting_sole_count > 2

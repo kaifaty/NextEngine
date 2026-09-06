@@ -8,7 +8,7 @@
 | Decision date | 2026-09-06 |
 | Dependencies | SPEC-35, ADR-069/115/116/118/119/120/121 |
 | Supersedes | ADR-118/120/121 exact four-sole admission only for the new V11 factory; all prior profiles stay unchanged |
-| Superseded by | ADR-123/124 additive diagnostic inputs and exact V11 standing consumers; original census unchanged |
+| Superseded by | ADR-123/124 additive diagnostic inputs and exact V11 standing consumers; [ADR-126](126-corrected-body-walking-environment.md) adds native walking; original census unchanged |
 
 ## Decision and boundary
 

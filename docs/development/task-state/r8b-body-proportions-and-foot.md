@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `SUPPORT_30S_SURVIVAL / QUIET_GATE_FAILED / NEW_BODY_ENVIRONMENT_IN_PROGRESS / FULL_CALIBRATION_OPEN` |
+| Status | `NATIVE_25_ENVIRONMENT_IMPLEMENTED / PIPELINE_SMOKE_PREPARED / QUIET_GATE_FAILED / FULL_CALIBRATION_OPEN` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
 
 ## Resume in 60 seconds
 
-- [Adapter foundation](../r8b-corrected-body-adapter-2026-09-06.md) now passes41 Python tests, synthetic25-action PPO update and640 real old-V8 transitions/29 resets with exact direct-worker equality. Joint widths/order/height offsets are descriptor-derived; short responses reject. Native25 environment is NOT implemented, no training started. Next explicit native body/controller/contact/reward successor, not more Python width changes or another gain sweep.
+- [Native25 environment](../r8b-corrected-native-walking-2026-09-06.md), [ADR-126](../../architecture/adr/126-corrected-body-walking-environment.md): exact V11/CompiledV4, walking referenceV1+PD (NOT standingV6/support), anatomical feet and94 observations implemented.166 native/7 protocol/48 Python tests and640-transition/89-reset control pass. Initial Q30 direct-client whitelist bug fixed, failure retained. ProfileV5 prepares one16384-sample CUDA pipeline smoke; finish outstanding host/replay and old-V8 controls, freeze clean closure, run once. No optimizer started yet, no walking-quality/full-calibration claim. Do not resume gain sweeps.
 - Latest decision supersedes historical next-action text below: user prioritizes corrected-body walking integration. [Support-effort result](../r8b-support-effort-calibration-2026-09-06.md), ADR-125: V11 survives30s, quiet gate fails torso1.675deg and both MTP RMS. Independent557,300 efforts/roots/controls and native repeat agree;161 native tests plus scoped/Linux host checks pass. Do not retune gains or claim calibration complete. Implement explicit25-action environment/adapter and pipeline smoke; old23-action environments/weights remain unchanged. Observed velocity-versus-endpoint-motion discrepancy still needs discrimination; no production velocity substitution or training started.
 - Native baseline: whole-body sampled damping V9 is implemented as an opt-in
   diagnostic (ADR-120), **not selected**. Independent local-model preflight

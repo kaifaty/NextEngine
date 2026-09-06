@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.92 |
+| Версия | 2.93 |
 | Последняя проверка | 2026-09-06 |
-| Заменяет | INDEX-001 2.91; adds diagnostic support-effort input under ADR-125 |
+| Заменяет | INDEX-001 2.92; adds corrected-body canonical walking under ADR-126 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -332,6 +332,7 @@ traceability — навигационная карта, не admission authority
 | ADR-123 | [Separated combined-response input diagnostic](adr/123-separated-combined-response-input.md) | Accepted explicit two-hip-sign input successor; old response census unchanged |
 | ADR-124 | [Bandwidth settling and standing diagnostics](adr/124-bandwidth-settling-and-standing-diagnostics.md) | Accepted two-second return and exact V11 standing diagnostic consumers; no calibrated/training selection |
 | ADR-125 | [Support-effort calibration diagnostic](adr/125-support-effort-calibration-diagnostic.md) | Accepted exact V11 support effort before unchanged safety; diagnostic only, no runtime/training selection |
+| ADR-126 | [Corrected-body walking environment](adr/126-corrected-body-walking-environment.md) | Accepted native 25-action environment and bounded pipeline smoke; no full-calibration or walking-quality claim |
 
 ## Proposed tracks
 

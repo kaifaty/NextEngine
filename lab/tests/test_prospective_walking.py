@@ -12,7 +12,7 @@ import torch
 from next_lab.isaac_training import atomic_write_json, sha256_file
 from tensordict import TensorDict
 
-from lab.scripts.canonical_walking_ppo import ROOT, train
+from lab.scripts.canonical_walking_ppo import ROOT, evaluation_claim, train
 from lab.scripts.validate_walking_checkpoint import validate_checkpoint
 
 
@@ -136,6 +136,31 @@ class ValidationTests(unittest.TestCase):
 
 
 class TrainingSelectionTests(unittest.TestCase):
+    def test_pipeline_smoke_cannot_certify_even_passing_proxy_thresholds(self):
+        for passed in (False, True):
+            records = [{"seed": 1001, "passed": passed, "gates": {"example": passed}}]
+            result = evaluation_claim({"run_class": "pipeline-smoke"}, records)
+            self.assertEqual(result["status"], "report-only")
+            self.assertNotIn("passed", result["episodes"][0])
+            self.assertEqual(
+                result["episodes"][0]["legacy_proxy_thresholds_met"], passed
+            )
+            self.assertEqual(
+                evaluation_claim({}, records)["status"],
+                "passed" if passed else "failed",
+            )
+
+    def test_pipeline_smoke_rejects_selection_before_environment_creation(self):
+        with patch("lab.scripts.canonical_walking_ppo.make_env") as factory:
+            with self.assertRaisesRegex(ValueError, "cannot select"):
+                train(
+                    None,
+                    {},
+                    {"run_class": "pipeline-smoke", "validation": {"interval": 1}},
+                    Path("unused"),
+                )
+            factory.assert_not_called()
+
     def test_first_pass_stops_and_budget_failure_does_not_select(self):
         class Env:
             num_envs, num_actions = 4, 23

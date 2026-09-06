@@ -46,7 +46,7 @@ def observation_scales(descriptor: dict[str, Any]) -> np.ndarray:
     clock_scales = []
     if extension_width:
         profiles = descriptor["environment_profiles"]
-        versions = (6,) if extension_width == 2 else (7, 8)
+        versions = (6,) if extension_width == 2 else (7, 8, 9)
         if len(profiles) != 1 or not profiles[0]["profile_id"].endswith(
             tuple(f"forward-start-stop.v{version}" for version in versions)
         ):
@@ -114,12 +114,13 @@ class CanonicalVecEnv:
                     "forward-start-stop.v6",
                     "forward-start-stop.v7",
                     "forward-start-stop.v8",
+                    "forward-start-stop.v9",
                 )
             )
         ]
         if len(matches) != 1:
             raise ValueError(
-                "descriptor must contain exactly one walking V5/V6/V7/V8 environment"
+                "descriptor must contain exactly one walking V5/V6/V7/V8/V9 environment"
             )
         expected = matches[0]
         for name in ("action_width", "observation_width"):

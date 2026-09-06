@@ -258,7 +258,7 @@ class CanonicalAdapterTests(unittest.TestCase):
             observation_scales(new)
 
     def test_lift_return_heights_survive_terminal_observation_before_reset(self):
-        for version in (7, 8):
+        for version in (7, 8, 9):
             for width in (23, 25):
                 with self.subTest(version=version, width=width):
                     self.check_lift_return_terminal_observation(version, width)

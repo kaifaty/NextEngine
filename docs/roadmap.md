@@ -2071,10 +2071,13 @@ full calibration. User-directed next work is explicit corrected-body walking
 environment integration (25 actions versus the old adapter's23), reset/contact/
 reward validation and a bounded pipeline smoke. Keep old weights/environments
 unchanged; no new optimizer or selected calibrated-body claim yet.
-The [Python adapter foundation](development/r8b-corrected-body-adapter-2026-09-06.md)
-now supports descriptor-derived joint widths with41 focused tests and640 exact
-old-V8 native control transitions. Native25-body environment integration remains
-open; synthetic25-action PPO tests do not constitute corrected-body training.
+The [native corrected-body environment](development/r8b-corrected-native-walking-2026-09-06.md)
+now implements exact V11/CompiledV4,25 PD residual actions,94 observations and
+anatomical rearfoot/MTP support and geometry.166 native/7 protocol/48 Python
+tests and640-transition/89-reset native control pass. ADR-126/profileV5 prepare
+one16384-sample CUDA pipeline smoke; final host/replay/regression checks and
+clean generation freeze remain before launch. No walking-quality or full
+calibration completion is implied; old environments/weights remain unchanged.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.
 

@@ -50,7 +50,9 @@ use crate::{
     rotate_world_to_root_local_q1_30,
 };
 
+#[cfg(all(test, feature = "physx-sdk"))]
 const OBSERVATION_WIDTH: usize = 84;
+#[cfg(all(test, feature = "physx-sdk"))]
 const ACTION_WIDTH: usize = 23;
 const PHYSICS_SUBSTEPS: usize = 4;
 
@@ -63,21 +65,27 @@ struct WalkingSoleGeometry {
 
 fn sole_heights_um(
     snapshot: &CanonicalPhysXSnapshotV2,
-    soles: &[WalkingSoleGeometry; 2],
+    soles: &[Vec<WalkingSoleGeometry>; 2],
 ) -> Result<[i64; 2], BiomechanicsStandingRunnerError> {
     let mut heights = [0; 2];
-    for (height, sole) in heights.iter_mut().zip(soles) {
-        let link = snapshot
-            .links
-            .iter()
-            .find(|link| link.user_token == sole.actor)
-            .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
-        *height = crate::walking_box_minimum_y_um(
-            link.position_micrometres,
-            link.rotation_q1_30,
-            sole.offset_um,
-            sole.half_um,
-        )?;
+    for (height, parts) in heights.iter_mut().zip(soles) {
+        *height = i64::MAX;
+        if parts.is_empty() {
+            return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
+        }
+        for sole in parts {
+            let link = snapshot
+                .links
+                .iter()
+                .find(|link| link.user_token == sole.actor)
+                .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
+            *height = (*height).min(crate::walking_box_minimum_y_um(
+                link.position_micrometres,
+                link.rotation_q1_30,
+                sole.offset_um,
+                sole.half_um,
+            )?);
+        }
     }
     Ok(heights)
 }
@@ -119,7 +127,7 @@ struct BiomechanicsStandingSlot {
     world: PhysXArticulationWorldV3,
     snapshot: CanonicalPhysXSnapshotV2,
     safety: BiomechanicsSafetyController,
-    classifier: BiomechanicsContactClassifier,
+    classifier: StandingContactClassifier,
     terminal: BiomechanicsTerminalEvaluator,
     standing: BiomechanicsProceduralStandingControllerV1,
     envelopes: Vec<crate::JointTargetEnvelopeV1>,
@@ -135,6 +143,7 @@ struct BiomechanicsStandingSlot {
 pub struct BiomechanicsStandingVectorRunner {
     run_root: ContentHash,
     compiled: CompiledBodySchemaV3,
+    corrected_body: Option<crate::CompiledBodySchemaV4>,
     manifest: MotorTrainingEnvironmentManifestV2,
     manifest_hash: ContentHash,
     left_foot_actor: u64,
@@ -144,9 +153,44 @@ pub struct BiomechanicsStandingVectorRunner {
     forward_start_stop_v3: bool,
     forward_start_stop_v4: bool,
     periodic_gait: bool,
-    lift_return_soles: Option<[WalkingSoleGeometry; 2]>,
+    lift_return_soles: Option<[Vec<WalkingSoleGeometry>; 2]>,
     residual_scale_multiplier_q16: i64,
     slots: Vec<BiomechanicsStandingSlot>,
+}
+
+#[derive(Clone, Debug)]
+enum StandingContactClassifier {
+    Legacy(BiomechanicsContactClassifier),
+    Articulated(crate::BiomechanicsContactClassifierV2),
+}
+
+impl StandingContactClassifier {
+    fn classify_substep(
+        &mut self,
+        snapshot: &CanonicalPhysXSnapshotV2,
+        profile: BiomechanicsSkillContactProfileV1,
+    ) -> Result<crate::BiomechanicsContactFrameV1, ContactClassificationError> {
+        match self {
+            Self::Legacy(value) => value.classify_substep(snapshot, profile),
+            Self::Articulated(value) => value.classify_substep(snapshot, profile),
+        }
+    }
+
+    fn continuity_root(&self) -> ContentHash {
+        match self {
+            Self::Legacy(value) => value.continuity_root(),
+            Self::Articulated(value) => value.continuity_root(),
+        }
+    }
+
+    fn anatomical_flags(&self) -> Option<[i64; 2]> {
+        match self {
+            Self::Legacy(_) => None,
+            Self::Articulated(value) => {
+                Some(value.foot_active_substeps().map(|n| i64::from(n > 0)))
+            }
+        }
+    }
 }
 
 impl BiomechanicsStandingVectorRunner {
@@ -192,24 +236,39 @@ impl BiomechanicsStandingVectorRunner {
             BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V5
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
-            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8 => {
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
+            | crate::BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9 => {
                 (true, true, true, true, true)
             }
             _ => return Err(BiomechanicsStandingRunnerError::ProfileMismatch),
         };
-        let schema = if forward_start_stop_v5 {
+        let corrected =
+            profile_id == crate::BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9;
+        let schema = if corrected {
+            crate::biomechanics_humanoid_body_schema_v11()
+        } else if forward_start_stop_v5 {
             biomechanics_humanoid_body_schema_v4()
         } else {
             biomechanics_humanoid_body_schema_v3()
         };
-        let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+        let corrected_body = corrected
+            .then(|| {
+                crate::CompiledBodySchemaV4::compile(&schema, PersistentId::from_bytes([0; 16]))
+            })
+            .transpose()?;
+        let compiled = match &corrected_body {
+            Some(body) => body.base.clone(),
+            None => CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?,
+        };
         let corrected_stop =
-            profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8;
+            corrected || profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8;
         let lift_return = corrected_stop
             || profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7;
         let periodic_gait =
             lift_return || profile_id == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6;
-        let manifest = if corrected_stop {
+        let manifest = if corrected {
+            crate::biomechanics_forward_start_stop_environment_manifest_v9()?
+        } else if corrected_stop {
             crate::biomechanics_forward_start_stop_environment_manifest_v8()?
         } else if lift_return {
             crate::biomechanics_forward_start_stop_environment_manifest_v7()?
@@ -267,7 +326,35 @@ impl BiomechanicsStandingVectorRunner {
                     half_um: half_extents_micrometres,
                 };
             }
-            Some(soles)
+            let mut groups = soles.map(|sole| vec![sole]);
+            if corrected {
+                for (group, side) in groups.iter_mut().zip(["left", "right"]) {
+                    let name = format!("body.{side}-mtp");
+                    let body = schema
+                        .bodies
+                        .iter()
+                        .find(|body| body.body_id.as_str() == name)
+                        .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
+                    let [collider] = body.colliders.as_slice() else {
+                        return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
+                    };
+                    if collider.local_pose.rotation_q1_30 != [0, 0, 0, 1 << 30] {
+                        return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
+                    }
+                    let next_contracts::physics::PhysicsGeometryV1::Box {
+                        half_extents_micrometres,
+                    } = collider.geometry
+                    else {
+                        return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
+                    };
+                    group.push(WalkingSoleGeometry {
+                        actor: compiled.base.body_tokens[&body.body_id],
+                        offset_um: collider.local_pose.translation_micrometres,
+                        half_um: half_extents_micrometres,
+                    });
+                }
+            }
+            Some(groups)
         } else {
             None
         };
@@ -275,6 +362,7 @@ impl BiomechanicsStandingVectorRunner {
         for _ in 0..slot_count {
             slots.push(fresh_slot(
                 &compiled,
+                corrected_body.as_ref(),
                 0,
                 false,
                 forward_start_stop,
@@ -285,6 +373,7 @@ impl BiomechanicsStandingVectorRunner {
         Ok(Self {
             run_root,
             compiled,
+            corrected_body,
             manifest,
             manifest_hash,
             left_foot_actor,
@@ -307,13 +396,19 @@ impl BiomechanicsStandingVectorRunner {
 
     #[must_use]
     pub fn observation_width(&self) -> u32 {
+        let base = 15 + 3 * self.action_width();
         if self.lift_return_soles.is_some() {
-            88
+            base + 4
         } else if self.periodic_gait {
-            86
+            base + 2
         } else {
-            OBSERVATION_WIDTH as u32
+            base
         }
+    }
+
+    #[must_use]
+    pub fn action_width(&self) -> u32 {
+        self.compiled.base.actuator_definitions.len() as u32
     }
 
     #[must_use]
@@ -356,8 +451,9 @@ impl BiomechanicsStandingVectorRunner {
             } else {
                 derive_episode_seed_set(self.run_root, episode_ordinal, vector_slot)?
             };
-            let command_schedule = if self.manifest.environment_id.as_str()
-                == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
+            let command_schedule = if self.corrected_body.is_some()
+                || self.manifest.environment_id.as_str()
+                    == BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
             {
                 Some(crate::biomechanics_forward_start_stop_command_schedule_v3())
             } else if self.forward_start_stop_v2 {
@@ -375,6 +471,7 @@ impl BiomechanicsStandingVectorRunner {
             };
             let slot = fresh_slot(
                 &self.compiled,
+                self.corrected_body.as_ref(),
                 episode_ordinal,
                 true,
                 self.forward_start_stop,
@@ -390,6 +487,10 @@ impl BiomechanicsStandingVectorRunner {
                 self.forward_start_stop,
                 slot.command_schedule[0],
             )?;
+            if let Some(flags) = slot.classifier.anatomical_flags() {
+                let offset = observation_raw.len() - 2;
+                observation_raw[offset..].copy_from_slice(&flags);
+            }
             if self.periodic_gait {
                 observation_raw.extend(crate::walking_clock_q1_30(0, slot.command_schedule[0]));
             }
@@ -470,7 +571,7 @@ impl BiomechanicsStandingVectorRunner {
             if input.episode_ordinal != slot.episode_ordinal {
                 return Err(BiomechanicsStandingRunnerError::StaleEpisode);
             }
-            if input.action_microradians.len() != ACTION_WIDTH
+            if input.action_microradians.len() != self.action_width() as usize
                 || input.action_microradians.iter().any(|value| {
                     !(-crate::NORMALIZED_RESIDUAL_ONE_Q1_30..=crate::NORMALIZED_RESIDUAL_ONE_Q1_30)
                         .contains(value)
@@ -507,28 +608,47 @@ impl BiomechanicsStandingVectorRunner {
 
 fn fresh_slot(
     compiled: &CompiledBodySchemaV3,
+    corrected_body: Option<&crate::CompiledBodySchemaV4>,
     episode_ordinal: u64,
     active: bool,
     forward_start_stop: bool,
     translation_invariant_reference: bool,
     command_schedule: Option<Vec<[i64; 3]>>,
 ) -> Result<BiomechanicsStandingSlot, BiomechanicsStandingRunnerError> {
-    let mut world = PhysXArticulationWorldV3::create(
-        compiled.base.physx_scene_profile,
-        &compiled.physx_catalog,
-    )?;
+    let mut world = if let Some(body) = corrected_body {
+        body.create_world()?
+    } else {
+        PhysXArticulationWorldV3::create(
+            compiled.base.physx_scene_profile,
+            &compiled.physx_catalog,
+        )?
+    };
     let snapshot = world.capture()?;
     let safety = BiomechanicsSafetyController::new(&compiled.base)?;
-    let classifier = BiomechanicsContactClassifier::new(&compiled.base)?;
-    let terminal = BiomechanicsTerminalEvaluator::new(
-        &compiled.base,
-        BiomechanicsSkillContactProfileV1::Locomotion,
-        if forward_start_stop {
-            BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS
-        } else {
-            BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS
-        },
-    )?;
+    let classifier = if let Some(body) = corrected_body {
+        StandingContactClassifier::Articulated(
+            crate::BiomechanicsContactClassifierV2::new_bandwidth(body)?,
+        )
+    } else {
+        StandingContactClassifier::Legacy(BiomechanicsContactClassifier::new(&compiled.base)?)
+    };
+    let terminal = if let Some(body) = corrected_body {
+        BiomechanicsTerminalEvaluator::new_bandwidth(
+            body,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS,
+        )?
+    } else {
+        BiomechanicsTerminalEvaluator::new(
+            &compiled.base,
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            if forward_start_stop {
+                BIOMECHANICS_FORWARD_START_STOP_MAXIMUM_EPISODE_STEPS
+            } else {
+                BIOMECHANICS_STANDING_MAXIMUM_EPISODE_STEPS
+            },
+        )?
+    };
     let standing = if translation_invariant_reference {
         BiomechanicsProceduralStandingControllerV1::new_walking_translation_invariant(
             &compiled.base,
@@ -571,8 +691,9 @@ fn step_slot(
     forward_start_stop_v3: bool,
     residual_scale_multiplier_q16: i64,
     periodic_gait: bool,
-    lift_return_soles: Option<&[WalkingSoleGeometry; 2]>,
+    lift_return_soles: Option<&[Vec<WalkingSoleGeometry>; 2]>,
 ) -> Result<BiomechanicsStandingVectorStepOutput, BiomechanicsStandingRunnerError> {
+    let articulated = matches!(slot.classifier, StandingContactClassifier::Articulated(_));
     let next_tick = slot
         .motor_tick
         .checked_add(1)
@@ -633,7 +754,7 @@ fn step_slot(
                 dof_efforts[*dof as usize] = effort.effort_micronewton_metres;
             }
             slot.snapshot = slot.world.apply_efforts_and_step(&dof_efforts)?;
-            if periodic_gait {
+            if periodic_gait && !articulated {
                 for contact in &slot.snapshot.contacts {
                     for (side, foot) in [left_foot_actor, right_foot_actor].into_iter().enumerate()
                     {
@@ -658,6 +779,14 @@ fn step_slot(
                 &slot.snapshot,
                 BiomechanicsSkillContactProfileV1::Locomotion,
             )?);
+            if let StandingContactClassifier::Articulated(classifier) = &slot.classifier {
+                for (sum, impulse) in sole_vertical_impulses
+                    .iter_mut()
+                    .zip(classifier.foot_impulses_micronewton_seconds())
+                {
+                    *sum += impulse[1].unsigned_abs();
+                }
+            }
             if joint_safety_error.is_some() {
                 break;
             }
@@ -665,10 +794,22 @@ fn step_slot(
     }
     let completed_physics_substeps = contact_frames.len();
     while contact_frames.len() < PHYSICS_SUBSTEPS {
-        contact_frames.push(slot.classifier.classify_substep(
-            &slot.snapshot,
-            BiomechanicsSkillContactProfileV1::Locomotion,
-        )?);
+        let frame = if articulated {
+            if let Some(last) = contact_frames.last() {
+                last.clone()
+            } else {
+                slot.classifier.clone().classify_substep(
+                    &slot.snapshot,
+                    BiomechanicsSkillContactProfileV1::Locomotion,
+                )?
+            }
+        } else {
+            slot.classifier.classify_substep(
+                &slot.snapshot,
+                BiomechanicsSkillContactProfileV1::Locomotion,
+            )?
+        };
+        contact_frames.push(frame);
     }
     let decision = slot.terminal.evaluate_motor_tick(
         next_tick,
@@ -701,7 +842,7 @@ fn step_slot(
             }
         })
         .collect::<BTreeSet<_>>();
-    let contacting_sole_slip_sum = contacting_soles
+    let mut contacting_sole_slip_sum = contacting_soles
         .iter()
         .filter_map(|actor| {
             slot.snapshot
@@ -714,8 +855,29 @@ fn step_slot(
                 + u128::from(link.linear_velocity_micrometres_per_second[2].unsigned_abs())
         })
         .sum();
-    let contacting_sole_count = u8::try_from(contacting_soles.len())
+    let mut contacting_sole_count = u8::try_from(contacting_soles.len())
         .map_err(|_| BiomechanicsStandingRunnerError::ProfileMismatch)?;
+    if articulated {
+        let soles = lift_return_soles.ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
+        contacting_sole_count = 0;
+        contacting_sole_slip_sum = 0;
+        for parts in soles {
+            if parts
+                .iter()
+                .any(|part| contacting_soles.contains(&part.actor))
+            {
+                contacting_sole_count += 1;
+                let mut maximum_slip = 0;
+                for part in parts
+                    .iter()
+                    .filter(|part| contacting_soles.contains(&part.actor))
+                {
+                    maximum_slip = maximum_slip.max(foot_link_speed(&slot.snapshot, part.actor)?);
+                }
+                contacting_sole_slip_sum += maximum_slip;
+            }
+        }
+    }
     let (mut reward_components_raw, mut reward_total_q16) = if forward_start_stop {
         let local_linear = rotate_world_to_root_local_q1_30(
             root.rotation_q1_30,
@@ -741,8 +903,11 @@ fn step_slot(
             fell: root.position_micrometres[1] <= BIOMECHANICS_FALL_HEIGHT_MICROMETRES,
         };
         if forward_start_stop_v3 {
-            let (components, total) =
-                biomechanics_forward_start_stop_reward_q16_v3(compiled, &facts)?;
+            let (components, total) = if articulated {
+                crate::biomechanics_standing::corrected_reward_q16(compiled, &facts)?
+            } else {
+                biomechanics_forward_start_stop_reward_q16_v3(compiled, &facts)?
+            };
             (
                 BIOMECHANICS_FORWARD_START_STOP_REWARD_COMPONENT_IDS_V3
                     .into_iter()
@@ -801,7 +966,10 @@ fn step_slot(
             total,
         )
     };
-    let contact_flags = contact_flags(&slot.snapshot, left_foot_actor, right_foot_actor);
+    let contact_flags = slot
+        .classifier
+        .anatomical_flags()
+        .unwrap_or_else(|| contact_flags(&slot.snapshot, left_foot_actor, right_foot_actor));
     if periodic_gait {
         let mut speeds = [0_u128; 2];
         for (side, foot) in [left_foot_actor, right_foot_actor].into_iter().enumerate() {
@@ -814,6 +982,17 @@ fn step_slot(
             speeds[side] =
                 u128::from(link.linear_velocity_micrometres_per_second[0].unsigned_abs())
                     + u128::from(link.linear_velocity_micrometres_per_second[2].unsigned_abs());
+        }
+        if articulated {
+            for (speed, parts) in speeds
+                .iter_mut()
+                .zip(lift_return_soles.ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?)
+            {
+                *speed = 0;
+                for part in parts {
+                    *speed = (*speed).max(foot_link_speed(&slot.snapshot, part.actor)?);
+                }
+            }
         }
         let credit = crate::periodic_load_credit_q16(
             slot.motor_tick,
@@ -835,6 +1014,10 @@ fn step_slot(
         forward_start_stop,
         next_command_raw,
     )?;
+    if articulated {
+        let offset = observation_raw.len() - 2;
+        observation_raw[offset..].copy_from_slice(&contact_flags);
+    }
     if periodic_gait {
         observation_raw.extend(crate::walking_clock_q1_30(next_tick, next_command_raw));
     }
@@ -935,6 +1118,21 @@ fn actuator_states(
         .collect()
 }
 
+fn foot_link_speed(
+    snapshot: &CanonicalPhysXSnapshotV2,
+    actor: u64,
+) -> Result<u128, BiomechanicsStandingRunnerError> {
+    let link = snapshot
+        .links
+        .iter()
+        .find(|link| link.user_token == actor)
+        .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
+    Ok(
+        u128::from(link.linear_velocity_micrometres_per_second[0].unsigned_abs())
+            + u128::from(link.linear_velocity_micrometres_per_second[2].unsigned_abs()),
+    )
+}
+
 fn slot_observation(
     compiled: &CompiledBodySchemaV2,
     snapshot: &CanonicalPhysXSnapshotV2,
@@ -944,7 +1142,8 @@ fn slot_observation(
     root_local: bool,
     command_raw: [i64; 3],
 ) -> Result<Vec<i64>, BiomechanicsStandingRunnerError> {
-    if applied_targets.len() != ACTION_WIDTH {
+    let width = compiled.actuator_definitions.len();
+    if applied_targets.len() != width {
         return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
     }
     let root_token = compiled.body_tokens[&compiled.construction_order[0]];
@@ -954,7 +1153,7 @@ fn slot_observation(
         .find(|link| link.user_token == root_token)
         .ok_or(BiomechanicsStandingRunnerError::ProfileMismatch)?;
     let states = actuator_states(compiled, snapshot)?;
-    let mut observation = Vec::with_capacity(OBSERVATION_WIDTH);
+    let mut observation = Vec::with_capacity(15 + 3 * width);
     observation.extend(root.rotation_q1_30);
     if root_local {
         observation.extend(rotate_world_to_root_local_q1_30(
@@ -978,7 +1177,7 @@ fn slot_observation(
     observation.extend_from_slice(applied_targets);
     observation.extend(command_raw);
     observation.extend(contact_flags(snapshot, left_foot_actor, right_foot_actor));
-    if observation.len() != OBSERVATION_WIDTH {
+    if observation.len() != 15 + 3 * width {
         return Err(BiomechanicsStandingRunnerError::ProfileMismatch);
     }
     Ok(observation)
@@ -1189,6 +1388,190 @@ error_from!(MotorContractError, Contract);
 mod tests {
     use super::*;
     use crate::NORMALIZED_RESIDUAL_ONE_Q1_30;
+
+    fn corrected_runner(slots: u32) -> BiomechanicsStandingVectorRunner {
+        BiomechanicsStandingVectorRunner::create_profile(
+            crate::BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9,
+            slots,
+            ContentHash::from_bytes([19; 32]),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn corrected_actions_match_direct_native_25_channel_control() {
+        let mut runner = corrected_runner(1);
+        assert_eq!(runner.action_width(), 25);
+        assert_eq!(runner.observation_width(), 94);
+        let reset = runner.reset_slots(&[0]).unwrap();
+        assert_eq!(reset[0].observation_raw.len(), 94);
+        let body = runner.corrected_body.as_ref().unwrap();
+        let mut world = body.create_world().unwrap();
+        let mut snapshot = world.capture().unwrap();
+        let reference =
+            BiomechanicsProceduralStandingControllerV1::new_walking_translation_invariant(
+                &body.base.base,
+                &snapshot,
+            )
+            .unwrap();
+        let mut safety = BiomechanicsSafetyController::new(&body.base.base).unwrap();
+        let action = (0..25).map(|i| (i - 12) * (1 << 22)).collect::<Vec<_>>();
+        let targets = safety
+            .begin_motor_tick_with_residual_scale_multiplier(
+                &reference.reference_targets(&snapshot).unwrap(),
+                &action,
+                &safety.default_skill_envelopes(),
+                262_144,
+            )
+            .unwrap();
+        let mut steps = 0;
+        for _ in 0..4 {
+            let efforts = safety
+                .step_substep(&actuator_states(&body.base.base, &snapshot).unwrap())
+                .unwrap();
+            let mut native = vec![0; 25];
+            for (effort, ordinal) in efforts.iter().zip(&body.base.base.actuator_dof_ordinals) {
+                native[*ordinal as usize] = effort.effort_micronewton_metres;
+            }
+            snapshot = world.apply_efforts_and_step(&native).unwrap();
+            steps += 1;
+            if safety
+                .validate_observed_joint_states(
+                    &actuator_states(&body.base.base, &snapshot).unwrap(),
+                )
+                .is_err()
+            {
+                break;
+            }
+        }
+        let out = runner
+            .step_actions_lockstep(vec![VectorPolicyStepInput {
+                vector_slot: 0,
+                episode_ordinal: 1,
+                action_microradians: action.clone(),
+            }])
+            .unwrap()
+            .remove(0);
+        assert_eq!(out.frame.snapshot, snapshot);
+        assert_eq!(out.frame.completed_physics_substeps, steps);
+        assert_eq!(out.frame.applied_action_q1_30, action);
+        assert_eq!(
+            out.frame.applied_targets_microradians,
+            targets
+                .iter()
+                .map(|v| v.target_microradians)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(out.reward_components_raw.len(), 13);
+        assert_eq!(out.frame.observation_raw.len(), 94);
+        let states = actuator_states(&runner.compiled.base, &snapshot).unwrap();
+        assert_eq!(
+            &out.frame.observation_raw[10..35],
+            states
+                .iter()
+                .map(|v| v.position_microradians)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            &out.frame.observation_raw[35..60],
+            states
+                .iter()
+                .map(|v| v.velocity_microradians_per_second)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            &out.frame.observation_raw[60..85],
+            out.frame.applied_targets_microradians
+        );
+        assert_eq!(&out.frame.observation_raw[88..90], out.frame.contact_flags);
+    }
+
+    #[test]
+    fn corrected_bad_width_is_atomic_and_partial_reset_preserves_other_slot() {
+        let mut runner = corrected_runner(2);
+        runner.reset_slots(&[0, 1]).unwrap();
+        let before = runner
+            .slots
+            .iter()
+            .map(|s| s.snapshot.clone())
+            .collect::<Vec<_>>();
+        let bad = (0..2)
+            .map(|slot| VectorPolicyStepInput {
+                vector_slot: slot,
+                episode_ordinal: 1,
+                action_microradians: vec![0; if slot == 0 { 25 } else { 23 }],
+            })
+            .collect();
+        assert!(matches!(
+            runner.step_actions_lockstep(bad),
+            Err(BiomechanicsStandingRunnerError::ActionLength)
+        ));
+        for (slot, expected) in runner.slots.iter().zip(before) {
+            assert_eq!(slot.snapshot, expected);
+            assert_eq!(slot.motor_tick, 0);
+        }
+        let reset = runner.reset_slots(&[1]).unwrap();
+        assert_eq!(reset[0].episode_ordinal, 2);
+        assert_eq!(runner.slots[0].episode_ordinal, 1);
+        assert_eq!(runner.slots[0].motor_tick, 0);
+    }
+
+    #[test]
+    fn corrected_whole_foot_height_cannot_mistake_heel_rise_for_swing() {
+        let mut runner = corrected_runner(1);
+        runner.reset_slots(&[0]).unwrap();
+        let soles = runner.lift_return_soles.as_ref().unwrap();
+        assert!(soles.iter().all(|parts| parts.len() == 2));
+        let snapshot = &runner.slots[0].snapshot;
+        let baseline = sole_heights_um(snapshot, soles).unwrap();
+        // Geometry oracle only: modified immutable projection, never native state mutation.
+        let mut heel_up = snapshot.clone();
+        heel_up
+            .links
+            .iter_mut()
+            .find(|v| v.user_token == soles[0][0].actor)
+            .unwrap()
+            .position_micrometres[1] += 100_000;
+        assert_eq!(sole_heights_um(&heel_up, soles).unwrap(), baseline);
+        heel_up
+            .links
+            .iter_mut()
+            .find(|v| v.user_token == soles[0][1].actor)
+            .unwrap()
+            .position_micrometres[1] += 100_000;
+        assert_eq!(
+            sole_heights_um(&heel_up, soles).unwrap(),
+            [baseline[0] + 100_000, baseline[1]]
+        );
+    }
+
+    #[test]
+    fn corrected_native_prefix_repeats_and_terminal_requires_reset() {
+        let mut a = corrected_runner(1);
+        let mut b = corrected_runner(1);
+        assert_eq!(a.reset_slots(&[0]).unwrap(), b.reset_slots(&[0]).unwrap());
+        let mut ended = false;
+        for _ in 0..1200 {
+            let input = vec![VectorPolicyStepInput {
+                vector_slot: 0,
+                episode_ordinal: 1,
+                action_microradians: vec![0; 25],
+            }];
+            let left = a.step_actions_lockstep(input.clone()).unwrap();
+            let right = b.step_actions_lockstep(input.clone()).unwrap();
+            assert_eq!(left, right);
+            if left[0].terminated || left[0].truncated {
+                assert!(matches!(
+                    a.step_actions_lockstep(input),
+                    Err(BiomechanicsStandingRunnerError::TerminalSlot)
+                ));
+                assert_eq!(a.reset_slots(&[0]).unwrap()[0].episode_ordinal, 2);
+                ended = true;
+                break;
+            }
+        }
+        assert!(ended);
+    }
 
     #[test]
     fn policy_runner_exposes_current_biomechanics_observation_and_q1_30_action() {

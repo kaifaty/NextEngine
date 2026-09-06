@@ -8,7 +8,7 @@
 | Decision date | 2026-09-06 |
 | Dependencies | SPEC-27/35, ADR-069/119/122/124 |
 | Supersedes | ADR-124 V11 diagnostic input restriction and SPEC-35 PD-only diagnostic effort, additively for the exact support profile below |
-| Superseded by | none |
+| Superseded by | [ADR-126](126-corrected-body-walking-environment.md) admits a separate V11 walking consumer; this support helper remains diagnostic-only |
 
 Allow one exact V11 diagnostic safety constructor `new_bandwidth_support`.
 It validates complete canonical CompiledV4 identity and binds that outer hash.

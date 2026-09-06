@@ -249,6 +249,23 @@ def evaluate(policy, headless, descriptor, profile, output):
             )
         finally:
             env.close()
+    return evaluation_claim(profile, records)
+
+
+def evaluation_claim(profile, records):
+    if profile.get("run_class") == "pipeline-smoke":
+        return {
+            "status": "report-only",
+            "claim": "pipeline execution only; anatomical walking quality not certified",
+            "episodes": [
+                {
+                    **{k: v for k, v in item.items() if k not in {"gates", "passed"}},
+                    "legacy_proxy_thresholds": item["gates"],
+                    "legacy_proxy_thresholds_met": item["passed"],
+                }
+                for item in records
+            ],
+        }
     return {
         "status": "passed" if all(item["passed"] for item in records) else "failed",
         "claim": "bounded canonical walking evaluation; no runtime or mirror promotion",
@@ -278,6 +295,8 @@ def artifact_hashes(output):
 
 def train(headless, descriptor, profile, output, auditor=None):
     validation = profile.get("validation")
+    if profile.get("run_class") == "pipeline-smoke" and validation:
+        raise ValueError("pipeline smoke cannot select walking checkpoints")
     if validation and auditor is None:
         raise ValueError("prospective validation requires native auditor")
     random.seed(profile["seed"])
@@ -477,6 +496,7 @@ def main():
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v2.json",
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v3.json",
         ROOT / "lab/profiles/canonical-rsl-rl-walking.v4.json",
+        ROOT / "lab/profiles/canonical-rsl-rl-walking.v5.json",
     ):
         raise ValueError("only repository-admitted canonical profiles are supported")
     profile = json.loads(profile_path.read_text())
@@ -570,6 +590,7 @@ def main():
             "nextengine.canonical-rsl-rl.walking.v2": "ADR-108",
             "nextengine.canonical-rsl-rl.walking.v3": "ADR-109",
             "nextengine.canonical-rsl-rl.walking.v4": "ADR-112",
+            "nextengine.canonical-rsl-rl.walking.v5": "ADR-126",
         }[profile["profile_id"]]
         + " bounded R&D; no mirror or runtime promotion; no resume",
     }

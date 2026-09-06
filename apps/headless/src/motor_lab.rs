@@ -11,6 +11,7 @@ use next_motor::{
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7,
     BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
+    BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9,
     BIOMECHANICS_STANDING_ENVIRONMENT_PROFILE_ID, BiomechanicsStandingRunnerError,
     BiomechanicsStandingVectorRunner, MotorVectorRunner, TrainingEnvironmentError,
     VectorPolicyStepInput,
@@ -194,6 +195,7 @@ fn process_create(
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V6
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V7
             | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8
+            | BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9
     ) {
         ProtocolRunner::BiomechanicsStanding(Box::new(
             BiomechanicsStandingVectorRunner::create_profile(&profile_id, slot_count, run_root)?,
@@ -234,7 +236,11 @@ fn process_create(
         ProtocolRunner::BiomechanicsStanding(runner) => runner.observation_width(),
     };
     response.extend_from_slice(&observation_width.to_le_bytes());
-    response.extend_from_slice(&23_u32.to_le_bytes());
+    let action_width = match &runner {
+        ProtocolRunner::Legacy(_) => 23,
+        ProtocolRunner::BiomechanicsStanding(runner) => runner.action_width(),
+    };
+    response.extend_from_slice(&action_width.to_le_bytes());
     push_len(&mut response, manifest.reward_components.len())?;
     for component in &manifest.reward_components {
         push_text(&mut response, component.component_id.as_str())?;
@@ -871,6 +877,36 @@ mod tests {
         .expect_err("unknown profile");
         assert_eq!(error.stable_code(), "UNSUPPORTED_MOTOR_ENVIRONMENT_PROFILE");
         assert!(session.runner.is_none());
+    }
+
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn corrected_walking_protocol_advertises_25_actions_and_94_observations() {
+        let mut session = ProtocolSession::default();
+        let mut payload = Vec::new();
+        push_text(
+            &mut payload,
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9,
+        )
+        .unwrap();
+        payload.extend_from_slice(&1_u32.to_le_bytes());
+        payload.extend_from_slice(&[3; 32]);
+        let response = process_create(&mut session, &payload).unwrap();
+        let mut reader = PayloadReader::new(&response);
+        assert_eq!(
+            reader.read_text(MAX_TEXT_BYTES).unwrap(),
+            BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9
+        );
+        for _ in 0..8 {
+            reader.read_hash().unwrap();
+        }
+        assert_eq!(reader.read_u32().unwrap(), 1);
+        reader.read_u32().unwrap();
+        assert_eq!(reader.read_u64().unwrap(), 1200);
+        assert_eq!(reader.read_u32().unwrap(), 240);
+        assert_eq!(reader.read_u32().unwrap(), 60);
+        assert_eq!(reader.read_u32().unwrap(), 94);
+        assert_eq!(reader.read_u32().unwrap(), 25);
     }
 
     #[test]
