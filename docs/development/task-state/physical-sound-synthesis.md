@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / ATTENUATION_INCENTIVE_PROVEN / TIMING_NOT_MAIN_CAUSE / TWO_SAMPLE_BRANCH_NEXT.
+Status: ACTIVE_GOAL / SHARED_TWO_SAMPLE_FIT_REJECTED / CONDITIONAL_SEPARATION_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,32 +10,34 @@ Status: ACTIVE_GOAL / ATTENUATION_INCENTIVE_PROVEN / TIMING_NOT_MAIN_CAUSE / TWO
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `sonicgauss-objective-probe-2026-09-06`,60-caseanalysis+
-  [13.92s scoring control](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-objective-probe-2026-09-06/control-comparison.wav):
-  threeown700/1400/2800Hzdecays→theirwaveformmean. NOTnewneuralgeneration.
-  No training/newdata/WAVgain/alignment edits.34testsPASS;alljobs terminal.
-- **Timing NOT maincause:** bounded2msenvelopecorrelationlagsall0/1frames.
-  DiagnosticlosslessalignmentchangesTRAIN1.20325→1.20137,DEV.96156→.95940(~.2%).
-  Positiveinjected88sampleshiftrecovered;doNOTaddalignment/phase/onset-sweeps.
-- **Attenuation incentive:** exactweightedmedian scalaroptimum forfixedspectralL1
-  pairs(no grid/fit/outputchanges):mediangain.3679TRAIN/.5210DEV,gradientat1
-  favorsattenuation34/36+21/24. AlignmentdoesNOTremoveit. Exact/double-level
-  controlsoptima1/.5;wrong700→1400Hzoptimum.0002526 vscorrect2mslate.98416.
-- **Full loss countercheck:** `full-loss-gradient.json`d/dgainat1 ofunchanged
-  FFT20Hzspectral+.25env+.1logRMSobjective:attenuation32/36TRAIN+20/24DEV;
-  13+9alreadyquieterthanreference. Notjustmissingloudnesspenalty;scalargradient
-  isn'tproofallneuralupdatesfollowgain. Causeofremainingfrequencyerrorstillopen.
-- **Distribution toy:** plainexpectedpairedsymmetricL1preferssilence1.0 over
-  correct3-toneempiricalsampler1.32051. Energy2×cross−generatedpairprefers
-  correct1.32051 oversilence2.0/single-tonecollapse2.63519. NOTfullSED/physicalgate.
-  PrimaryresearchGritsenkoNeurIPS2020SED+Schwär/MüllerSPL2023 read;links/caveatsinpilot.
-- **Next executable:** oneboundedSHAREDtwo-independent-sampledistribution-aware
-  fit,fullsource-freeWAVs,baselinecomparison+collapse/diversity/shape/timing/level.
-  Usewaveform_fit.generate(explicitnoise);legacycondition.renderlocksseed0/cachedRNG.
-  DO NOTuseasymmetricreference-normalizedL1asaproperGEDdistance orclaimGEDalone
-  provesrealism. Missingphysicalconditioning/capacityremainopen;randomnessmustNOT
-  replacesize/force/strikerinputs. No morelossweight/gain/seed/epoch/timing-sweeps,
-  codec/inventory/protocol cycles;researchdiscriminatoralreadycompleted.
+- **Latest primary:** `sonicgauss-energy-fixed-assessment-2026-09-06`,60full
+  [recording→base→shared-trained glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-06-contact-0-comparison.wav).
+  energy-{render,candidate-render,fixed-render}:360WAV+80comparisons,gain1,50steps;40testsPASS,nojobs.
+- **Two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,adapterSHA
+  a4c23b5211b9023998e6e28444feae3aaaa6f847775f07ff223a1ea278ec8596.
+  Freshzero262144sharedresidual,72Adamsteps,36TRAIN;twofreshnoises/step,seed42.
+  All5publishedcomponentsfrozen;max4311.92MiB;traceexact36TRAIN/noDEV.
+  Objective6FFT64..2048audible20Hz,meanL1+frame-logL2/sqrt(bins),symmetricenergy.
+  ExplicitadaptationnotauthorMel/finite-difference/randomcrop/physicalvalidator.
+- **Fixed-noise evaluation:** DEVraw.824499→.832920(5/24wins),audiblespectrum
+  .961561→.972393(5/24),envelope.846507→.854627,level.439737→.436844.
+  Wood14/Ceramic75/Glass94regress;existingraw+audiblerulesREJECT,unchanged.
+- **Independent-noise evaluation:** `sonicgauss-energy-candidate-probe-2026-09-06/
+  comparison-summary.json`,all120noiseinputsEXACTpairedbase/candidate,seed20260906.
+  DEVenergy4.329549→4.319196(20/24wins),BUTspectrum1.091254→1.102875(1/24),
+  envelope1.003537→1.008537;level.561758→.556422;unitRMSshape1.026839→1.023383
+  (15/24,only~.34%).Repulsion2.461913→2.469103,NOTaqualityscore.
+  No repeatofcollapsebyattenuation;neitherdiversitynorenergyimprovementprovesrealism.
+- **Preflight worked narrowly:** `sonicgauss-energy-probe-2026-09-06`,samedistance
+  paired→energyattenuationcounts19→0TRAIN,13→4DEV;already-quietererrors10→1total.
+  Nooutputgainfitting. ScalarfixdidNOTsufficeforneuralquality;doNOTredoSEDlossvariants.
+- **Next discriminator:** common-noise object/contact swaps:condition-dependent
+  differences vs sampling variability,beforeanotherfit/capacitychange. Priorinput
+  dependency≠calibratedseparation. FullcontrolWAVs;nonewdata/protectedroles.
+  Missingphysicalsize/force/strikerinputsremainexplicit,randomnessisnotasubstitute.
+  No lossweight/gain/seed/epoch/timing-sweeps or codec/inventory/protocol cycles.
+- **Prior objective:** timingalignmenthelps~.2%;oldlossattenuation52/60(22quiet).
+  Three-toneenergycontrolworks;`sonicgauss-objective-probe-2026-09-06`;see pilot.
 - **Previous primary/candidateREJECTED:**`sonicgauss-waveform-{render,assessment}-2026-09-06`,
   120source-freeWAV+60recorded/base/candidatetriples,gain1,prior20baselinesEXACT.
   `sonicgauss-waveform-odd-fit-2026-09-06`adapterSHA8d702d11…,72steps/262144params,
@@ -73,8 +75,7 @@ Status: ACTIVE_GOAL / ATTENUATION_INCENTIVE_PROVEN / TIMING_NOT_MAIN_CAUSE / TWO
 - Reproduce`physical_sound_sonicgauss_shared_fit.py`fit/render/assess/diagnose;see--help.
   PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
   HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4.
-  NativeSDPA/segment_reducecompat;DO NOTdisableflashbecausePTv3patch1024→128.
-  No livejobs; fullmodel replay≠cached repeatability, no productperformance claim.
+  NativeSDPA/segment_reduce;DON'Tdisableflash(PTv3patch1024→128);fullGSreplay≠cached,no perfclaim.
 - **Previous learned:** [2D reference→base→fine-tuned](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav).
   Shared328000parameter/100steps,48TRAIN16DEV. SpectralL1.32938→.27148(12/16wins),
   envelope.29593→.26575(15/16);case061worseboth,physicalratioerror.191%→.586%worse.
@@ -87,8 +88,7 @@ Status: ACTIVE_GOAL / ATTENUATION_INCENTIVE_PROVEN / TIMING_NOT_MAIN_CAUSE / TWO
   contact/shape/appearancechange. `sonicgauss-input-probe-2026-09-06`,4tests.
   Oldmodal-frequency-control.wav is fittedDiffSoundmath, NOTneural/sizeevidence.
 - **Retained:** [water](/home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav),13.74s/glass10seed2718,
-  8/8coarseWater,notmaterial/flowcalibrated.
-  [Rubber/glass hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s/40mm/s/.5N/90mm,
+  8/8coarseWater,notmaterial/flowcalibrated. [Rubber/glass hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav),3.15s/40mm/s/.5N/90mm,
   NN+48TRAIN513tapunitDCFIR,notfrictionrealism. User:waternormal;rubber/glassunfamiliar.
   [Five shared-adapter glass impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav),
   seed42/150steps5/5noextra,notgeometry/size/force/striker. OriginaladapterSHA863459fb….

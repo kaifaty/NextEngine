@@ -6588,3 +6588,133 @@ pinned local waveform-loss implementation; it records that script hash and all
 60 derivatives/RMS ratios. No model/optimizer state was created.34focused tests,
 Ruff check/format,control WAV layouts/headroom, links and`git diff --check` PASS;
 Cargo/host-check/ProductChecks NOT_RUN. All jobs terminal; no engine promotion.
+
+## Two independent samples: executable energy-score branch — 2026-09-06
+
+The preceding conversational explanation was no progress; this continuation
+executes the previously justified branch. No new corpus, per-object fitting,
+protected payloads, runtime changes or acceptance-rule relaxation.
+
+The [official spectral-distance implementation](https://github.com/google-research/google-research/blob/master/ged_tts/distance_function/spectral_ops.py)
+was read directly, not installed or executed. Its score is the sum of two
+reference-to-generated distances minus the generated-to-generated distance.
+Our explicit adaptation uses full 44.1 kHz output, the existing analysis-only
+20 Hz FFT filter, six FFT sizes 64–2048, half-window hops, symmetric Hann,
+mean magnitude L1 plus framewise log-magnitude L2 divided by sqrt(bin count).
+It does not use the upstream Mel projection, finite-difference features or
+random crops. Magnitudes use a fixed numerical floor; neither signal is
+normalized by the other. Identity distance is exactly zero. This is not a
+bitwise reproduction, a strict physical-consistency proof or a realism gate.
+
+`physical_sound_sonicgauss_energy_probe.py render` produced 120 full stereo
+WAVs: two fresh independent noise draws for each of the existing 60 conditions.
+One explicit CUDA generator, seed 20260906; no seed selection. All use the
+published frozen model, 50 Euler steps and no reference waveform. Same-noise
+replay of the first full waveform is exact. Each pair has distinct noise;
+all WAVs are finite/non-silent, 131072 samples at 44100 Hz, shared gain 1,
+maximum peak 0.44707. The render trace contains no reference/corpus or Internet
+socket access. Assets and generated outputs remain external.
+
+`probe` evaluates the derivative at one common scalar gain of 1, with no gain
+optimization or changed output WAVs. The same symmetric distance is used for
+both the paired and energy scores, isolating the generated-pair term:
+
+| Local role | Cases | Paired favors attenuation | Energy favors attenuation | Already-quieter errors, paired → energy |
+| --- | ---: | ---: | ---: | ---: |
+| TRAIN | 36 | 19 | 0 | 5 → 0 |
+| DEV | 24 | 13 | 4 | 5 → 1 |
+
+“Already quieter” means both independent generations have lower analysis-only
+audible RMS than the reference. Mean gain derivatives change 0.00936→−0.91824
+TRAIN and 0.30109→−0.62014 DEV. The scores are different from the preceding
+relative-L1 objective; those derivative magnitudes are not directly comparable.
+The evidence supports trying the distribution objective, not declaring that
+every amplitude increase is correct or that neural optimization will succeed.
+
+External roots are `sonicgauss-energy-render-2026-09-06` and
+`sonicgauss-energy-probe-2026-09-06`. The latter contains ten complete first-
+contact comparisons, recording → independent sample 1 → independent sample 2,
+with no per-clip normalization. For example:
+[glass object 6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-probe-2026-09-06/object-06-comparison.wav),
+[iron object 66](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-probe-2026-09-06/object-66-comparison.wav).
+These are source-free published-model examples, not an improved trained model.
+
+The bounded fit uses `physical_sound_sonicgauss_waveform_fit.py --energy-score`:
+the same fresh zero-initialized shared 262144-parameter residual, 36 TRAIN
+contacts, 72 Adam steps and full 50-step/decoder gradients. Two fresh independent
+noises per step use a separate seed-42 generator, not the evaluation stream.
+The five published components remain frozen. No DEV checkpoint selection.
+
+### Fit and independent evaluation: rejected, not promoted
+
+The fit completed all 72 steps. Adapter SHA256:
+`a4c23b5211b9023998e6e28444feae3aaaa6f847775f07ff223a1ea278ec8596`.
+All frozen parameter versions and gradient absence passed; maximum allocated
+CUDA memory 4,521,373,696 bytes (4311.92 MiB). Full original latent/PCM replay
+passed before fitting. The file-access trace matches exactly the 36 TRAIN
+references and no DEV reference. No continuation or checkpoint selection.
+The optional renderer `--fit` hookup was added during training; the already
+loaded distance/training path was not changed.
+
+`sonicgauss-energy-fixed-render-2026-09-06` contains 120 full baseline/candidate
+WAVs and NPZs under the previous cached-noise schedule. All 20 earlier baseline
+WAVs replay exactly. `sonicgauss-energy-fixed-assessment-2026-09-06` retains
+all 60 recording→baseline→candidate comparisons. The unchanged raw and audible
+non-regression rules both **REJECT** this candidate:
+
+| DEV metric, lower is better | Baseline | Candidate | Wins / 24 |
+| --- | ---: | ---: | ---: |
+| Raw relative MRSTFT | 0.824499 | 0.832920 | 5 |
+| Audible relative MRSTFT | 0.961561 | 0.972393 | 5 |
+| 2 ms envelope error | 0.846507 | 0.854627 | 10 |
+| Absolute log-RMS error | 0.439737 | 0.436844 | 13 |
+
+Wood 14, ceramic 75 and glass 94 have per-object regressions. TRAIN audible
+MRSTFT also worsens 1.203254→1.249558 (4/36 wins). This is not simply a DEV-only
+generalization failure. Listen to the full comparisons:
+[glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-06-contact-0-comparison.wav),
+[held-out-from-fit wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-14-contact-0-comparison.wav),
+[iron](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-66-contact-0-comparison.wav).
+
+`sonicgauss-energy-candidate-render-2026-09-06` additionally contains 120
+independent-noise candidate WAVs, paired exactly with all 120 preflight noises.
+All share gain 1; both render traces exclude references/corpus/Internet sockets.
+`sonicgauss-energy-candidate-probe-2026-09-06/comparison-summary.json` aggregates
+both probes and adds independent-IIR unit-RMS spectral shape, computed only in
+the metric (no normalized WAVs):
+
+| Independent-noise DEV metric | Baseline | Candidate | Wins / 24 conditions |
+| --- | ---: | ---: | ---: |
+| Energy score | 4.329549 | 4.319196 | 20 |
+| Audible relative MRSTFT, two-sample mean | 1.091254 | 1.102875 | 1 |
+| 2 ms envelope error | 1.003537 | 1.008537 | 12 |
+| Absolute log-RMS error | 0.561758 | 0.556422 | 13 |
+| Unit-RMS spectral shape | 1.026839 | 1.023383 | 15 |
+
+TRAIN energy also improves 4.493175→4.462993 (27/36), while audible spectral
+error worsens 1.457290→1.498198 (3/36). Mean generated-pair distance increases
+2.700129→2.724372 TRAIN and 2.461913→2.469103 DEV. This increase is not itself
+good or bad: noisy variation can increase the same distance. Shape gains are
+small (~0.34% DEV), and glass 94 shape regresses. Energy optimization therefore
+worked modestly on independent noises but did not establish better sound or
+fix the missing physical conditioning. A single-pair estimate per condition
+does not provide a robust conditional-distribution estimate or a pristine
+unseen-object claim.
+
+Decision: retain the baseline and all failure audio; no promotion, gain repair,
+longer run, loss-weight/seed sweep, extra SED variant or per-object refinement.
+Next executable discriminator is a common-noise object/contact intervention,
+comparing condition-dependent changes against sampling variability with full
+control audio. Earlier probes establish that inputs affect output, not that
+the differences correctly distinguish physical conditions. Missing absolute
+scale/force/striker information remains unresolved; do not infer it from sound.
+
+Reproduction: energy probe `render` with source/assets/data/baseline, then
+`probe` with data/generated; optional `render --fit` loads the saved adapter.
+The previous shared-fit `render` and waveform-fit `--evaluate` remain the fixed-
+noise comparison path. Each command requires a new external output directory.
+The comparison-summary sidecar is posthoc aggregation of the two exact probe
+receipts and 120 noise-paired NPZs, with independent IIR/unit-RMS shape analysis.
+40 focused tests, Ruff format/check, full media/trace checks and diff/link checks
+PASS. Total 360 full generated WAVs plus 80 comparisons, all external. No jobs
+remain live. Cargo/host-check/ProductChecks NOT_RUN: bounded lab, no engine edits.

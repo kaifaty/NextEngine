@@ -236,6 +236,11 @@ def evaluate(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evaluate", action="store_true")
+    parser.add_argument(
+        "--energy-score",
+        action="store_true",
+        help="two independent samples and symmetric spectral energy objective",
+    )
     for name in ("source", "assets", "data", "baseline", "generated", "output"):
         parser.add_argument("--" + name, type=Path, required=name in ("data", "output"))
     args = parser.parse_args()
@@ -314,17 +319,38 @@ def main():
         len(teachers), generator=torch.Generator().manual_seed(42)
     ).tolist()
     losses = []
+    noise_rng = torch.Generator(device="cuda").manual_seed(42)
+    if args.energy_score:
+        import physical_sound_sonicgauss_energy_probe as distribution
+
     for step in range(
         72
     ):  # two complete passes, one final checkpoint, no DEV selection
         oid, index, target, _ = teachers[order[step % len(order)]]
         optimizer.zero_grad(set_to_none=True)
         fused = adapted(features[oid], positions[oid][index])
-        latent = generate(model, fused, noises[oid], use_checkpoint=True)
-        wave = checkpoint(
-            lambda z: vae.decode(z.transpose(1, 2)).sample, latent, use_reentrant=False
-        )
-        loss, components = waveform_loss(target, wave)
+        if args.energy_score:
+            predictions = []
+            for _ in range(2):
+                noise = torch.randn(1, 64, 64, device="cuda", generator=noise_rng)
+                latent = generate(model, fused, noise, use_checkpoint=True)
+                wave = checkpoint(
+                    lambda z: vae.decode(z.transpose(1, 2)).sample,
+                    latent,
+                    use_reentrant=False,
+                )
+                predictions.append(distribution.features(wave))
+            loss, components = distribution.energy(
+                distribution.features(target), *predictions
+            )
+        else:
+            latent = generate(model, fused, noises[oid], use_checkpoint=True)
+            wave = checkpoint(
+                lambda z: vae.decode(z.transpose(1, 2)).sample,
+                latent,
+                use_reentrant=False,
+            )
+            loss, components = waveform_loss(target, wave)
         if not torch.isfinite(loss):
             raise ValueError("nonfinite decoded objective")
         loss.backward()
@@ -367,9 +393,16 @@ def main():
             "seed": 42,
             "learning_rate": 1e-4,
             "losses": losses,
-            "objective": "FFT20Hz audible relative MRSTFT + .25*2ms envelope + .1*log RMS; full 50-step backpropagation",
+            "objective": "two-sample symmetric FFT energy; full 50-step backpropagation"
+            if args.energy_score
+            else "FFT20Hz audible relative MRSTFT + .25*2ms envelope + .1*log RMS; full 50-step backpropagation",
+            "energy_score_script_sha256": pilot.sha256(Path(distribution.__file__))
+            if args.energy_score
+            else None,
             "initialization": "zero residual on original published model, NOT rejected flow adapter",
-            "noise": "fixed cached post-geometry RNG per object; no seed-generalization claim",
+            "noise": "two fresh independent draws per step; separate CUDA generator seed42"
+            if args.energy_score
+            else "fixed cached post-geometry RNG per object; no seed-generalization claim",
             "geometry_hashes": hashes,
             "input_sha256": pilot.sha256(args.data / "inputs.json"),
             "adapter_sha256": pilot.sha256(args.output / "adapter.safetensors"),
@@ -381,6 +414,7 @@ def main():
             ],
             "frozen_parameter_versions_unchanged": True,
             "original_latent_pcm_equivalence": True,
+            "maximum_cuda_allocated_bytes": torch.cuda.max_memory_allocated(),
             "scope": "known pretraining TRAIN; local object-disjoint DEV; no runtime/physical acceptance",
         },
     )
