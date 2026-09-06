@@ -7636,3 +7636,132 @@ shared_diagnose.py `--data DATA --fit FIT --output DIAGNOSTIC`. Prefix each with
 `OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2_`
 and the corresponding filename suffix. Output directories must be new. Exact
 existing roots above avoid reinterpretation of TRAIN/DEV IDs across datasets.
+
+## 2026-09-06 — Band representation discriminator and one compact shared fit
+
+Primary: [full teacher then new shared prediction for three open DEV objects](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-compact-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s,
+order11woodchair/54ceramicbowl/88ceramicmug. A newly trained shared network,
+not target-audio reconstruction. It improves three DEV means over the previous
+shared fit but does not meet level fidelity versus simple controls. No runtime,
+demo replacement, validated-realism or arbitrary-material claim.
+
+Previous goal checkpoint was **progress**: committed shared weights/rendering
+and pole/field discriminator. This cycle investigated competing explanations:
+
+- Rank-conditioned signed fields average dissimilar modal responses: supported
+  by large TRAIN field errors even with oracle poles/count. Neighboring TRAIN
+  modal gain cosine is between−.034 and.049; this is descriptive, not proof that
+  modal signs are erroneous or that removing them is legitimate.
+- Input/data scarcity alone causes the failure: cannot explain it alone because
+  reconstruction already fails on TRAIN. Encoder/spatial features, optimization
+  and output-index alignment remain possible causes; not yet distinguished.
+- Energy-only band representation repairs averaging: directly tested and
+  contradicted below. Within-band energy does not preserve cross-band coherence.
+
+### Primary-source research and representation control
+
+[Deep-Modal, MM2020, sections3–5](https://hellojxt.github.io/DeepModal/ACMMM20_ModalSound.pdf)
+packs modes into frequency bands, predicts amplitudes and occupancy masks, and
+discusses over-smoothing. Its practical setup uses32Mel bands over100–10000Hz,
+fixed-material/size training and approximate post-processing. Its comparison
+also restricts reference bandwidth, and its second user study detects a
+difference in same-material shape cases. These are limits, not proof of our
+full-band quality or arbitrary interacting-material realism. The paper's
+frequency-channel output is different from our smooth normalized-rank field.
+[NeuralSound's authors](https://hellojxt.github.io/NeuralSound/) instead separate
+modal solution from acoustic transfer; our OF2 control still lacks radiation.
+Sources opened2026-09-06; no downloaded implementation or weights executed.
+
+`physical_sound_objectfolder2_band_probe.py`: one fixed128Mel-band partition
+covering1–22049Hz, all six TRAIN first contacts. Bands containing≤3modes retain
+their exact signed modes; denser bands compare signed sums against a three-axis
+integrated waveform Gram representation. This is a **hybrid reconstruction**,
+not a completely phase-free descriptor, port admittance or mechanical energy.
+Frequency/damping averages use modal response energy; no modes are cropped.
+The energy control reconstructs dense-band covariance using its PSD square root
+and three sample-orthogonalized damped carriers. All forces share the same
+linear three-axis response; no per-force normalization or target level repair.
+
+First run terminated before WAVs: a top-frequency carrier Gram had condition
+number2.61017e9 and inverse-based covariance error4.70645e-9, failing1e-9.
+The failed empty directory `objectfolder2-band-probe-2026-09-06` remains.
+Sample-space QR avoids Gram inversion; the tolerance is unchanged. QR signs
+are fixed by positive R diagonal; no cross-machine bit guarantee. The revised
+run `objectfolder2-band-qr-probe-2026-09-06` has maximum band Gram error
+3.98931e-15, but total cross-band covariance changes up to26.55%. Correct local
+energy algebra is not a sound-fidelity result. Small negative eigenvalues are
+handled only within an explicit64-machine-epsilon matrix bound; indefinite
+inputs and rank-deficient bases reject, with negative tests.
+
+Six TRAIN first-contact means, lower is better:
+
+| Oracle reconstruction | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Signed band sums | .051602 | .019904 | .011676 |
+| Band energy Gram | .231959 | .092310 | .073538 |
+
+Signed sums win all six spectra. Dense-band phase/coherence changes defeat the
+proposed energy repair. Keep its seven audible controls, do not sweep Gram
+factorizations, phase choices or band counts. The source-parametric
+[six-object teacher/energy gallery](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-band-qr-probe-2026-09-06/six-train-teacher-energy-reconstruction.wav)
+is36s and explicitly **NOT a neural or source-free result**. Six full triples
+also include the better signed-sum reconstruction. No independent normalization
+within a comparison; all candidates retain their errors.
+
+### Evidence-backed change: compact targets, unchanged shared network
+
+`physical_sound_objectfolder2_compact.py` builds signed128-band targets using
+all32contacts to choose one common representative pole per dense band. This
+avoids making object poles contact-dependent. Sparse bands retain≤3source
+modes. Output counts for7/11/23/29/54/66/75/82/88 are149/171/64/28/67/50/114/129/46.
+All source modes are accounted for, but this is explicitly **lossy packing**;
+original full targets stay untouched. Six TRAIN first-contact common-pole
+oracle means against full teachers are.057141/.025303/.011478, so the compact
+representation itself is much closer than the current learned reconstruction.
+This is not a claim that all contacts/objects have this exact reconstruction error.
+
+External `objectfolder2-compact-data-2026-09-06` retains original roles and exact
+geometry-only inputs. One fit uses the unmodified shared.py, same68486parameters,
+2000Adam steps,.001,seed42,batch1024; only target representation changes.
+`objectfolder2-compact-fit-2026-09-06` weights SHA256:
+`5b569809d3340a28f5d9aa361b29d6db9c0f0d56628e881a706e615e1074b56f`.
+All TRAIN compact modes sampled, no DEV checkpoint selection or hyperparameter
+sweep. `objectfolder2-compact-render-2026-09-06` has36standalone predictions;
+`objectfolder2-compact-assess-2026-09-06` evaluates them against **original full
+teacher data**, with the unchanged nearest/size-scaled controls.
+
+| DEV mean | Prior shared NN | Compact shared NN | Size-scaled control |
+| --- | ---: | ---: | ---: |
+| Spectrum | 1.014195 | .987302 | 1.153514 |
+| Envelope | .646482 | .562240 | .703200 |
+| Log RMS error | .729565 | .649822 | .409395 |
+
+Relative improvements versus prior NN:2.65%/13.03%/10.93%. The automatic
+combined comparison remains **REJECT_QUALITY_ADVANTAGE**, because level fidelity
+still loses to both simple controls. TRAIN spectrum.842428 and level1.314734
+worsen versus prior.820225/1.101008. Keep as a partial DEV improvement, not a
+solution to field underfit. Compact predicted counts149/133/64/28/57/50/114/130/33
+still differ from packed targets on several objects; no count repair at inference.
+
+Next bounded discriminator: frequency-indexed output channels rather than a
+single smooth normalized-rank field, using the same compact TRAIN/DEV roles.
+Compare parameter budgets explicitly; separate output alignment from merely
+increasing capacity. Keep current artifacts frozen, no more data-compression,
+band-count, loss, epoch or seed variants. Geometry/spatial representation and
+optimization remain alternative causes; do not claim rank indexing alone proven.
+
+Verification:18focused tests PASS; all59new full WAVs finite float32/44100Hz/
+peak≤.5;36standalone and6band-gallery saved-parameter replays EXACT. Fit strace
+reads only six compact TRAIN NPZs/train.json as data, plus its new weights for
+the output hash; standalone render reads geometry
+inputs and own weights, no target files or teacher checkpoint. No INET connect.
+Ruff/diff/changed-link checks PASS. No Cargo/host-check/ProductCheck run for this
+bounded Python lab. `maintain-task-context` preserves the falsified energy
+hypothesis and exact next discriminator, not a new roadmap or release status.
+
+Reproduction: band_probe.py `--data FULL_DATA --output NEW_PROBE`;
+compact.py `--data FULL_DATA --output COMPACT_DATA`; existing shared.py fit and
+render with COMPACT_DATA; existing shared_assess.py **with FULL_DATA**, generated
+compact outputs and a new assessment directory. Use the established
+`lab/scripts/physical_sound_objectfolder2_` filename prefix and Python environment,
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Full inputs and weights stay external.
