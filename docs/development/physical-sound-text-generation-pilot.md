@@ -8043,3 +8043,119 @@ from old compact/new full data, then `fit`. Evaluate candidate using explicit
 `expanded_eval.py compare --baseline OLD_NEW_RENDER --generated CANDIDATE_RENDER`
 builds the primary triples. Use the established `physical_sound_objectfolder2_`
 filename prefix/environment and distinct external output directories.
+
+## 2026-09-06 — Magnitude, not sign-only repair; one factorized shared candidate
+
+Primary: [new DEV: reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s,
+37/40/53, same gain per triple. These model generations are source-free.
+Separate [steel TRAIN oracle diagnostic](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-field-cause-2026-09-06/object-23-comparison.wav),18s,
+is target-assisted, NOT a newly improved standalone sound. Its order is target,
+learned field, correct-sign oracle, correct-magnitude oracle, target mode flip,
+global field-RMS oracle. Do not confuse these two artifact categories.
+
+Previous turn was progress: shared11-body fit and non-regression evidence.
+Repeated signed-field failure triggered bounded research before another fit.
+Competing explanations: H1 a simple global level error; H2 wrong signs dominate;
+H3 magnitudes/spatial structure are lost in signed regression; H4 missing shape/
+size/material information or arbitrary modal coordinates complicate the target.
+
+Primary sources opened2026-09-06:
+[OF2 section4.2 equations6–8](https://par.nsf.gov/servlets/purl/10341945)
+describe modal coordinates and summing predicted signed gains with oscillators.
+Its per-object teacher does not supply a physical output/radiation port here.
+[SignNet/BasisNet, v4](https://arxiv.org/abs/2202.13013) establishes sign/basis
+symmetries for eigenvectors; this is not evidence of a bug in OF2 data.
+[NeuralSound v4 sections3/4.2.3 and appendixA.3](https://arxiv.org/html/2108.07425v4)
+uses physical-operator residuals/Rayleigh–Ritz and separate radiation. Its direct
+eigenvector-regression ablation reaches about.85relative error versus1for zero.
+This motivates questioning direct coefficient regression, not a claim that
+NeuralSound has been reproduced or would solve our task unchanged. The author's
+PDF was too large for browser extraction; actual arXiv HTML sections were read.
+No downloaded implementation/weights or new payload executed.
+
+`physical_sound_objectfolder2_field_cause.py`: frozen81cc9a90…; ALL11TRAIN compact
+targets, all32contacts for coefficient diagnostics, fixed first contact for audio.
+Every variant receives oracle poles/count/rank; isolate field errors without
+claiming standalone quality. Correct-sign oracle preserves predicted magnitudes;
+correct-magnitude oracle preserves predicted signs. One all32contact field-RMS
+scalar tests global calibration; zero predictions remain unrepaired. Deterministic
+alternating mode signs test target sensitivity, not a phase/sign search.
+
+| Mean first-contact diagnostic | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Learned field, oracle poles | .789398 | .676857 | 1.475810 |
+| Correct signs, predicted magnitudes | .768158 | .676323 | 1.666127 |
+| Correct magnitudes, predicted signs | .604324 | .537368 | .307396 |
+| One field-RMS scalar | 1.693870 | 1.652916 | .804634 |
+| Alternating signs of target modes | .403949 | .323042 | .118011 |
+
+H1 is insufficient: one scalar worsens spectrum/envelope. H2 is insufficient:
+even perfect signs do not close level/field error. H3 has a useful discriminator:
+magnitude oracle improves all audio means substantially. Yet coefficient asinh
+MSE increases .443905→.692662 for that oracle; the original signed coefficient
+objective can prefer a quieter field to a better-magnitude audio reconstruction.
+H4 remains unresolved: sign/magnitude intervention neither tests encoder quality
+nor proves an arbitrary source eigenbasis caused learning failure.
+
+Positive control uses only existing `modal3d-port-data-2026-09-06/train-00.npz`,
+hash35548eaa…. For consistent sign flip a→aS, physical residues a_p*a_q and the
+mechanical waveform are EXACT; summing modal coordinates changes the waveform.
+The latter control's spectrum/envelope/level change.035713/.011522/.009556.
+Global polarity has exactly zero audio-metric difference for all11OF2examples.
+This distinguishes a coordinate convention from a physical observable, but OF2
+K/M/U/output ports are unavailable: do NOT claim an actual OF2 eigenbasis mismatch.
+Do NOT turn signed OF2 gains into positive self-admittance or remove signs as repair.
+Control audio uses stated synthetic1%damping and referenceE/rho/length, NOT pressure.
+
+### One evidence-backed magnitude experiment
+
+`physical_sound_objectfolder2_magnitude.py` adds a30851parameter positive magnitude
+head to the frozen68486parameter core:99337total(+45.0%), explicitly extra capacity.
+Same field architecture, initialized from the old field, softplus predicts
+asinh(abs(g)/scale); reconstruct magnitude with sinh and multiply by ORIGINAL
+neural signs. Zero old gains stay zero. Encoder, mode count, frequencies, damping,
+sign field and normalizers stay exact. This is factorization+extra capacity, not
+a pure loss ablation or physically basis-invariant source model.
+One2000Adam.001/seed42 fit on the same11TRAIN, no new DEV reads/checkpoints/seeds.
+`objectfolder2-magnitude-fit-2026-09-06`, weights
+`ef22695e230b3846e9747f0da98d9a99a088f6f0d5a903a5a5ed2d16b5f1a400`;
+allTRAINmodes sampled, all core tensors EXACT unchanged. Generic expanded render
+only gains model-class/predictor injection; defaults preserve the old model path.
+
+| DEV diagnostics | Old11-body core | Magnitude-factorized |
+| --- | ---: | ---: |
+| New spectrum | 1.160924 | 1.330186 |
+| New envelope | .789246 | .860248 |
+| New log RMS error | 1.855107 | 1.603526 |
+| Old spectrum | .882339 | .943747 |
+| Old envelope | .739386 | .591543 |
+| Old log RMS error | 1.349487 | .678518 |
+
+Roots`objectfolder2-magnitude-{new,old}-{render,assess}-2026-09-06`.
+Level improves on both DEV groups, but spectrum regresses on both and new
+envelope worsens. **REJECT general replacement / REJECT_QUALITY_ADVANTAGE**.
+Old six-body compact NN still has oldDEV.987302/.562240/.649822; do not promote
+the new model solely by comparing it to the already-regressed11-body baseline.
+Fixed nearest/size controls remain stronger on level. TRAIN gains are not transfer.
+No claim of perceptual realism, new supported materials, radiation or engine use.
+
+Next discriminator: frozen magnitude candidate with oracle pole/count controls
+on TRAIN to distinguish remaining field error from frequency/shape conditioning,
+then decide whether physically normalized pole learning/operator residuals are
+justified. No sign/gain/width/epoch/seed variants or another acquisition sweep;
+the sign-only/global-scalar paths are now explicitly falsified as complete fixes.
+
+Checks:42focused tests/Ruff PASS;199full WAVs finite float32/44100Hz/mono/peak≤.5.
+66oracle and68standalone saved-parameter replays EXACT;11oracle galleries,
+the FEM gallery and3NNtriples replay EXACT. All17generated objects preserve
+original count/frequency/decay/signs exactly; old gains are saved separately EXACT.
+Traces verify TRAIN-only acoustic reads for diagnosis/fit, geometry+own weights
+for generation, own-output hashing and no INET. No Cargo/host-check/ProductCheck.
+`maintain-task-context` preserves oracle-vs-generation distinction and rejected
+repairs; authored fallback, full goal and stable roadmap unchanged.
+
+Reproduce `field_cause.py --data EXPANDED_TRAIN --fit ELEVEN_FIT --ports PORT_DATA
+--output NEW`; `magnitude.py fit`, then `render-old`/`render-new`. Assess with
+existing shared/expanded assess against FULL targets. Expanded `compare` now
+accepts `--baseline-weights-sha256` so before/after identities and filenames are
+accurate; use full81cc…/ef226…hashes above. Established filename prefix/environment.

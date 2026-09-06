@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / ELEVEN_BODY_SHARED_MODEL_RUN / GENERAL_REPLACEMENT_REJECTED.
+Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -10,7 +10,7 @@ Status: ACTIVE_GOAL / ELEVEN_BODY_SHARED_MODEL_RUN / GENERAL_REPLACEMENT_REJECTE
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [reference→six-body NN→eleven-body NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-expanded-comparison-2026-09-06/new-development-reference-six-eleven.wav),27s;
+- **Latest primary:** [reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s;
   newDEV37/40(polycarbonatecups)/53(ceramicbowl),samegainpertriple. No target
   acoustics at either generation. Threeobjects but TWO conservativefamilies.
 - `objectfolder2-expansion-2026-09-06`:next256MiBofsamearchive,tencompletepairs,
@@ -19,16 +19,21 @@ Status: ACTIVE_GOAL / ELEVEN_BODY_SHARED_MODEL_RUN / GENERAL_REPLACEMENT_REJECTE
   Metadata-familyguard BEFORE audio reserves37–46cups and53possibleoldDEV54kin.
   NewTRAIN47/59/72/78/91;newDEV37/40/53. Originalrolesunchanged;combinedDEV6objects,
   FOURconservativefamilies. Acquisitionmod5role retained separately;noholdoutreuse.
-- `objectfolder2-expanded-fit-2026-09-06`:same68486parametercompactNN,
-  11TRAIN7/23/29/47/59/66/72/75/78/82/91;one2000Adam.001seed42,allmodessampled.
-  Weights81cc9a90a9da5c1a4cf5b2f82823fa267aaba20a7c75896fa9feb56fecad1fdb.
-  Data-onlycoverageprobe,sameoptimizerbudget,NOTconvergedlearningcurve.
-  NewDEVspec/env/level1.27854/.90187/2.37216→1.16092/.78925/1.85511 improves;
-  oldDEV.98730/.56224/.64982→.88234/.73939/1.34949 regressesenv/level.
-  Pooled6DEV1.13292/.73206/1.51099→1.02163/.76432/1.60230:REJECTreplacement.
-  Preserveoldcompact5b569809…;fixedsix-neighborcontrolsNOTexpanded11baseline.
-  Alljobs terminal;35tests/186WAVQA/100standalonereplays/3triplesPASS;tracesisolate
-  TRAINacousticsvsgeometry-onlyinference. Fullresults/sourcehashes inpilot.
+- `objectfolder2-magnitude-fit-2026-09-06`:99337total/30851trainableparameters;
+  frozen81cc9a90…core pluspositivemagnitudehead;notpureloss/capacitycomparison.
+  Same11TRAIN7/23/29/47/59/66/72/75/78/82/91;one2000Adam.001seed42fit.
+  Weightsef22695e230b3846e9747f0da98d9a99a088f6f0d5a903a5a5ed2d16b5f1a400.
+  NewDEVspec/env/level1.16092/.78925/1.85511→1.33019/.86025/1.60353;
+  oldDEV.88234/.73939/1.34949→.94375/.59154/.67852. Levelhelps,spectrumworse:
+  REJECTgeneralreplacement. Preserveoldcompact5b569809…(.9873/.5622/.6498oldDEV).
+  All17core/pole/count/original-gain/signidentitiesEXACT. Alljobs terminal;
+  42tests/199WAVQA/134individualreplays/15galleriesPASS;readtracesisolated.
+- `objectfolder2-field-cause-2026-09-06`:11TRAINoraclepoles/count/ranks,
+  firstcontactaudio/all32coefficientdiagnostics,NOTstandalonegeneration.
+  Learnedlevel1.47581→signoracle1.66613/magnitudeoracle.30740/scalar.80463;
+  scalar worsensspectrum.78940→1.69387. SignedMSEprefersquieterfield:
+  learned.44390vsmagnitudeoracle.69266. Sign-only/scalarcompletefixesREJECT.
+  FEMa→aSphysicalresidues/waveEXACT;OF2signsensitivityNOTproofsourcegaugeerror.
 - **Size:** `objectfolder2-size-final-2026-09-06`,rawNNfrequencyshiftmean.6165%
   despite.8/1.25size;required-lawerror22.211%,0/12modecounts. transportlambda/r²
   andRayleighdecayworkswithoutfit,heldgainsNOTamplitudephysics. Commonbaseline
@@ -40,15 +45,14 @@ Status: ACTIVE_GOAL / ELEVEN_BODY_SHARED_MODEL_RUN / GENERAL_REPLACEMENT_REJECTE
   spectrumworsevssigned.05160,crossbanderror26.55%;noGram/phase/band/decoder/
   mask/capacity/epoch/seed sweeps. Compactcommonpoleoracle.05714/.02530/.01148,
   lossyall-modes-accounted,NOTlossless. Details/pinsretainedinpilot.
-- **Next:** bounded research on persistent signed-modal-field targetidentifiability
-  vsgeometry/size/materialconfounding,with TRAIN-onlycausalcontrolandWAV before
-  anotherfit. MoredatahelpednewcasesbutdidNOTcloselevel/fieldfailure. No repeated
-  data-count/decoder/epoch/seed sweep or per-material tuning;fullgoalunchanged.
+- **Next:** frozenmagnitudecandidate TRAINoraclepole/countdiscriminator withWAV;
+  distinguishremainingfieldvsfrequency/shapeconditioning beforephysically
+  normalizedpole/operator-residualroute. No sign/gain/width/epoch/seed ordata-count
+  sweeps. NeuralSound/SignNetboundedresearchinpilot;notreproduced,newgoalunchanged.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
-  `objectfolder2-range-2026-09-06/family-extraction.json`:9completemesh/checkpoint
-  pairs from first320MiB of3.77GBarchive;individualhashes,NOTfullarchivechecksum.
-  IDs7/11/23/29/54/66/75/82/88;34–1965modes. **OF2 IDs≠SonicGauss/OF-Real IDs**.
+  `objectfolder2-range-2026-09-06/family-extraction.json`:original9pairs/320MiB;
+  IDs7/11/23/29/54/66/75/82/88,34–1965modes. **OF2IDs≠SonicGauss/OFRealIDs**.
   Demo23EXACTmatchesarchive;GSOCCBY4/originalmeshtermsretained;23/29URLsNone.
 - `physical_sound_objectfolder2.py`:strictweights_only+numericNumPyallowlist,
   reviewedhash-pinnedASTdeclarations,noimports/CUDA/optimizerexecution;

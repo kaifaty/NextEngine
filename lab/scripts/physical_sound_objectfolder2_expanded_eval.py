@@ -149,13 +149,13 @@ def prepare(args):
     shared.write_json(args.output / "inputs.json", {"rows": inputs})
 
 
-def render(args):
+def render(args, *, model_class=shared.SharedStudent, prediction_fn=shared.predict):
     if teacher.sha(args.fit / "model.safetensors") != args.weights_sha256:
         raise ValueError("explicitly pinned student required")
     fit = json.loads((args.fit / "fit.json").read_text())
     if fit["weights_sha256"] != args.weights_sha256:
         raise ValueError("fit weight identity mismatch")
-    model = shared.SharedStudent()
+    model = model_class()
     model.load_state_dict(load_file(args.fit / "model.safetensors"), strict=True)
     model.eval().requires_grad_(False)
     inputs = json.loads((args.data / "inputs.json").read_text())["rows"]
@@ -164,7 +164,7 @@ def render(args):
     for row in inputs:
         geometry = read_npz(args.data / row["file"], row["sha256"])
         check_geometry(geometry)
-        predicted = shared.predict(
+        predicted = prediction_fn(
             model, geometry["cloud"], geometry["features"], geometry["contacts"]
         )
         name = f"object-{row['object_id']}.npz"
@@ -358,7 +358,11 @@ def compare(args):
     data = json.loads((args.data / "data.json").read_text())["rows"]
     roots = (args.baseline, args.generated)
     manifests = [json.loads((root / "render.json").read_text()) for root in roots]
-    if [m["weights_sha256"] for m in manifests] != [WEIGHTS, args.weights_sha256]:
+    baseline_weights = args.baseline_weights_sha256
+    if [m["weights_sha256"] for m in manifests] != [
+        baseline_weights,
+        args.weights_sha256,
+    ]:
         raise ValueError("before/after weight identities changed")
     indices = [{r["object_id"]: r for r in m["rows"]} for m in manifests]
     selected = [
@@ -368,6 +372,11 @@ def compare(args):
         raise ValueError("all three new supported DEV required")
     args.output.mkdir(parents=True)
     previews, rows = [], []
+    label = (
+        "reference-six-eleven"
+        if baseline_weights == WEIGHTS
+        else "reference-baseline-candidate"
+    )
     for row in selected:
         identity = row["object_id"]
         parameters = [read_npz(args.data / row["file"], row["sha256"])]
@@ -380,7 +389,7 @@ def compare(args):
         ]
         gain = min(1.0, 0.5 / max(float(abs(w).max()) for w in waves))
         pcm = (np.concatenate(waves) * gain).astype(np.float32)
-        name = f"object-{identity}-reference-six-eleven.wav"
+        name = f"object-{identity}-{label}.wav"
         wavfile.write(args.output / name, teacher.RATE, pcm)
         previews.append(pcm)
         rows.append(
@@ -392,7 +401,7 @@ def compare(args):
             }
         )
     wavfile.write(
-        args.output / "new-development-reference-six-eleven.wav",
+        args.output / f"new-development-{label}.wav",
         teacher.RATE,
         np.concatenate(previews),
     )
@@ -400,8 +409,8 @@ def compare(args):
         args.output / "comparison.json",
         {
             "rows": rows,
-            "weights_sha256": [WEIGHTS, args.weights_sha256],
-            "order": "37/40/53, each reference then six-body NN then eleven-body NN,3seconds per item",
+            "weights_sha256": [baseline_weights, args.weights_sha256],
+            "order": "37/40/53, each reference then pinned baseline NN then pinned candidate NN,3seconds per item",
             "scope": "all three new supported DEV objects but TWO conservative families; same gain per triple, not calibrated loudness across objects; no target acoustics at either NN generation",
         },
     )
@@ -422,6 +431,7 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--weights-sha256", default=WEIGHTS)
+    parser.add_argument("--baseline-weights-sha256", default=WEIGHTS)
     args = parser.parse_args()
     torch.set_num_threads(4)
     {"prepare": prepare, "render": render, "assess": assess, "compare": compare}[
