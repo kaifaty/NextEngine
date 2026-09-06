@@ -6282,3 +6282,97 @@ size/SHA/CRC checks,140 generation WAV hashes,60 full comparison layouts/headroo
 changed links and`git diff --check` PASS. Cargo/host-check/ProductChecks NOT_RUN:
 this is external report-only model work, not engine integration. Candidate quality
 non-regression FAILS; broad realistic physical generation remains unachieved.
+
+## Codec and audible-metric discriminator — 2026-09-06
+
+Previous goal turn was progress: one shared fit,120 generated WAVs, an observed
+decoded-audio regression and paired flow-loss improvement. This bounded research
+cycle tests adjacent representation/evaluation assumptions before another fit.
+No new source payloads, protected data, model training or runtime changes.
+
+Primary-source check: [Stable Audio Open v2,31 July2024](https://arxiv.org/html/2407.14358v2)
+describes a64-channel continuous autoencoder, separate reconstruction evaluation,
+and spectral/adversarial/KL training objectives. Its low latent rate is not a
+claim of lossless reconstruction; the paper reports rate/fidelity tradeoffs.
+The [SonicGauss paper v1](https://arxiv.org/html/2507.19835v1) uses flow objectives
+and position-conditioned fusion; it does not prove that our small adapter's
+decreasing flow loss must improve a decoded waveform. Local installed Oobleck
+source confirms `mode()` returns the posterior mean and `sample()` adds noise
+with softplus-derived scale. No alternate codec/weights were downloaded.
+
+Competing hypotheses and decisive observations:
+
+- **Codec is the dominant bottleneck:** partial support from imperfect transient/
+  quiet-signal reconstruction, but against a sole-bottleneck claim, direct
+  encode/decode beats the conditional baseline for ALL60 reference contacts,
+  both raw and audible-component metrics. A generator can improve within this
+  representation; changing codec first is not justified by this experiment.
+- **Using posterior mode instead of sample caused the failure:** one fixed seed0
+  sample improves raw error in57/60 cases, but its mean audible-component error
+  is worse than mode in both local roles. Neither result supports a blind
+  mode→sample repair or a sampling-seed sweep.
+- **Objective/evaluation can reward inaudible components:** supported. For the
+  first Iron66 and Glass94 records, below20Hz mono FFT power is96.14%/99.29%.
+  In a synthetic mutation, remove a quiet700/1700/5100Hz decaying ring while
+  preserving a0.1-peak3Hz signal: raw relativeMRSTFT error is.004259; after the
+  same analysis-only20Hz high-pass it is.890216. This is a validator counterexample,
+  not a new material sound or a calibrated perceptual score.
+
+`physical_sound_sonicgauss_codec_probe.py` loads only the already pinned VAE
+(365 strict keys). All60 teacher inputs use the prior fit's unnormalized stereo
+2.98s window, preserving the known preprocessing difference from full3s
+assessment. Mode and one same-seed posterior sample are decoded in full, without
+post-decode crop. Four own synthetic controls are ring, ten-times-quieter ring,
+short pulse and silence; no per-record gain or latent optimization occurs.
+
+External `sonicgauss-codec-probe-2026-09-06`:64NPZs,312 individual stereo WAVs,
+64comparison WAVs,`result.json` and supplemental`audible-audit.json`. Every
+comparison is10.424308s. Real comparisons are teacher→codec mode→original
+generator; controls are original→mode→sample. This IS audio-input reconstruction,
+NOT a new source-free neural generation result. Examples:
+[Glass6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-06-contact-0-comparison.wav),
+[Ceramic75](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-75-contact-0-comparison.wav).
+
+Mean relative multi-resolution STFT magnitude L1 on the matched teacher window:
+
+| Measurement / local role | Codec mode | Codec sample | Original generator | Rejected shared fit |
+|---|---:|---:|---:|---:|
+| Raw TRAIN |.421675|.397088|.890977|.895999|
+| Raw DEV |.456695|.436275|.823247|1.217669|
+| Audible-component TRAIN |.646859|.666418|1.203839|1.185327|
+| Audible-component DEV |.637559|.658774|.961798|1.140225|
+
+Audible-component measurement applies one4th-order20Hz Butterworth zero-phase
+high-pass identically to reference and candidate ONLY inside analysis. It is not
+an ideal brick-wall hearing model and can have boundary effects. Raw WAVs,
+amplitudes, previous results and rejection rule are unchanged. This is not a
+high-pass repair of generated content or authorization to discard physical low
+frequencies. The rejected adapter improves only3/24DEV audible-component cases;
+its rejection remains supported rather than reversed by changing a metric.
+
+The codec retains the synthetic ring's700Hz peak (mode700.166Hz); raw errors
+.21037 for ring and.35326 for quiet ring show level-dependent fidelity. The short
+pulse loses peak/RMS (mode.02576/.000351 vs original.05/.000725), raw error.64279.
+Silent reconstruction RMS~1.01e-5, predominantly sub20Hz; never amplify it into a
+sound. Glass6's original13099.3Hz peak reconstructs at13061.6Hz, while conditional
+baseline peaks3896.5Hz. Ceramic75 still reconstructs poorly; neither codec nor
+the added diagnostic is a universal material/physical validator.
+
+Decision: retain published codec and baseline; reject the prior adapter. Next
+primary experiment is one shared decoded-audio-aware update, checking audible
+spectrum AND transient/level behavior, with the same object-disjoint local DEV
+and all failure WAVs. Do not repeat flow-loss-only/seed/epoch/codec-gain sweeps,
+or add another inventory/protocol before a runnable generation change. Missing
+scale/force/striker inputs and genuinely unseen objects remain full-goal gaps.
+
+Reproduce the codec probe with--assets/--data/--generated/--output (new external
+directory); then--audible-audit --output EXISTING_PROBE adds only the audit
+sidecar and refuses overwrite. Offline environment as above; no overlays needed
+for VAE-only execution. The result script hash precedes the additive audit path.
+
+Verification:27/27 focused SonicGauss tests, Ruff check/format, all376 stereo WAV
+layouts/finite values/headroom,64 numeric NPZ layouts, changed local links and
+`git diff --check` PASS. Codec and audit jobs terminal. Cargo/host-check and
+ProductChecks NOT_RUN; no product boundary changed. Human listening NOT_RUN and
+not a required per-sound gate. Neither reconstruction nor these diagnostic checks
+prove the full realistic physical-generation goal.

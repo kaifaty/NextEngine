@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALITY / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / CODEC_NOT_SOLE_LIMIT / RAW_METRIC_MISSES_AUDIBLE_LOSS / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -10,15 +10,27 @@ Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALI
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** 60 recorded→baseline→shared-fit comparisons, each10.444s,
-  in`sonicgauss-shared-contact-assessment-2026-09-06`, e.g.
-  [DEV glass94/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-94-contact-0-comparison.wav),
-  [failed DEV ceramic75/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-75-contact-0-comparison.wav).
-  All120 full stereo generated WAVs +latent/wave NPZ in`sonicgauss-shared-contact-render-2026-09-06`.
-  One262144parameter contact-query→64geometry-token attention residual,zero-init,
-  shared120Adamsteps/lr1e-4/batch4/seed42. Published five models frozen/version-
-  checked/no gradients; no per-object parameters/gain/EQ/seed/checkpoint selection.
-- Fit`sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors` SHA
+- **Latest primary:** `sonicgauss-codec-probe-2026-09-06`,64NPZ/376WAV; eachpair
+  10.424s teacher→codecMODE→originalgenerator (controlsoriginal→mode→sample).
+  [Glass6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-06-contact-0-comparison.wav),
+  [Ceramic75](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-75-contact-0-comparison.wav).
+  AUDIO-INPUT reconstruction diagnostic, NOT new source-free generation;NOtraining.
+  All60prior2.98sunnormalizedstereoteachers;4ownring/quietring/pulse/silencecontrols.
+  Pinned365-keyVAE;MODE+onefixedseed0SAMPLE;full131072decode/gain1/noEQ/crop.
+- **Codec not sole bottleneck:** modebeatsbaseline60/60rawANDaudiblecomponent.
+  RawTRAIN/DEV mode.42168/.45670 vsbaseline.89098/.82325;audible.64686/.63756
+  vs1.20384/.96180. Codecstillimperfect:quietringerror.3533,shortpulse.6428,
+  ceramic75poor. Samplewinsraw57/60butaudiblemeansWORSE;no mode/sample/seedrepair.
+- **Metric counterexample:** firstIron66/Glass94references96.14%/99.29%sub20Hzpower.
+  Removingquiet700/1700/5100Hzring whilekeepingloud3Hz givesrawMRSTFT.004259 vs
+  audible.890216. `audible-audit.json`uses4thorder20HzButterworthsosfiltfiltONLY
+  inanalysis;NOTidealhearingmodel/physicalgate/EQrepair. RawWAV/rulesunchanged.
+  PriorcandidateDEVaudible.96180→1.14023,3/24wins;stillREJECT. Preservefailures.
+- **Previous primary:**60recorded→base→fitcomparisonsin`sonicgauss-shared-contact-assessment-2026-09-06`;
+  120stereoWAV+latent/waveNPZ`sonicgauss-shared-contact-render-2026-09-06`.
+  One262144parametercontact→64GStokenresidual;120Adamsteps/lr1e-4/batch4/seed42;
+  fivepublishedmodelsfrozen/versionchecked/no gradients;NO per-objectparameters.
+  Fit`sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors` SHA
   `6c2f1eb11d949fefe94a8049a85433f791dcd09fa93077db4a5ff7fc0f67f1f7`.
   Teachers2.98s,stereo/no amplitude normalization,SciPy resampling,VAE posterior
   MODE(authorusesSAMPLE);logit-normal discrete flow MSE,conditional/noCFGdropout.
@@ -35,30 +47,26 @@ Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALI
   Optimization worked onitsobjective butdecoded spectralerror worsened; do NOT
   equateflowlosswithrealism orrepeatattention/lr/epochs/seedsweeps. Changes do not
   fixmissingabsolute size/force/strikermaterial orcalibratephysicalresponse.
-- **Next primary:** a shared-model improvement must be judged on decoded audio
-  with object-level non-regression, not merely flow loss. Beforeanotherfit,
-  discriminate representation/codec limits and waveform-objective mismatch on
-  this retained cohort; no more data/per-bowl tuning to hide the failure. Need
-  evidence-backed decoded-audio change +new audible pairs, notnewprotocol/roadmap.
+- **Next primary:** oneSHAREDdecoded-audio-awareupdate,checkingaudiblespectrumAND
+  transient/levelbehavior,object-levelDEVnonregression+audiblepairs. Codecprobe
+  alreadydone;doNOTrepeatcodec/data inventoriesorflow-only/epochs/seed/gainsweeps.
+  Keepfullobjectiveinclphysicaldescriptors;no protocol/roadmapbeforegenerationchange.
 - `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,89,707,492payloadbytes;
   68,690,214networkbytes,pinned206ranges/CRC/SHA,fullarchiveSHA NOTverified.
   Datasetrevisione905b8cb…,correctedprojection93d397c1…,range-root`sonicgauss-range-2026-09-06`.
   Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
   Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;
   stracerenderreadsNOreference/corpus/network. DiagnosisonlyreadsDEVafterfit.
-- Published baseline20WAV+10geometrycaches`sonicgauss-cohort-baseline-2026-09-06`;
-  [ten-object gallery](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-cohort-baseline-2026-09-06/gallery.wav),34.722s.
-  ItsassessmentMRSTFT.853852;matched11/20. ASTraw/RMS.005:Iron66/Ceramic75genTick
-  versusrecordedringing;glass6/94/95Chink;wood12/14Tickoftenalsorecorded. NOTjudge.
+- Baseline20WAV+10geometrycaches`sonicgauss-cohort-baseline-2026-09-06`,gallery34.722s.
+  ASTraw/RMS.005:Iron66/Ceramic75genTickvsrecordedringing;NOTphysicaljudge.
 - Generation50steps/seed0/noCFG/full131072stereosamples44100/gain1/noEQ/crop.
   Cached baseline replaysEXACT all20priorcases; originalfullGSreencodingstilldrifts
   firstatencoder(.0019566features→.0037788wave),notprovenkernel/duplicatevoxelcause.
   Previous`sonicgauss-conditioning-report-2026-09-06`:geometry/appearanceaffectoutput;
   originalfusionONEpositionkey,Q/K/Vgrad0/0/.05807,attentioncan'tselectGS tokens,
   butfullresidual+decoderSTILLcanlearnposition. NewresidualdidNOTprovequalityfix.
-- Source`sonicgauss-source-2026-09-06`:Sonic7a5687af/Splat446ffb5/Pointc4aa232/Tangofb364c2.
-  Assets`sonicgauss-assets-2026-09-06`:HF57b06047,2.506GB;pilotpins17sources+5weights.
-  StrictVAE365/Tango243/GS537/PE7/fusion12;219T5keysunusedexplicitly,nopickle/network.
+- Source`sonicgauss-source-2026-09-06`,assets`sonicgauss-assets-2026-09-06`unchanged;
+  pilotpins17sources+5weights(HF57b06047),strictloads,noT5/pickle/network.
 - Reproduce `physical_sound_sonicgauss_shared_fit.py` stagesfit/render/assess/diagnose;
   flags--source/--assets/--data/--baseline/--fit/--generated/--output per--help.
   PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
@@ -66,12 +74,9 @@ Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALI
   NativeSDPA/segment_reducecompat;DO NOTdisableflashbecausePTv3patch1024→128.
   No livejobs; fullmodel replay≠cached repeatability, no productperformance claim.
 - **Previous learned:** [2D reference→base→fine-tuned](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav).
-  Shared328000parameterlastlayer,100Adamsteps,48TRAIN(8ownshapes×3materials×2contacts),
-  16DEV(4othermasks×2othernumerictuples×2contacts),sameconvexpolygonfamily.
-  SpectralL1.32938→.27148(12/16wins),2msenvL1.29593→.26575(15/16);case061worseboth.
-  FitSHAfed24c81…, standalonecase048coeff/PCMEXACT;no referenceaudio input.
-  Density/stiffness/dampingdirectionsretained,butratioerror.191%→.586%worse.
-  Notrealism/3D/newtopology. No more2Dloss/epochsweep; full evidence inpilotnote.
+  Shared328000parameter/100steps,48TRAIN16DEV. SpectralL1.32938→.27148(12/16wins),
+  envelope.29593→.26575(15/16);case061worseboth,physicalratioerror.191%→.586%worse.
+  FitSHAfed24c81…,standalonecoeff/PCMEXACT;NOTrealism/3D/newtopology;no2Dsweeps.
 - NeuralResonatorcheckpointfa46fa22…/sourceceab3770… in`neuralresonator-assets-2026-09-06`.
   Ownmask/contact/rho,E,nu,alpha,beta→32parallel×2IIR. Safeweights-only+inertmetadata,
   no picklefallback. 12quadraticFEM2Drefpairs:10/12peakswithin1.6%,two7.44/35.58%.
@@ -92,8 +97,7 @@ Status: ACTIVE_GOAL / SHARED_3D_CONTACT_FIT_REJECTED / FLOW_LOSS_NOT_AUDIO_QUALI
   oneextraglassrigidattack. No promotion/refit. Bothshards2/3fullyverified,nojobs;
   shard3onlyannotations,notdecoded/trained. No DINO/FOV/crop/ridge/embedding/
   datascale/epoch/seed sweeps. Realglassstill7/8shape→metal,notvalidator/reward.
-- **Evidence/reproduction:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
-  Includes exact source/weight pins, acquisition receipts, controls and failures.
+- **Evidence/reproduction/pins/controls/failures:** [text-generation pilot](../physical-sound-text-generation-pilot.md).
 
 ## Preserve these constraints
 
