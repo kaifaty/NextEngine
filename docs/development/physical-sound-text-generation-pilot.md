@@ -6376,3 +6376,110 @@ layouts/finite values/headroom,64 numeric NPZ layouts, changed local links and
 ProductChecks NOT_RUN; no product boundary changed. Human listening NOT_RUN and
 not a required per-sound gate. Neither reconstruction nor these diagnostic checks
 prove the full realistic physical-generation goal.
+
+## Shared decoded-waveform training — 2026-09-06
+
+Previous goal turn was progress: the codec/audible-band discriminator produced
+inspectable media and falsified accepting raw flow/spectral loss as sufficient
+audio-quality evidence. This experiment changes the shared training objective,
+not the object roster, public contract or prototype scope.
+
+`physical_sound_sonicgauss_waveform_fit.py` trains a fresh zero-initialized shared
+262144-parameter ContactResidual on the original published model, NOT on the
+rejected flow-loss adapter. Gradients pass through the complete50-step no-CFG
+Euler generation and the frozen VAE decoder. Activation recomputation limits
+memory; scheduler state updates remain outside checkpointed callbacks and each
+callback receives its timestep explicitly. Tests compare all50-step outputs and
+gradients with/without recomputation. GPU preflight requires EXACT original
+latent and full waveform equality for the first disclosed TRAIN case before fit.
+
+Loss is audible relativeMRSTFT magnitude L1 +.25×2ms-envelope relativeL1
++ .1×absolute logRMS ratio. A differentiable smooth20Hz FFT high-pass is used
+ONLY inside the objective, with4096-sample odd-reflection boundary extension;
+it does not filter or normalize generated WAVs. Independent evaluation retains
+the prior SciPy Butterworth20Hz forward-backward diagnostic, not the optimized
+FFT operator. Neither filter is an ideal perceptual/physical-quality model.
+
+The first trial used even reflection, which introduces slope cusps in the
+low-frequency control. Ring-erasure spectral loss.76278 failed the unchanged
+test criterion>.8. Its verified own process was deliberately stopped (exit143,
+last logged step6), not timed out or restarted while live; partial progress and
+trace remain in`sonicgauss-waveform-fit-2026-09-06` and the cohort data root.
+No checkpoint from it was saved or selected. Odd reflection repairs the boundary
+behavior and passes the original test; no tolerance relaxation/retry-to-green.
+
+Corrected run:72Adam steps, two complete36-contact passes, batch1,lr1e-4,
+seed42,gradient clip1,one final checkpoint. Fixed cached post-Gaussian-encoder
+noise per object matches the existing baseline; no seed-generalization claim.
+TRAIN remains2/6/12/24/66/95,DEV14/75/94/97; ALL are known pretraining TRAIN.
+Only the36TRAIN waveforms are read by fit (strace exact set, no DEV/internet).
+References supervise the loss but never enter the latent-generation function.
+Peak measured tensor allocation is4286MiB (about4.19GiB);
+not an engine/runtime-performance guarantee. All five published model modules
+remain frozen and their parameter versions/absent gradients are checked.
+
+Completed corrected adapter SHA
+`8d702d110f04ff497c3a1425bff545ff771b6f8f358c2c0ed57a07b118d199c3`
+in`sonicgauss-waveform-odd-fit-2026-09-06`. Source-free fresh-process generation
+using the existing shared renderer produces120full stereo WAVs and raw latent/
+wave NPZs in`sonicgauss-waveform-render-2026-09-06`. Sharedgain1,all20 previously
+measured baselines EXACT,paired noise identical, no target/corpus/network reads.
+No alternate checkpoint or generation seed was selected.
+
+`sonicgauss-waveform-assessment-2026-09-06` contains all60 recorded→baseline→
+candidate10.444s comparisons, e.g.
+[Glass94/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-94-contact-0-comparison.wav),
+[Plastic97/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-97-contact-0-comparison.wav).
+Full3s references remain unchanged; the fit's2.98s teacher-window difference is
+explicit. Raw MRSTFT improves TRAIN.892170→.775025(30/36) and DEV
+.824499→.762868(17/24). All4DEV raw object means improve, so the previous raw-only
+non-regression rule passes. Matched-vs-next-contact counts17→19/36 TRAIN,
+13→12/24 DEV do not validate physical contact response.
+
+Independent20Hz IIR audible-component checks reveal remaining failures:
+
+| Metric | TRAIN baseline→candidate (wins) | DEV baseline→candidate (wins) |
+|---|---:|---:|
+| Spectrum relativeL1 |1.203254→.904315 (30/36)|.961561→.872392 (18/24)|
+| 2ms envelope relativeL1 |.793542→.723594 (20/36)|.846507→.825145 (11/24)|
+| Absolute logRMS error |.553167→.754536 (12/36)|.439737→.635413 (8/24)|
+
+The combined check REJECTS: DEV Wood14 level worsens; Plastic97 spectrum,
+envelope and level all worsen. This rule was implemented before final waveform
+evaluation and requires raw non-regression plus no DEV object-mean regression on
+the three independent metrics, with improving mean audible spectrum. Passing
+would remain report-only, not physical-quality admission.
+
+A posthoc `shape-diagnostic.json` separates amplitude from spectral shape:
+apply the same independent audible IIR, scale each signal to unitRMS ONLY in the
+measurement, then compute existing MRSTFT magnitude L1. No audio files or model
+gains are changed. TRAIN shape error1.076399→1.196897 (10/36wins),DEV
+.911385→1.015240 (4/24wins). Candidate audibleRMS is below reference in28/36TRAIN
+and18/24DEV cases. Thus the apparently better unnormalized spectral metric does
+not demonstrate better normalized spectral shape; quieter output explains an
+important part of the apparent improvement. This is not proof about subjective
+timbre or that every decoded-audio objective is invalid.
+
+Decision: retain the original baseline, keep all candidate/failure WAVs and
+reject this adapter. Both shared flow-loss and decoded-loss trials now failed
+the actual non-regression objective, for distinguishable reasons. Before another
+similar fit, run the bounded research escalation on competing causes: paired
+waveform regression under one-to-many/unobserved excitation conditions, weak or
+missing physical conditioning versus objective/conditioning-capacity mismatch.
+Do not just increase the RMS weight, normalize playback, vary seeds/epochs or
+train per-object gain heads on this exposed DEV set. Next progress must include
+an executable discriminator and primary audio/runnable path, not another protocol.
+Missing actual size/force/striker inputs and clean unseen-object evidence persist.
+
+Reproduce fit with--source/--assets/--data/--baseline/--output using the two
+external overlays; existing shared renderer consumes the fit receipt unchanged.
+`--evaluate --data DATA --generated RENDER --output NEW` emits raw comparisons
+and independent audible evaluation. The additive evaluation code was introduced
+while the corrected fit ran; the fitting path was unchanged. Source/weights stay
+pinned, no generated media or model weights enter Git.
+
+Verification:31/31 focused SonicGauss tests, Ruff check/format,120WAV hashes/full
+stereo layout/headroom/nonsilence,source-free trace and exact TRAIN read-set,
+60comparison layouts, changed links and`git diff --check` PASS. Candidate
+quality/non-regression FAILS. Cargo/host-check/ProductChecks NOT_RUN; no engine
+integration/roadmap change. All jobs terminal; broad physical-sound goal active.

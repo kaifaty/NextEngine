@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / CODEC_NOT_SOLE_LIMIT / RAW_METRIC_MISSES_AUDIBLE_LOSS / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / DECODED_FIT_REJECTED / LOWER_LEVEL_MASKS_SHAPE_REGRESSION / NO_LIVE_JOBS.
 
 ## Resume in 60 seconds
 
@@ -10,47 +10,46 @@ Status: ACTIVE_GOAL / CODEC_NOT_SOLE_LIMIT / RAW_METRIC_MISSES_AUDIBLE_LOSS / NO
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `sonicgauss-codec-probe-2026-09-06`,64NPZ/376WAV; eachpair
-  10.424s teacher→codecMODE→originalgenerator (controlsoriginal→mode→sample).
-  [Glass6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-06-contact-0-comparison.wav),
-  [Ceramic75](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-75-contact-0-comparison.wav).
-  AUDIO-INPUT reconstruction diagnostic, NOT new source-free generation;NOtraining.
-  All60prior2.98sunnormalizedstereoteachers;4ownring/quietring/pulse/silencecontrols.
-  Pinned365-keyVAE;MODE+onefixedseed0SAMPLE;full131072decode/gain1/noEQ/crop.
-- **Codec not sole bottleneck:** modebeatsbaseline60/60rawANDaudiblecomponent.
-  RawTRAIN/DEV mode.42168/.45670 vsbaseline.89098/.82325;audible.64686/.63756
-  vs1.20384/.96180. Codecstillimperfect:quietringerror.3533,shortpulse.6428,
-  ceramic75poor. Samplewinsraw57/60butaudiblemeansWORSE;no mode/sample/seedrepair.
-- **Metric counterexample:** firstIron66/Glass94references96.14%/99.29%sub20Hzpower.
-  Removingquiet700/1700/5100Hzring whilekeepingloud3Hz givesrawMRSTFT.004259 vs
-  audible.890216. `audible-audit.json`uses4thorder20HzButterworthsosfiltfiltONLY
-  inanalysis;NOTidealhearingmodel/physicalgate/EQrepair. RawWAV/rulesunchanged.
-  PriorcandidateDEVaudible.96180→1.14023,3/24wins;stillREJECT. Preservefailures.
-- **Previous primary:**60recorded→base→fitcomparisonsin`sonicgauss-shared-contact-assessment-2026-09-06`;
-  120stereoWAV+latent/waveNPZ`sonicgauss-shared-contact-render-2026-09-06`.
-  One262144parametercontact→64GStokenresidual;120Adamsteps/lr1e-4/batch4/seed42;
-  fivepublishedmodelsfrozen/versionchecked/no gradients;NO per-objectparameters.
-  Fit`sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors` SHA
-  `6c2f1eb11d949fefe94a8049a85433f791dcd09fa93077db4a5ff7fc0f67f1f7`.
-  Teachers2.98s,stereo/no amplitude normalization,SciPy resampling,VAE posterior
-  MODE(authorusesSAMPLE);logit-normal discrete flow MSE,conditional/noCFGdropout.
-  36TRAIN contacts(objects2/6/12/24/66/95),24DEV(14/75/94/97),sixauthor-first/object.
-  All ten KNOWN pretraining TRAIN; localobjectsplit≠pristineunseenobject.
-- **REJECT:** full-wave relativeMRSTFTL1 TRAIN.892170→.897237(13/36wins),
-  DEV.824499→1.217264(3/24wins); ALL4DEVobjectmeansworse,ceramic75 1.06241→2.57052.
-  Matchedvscyclicnextcontact TRAIN17→16/36,DEV13→13/24; notcontactvalidation.
-  `decision.json`automaticallyrejectsanyDEVobjectmeanregression/nooverallimprovement;
-  ruleaddedAFTERthisrun,notpreregistered. PasswouldNOTprovephysicalquality.
-- **Decisive countercheck:** `sonicgauss-shared-contact-diagnostic-2026-09-06`:
-  fourpairedfixednoise/timestepdraws/contact,NOtraining. FlowMSE TRAIN
-  .455501→.442313(36/36wins),DEV.470465→.467904(18/24wins).
-  Optimization worked onitsobjective butdecoded spectralerror worsened; do NOT
-  equateflowlosswithrealism orrepeatattention/lr/epochs/seedsweeps. Changes do not
-  fixmissingabsolute size/force/strikermaterial orcalibratephysicalresponse.
-- **Next primary:** oneSHAREDdecoded-audio-awareupdate,checkingaudiblespectrumAND
-  transient/levelbehavior,object-levelDEVnonregression+audiblepairs. Codecprobe
-  alreadydone;doNOTrepeatcodec/data inventoriesorflow-only/epochs/seed/gainsweeps.
-  Keepfullobjectiveinclphysicaldescriptors;no protocol/roadmapbeforegenerationchange.
+- **Latest primary:** `sonicgauss-waveform-assessment-2026-09-06`,60triples10.444s
+  recorded→baseline→decoded-fit, e.g.
+  [Glass94](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-94-contact-0-comparison.wav),
+  [Plastic97](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-97-contact-0-comparison.wav).
+  120fullstereoWAV+latent/waveNPZ`sonicgauss-waveform-render-2026-09-06`,gain1.
+  Freshsource-free process;straceNOtarget/corpus/network;20baselinesreplayEXACT.
+- Correctedfit`sonicgauss-waveform-odd-fit-2026-09-06/adapter.safetensors` SHA
+  `8d702d110f04ff497c3a1425bff545ff771b6f8f358c2c0ed57a07b118d199c3`.
+  Freshzero262144paramresidual;72Adamsteps/batch1/lr1e-4/seed42/twocompletepasses.
+  Full50Eulersteps+VAEbackprop,checkpointed;exactinitiallatent/PCMparityverified.
+  FFT20HzspectralL1+.25×2msenv+.1×logRMS;odd4096boundaryextension,rawWAVunchanged.
+  Publishedweightsfrozen/versionchecked,peak4286MiB. FixednoiseperobjectONLY.
+  Initialeven-reflectiontrialFAILEDunchangedringerasuretest(.7628<.8),ownprocess
+  stoppedexit143(lastlogged6),no checkpoint. Retained`sonicgauss-waveform-fit-2026-09-06`.
+  Oddextensiontest.9893passes;no tolerancechange. No otherjobs killed/restarted.
+- **REJECT despite raw-rule PASS:** rawTRAIN.89217→.77502(30/36),DEV
+  .82450→.76287(17/24),all4DEVrawmeansimprove. IndependentIIRaudiblespectrum
+  DEV.96156→.87239(18/24),envelope.84651→.82515(11/24),logRMS.43974→.63541(8/24).
+  Wood14levelworse;Plastic97spectrum/envelope/levelworse. CombinedruleREJECT.
+  ContactmatchedcountsDEV13→12/24;NOTphysicalresponsevalidation.31testsPASS.
+- **Decisive posthoc shape audit:** independentIIRthenunitRMS ONLYinmetric;
+  NOoutputgain/EQ. TRAINnormalizedshape1.07640→1.19690(10/36),DEV
+  .91139→1.01524(4/24);candidatequieterthanreference28/36TRAIN,18/24DEV.
+  `shape-diagnostic.json`: apparentrawspectralimprovement≠bettershape/realism.
+- **Next:** boundedresearch escalation BEFOREanotherlikefit: discriminatepaired
+  waveformregressionunderone-to-many/unobservedexcitation vsweak/missingphysical
+  conditioning vsobjective/capacitymismatch. Then executable discriminator+media;
+  NO RMSweight/loss/normalization/seed/epoch/per-objectgain sweep onexposedDEV.
+  Bothsharedflowanddecodedfitsfailedactualcriterion;don'trepeatcodec/inventories.
+- 36TRAIN(objects2/6/12/24/66/95),24DEV(14/75/94/97),sixauthor-first/object.
+  ALLknownpretrainingTRAIN;localobjectsplit≠pristineunseenobject. Source2.98sfit
+  vsfull3sevalexplicit. Absolutephysicalsize/force/strikermaterialstillabsent.
+- **Prior codec:**`sonicgauss-codec-probe-2026-09-06`,64NPZ/376WAV,AUDIO-INPUTnotnewgeneration.
+  Modebeatsbaseline60/60rawANDaudible;samplebetterraw57/60butaudiblemeansworse.
+  Codecnotsolebottleneck;quietring/pulselossesreal. Iron66/Glass94~96/99%sub20Hz.
+  Eraseringbutretain3Hz:rawerror.004259vsaudible.890216;NOTanEQrepair/hearinggate.
+- **Prior flowfit:**`sonicgauss-shared-contact-{fit,render,assessment,diagnostic}-2026-09-06`,
+  adapterSHA6c2f1eb1…,120steps;rawDEV.82450→1.21726(3/24wins),ALL4objectmeansworse.
+  PairedflowMSEimprovesTRAIN.45550→.44231(36/36),DEV.47047→.46790(18/24).
+  No flow/attention/lr/epochsweeps;codecanddecodedcounterchecksareALREADYcomplete.
 - `sonicgauss-cohort-data-2026-09-06`:10PLY+60WAV,89,707,492payloadbytes;
   68,690,214networkbytes,pinned206ranges/CRC/SHA,fullarchiveSHA NOTverified.
   Datasetrevisione905b8cb…,correctedprojection93d397c1…,range-root`sonicgauss-range-2026-09-06`.
