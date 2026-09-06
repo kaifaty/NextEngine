@@ -23,7 +23,7 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 | `nextengine-training-runner` | Fail-closed preflight and claim-safe preparation of hash-closed reference PPO runs |
 | `nextengine-training-diagnostics` | Deterministic artifact, safety, PPO and evaluation diagnosis with one-variable next experiments |
 | `nextengine-isaac-correspondence` | CPU-canonical/Isaac-mirror identity and MODEL-MIRROR-P1/P2 evidence audit |
-| `maintain-task-context` | Bounded, Git-tracked resume context and decision rationale for long-running or approach-changing work |
+| `maintain-task-context` | Recover task state and preserve decisions or constraints that would otherwise be lost |
 | `investigate-with-hypotheses` | Falsifiable competing explanations and bounded experiments for uncertain causes |
 
 These skills are native NextEngine guidance. Their workflow design applies the
@@ -92,3 +92,6 @@ upstream Apache-2.0 license text is preserved at
   the current entrypoints are byte-identical to upstream. These adaptations
   preserve each upstream license, including CC BY-SA 4.0 for the four
   `tachyon-beep/skillpacks` skills.
+- The 2026-09-06 audio-branch merge retains the narrowed triggers and
+  outcome-first entrypoints together with shared Astra guidance and the
+  project mathematical-research routing; it does not restore broad skill triggers.

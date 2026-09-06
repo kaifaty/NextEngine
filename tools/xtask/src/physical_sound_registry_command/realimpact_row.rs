@@ -21,6 +21,7 @@ use super::{
     resolve_output_path, set_once, sha256_hex,
 };
 
+mod dense_listener_block;
 mod evidence;
 mod listener_block;
 mod profiles;
@@ -112,7 +113,7 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
     }
     Ok(Request {
         profile: profile.ok_or_else(|| {
-            "physical-sound-registry realimpact-row requires --profile <glass-goblet-row-0-v1|green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1|green-goblet-listener-block-0-v1>"
+            "physical-sound-registry realimpact-row requires --profile <glass-goblet-row-0-v1|green-goblet-row-0-v1|blue-bowl-row-0-v1|shell-plate-row-0-v1|skull-cup-row-0-v1|green-goblet-listener-block-0-v1|green-goblet-dense-listener-block-v3>"
                 .to_owned()
         })?,
         source_bundle: source_bundle.ok_or_else(|| {
@@ -132,6 +133,9 @@ fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Reques
 }
 
 fn run(root: &Path, request: &Request) -> Result<(), String> {
+    if request.profile == dense_listener_block::PROFILE_ID {
+        return dense_listener_block::run(root, request);
+    }
     if request.profile == listener_block::PROFILE_ID {
         return listener_block::run(root, request);
     }
@@ -331,6 +335,11 @@ fn fetch_range(
         .checked_add(length_u64)
         .and_then(|value| value.checked_sub(1))
         .ok_or_else(|| "range endpoint overflow".to_owned())?;
+    let max_time_seconds = if length >= 64 * 1024 * 1024 {
+        "900"
+    } else {
+        "120"
+    };
     let output = Command::new("curl")
         .args([
             "--fail",
@@ -343,7 +352,7 @@ fn fetch_range(
             "--connect-timeout",
             "30",
             "--max-time",
-            "120",
+            max_time_seconds,
             "--resolve",
             resolve,
             "--range",
@@ -849,7 +858,7 @@ fn parse_mesh(bytes: &[u8]) -> Result<ParsedMesh, String> {
     Ok((vertices, minimum, maximum))
 }
 
-fn normalized_wav(row: &[u8], peak_abs: f64) -> Result<Vec<u8>, String> {
+pub(super) fn normalized_wav(row: &[u8], peak_abs: f64) -> Result<Vec<u8>, String> {
     if !row.len().is_multiple_of(4) || !peak_abs.is_finite() || peak_abs <= 0.0 {
         return Err("cannot normalize invalid REALIMPACT transfer row".to_owned());
     }

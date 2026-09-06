@@ -1,0 +1,90 @@
+{
+  "authority": {
+    "execution_seal_allowed_after_two_exact_runs": true,
+    "official_capability_allowed_during_rehearsal": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "runtime_authority": false,
+    "surrogate_zero_targets_only": true
+  },
+  "claim": "FULL_COUNT_DISCARDED_ZERO_TARGET_QSO_OWNER_REHEARSAL_AND_EXECUTION_SEAL_ONLY / NO_OFFICIAL_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependencies": [
+    {
+      "path": "docs/development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md",
+      "sha256": "863169f34f1f94a63afd69bd4d2fe0194089b490aaec9e4fd6b796110f7b18e3"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-c0-query-surface-structural-cost.v1.json",
+      "sha256": "acf424694564f09cfab0aac36c47c00c9b72cb1d98711f7f57216d4012934def"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-f0-fresh-query-surface-operator.v1.json",
+      "sha256": "409d84b0dff6b28c0df8976afda198fab5c854b1a1e64788096babe4b486d809"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-x0-complete-owner-terminal.v1.json",
+      "sha256": "29eebe43719594298d130ebe1d959500d955db202e89aba4966ccacf342b5f66"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_c0_query_surface_structural_cost_v1.py",
+      "sha256": "6563d869a02ea3a8e2b1e4483825dfef718d255c59b1c4a4e9309e58b06f6fb8"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_f0_fresh_operator_freeze_v1.py",
+      "sha256": "59c97eb426e81691fa1f7f01b835f1fd2cf9639b0c9ffa158defd35386c29fee"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_terminal_publisher_v1.py",
+      "sha256": "a840ff1241a56d0508ca85b13e7172d0efbdac138d3469cfc26ab2f06d33041a"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_x0_complete_owner_terminal_v1.py",
+      "sha256": "69b567d5ed4988fb556f62d9c775541874b95befd38e49cb239d0b1b83204e7d"
+    }
+  ],
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.3.5",
+    "python": "3.12.13",
+    "torch": "2.8.0+cu128",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "profile_id": "physical-sound-v37-e0-full-surrogate-seal-v1",
+  "resources": {
+    "maximum_field_cache_bytes": 33554432,
+    "maximum_output_bytes": 67108864,
+    "maximum_peak_rss_bytes": 1073741824,
+    "maximum_wall_seconds": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-e0-full-surrogate-seal-profile.v1",
+  "workload": {
+    "batch_rows": 1024,
+    "candidate_and_control_order": [
+      "query-conditioned-surface-operator-v0",
+      "continuous-local-interpolation-v1",
+      "fixed-rbf-integral-ridge-v1",
+      "nearest-causal-surface-query-v1",
+      "qso-field-only-ablation-v1",
+      "qso-no-interaction-ablation-v1",
+      "qso-no-topology-ablation-v1",
+      "qso-query-only-ablation-v1",
+      "v36-shaped-pointwise-mlp-v1"
+    ],
+    "combined_neural_parameter_count": 64074,
+    "gradient_microbatch_rows": 512,
+    "neural_steps_each": 96,
+    "role_rows": {
+      "development": 4320,
+      "method-holdout": 4320,
+      "train": 6480
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "access_policy": {
+    "candidate_access_allowed": false,
+    "disclosed_audio_access_allowed": true,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "validator_access_allowed": false
+  },
+  "algorithm_bindings": [
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    },
+    {
+      "bytes": 41270,
+      "path": "lab/scripts/physical_sound_v41_b0_grouped_baselines_v1.py",
+      "sha256": "47f5dbb8b2648480a1a911db42dcfc3201184b664006ed5af671d960e0a9c539"
+    }
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_materialization_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "target_policy_audit_authority": true,
+    "validator_calibration_authority": false
+  },
+  "claim": "PREREGISTERED_IETEASY_TARGET_CAP_AND_NORMALIZATION_AUDIT_ONLY / NO_CORPUS_ROLE_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "decision_policy": {
+    "candidate_mode_caps_ascending": [
+      12,
+      24,
+      48,
+      96
+    ],
+    "fallback_decision": "TargetRepresentationRedesignRequired",
+    "maximum_modal_histogram_normalized_l1_ppm": 100000,
+    "minimum_modal_histogram_cosine_similarity_ppm": 990000,
+    "minimum_retained_linear_modal_amplitude_ppm": 950000,
+    "mode_cap_choice": "smallest_candidate_passing_every_record",
+    "normalization_failure_decision": "NormalizationPolicyReject",
+    "reference_cap_saturation_decision": "TargetReferenceInconclusive"
+  },
+  "input_bindings": {
+    "g0b1a_media_probe": {
+      "bytes": 25750,
+      "external_relative_path": "run-a/media-probe.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-media-probe.v1",
+      "sha256": "0cbfab2ac2638fae3f9242ba061caffdbbac69d7f070630b1746d3b4e9fc7dda"
+    },
+    "g0b1a_report": {
+      "bytes": 1648,
+      "external_relative_path": "run-a/report.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-report.v1",
+      "sha256": "7b8ab02c50e495202717151873ed590ad1e21a021e0877c3758d829e87a0ccd1"
+    },
+    "g0b1a_selection": {
+      "bytes": 28826,
+      "external_relative_path": "run-a/selection.json",
+      "schema": "nextengine.experimental-physical-sound-v44-g0b1a-selected-records.v1",
+      "sha256": "635c7fb68d8e54c6074fe29e82449eef67f1e12b62b0fcec5c36e994965da484"
+    }
+  },
+  "normalization_audit": {
+    "canonical_pcm_identity_required": true,
+    "positive_scale_factors_ppm": [
+      500000,
+      2000000
+    ],
+    "target_identity_required": true,
+    "test_scope": "all_selected_records",
+    "zero_post_normalization_clipped_samples_required": true
+  },
+  "profile_id": "physical-sound-v44-g0b1b-target-audit-protocol-v1",
+  "reference_policy": {
+    "maximum_modes": 512,
+    "maximum_possible_peaks_from_frequency_distance": 449,
+    "reference_must_not_saturate": true,
+    "reuse_all_other_c0_target_parameters": true
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1b-target-audit-protocol.v1"
+}

@@ -1,0 +1,236 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "experimental_lab_contract": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "confidence_policy": {
+    "maximum_ppm": 1000000,
+    "minimum_ppm": 0,
+    "missing_confidence_mask": false,
+    "missing_confidence_sentinel_ppm": 0,
+    "semantics": "source_reported_or_adapter_derived_confidence_not_truth_probability"
+  },
+  "contract_id": "physical-sound-v44-c1-runtime-descriptor-contract-v1",
+  "evidence_source_contract": {
+    "artifact_media_types": [
+      "application/json",
+      "application/pdf",
+      "model/gltf-binary",
+      "model/stl",
+      "text/csv",
+      "text/html",
+      "text/plain"
+    ],
+    "artifact_path_policy": "relative_regular_non_symlink_hash_bound",
+    "artifact_url_policy": "https_only",
+    "condition_fields_require_record_id": [
+      "impact_zone",
+      "support_condition"
+    ],
+    "forbidden_artifact_media_prefixes": [
+      "audio/",
+      "video/"
+    ],
+    "identical_claim_confidence_merge": "minimum_ppm_if_all_observed_else_missing",
+    "manifest_schema": "nextengine.experimental-physical-sound-v44-c1-descriptor-source.v1",
+    "material_conflict_policy": "c0r_material_disagreement_rejects_and_c0r_quarantine_cannot_be_overridden",
+    "object_fields_require_null_record_id": [
+      "cavity_kind",
+      "characteristic_wall_thickness_micrometres",
+      "extent_micrometres",
+      "mass_milligrams",
+      "material_label",
+      "opening_kind",
+      "shape_topology"
+    ],
+    "observation_policy": "manifest_claim_must_reference_one_or_more_verified_metadata_artifacts",
+    "redistribution_policies": [
+      "external_research_only",
+      "redistributable_with_notice"
+    ],
+    "source_conflict_policy": "different_values_publish_masked_source_conflict_never_select_by_order"
+  },
+  "field_order": [
+    "material_label",
+    "shape_topology",
+    "extent_micrometres",
+    "characteristic_wall_thickness_micrometres",
+    "cavity_kind",
+    "opening_kind",
+    "mass_milligrams",
+    "support_condition",
+    "impact_zone"
+  ],
+  "fields": {
+    "cavity_kind": {
+      "allowed_values": [
+        "multiple",
+        "none",
+        "porous",
+        "single"
+      ],
+      "scope": "physical_parent",
+      "semantics": "count_topology_of_enclosed_or_partly_enclosed_air_volumes",
+      "unit": "enum",
+      "value_kind": "enum"
+    },
+    "characteristic_wall_thickness_micrometres": {
+      "maximum": 10000000,
+      "minimum": 1,
+      "scope": "physical_parent",
+      "semantics": "source_declared_nominal_or_adapter_declared_characteristic_wall_thickness",
+      "unit": "micrometre",
+      "value_kind": "integer"
+    },
+    "extent_micrometres": {
+      "item_maximum": 100000000,
+      "item_minimum": 1,
+      "length": 3,
+      "scope": "physical_parent",
+      "semantics": "canonical_object_frame_axis_aligned_full_extents_xyz",
+      "unit": "micrometre",
+      "value_kind": "integer_vector"
+    },
+    "impact_zone": {
+      "allowed_values": [
+        "base",
+        "corner",
+        "custom",
+        "edge",
+        "face",
+        "handle",
+        "interior",
+        "neck",
+        "rim"
+      ],
+      "scope": "record",
+      "semantics": "runtime_selectable_topological_region_of_the_impact",
+      "unit": "enum",
+      "value_kind": "enum"
+    },
+    "mass_milligrams": {
+      "maximum": 1000000000000,
+      "minimum": 1,
+      "scope": "physical_parent",
+      "semantics": "total_object_mass",
+      "unit": "milligram",
+      "value_kind": "integer"
+    },
+    "material_label": {
+      "allowed_values": [
+        "Aluminium",
+        "Ceramic",
+        "Foam",
+        "Glass",
+        "Hard Plastic",
+        "Iron",
+        "Metal",
+        "Other Plastic",
+        "Paper",
+        "Plastic",
+        "Polycarbonate",
+        "Soft Plastic",
+        "Steel",
+        "Wood"
+      ],
+      "scope": "physical_parent",
+      "semantics": "source_declared_exact_material_taxonomy_label",
+      "unit": "enum",
+      "value_kind": "enum"
+    },
+    "opening_kind": {
+      "allowed_values": [
+        "multiple",
+        "none",
+        "single"
+      ],
+      "scope": "physical_parent",
+      "semantics": "count_topology_of_exterior_openings_into_cavities",
+      "unit": "enum",
+      "value_kind": "enum"
+    },
+    "shape_topology": {
+      "allowed_values": [
+        "closed_shell",
+        "compact_solid",
+        "composite",
+        "elongated_solid",
+        "open_shell",
+        "thin_plate"
+      ],
+      "scope": "physical_parent",
+      "semantics": "physics_oriented_shape_class_not_semantic_object_category",
+      "unit": "enum",
+      "value_kind": "enum"
+    },
+    "support_condition": {
+      "allowed_values": [
+        "clamped",
+        "embedded",
+        "free",
+        "handheld",
+        "resting_point",
+        "resting_surface",
+        "suspended"
+      ],
+      "scope": "record",
+      "semantics": "support_boundary_condition_during_the_recorded_or_authored_impact",
+      "unit": "enum",
+      "value_kind": "enum"
+    }
+  },
+  "missingness_policy": {
+    "allowed_reasons": [
+      "not_applicable",
+      "not_published",
+      "outside_contract",
+      "source_conflict"
+    ],
+    "missing_confidence_is_masked": true,
+    "missing_value_is_null": true,
+    "observed_reason_is_null": true,
+    "unknown_axes_are_never_inferred_from_audio_dataset_name_filename_or_project_identity": true
+  },
+  "model_input_policy": {
+    "allowed_keys": [
+      "confidence_mask",
+      "confidence_ppm",
+      "observed_mask",
+      "values"
+    ],
+    "forbidden_key_tokens": [
+      "artifact",
+      "audio",
+      "dataset",
+      "evidence",
+      "family",
+      "file",
+      "filename",
+      "network",
+      "path",
+      "project",
+      "provenance",
+      "publisher",
+      "record_id",
+      "source",
+      "url",
+      "waveform"
+    ],
+    "identity_fields_outside_model_input": [
+      "descriptor_id",
+      "physical_parent_id",
+      "record_id",
+      "role"
+    ],
+    "missing_value": null,
+    "project_and_capture_identity_forbidden": true
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-c1-runtime-descriptor-contract.v1"
+}

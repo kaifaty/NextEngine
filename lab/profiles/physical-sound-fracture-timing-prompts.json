@@ -1,0 +1,5 @@
+[
+  {"id":"break-glass", "prompt":"An empty glass bottle falls onto a stone floor and shatters."},
+  {"id":"without-empty", "prompt":"A glass bottle falls onto a stone floor and shatters.", "diagnostic_id":"break-glass"},
+  {"id":"direct-fracture", "prompt":"A glass bottle shatters on a stone floor.", "diagnostic_id":"break-glass"}
+]

@@ -1,0 +1,288 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "external_research_only": true,
+    "model_allowed": false,
+    "mutation_truth_authority": true,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "101cc0be4ffa0def1ecb455fe57ffccc300af240",
+  "claim": "SYNTHETIC_VALIDATOR_MECHANICS_TRUTH_ONLY / NO_REAL_MATERIAL_QUALITY_VALIDATOR_RELEASE_ML_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "clean_cases": [
+    "baseline-plate",
+    "baseline-beam",
+    "intervention-youngs-modulus",
+    "intervention-density",
+    "intervention-thickness",
+    "intervention-uniform-scale",
+    "intervention-impulse",
+    "intervention-contact",
+    "intervention-support"
+  ],
+  "clean_relations": [
+    {
+      "axis": "youngs_modulus",
+      "case_id": "intervention-youngs-modulus",
+      "expected_frequency_ratio": "2",
+      "expected_gain": "not-gated",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "density",
+      "case_id": "intervention-density",
+      "expected_frequency_ratio": "0.5",
+      "expected_gain": "not-gated",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "thickness",
+      "case_id": "intervention-thickness",
+      "expected_frequency_ratio": "2",
+      "expected_gain": "not-gated",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "uniform_scale",
+      "case_id": "intervention-uniform-scale",
+      "expected_frequency_ratio": "0.5",
+      "expected_gain": "not-gated",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "impulse",
+      "case_id": "intervention-impulse",
+      "expected_frequency_ratio": "1",
+      "expected_gain": "linear-ratio:2-exact",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "contact",
+      "case_id": "intervention-contact",
+      "expected_frequency_ratio": "1",
+      "expected_gain": "target-mode-zero-exact",
+      "source_case_id": "baseline-plate"
+    },
+    {
+      "axis": "support",
+      "case_id": "intervention-support",
+      "expected_frequency_ratio": "2.8070425317861318020883192852828806909956755557646",
+      "expected_gain": "not-gated",
+      "source_case_id": "baseline-beam"
+    }
+  ],
+  "mutation_reason_codes": [
+    "PhysicalDecayMismatch",
+    "TemporalEvolutionFrozen",
+    "EnvelopeOrderMismatch",
+    "ModalCoverageCollapsed",
+    "RetrievalCopyDetected",
+    "PcmClipping",
+    "ProvenanceMismatch"
+  ],
+  "mutations": [
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "PhysicalDecayMismatch",
+      "mutation_id": "mutation-wrong-decay",
+      "operation": {
+        "decay_multiplier": "0.25",
+        "operation_id": "multiply-all-decay-and-rerender-v1"
+      },
+      "preserved_invariants": [
+        "frequencies-exact",
+        "signed-gains-exact",
+        "contact-impulse-scale-exact",
+        "frame-count-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "declared-physical-decay"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "TemporalEvolutionFrozen",
+      "mutation_id": "mutation-frozen-carrier",
+      "operation": {
+        "carrier_period_samples": 256,
+        "operation_id": "repeat-undamped-prefix-with-correct-envelope-v1"
+      },
+      "preserved_invariants": [
+        "scalar-decay-envelope-exact",
+        "contact-impulse-scale-exact",
+        "frame-count-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "continuous-modal-phase-evolution"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "EnvelopeOrderMismatch",
+      "mutation_id": "mutation-shuffled-envelope",
+      "operation": {
+        "block_count": 12,
+        "block_permutation": [
+          0,
+          5,
+          10,
+          3,
+          8,
+          1,
+          6,
+          11,
+          4,
+          9,
+          2,
+          7
+        ],
+        "block_size_samples": 12000,
+        "operation_id": "permute-scalar-decay-envelope-blocks-v1"
+      },
+      "preserved_invariants": [
+        "undamped-carrier-time-aligned-exact",
+        "envelope-value-multiset-exact",
+        "frame-count-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "causal-envelope-order"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "ModalCoverageCollapsed",
+      "mutation_id": "mutation-mode-collapse",
+      "operation": {
+        "operation_id": "retain-one-mode-and-rerender-v1",
+        "selection": "max-abs-signed-gain-then-lowest-ordinal"
+      },
+      "preserved_invariants": [
+        "selected-mode-parameters-exact",
+        "contact-impulse-scale-exact",
+        "frame-count-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "required-modal-coverage"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "RetrievalCopyDetected",
+      "mutation_id": "mutation-spectral-copy",
+      "operation": {
+        "operation_id": "exact-source-wav-as-different-target-v1"
+      },
+      "preserved_invariants": [
+        "source-audio-bytes-exact",
+        "source-lineage-honest"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-beam",
+      "violated_invariant": "target-identity-and-non-retrieval"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "PcmClipping",
+      "mutation_id": "mutation-clipping",
+      "operation": {
+        "hard_clip_max": "1",
+        "hard_clip_min": "-1",
+        "operation_id": "scale-to-peak-then-hard-clip-v1",
+        "preclip_target_peak": "1.25"
+      },
+      "preserved_invariants": [
+        "preclip-relative-waveform-exact",
+        "frame-count-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "unclipped-pcm-integrity"
+    },
+    {
+      "expected_decision": "Reject",
+      "expected_reason_code": "ProvenanceMismatch",
+      "mutation_id": "mutation-provenance-mismatch",
+      "operation": {
+        "declared_parent_audio_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "operation_id": "copy-audio-with-false-parent-hash-v1"
+      },
+      "preserved_invariants": [
+        "source-audio-bytes-exact",
+        "actual-payload-hash-exact"
+      ],
+      "source_case_id": "baseline-plate",
+      "target_case_id": "baseline-plate",
+      "violated_invariant": "declared-parent-lineage"
+    }
+  ],
+  "numeric_profile": {
+    "canonical_json": "utf8-sort-keys-indent2-lf",
+    "execution": "single-thread-cpu-reference",
+    "float_wav_encoding": "mono-ieee-float32-little-endian",
+    "frame_count": 144000,
+    "randomness": "forbidden",
+    "sample_rate_hz": 48000,
+    "scalar_format": "ieee754-binary64-little-endian",
+    "strict_clean_peak": "abs(sample)<1",
+    "tolerance": "inherit-p1-relative-tolerance"
+  },
+  "parent": {
+    "p0_profile": {
+      "path": "lab/profiles/physical-sound-v31-p0-causal-baseline.v1.json",
+      "sha256": "c6b7f816d65bdcaa18618a72d40cfedb6ed970359d3a1cf8f28825cd4c686a3d"
+    },
+    "p1_owner": {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    "p1_result": {
+      "path": "docs/development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md",
+      "sha256": "16e3f6e23280eb3c6d77d52132b6d216768bf8383baa668ed3dd16ca5ac08683"
+    }
+  },
+  "profile_id": "physical-sound-v32-t0-truth-mutations-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v32-t0-truth-mutation-protocol-2026-09-02.md",
+    "sha256": "ac0b087478bf1d0b6c580306428679682e7f295a03a6e08e1b551b081ec8487d"
+  },
+  "publication": {
+    "artifact_order": "lexicographic-path-bytes",
+    "expected_file_count": 35,
+    "record_count": 16,
+    "record_files": [
+      "audio.wav",
+      "record.json"
+    ],
+    "records_path": "records/<record-id>",
+    "top_level_files": [
+      "truth-release.json",
+      "evidence.json",
+      "report.json"
+    ]
+  },
+  "resources": {
+    "max_file_count": 35,
+    "max_output_bytes": 268435456,
+    "max_peak_rss_bytes": 1073741824,
+    "max_record_count": 16,
+    "max_render_frames": 144000,
+    "max_wall_seconds": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v32-t0-truth-mutations-profile.v1",
+  "validator_expectations": {
+    "clean_decision": "Pass",
+    "clean_reason_codes": [],
+    "expected_pass_count": 9,
+    "expected_reject_count": 7,
+    "mutation_decision": "Reject",
+    "out_of_domain_count": 0,
+    "release_authority": "validator-mechanics-truth-only"
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "artificial_teacher": {
+    "definition": "untrained-query-conditioned-surface-operator-v0-at-candidate-seed-plus-frozen-query-residual",
+    "official_role_identity_allowed": false,
+    "residual": {
+      "contact": "0.004*sin(1.3*q0-0.7*q3+0.9*q9+0.5*q17)",
+      "decay": "0.003*sin(0.8*q1+0.6*q7-0.4*q13)",
+      "global_gain": "0.002*cos(0.9*q2-0.5*q8+0.7*q20)"
+    },
+    "seed": 370201,
+    "targets_nonzero_required": true
+  },
+  "authority": {
+    "artificial_full_count_targets_allowed": true,
+    "candidate_quality_authority": false,
+    "external_research_only": true,
+    "model_execution_allowed": true,
+    "network_allowed": false,
+    "official_capability_allowed": false,
+    "official_target_evaluation_allowed": false,
+    "readiness_seal_allowed_after_two_exact_runs": true,
+    "real_or_protected_signal_access_allowed": false,
+    "runtime_authority": false
+  },
+  "claim": "FULL_COUNT_NONZERO_ARTIFICIAL_COMPLETE_D0_OWNER_READINESS_AND_SEAL_ONLY / NO_OFFICIAL_TARGET_SCIENTIFIC_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "controls": {
+    "continuous-local-interpolation-v1": {
+      "bandwidth": "median-of-strictly-positive-squared-distances-per-query-or-1.0-if-none",
+      "distance": "sum((train.query_features[0:10]-query.query_features[0:10])^2)",
+      "kernel": "exp(-0.5*squared_distance/bandwidth)",
+      "normalization": "ascending-canonical-train-row-order-sum",
+      "partition": "exact TensorRole.partition_keys equality",
+      "prediction": "normalized-kernel-weighted-sum-of-all-three-train-target-axes",
+      "unsupported": "ContractReject"
+    },
+    "fixed-rbf-integral-ridge-v1": {
+      "design_order": [
+        "intercept-1",
+        "query_features[0:24]",
+        "sum(query_kernel*node_features[field,probe,0:8])-in-column-order"
+      ],
+      "lambda": "0.000001",
+      "regularization": "zero-on-intercept-and-lambda-on-every-other-diagonal",
+      "singular_or_nonfinite": "OwnerFault",
+      "solver": "numpy.linalg.solve-float64-c-order"
+    },
+    "nearest-causal-surface-query-v1": {
+      "distance": "sum((train.query_features[0:10]-query.query_features[0:10])^2)",
+      "partition": "exact TensorRole.partition_keys equality",
+      "prediction": "all-three-target-axes-from-selected-train-row",
+      "tie_break": "first-minimum-in-ascending-canonical-train-row-id-order",
+      "unsupported": "ContractReject"
+    },
+    "neural": {
+      "order": [
+        "query-conditioned-surface-operator-v0",
+        "qso-field-only-ablation-v1",
+        "qso-no-interaction-ablation-v1",
+        "qso-no-topology-ablation-v1",
+        "qso-query-only-ablation-v1",
+        "v36-shaped-pointwise-mlp-v1"
+      ],
+      "same-targets-and-training-loop": true
+    }
+  },
+  "decision": {
+    "allowed_terminals": [
+      "Pass",
+      "MetricReject",
+      "HardGateReject",
+      "ResourceReject",
+      "OwnerFault"
+    ],
+    "candidate_bundle_and_freeze_only_for": "Pass",
+    "precedence": [
+      "HardGateReject",
+      "MetricReject",
+      "ResourceReject",
+      "Pass"
+    ],
+    "reject_payloads": [
+      "evidence.json",
+      "rejected-candidate.json"
+    ]
+  },
+  "dependencies": [
+    {
+      "path": "docs/development/physical-sound-v37-x0-complete-owner-terminal-result-2026-09-03.md",
+      "sha256": "863169f34f1f94a63afd69bd4d2fe0194089b490aaec9e4fd6b796110f7b18e3"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-c0-query-surface-structural-cost.v1.json",
+      "sha256": "acf424694564f09cfab0aac36c47c00c9b72cb1d98711f7f57216d4012934def"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-e0-execution-seal.v1.json",
+      "sha256": "3057d9643d2101ff12b381b811306904f70656b885314e1f730213edc92484cf"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-e0-full-surrogate-seal.v1.json",
+      "sha256": "f95ccc622430a6dd27661d34526c5970a722dbd40a717230d24200c62dd62f2a"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-f0-fresh-query-surface-operator.v1.json",
+      "sha256": "409d84b0dff6b28c0df8976afda198fab5c854b1a1e64788096babe4b486d809"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-t0-exact-truth-protocol.v1.json",
+      "sha256": "8eeda45716f95ec0b74abcc2ce90c1896657eb460fd3fd7a28fd8cf53257e5b6"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-t0-official-input-seal.v1.json",
+      "sha256": "9a4ed1c9193e793288c8db93a8b8cf46280b75104821bc04a3b0cf0317696f52"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-x0-complete-owner-terminal.v1.json",
+      "sha256": "29eebe43719594298d130ebe1d959500d955db202e89aba4966ccacf342b5f66"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_c0_query_surface_structural_cost_v1.py",
+      "sha256": "6563d869a02ea3a8e2b1e4483825dfef718d255c59b1c4a4e9309e58b06f6fb8"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_e0_full_surrogate_seal_v1.py",
+      "sha256": "0ec78599fad0619f87c410d8c5646bf54eeab5b1ed9049c630ece8cf2e93fbe5"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_t0_exact_truth_protocol_v1.py",
+      "sha256": "c2a68d3c1f95bd378ce8df5553baef5c7be74a26088f0350b70c3ee3e68925ed"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_terminal_publisher_v1.py",
+      "sha256": "a840ff1241a56d0508ca85b13e7172d0efbdac138d3469cfc26ab2f06d33041a"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_x0_complete_owner_terminal_v1.py",
+      "sha256": "69b567d5ed4988fb556f62d9c775541874b95befd38e49cb239d0b1b83204e7d"
+    }
+  ],
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.3.5",
+    "python": "3.12.13",
+    "torch": "2.8.0+cu128",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "hard_gates": {
+    "candidate_outputs": [
+      "finite-output",
+      "bounded-contact-correction-0.25",
+      "bounded-decay-correction-0.25",
+      "bounded-global-gain-correction-0.20"
+    ],
+    "multiplicative_p1_invariants": [
+      "frequency-and-order-bit-exact",
+      "impulse-scaling-exact",
+      "nodal-zero-exact",
+      "positive-decay",
+      "signed-gain-sign-preserved"
+    ],
+    "structural": [
+      "branch-feature-isolation",
+      "canonical-edge-reduction-order",
+      "field-branch-reachable",
+      "forbidden-labels-absent",
+      "query-trunk-reachable",
+      "remesh-probe-graph-root-exact",
+      "topology-propagation-reachable",
+      "train-permutation-exact"
+    ],
+    "transaction": [
+      "method-holdout-zero-before-development-pass",
+      "real-and-protected-signal-zero",
+      "row-target-alignment-exact"
+    ]
+  },
+  "metrics": {
+    "ablation_gates": [
+      {
+        "minimum_worsening": "1.05",
+        "strata": [
+          "contact-only",
+          "joint"
+        ],
+        "variant": "qso-field-only-ablation-v1"
+      },
+      {
+        "minimum_worsening": "1.08",
+        "strata": [
+          "joint"
+        ],
+        "variant": "qso-no-interaction-ablation-v1"
+      },
+      {
+        "minimum_worsening": "1.05",
+        "strata": [
+          "geometry-only",
+          "joint"
+        ],
+        "variant": "qso-no-topology-ablation-v1"
+      },
+      {
+        "minimum_worsening": "1.05",
+        "strata": [
+          "contact-only",
+          "joint"
+        ],
+        "variant": "qso-query-only-ablation-v1"
+      }
+    ],
+    "axis_order": [
+      "decay",
+      "global_gain",
+      "contact"
+    ],
+    "candidate_each_contact_stratum_ratio_max_best_control": "0.95",
+    "candidate_each_non_ablation_control_contact_ratio_max": "0.92",
+    "contact_aggregate_rmse_max": "0.030",
+    "contact_each_stratum_rmse_max": "0.040",
+    "decay_global_ratio_max_each_nearest_and_ridge": "0.90",
+    "non_ablation_control_order": [
+      "continuous-local-interpolation-v1",
+      "fixed-rbf-integral-ridge-v1",
+      "nearest-causal-surface-query-v1",
+      "v36-shaped-pointwise-mlp-v1"
+    ],
+    "ratio_zero_denominator": "maximum-ratio-passes-only-if-numerator-is-exact-zero; minimum-worsening-passes-only-if-numerator-is-strictly-positive; report-ratio-null",
+    "reduction": "sqrt(mean((prediction-target)^2)) in ascending canonical row order using numpy-float64",
+    "strata": [
+      "contact-only",
+      "geometry-only",
+      "joint"
+    ]
+  },
+  "profile_id": "physical-sound-v37-d0r-complete-entry-readiness-v1",
+  "resources": {
+    "maximum_combined_neural_parameters": 70000,
+    "maximum_field_cache_bytes": 33554432,
+    "maximum_output_bytes": 67108864,
+    "maximum_peak_rss_bytes": 1073741824,
+    "maximum_wall_seconds": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-d0r-complete-entry-readiness-profile.v1",
+  "training": {
+    "batch_rows": 1024,
+    "gradient_clip_norm": "1.0",
+    "gradient_microbatch_rows": 512,
+    "loss": "sum-squared-error-over-three-axes-divided-by-logical-batch-rows-times-three",
+    "optimizer": {
+      "amsgrad": false,
+      "betas": [
+        "0.9",
+        "0.999"
+      ],
+      "capturable": false,
+      "differentiable": false,
+      "epsilon": "0.00000001",
+      "foreach": false,
+      "fused": false,
+      "learning_rate": "0.002",
+      "maximize": false,
+      "name": "torch.optim.AdamW",
+      "weight_decay": "0"
+    },
+    "row_schedule": "(arange(batch_rows)+step*batch_rows)%train_row_count",
+    "steps_each_neural_path": 96
+  },
+  "workload": {
+    "candidate_and_control_order": [
+      "query-conditioned-surface-operator-v0",
+      "qso-field-only-ablation-v1",
+      "qso-no-interaction-ablation-v1",
+      "qso-no-topology-ablation-v1",
+      "qso-query-only-ablation-v1",
+      "v36-shaped-pointwise-mlp-v1",
+      "continuous-local-interpolation-v1",
+      "fixed-rbf-integral-ridge-v1",
+      "nearest-causal-surface-query-v1"
+    ],
+    "development_rows": 4320,
+    "method_holdout_rows": 0,
+    "train_rows": 6480
+  }
+}

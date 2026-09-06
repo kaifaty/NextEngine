@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-45 |
 | Status | Proposed |
-| Version | 0.83 |
-| Last verified | 2026-08-28 |
+| Version | 1.02 |
+| Last verified | 2026-08-31 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Related research | [Physical sound synthesis research, 2026-08-26](../development/physical-sound-synthesis-research-2026-08-26.md), [quality evaluation](../development/physical-sound-quality-evaluation-research-2026-08-26.md), [automated validation](../development/physical-sound-automated-validation-research-2026-08-27.md), [AV-P0B corpus benchmark](../development/physical-sound-corpus-benchmark-av-p0b-2026-08-27.md), [AV-P0C controlled mutations](../development/physical-sound-validator-av-p0c-2026-08-27.md), [steel calibration](../development/physical-sound-steel-calibration-2026-08-26.md), [wood/glass calibration](../development/physical-sound-wood-glass-calibration-2026-08-26.md), [controlled glass corpus](../development/physical-sound-controlled-glass-corpus-2026-08-27.md), [PS-2 internet corpus policy](../development/physical-sound-internet-corpus-policy-ps2-2026-08-27.md), [PS-2 internet source/cache pilot](../development/physical-sound-internet-source-pipeline-ps2-2026-08-27.md), [PS-2 AV-MSF E3 pilot](../development/physical-sound-av-msf-e3-pilot-ps2-2026-08-27.md), [PS-2 AV-MSF multi-object E3 coverage pilot](../development/physical-sound-av-msf-e3-multiobject-pilot-ps2-2026-08-27.md), [PS-2 independent YCB Impact E3 pilot](../development/physical-sound-ycb-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 independent Heller Impact E3 pilot](../development/physical-sound-heller-independent-e3-pilot-ps2-2026-08-27.md), [PS-2 Greatest Hits discriminator](../development/physical-sound-greatest-hits-discriminator-ps2-2026-08-27.md), [PS-2 typed REALIMPACT E2 adapter](../development/physical-sound-realimpact-e2-adapter-ps2-2026-08-27.md), [PS-2 Freesound glass-bowl E3 pilot](../development/physical-sound-freesound-glass-bowl-e3-pilot-ps2-2026-08-28.md), [PS-2 Freesound wine-glass cached E3 increment](../development/physical-sound-freesound-wine-glass-e3-pilot-ps2-2026-08-28.md), [PS-2 explicit reject-parent import](../development/physical-sound-explicit-reject-parent-import-ps2-2026-08-28.md), [PS-2 declarative Freesound adapter](../development/physical-sound-declarative-freesound-adapter-ps2-2026-08-28.md), [PS-2 ObjectFolder-Real interactive-demo E3 pilot](../development/physical-sound-objectfolder-real-demo-e3-pilot-ps2-2026-08-28.md), [PS-2 YCB vertical reject-parent expansion](../development/physical-sound-ycb-vertical-reject-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Blue Bowl cross-tier E2 increment](../development/physical-sound-realimpact-blue-bowl-cross-tier-ps2-2026-08-28.md), [PS-2 REALIMPACT Shell Plate bounded-range E2 pilot](../development/physical-sound-realimpact-shell-plate-range-pilot-ps2-2026-08-28.md), [PS-2 Kronland Glass E3 expansion](../development/physical-sound-kronland-glass-e3-expansion-ps2-2026-08-28.md), [PS-2 REALIMPACT Skull Cup bounded-range E2 pilot](../development/physical-sound-realimpact-skull-cup-range-pilot-ps2-2026-08-28.md), [PS-2 SoundPacks Glass E3 and split audit](../development/physical-sound-soundpacks-glass-e3-and-split-audit-ps2-2026-08-28.md), [PS-2 Kronland reject expansion and split freeze](../development/physical-sound-kronland-reject-split-freeze-ps2-2026-08-28.md), [PS-2 exact-domain E2/E3 claim matrix](../development/physical-sound-domain-claims-matrix-ps2-2026-08-28.md), [PS-2 internet-source feasibility and transfer route](../development/physical-sound-internet-source-feasibility-ps2-2026-08-28.md), [PS-2 REALIMPACT transfer calibration](../development/physical-sound-realimpact-transfer-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-listener acquisition](../development/physical-sound-realimpact-multilistener-acquisition-ps2-2026-08-28.md), [PS-2 REALIMPACT vertical spatial calibration](../development/physical-sound-realimpact-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT multi-object spatial-axis extension](../development/physical-sound-realimpact-spatial-extension-ps2-2026-08-28.md), [PS-2 REALIMPACT shape-conditioned spatial calibration](../development/physical-sound-realimpact-shape-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT frequency-conditioned spatial calibration](../development/physical-sound-realimpact-frequency-spatial-calibration-ps2-2026-08-28.md), [PS-2 REALIMPACT modal-radiation representation diagnostic](../development/physical-sound-realimpact-modal-radiation-representation-ps2-2026-08-28.md), [PS-2 analytical boundary-solver control](../development/physical-sound-bem-analytical-control-ps2-2026-08-28.md), [PS-2 Pitcher causal audit](../development/physical-sound-pitcher-causal-audit-ps2-2026-08-28.md), [PS-2 Iron selector/tail diagnostic](../development/physical-sound-realimpact-selector-tail-diagnostic-result-ps2-2026-08-28.md) |
-| Replaces | SPEC-45 0.82; records fit-role acquisition/decode and freezes calibration selection before holdout access |
-| Latest evidence | [PS-2 REALIMPACT metal batch calibration selection](../development/physical-sound-realimpact-metal-batch-calibration-selection-ps2-2026-08-28.md) |
+| Neural strategy | [Offline neural acoustic field strategy, 2026-08-30](../development/physical-sound-neural-acoustic-field-strategy-2026-08-30.md) |
+| Replaces | SPEC-45 1.01; records the reproducible R3A V4 fit-representation rejection and selects the already-permitted offline neural authored-asset route without authorizing quality, admission or runtime model use |
+| Latest evidence | [R3A V4 fit probe and neural rebaseline](../development/physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md) |
 
 ## Status and decision boundary
 
@@ -26,6 +27,40 @@ then bounded rolling and scraping. Cloth, fluids, fire, fracture and biological
 sound production are separate source-model tracks. They may reuse the same
 bounded excitation and mixer interfaces after their own owners and evidence
 exist, but they are not implied by the rigid modal vertical.
+
+### Candidate offline neural field and cooker boundary
+
+The primary research successor is an external neural acoustic field, not a
+runtime waveform generator. It may learn from published, hash-closed geometry,
+impact, listener and audio evidence and predict:
+
+- bounded object-global modal frequencies and damping;
+- impact- and listener-conditioned modal gains;
+- a compact coloured residual descriptor;
+- calibrated coverage and OOD evidence.
+
+The first vertical cooks this output into canonical sorted/quantized modal,
+gain and residual coefficients and renders it through the deterministic
+reference path. Its first learned axis is contact position at one declared
+canonical listener condition. Detailed object radiation/listener variation is
+a later independent capability claim; environmental attenuation,
+spatialization and propagation remain SPEC-08 responsibilities. Training data,
+model weights, optimizer state, feature caches, generated WAVs and validator
+inference remain external. Runtime loads neither the neural model nor the
+research registry; invalid, unavailable and OOD conditions select the authored
+clip fallback.
+
+The existing Q30 modal renderer, synthetic FEM/BEM controls and frozen DCT
+coloured-residual path remain the classical baseline, synthetic teacher,
+compact output representation, exact runtime reference and negative controls.
+An object-specific few-shot field precedes any shared zero-shot claim. A direct
+waveform model may be evaluated only as a report-only perceptual upper bound or
+an authored-asset source.
+
+This v1.00 change refines a `Proposed` research route. It adds no current public
+schema, runtime dependency, ProductCheck or roadmap activation and therefore
+does not supersede an Accepted architecture decision. Production promotion
+still requires a concrete consumer and the ADR-046 workflow.
 
 Non-normative implementation note (2026-08-26): an isolated P0/P0.5
 laboratory now exists in `next_presentation::physical_sound_lab`. The `xtask
@@ -1008,6 +1043,221 @@ waveform NRMSE remains diagnostic and quality/domain/runtime admission stays
 disabled. Only the exact Metal Spoon holdout ranges may open next. Both
 Spatulas remain sealed until an immutable successful holdout report exists.
 
+The exact Metal Spoon holdout then uses three bounded responses; acquisition
+`6653fea3…2d32c` and decode `5fd5ec04…633` bind microphone rows `0..14` at the
+shared `0°/0 mm`, vertex `6840` condition. Evaluation A/B repeats
+byte-identically at `fef9dd34…cb73` and rejects the selected representation.
+Envelope error improves to ratio `0.534247`, but listener-energy ratio
+`0.959237` exceeds the frozen `0.95` per-metric limit and spectral-flatness
+ratio `1.053763` exceeds both `0.95` and the frozen `1.05` maximum. Thresholds
+and the opened holdout cannot be reused for tuning. Both Spatulas remain at
+zero payload; shadow, quality/domain/runtime admission and automatic pass stay
+disabled. The next permitted step is a zero-network representation diagnostic
+over already opened rows followed, if discriminating, by a separately
+preregistered grouped successor—not another variant inside this lineage.
+
+Diagnostic runner `d2ab638b…43f88`, repeated preflight `d2f07a3f…797bf` and
+repeated six-object report `d8acc909…ba1eb` identify within-band coloration as
+the leading successor hypothesis. Median spectral-shape and short-lag
+autocorrelation errors are `7.808400 dB` and `0.330411`, passing both frozen
+diagnostic gates. Cross-listener coupling is independently deficient:
+candidate/observed median coherence is `0.999177/0.172267` and effective rank
+is `1.005682/3.292782`. Temporal modulation fails its conjunction because
+modulation-power error is only `1.908039 dB`. No new network, member or shadow
+bytes are read. A fresh grouped successor may change only deterministic
+within-band coloration; spatial covariance remains a recorded later
+hypothesis, Metal Spoon cannot be reused as holdout and both Spatulas remain
+sealed.
+
+Successor runner `fe8a12f5…cebf5`, manifest `f03e428e…e564a` and repeated
+preflight `4c754f06…a360` now freeze that one change. At most eight bounded
+DCT-II coloration coefficients per existing band modify the seeded excitation;
+modal extraction, two-exponential envelope, listener gains and rank-one
+spatial control remain unchanged. A deterministic fixture reduces spectral-
+shape and short-lag autocorrelation errors to ratios `0.313717/0.628724`. Fresh
+calibration is the grouped `19_Pan`/`37_PiePan` pair, holdout is `22_Cup`, and
+the existing Spatula pair remains shadow with zero member payload. Names do not
+grant material identity. The next permitted stage discovers only the three
+fresh archive identities; no ZIP tail, member payload, quality/domain/runtime
+admission or shadow access is implied.
+
+Identity-discovery runner `898d1af1…c7c58`, manifest `55be5ed2…01abe` and
+repeated preflight `0d38bfb1…f5d7b` now freeze exactly three one-shot HTTPS
+`HEAD` requests for Pan, PiePan and Cup. Final URL, status, byte length,
+`Accept-Ranges`, `ETag` and `Last-Modified` are mandatory; redirect drift or
+the first failure stops with no retry. Range requests, response bodies, ZIP
+structure, member and shadow payload remain forbidden. The current managed
+sandbox did not execute the network stage, so archive identities remain open
+and no acquisition success or rejection is claimed.
+
+`physical-sound-registry classical-baseline` now consumes only the unsealed
+PS-2N0 train/development projection and requires one explicit hash-closed
+binding per row. Its exact selected-glass Q30 snapshot has profile hash
+`19b051fe…ef181`; the full-energy canonical WAV remains
+`c912806c…b9c823`. It exports canonical recurrence order, the bounded onset
+residual, PCM/WAV hashes, shared acoustic features and exact A/B metrics, while
+stale projection/audio lineage, sealed roles, reject parents and missing axes
+fail closed or select `FallbackOutOfDomain`. The frozen coloured-DCT sources
+are also hash-bound, but there is no per-row DCT fit or exact cooked renderer,
+so that branch remains `FallbackOutOfDomain` rather than receiving partial
+baseline credit. Those exporter synthetic repeats pass; that package itself
+added no real projection, training, quality/admission decision, runtime
+consumer or public schema.
+
+The compatible real-data boundary now exists separately. PS-2N0 V2 projects
+23 internet-sourced rows across five disjoint roles and distinguishes eight
+recorded impact waveforms from 15 force-deconvolved Green Goblet transfer
+responses. Its fit/calibration/report/commitment outputs repeat exactly;
+method holdout and admission shadow remain commitments only. A frozen
+fixed-impact listener baseline evaluates seven odd listener positions from
+eight even-position contexts using nearest-listener and shortest bracketing
+linear interpolation. The repeated linear control records `2.5373 dB` mean
+absolute level error and `9.1745 dB` mean gain-matched multi-resolution
+spectrum RMSE. These are R1 controls, not quality thresholds or admission
+credit. No runtime/public schema is added.
+
+The direct and coordinate-derived propagation-delay-aligned external listener
+fields have completed without promotion. Their fixed-seed PyTorch/MLflow
+training, checkpoints, cooked PCM and frozen Rust-metric evaluations reproduce.
+The phase-aligned rank-4 candidate improves four of five primary endpoints but
+still fails the unchanged P95 spectrum criterion; the conjunctive decision is
+`RejectListenerField`. A repeated query-informed subspace diagnostic also fails
+held-query level/spectrum aggregates, so the opened time-domain latent family
+is retired rather than retuned. Method holdout and admission shadow remain
+sealed.
+
+The R2B data/representation boundary is now reproducibly ready. Two bounded
+internet acquisitions project the same full published 600-position
+fixed-impact REALIMPACT semicylinder, and two complete preflights repeat
+byte-identically. Complete angle-plane groups produce `420 context / 180
+query`; query audio contributes neither feature normalization nor candidate
+fit. The frozen complex STFT inverse reaches `-153.348 dB` worst NRMSE and at
+most one PCM16 LSB, while nearest, linear and complex interpolation controls
+are measured before optimization. Method holdout and admission shadow remain
+sealed.
+
+The bounded R2C research boundary is now complete and rejected. The shared
+coordinate/time/frequency complex-pressure MLP was trained twice with
+Helmholtz weights `0` and `0.0001`; checkpoints, non-MLflow output trees and
+reports repeat under the frozen protocol. One-shot evaluation selects neither
+candidate: both collapse toward near silence, with about `53 dB` mean level
+error and `27 dB` mean spectrum error. Method holdout and admission shadow
+remain sealed.
+
+A repeated context-only discriminator rejects Helmholtz regularization and
+rank-96 capacity as the primary causes. A linear rank-96 oracle retains
+`99.6396%` of context energy, while the trained data-only full-context
+objective is `1.0498x` the zero predictor and every logged step reaches the
+gradient clip. The next permitted revision is therefore an energy-preserving
+objective/optimizer/cooker trainability gate using identity, one-row,
+small-block, zero, global-mean and context-only rank controls. It must read zero
+query audio. Only a passing trainability revision may authorize one frozen
+coordinate-to-low-rank-coefficient field and one grouped query evaluation.
+Nearby width, rank, seed, step, Helmholtz-weight or threshold grids over the
+opened R2C query are not authorized. This result adds no model-quality,
+admission, runtime or ProductCheck authority.
+
+The first query-free R2D trainability revision is now complete and rejected.
+It freezes a canonical rank-96 basis retaining `99.6396%` context energy,
+repeats all reports/checkpoints byte-identically and uses zero query,
+method-holdout or admission-shadow bytes. Identity, one-row, coefficient,
+cooker, rank-oracle, clipping and zero/global-mean comparison gates pass. The
+eight-row and full-context tasks fail only the unchanged mean absolute
+log-energy bound at `0.007785` and `0.005062` versus `0.005`; N0.3E remains
+unauthorized. The next permitted revision retains basis, loss, initialization,
+steps, tasks, cooker, metrics and thresholds and changes only fixed AdamW
+learning rate to one hash-closed deterministic decay schedule ending near
+zero. It must repeat twice and still read no query audio. Threshold relaxation,
+more fixed-rate steps or concurrent representation changes are not authorized.
+
+That optimizer-only R2D V2 revision is now complete and passes. It binds the
+exact V1 manifest and replaces only fixed `0.05` with an inclusive-endpoint
+half-cosine `0.05 -> 0.00001` schedule. Two independent runs produce the same
+normalized report hash `898ee201…0875`; all checkpoints and 37 prediction WAVs
+are byte-identical. Every unchanged coefficient, energy, clipping,
+oracle-proximity and real-cooker gate passes, while query, method-holdout and
+admission-shadow reads remain zero. This closes context trainability and
+authorizes one separately frozen data-only R2E coordinate-to-rank-96-
+coefficient research candidate. It does not authorize held-listener quality,
+admission, public content/runtime records or production use. R2E may open the
+grouped query exactly once only after its candidate and repeat policy freeze;
+query-informed tuning, a candidate grid and physics-loss rescue remain
+unauthorized.
+
+That sole R2E revision is now complete and rejected. The group-conditioned
+cosine coefficient field fits the complete context coefficients and energy to
+floating-point noise, and two training runs reproduce reports, checkpoints and
+all prediction WAVs byte-for-byte. The one permitted 180-row grouped query is
+worse than every frozen classical control on all five primary endpoints and
+returns `RejectLowRankCoefficientField`. A separate post-reject query-seeing
+projection oracle repeats exactly, retains only `92.38%` query energy at
+Frobenius NRMSE `0.2760`, and itself misses the mean-spectrum control. The
+bounded conclusion is `RepresentationAndInterpolationBothLimited`.
+
+This closes the opened fixed-impact listener-field family and forbids nearby
+rank, architecture, seed, step or threshold search on that query. It does not
+reject neural impact sound as a whole. The next permitted Roadmap V4 research
+boundary is a new internet-only multi-object/multi-impact corpus at one
+declared canonical listener condition, followed by a compact modal/residual
+representation-oracle gate before neural training. The first candidate after
+that gate may learn geometry/contact-position-conditioned modal gains;
+listener radiation requires a separate denser published corpus or independently
+validated solver. This change authorizes no quality, admission, public content,
+runtime or ProductCheck result.
+
+The first R3A revision is also complete and rejected. Two metadata-only
+REALIMPACT Blue Bowl preflights freeze five source-ordered impact locations at
+one exact published listener condition; two streaming extractions stop before
+the fifth sealed contact; two query-seeing development oracles reproduce
+byte-identically. A 512-scalar 32-mode plus sparse-DCT residual record and an
+equal-budget sparse-DCT alternative both fail the frozen level, spectrum,
+envelope, modal-frequency and decay gate. The exact result is
+`REJECT_REPRESENTATION`; no optimizer or neural checkpoint exists.
+
+R3B remains blocked. A subsequent R3A revision must bind a materially different
+representation and new unopened development projection before access. Nearby
+mode/bin/budget tuning on the opened Blue Bowl contact is negative-knowledge
+repetition, not progress. The Blue Bowl field holdout, method holdout and
+admission shadow remain sealed. This evidence update preserves the Proposed,
+external-only, authored-fallback boundary and authorizes no public record,
+runtime model, ProductCheck or production claim.
+
+R3A V2 and V3 are now also closed without readiness. V2 freezes a new
+REALIMPACT Large Swan split and a pinned 44.1 kHz DAC oracle, but its
+48→44.1→48 kHz control itself fails full-band level and decay; the exact result
+is `INCONCLUSIVE_RESAMPLING_CONTROL`. V3A freezes Plastic Bin and stops before
+quality metrics when the native NDAC decoder returns `143,992` samples for a
+`144,000`-sample target. An eight-sample guard is derived only from synthetic
+audio, so Plastic Bin is not re-evaluated.
+
+V3B applies that frozen guard to a new Purple Scoop projection. Two
+preflights, sealed extractions and native-48 kHz NDAC-75 oracles reproduce
+byte-identically; the identity control is exact zero on all five endpoints.
+NDAC preserves absolute level, envelope and decay but fails spectrum at
+`12.1198 dB` and modal-frequency median at `560.81` cents. The exact result is
+`REJECT_LEARNED_CODEC_REPRESENTATION`; see the
+[R3A V3 evidence](../development/physical-sound-r3a-v3-native-ndac-result-2026-08-30.md).
+No field holdout is decoded and no neural field, deterministic distillation,
+quality, admission or runtime claim is authorized.
+
+R3A V4 is now complete and rejected before development. Two preflights and fit
+runs reproduce all JSON/NPY artifacts byte-for-byte. Each of three
+task-specific pole/gain/multiresidual capacities meets its shared and
+per-contact byte budgets, yet all `12/12` fit contacts fail the frozen spectrum
+endpoint. Development, row `2407`, method holdout and admission shadow access
+remain zero; see the
+[exact evidence](../development/physical-sound-r3a-v4-fit-probe-and-neural-rebaseline-2026-08-31.md).
+
+The next permitted [Roadmap V7](../plans/physical-sound-synthesis-roadmap.md)
+boundary freezes an internet-only task-specific neural rate-distortion model
+with direct spectral/modal objectives before reading development. A passing
+neural waveform decoder may support the already-declared authored-asset route:
+an external contact field decodes a frozen grid offline and an asset baker
+publishes ordinary bounded clips plus coverage/fallback metadata. It does not
+satisfy the modal cooker, enter runtime, authorize a public content record or
+remove the authored fallback. Deterministic modal/residual distillation remains
+a later optional optimization behind separate evidence.
+
 A production consumer requires a later Accepted ADR under ADR-046. That ADR
 must freeze the exact engine-owned projection, content records, limits,
 reference numeric profile and ProductChecks. Until then all record shapes and
@@ -1183,10 +1433,10 @@ release may invalidate admission under a newer policy only by publishing a new
 record. Historical records remain immutable evidence rather than being
 rewritten.
 
-The research registry therefore accumulates conditional formula knowledge,
+The research registry therefore accumulates conditional model/cooker knowledge,
 not a universal table mapping `material -> coefficients`. Runtime fitting,
 training and validator inference are not implied: P1 cooks an admitted bounded
-record and evaluates only the deterministic source formula.
+record and evaluates only the deterministic source representation.
 
 ## Candidate content model
 
@@ -1413,7 +1663,7 @@ with exact synthetic impulses, render canonical 48 kHz PCM and compare modal
 frequencies, decay and bounded perceptual descriptors against reference
 recordings or a high-quality offline solver. P0 changes no runtime contract.
 
-P0 advances through four evidence checkpoints:
+P0 advances through five evidence checkpoints:
 
 1. `AV-P0A` keeps hard signal, deterministic repeat and causal/metamorphic
    controls independent from subjective material identity.
@@ -1424,15 +1674,21 @@ P0 advances through four evidence checkpoints:
    calibration-only selective risk measured on parent-grouped holdout/shadow.
    Automatic `Pass` remains disabled until this checkpoint demonstrates its
    declared confidence bound and coverage.
-4. `AV-P0D` may optimize formula parameters only against development/fit data;
-   the frozen validator release, mutation suite and untouched shadow decide
-   admission.
+4. `AV-P0D` freezes the neural feasibility benchmark: object-specific few-shot
+   first, shared geometry-conditioned transfer second, with separate train,
+   development, calibration, method-holdout and sealed admission-shadow roles.
+   It must cook predictions exactly and cannot claim admission.
+5. `AV-P0E` meets one frozen neural candidate/cooker with the independently
+   frozen validator release and untouched admission shadow exactly once. It
+   publishes `Pass`, `Reject` or `FallbackOutOfDomain` without retuning the same
+   revision on the opened shadow.
 
-Each research cycle changes one falsifiable source-model hypothesis or one
-validator release, not both. A generator failure adds a reproducible mutation
-or negative control before another similar tuning pass. Two coherent failures
-without a newly discriminating hypothesis trigger the repository research
-escalation rule rather than another coefficient grid.
+Each research cycle changes one falsifiable source-model hypothesis, one model
+architecture/cooker hypothesis or one validator release, not multiple sides of
+the same comparison. A generator failure adds a reproducible mutation or
+negative control before another similar pass. Two coherent failures without a
+newly discriminating hypothesis trigger the repository research escalation
+rule rather than another residual family or architecture sweep.
 
 A domain is complete for P0 when one immutable revision has all hard and
 metamorphic controls passing, measured selective risk/coverage on grouped
@@ -1473,9 +1729,11 @@ symptom.
   combustion exciters;
 - voice and bird syrinx models remain specialized biological instruments with
   separate controllability and quality criteria;
-- differentiable or learned methods may fit acoustic parameters offline, but
-  runtime neural residuals require a measured classical deficiency, immutable
-  local artifact, bounded inference and a complete non-neural fallback.
+- differentiable or learned methods may fit the bounded acoustic field
+  offline; the first product vertical consumes only its deterministic cooked
+  record. Runtime neural inference requires a later measured product need,
+  immutable local artifact, bounded inference/fault profile, complete
+  non-neural fallback and a separate architecture decision.
 
 ## Candidate ProductChecks
 
@@ -1510,9 +1768,11 @@ than rely on an unbounded solver.
 | Feed raw PhysX callbacks directly to the mixer | Violates engine-owned contracts, stable identity, canonical ordering and backend isolation. |
 | Put acoustic constants into `PhysicsMaterialDescriptorV2` | Creates parallel semantics in the physics authority and still lacks geometry, damping, radiation and calibration identity. |
 | Runtime FEM/eigenmode solve per object | Unbounded and unnecessary; preprocessing can cook a compact resonator model. |
+| Prompt-to-waveform model as the primary engine path | Produces an opaque asset rather than a controllable impact/listener field and does not by itself satisfy causality, exact cooking, OOD or deterministic fallback. |
+| Runtime neural inference in the first vertical | External offline fitting can test the learned representation without adding model artifacts, inference budgets and a new runtime fault domain. |
 | Make waveform propagation determine NPC hearing | Couples gameplay to voice admission, device state and optional presentation adapters. |
 | Start with scraping, fracture, liquids or a bird synthesizer | Expands the unknown source/owner surface before the smallest rigid-impact consumer is proven. |
-| Runtime neural residual as the base path | Adds artifact/provider/resource/fallback complexity before a measured classical quality gap exists. |
+| Another manual residual family after the frozen DCT baseline | The remaining failures vary across object, impact and listener conditions; another global residual revision is not justified without a preregistered neural ablation identifying one missing statistic. |
 
 ## Research basis and limits
 

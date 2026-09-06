@@ -1,0 +1,107 @@
+{
+  "access_policy": {
+    "candidate_outputs_allowed": false,
+    "model_values_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "signal_decode_allowed": false,
+    "source_artifact_access_allowed": false
+  },
+  "artifact_policy": {
+    "candidate_outputs_visible_to_validator_calibration": false,
+    "generator_namespace": "external/physical-sound/generator",
+    "shared_learned_artifacts_allowed": false,
+    "shared_thresholds_allowed": false,
+    "validator_namespace": "external/physical-sound/validator"
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": "v39_f0_mechanics",
+    "model_training_authority": false,
+    "product_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_release_authority": false
+  },
+  "claim": "TARGET_FREE_TWO_LANE_FOUNDRY_MECHANICS_ONLY / NO_SIGNAL_MODEL_QUALITY_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 48134,
+      "path": "lab/scripts/physical_sound_dataset_contract_v1.py",
+      "sha256": "646d6d2b004748f118cfe2eaca0c3129cb7afa5f4834945bd52fb96424e99eeb"
+    },
+    {
+      "bytes": 37082,
+      "path": "lab/scripts/physical_sound_exposure_ledger_v0.py",
+      "sha256": "3c872a9c4b029ae5830671557781021f42c9b1150e4c53c7eb984d8610331294"
+    },
+    {
+      "bytes": 29762,
+      "path": "lab/scripts/physical_sound_research_record_v0.py",
+      "sha256": "57b406268e9bb0564855614567a6535aca9e026172c6f36cf7732961c2a95bb4"
+    },
+    {
+      "bytes": 31132,
+      "path": "tools/xtask/src/physical_sound_registry_command/neural_data_plane.rs",
+      "sha256": "3e736f7fe12afcca8de8807d360f38b58e5532f3f246a9bd929994a219ab3d7a"
+    },
+    {
+      "bytes": 11764,
+      "path": "tools/xtask/src/physical_sound_registry_command/neural_data_plane/evidence_record.rs",
+      "sha256": "a84dafba9fbdda994bec97353efc9685b7bb0953fdfd9b94d9c32c7072973a35"
+    },
+    {
+      "bytes": 9025,
+      "path": "tools/xtask/src/physical_sound_registry_command/neural_data_plane/row_projection.rs",
+      "sha256": "11fd56ec8569472d51cd2a53ca2046bce8de8de6337eb00fe9ffdc21128bf315"
+    }
+  ],
+  "experiment_budget": {
+    "candidate_family_limit": 2,
+    "candidate_iterations_per_family_limit": 8,
+    "peak_rss_bytes_per_run_limit": 2147483648,
+    "protected_experiment_wip_limit": 1,
+    "seed_count_per_candidate": 1,
+    "train_step_limit": 20000,
+    "wall_seconds_per_run_limit": 1800
+  },
+  "role_policy": {
+    "disclosed_never_protected": true,
+    "disclosed_roles": [
+      "generator_train",
+      "generator_development",
+      "validator_calibration"
+    ],
+    "object_parent_disjoint": true,
+    "partition_unit": "publisher_project_revision",
+    "protected_one_shot": true,
+    "protected_roles": [
+      "generator_method_holdout",
+      "validator_qualification",
+      "joint_admission_shadow"
+    ],
+    "recording_parent_disjoint": true,
+    "roles": [
+      "generator_train",
+      "generator_development",
+      "validator_calibration",
+      "generator_method_holdout",
+      "validator_qualification",
+      "joint_admission_shadow"
+    ],
+    "whole_project_disjoint": true
+  },
+  "schema": "nextengine.experimental-physical-sound-v39-f0-foundry-profile.v1",
+  "terminal_policy": {
+    "allowed_outcomes": [
+      "FallbackOutOfDomain",
+      "MechanicsReady",
+      "NoCandidate",
+      "Reject"
+    ],
+    "f0_outcome": "MechanicsReady",
+    "failure_publication": "none",
+    "next_authorized_stage": "V39-F1-source-frontier-automation"
+  }
+}

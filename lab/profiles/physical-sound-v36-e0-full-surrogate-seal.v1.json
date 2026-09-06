@@ -1,0 +1,104 @@
+{
+  "baseline_commit": "5abe0756d2c961b42da85079064c0cb52ba7cc70",
+  "claim": "FULL_COUNT_FULL_STEP_DISCARDED_D0_H0_EXACT_OWNER_REHEARSAL_AND_EXECUTION_SEAL_ONLY / NO_OFFICIAL_TARGET_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.5.2",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "parent": {
+    "c0_owner": {
+      "path": "lab/scripts/physical_sound_v36_c0_fresh_structural_census_v1.py",
+      "sha256": "936dc1401c5dc0a394397997cc861d1e18172c37b605036d35530dc9eb1afe7b"
+    },
+    "c0_profile": {
+      "path": "lab/profiles/physical-sound-v36-c0-fresh-structural-census.v1.json",
+      "sha256": "55d29722836976ad0fce22d362452564a49ffbbc905722f725001ee6845be48b"
+    },
+    "contract": {
+      "path": "lab/scripts/physical_sound_v36_owner_contract_v1.py",
+      "sha256": "a93d22f4432a29cdb54bcad241b68099f9f0a56c7601e374f5a64a96a20eaac8"
+    },
+    "f0_profile": {
+      "path": "lab/profiles/physical-sound-v36-f0-fresh-role-unchanged-science.v1.json",
+      "sha256": "6c71249f4cf999bbed14a5e311fdd7d04776722af1ce0943a2b00012690eb3a8"
+    },
+    "frozen_local_kernel": {
+      "path": "lab/scripts/physical_sound_v35_b0_local_gate_conformance_v1.py",
+      "sha256": "e92924fa25269ca28a0afcb8cc581040152ab6795c5e98be010f36dcbcfd6c8d"
+    },
+    "frozen_numeric_kernel": {
+      "path": "lab/scripts/physical_sound_v35_d0_development_tournament_v1.py",
+      "sha256": "a08edd1b5764fe44b340c2e12972be80b94985aa65dc9bb0b53ec00fba69ff04"
+    },
+    "mode_local_owner": {
+      "path": "lab/scripts/physical_sound_v33_i0_mode_local_spectral_owner_v1.py",
+      "sha256": "8a12af9417feae0e92da6950ffc7b86327902849647e959a1ad01b4e94a6f5b0"
+    },
+    "p1_owner": {
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    "publisher": {
+      "path": "lab/scripts/physical_sound_v36_terminal_publisher_v1.py",
+      "sha256": "b142b2e11d3e4dcd104520639708cd64e080a8eced0cb9903eb4a16448efae81"
+    },
+    "structural_reference": {
+      "path": "lab/scripts/physical_sound_v35_c0_witness_and_coverage_census_v1.py",
+      "sha256": "c0f5aa7ea02e51b1c43e46d95ae0fd47518f411759ca1b32dd9d7f5b6def9cd7"
+    },
+    "training_primitives": {
+      "path": "lab/scripts/physical_sound_v33_d0_development_tournament_v1.py",
+      "sha256": "b2c00accf27f4782954e1eefdc363c648d0e3e5b659ce2b1cd0cad55941e866a"
+    },
+    "x0_result": {
+      "path": "docs/development/physical-sound-v36-x0-mutation-terminal-conformance-result-2026-09-03.md",
+      "sha256": "9f902438bfe7ecf8b3eb6166d0422c1528891b7d6f91be2d51c0a80553bebca8"
+    }
+  },
+  "profile_id": "physical-sound-v36-e0-full-surrogate-seal-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v36-e0-full-surrogate-seal-protocol-2026-09-03.md",
+    "sha256": "4f533b3031c833884e864869371fbbb957ec86a97daa55e453fe4151ac9732d8"
+  },
+  "rehearsal": {
+    "d0_namespace": "discarded-v36-e0-d0-v1",
+    "expected_rows": {
+      "development": 4320,
+      "method_holdout": 4320,
+      "train": 6480
+    },
+    "h0_namespace": "discarded-v36-e0-h0-v1",
+    "primary_terminal": "Pass",
+    "repetitions_required": 2,
+    "scientific_terminal_matrix": [
+      "Pass",
+      "MetricReject",
+      "HardGateReject",
+      "ResourceReject"
+    ],
+    "surrogate_teacher": {
+      "branch_scales": [
+        "0.20",
+        "0.16",
+        "0.22"
+      ],
+      "evaluation_residual_scale": "0.0001",
+      "identity": "discarded-owner-self-consistency-field-v1",
+      "train_field": "discarded-smooth-interaction-field-v1",
+      "truth_expression_access": false
+    }
+  },
+  "resources": {
+    "max_output_bytes_per_path": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds_per_path": 300
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v36-e0-full-surrogate-seal-profile.v1"
+}

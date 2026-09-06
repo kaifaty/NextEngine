@@ -12,23 +12,41 @@
 ## Documentation retrieval
 
 - For architecture-sensitive, roadmap-sensitive or cross-cutting work, start from the deterministic routing table in `docs/architecture/agent-routing.md`: find the matching row(s) and read the listed SPEC/ADRs in full before making claims or edits.
+- Apply that full-read rule when the immediate change modifies or reviews governed semantics. A bounded implementation or lab experiment that preserves public contracts, authority and product-level roadmap facts reads only the routing row, the governing boundary it touches and the focused check; it does not trigger a full architecture-document sweep.
 - Read complete documents, not search snippets. Snippets and matches are discovery aids, not authority, and do not replace the mandatory direct reads or the precedence rules above.
 - Use `rg` and direct file reads for exact source-code symbols, known paths and verification, and for fuzzy lookup across `docs/plans/`, `docs/reviews/` and `docs/development/` — those are working materials, not normative architecture.
 
+## Outcome-first experimental work
+
+- At the start of exploratory, research or model work, name the primary user-observable deliverable and its smallest next artifact. For media generation this is playable media; for a tool it is a runnable path; for diagnosis it is a falsifiable conclusion. Supporting validators, manifests, protocols, hashes and plans do not substitute for that deliverable unless the user explicitly requested them.
+- Admission and release gates limit claims and promotion, not report-only experimentation. Produce and show a clearly labelled experimental artifact whenever it can answer the current question without weakening safety, authority or protected-data boundaries.
+- After two consecutive completed checkpoints that produce only supporting work, stop adding support infrastructure. Report the outcome debt and make the next checkpoint the smallest end-to-end primary artifact or a concrete blocker requiring user authority. Do not silently continue because the user said `continue`.
+- Maintain one stable roadmap. A failed experiment updates its evidence or compact task-state; it does not justify a new numbered roadmap. Replace or version a roadmap only when the objective, product sequencing, governing semantics or user direction materially changes.
+- Prefer one reversible experiment plus its focused test/result over separate protocol, freeze, conformance and result packages. Preregistration is reserved for protected/one-shot evidence, substantial irreversible compute or an explicit user request.
+
+## Skill routing
+
+- Trigger a language, library or meta-skill from the immediate obstacle, not merely because the repository happens to use that language, framework or workspace shape.
+- Prefer a narrow project-specific skill over a generic pack. For example, NextEngine TRAIN execution and diagnosis use the dedicated runner/diagnostics skills rather than a general RL or Stable-Baselines3 guide.
+- When a repository-local skill and a global skill have the same name, use the repository-local version only unless it explicitly delegates to the global one.
+- Load specialist references only for the immediate question. This guidance does not limit required reads of governing contracts.
+- A skill may constrain how the requested work is done, but it must not expand the primary deliverable into its full catalog of optional capabilities, artifacts or audits.
+
 ## Durable task context
 
-- For long-running, resumed, handed-off, research-heavy or approach-changing work, use the repository `maintain-task-context` skill and read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
+- Use the repository `maintain-task-context` skill when recovering task state after context loss, handing work off, or preserving a durable constraint or decision whose loss would cause costly repetition. Task duration, research, routine status and individual failed runs do not by themselves activate it. When resuming, read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
 - Create or update task-state only at a material transition: evidence invalidates the approach, a failed path must not be repeated, a new constraint changes the next action, the allowed claim or scope changes, or work pauses or hands off. Do not turn it into a per-turn progress diary.
-- Record reviewable engineering rationale as observation, exact evidence, conclusion, decision, rejected alternatives, consequences, remaining uncertainty, reconsideration condition and smallest next action. Do not record private chain-of-thought, secrets, raw logs or heavy/generated artifacts.
+- Record the current result, decisive evidence, constraints and next action. Add rejected alternatives or reconsideration conditions only when they prevent likely repetition. Do not record private chain-of-thought, secrets, raw logs or heavy/generated artifacts.
 - Task-state is bounded working context, not authority. It never overrides Accepted SPEC/ADR, the roadmap, tracked profiles/manifests or exact evidence. Promote architecture semantics, roadmap facts, repository rules and reusable workflows to their real sources in the same coherent change.
-- Keep the stable non-dated task-state path as the current resume surface, use Git for history, and move detailed investigation to linked dated research/evidence reports when the state approaches 250 lines.
+- Keep one stable non-dated task-state path as the current resume surface and use Git for history. Aim for fewer than 150 lines; prune stale detail and link existing evidence before creating another report.
+- Resume from the compact summary and follow only the evidence needed for the immediate action. Historical or superseded links are an index, not recursive mandatory reading. Supporting-only task-state edits do not reset outcome debt.
 
 ## Roadmap context
 
 - Use `docs/roadmap.md` as planning context when a task affects product scope, implementation order, stage dependencies, a roadmap blocker, an exit criterion or the reported state of a subsystem. Routine local fixes that do not change those facts do not require reading or editing the roadmap.
 - Treat the roadmap as a living planning document, not normative architecture. Accepted SPEC/ADR and the precedence rules above remain authoritative if they conflict with roadmap wording.
 - Before roadmap-sensitive implementation, identify the affected stage or work package and its stated prerequisites, blockers, success criteria and scope guard. Do not expand a bounded task merely to close unrelated roadmap work.
-- Update `docs/roadmap.md` in the same change when completed work materially changes its facts: subsystem implementation status, stage status, an exit criterion, blocker state, a recorded decision or the near-term implementation queue. Keep unrelated roadmap text stable.
+- Update `docs/roadmap.md` in the same change only when completed work changes product-level facts: subsystem implementation status, an exit criterion, a durable blocker or implementation order. An individual lab run, model rejection or evidence-inventory change normally stays in its result/task-state. Keep unrelated roadmap text stable.
 - Mark a stage or blocker complete only when the documented observable criteria and relevant ProductCheck actually pass. `NOT_RUN`, a public contract, an Accepted SPEC, a compiling adapter or partial implementation is not completion.
 - If implementation changes Accepted semantics, follow the ADR/SPEC workflow independently of the roadmap update. A priority or sequencing change by itself normally updates only the roadmap.
 
@@ -86,7 +104,7 @@
 2. Keep the change small and product-driven. Add an ADR only for a real semantic or cross-context decision.
 3. Implement through production paths with focused positive and failure coverage.
 4. Update affected schemas, migrations, examples, architecture text and material roadmap facts together.
-5. When implementing an approved plan, create the commits specified by that plan as each commit boundary is completed. If the plan does not define commit boundaries, create coherent commit(s) for the completed in-scope work before handoff; do not wait for checks or a separate commit reminder, and never include unrelated user changes.
+5. When implementing an approved plan, treat its commit boundaries as coherence guidance, not a reason for ceremony. Consolidate a reversible experiment, focused verification and minimal result update into one commit where practical. Separate protocol/freeze commits are warranted only for protected one-shot evidence, substantial irreversible cost or an explicit user request. If no boundaries exist, create coherent commit(s) before handoff; never include unrelated user changes.
 6. Before final handoff or a readiness/completion claim, run the minimum risk-scoped checks above. Documentation-only work uses the cheap path; localized code uses focused package checks; broad `host-check` is conditional, not automatic. Commit creation itself never triggers checks.
 7. Report each relevant check as passed, failed or not run, with the remaining product risk.
 
@@ -113,6 +131,10 @@
   and name the missing evidence instead of implying that the search happened.
 - Prefer small counterfactual experiments with successful controls before
   another full or expensive run.
+- End a bounded research cycle with one executable discriminator and, when the
+  task's primary output is media or a runnable feature, one inspectable report-
+  only artifact. Do not start another planning/report cycle if the discriminator
+  can be run under the current boundaries.
 - Record evidence for and against each serious hypothesis, rejected options,
   remaining uncertainty and the decision criterion for resuming implementation.
   Resume with the smallest evidence-backed change and an explicit rollback or

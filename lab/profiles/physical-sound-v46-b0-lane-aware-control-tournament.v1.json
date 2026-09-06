@@ -1,0 +1,191 @@
+{
+  "access_policy": {
+    "allowed_target_contract": "c0r_acoustic_pseudo_target",
+    "allowed_target_roles": [
+      "generator_development",
+      "generator_train"
+    ],
+    "c0r_target_values_allowed_after_seal": true,
+    "clatter_control_metadata_allowed": true,
+    "external_inputs_must_be_flat": true,
+    "ieteasy_target_values_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "pcm_or_waveform_values_allowed": false,
+    "protected_values_allowed": false,
+    "validator_values_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": [
+      "v46_e0_real_source_power",
+      "v46_v0_validator_source_growth"
+    ],
+    "baseline_comparison_authority": true,
+    "candidate_model_training_authority": false,
+    "control_floor_product_authority": false,
+    "model_selection_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_access_authority": false
+  },
+  "claim": "DISCLOSED_LANE_COMPATIBILITY_AND_CONTROL_FLOOR_ONLY / NO_TEACHER_MODEL_VALIDATOR_PROTECTED_COOKER_DEMO_PUBLIC_CONTRACT_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 4701,
+      "path": "docs/development/physical-sound-v31-p1-deterministic-modal-owner-result-2026-09-02.md",
+      "sha256": "16e3f6e23280eb3c6d77d52132b6d216768bf8383baa668ed3dd16ca5ac08683"
+    },
+    {
+      "bytes": 9156,
+      "path": "docs/development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md",
+      "sha256": "8fe5608a4d4a573c7f7698b41fce6a7b8c347cee96b88fd5e05a4017138b6fec"
+    },
+    {
+      "bytes": 7210,
+      "path": "docs/development/physical-sound-v46-b0-lane-aware-control-tournament-protocol-2026-09-03.md",
+      "sha256": "82cf67104e2a74ef182faebf7aba77ec3785970f1669129bd40623c63a1a1684"
+    },
+    {
+      "bytes": 6711,
+      "path": "docs/development/physical-sound-v46-d1-corpus-compiler-result-2026-09-03.md",
+      "sha256": "940055f818c0337433f3bfa68292d920d2ca581f609974034edb139b66004ae7"
+    },
+    {
+      "bytes": 9824,
+      "path": "lab/profiles/physical-sound-v44-b0r-r0r-corrected-baseline.v1.json",
+      "sha256": "178ec929171c2899f3f37c43e11ab0aea520e056f8c62d4e4a05a28c34247432"
+    },
+    {
+      "bytes": 5726,
+      "path": "lab/profiles/physical-sound-v46-d1-corpus-compiler.v1.json",
+      "sha256": "9f55b936be7bc65c64985c9d1e8229091449fad0585628f350c108742667a47a"
+    },
+    {
+      "bytes": 39062,
+      "path": "lab/scripts/physical_sound_v31_p1_modal_owner_v1.py",
+      "sha256": "04b44d77ce073d07f30e94c3c361ca4c199cb554ecbe017947aa423842781650"
+    },
+    {
+      "bytes": 41270,
+      "path": "lab/scripts/physical_sound_v41_b0_grouped_baselines_v1.py",
+      "sha256": "47f5dbb8b2648480a1a911db42dcfc3201184b664006ed5af671d960e0a9c539"
+    },
+    {
+      "bytes": 43845,
+      "path": "lab/scripts/physical_sound_v42_r0_domain_information_audit_v1.py",
+      "sha256": "490d7c2047b5192abf3eeaf015d4beb5afd419dddef9e0e0a26b70d302cc2e2e"
+    },
+    {
+      "bytes": 43546,
+      "path": "lab/scripts/physical_sound_v44_b0r_r0r_corrected_baseline_v1.py",
+      "sha256": "f82fa1ac1a26cc362d1e504a1e6efb2eb5c0de16be51accc7a99ddc156945e3c"
+    },
+    {
+      "bytes": 38252,
+      "path": "lab/scripts/physical_sound_v46_b0_lane_aware_control_tournament_v1.py",
+      "sha256": "4cd394a983e3a1395624a568116c6fde74fc10c0bdb8475d01757bb4d2fba0d2"
+    }
+  ],
+  "environment": {
+    "numpy_version": "2.5.2"
+  },
+  "evaluation_policy": {
+    "aggregation_order": [
+      "record_to_physical_parent",
+      "parent_to_project"
+    ],
+    "candidate_or_hyperparameter_selection_allowed": false,
+    "control_ranking": "minimum_supported_parent_median_rmse_then_project_balanced_mean_rmse_then_name",
+    "metric": "masked_train_standardized_rmse",
+    "project_weight": "equal_after_parent_mean",
+    "target_contract_crossing_allowed": false,
+    "waveform_vote_allowed": false
+  },
+  "expected": {
+    "c0r_development_parents": 30,
+    "c0r_development_projects": 2,
+    "c0r_development_records": 70,
+    "c0r_supported_development_parents": 24,
+    "c0r_target_bytes": 682733,
+    "c0r_target_objects": 134,
+    "c0r_train_parents": 34,
+    "c0r_train_projects": 6,
+    "c0r_train_records": 64,
+    "clatter_control_groups": 36,
+    "clatter_control_rows": 84,
+    "d1_real_records": 154,
+    "ieteasy_train_records": 15,
+    "modal_teacher_rows": 0,
+    "structural_transfer_rows": 0
+  },
+  "external_inputs": [
+    {
+      "bytes": 748297,
+      "filename": "clatter-prior.json",
+      "schema": "nextengine.experimental-physical-sound-v45-c0-prior.v1",
+      "sha256": "067cc573445dd851fcdd9ca10371c0ad35807c498bb7228498e5bdda50122d7a",
+      "source_id": "v45-c0-clatter-prior"
+    },
+    {
+      "bytes": 566,
+      "filename": "d1-access.json",
+      "schema": "nextengine.experimental-physical-sound-v46-d1-access.v1",
+      "sha256": "305edc913ec567418c814b40f079fa317591c037d3d7780248200274e3788440",
+      "source_id": "v46-d1-access"
+    },
+    {
+      "bytes": 255789,
+      "filename": "d1-corpus-index.json",
+      "schema": "nextengine.experimental-physical-sound-v46-d1-corpus-index.v1",
+      "sha256": "b2b2d17f054eb00bbb15f0400a00007ce5b3a7436bd5b264f03d5bb4e25ae5db",
+      "source_id": "v46-d1-corpus-index"
+    },
+    {
+      "bytes": 1773,
+      "filename": "d1-report.json",
+      "schema": "nextengine.experimental-physical-sound-v46-d1-report.v1",
+      "sha256": "a8b29ae0dcde716f9a30b84a56985e7dd3791de0577909dc989aee65395fe0e1",
+      "source_id": "v46-d1-report"
+    },
+    {
+      "bytes": 26024,
+      "filename": "historical-baseline-metrics.json",
+      "schema": "nextengine.experimental-physical-sound-v44-b0r-metrics.v1",
+      "sha256": "0a2fb352e82cd9aadf6c3433e1c66975baa624d1266bee751ce06e62ced32af5",
+      "source_id": "v44-b0r-baseline-metrics"
+    },
+    {
+      "bytes": 4153,
+      "filename": "historical-report.json",
+      "schema": "nextengine.experimental-physical-sound-v44-b0r-r0r-report.v1",
+      "sha256": "7c3e0c7624a4cce45599902911920fcf64756f473d65f203720285fad202aa47",
+      "source_id": "v44-b0r-r0r-report"
+    }
+  ],
+  "material_taxonomy": {
+    "Aluminium": "metallic",
+    "Ceramic": "ceramic",
+    "Foam": "foam",
+    "Glass": "glass",
+    "Hard Plastic": "polymer",
+    "Iron": "metallic",
+    "Metal": "metallic",
+    "Other Plastic": "polymer",
+    "Paper": "paper",
+    "Plastic": "polymer",
+    "Polycarbonate": "polymer",
+    "Soft Plastic": "polymer",
+    "Steel": "metallic",
+    "Wood": "wood"
+  },
+  "schema": "nextengine.experimental-physical-sound-v46-b0-profile.v1",
+  "study_id": "physical-sound-v46-b0-lane-aware-control-tournament"
+}

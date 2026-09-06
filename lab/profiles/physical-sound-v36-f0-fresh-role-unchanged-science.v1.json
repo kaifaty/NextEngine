@@ -1,0 +1,332 @@
+{
+  "access_order": [
+    "f0-fresh-role-and-unchanged-science-freeze",
+    "c0-fresh-zero-target-structural-census",
+    "x0-mutation-and-lifecycle-conformance",
+    "e0-full-surrogate-rehearsal-and-execution-seal",
+    "d0-one-shot-fresh-development",
+    "h0-one-shot-method-holdout",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "c0_allowed_after_f0": true,
+    "d0_allowed_after_f0": false,
+    "e0_allowed_after_f0": false,
+    "external_research_only": true,
+    "h0_allowed_after_f0": false,
+    "model_allowed_after_f0": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false,
+    "x0_allowed_after_f0": false
+  },
+  "baseline_commit": "ae75a9905f9181344b84c5d6e14c98c821ab3375",
+  "claim": "TARGET_SAFE_FRESH_ROLE_AND_UNCHANGED_SCIENCE_PROFILE_ONLY / NO_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "fresh_identity": {
+    "contacts": {
+      "development": [
+        [
+          "0",
+          "0.67"
+        ],
+        [
+          "0.32",
+          "0.25"
+        ],
+        [
+          "0.52",
+          "0.77"
+        ],
+        [
+          "0.60",
+          "0.95"
+        ],
+        [
+          "0.82",
+          "0.35"
+        ],
+        [
+          "0.97",
+          "0.29"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0",
+          "0.85"
+        ],
+        [
+          "0.23",
+          "0.59"
+        ],
+        [
+          "0.41",
+          "0.27"
+        ],
+        [
+          "0.57",
+          "0.55"
+        ],
+        [
+          "0.73",
+          "0.99"
+        ],
+        [
+          "0.91",
+          "0.09"
+        ]
+      ],
+      "train": [
+        [
+          "0",
+          "0.37"
+        ],
+        [
+          "0.10",
+          "0.70"
+        ],
+        [
+          "0.24",
+          "0.44"
+        ],
+        [
+          "0.36",
+          "0.88"
+        ],
+        [
+          "0.48",
+          "0.18"
+        ],
+        [
+          "0.56",
+          "0.68"
+        ],
+        [
+          "0.66",
+          "0.28"
+        ],
+        [
+          "0.76",
+          "0.92"
+        ],
+        [
+          "0.86",
+          "0.46"
+        ],
+        [
+          "0.20",
+          "0.94"
+        ],
+        [
+          "0.70",
+          "0.04"
+        ],
+        [
+          "0.96",
+          "0.74"
+        ]
+      ]
+    },
+    "geometry_multiplier_cells": [
+      [
+        "0.82",
+        "0.88",
+        "1.02"
+      ],
+      [
+        "0.92",
+        "1.16",
+        "0.88"
+      ],
+      [
+        "0.94",
+        "0.78",
+        "1.16"
+      ],
+      [
+        "1.08",
+        "1.12",
+        "0.90"
+      ],
+      [
+        "1.12",
+        "0.92",
+        "1.26"
+      ],
+      [
+        "1.16",
+        "1.08",
+        "1.04"
+      ],
+      [
+        "0.86",
+        "1.12",
+        "1.12"
+      ],
+      [
+        "1.12",
+        "0.82",
+        "0.92"
+      ],
+      [
+        "0.88",
+        "1.28",
+        "0.98"
+      ],
+      [
+        "1.28",
+        "0.94",
+        "1.20"
+      ]
+    ],
+    "materials": [
+      {
+        "density_kg_m3": "3050",
+        "loss_rate_per_second": "8.8",
+        "material_id": "synthetic-m",
+        "poisson_ratio": "0.265",
+        "youngs_modulus_pa": "74000000000"
+      },
+      {
+        "density_kg_m3": "7200",
+        "loss_rate_per_second": "16.5",
+        "material_id": "synthetic-n",
+        "poisson_ratio": "0.31",
+        "youngs_modulus_pa": "176000000000"
+      },
+      {
+        "density_kg_m3": "8650",
+        "loss_rate_per_second": "23.2",
+        "material_id": "synthetic-o",
+        "poisson_ratio": "0.245",
+        "youngs_modulus_pa": "252000000000"
+      }
+    ],
+    "oracle": {
+      "contact": {
+        "bound": "0.22",
+        "components": {
+          "curvature_u": "phi_u_plus+phi_u_minus-2*p1_contact",
+          "difference_u": "phi_u_plus-phi_u_minus",
+          "difference_v": "phi_v_plus-phi_v_minus",
+          "surface_a": "sin(pi*u)*cos(2*pi*v)",
+          "surface_b": "cos(3*pi*u)*sin(pi*v)"
+        },
+        "expression": "bound*tanh(0.20*p1_contact+0.15*difference_u-0.13*difference_v+0.17*surface_a+0.14*surface_b+0.14*geometry0*p1_contact+0.11*geometry1*(2*u-1)+0.09*geometry2*(2*v-1)+0.085*ordinal*support+0.065*log_frequency*curvature_u)"
+      },
+      "decay": {
+        "bound": "0.20",
+        "expression": "bound*tanh(0.37*loss+0.32*log_frequency+0.15*support*ordinal+0.16*log_youngs*log_density+0.08*poisson*family_index_a)"
+      },
+      "global_gain": {
+        "bound": "0.16",
+        "expression": "bound*tanh(0.29*ordinal*geometry0+0.29*geometry2+0.26*log_youngs*ordinal-0.14*log_density+0.20*family*geometry1+0.13*geometry0*geometry2)"
+      },
+      "transcendentals": "python-math-binary64"
+    },
+    "role_identity_prefix": "physical-sound-v36-fresh-role-unchanged-science-v1",
+    "seed_identity": {
+      "case_enumeration": 36001,
+      "role_by_role": {
+        "development": 36101,
+        "method_holdout": 36102,
+        "train": 36103
+      },
+      "truth_by_branch": {
+        "contact": 36201,
+        "decay": 36202,
+        "global_gain": 36203
+      }
+    }
+  },
+  "parent": {
+    "a0_contract": {
+      "path": "lab/scripts/physical_sound_v36_owner_contract_v1.py",
+      "sha256": "a93d22f4432a29cdb54bcad241b68099f9f0a56c7601e374f5a64a96a20eaac8"
+    },
+    "a0_result": {
+      "path": "docs/development/physical-sound-v36-a0-typed-owner-contract-result-2026-09-03.md",
+      "sha256": "5233c90adf7990a1679d8c3a07f5a3664b662d0753e8f26e9d5bec31c9dbe7aa"
+    },
+    "v32_profile": {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    "v33_profile": {
+      "path": "lab/profiles/physical-sound-v33-f0-mode-local-spectral-residual.v1.json",
+      "sha256": "4c1869101af3ec2264771e17af5c2e652e5861e36c3a8ab61333e588db88fd52"
+    },
+    "v34_profile": {
+      "path": "lab/profiles/physical-sound-v34-f0-target-safe-spectral-recovery.v1.json",
+      "sha256": "7be7e96a2899d0e4ef7aad668368669886d7f45adac34ec6676afbbe6b45e429"
+    },
+    "v35_f0_owner": {
+      "path": "lab/scripts/physical_sound_v35_f0_geometry_hybrid_profile_freeze_v1.py",
+      "sha256": "5173638f200ded42f50a72258617b69df0225f9a0b8fd3fe092475533e1548b2"
+    },
+    "v35_f0_profile": {
+      "path": "lab/profiles/physical-sound-v35-f0-geometry-conditioned-hybrid.v1.json",
+      "sha256": "019cadd51254c27da32e35ab39b35551ba965198f33282feb975af83cb9304cc"
+    },
+    "v35_f0_result": {
+      "path": "docs/development/physical-sound-v35-f0-geometry-hybrid-profile-freeze-result-2026-09-02.md",
+      "sha256": "159b09d8d65e504f0f1e9e0ac59444afb614bccc0074e93af23c4540e17678c3"
+    },
+    "v36_research": {
+      "path": "docs/development/physical-sound-v36-sealed-owner-rebaseline-research-2026-09-03.md",
+      "sha256": "62cf8104edea4301fb624abfa1c46d81463f68122724822499a95226e4ccc895"
+    }
+  },
+  "profile_id": "physical-sound-v36-f0-fresh-role-unchanged-science-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v36-f0-fresh-role-unchanged-science-protocol-2026-09-03.md",
+    "sha256": "9c0a2b792624492e22bc0e6cba2bab9c5b463fef66b896d9419bfd956377c075"
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v36-f0-fresh-role-unchanged-science-profile.v1",
+  "scientific_inheritance": {
+    "identity_difference_paths": [
+      "corpus.contacts",
+      "corpus.geometry_multiplier_cells",
+      "corpus.materials",
+      "corpus.role_identity_prefix",
+      "oracle.contact.expression",
+      "oracle.decay.expression",
+      "oracle.global_gain.expression",
+      "witness_contract.b0_train_permutation_seeds"
+    ],
+    "model_seed_policy": "inherit-v35-exactly",
+    "parent_profile": "parent.v35_f0_profile",
+    "projection_rule": "remove-only-identity-difference-paths-then-canonical-compare",
+    "truth_structure_policy": "inherit-v35-bounds-components-and-transcendentals-exactly"
+  },
+  "terminal_publication": {
+    "atomic_staging_required": true,
+    "post_access_outcomes": [
+      "Pass",
+      "MetricReject",
+      "HardGateReject",
+      "ResourceReject",
+      "OwnerFault"
+    ],
+    "post_access_raise_allowed": false,
+    "pre_access_contract_reject": {
+      "partial_output_allowed": false,
+      "target_rows": 0
+    },
+    "repeat_exact_required": true
+  },
+  "witness_contract_overlay": {
+    "b0_train_permutation_seeds": [
+      36301,
+      36302,
+      36303
+    ]
+  }
+}

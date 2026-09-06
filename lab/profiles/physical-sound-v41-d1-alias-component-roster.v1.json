@@ -1,0 +1,179 @@
+{
+  "access_policy": {
+    "candidate_output_access_allowed": false,
+    "feature_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed": false,
+    "outputs_external": true,
+    "payload_access_allowed": false,
+    "protected_access_allowed": false,
+    "signal_decode_allowed": false
+  },
+  "alias_components": [
+    {
+      "component_id": "physical-parent.realimpact-objectfolder-blue-bowl.v1",
+      "evidence_binding_id": "v24-x0-blue-bowl-result",
+      "family_ids": [
+        "samuel-clarke--realimpact",
+        "stanford-objectfolder--objectfolder-real"
+      ],
+      "physical_parent_id": "realimpact-6-bowl--objectfolder-real-object-6"
+    }
+  ],
+  "artifact_policy": {
+    "candidate_outputs_visible_to_validator_calibration": false,
+    "generator_namespace": "external/physical-sound/generator",
+    "shared_learned_artifacts_allowed": false,
+    "shared_thresholds_allowed": false,
+    "validator_namespace": "external/physical-sound/validator"
+  },
+  "assignments": [
+    {
+      "family_id": "carnegie-mellon-auditorylab--sound-events-impact-events",
+      "from_role": "validator_calibration",
+      "role": "validator_calibration"
+    },
+    {
+      "family_id": "freesound-user-ascap--pack-14905",
+      "from_role": "generator_development",
+      "role": "generator_development"
+    },
+    {
+      "family_id": "freesound-user-wasserbjorn--pack-41981",
+      "from_role": "generator_train",
+      "role": "generator_train"
+    },
+    {
+      "family_id": "iri-csic-upc-ctu--ycb-impact-sounds",
+      "from_role": "generator_development",
+      "role": "generator_development"
+    },
+    {
+      "family_id": "kaffekrus--soundpacks-glass-recordings",
+      "from_role": "generator_train",
+      "role": "generator_train"
+    },
+    {
+      "family_id": "samuel-clarke--realimpact",
+      "from_role": "generator_train",
+      "role": "generator_train"
+    },
+    {
+      "family_id": "stanford-objectfolder--objectfolder-real",
+      "from_role": "validator_calibration",
+      "role": "generator_train"
+    },
+    {
+      "family_id": "the-language-of-sounds--kronland-material-impact-stimuli",
+      "from_role": "generator_train",
+      "role": "generator_train"
+    },
+    {
+      "family_id": "zisen-shao--av-msf",
+      "from_role": "generator_train",
+      "role": "validator_calibration"
+    }
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": "v41_c0_disclosed_corpus",
+    "disclosed_role_assignment_authority": true,
+    "model_training_authority": false,
+    "payload_access_authority": false,
+    "product_authority": false,
+    "protected_role_assignment_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_release_authority": false
+  },
+  "claim": "DISCLOSED_PHYSICAL_PARENT_ALIAS_COMPONENT_ROLE_REPAIR_ONLY / NO_PAYLOAD_SIGNAL_FEATURE_MODEL_PROTECTED_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "d0_binding": {
+    "bytes": 10142,
+    "roster_root_sha256": "5038c54d60b610fedb52bfbf2bd6bc231327a99c67689dcc481651f1b1aaf7bd",
+    "schema": "nextengine.experimental-physical-sound-v40-d0-disclosed-roster.v1",
+    "sha256": "6d6f29fa2e2292bb5f69acde401284e7fc5a012061f01db15ee1f1d722480de9"
+  },
+  "dependency_bindings": [
+    {
+      "binding_id": "d0-owner",
+      "bytes": 25823,
+      "path": "lab/scripts/physical_sound_v40_d0_disclosed_roster_v1.py",
+      "sha256": "9211c5b11ed4e962ca5a91f1191b788703a7015a8ffa3f66e9cb91de56fb7fda"
+    },
+    {
+      "binding_id": "d0-profile",
+      "bytes": 6621,
+      "path": "lab/profiles/physical-sound-v40-d0-disclosed-roster.v1.json",
+      "sha256": "2415b96ceea4252d68e9c8b11365138bd3d8dba725304da6b34629e8c2b03e7a"
+    },
+    {
+      "binding_id": "d0-result",
+      "bytes": 5901,
+      "path": "docs/development/physical-sound-v40-d0-disclosed-roster-result-2026-09-03.md",
+      "sha256": "894077fcef1e682e84e5786ab590282b469966c376a297ea101bb346ad210387"
+    },
+    {
+      "binding_id": "i0-result",
+      "bytes": 5356,
+      "path": "docs/development/physical-sound-v40-i0-project-exposure-result-2026-09-03.md",
+      "sha256": "a890e22f1c3db03925d13b37e936715c9c8fad2a61bfaaf4ca5d905d392e9909"
+    },
+    {
+      "binding_id": "v24-x0-blue-bowl-result",
+      "bytes": 5681,
+      "path": "docs/development/physical-sound-v24-x0-blue-bowl-pilot-result-2026-09-01.md",
+      "sha256": "219f08169e6242cf0f4e3deb3fd5ef5d643974a79211a0ce061fb3fd215be04c"
+    },
+    {
+      "binding_id": "v41-roadmap",
+      "bytes": 17565,
+      "path": "docs/plans/physical-sound-synthesis-roadmap-v41.md",
+      "sha256": "9dfe66791bf733f99b0ab77f991d02530a543d13f8cbd6bf3d24c088b31000ab"
+    }
+  ],
+  "expected_result": {
+    "alias_component_count": 1,
+    "clean_project_families_spent": 0,
+    "decision": "D1_ALIAS_COMPONENT_ROSTER_REPAIRED_C0_AUTHORIZED",
+    "disclosed_family_count": 9,
+    "generator_development_families": 2,
+    "generator_train_families": 5,
+    "original_cross_role_component_count": 1,
+    "protected_family_count": 0,
+    "reassigned_family_count": 2,
+    "repaired_cross_role_component_count": 0,
+    "validator_calibration_families": 2
+  },
+  "repair_policy": {
+    "expected_alias_component_count": 1,
+    "expected_family_count": 9,
+    "expected_original_cross_role_component_count": 1,
+    "expected_reassigned_family_count": 2,
+    "expected_role_counts": {
+      "generator_development": 2,
+      "generator_train": 5,
+      "validator_calibration": 2
+    },
+    "repair_rule": "co_locate_realimpact_and_objectfolder_blue_bowl_in_generator_train_then_move_independent_av_msf_to_validator_calibration_v1"
+  },
+  "role_policy": {
+    "cross_family_parent_alias_behavior": "merge_component_before_role_projection",
+    "descendants_inherit_component_role": true,
+    "disclosed_roles": [
+      "generator_development",
+      "generator_train",
+      "validator_calibration"
+    ],
+    "family_role_reassignment_after_d1": "forbidden",
+    "partition_unit": "physical_parent_alias_component",
+    "protected_roles": [
+      "generator_method_holdout",
+      "joint_admission_shadow",
+      "validator_qualification"
+    ],
+    "unknown_alias_behavior": "reject",
+    "whole_component_disjoint": true
+  },
+  "schema": "nextengine.experimental-physical-sound-v41-d1-profile.v1"
+}

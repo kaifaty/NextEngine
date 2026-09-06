@@ -1,0 +1,18 @@
+[
+  {"id":"rain", "prompt":"Rain falling and pattering."},
+  {"id":"pouring_water", "prompt":"Water being poured, splashing and bubbling."},
+  {"id":"water_drops", "prompt":"Water drops dripping and splashing."},
+  {"id":"rain-light", "prompt":"Light rain patters gently on a tiled roof."},
+  {"id":"rain-heavy", "prompt":"Heavy rain pounds intensely on a tiled roof."},
+  {"id":"water-pour", "prompt":"Water pours from a glass jug into a ceramic bowl, splashing and bubbling."},
+  {"id":"drops-new", "prompt":"Individual drops of water fall from a tap into a shallow puddle.", "diagnostic_id":"water_drops"},
+  {"id":"glass-metal", "prompt":"A metal rod taps a glass jar."},
+  {"id":"glass-wood", "prompt":"A wooden rod taps a glass jar."},
+  {"id":"wood-metal", "prompt":"A metal rod taps a wooden board."},
+  {"id":"wood-wood", "prompt":"A wooden rod taps a wooden board."},
+  {"id":"steel-metal", "prompt":"A metal rod taps a steel pipe."},
+  {"id":"steel-wood", "prompt":"A wooden rod taps a steel pipe."},
+  {"id":"scrape-wood", "prompt":"A rough wooden block scrapes slowly across a wooden board."},
+  {"id":"roll-marble", "prompt":"A small glass marble rolls across a wooden tabletop."},
+  {"id":"break-glass", "prompt":"An empty glass bottle falls onto a stone floor and shatters."}
+]

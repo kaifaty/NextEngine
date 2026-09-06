@@ -1,0 +1,20 @@
+{
+  "claim": "FULL_COUNT_FULL_STEP_DISCARDED_D0_H0_EXACT_OWNER_REHEARSAL_AND_EXECUTION_SEAL_ONLY / NO_OFFICIAL_TARGET_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "execution_seal": {
+    "contract_schema": "nextengine.experimental-physical-sound-v36-owner-contract.v1",
+    "d0_rehearsal_root_sha256": "afddb66c823f3f7b86484f652e43a7520bc34aca81f3cc8245dc4595cdebd621",
+    "d0_topology_sha256": "03f704eb262dfeb34fcfc763ac3d43bff7fb75cb87270c9f1e773a668eb34df6",
+    "environment_sha256": "87d630f1bb8234f58ad65316b3185b7608a5a3c1cf92230d934ecada8326027a",
+    "forbidden_access_count": 0,
+    "h0_rehearsal_root_sha256": "b0e73283974f4fd840fa357ed185f12bdcea580a40767a745da5ad87bc5f005c",
+    "h0_topology_sha256": "7a4a9b90c077dc5d4a0a0320354bc5c3902bfef624fb5a58c8fb12a2a51d1cee",
+    "owner_sha256": "6fb8be540db93c38d07c0538a5a3a7b4b95ea2c895f9b79050c1405b7b6bb9a2",
+    "profile_sha256": "eba244b2053d7f292a965d75d6d6b191fdebfb5340cb7b76b485de0cc2bd1a95",
+    "rehearsal_run_count": 2,
+    "repeat_exact": true
+  },
+  "rehearsal_tree_sha256": "3269066a474f6d3423e12c6b70293a3cb3f6a7b9ca07036d323d953ee114745f",
+  "schema": "nextengine.experimental-physical-sound-v36-execution-seal.v1",
+  "seal_sha256": "b436869654d833f97774b30683bf92672c62529e92a8c5957ee600a91d3ee516",
+  "status": "SealedBeforeOfficialAccess"
+}

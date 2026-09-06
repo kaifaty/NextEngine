@@ -1,0 +1,131 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "authorizes_only": [
+      "v44_g0_descriptor_source_growth"
+    ],
+    "candidate_training_authority": false,
+    "descriptor_contract_freeze_authority": true,
+    "descriptor_intake_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "contract_binding": {
+    "bytes": 6404,
+    "path": "lab/profiles/physical-sound-v44-c1-runtime-descriptor-contract.v1.json",
+    "sha256": "a8bdf313204b89c55f3fbc1a9b2f174ced48a3a337274e8d79c27c14066b9ed1"
+  },
+  "corpus_identity": {
+    "manifest_root_sha256": "2539d5ac14b6b52616aaca9dcba0557e799afdd237b215581adb5f1447656cdd",
+    "report_decision": "C0R_CORRECTED_CORPUS_REPEATABLE_B0R_R0R_C1_AUTHORIZED",
+    "report_schema": "nextengine.experimental-physical-sound-v43-c0r-report.v1"
+  },
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 7279,
+      "path": "docs/development/physical-sound-v43-d2-c0r-identity-repair-result-2026-09-03.md",
+      "sha256": "532f51dbe1ac67226fa9f4cb39fc98332c49178fed17fa4a12879bc3a54380ce"
+    },
+    {
+      "bytes": 9156,
+      "path": "docs/development/physical-sound-v44-b0r-r0r-corrected-baseline-result-2026-09-03.md",
+      "sha256": "8fe5608a4d4a573c7f7698b41fce6a7b8c347cee96b88fd5e05a4017138b6fec"
+    },
+    {
+      "bytes": 6063,
+      "path": "lab/profiles/physical-sound-v43-d2-c0r-identity-repair.v1.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    {
+      "bytes": 6404,
+      "path": "lab/profiles/physical-sound-v44-c1-runtime-descriptor-contract.v1.json",
+      "sha256": "a8bdf313204b89c55f3fbc1a9b2f174ced48a3a337274e8d79c27c14066b9ed1"
+    },
+    {
+      "bytes": 3666,
+      "path": "lab/profiles/physical-sound-v44-g0-structured-source.v1.json",
+      "sha256": "7de5c033a426ff0fdae12470a18834d26c98f203aa29aee5617de6b0c7f315a3"
+    },
+    {
+      "bytes": 56114,
+      "path": "lab/scripts/physical_sound_v44_c1_runtime_descriptor_intake_v1.py",
+      "sha256": "8734186d031766f98ccb93b223c6a644450d90a0c38cc8c93fbd8efe44b88348"
+    },
+    {
+      "bytes": 29584,
+      "path": "lab/scripts/physical_sound_v44_g0_structured_source_v1.py",
+      "sha256": "956afaade2dc6f29e6f7714bb42affa87dc1eea2abd99e2fea434ef0dc0a8599"
+    }
+  ],
+  "expected_counts": {
+    "corpus_parents": 64,
+    "corpus_records": 134,
+    "descriptor_complete_parents": 0,
+    "descriptor_complete_records": 0,
+    "material_observed_parents": 63,
+    "material_observed_records": 129,
+    "source_artifacts": 2,
+    "source_inputs": 1,
+    "source_observations": 26
+  },
+  "input_bindings": {
+    "corpus_profile": {
+      "bytes": 6063,
+      "path": "profile.json",
+      "sha256": "f817d51ff415a47afb1978f6511dff2b65629d34160c85e40a3a0507672323cc"
+    },
+    "corpus_report": {
+      "bytes": 2892,
+      "path": "report.json",
+      "sha256": "28769b43a00a3a435b058daeaecbc77d79a47a85ebed7c0231c5b8cf71c12097"
+    },
+    "development_projection": {
+      "bytes": 90451,
+      "path": "projections/generator_development.json",
+      "sha256": "d58b5f236fef911089b49b596a45ddc10ae511db60cb38ab8bb8bd1a50e76c08"
+    },
+    "lineage_repair": {
+      "bytes": 3164,
+      "path": "lineage-repair.json",
+      "sha256": "cde3359d9451f833fc4973bbbdfead4e82c7f4bcfac4618e717dcc0fc35655d4"
+    },
+    "train_projection": {
+      "bytes": 82647,
+      "path": "projections/generator_train.json",
+      "sha256": "93d397c18c3c8df49f7f687caf79d8e346b7691c0ab1726dd3488bcd8f2bc00e"
+    }
+  },
+  "output_policy": {
+    "maximum_artifact_bytes": 33554432,
+    "maximum_artifact_bytes_per_source": 67108864,
+    "maximum_artifacts_per_source": 256,
+    "maximum_source_inputs": 64,
+    "publication": "atomic_external_directory_only"
+  },
+  "priority_materials": [
+    "Glass",
+    "Steel",
+    "Wood"
+  ],
+  "profile_id": "physical-sound-v44-c1-runtime-descriptor-intake-g0-ycb-v1",
+  "schema": "nextengine.experimental-physical-sound-v44-c1-intake-profile.v1",
+  "source_inputs": [
+    {
+      "manifest": {
+        "bytes": 22258,
+        "path": "manifest.json",
+        "sha256": "9dddec2311510e40f69aabccc334cb12791404aaccc116661b3e13a8b0dac366"
+      },
+      "root_name": "ycb-object-properties"
+    }
+  ]
+}

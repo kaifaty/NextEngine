@@ -290,7 +290,7 @@ pub(super) fn run(root: &Path, request: &Request) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_transfer_report(bytes: &[u8]) -> Result<(), String> {
+pub(super) fn validate_transfer_report(bytes: &[u8]) -> Result<(), String> {
     require_hash(bytes, TRANSFER_REPORT_SHA256, "transfer-calibration report")?;
     let report: TransferCalibrationReport = serde_json::from_slice(bytes)
         .map_err(|error| format!("parse transfer-calibration report: {error}"))?;

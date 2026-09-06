@@ -1,0 +1,105 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "experimental_lab_contract": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "PROSPECTIVE_PARENT_AND_PUBLISHER_WAVEFORM_BINDING_ONLY / NO_PAYLOAD_ROLE_TARGET_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "contract_id": "physical-sound-v44-g0b-prospective-parent-contract-v1",
+  "descriptor_policy": {
+    "field_order": [
+      "material_label",
+      "shape_topology",
+      "extent_micrometres",
+      "characteristic_wall_thickness_micrometres",
+      "cavity_kind",
+      "opening_kind",
+      "mass_milligrams",
+      "support_condition",
+      "impact_zone"
+    ],
+    "missing_reasons": [
+      "not_applicable",
+      "not_published",
+      "outside_contract",
+      "source_conflict"
+    ],
+    "missing_value": null,
+    "unknown_axes_are_never_inferred_from_audio_filename_or_project_identity": true
+  },
+  "eligibility_levels": {
+    "corpus_materialization_eligible": {
+      "requires": [
+        "prospective_catalogue_eligible",
+        "every_selected_payload_fetched_and_verified_by_publisher_sha256",
+        "bounded_media_structure_validation",
+        "record_to_parent_bridge",
+        "target_extractor_preflight",
+        "immutable_disclosed_role_plan"
+      ],
+      "result_authority": "may_build_a_new_disclosed_corpus_successor_only"
+    },
+    "prospective_catalogue_eligible": {
+      "requires": [
+        "https_primary_source",
+        "stable_publisher_project_revision",
+        "stable_physical_parent_identity",
+        "at_least_one_runtime_descriptor_axis",
+        "one_or_more_publisher_hashed_waveform_or_transfer_artifacts_per_parent",
+        "explicit_parent_to_artifact_correspondence",
+        "license_and_provenance_record"
+      ],
+      "result_authority": "metadata_only_acquisition_planning"
+    },
+    "psel_pack_eligible": {
+      "requires": [
+        "corpus_materialization_eligible",
+        "at_least_two_independent_publisher_project_revisions_for_the_exact_pack",
+        "whole_project_role_feasibility",
+        "descriptor_to_target_correspondence",
+        "signal_blind_selection_inputs_only"
+      ],
+      "result_authority": "may_enter_signal_blind_first_pack_selection_only"
+    }
+  },
+  "independence_policy": {
+    "component_key": "publisher_project_physical_parent_origin",
+    "derivatives_mirrors_reencodes_and_shared_physical_objects": "co_locate",
+    "metadata_revision_alone_cannot_reset_signal_exposure": true,
+    "minimum_independent_projects_per_psel_pack": 2,
+    "record_repetitions_are_not_independent_parents": true
+  },
+  "lineage_policy": {
+    "required_parent_fields": [
+      "publisher_id",
+      "project_id",
+      "revision_id",
+      "source_component_id",
+      "physical_parent_id",
+      "source_parent_label"
+    ],
+    "required_signal_fields": [
+      "publisher_file_id",
+      "record_id",
+      "media_type",
+      "bytes",
+      "sha256",
+      "source_url"
+    ],
+    "source_url_policy": "https_only",
+    "stable_ids_must_not_depend_on_local_paths": true
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b-prospective-parent-contract.v1",
+  "source_class_policy": {
+    "identified_real_recording": "may_establish_parent_material_envelope_and_spectral_evolution_only_for_explicit_axes",
+    "measured_transfer_response": "may_establish_modal_decay_relative_participation_and_spatial_structure_only_for_explicit_axes",
+    "metadata_only": "may_establish_descriptors_but_never_target_correspondence",
+    "synthetic_or_generated": "teacher_control_and_mutation_only_never_real_identity_or_naturalness"
+  }
+}

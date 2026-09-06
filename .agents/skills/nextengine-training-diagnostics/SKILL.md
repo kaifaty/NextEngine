@@ -1,6 +1,6 @@
 ---
 name: nextengine-training-diagnostics
-description: "Diagnose NextEngine humanoid PPO runs from hash-closed manifests, JSONL metrics, evaluations, checkpoints and throughput reports, then select the smallest falsifiable next experiment. Use for stalled or unstable learning, NaN/divergence, KL clipping, entropy or action-noise collapse, value-loss problems, hard-ROM/contact/fall failures, phase or clip imbalance, suspicious checkpoint lineage, run comparison, or training status reports. Russian triggers include: почему не учится, диагностика PPO, метрики обучения, KL, entropy, value loss, падения, hard ROM, forbidden contact, сравни runs."
+description: "Diagnose NextEngine humanoid PPO learning failures, run integrity, physics or contact failures, and throughput from existing run artifacts; propose a focused experiment. Applies to humanoid TRAIN runs, not audio synthesis or generic model fitting."
 ---
 
 # NextEngine training diagnostics
@@ -61,6 +61,10 @@ iterations, phases, clips and action channels.
 
 ## Select the next experiment
 
+The following constraints apply when proposing a new humanoid TRAIN run.
+Inspecting existing metrics or reporting a cause does not require creating a
+new profile, preregistration document or experiment.
+
 - Change one causal variable under a new hash-bound profile; do not mutate a
   frozen profile or reinterpret an old checkpoint.
 - Use the smallest seed/clip/phase matrix that can falsify the diagnosis, then
@@ -71,8 +75,10 @@ iterations, phases, clips and action channels.
   step depends on a new dynamics, reward-invariance, feasibility or solver
   claim rather than run evidence, stop tuning and use
   `$nextengine-mathematical-research` for the bounded discriminator first.
-- Pre-register checkpoint selection, seeds and evaluation points. Never choose
-  the best result from undeclared points.
+- Bind checkpoint selection, seeds and evaluation points in the governing
+  profile or evaluation manifest before the run, as required by the TRAIN
+  contract. Do not create a duplicate protocol document. Never claim acceptance
+  from a best result selected at undeclared points.
 - Treat a notebook or local MLflow/Trackio/TensorBoard dashboard as disposable
   analysis outside Git. Preserve the underlying JSON/manifest identity in any
   plot or alert.

@@ -1,0 +1,116 @@
+{
+  "baseline_commit": "291387c537df08271f3398a344db8e8ab35c3c16",
+  "claim": "FRESH_V36_D0_ONE_SHOT_SYNTHETIC_DEVELOPMENT_EVIDENCE_ONLY / NO_METHOD_HOLDOUT_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependencies": {
+    "c0_profile": {
+      "path": "lab/profiles/physical-sound-v36-c0-fresh-structural-census.v1.json",
+      "sha256": "55d29722836976ad0fce22d362452564a49ffbbc905722f725001ee6845be48b"
+    },
+    "contract": {
+      "path": "lab/scripts/physical_sound_v36_owner_contract_v1.py",
+      "sha256": "a93d22f4432a29cdb54bcad241b68099f9f0a56c7601e374f5a64a96a20eaac8"
+    },
+    "e0_numeric_owner": {
+      "path": "lab/scripts/physical_sound_v36_e0_full_surrogate_seal_v1.py",
+      "sha256": "6fb8be540db93c38d07c0538a5a3a7b4b95ea2c895f9b79050c1405b7b6bb9a2"
+    },
+    "e0_numeric_profile": {
+      "path": "lab/profiles/physical-sound-v36-e0-full-surrogate-seal.v1.json",
+      "sha256": "eba244b2053d7f292a965d75d6d6b191fdebfb5340cb7b76b485de0cc2bd1a95"
+    },
+    "e0_result": {
+      "path": "docs/development/physical-sound-v36-e0-full-surrogate-seal-result-2026-09-03.md",
+      "sha256": "aff868b1faad22618b432b3ed64eba9e18d4e1510405917a65740079de492b05"
+    },
+    "execution_seal": {
+      "path": "lab/profiles/physical-sound-v36-e0-execution-seal.v1.json",
+      "sha256": "823cb21ca86d882c12392da6723773797383d054db45520248d31fbae711047c"
+    },
+    "f0_profile": {
+      "path": "lab/profiles/physical-sound-v36-f0-fresh-role-unchanged-science.v1.json",
+      "sha256": "6c71249f4cf999bbed14a5e311fdd7d04776722af1ce0943a2b00012690eb3a8"
+    },
+    "official_provider": {
+      "path": "lab/scripts/physical_sound_v36_d0_official_provider_v1.py",
+      "sha256": "fd83b798e6944316ea0d8e6080e6c9dc1c70f5ed31141d6dbb35324a3138ede2"
+    },
+    "terminal_publisher": {
+      "path": "lab/scripts/physical_sound_v36_terminal_publisher_v1.py",
+      "sha256": "b142b2e11d3e4dcd104520639708cd64e080a8eced0cb9903eb4a16448efae81"
+    }
+  },
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.5.2",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "execution_seal": {
+    "d0_rehearsal_root_sha256": "afddb66c823f3f7b86484f652e43a7520bc34aca81f3cc8245dc4595cdebd621",
+    "document_sha256": "823cb21ca86d882c12392da6723773797383d054db45520248d31fbae711047c",
+    "h0_rehearsal_root_sha256": "b0e73283974f4fd840fa357ed185f12bdcea580a40767a745da5ad87bc5f005c",
+    "owner_sha256": "6fb8be540db93c38d07c0538a5a3a7b4b95ea2c895f9b79050c1405b7b6bb9a2",
+    "payload_sha256": "b436869654d833f97774b30683bf92672c62529e92a8c5957ee600a91d3ee516",
+    "profile_sha256": "eba244b2053d7f292a965d75d6d6b191fdebfb5340cb7b76b485de0cc2bd1a95",
+    "status": "SealedBeforeOfficialAccess"
+  },
+  "expected_access_per_process": {
+    "development_target_rows": 4320,
+    "fresh_v36_truth_values_evaluated": 32400,
+    "method_holdout_target_rows": 0,
+    "network_requests": 0,
+    "official_capabilities_issued": 1,
+    "official_d0_target_rows": 10800,
+    "official_h0_target_rows": 0,
+    "prior_generation_numeric_values_read": 0,
+    "protected_signal_values_decoded": 0,
+    "provider_calls": 2,
+    "real_signal_values_decoded": 0,
+    "target_rows_accessed": 10800,
+    "train_target_rows": 6480
+  },
+  "one_shot": {
+    "candidate_freeze_status": "OfficialD0CandidateFrozenAfterPass",
+    "candidate_required_only_for": "Pass",
+    "processes": 2,
+    "repeat_or_tune_after_post_access_terminal": false,
+    "stdout_and_tree_byte_exact": true
+  },
+  "profile_id": "physical-sound-v36-d0-fresh-development-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v36-d0-fresh-development-protocol-2026-09-03.md",
+    "sha256": "46e9ef833f9ead016506cf703da83eee2985235e75142b0ec0acdbe82a111821"
+  },
+  "resources": {
+    "max_output_bytes": 67108864,
+    "max_peak_rss_bytes": 1073741824,
+    "max_wall_seconds": 300
+  },
+  "revision": 1,
+  "role_commitments": {
+    "development": {
+      "case_count": 432,
+      "case_root_sha256": "8214e9a4b6c5ede0ababfa8f43156a0897312d57a0362915de2bbb2a79fda728",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "1b748d53f8484a265d641d0c42aa5a7fd91b2f1040ba9a1298e928c96b53b276"
+    },
+    "train": {
+      "case_count": 648,
+      "case_root_sha256": "ac2fc5a5340b49818433c5e47286f2cbe68d6f5f185cdb1af101d3ef91df4305",
+      "modal_row_count": 6480,
+      "modal_row_root_sha256": "32d7d0ab5f642736be66254cc6b638e0fbd65b4a71f68e9ab69d26f8d766a997"
+    }
+  },
+  "schema": "nextengine.experimental-physical-sound-v36-d0-fresh-development-profile.v1",
+  "terminal_outcomes": [
+    "Pass",
+    "MetricReject",
+    "HardGateReject",
+    "ResourceReject",
+    "OwnerFault"
+  ]
+}

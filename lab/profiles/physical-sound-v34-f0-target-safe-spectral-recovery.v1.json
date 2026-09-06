@@ -1,0 +1,311 @@
+{
+  "access_order": [
+    "f0-identity-freshness-and-static-freeze",
+    "c0-signal-blind-structural-witness-census",
+    "t0-discarded-whole-owner-terminal-path-proof",
+    "d0-train-materialize-and-fit",
+    "d0-development-materialize-and-gate",
+    "candidate-freeze-if-development-pass",
+    "h0-method-holdout-materialize-once-if-frozen",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "c0_allowed_after_f0": true,
+    "external_research_only": true,
+    "model_allowed_after_f0": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "t0_allowed_after_c0": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "1740807640c580f3373a7b1ec4e1cf98fb42c83b",
+  "claim": "TARGET_SAFE_SYNTHETIC_SPECTRAL_RECOVERY_PROFILE_ONLY / NO_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "corpus_overlay": {
+    "contacts": {
+      "development": [
+        [
+          "0",
+          "0.59"
+        ],
+        [
+          "0.29",
+          "0.21"
+        ],
+        [
+          "0.49",
+          "0.71"
+        ],
+        [
+          "0.65",
+          "0.89"
+        ],
+        [
+          "0.81",
+          "0.39"
+        ],
+        [
+          "0.95",
+          "0.25"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0",
+          "0.79"
+        ],
+        [
+          "0.25",
+          "0.55"
+        ],
+        [
+          "0.43",
+          "0.27"
+        ],
+        [
+          "0.59",
+          "0.49"
+        ],
+        [
+          "0.75",
+          "0.95"
+        ],
+        [
+          "0.91",
+          "0.15"
+        ]
+      ],
+      "train": [
+        [
+          "0",
+          "0.17"
+        ],
+        [
+          "0.14",
+          "0.64"
+        ],
+        [
+          "0.24",
+          "0.38"
+        ],
+        [
+          "0.36",
+          "0.82"
+        ],
+        [
+          "0.42",
+          "0.14"
+        ],
+        [
+          "0.56",
+          "0.60"
+        ],
+        [
+          "0.68",
+          "0.34"
+        ],
+        [
+          "0.80",
+          "0.86"
+        ],
+        [
+          "0.90",
+          "0.44"
+        ],
+        [
+          "0.20",
+          "0.90"
+        ],
+        [
+          "0.70",
+          "0.10"
+        ],
+        [
+          "0.86",
+          "0.74"
+        ]
+      ]
+    },
+    "geometry_multiplier_cells": [
+      [
+        "0.76",
+        "0.94",
+        "1.08"
+      ],
+      [
+        "0.86",
+        "1.20",
+        "0.82"
+      ],
+      [
+        "0.98",
+        "0.84",
+        "1.12"
+      ],
+      [
+        "1.02",
+        "1.16",
+        "0.96"
+      ],
+      [
+        "1.12",
+        "0.88",
+        "1.20"
+      ],
+      [
+        "1.20",
+        "1.02",
+        "1.10"
+      ],
+      [
+        "0.84",
+        "1.06",
+        "1.16"
+      ],
+      [
+        "1.16",
+        "0.76",
+        "0.90"
+      ],
+      [
+        "0.94",
+        "1.22",
+        "1.04"
+      ],
+      [
+        "1.22",
+        "0.98",
+        "1.14"
+      ]
+    ],
+    "materials": [
+      {
+        "density_kg_m3": "2950",
+        "loss_rate_per_second": "7.5",
+        "material_id": "synthetic-g",
+        "poisson_ratio": "0.26",
+        "youngs_modulus_pa": "76000000000"
+      },
+      {
+        "density_kg_m3": "6100",
+        "loss_rate_per_second": "13",
+        "material_id": "synthetic-h",
+        "poisson_ratio": "0.315",
+        "youngs_modulus_pa": "142000000000"
+      },
+      {
+        "density_kg_m3": "8400",
+        "loss_rate_per_second": "19.5",
+        "material_id": "synthetic-i",
+        "poisson_ratio": "0.24",
+        "youngs_modulus_pa": "238000000000"
+      }
+    ],
+    "oracle": {
+      "contact": {
+        "bound": "0.22",
+        "components": {
+          "curvature_u": "phi_u_plus+phi_u_minus-2*p1_contact",
+          "difference_u": "phi_u_plus-phi_u_minus",
+          "difference_v": "phi_v_plus-phi_v_minus",
+          "surface_a": "sin(pi*u)*cos(2*pi*v)",
+          "surface_b": "cos(3*pi*u)*sin(pi*v)"
+        },
+        "expression": "bound*tanh(0.24*p1_contact+0.16*difference_u-0.15*difference_v+0.19*surface_a+0.18*surface_b+0.11*ordinal*support+0.09*family*(2*u-1)+0.07*log_frequency*curvature_u)"
+      },
+      "decay": {
+        "bound": "0.20",
+        "expression": "bound*tanh(0.40*loss+0.30*log_frequency+0.17*support*ordinal+0.14*log_youngs*log_density+0.10*poisson*family_index_a)"
+      },
+      "global_gain": {
+        "bound": "0.16",
+        "expression": "bound*tanh(0.32*ordinal*geometry0+0.27*geometry2+0.24*log_youngs*ordinal-0.16*log_density+0.18*family*geometry1+0.13*geometry0*geometry2)"
+      },
+      "transcendentals": "python-math-binary64"
+    },
+    "role_identity_prefix": "physical-sound-v34-target-safe-spectral-recovery-v1"
+  },
+  "parent": {
+    "v32_profile": {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    "v33_d0_result": {
+      "path": "docs/development/physical-sound-v33-d0-fresh-development-tournament-result-2026-09-02.md",
+      "sha256": "09eed9dbfe6f312fb83bd4cf4342ed10bdda145c200dc9944ab42eec13a31f14"
+    },
+    "v33_profile": {
+      "path": "lab/profiles/physical-sound-v33-f0-mode-local-spectral-residual.v1.json",
+      "sha256": "4c1869101af3ec2264771e17af5c2e652e5861e36c3a8ab61333e588db88fd52"
+    }
+  },
+  "preserved_sha256": {
+    "controls": "4f8ec505b6ba390358827b5a44ed5a19dd239ed7a71a8782abbeb142aaf44b9a",
+    "corpus_counts": "ab1d174146ddc504b501f6a634602960006724e5420ee39528a4094ffd1652c9",
+    "corpus_families": "c91380844ac99a55330455e0256d9089519c1913b46397a61d4421010e9142e6",
+    "corpus_role_plan": "e0ca68400b1b9bc4303400a1c9ae864e2dfdceb5e4f7953f5318b67e7c211f31",
+    "features": "b79631be34ee26ddca710df1b8595e5b2ce2f7e762b75a9aca9cc6cf22f93125",
+    "gates": "500d8ff852db433e8804c28eecce61d4f3425f5ea2b58b10db910ad8923010ec",
+    "model": "982053b81f54f4a2b2f676708029b8ac7761c51c4552ff52cb683b76c5ceeb7d",
+    "resources": "28df2b7c7746a66ffceb16fb817e43e88f5da72b9f804b26cc4033c596c28429",
+    "training": "d68f423fb64cd3eae98050bf39f9e2f217a15171f045f4139bb34feb441e5c2f"
+  },
+  "profile_id": "physical-sound-v34-f0-target-safe-spectral-recovery-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v34-f0-target-safe-profile-freeze-protocol-2026-09-02.md",
+    "sha256": "4ec54335f5cc033fd6e2748a1de5dbb4146a6e4d9e9d86206b695ef1e25b0e13"
+  },
+  "research": {
+    "path": "docs/development/physical-sound-v34-protocol-closure-rebaseline-2026-09-02.md",
+    "sha256": "d60892c1374258a3c3e03acea9015471c8d3e336c23e9846504595b4a71f0725"
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v34-f0-target-safe-spectral-recovery-profile.v1",
+  "terminal_publication": {
+    "atomic_staging_required": true,
+    "post_access_outcomes": [
+      "Pass",
+      "MetricReject",
+      "HardGateReject",
+      "ResourceReject"
+    ],
+    "post_access_raise_allowed": false,
+    "pre_access_contract_reject": {
+      "partial_output_allowed": false,
+      "target_rows": 0
+    },
+    "repeat_exact_required": true
+  },
+  "witness_contract": {
+    "evaluation_roles": [
+      "development",
+      "method_holdout"
+    ],
+    "exact_nodal_min_modal_rows_per_stratum": 180,
+    "forbidden_dependencies": [
+      "development_metrics",
+      "model_owner",
+      "optimizer",
+      "oracle_targets",
+      "protected_signal",
+      "real_signal"
+    ],
+    "minimum_contact_sensitive_rows_per_stratum": 1,
+    "minimum_material_sensitive_rows_per_stratum": 1,
+    "minimum_non_silent_cases_per_family_and_stratum": 1,
+    "minimum_nonzero_pickup_negative_rows_per_role": 1,
+    "minimum_nonzero_pickup_positive_rows_per_role": 1,
+    "minimum_remesh_pairs_per_family_and_role": 1,
+    "strata": [
+      "contact-only",
+      "geometry-only",
+      "joint"
+    ],
+    "target_rows_allowed": 0
+  }
+}

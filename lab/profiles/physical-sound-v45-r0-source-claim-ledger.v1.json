@@ -1,0 +1,559 @@
+{
+  "access_policy": {
+    "audio_decode_allowed": false,
+    "feature_access_allowed": false,
+    "model_access_allowed": false,
+    "network_allowed_at_build": false,
+    "numeric_payload_decode_allowed": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "waveform_access_allowed": false
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": "v45_t0_recipe_v3_design",
+    "corpus_increment_authority": false,
+    "model_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "METADATA_ONLY_SOURCE_TO_CLAIM_PLANNING / NO_PAYLOAD_SIGNAL_FEATURE_MODEL_TRAINING_VALIDATOR_PROTECTED_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "claim_policy": {
+    "lane_order": [
+      "empirical_prior",
+      "modal_teacher",
+      "protected_admission",
+      "real_acoustic",
+      "structural_transfer",
+      "validator_calibration"
+    ],
+    "missing_targets_contribute_loss": false,
+    "source_lanes_are_interchangeable": false
+  },
+  "decision": "R0_SOURCE_CLAIM_LEDGER_REPEATABLE_NO_PAYLOAD_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 12345,
+      "path": "docs/development/physical-sound-v45-multifidelity-evidence-rebaseline-2026-09-03.md",
+      "sha256": "e86ffc8acfda6d7e66dd890d0d1ea07328e82255f0ee152da0e9b8691887214f"
+    },
+    {
+      "bytes": 18859,
+      "path": "lab/scripts/physical_sound_v45_r0_source_claim_ledger_v1.py",
+      "sha256": "f1c682ef644e905765d2895aa4e4ba2944dff572b1a470e699486cd05ced396f"
+    }
+  ],
+  "expected_result": {
+    "decision": "R0_SOURCE_CLAIM_LEDGER_REPEATABLE_NO_PAYLOAD_AUTHORITY",
+    "evidence_class_counts": {
+      "empirical_prior_source": 1,
+      "excluded_unavailable": 1,
+      "literature_control": 1,
+      "metadata_physics_control": 1,
+      "real_acoustic_candidate": 2,
+      "structural_transfer": 2,
+      "synthetic_modal_teacher": 2
+    },
+    "physical_parent_credit": 0,
+    "project_independence_credit": 0,
+    "prospective_lane_counts": {
+      "empirical_prior": 2,
+      "modal_teacher": 2,
+      "protected_admission": 0,
+      "real_acoustic": 2,
+      "structural_transfer": 2,
+      "validator_calibration": 2
+    },
+    "role_state_counts": {
+      "control_only": 2,
+      "eligible_after_preflight": 6,
+      "excluded_unavailable": 1,
+      "metadata_axis_audit_required": 1
+    },
+    "source_count": 10
+  },
+  "schema": "nextengine.experimental-physical-sound-v45-r0-profile.v1",
+  "sources": [
+    {
+      "alias_component": "clatter-pyimpact-tdw-statistical-prior",
+      "cost_class": "small",
+      "evidence_class": "empirical_prior_source",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "8230a6192f189806b899a9113c08fefaf458e9e7f26322e2fc6fe5434a4c065e",
+          "name": "impact-material-parameter-tree",
+          "unit_count": 84
+        },
+        {
+          "algorithm": "sha256",
+          "digest": "006622d7a04fbc8f74b126e4e6ff3f5b9b73069f47637721c7a0a4e5dda04593",
+          "name": "license",
+          "unit_count": 1
+        },
+        {
+          "algorithm": "sha256",
+          "digest": "2257b23ab766cd307002aeca69dd0683379739fc18fc9af2d74e8650fdc40500",
+          "name": "readme",
+          "unit_count": 1
+        }
+      ],
+      "missing_gate": "t0_recipe_v3_and_external_decoder_protocol",
+      "observed_axes": [
+        "collision_speed",
+        "material_class",
+        "object_mass",
+        "resonance_scalar",
+        "size_bucket",
+        "statistical_modal_frequency",
+        "statistical_modal_onset_power",
+        "statistical_modal_rt60"
+      ],
+      "payload_state": "source_and_hashes_open_numeric_values_not_decoded",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "empirical_prior"
+      ],
+      "publisher_uri": "https://github.com/alters-mit/clatter",
+      "revision": {
+        "kind": "git_commit",
+        "value": "79cac6cbe3f7c452ba28b56c7da4a0124ad04806"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "alters-mit-clatter",
+      "title": "Clatter physics-event audio synthesizer",
+      "usage_terms": {
+        "expression": "Hippocratic-License-3.0-HL3-BDS-ECO-FFD-LAW-MEDIA-MIL-SV",
+        "retention_policy": "external_control_only_no_repository_copy"
+      }
+    },
+    {
+      "alias_component": "cmu-auditorylab-sound-events-collection-6096123",
+      "cost_class": "medium",
+      "evidence_class": "real_acoustic_candidate",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "da83d383709090e653dd71c443c23605d57de409939b69cb007720e545f4ecc3",
+          "name": "figshare-article-metadata",
+          "unit_count": 6
+        },
+        {
+          "algorithm": "sha256",
+          "digest": "c38fa7cc1d49534e6979609d6019354efe040b52dcadf667e8f619c9f2dcf8a1",
+          "name": "recording-notes",
+          "unit_count": 1
+        }
+      ],
+      "missing_gate": "archive_note_parent_alias_and_role_preflight",
+      "observed_axes": [
+        "action_label",
+        "microphone_distance",
+        "object_description",
+        "repeated_exemplar",
+        "support_description"
+      ],
+      "payload_state": "metadata_and_notes_open_audio_closed",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "real_acoustic",
+        "validator_calibration"
+      ],
+      "publisher_uri": "https://doi.org/10.1184/R1/20205035",
+      "revision": {
+        "kind": "figshare_article_version",
+        "value": "10.1184/R1/20205035.v1"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "cmu-impact-events",
+      "title": "CMU Sound Events Database impact events",
+      "usage_terms": {
+        "expression": "In-Copyright",
+        "retention_policy": "metadata_only_until_role_and_usage_gate"
+      }
+    },
+    {
+      "alias_component": "giordano-mcadams-2006-controlled-plates",
+      "cost_class": "small",
+      "evidence_class": "metadata_physics_control",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "f30408f7a9b7a38273cf79fe02636c1e3ddfa82b6012dc069c3b7b2de8e0f5a2",
+          "name": "paper-pdf",
+          "unit_count": 1
+        }
+      ],
+      "missing_gate": "exact_public_stimulus_to_plate_binding",
+      "observed_axes": [
+        "acoustic_descriptor_table",
+        "material_label",
+        "plate_dimensions",
+        "striker_mass",
+        "support_condition",
+        "thickness"
+      ],
+      "payload_state": "published_numeric_control_open_no_bound_pcm",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "empirical_prior"
+      ],
+      "publisher_uri": "https://www.mcgill.ca/mpcl/files/mpcl/blg_smc_2006_jasa.pdf",
+      "revision": {
+        "kind": "published_paper_snapshot",
+        "value": "sha256:f30408f7a9b7a38273cf79fe02636c1e3ddfa82b6012dc069c3b7b2de8e0f5a2"
+      },
+      "role_state": "control_only",
+      "source_id": "giordano-mcadams-plates",
+      "title": "Giordano and McAdams controlled plate study",
+      "usage_terms": {
+        "expression": "NOASSERTION",
+        "retention_policy": "published_numeric_metadata_control_only"
+      }
+    },
+    {
+      "alias_component": "stanford-objectfolder-derived-nisr-synthetic",
+      "cost_class": "very_large",
+      "evidence_class": "synthetic_modal_teacher",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "fb6f6382597289e4bc0a7e959fda7a85034d290e23b079497272e1a78a645325",
+          "name": "dataset-readme",
+          "unit_count": 1
+        }
+      ],
+      "missing_gate": "generation_source_and_bounded_sample_preflight",
+      "observed_axes": [
+        "boundary_voxels",
+        "material_density",
+        "material_poisson_ratio",
+        "material_young_modulus",
+        "modal_frequencies",
+        "modal_shapes",
+        "synthetic_contact_parameters",
+        "synthetic_pcm"
+      ],
+      "payload_state": "dataset_card_open_payload_closed_generation_link_unverified",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "modal_teacher"
+      ],
+      "publisher_uri": "https://huggingface.co/datasets/BumsooKim00/nisr-dataset",
+      "revision": {
+        "kind": "git_commit",
+        "value": "20368791bcd7829e04ae3eb07c10aa0bb370e38a"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "nisr-v5",
+      "title": "NISR neural inverse sound rendering dataset v5",
+      "usage_terms": {
+        "expression": "CC-BY-4.0-with-upstream-ObjectFolder-terms",
+        "retention_policy": "external_bounded_sample_only"
+      }
+    },
+    {
+      "alias_component": "sound-object-eu-project-modal-synthesis",
+      "cost_class": "metadata_only",
+      "evidence_class": "literature_control",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [],
+      "missing_gate": "measured_parent_corpus_absent",
+      "observed_axes": [
+        "modal_synthesis_formula",
+        "synthetic_demo_index"
+      ],
+      "payload_state": "web_metadata_open_synthetic_demos_not_decoded",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [],
+      "publisher_uri": "https://www.soundobject.org/",
+      "revision": {
+        "kind": "unversioned_web_snapshot",
+        "value": "2026-09-03"
+      },
+      "role_state": "control_only",
+      "source_id": "sounding-object",
+      "title": "Sounding Object project",
+      "usage_terms": {
+        "expression": "NOASSERTION",
+        "retention_policy": "literature_reference_only"
+      }
+    },
+    {
+      "alias_component": "tu-delft-aluminium-plate-zenodo-7758683",
+      "cost_class": "medium",
+      "evidence_class": "structural_transfer",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "b21596836ac538d6412475fa2c2d7e20d78fbe8a258d412aa0c69e144a9b4a47",
+          "name": "zenodo-record-and-file-manifest",
+          "unit_count": 27
+        }
+      ],
+      "missing_gate": "t0_structural_target_and_tdms_probe",
+      "observed_axes": [
+        "acceleration_response",
+        "force_channel",
+        "free_support",
+        "impact_location_grid",
+        "material_constants",
+        "plate_dimensions",
+        "repetition"
+      ],
+      "payload_state": "record_and_file_hashes_open_measurements_closed",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "structural_transfer"
+      ],
+      "publisher_uri": "https://zenodo.org/records/7758683",
+      "revision": {
+        "kind": "zenodo_record",
+        "value": "10.5281/zenodo.7758683"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "tu-delft-aluminium-plate",
+      "title": "Impact hammer test of an Aluminium 6082 T6 plate",
+      "usage_terms": {
+        "expression": "CC-BY-4.0",
+        "retention_policy": "external_structural_control_only"
+      }
+    },
+    {
+      "alias_component": "tu-delft-cello-bridge-assembly-zenodo-20797149",
+      "cost_class": "very_large",
+      "evidence_class": "structural_transfer",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "14508eb634a61a5a39325543f5c66ceae296ce3e0afccda755868f63c35884c4",
+          "name": "zenodo-record-and-file-manifest",
+          "unit_count": 9
+        }
+      ],
+      "missing_gate": "assembly_confound_axis_and_cost_audit",
+      "observed_axes": [
+        "accelerometer_response",
+        "bridge_mass",
+        "bridge_material_composition",
+        "impact_force",
+        "installed_cello_assembly"
+      ],
+      "payload_state": "record_readme_and_file_hashes_open_measurements_closed",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "structural_transfer"
+      ],
+      "publisher_uri": "https://zenodo.org/records/20797149",
+      "revision": {
+        "kind": "zenodo_record",
+        "value": "10.5281/zenodo.20797149"
+      },
+      "role_state": "metadata_axis_audit_required",
+      "source_id": "tu-delft-cello-bridges",
+      "title": "Impact-hammer study of 3D-printed cello bridges",
+      "usage_terms": {
+        "expression": "CC-BY-4.0",
+        "retention_policy": "metadata_only_until_axis_and_cost_gate"
+      }
+    },
+    {
+      "alias_component": "vibraverse-objaverse-generated-synthetic",
+      "cost_class": "very_large",
+      "evidence_class": "synthetic_modal_teacher",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "ed86532abb7113098346dda7a9271ea3a77a01c87b40dffe04b291ce9e522534",
+          "name": "dataset-readme",
+          "unit_count": 1
+        }
+      ],
+      "missing_gate": "upstream_lineage_generation_and_bounded_sample_preflight",
+      "observed_axes": [
+        "material_density",
+        "material_poisson_ratio",
+        "material_young_modulus",
+        "modal_frequencies",
+        "modal_shapes",
+        "surface_mesh",
+        "synthetic_pcm",
+        "tetrahedral_mesh"
+      ],
+      "payload_state": "dataset_card_open_payload_closed",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "modal_teacher"
+      ],
+      "publisher_uri": "https://huggingface.co/datasets/technetium66/VibraVerse",
+      "revision": {
+        "kind": "git_commit",
+        "value": "8099f137e9a9171e758c0528fb4a38a7b5d6aab2"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "vibraverse",
+      "title": "VibraVerse geometry-acoustics alignment dataset",
+      "usage_terms": {
+        "expression": "ODC-By-1.0-with-upstream-asset-terms",
+        "retention_policy": "external_bounded_sample_only"
+      }
+    },
+    {
+      "alias_component": "array-2026-waste-acoustic-material-classification",
+      "cost_class": "metadata_only",
+      "evidence_class": "excluded_unavailable",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [],
+      "missing_gate": "publisher_states_dataset_is_confidential",
+      "observed_axes": [
+        "material_classes_reported",
+        "microphone_setup_reported",
+        "recording_and_event_counts_reported"
+      ],
+      "payload_state": "no_public_payload",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [],
+      "publisher_uri": "https://www.sciencedirect.com/science/article/pii/S2590005626002365",
+      "revision": {
+        "kind": "doi",
+        "value": "10.1016/j.array.2026.100913"
+      },
+      "role_state": "excluded_unavailable",
+      "source_id": "waste-material-classification",
+      "title": "Deep learning-based material classification for waste management using acoustic spectrograms",
+      "usage_terms": {
+        "expression": "DATA-CONFIDENTIAL",
+        "retention_policy": "citation_only"
+      }
+    },
+    {
+      "alias_component": "zenodo-three-object-impact-2563718",
+      "cost_class": "small",
+      "evidence_class": "real_acoustic_candidate",
+      "forbidden_authorities": [
+        "corpus_increment",
+        "first_pack_selection",
+        "generator_training",
+        "protected_admission",
+        "runtime_or_product",
+        "validator_calibration"
+      ],
+      "metadata_bindings": [
+        {
+          "algorithm": "sha256",
+          "digest": "f16132cb5f93be99aca69fb576221b4c9052c19b4e7cf7f640dbf5485afded70",
+          "name": "zenodo-record-and-file-manifest",
+          "unit_count": 7
+        }
+      ],
+      "missing_gate": "physical_parent_location_and_role_preflight",
+      "observed_axes": [
+        "impact_location_label",
+        "material_class",
+        "microphone_waveform_repetition",
+        "object_identity"
+      ],
+      "payload_state": "record_and_file_hashes_open_audio_closed",
+      "physical_parent_credit": 0,
+      "project_independence_credit": 0,
+      "prospective_lanes": [
+        "real_acoustic",
+        "validator_calibration"
+      ],
+      "publisher_uri": "https://zenodo.org/records/2563718",
+      "revision": {
+        "kind": "zenodo_record",
+        "value": "10.5281/zenodo.2563718"
+      },
+      "role_state": "eligible_after_preflight",
+      "source_id": "zenodo-three-object-impact",
+      "title": "Audio dataset produced by striking different objects at different locations",
+      "usage_terms": {
+        "expression": "CC-BY-4.0",
+        "retention_policy": "external_audio_until_role_gate"
+      }
+    }
+  ]
+}

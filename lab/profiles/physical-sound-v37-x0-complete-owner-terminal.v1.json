@@ -1,0 +1,76 @@
+{
+  "authority": {
+    "candidate_authority": "discarded-surrogate-pass-only",
+    "official_capability_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "runtime_authority": false,
+    "scientific_target_allowed": false,
+    "surrogate_targets_allowed": true
+  },
+  "claim": "DISCARDED_SURROGATE_COMPLETE_OWNER_AND_ATOMIC_TERMINAL_CONFORMANCE_ONLY / NO_OFFICIAL_TARGET_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependencies": [
+    {
+      "path": "docs/development/physical-sound-v37-c0-query-surface-structural-cost-result-2026-09-03.md",
+      "sha256": "1c31c3a6cbafb46b05caece438827ca85968a43c123da27d6b90482021e2b4a7"
+    },
+    {
+      "path": "docs/development/physical-sound-v37-f0-fresh-query-surface-operator-result-2026-09-03.md",
+      "sha256": "cb0b830a331a399dca9cb0195c3cb07632c5993b0e2f5da8691dba72f50c5378"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-c0-query-surface-structural-cost.v1.json",
+      "sha256": "acf424694564f09cfab0aac36c47c00c9b72cb1d98711f7f57216d4012934def"
+    },
+    {
+      "path": "lab/profiles/physical-sound-v37-f0-fresh-query-surface-operator.v1.json",
+      "sha256": "409d84b0dff6b28c0df8976afda198fab5c854b1a1e64788096babe4b486d809"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_c0_query_surface_structural_cost_v1.py",
+      "sha256": "6563d869a02ea3a8e2b1e4483825dfef718d255c59b1c4a4e9309e58b06f6fb8"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_f0_fresh_operator_freeze_v1.py",
+      "sha256": "59c97eb426e81691fa1f7f01b835f1fd2cf9639b0c9ffa158defd35386c29fee"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    },
+    {
+      "path": "lab/scripts/physical_sound_v37_terminal_publisher_v1.py",
+      "sha256": "a840ff1241a56d0508ca85b13e7172d0efbdac138d3469cfc26ab2f06d33041a"
+    }
+  ],
+  "fixtures": {
+    "hard_gate_reject": {
+      "maximum_absolute_prediction": -1.0
+    },
+    "metric_reject": {
+      "maximum_rmse": -1.0
+    },
+    "resource_reject": {
+      "maximum_parameter_count": 1
+    }
+  },
+  "gates": {
+    "maximum_absolute_prediction": 10.0,
+    "maximum_output_bytes": 1048576,
+    "maximum_parameter_count": 1024,
+    "maximum_rmse": 0.2
+  },
+  "profile_id": "physical-sound-v37-x0-complete-owner-terminal-v1",
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v37-x0-complete-owner-terminal-profile.v1",
+  "surrogate": {
+    "context_feature_names": [
+      "contact.log_impulse",
+      "mode.log_frequency"
+    ],
+    "field_count_per_role": 2,
+    "queries_per_field": 4,
+    "ridge_lambda": 1e-08,
+    "seed": 3700
+  }
+}

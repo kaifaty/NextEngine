@@ -1,0 +1,74 @@
+{
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "fresh_identity_allocation_allowed": false,
+    "model_allowed": false,
+    "network_allowed": false,
+    "official_capability_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "target_allowed": false,
+    "truth_formula_allowed": false,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "716a7d09481089c82dd7dc9c891812c5a4393378",
+  "candidate_disposition": {
+    "fault": "neither-freeze-nor-rejected-candidate-evidence",
+    "pass": "candidate-freeze-and-bundle-authority",
+    "scientific_reject": "rejected-candidate-evidence-without-freeze-or-bundle"
+  },
+  "claim": "TARGET_FREE_QUERY_SURFACE_CONTAINER_LIFECYCLE_AND_CANDIDATE_DISPOSITION_CONFORMANCE_ONLY / NO_FRESH_TRUTH_TARGET_MODEL_OFFICIAL_CAPABILITY_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "contract": {
+    "context_feature_names": [
+      "contact-u",
+      "contact-v",
+      "mode-order-normalized"
+    ],
+    "field_count": 2,
+    "probe_count": 6,
+    "query_rows_per_role": 2,
+    "target_axis_count": 3
+  },
+  "lifecycle": {
+    "structural-d0": [
+      "pre-access-context",
+      "train-role",
+      "field-encoding",
+      "development-role",
+      "query-evaluation",
+      "hard-gates",
+      "resource-gates",
+      "terminal-publication"
+    ],
+    "structural-h0": [
+      "pre-access-context",
+      "train-reconstruction",
+      "field-encoding",
+      "method-holdout-role",
+      "query-evaluation",
+      "hard-gates",
+      "resource-gates",
+      "terminal-publication"
+    ]
+  },
+  "mutation_ids": [
+    "asymmetric-csr",
+    "bad-barycentrics",
+    "candidate-reject-freeze",
+    "cross-field-csr",
+    "duplicate-context-name",
+    "early-scientific-terminal",
+    "field-offset-origin",
+    "legacy-v36-reject-as-h0-freeze",
+    "noncanonical-direct-query",
+    "nonunit-probe-normal",
+    "pass-without-weights",
+    "stage-skip",
+    "unknown-query-field",
+    "writable-query-storage"
+  ],
+  "schema": "nextengine.experimental-physical-sound-v37-a0-query-surface-profile.v1"
+}

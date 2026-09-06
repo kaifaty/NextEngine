@@ -7,10 +7,13 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 mod bem_feasibility;
+mod classical_baseline;
 mod corpus_inventory;
 mod corpus_plan;
 mod domain_claims;
 mod internet_sources;
+mod neural_data_plane;
+mod realimpact_neural_slice;
 mod realimpact_row;
 mod realimpact_transfer_fixture;
 mod realimpact_transfer_preregistration;
@@ -19,7 +22,9 @@ mod source_feasibility;
 mod split_feasibility;
 mod split_freeze;
 mod transfer_calibration;
+mod transfer_field_baseline;
 use transfer_calibration::run_cli as run_transfer;
+
 const SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.manifest.v1";
 const REPORT_SCHEMA: &str = "nextengine.experimental-physical-sound-research-registry.report.v1";
 const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
@@ -65,6 +70,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
             arguments.next();
             return corpus_inventory::run_cli(root, arguments);
         }
+        Some("classical-baseline") => {
+            arguments.next();
+            return classical_baseline::run_cli(root, arguments);
+        }
         Some("domain-claims") => {
             arguments.next();
             return domain_claims::run_cli(root, arguments);
@@ -73,6 +82,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
             arguments.next();
             return internet_sources::run_cli(root, arguments);
         }
+        Some("neural-data-plane") => {
+            arguments.next();
+            return neural_data_plane::run_cli(root, arguments);
+        }
         Some("identified-corpus") => {
             arguments.next();
             return internet_sources::run_identified_corpus_cli(root, arguments);
@@ -80,6 +93,10 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("realimpact-row") => {
             arguments.next();
             return realimpact_row::run_cli(root, arguments);
+        }
+        Some("realimpact-neural-slice") => {
+            arguments.next();
+            return realimpact_neural_slice::run_cli(root, arguments);
         }
         Some("realimpact-transfer-preregister") => {
             return realimpact_transfer_preregistration::run_cli(root, arguments.skip(1));
@@ -97,6 +114,9 @@ pub(super) fn run_cli(root: &Path, arguments: impl Iterator<Item = String>) -> R
         Some("split-feasibility") => return split_feasibility::run_cli(root, arguments.skip(1)),
         Some("split-freeze") => return split_freeze::run_cli(root, arguments.skip(1)),
         Some("transfer-calibration") => return run_transfer(root, arguments.skip(1)),
+        Some("transfer-field-baseline") => {
+            return transfer_field_baseline::run_cli(root, arguments.skip(1));
+        }
         _ => {}
     }
     let request = parse_arguments(arguments)?;

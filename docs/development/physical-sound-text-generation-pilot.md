@@ -1,0 +1,8696 @@
+# Text-conditioned physical-sound pilot
+
+External research, 2026-09-05. No product promotion or runtime changes.
+
+## Question and audible result
+
+The user's goal is **object/event description -> sound**, including both
+interacting materials, shape/size, force/speed, water and rain. It is not
+**recording -> reconstruction**. The earlier liked glass encoder remains useful
+as a reconstruction control, but cannot satisfy this goal.
+
+The first executable discriminator is a pretrained text-conditioned generator
+on 12 fixed descriptions and two fixed seeds. No reference waveform enters
+generation, no local training occurs, and every output is published before
+scoring. Conditions cover six material-pair impacts, pouring, light/heavy rain,
+scraping, rolling and glass breaking. These are qualitative prompts, not
+measured SI-valued physics inputs.
+
+- [100-step FP16 preview: all 12 conditions, seed 42](/home/kaifaty/.codex/experiments/nextengine/physical-sound/text-pilot-2026-09-05/preview.wav)
+- External root: `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`.
+- `text-pilot-2026-09-05`: 24 candidates + two empty-prompt controls,
+  `preview.wav`, `result.json`, `ast-tags.json`.
+- `text-pilot-fp32-2026-09-05`: same descriptions/seeds/100 steps in FP32.
+- `text-pilot-200steps-2026-09-05`: same descriptions/seeds in FP16, 200 steps.
+
+Preview order: glass/metal striker, glass/wood striker, wood/metal,
+wood/wood, steel/metal, steel/wood, pouring, light rain, heavy rain,
+scraping, rolling, breaking. Each clip lasts five seconds, separated by 0.5 s.
+The preview uses the first seed, not a selected winner. Individual WAVs retain
+the seed in their filenames. No amplification or loudness equalization is
+applied; only attenuation if needed to avoid PCM overload.
+
+## Bounded research and measured controls
+
+[AudioLDM 2](https://huggingface.co/cvssp/audioldm2) and its
+[official pipeline documentation](https://huggingface.co/docs/diffusers/api/pipelines/audioldm2)
+provide an ungated, text-only sound-effects baseline. Its weights are labelled
+CC-BY-NC-SA-4.0; this experiment does not distribute them or admit generated
+assets into the engine. Model revision is
+`c8e7e189d324425c05c4c2f81214041ef4107983`.
+
+Two distinct diagnostics run on delivered PCM:
+
+1. The generator's CLAP compares each audio with all 12 descriptions, swapped
+   material/intensity descriptions, and an empty-prompt generation from the
+   same seed. **Shared generator weights: not an independent validator.**
+2. [AST](https://huggingface.co/MIT/ast-finetuned-audioset-10-10-0.4593), revision
+   `f826b80d28226b62986cc218e5cec390b1096902`, classifies audio without seeing
+   prompts. This is a separate architecture/checkpoint, but pretraining-corpus
+   independence is not established. Its coarse AudioSet tags neither identify
+   steel/striker materials nor certify naturalness. Scores are uncalibrated.
+
+At 100 steps, FP16 produced all 24 candidates in a 139.32-second complete run.
+CLAP favoured the exact intended prompt among the 12 alternatives on **7/24**
+outputs; intended similarity exceeded empty-prompt controls on **20/24**.
+AST included at least one coarse expected tag in its top five for **5/20**
+scorable outputs. Four steel examples have no exact ontology label and are
+explicitly unscored, not passed. All five coarse matches are water/rain;
+many impacts instead receive bell, music or synthesizer tags.
+
+AST recognizes silence/noise/tone controls, but only **2/3** previously disclosed
+real-glass controls have a glass/clink tag in the top five. Thus even this
+coarse threshold cannot be treated as a calibrated material gate. The real
+controls come from the old training pilot; they are not a fresh holdout.
+
+Competing explanations and counterfactuals:
+
+- **Numerical precision:** FP32 leaves CLAP counts and AST's 5/20 unchanged.
+  Median FP16/FP32 PCM correlation is `0.99912` (minimum `0.98011`);
+  mean target cosine is `0.18732` versus `0.18618`. Half precision is not the
+  main explanation for these failures. The official
+  [optimization article](https://huggingface.co/blog/audioldm2) also describes
+  FP16 inference; this is supporting evidence, not a substitute for the run.
+- **Too few denoising steps:** the matched 200-step run completes in 270.07 s,
+  with CLAP rank one on 8/24, better-than-empty scores on 21/24 and unchanged
+  AST coarse coverage of 6/20 (versus 5/20). Doubling compute does not resolve
+  the broad failures.
+- **Insufficient semantic/interaction control:** supported by the disagreement
+  between improved CLAP similarity and coarse audio-only tags. This remains a
+  model/measurement hypothesis, not proof of a specific training-data defect.
+
+No result establishes precise geometry, force, velocity, calibrated rainfall,
+new-object generalization or novelty relative to unknown pretraining examples.
+Louder heavy-rain output alone does not establish correct rainfall physics.
+AST used the official Transformers NumPy frontend (TorchAudio is absent).
+It emitted a zero-valued mel-filter warning; no checkpoint preprocessing was
+retuned to improve these scores. The real/control results above and that
+frontend limitation must accompany interpretation of the diagnostic.
+
+## Next useful discriminator
+
+The TangoFlux counterfactual below selects a more useful research base. Do not
+train another recording-to-modal-parameter MLP or declare that prompt generation
+solves physical control. Next: one bounded real-audio fine-tuning experiment on
+that generator, with audible before/after output and frozen development checks.
+Use the disclosed wine-glass recordings with two recording IDs for training
+and the third for development; do not reclassify them as pristine test data.
+Adapt a small part of the model, preserve the base, and check unrelated event
+prompts for regressions. Render during the first short training cycle rather
+than creating a separate protocol or waiting for a long fit to finish.
+The input remains event text, never the target recording. Missing exact
+geometry/force labels stay missing; this first adaptation tests learnability
+of an observed sound family, not the entire goal.
+
+[Simi-SFX (2024)](https://arxiv.org/pdf/2412.18710) demonstrates continuous
+timbral conditioning, but its reconstruction pathway extracts loudness and
+centroid from input audio. Adopting it unchanged would again miss the user's
+no-reference-audio goal. Do not confuse acoustic feature controls with measured
+physical parameters or fabricate missing geometry/force labels.
+
+## Runnable path
+
+Scripts: [generation](../../lab/scripts/physical_sound_text_pilot.py),
+[audio-only diagnostics](../../lab/scripts/physical_sound_text_tags.py),
+[focused tests](../../lab/tests/test_physical_sound_text_pilot.py).
+Use `lab/.venv/bin/python`; installed optional research dependencies are
+`diffusers==0.30.3`, `transformers==4.44.2`, `accelerate==0.34.2`,
+`huggingface-hub==0.34.4`, `sentencepiece==0.2.1`, `soundfile==0.13.1`.
+Torch and NumPy were not replaced. Exact package versions accompany each run.
+
+First download the pinned model revisions with `huggingface_hub.snapshot_download`:
+for AudioLDM2 allow `*.json`, `*.txt`, `*.model`, `*.safetensors`, `README.md`;
+for AST allow `*.json`, `*.safetensors`, `README.md`. No remote model code is used.
+Then run offline, selecting a new external directory:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_text_pilot.py \
+  --output /absolute/external/new-run --steps 100 --seeds 42 123 --seconds 5
+
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_text_tags.py \
+  --source /absolute/external/new-run/result.json \
+  --output /absolute/external/new-run/ast-tags.json
+```
+
+The entire goal remains open: generation from physical attributes, robust
+independent automatic evaluation, demonstrated improvement through learning,
+new-condition generalization and an admitted offline engine-consumption path.
+
+Verification: six new focused tests and all twelve existing audible-glass tests
+passed; Ruff and diff checks passed. All 81 WAVs across the three runs were
+read back: correct mono PCM16/16 kHz, expected duration, no clipping and exact
+individual hashes. No Cargo/ProductCheck was run: this is external-only Python
+lab work with no runtime or public-contract change.
+
+## TangoFlux comparison (2026-09-05)
+
+Powered by Stability AI. [TangoFlux](https://huggingface.co/declare-lab/TangoFlux),
+Hung et al., non-commercial research only. This Stability AI Model is licensed
+under the Stability AI Community License, Copyright © Stability AI Ltd.
+All Rights Reserved. The upstream model/data restrictions are retained with
+the external artifacts; no runtime or distributable engine asset is promoted.
+
+The exact model revision is `367005e963cb3a9fb2e03a46104d7de23e34ceea`.
+The inspected upstream `model.py` must match SHA-256
+`209cfe8de77e39e935668b4e13ddb226ea2842b01d56d59898f970067de3481d` before
+execution. All checkpoint keys/values are checked, including the tied T5
+embedding alias omitted from safetensors. Cached T5 files only scaffold
+construction; no unreported AudioLDM weights remain after loading TangoFlux.
+
+[TangoFlux preview, fixed seed 42](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/preview.wav)
+contains the same twelve prompts in the order above. The external
+`tangoflux-pilot-2026-09-05` directory contains 26 native 44.1-kHz stereo WAVs,
+26 downmixed/resampled 16-kHz scoring copies, the preview, exact executed
+script, `result.json` and `ast-clap-fp32.json`. The run took **194.09 s** at
+50 steps/FP32. The full upstream latent horizon is rendered before trimming
+to five seconds; no target audio enters the generator. No weights were trained.
+
+[22-second direct comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-pilot-2026-09-05/base-vs-tango-preview.wav):
+AudioLDM2 glass -> TangoFlux glass -> AudioLDM2 wood -> TangoFlux wood,
+all seed 42, with half-second gaps and no loudness matching.
+
+| Same diagnostic | AudioLDM2, 200 steps | TangoFlux, 50 steps |
+| --- | ---: | ---: |
+| CLAP exact prompt ranks first among twelve | 8/24 | 15/24 |
+| CLAP intended score beats empty-prompt control | 21/24 | 24/24 |
+| AST coarse expected tag in top five | 6/20 | 15/20 |
+
+The four steel cases remain unscored by the AST material rule: its ontology
+has no exact steel class. TangoFlux steel outputs sometimes receive glass tags.
+Both rolling examples lack a high-ranking Roll tag; scraping receives strong
+Rub/Filing tags but not the predefined Scrape tag. These are diagnostic
+disagreements, not automatic proof every such waveform sounds wrong. Glass
+breaking can pass the coarse Glass tag without proving fracture; paired
+prompts also vary descriptive wording, so positive prompt margins do not
+isolate a physically causal striker-material effect. Light/heavy rain has
+opposite-sign CLAP pair margins across the two seeds. Fine control is not solved.
+
+For this comparison, CLAP is loaded directly in FP32 on CPU for **both**
+models. Earlier AudioLDM2 CLAP weights were rounded through FP16 before scoring.
+The first replay comparison therefore failed the `1e-5` tolerance (maximum
+cosine difference `0.001079`). Explicitly reproducing that weight rounding
+reduced the error to `5.38e-7`, isolating the cause. Baseline remeasurement is
+retained as `text-pilot-200steps-2026-09-05/ast-clap-fp32.json`; old reports
+are not overwritten. Its counts remain unchanged. Neither pretrained judge
+has established training-data independence or calibrated perceptual risk.
+
+Run [the TangoFlux script](../../lab/scripts/physical_sound_tangoflux_pilot.py)
+offline after downloading the pinned model's `*.json`, `*.safetensors`, `*.md`,
+`model.py`, `tangoflux.py` with `snapshot_download`. It also uses the already
+cached AudioLDM2 scaffold. Additional dependency: `datasets==2.21.0` (upstream
+imports it even for inference); this installs `fsspec==2024.6.1`, replacing
+`2026.6.0` in the lab environment. Torch and model libraries are unchanged.
+Nine current focused pilot tests and four existing pilot tests passed;
+Ruff/diff checks passed. All 52 individual WAVs were checked for exact hashes,
+sample rates, dimensions, lengths and unclipped PCM. No ProductCheck applies
+to this external-only experiment; generalization and integration remain open.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py --output /absolute/external/tango-run
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_text_tags.py \
+  --source /absolute/external/tango-run/result.json \
+  --output /absolute/external/tango-run/ast-clap-fp32.json --with-clap
+```
+
+## First actual generative fine-tune (2026-09-05)
+
+[Listen: real glass -> base -> step 40 -> step 120](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/glass-training-comparison.wav).
+The sequence repeats for seeds 42 and 123 (16 seconds total, half-second gaps,
+no loudness matching). The real example comes from development recording
+761162. Generation receives **text and duration only**, never that recording.
+[Step-120 preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-glass-2026-09-05/step120/preview.wav)
+also includes wooden-stick/glass, wood, water and rain controls.
+
+The reversible experiment trains 786,432 LoRA parameters (rank/alpha 8,
+attention `to_q`/`to_v` only), freezing all original TangoFlux/T5/VAE weights.
+Dependency addition: `peft==0.12.0`; previous pinned libraries are unchanged.
+The implementation follows the upstream [SFT flow target and VAE encoding](https://github.com/declare-lab/TangoFlux/blob/main/tangoflux/train.py)
+and the installed Diffusers 0.30.3 [adapter interface](https://huggingface.co/docs/diffusers/v0.30.3/api/loaders/peft).
+It executes only the previously inspected hash-pinned HF model code, not the
+moving GitHub training script. Cached text conditioning reproduces the exact
+upstream FP32 SFT loss: both are `0.32723280787467957` on the same RNG control.
+
+Training uses the previously disclosed 16 crops from recordings 761160/761161;
+all 11 crops of 761162 are excluded from this fit. Same author/pack is not
+proof of independent physical objects; this is **development**, not a pristine
+test. Hashes and crop identities are retained. Each 1.5-second crop is resampled
+to stereo 44.1 kHz, peak-normalized to 0.5 and padded to the upstream 30-second
+latent horizon. VAE posterior means/stds are cached; training samples the
+posterior, while fixed development measurements use its mean and three fixed
+noise levels. One prompt describes a knife hitting a wine glass once.
+There are no invented geometry, force or striker-material measurements.
+
+Unlike upstream uniform MSE, this short-impact experiment gives half the loss
+to the first 33 latent frames and half to the remaining 612 frames. Both terms
+remain visible: padding must not hide a bad impact, nor can the impact excuse
+bad padding. AdamW uses `1e-4`, 120 steps, BF16 training autocast with FP32
+weights. All audition generations remain FP32, 50 flow steps, CFG 4.5.
+The complete training plus three before/during/after render sets took 314.21 s;
+peak CUDA allocation was 4,655,436,288 bytes. Only adapter weights are saved.
+
+| Development metric (lower is better) | Base | Step 40 | Step 120 |
+| --- | ---: | ---: | ---: |
+| Active-region flow MSE | 1.32718 | 1.26713 | 0.96294 |
+| Padding-region flow MSE | 0.60084 | 0.61090 | 0.64510 |
+| Balanced objective | 0.96401 | 0.93901 | 0.80402 |
+| Full-horizon uniform MSE | 0.63801 | 0.64448 | 0.66136 |
+
+**Learnability changed, quality improvement is not established.** Active error
+improves 27.4%, but padding worsens 7.4% and the full-horizon error worsens 3.7%.
+Frozen AST retains a coarse expected tag in all 10/10 cases at every stage;
+that coarse gate misses the degradation in text alignment. Mean CLAP target
+similarity across ten cases falls from 0.35858 to 0.33929. For the trained
+knife/glass prompt it falls from 0.27602/0.22953 to 0.23840/0.10767 (two seeds).
+The latter changes its highest-scoring description from wooden-stick/glass to
+wood. Thus a lower flow loss must not automatically promote an adapter.
+CLAP is not a calibrated naturalness judge either: these results support
+**keeping the base**, not declaring every adapted sound perceptually worse.
+
+Three original/VAE round-trip pairs are retained as controls. Their prior
+multiresolution spectral errors are 0.6464/0.6671/0.6890 and envelope errors
+0.0962/0.1352/0.1187: the codec is lossy, not an exact waveform identity path.
+AST gives the real and round-tripped examples strong Ding/Clang tags, so exact
+glass/striker identity cannot be inferred from those tags. Its existing NumPy
+mel-filter warning remains visible; no calibrated quality gate is claimed.
+
+The checkpoint can be loaded in a fresh process using the original pilot's
+`--adapter` option. It validates the source revision, recorded checkpoint hash,
+fixed adapter shape, complete key coverage and finite FP32 tensors; it cannot
+replace arbitrary base weights. A separate reload run generated all 12 original
+event prompts with seed 42, including steel, rolling, scraping and breaking:
+[reloaded adapter preview](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-reload-2026-09-05/preview.wav).
+Four same-prompt controls match the step-120 stereo and mono WAV hashes exactly.
+On these twelve original prompts/seed 42, CLAP exact-prompt top-one changes
+from base 9/12 to adapter 8/12, mean target similarity 0.34070 -> 0.33703;
+AST coarse expected tags remain 8/10 (steel is still unscored). This broader
+check does not establish an overall gain either.
+All 84 individual training-run WAVs and 26 reload WAVs passed hashes, dimensions,
+duration, rate and unclipped PCM checks. The 16-second comparison and all four
+previews were read back. Nothing replaces the liked engine glass profile.
+Thirty focused pilot, training and existing audible-glass tests passed;
+Ruff formatting/static checks and `git diff --check` passed. ProductCheck,
+Cargo and engine audition were not run: no runtime/public-contract changes.
+
+Reproduce with external output directories and the existing disclosed MP3 root:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --sources /absolute/external/ps2-freesound-wine-glass-v1/research \
+  --output /absolute/external/tango-fit --steps 120
+# Score step0, step40 and step120 with the same command, changing the directory:
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_text_tags.py \
+  --source /absolute/external/tango-fit/step120/result.json \
+  --output /absolute/external/tango-fit/step120/ast-clap.json --with-clap
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --adapter /absolute/external/tango-fit/adapter-step120.safetensors \
+  --output /absolute/external/tango-reload --seeds 42
+```
+
+Next: discriminate short-duration/padding and guidance effects on **free
+generation**, with a same-prompt, same-seed base control, before another longer
+fit. Then expand real internet training coverage beyond this family. Lower
+denoising loss on these recordings is not proof of unseen material, shape,
+force, speed, water-flow or rainfall control; those full-goal requirements and
+engine admission remain open. No model-shopping or modal-MLP restart follows
+from this result.
+
+## Duration/guidance counterfactual (2026-09-05)
+
+[Audible comparison, previously problematic seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-duration-guidance-2026-09-05/comparison.wav)
+is 37.5 seconds. First the 1.5-second condition, then five seconds; within each,
+CFG 1 base/adapted, then CFG 4.5 base/adapted/base-unconditional. All **28**
+candidates (both seeds 42/123, both durations, CFG 1/2/4.5 and the conditional-only
+adapter counterfactual at 4.5) remain individually available in that directory.
+No model was trained or chosen from these scores. Generation plus CLAP scoring
+took 256.38 seconds; AST was measured afterwards.
+
+[Classifier-free guidance](https://arxiv.org/abs/2207.12598) combines conditional
+and unconditional model predictions. Our counterfactual therefore separately
+tests requested duration, guidance strength and retaining the **base**
+unconditional prediction at the same evolving latent. Both branches use the
+same batch shape; no external classifier guides generation. A local inference
+wrapper avoids the pinned upstream revision's unsupported keyword in its
+`guidance_scale <= 1` branch. At scale 1 it returns the conditional prediction
+exactly, not an unconditional sample or a numerically unstable subtraction.
+At CFG 4.5 the new wrapper's latent is bit-exact with the upstream method.
+All four historical base/adapted 1.5-second WAV pairs replay exactly, and their
+factored FP32 CLAP measurements reproduce the previous scores within `1e-6`.
+
+| Duration / CFG | Base mean target cosine | Adapted minus base, two seeds |
+| --- | ---: | --- |
+| 1.5 s / 1 | 0.04281 | -0.00502, +0.01051 |
+| 1.5 s / 2 | 0.07036 | +0.00429, +0.00718 |
+| 1.5 s / 4.5 | 0.25277 | -0.03762, -0.12186 |
+| 5 s / 1 | -0.04872 | -0.01134, -0.01908 |
+| 5 s / 2 | 0.14132 | -0.01452, +0.00432 |
+| 5 s / 4.5 | 0.26089 | -0.00992, -0.00159 |
+
+- Longer requested audio reduces the large adaptation penalty at CFG 4.5 but
+  does not reverse it. Changing duration also changes the scored clip length;
+  this does not isolate conditioning from evaluator length sensitivity.
+- Reducing CFG to 2 yields tiny positive changes at 1.5 seconds, but both
+  absolute text scores are poor, and only one of two examples has a coarse
+  glass/clink tag in AST. CFG 1 is worse. Selecting by improvement alone would
+  mistake an inadequate baseline for useful sound.
+- Keeping the base unconditional branch is not a repair: mean target deltas
+  are -0.10176 at 1.5 seconds and -0.01710 at five seconds. This rejects that
+  specific remedy, not the existence of all possible unconditional drift.
+- In the previously bad seed-123/default-CFG example, the 10-ms energy peak
+  moves from 670 ms (base) to 0 ms (adapted), or 110 ms with base-unconditional.
+  This is a measured timing change, not proof of a particular physical cause.
+
+The six original/VAE controls were additionally scored against the **same**
+five-caption bank. Original target cosines are 0.40049/0.40553/0.41696; VAE
+cosines 0.38179/0.44653/0.45743. All six nevertheless rank the wooden-stick/glass
+caption above the knife/glass caption. The captions differ in wording beyond
+the striker, so these ranks cannot establish striker identity or a material-pair
+error. `real-positive-controls.json` preserves the scores and WAV hashes. The
+probe now includes this measurement in its runnable path; in the first run it
+was performed immediately afterwards. Neither prompt similarity nor coarse
+AST tagging is a calibrated physical/naturalness admission gate.
+
+All 56 individual WAVs passed hash, duration, dimensions, sample-rate and
+unclipped-PCM checks. The comparison is playable and all four historical replay
+controls passed. This narrows the next experiment to the **training objective**:
+compare the hand-weighted active/padding objective against original uniform
+full-horizon flow MSE, holding recordings, LoRA initialization, sampling and
+steps fixed. Do not repeat the duration/CFG sweep as a supposed quality fix.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_probe.py \
+  --checkpoint /absolute/external/tango-fit/adapter-step120.safetensors \
+  --output /absolute/external/tango-probe
+```
+
+## Uniform-loss control (2026-09-05)
+
+[Real glass -> base -> balanced fit -> uniform fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-lora-uniform-2026-09-05/objective-comparison.wav)
+repeats for seeds 42/123, 16 seconds total. The new external run is
+`tangoflux-lora-uniform-2026-09-05`; its step40/120 directories contain the
+five-prompt/two-seed WAV matrices and `ast-clap.json`. It completed 120 steps
+and three render sets in 325.71 seconds.
+
+This changes **only the optimized loss** to the original uniform full-horizon
+flow MSE. All 27 cached posterior tensors have the same safetensors hash
+`03a024064bf211f9f7d2773ac4df62fcf49f1334fd2059571353152810754631` as the balanced
+run; source/crop metadata, LoRA configuration and all 120 sampled source indices
+match. All twelve baseline stereo/mono pairs replay exactly. The same seeded
+sampling recipe and initialization are retained. Baseline scoring therefore
+uses the existing exact-WAV report rather than a redundant model run.
+
+| Development metric | Base | Balanced step 120 | Uniform step 120 |
+| --- | ---: | ---: | ---: |
+| Active flow MSE | 1.32718 | 0.96294 | 0.97712 |
+| Padding flow MSE | 0.60084 | 0.64510 | 0.59010 |
+| Full-horizon flow MSE | 0.63801 | 0.66136 | 0.60990 |
+| Mean CLAP target similarity, ten generations | 0.35858 | 0.33929 | 0.34063 |
+
+Uniform MSE removes the active-versus-padding tradeoff: both regions improve
+over the base. But free-generation alignment still degrades. The two trained
+glass-prompt cosines are 0.23561/0.10643, versus base 0.27602/0.22953. Coarse
+AST tags remain 10/10 and CLAP top-one remains 8/10, again hiding the degree of
+degradation. Neither adapter is selected as a quality improvement. No repeated
+human audition is needed to refrain from promoting an unproven candidate.
+
+This does not prove insufficient model capacity or that neural sound synthesis
+cannot work. Two comparable fits now show better denoising loss without a
+free-generation gain. Stop nearby rank/lr/epoch/objective tuning and apply the
+bounded-research escalation: distinguish corrupted/mismatched codec targets,
+over-specialization to tiny constant-caption data, and insufficient validation
+of generative quality. The next inexpensive executable discriminator is
+**real waveform -> VAE mean versus sampled posterior -> audible reconstruction**
+on the disclosed sources: current positive controls decode only the mean,
+whereas training samples the posterior. Inspect the official codec/training
+implementation and score both target paths before another fit. If targets are
+sound, expand real internet data beyond this one glass family rather than
+trying another local hyperparameter variant. The full multi-material,
+water/rain, physical-control and new-condition goal remains unchanged.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --sources /absolute/external/ps2-freesound-wine-glass-v1/research \
+  --output /absolute/external/tango-uniform --steps 120 --objective full
+```
+
+Verification: 36 focused tests, Ruff formatting/static checks and diff/link
+checks passed. The probe's 56 and uniform run's 84 individual WAVs were checked
+for hashes, dimensions, rate, duration and PCM headroom; both comparison files
+and the three new stage previews were read back. No Cargo, ProductCheck or
+engine audition was run: this remains an external-only Python lab change.
+
+## Codec target discriminator and water/rain data (2026-09-05)
+
+[Original -> VAE mean -> posterior sample, three recordings](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-codec-targets-2026-09-05/comparison.wav)
+is an 18-second **reconstruction diagnostic**, not a new text generator.
+The full external `tangoflux-codec-targets-2026-09-05` run retains three means
+and nine posterior samples (seeds 0/42/123), each with a 1.5-second audition
+and a five-second version exposing padded silence. The preview uses seed 42.
+
+The official [TangoFlux training implementation](https://github.com/declare-lab/TangoFlux/blob/main/tangoflux/train.py)
+samples the VAE posterior. In the installed, pinned
+[Diffusers 0.30.3 codec](https://github.com/huggingface/diffusers/blob/v0.30.3/src/diffusers/models/autoencoders/autoencoder_oobleck.py),
+the sample is mean plus softplus-derived standard deviation times Gaussian
+noise. A focused test verifies our cache sampling against that distribution
+with the same CPU generator; it does not assert CPU/GPU RNG stream identity.
+The exact published posterior hash and all three mean-reconstruction WAV
+hashes match. The large padding-latent standard deviation (~0.974 RMS) does
+**not** imply noisy decoded audio.
+
+The executable discriminator does not support posterior-sampling corruption
+as the cause of the failed fits in these controls:
+
+- Sample-versus-mean changes in relative spectral error range from -0.01160
+  to +0.01456. Source-level mean errors remain 0.64642/0.66711/0.68902; the
+  codec itself is lossy, but sampling adds no large systematic degradation.
+- Sample target CLAP scores span 0.37099–0.46404, near the corresponding
+  mean scores 0.38179/0.44653/0.45743. They remain well above the failed
+  free-generation examples. AST likewise retains the same coarse ringing tags.
+- Padding RMS is approximately -100 to -95 dBFS, 64–70 dB below active RMS;
+  there is no large audible-energy tail induced by sampling in these controls.
+
+The run took 12.60 seconds before AST measurement. All 48 newly rendered WAVs
+and six referenced original WAVs passed hash/signal checks; the comparison
+was read back at exactly 18 seconds. This rejects a proposed **sampling fix**
+on the tested controls, not every possible codec limitation. No third fit on
+the same three recordings was launched.
+
+Instead, the next curriculum now has real examples beyond rigid glass:
+[rain -> pouring water -> water drops, train/development examples](/home/kaifaty/.codex/experiments/nextengine/physical-sound/esc50-water-rain-2026-09-05/sources-preview.wav).
+This 33-second preview contains **source recordings**, not generated output.
+The [ESC-50 source repository](https://github.com/karolpiczak/ESC-50) is pinned to
+`33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`. Its metadata groups fragments from
+one source recording in the same fold. We use folds 1–4 for training and fold
+5 as disclosed development, not as an untouched or pretraining-independent test.
+
+Downloaded **117 five-second WAVs from 100 source recordings**: 93 train,
+24 development; 40 rain, 37 pouring-water, 40 water-drop clips. The source-ID
+sets are disjoint. The dataset-level CC-BY-NC 3.0 notice, original full license
+file and individual author/source notices are retained externally alongside
+the pinned CSV, URLs and hashes. Three pouring-water source IDs
+67152/79220/126433 have CC-Sampling+ notices; their audio remains unfetched
+because that path has not been reviewed. No additional restriction is silently
+treated as permission, and no redistribution or engine admission is claimed.
+
+A bounded collision screen found no overlap with existing artifact filenames
+or the 39 source IDs in 43 URL-bearing JSON metadata files under 2 MB. This
+states the screen's actual scope, not a complete foundation-training audit;
+legacy protected audio/roles were not opened or reassigned. The new data have
+weak **event-class** captions only: physical attributes remain `null`. Neither
+water intensity, rainfall rate, geometry nor material pairs are invented.
+Ten source files touch full-scale PCM; the original samples and peak metadata
+are retained, not falsely certified as artifact-free or silently edited.
+
+An unmodified frozen CLAP diagnostic on all real examples matches their coarse
+category on rain 39/40, pouring water 37/37, and water drops 34/40. All seven
+disagreements remain in the corpus; these scores did not select recordings or
+calibrate an acceptance threshold. `real-clap.json` records the complete matrix.
+This is sufficient to start a bounded multi-event learning experiment with
+before/after WAVs and unrelated glass/wood controls; it does not yet prove that
+a fine-tuned generator will improve or control continuous physical properties.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_codec_probe.py \
+  --fit /absolute/external/tango-fit --output /absolute/external/codec-probe
+lab/.venv/bin/python lab/scripts/physical_sound_water_sources.py \
+  --prior-root /absolute/external/physical-sound \
+  --output /absolute/external/new-water-corpus
+```
+
+The acquisition tool downloads only data, refuses malformed identities,
+missing/unknown notices and known source-role collisions, and preserves
+source-level splitting. It refuses existing output directories; use the
+completed external corpus instead of reacquiring it or reassigning its roles.
+
+Verification: 45 focused tests and Ruff/diff/local-link checks passed. No
+Cargo/ProductCheck or engine audition was run; no runtime or public contract
+changed. The base generator and both earlier adapters remain untouched.
+
+## Multi-event water/rain learning (2026-09-05)
+
+[Listen: rain, pouring water, water drops — base then step 240 for each](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-water-rain-fit-2026-09-05/comparison.wav).
+This 33-second preview uses seed 42, with no recording at inference. Both
+seeds 42/123, the step-40 intermediate, empty-prompt controls and glass/wood
+regression examples remain in the external run; the preview does not select
+the better seed. [Final water drops, seed 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-water-rain-fit-2026-09-05/step240/water_drops-seed123.wav)
+is also directly playable. These are new generations, not codec reconstructions.
+
+The existing trainer now accepts the completed attributed `--corpus`, validates
+source hashes/PCM/roles, caches three event captions and uses full five-second
+targets (108 active latent frames). It preserves the old glass invocation.
+The 93 permitted training clips and 24 disclosed development clips remain
+source-ID-disjoint. Random sampling visited 92/93 training clips in 240 updates:
+82 rain, 72 pouring-water and 86 water-drop updates. No development audio enters
+the optimizer. Generic captions do not establish flow rate or physical controls.
+
+The run uses the same frozen TangoFlux/T5/VAE, rank-8 q/v LoRA (786,432 learned
+parameters), AdamW 1e-4, BF16 training and FP32 50-step generation. Uniform
+upstream flow MSE is the objective; neither AST nor CLAP supplies training
+reward. Cached conditioning matches exact upstream loss at
+0.46225404739379883. All four initial glass/wood mono and stereo controls
+replay the prior baseline exactly. `--diagnostics` automatically runs the
+frozen AST/CLAP measurements after checkpoint generation, without a separate
+manual scoring step. Total execution including diagnostics: 487.99 seconds;
+peak Torch CUDA allocation: 4,654,928,384 bytes (not total device usage).
+
+The result is **not a replacement for the base model**. Development active
+flow MSE falls 25.43% (1.55279 -> 1.15788), and full-horizon MSE falls 16.11%
+(0.76171 -> 0.63897), with improvements in all three event classes. Yet
+free-generation alignment regresses overall:
+
+| Mean target CLAP, two seeds | Base | Step 40 | Step 240 |
+|---|---:|---:|---:|
+| Rain | 0.46055 | 0.46127 | 0.45653 |
+| Pouring water | 0.35234 | 0.35083 | 0.31383 |
+| Water drops | 0.41781 | 0.41930 | 0.44578 |
+| Glass regression control | 0.25277 | 0.25101 | 0.10684 |
+| Wood regression control | 0.39026 | 0.38967 | 0.33657 |
+
+CLAP top-1 across five prompts drops from 8/10 to 6/10; all 10 still beat
+their empty-prompt controls. AST expected coarse tags appear in the top five
+for 10/10 base and step-40 sounds but 9/10 final sounds: glass seed 123 loses
+its glass/clink match. Both final pouring-water sounds prefer the water-drop
+caption in CLAP, while AST emphasizes taps/water. The water-drop score gain
+occurs on both seeds, but this is prompt alignment, not independently calibrated
+naturalness or proof of a physical response. Two seeds do not establish robust
+generalization; classifier pretraining overlap remains unknown. AST retains
+the previously disclosed NumPy frontend/zero-mel-filter warning limitation.
+
+This is evidence that multi-event learning changes generated sounds, and that
+the automated diagnostics can expose cross-event regression despite improving
+training loss. It is not evidence that simply enlarging the data or training
+longer solves the goal. Keep the base and the liked demo unchanged. The next
+bounded discriminator should address retention of the base's useful behavior
+(for example a researched reference-model/rehearsal control), while retaining
+the pouring-water versus droplets distinction; do not extend this adapter's
+epochs or declare its best class a general solution. No repeat of the already
+negative glass duration/CFG, posterior-mean or modal-MLP experiments is justified.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --corpus /absolute/external/esc50-water-rain-2026-09-05 \
+  --output /absolute/external/new-water-rain-fit \
+  --steps 240 --objective full --diagnostics
+```
+
+All 96 individual WAVs (72 generated, 24 original/codec controls) passed
+hash, rate, duration, PCM type, shape, non-silence and headroom checks. Three
+24-second stage previews and the 33-second comparison were read back; both
+adapter hashes match. The focused suite has 43 passing tests, including new
+caption/role/source-split and five-second loss-region cases. Ruff formatting,
+static analysis and diff/local-link checks passed. An initial module-qualified
+test command failed because an existing test imports a sibling by bare name;
+the corrected invocation uses `PYTHONPATH=lab/tests`. No code workaround or
+test exclusion was needed. Cargo/ProductCheck and engine audition were not run:
+this is an external Python experiment with no runtime/public-contract change.
+
+## Base-behavior retention discriminator (2026-09-05)
+
+[Rain/pouring water/drops: base -> retained-prior fit](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/comparison.wav)
+is a 33-second seed-42 comparison. [Glass: base -> unregularized -> retained,
+for seeds 42 then 123](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-prior-retention-2026-09-05/glass-retention.wav)
+is 12 seconds. All candidates remain available, including the weaker ones.
+
+The bounded research separated three hypotheses: unrestricted SFT forgets
+useful base behavior; coarse water captions leave event ambiguity; and the
+diagnostics are imperfect proxies for naturalness. The previous exact source,
+loss and PCM controls argue against an accidental input/precision change.
+[Diffusers 0.30.3 prior-preservation documentation](https://huggingface.co/docs/diffusers/v0.30.3/training/dreambooth#prior-preservation-loss)
+describes retaining learned image behavior with model-generated examples.
+This motivates, but does not establish, an analogous audio experiment.
+[TangoFlux v2, 10 April 2025](https://arxiv.org/html/2412.21037v2) also distinguishes
+flow training from preference alignment and explicitly treats CLAP as a proxy.
+Neither source proves our proposed regularizer or makes CLAP a physical judge.
+
+Implemented one reversible `--prior-weight 1` control in the existing trainer.
+Before adding LoRA, capture ten states (steps 0,5,...,45 of 50) from each of
+16 base trajectories: current five prompts, nonduplicate original pilot
+prompts, and empty prompt. Use seed 7 only, CFG 4.5, both unconditional and
+conditional branches. The 160 paired targets are frozen BF16 field predictions
+on FP32 base trajectories, not real recordings, labels, or physical velocities.
+They are stored externally in `prior.safetensors` (135,536,048 bytes) with
+prompt/seed/duration/step metadata. This is field-distillation regularization,
+not an exact DreamBooth implementation, KL loss, or preference optimization.
+
+Each update adds one randomly sampled prior-field MSE gradient to the real
+audio full-horizon MSE gradient, before their shared clipping/optimizer step.
+The prior RNG is separate; it visits 121/160 paired states in 240 updates.
+The real sources, posterior tensors, all 240 source indices and 24 baseline
+WAVs match the unregularized run exactly. Captured FP32 replay matches exactly
+at the first state of every prompt; the zero-initialized LoRA also reproduces
+the first BF16 teacher target exactly. Evaluation seeds 42/123 never enter the
+prior bank. Prompts overlap intentionally: this is not unseen-prompt evidence.
+
+Result: **partial retention and localized alignment gains, not promotion**.
+Development active/full MSE improves 25.01%/16.29% versus base, so the penalty
+does not simply prevent fitting. Runtime including diagnostics: 639.24 seconds;
+peak Torch CUDA allocation 4,654,928,384 bytes. The five-prompt comparison is:
+
+| Mean target CLAP, two seeds | Base | Unregularized 240 | Prior 240 |
+|---|---:|---:|---:|
+| Rain | 0.46055 | 0.45653 | 0.47141 |
+| Pouring water | 0.35234 | 0.31383 | 0.32604 |
+| Water drops | 0.41781 | 0.44578 | 0.44119 |
+| Glass | 0.25277 | 0.10684 | 0.19148 |
+| Wood | 0.39026 | 0.33657 | 0.36727 |
+
+Rain and drops each gain versus base on both seeds. AST expected-tag coverage
+returns from the unregularized 9/10 to 10/10, including glass seed 123. However,
+glass/wood remain below base alignment, both pour outputs still prefer the
+drop caption, and top-1 remains 6/10 versus base 8/10. Overall mean target
+CLAP is 0.37475 / 0.33191 / 0.35948 for base/unregularized/prior. All ten
+outputs beat their empty-prompt controls. Step 40 remains near baseline.
+No claim of calibrated perceptual quality, exact striker material, flow rate,
+unseen-object generalization or engine readiness follows from these numbers.
+
+A separate post-fit reload audit compares both saved adapters on all 160
+frozen bank states (`field-audit/result.json`). Branch full-horizon MSE drops
+0.0106062 -> 0.00209489 (80.25%); active-region MSE drops 80.07%. Recombine
+branch errors using the actual sampler formula, `delta_u + 4.5*(delta_c-delta_u)`:
+guided full-horizon MSE drops 0.0267267 -> 0.00929973 (65.20%), and active
+MSE drops 0.0425852 -> 0.0156231 (63.31%). Thus retention acts on its intended
+quantity, but residual guided drift and imperfect semantic targets remain.
+This audit reuses disclosed training states, not independent evidence.
+
+Before another fit, test the candidate against the base on new seeds and
+unseen prompt wording/combinations, including regression events. Retain the
+existing water/pour distinction as an explicit failure. A larger regularizer
+or guided-field penalty is only a candidate if further evidence warrants it;
+do not launch a weight/epoch sweep or present the two-seed gains as the full
+goal. The base and liked demo stay unchanged.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_train.py \
+  --corpus /absolute/external/esc50-water-rain-2026-09-05 \
+  --output /absolute/external/new-prior-fit --steps 240 \
+  --objective full --prior-weight 1 --diagnostics
+```
+
+Verification: 45 focused tests pass, including frozen-target, nonfinite/shape
+rejection and student-gradient cases. Ruff formatting/static analysis,
+diff/local-link checks pass. All 96 individual WAVs pass hash/shape/type/rate/
+duration/non-silence/headroom checks; three 24-second stage previews and the
+33/12-second comparisons were read back. Teacher and adapter hashes were
+checked before the separate audit. All jobs are terminal. Existing AST
+frontend/pretraining/proxy limitations remain. No Cargo/ProductCheck or engine
+audition was run: external-only Python code and artifacts, no product change.
+
+## New prompts and seeds: transfer check (2026-09-05)
+
+[Light rain, heavy rain, individual drops: base -> prior-retained](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/water-comparison.wav)
+(33 seconds) and [metal/wood rod on glass, scraping, rolling: base -> prior](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-transfer-prior-2026-09-05/interaction-comparison.wav)
+(44 seconds) use the first fixed seed 314, not a selected best seed. The full
+88-second previews and individual seed-2718 sounds remain in each external run.
+
+The generator now accepts `--prompts` and optional `--diagnostics`; the default
+12-case behavior remains available. The committed
+[transfer prompt file](../../lab/profiles/physical-sound-transfer-prompts.json)
+contains three unchanged training captions and 13 exact-new descriptions.
+Cases request different rain intensity, a jug/bowl, a tap/puddle, metal versus
+wooden rods on the same jar/board/pipe, scraping, rolling and bottle fracture.
+These are requested conditions, **not measured physical ground truth**. None
+of the 13 descriptions matches the prior bank; both new seeds 314/2718 differ
+from training/rehearsal and earlier evaluation. Foundation pretraining overlap
+is still unknown. No fitting or candidate selection uses these outputs.
+
+Both models use identical prompt-file hashes, 50 FP32 steps, CFG 4.5 and five
+seconds. Each produces 32 candidate sounds and two empty-prompt controls, at
+44.1-kHz stereo and 16-kHz mono: 136 individual WAVs total. Generation takes
+263.06 seconds for base and 271.69 for prior, excluding the following automatic
+AST/CLAP pass. The already-published prior step-240 adapter is loaded through
+the existing hash/config/tensor checks.
+
+**Result: mixed transfer, no broad improvement.** Mean target CLAP is
+0.369675 -> 0.370049; only 14/32 paired sounds improve. On the three original
+captions with new seeds, 3/6 improve and mean change is -0.005058. On the
+13 new descriptions, 11/26 improve with mean change +0.001628. Top-1 among
+the 16 closely related prompts falls 19/32 -> 17/32; this bank includes near
+synonyms, so the count is not a calibrated accuracy or naturalness measure.
+Both versions beat their empty-prompt control on 28/32 cases.
+
+| New description, mean target CLAP | Base | Prior |
+|---|---:|---:|
+| Light rain on roof | 0.45005 | 0.47299 |
+| Heavy rain on roof | 0.45805 | 0.48262 |
+| Drops from tap into puddle | 0.37526 | 0.35646 |
+| Metal rod on glass jar | 0.25660 | 0.28145 |
+| Glass marble on wooden table | 0.30691 | 0.32388 |
+
+AST coarse expected-tag coverage is 21/28 -> 22/28; four steel outputs are
+unscored, not accepted. The extra match is light rain seed 314. Both models
+miss the requested glass/metal tag at seed 314 and the exact scraping/rolling
+tags on both seeds. Scraping is tagged Rub/Wood/Filing, which illustrates the
+ontology limitation rather than proving that it sounds wrong. Glass striker
+swap CLAP margin is negative for seed 314 in both models (-0.02040/-0.01510),
+positive for seed 2718 (0.06883/0.06866). Wood and steel paired margins are
+positive, but neither CLAP nor AST establishes the true striker material.
+
+Both models have positive light/heavy-rain swap margins on both seeds. Heavy
+rain also has greater raw RMS: +12.76/+11.57 dB for base and +10.27/+10.35 dB
+for prior. This is a qualitative response in these samples, not calibrated
+rainfall rate, realism, or evidence that the fine-tune created the capability.
+
+The bottle-fracture case exposes an important failure beyond fitting: seed
+314 is effectively silent in both models, at -99.64/-99.39 dBFS native RMS,
+and AST agrees with the silence control. Seed 2718 produces breaking/glass
+tags at -14.57/-14.10 dBFS. A numerically nonzero WAV is **not** proof of an
+audible event. Keep the failed outputs; do not normalize their codec noise into
+an apparent sound or choose the other seed to declare success.
+
+Next: a bounded timing/prompt discriminator on the base, before another fit.
+Retain the whole decoded 30-second horizon with the same five-second duration
+condition, replay the failed seed exactly, and compare the positive seed and
+minimal wording counterfactuals (e.g. removing `empty` or simplifying the event
+sequence). This distinguishes an event outside the cropped window, failure
+to generate it at all, and prompt sensitivity. Until that is inspected, do
+not assert which is causal or launch another SFT/regularizer sweep. No adapter
+promotion or change to the liked demo follows from this transfer check.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --prompts lab/profiles/physical-sound-transfer-prompts.json \
+  --seeds 314 2718 --output /absolute/external/new-transfer-base --diagnostics
+# Repeat with a different output and the existing --adapter checkpoint option.
+```
+
+Prompt files are bounded to 64 KiB/32 cases/512 printable characters per
+description, with unique safe IDs and no audio-input fields. An optional
+`diagnostic_id` selects a known coarse tag group; otherwise unknown IDs are
+explicitly unscored by AST, while CLAP still compares their text. Tests cover
+defaults, valid custom cases, traversal/duplicate/reserved IDs, unknown fields,
+bad captions and diagnostic groups. A final guard-only change also bounds
+whitespace-padded descriptions; the executed snapshots preserve the exact run
+code, and all experimental prompts satisfy both versions of the guard.
+
+Verification: 47 focused tests, Ruff formatting/static checks and diff/local
+links pass. All 136 WAVs have matching hashes, dimensions, rates, durations,
+PCM types and headroom; two 88-second previews and 33/44-second comparisons
+were read back. This is signal-integrity verification, not an audibility or
+quality acceptance. Both jobs and diagnostic passes are terminal. No Cargo,
+ProductCheck or engine audition was run; this remains an external Python lab.
+
+## Late-event diagnosis and extraction (2026-09-05)
+
+[Recovered bottle-fracture candidate, same seed 314](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/break-glass-seed314.wav)
+is a five-second excerpt of the **same generated full horizon**, with no new
+training or reference recording. [Failed prefix -> recovered event](/home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-fracture-event-matched-2026-09-05/comparison.wav)
+is 11 seconds; its first five seconds are intentionally almost silent.
+
+The bounded research tested three explanations: an event outside our crop,
+total omission, and wording sensitivity. An upstream user reported problems
+with sub-ten-second duration conditioning in
+[TangoFlux issue 31, 6 January 2026](https://github.com/declare-lab/TangoFlux/issues/31).
+That report is not a confirmed diagnosis of our run. The
+[official demo](https://huggingface.co/spaces/declare-lab/TangoFlux/blob/main/app.py)
+also takes a prefix of the requested length; our old prefix convention was
+not an independently validated event-timing guarantee.
+
+`--keep-full-horizon` now retains the decoder's actual 29.9537415-second
+output while leaving duration conditioning at five seconds. The
+[three-prompt control](../../lab/profiles/physical-sound-fracture-timing-prompts.json)
+uses the original bottle description, removes `empty`, or simplifies the
+sequence to a bottle shattering on a stone floor. Seeds 314 and 2718 retain
+the failure and positive control. Eight generations including empty prompts
+take 73.09 seconds before automatic diagnostics; all full and prefix WAVs stay
+in `tangoflux-fracture-timing-2026-09-05`.
+
+**The tested failure is an out-of-window event, not total omission.**
+
+| Seed 314 wording | First 5 s RMS, dBFS | Remaining horizon RMS, dBFS | Peak time, s |
+|---|---:|---:|---:|
+| Original | -99.64 | -20.25 | 18.170 |
+| Without `empty` | -99.67 | -20.91 | 17.534 |
+| Direct fracture | -99.76 | -21.37 | 12.667 |
+
+Over 99.9999997% of the raw energy is after five seconds in all three cases.
+Their first detected activity is around 12.66 s. Removing an adjective or
+simplifying the sequence does not fix timing at this seed. Seed 2718 instead
+peaks at 1.67–1.68 s and contains audible breaking in the original prefix.
+The prior seed-2718 mono/stereo WAVs replay exactly. Seed 314 remains at the
+codec-noise floor but is not bit-exact: 67 mono and 868 stereo samples differ
+by at most one PCM16 unit. This does not explain the approximately 80-dB
+head/tail difference; no exact-replay claim or retry-to-green test is made.
+
+Added `--extract-events SOURCE_RESULT` as a separate offline postprocessor.
+It reads hash-checked generated full-horizon PCM and finds a candidate onset
+using 10-ms RMS blocks, threshold `max(-50 dBFS, 0.1 * peak block RMS)`, and
+50-ms pre-roll. It copies a requested-length window without amplification or
+time stretching, records its source offset, any zero-padding, and whether
+above-threshold activity remains after the window. The threshold is an
+experimental energy heuristic, **not** calibrated perceptual acceptance.
+Below-threshold outputs are reported as undetected; partial matrices do not
+run the complete-matrix diagnostic. File/type/hash/bounds errors fail closed.
+This is for discrete-event candidates, not a general policy for rain or water.
+
+Final evidence is `tangoflux-fracture-event-matched-2026-09-05`. Both prompted
+and empty-prompt controls use the same extraction rule. An initial directory
+`tangoflux-fracture-event-window-2026-09-05` kept the old empty prefixes; its
+empty-control comparison is superseded and must not be used. All files remain
+available. The corrected extraction selects offsets 12.61 s for seed 314 and
+0.70 s for seed 2718, without padding. All six candidates still have later
+activity: these are useful excerpts, not proven complete isolated fractures.
+
+AST expected glass tags improve from 3/6 prefixes to 6/6 excerpts; Breaking
+is the top tag for every extracted candidate. Mean target CLAP rises
+0.28179 -> 0.43874. The formerly failed original prompt rises 0.16196 ->
+0.47726 at seed 314, with excerpt RMS -20.37 dBFS. All six exceed equally
+processed empty controls. This is an extraction gain from an existing neural
+generation, not a learned weight improvement or proof of exact physical
+response. Crops use already headroom-attenuated full-horizon PCM; levels are
+not force/energy calibration.
+
+Next, reassess discrete-event base/prior differences with identical event-aware
+processing before attributing every prefix-score regression to forgotten
+timbre. Keep raw prefixes and full horizons as controls. Continuous events
+need a different window policy. The model's duration/sequence control is still
+unrepaired, and no runtime integration or model promotion follows from this.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --prompts lab/profiles/physical-sound-fracture-timing-prompts.json \
+  --seeds 314 2718 --keep-full-horizon --diagnostics \
+  --output /absolute/external/new-fracture-timing
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 lab/.venv/bin/python \
+  lab/scripts/physical_sound_tangoflux_pilot.py \
+  --extract-events /absolute/external/new-fracture-timing/result.json \
+  --output /absolute/external/new-event-windows --diagnostics
+```
+
+Verification: 51 focused tests pass, including late-event versus silence,
+sample-preserving crops, noise rejection, padding/truncation flags, matched
+empty-control extraction and source-hash rejection. All 48 authoritative
+generation/extraction WAVs pass hash/PCM/shape/rate/length/headroom checks;
+the 11-second comparison was read back. Ruff formatting/static checks and
+diff/local links pass. Executed versions have source hashes in external
+evidence; all 16 extracted WAVs replay exactly with the final tightened guards.
+All jobs terminal;
+no Cargo/ProductCheck or engine audition, since this is external Python work.
+
+## Event-matched impact comparison and physical-control data (2026-09-05)
+
+Playable comparisons: [glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/glass-comparison.wav>),
+[wood](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/wood-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/tangoflux-impact-window-prior-crops-2026-09-05/steel-comparison.wav>).
+Each is 22 seconds, seed314 fixed in advance: base/metal striker, prior/metal,
+base/wooden striker, prior/wooden, with 0.5-second gaps. PCM levels are retained,
+not independently loudness-matched. These are experimental candidates.
+
+The [seven-prompt subset](../../lab/profiles/physical-sound-impact-window-prompts.json)
+repeats six material pairs and bottle fracture at seeds314/2718, 50 FP32 steps,
+five-second conditioning, with the full 29.9537-second decoder output retained.
+The same event rule processes both models and their empty-prompt controls.
+External roots are `tangoflux-impact-window-{base,prior,base-crops,prior-crops}-2026-09-05`.
+All four result/diagnostic sets are complete. No weights were trained here.
+
+| Diagnostic, 14 candidates | Base prefixes | Prior prefixes | Base event crops | Prior event crops |
+|---|---:|---:|---:|---:|
+| Mean target CLAP | .318445 | .317866 | .373407 | .363659 |
+| Target rank1 among seven captions | 6 | 5 | 7 | 8 |
+| Beats equally processed empty prompt | 10 | 10 | 14 | 14 |
+| AST expected tag in top5, ten scored | 8 | 8 | 10 | 10 |
+
+Steel's four cases remain unscored by AST. After matching extraction, prior
+improves target cosine in only **1/14** cases versus 4/14 prefixes; every
+two-seed class mean is lower than base. Rank1 moves in the other direction,
+illustrating why one diagnostic cannot establish perceptual superiority.
+The decision is **retain base, do not promote or repeat this LoRA sweep**.
+Timing affected our earlier comparison but does not establish a learned gain.
+
+Glass/metal seed314 is also late: base crop starts6.67s, prior7.91s. All other
+paired offsets agree, ranging0–12.61s. No padding; all28 crops have subsequent
+above-threshold activity, so these are excerpts, not complete isolated events.
+All six striker-swap margins per model are now positive (base .02198–.06146,
+prior .01986–.06273). This revises the old negative glass margin at314: that
+failure is window-sensitive, not proven striker confusion. Neither positive
+margin nor broad glass tags validate the physical identity of both materials.
+
+Replay against the prior transfer artifacts: prior28/28 candidate mono/stereo
+prefixes match exactly; base26/28 do. Base glass/metal314 differs by at most
+one PCM unit in1150 mono/7015 stereo samples. All192 full/prefix/crop WAVs
+pass SHA256/PCM/rate/dimension/headroom checks, and three comparisons read back
+at22s. Run the earlier full-horizon/extraction commands with this new profile
+for reproduction; add the existing prior-retention step240 adapter for prior.
+
+### Next physical axis: published controlled friction recordings
+
+The [Cluster Haptic Texture Dataset paper, arXiv v4, 6 November2025](https://arxiv.org/html/2407.16206v4)
+describes118 surfaces, a fixed urethane-rubber probe, five commanded velocities
+20–60mm/s, eight directions and0.5/1N loads. This offers measured sliding
+controls, **not** arbitrary impact pairs, fluid parameters or object geometry
+transfer. [Figshare article v5](https://api.figshare.com/v2/articles/29438288/versions/5)
+identifies the files and CC-BY4.0 terms. Attribution is retained with the data.
+The paper distinguishes noise-cancelled mono audio from raw main/machine-noise
+microphone channels and records force/position separately. The two raw channels
+are sensors, not a spatial stereo scene. These sources motivate the experiment;
+they do not prove our eventual model's physical accuracy.
+
+The bounded [acquisition script](../../lab/scripts/physical_sound_texture_probe.py)
+downloads12 disclosed conditions: Nyatoh wood0, stainless steel65, float glass74;
+20/60mm/s ×0.5/1N, direction0, repeat0. It preserves both audio versions and
+force/position CSVs. This is a feasibility/development probe, not a held-out
+test or training run. No existing protected roles were reopened. A bounded
+name/article-ID scan found no prior local references, not a pretraining audit.
+
+Authoritative root: `cluster-texture-controls-canonical-2026-09-05`.
+All50 selected files total19,495,822 bytes and pass member CRC/local SHA256.
+Only ZIP ranges were fetched, not the15.2GB archive. Whole-archive MD5 is NOT
+verified; pinned version metadata, multipart ETag and member hashes are recorded.
+The miniature archive lacks raw audio despite its README: the first acquisition
+failed explicitly. The full archive contains it. A second attempt exposed
+ten-second signed-redirect expiry; the final reader resolves Figshare's canonical
+URL per range. Both failed directories remain, and expired signed query details
+were removed from the failed diagnostic. Do not reuse a resolved signed URL.
+The texture spreadsheet has malformed font-only `&quot` attributes; inspection
+repaired those in memory only, preserving the downloaded original unchanged.
+
+[Recorded friction preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/cluster-texture-controls-canonical-2026-09-05/clean-controls-preview.wav>)
+is46.584s: wood, steel, glass; within each, slow/light, slow/heavy, fast/light,
+fast/heavy. One shared gain78.515 preserves relative levels; this is **recorded,
+not generated** sound. A separate raw two-microphone preview uses gain34.054,
+so its absolute playback level must not be compared with the clean preview.
+Original files are unmodified. `signal-audit.json` records segment order,
+gains and measurements over the central54mm of travel, derived from position.
+
+Measured central speeds are19.755–19.828 and59.459–60.155mm/s; median measured
+forces .529N and1.029–1.049N. Labels therefore remain **commanded**, with sensor
+observations separate. Clean central RMS is−77.19…−65.66dBFS; main-microphone
+RMS−54.52…−41.97dBFS. Faster motion increases clean RMS for all six paired
+conditions; heavier loading increases it in all six pairs. This small probe
+does not distinguish contact response from motion-dependent machine residuals
+or preprocessing. Raw noise channels and repeat/velocity transfer are necessary
+controls before a learned physical-response claim, not reasons to withhold a
+clearly labelled experimental synthesis.
+
+Next end-to-end checkpoint: expand this fixed friction grid to repeated scans
+and intermediate speeds, then produce a conditional neural sound with a
+held-out-speed/repeat comparison and a non-neural baseline. Keep sensor labels,
+machine-noise controls and waveform outputs together; do not add another
+generic caption-only SFT sweep or a separate validator-only milestone.
+This is one missing physical axis of the full goal, not a replacement objective.
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_texture_probe.py \
+  --output /absolute/external/new-texture-probe
+```
+
+Verification:22 focused acquisition/pilot tests pass; Ruff/static/format and
+diff/link checks pass. The four new tests cover the fixed physical grid,
+separate raw channels, malformed audio rejection and silence preservation.
+All jobs terminal. No Cargo/ProductCheck or engine audition: external lab only;
+the base/demo and product contracts remain unchanged.
+
+## Neural friction from physical conditions (2026-09-05)
+
+[Generated glass friction,40mm/s,0.5N,seed2718](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-neural-rank4-glass-40-2026-09-05/generated.wav>)
+is two seconds, made **without an input recording**. This is a rubber probe
+sliding on float glass, not glass impact/ringing. [Six-second comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-rank4-2026-09-05/glass-comparison.wav>)
+plays real -> neural -> interpolation at0.5N, then the same at1N. Each clip
+is0.75s with a0.25s gap. One shared playback gain100 preserves their levels.
+
+The acquisition script's `--training-grid` adds intermediate velocities and
+repeat1 without changing its original12-condition default. The new external
+`cluster-texture-training-grid-2026-09-05` has60 recordings,242 files and
+86,691,095 selected bytes, including both microphone channels and sensors.
+All source hashes pass. Training is24 repeat0 scans at20/30/50/60mm/s.
+All12 scans at40mm/s are disclosed unseen-speed development; the other24
+repeat1 scans test repeat transfer. These are the same three surfaces/fixed
+probe, not independent objects, hidden tests or pretraining-independent sound
+categories. Commanded controls and measured force/speed remain separate.
+
+[The bounded fitting script](../../lab/scripts/physical_sound_texture_fit.py)
+takes surface one-hot, normalized commanded speed and normal force. It predicts
+a stationary log power spectrum. Input audio is used only in offline training
+and comparison. The standalone `--render-model` path reads model metadata and
+safetensors, not a corpus or recording; domain, checkpoint hashes, finite values,
+tensor shapes, duration and amplitude are checked. A test forbids audio reads
+during standalone inference. Unknown surfaces and out-of-range controls fail.
+
+This follows the general learned-controller plus signal-processing approach
+described by [DDSP, Engel et al.,2020](https://arxiv.org/abs/2001.04643), not its
+trained model or a reproduction of its reported quality. Our renderer shapes
+fresh Gaussian noise using the predicted one-sided power density, removes DC
+and adds10ms endpoint fades. It cannot reproduce impacts, deterministic phase,
+contact sequences or arbitrary nonstationary structure. It is an external
+stochastic texture baseline, **not** an admitted physical formula/runtime model.
+
+Each source contributes the same0.75-second central sliding window, located
+from position CSVs. Mono is resampled44.1 ->22.05kHz; Welch spectra use1024
+samples/50% overlap. No per-recording loudness normalization. Both fits use
+CPU FP32, seed23,1500 full-batch AdamW updates at1e-3, weight decay1e-4;
+only training rows determine the mean, optimizer targets and optional basis.
+No pretrained weights. Baseline interpolates training log spectra in speed
+for the same surface/load. Oracle rendering uses the target's own spectrum
+as an explicitly reference-dependent representation control, not an inference
+result. Raw machine-microphone spectra are mean-level-matched shape controls,
+not SNR estimates or proof of noise removal.
+
+First model:5 ->64 ->64 ->513,37,889 learned parameters. It fits training
+spectra well but loses all12 unseen-speed comparisons. The single corrective
+experiment restricts outputs to four PCA components derived only from the24
+training spectra:5 ->64 ->64 ->4,4,804 learned parameters plus fixed basis.
+This tests fitting of incidental spectral detail; it is not an epoch/width sweep.
+
+| Spectrum RMSE,dB, lower is better | Full network | Four-component network | Interpolation |
+|---|---:|---:|---:|
+| Train24 | .22379 | 1.08692 | 0 (stored training spectra) |
+| Unseen speed40mm/s,12 | 2.07522 | 1.68983 | 1.72887 |
+| Repeat development24 | 1.31552 | 1.34025 | 1.33773 |
+
+Full/rank4 win0/12 and6/12 unseen-speed cases against interpolation; repeat
+wins20/24 and15/24. The smaller model improves this narrow network prediction,
+but its mean advantage over interpolation is only0.039dB, not a robust benefit.
+The outcome is an audible, physically conditioned neural **candidate**, not
+quality acceptance or superiority of neural synthesis.
+
+Both runs also publish real/neural/interpolation/oracle WAVs for all six
+surface/load combinations at40mm/s, repeat0, noise seed314. Each full preview
+is24s. `waveform-audit.json` evaluates actual PCM, not just predicted spectra:
+mean spectral RMSE full2.00855, rank4 1.77531, interpolation1.79547,
+oracle .92227dB. Mean25ms envelope coefficient of variation: real .05813,
+rank4 .04445, oracle .06197. Thus neither an exact waveform match nor a severe
+temporal-representation failure is established. Mean-level-matched machine
+shape RMSE is10.48dB on unseen-speed sources; this alone cannot rule out a
+motion-dependent recording/preprocessing shortcut. Metrics are diagnostic,
+not a calibrated perception/realism validator.
+
+Roots: `texture-conditional-spectrum-2026-09-05`,
+`texture-conditional-rank4-2026-09-05`; standalone inference roots
+`texture-neural-glass-40-2026-09-05` and
+`texture-neural-rank4-glass-40-2026-09-05`. Checkpoints are154,136/30,068 bytes.
+The standalone examples use a second noise seed2718. Generated/artifact hashes
+and attribution stay external; model/data are not installed in the demo.
+Later code adds the same waveform diagnostic to future fit results; executed
+reports preserve their original hashes and separate PCM audit files.
+
+Before a third model variant, use a bounded residual/repeat/noise discriminator
+and crossed velocity checks to establish whether the apparent gain persists
+beyond the chosen40mm/s split. Keep development reuse disclosed and do not
+turn an opened fold into independent evidence. The next checkpoint must still
+include generated sounds at other velocities, not a validator-only package.
+Do not infer that more units/epochs or a time-varying decoder fixes this result.
+The full impacts/water/rain/geometry/both-materials goal remains open; this is
+one narrow forward-conditioning capability, not a replacement objective.
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_texture_probe.py \
+  --training-grid --output /absolute/external/new-texture-grid
+lab/.venv/bin/python lab/scripts/physical_sound_texture_fit.py \
+  --corpus /absolute/external/new-texture-grid/result.json \
+  --rank 4 --output /absolute/external/new-texture-fit
+lab/.venv/bin/python lab/scripts/physical_sound_texture_fit.py \
+  --render-model /absolute/external/new-texture-fit --texture 74 \
+  --speed 40 --force 0.5 --seconds 2 --seed 2718 \
+  --output /absolute/external/new-texture-inference
+```
+
+Verification:29 focused tests pass, including source grid/split, input domain,
+PSD scale, noise seeds, reference-free inference, checkpoint rejection, rank
+shape and waveform metric controls. Ruff/static/format and diff/link checks
+pass.242 source files,52 individual/control/preview WAVs and the additional
+six-second glass comparison pass hash/signal checks. Both fits and inference
+jobs terminal. No Cargo/ProductCheck/engine audition; no production promotion.
+
+## Crossed velocities and recording-channel countercheck (2026-09-05)
+
+[Glass30/50mm/s comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-cross-speed50-2026-09-05/glass-cross-speed-comparison.wav>)
+is six seconds: real -> neural -> interpolation at30mm/s, then50mm/s,
+0.5N/seed314. Each velocity has its **own excluded-velocity model**, not one
+promoted model. One gain100, no individual loudness matching. All six material/
+load cases, including poor results, remain in each24-second full comparison.
+
+Added `--heldout-speed {30,40,50}` to the existing fitter. Default40 and its
+previous artifacts remain unchanged. New roots `texture-cross-speed30-2026-09-05`
+and `texture-cross-speed50-2026-09-05` retain the same rank4 architecture,
+seed23,1500 updates and24 training scans, excluding the chosen velocity and
+all repeat1 recordings. Mean/PCA basis are recomputed on each fold's training
+rows only. This explicitly reuses disclosed development data in cross-validation;
+the models trained with40mm/s are not evidence that those models generalize to40.
+No protected/one-shot/test objects were reopened and no new capacity sweep ran.
+
+| Excluded speed | Neural mean spectrum RMSE,dB | Interpolation | Neural wins |
+|---|---:|---:|---:|
+| 30mm/s | 1.90424 | 1.75858 | 2/12 |
+| 40mm/s, previous run | 1.68983 | 1.72887 | 6/12 |
+| 50mm/s | 1.84997 | 1.78802 | 3/12 |
+| All three disclosed folds | 1.81468 | 1.75849 | 11/36 |
+
+The hypothesis of a stable gain across these speeds is contradicted. A third
+width/epoch/basis sweep on these three surfaces is not the next action.
+The neural baseline remains playable; neither it nor interpolation is promoted.
+
+`texture-cross-speed50-2026-09-05/cross-speed-audit.json` records the bounded
+discriminators. For each surface/load/velocity, both repeats receive the same
+prediction. Their mean squared error decomposes exactly into squared deviation
+from the two-repeat mean plus one-quarter of their squared difference.
+Repeat-to-repeat spectral RMSE is1.394/1.379/1.336dB for30/40/50; the latter
+scatter term contributes only13.3/16.8/13.0% of observed neural MSE. The
+two-repeat mean is not ground truth or an unbiased population estimate, but
+this check does not support explaining the entire error as repeat randomness.
+
+For a channel countercheck, a repeat1 recording retrieves one of three repeat0
+surface templates at the **same speed and load**, using centered log spectra
+(constant level removed). Clean audio is30/30 correct; so is the supposedly
+machine-noise microphone. This is a counterexample to treating this retrieval
+score as independent acoustic-quality validation. It does NOT prove that the
+generator learned only machinery, that clean audio is worthless, or that the
+reference microphone contains no actual contact sound.
+
+Read, but did not execute, the source's
+[NLMS implementation at e05d6b0](https://raw.githubusercontent.com/cluster-lab/Cluster-Haptic-Texture-Dataset/e05d6b022d127e24f73583146f0aa229c6934449/preprocessing/noise_cancel/active_filter/LMSnoise_cancel.py)
+and its [processing wrapper](https://github.com/cluster-lab/Cluster-Haptic-Texture-Dataset/blob/e05d6b022d127e24f73583146f0aa229c6934449/preprocessing/noise_cancel/active_noise_filter.py).
+The wrapper chooses noncausal700-tap normalized LMS, step1, leakage .001,
+without prewhitening. The implementation subtracts an adaptive estimate from
+the main channel and starts with random coefficients. This supports considering
+recording/preprocessing effects, not asserting an exact replay of the published
+archive or identifying which physical component was removed.
+
+Verification:30 focused tests pass, including all three excluded-velocity
+partitions and recording separation.50 new WAVs and the six-second comparison
+pass hash/PCM/rate/headroom checks. Ruff/static/format and diff/local links pass.
+Both jobs terminal; no Cargo/ProductCheck/engine audition or demo replacement.
+Reproduce with the previous fit command plus `--heldout-speed 30` or50 and a
+new external output directory. Original40mm/s fits remain unmodified.
+
+### Next missing physical axis: measured rainfall
+
+A bounded Internet search found
+[Measuring Amazon rainfall intensity with sound recorders, DataSuds V2](https://dataverse.ird.fr/dataset.xhtml?persistentId=doi:10.23708/I0QYNM&version=2.0).
+The published terms are CC-BY4.0. It provides48,208 training spectra and only
+three complete example recordings, plus separate cross-site spectral tables.
+The README identifies `total_rain` as **accumulated millimetres over five minutes**,
+not instantaneous mm/h; numeric columns label spectral frequencies. The
+notebook's class labels also relabel isolated0.2mm readings as no rain, so do
+not substitute those labels for the measured quantity or execute the notebook.
+This is a candidate rain-control source, not sufficient waveform evidence
+for universal rain synthesis, arbitrary struck surfaces or exact event timing.
+
+The external `amazon-rain-source-probe-2026-09-05` contains pinned-version
+API metadata, original README/notebook and the three original60s/48kHz/mono/
+PCM16 WAVs (no rain/light/heavy). All five files pass publisher MD5 and local
+SHA256. Notebook code was inspected as text only. No numeric intensity was
+invented from the three qualitative descriptions. A bounded local DOI/name
+scan found no earlier reference, not an exhaustive overlap audit.
+Train file43944 and cross-site files43958/43957 are **not downloaded**.
+
+Next: acquire the training spectral table, identify its units/frequency grid
+and match the three source filenames before another fit. Reconstruct those
+spectra from the supplied WAVs as a source-unit discriminator, then produce
+an explicitly experimental rain sound conditioned on measured accumulation.
+Do not use the two cross-site tables for tuning; keep any temporal splits
+storm/day-grouped rather than assuming adjacent rows are independent. Only
+three full WAVs means temporal realism will remain under-validated; that limits
+claims, not the ability to produce a report-only audible experiment.
+
+## Measured-rain neural waveform and representation check (2026-09-05)
+
+[Standalone neural rain, 2mm accumulated over five minutes](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2mm-2026-09-05/generated.wav>)
+is eight seconds at48kHz, generated from model weights, accumulation and
+noise seed2718, **without a reference recording**. This is a stationary forest
+soundscape baseline, not isolated droplets, a physical rainfall calibration,
+or demonstrated generation of unseen intensities/surfaces. The three source
+example times are development-only; an excluded day is not an unseen condition.
+[Rain comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/rain-short-comparison.wav>)
+plays real -> neural -> reference-spectrum control at0.4, then6.2mm/5min,
+eight seconds each with0.5s gaps. Shared gain0.980778; no individual matching.
+All interpolation controls remain in the102s full comparison and individual WAVs.
+
+### Source, fit and measured result
+
+The preceding acquisition status is superseded: original file43944 was obtained
+with `https://dataverse.ird.fr/api/access/datafile/43944?format=original`.
+`amazon-rain-source-probe-2026-09-05/psds_training.csv` is381,270,141 bytes,
+publisher MD5 `d91a06cecf3af48a205bdf43c48abee1`, verified before fitting.
+Default access returned converted TSV exceeding its published size; that
+incomplete `.part` is rejected and unused. Original CSV has48,208 rows,
+190 days,1,679 nonzero measurements, and513 LINEAR raw-PCM16 power densities.
+Divide by32768² before converting to dB. Frequency names are rounded labels
+for the exact48kHz/1024 FFT grid, not the grid itself. Welch1024 reproduces
+all three full60s WAV spectra within0.000020dB.33 filename timestamps start
+seconds after their table minute; identities are unique and their minute bins
+match. This does not establish sample-level alignment with the rain gauge.
+No qualitative class relabeling was applied. Cross-site43958/43957 stay unfetched.
+
+Source attribution remains Xavier, Fleischmann, Gosset, Maciel, do Nascimento,
+Ramalho and Bicudo, DataSuds DOI10.23708/I0QYNM V2, CC-BY4.0. Source metadata,
+README/notebook and originals remain outside Git. The [source study](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2024GL108210)
+uses sound to estimate rainfall; it does not validate this forward generator.
+
+`physical_sound_rain_pilot.py`: log1p(accumulation) ->32 ->32 ->8 coefficients
+of a training-only PCA log-spectrum basis;1,384 learned parameters. Seed41,
+2,000 AdamW updates,128-row batches,lr0.001. All948 wet training rows plus
+948 randomly selected dry rows determine fitting AND the interpolation control.
+Day hashing yields104 eligible training days/25,397 rows,35 development
+days/9,259 rows, and51 adjacent guard days/13,552 rows. May10 is explicitly
+development. Guard days are excluded from optimization; multi-day storm
+independence is not established. The report's `train` aggregate includes
+unselected dry rows, not just the1,896 actual optimizer examples.
+
+| Disclosed development | Neural mean spectrum RMSE,dB | Interpolation | Neural wins |
+|---|---:|---:|---:|
+| All9,259 recordings | 7.61800 | 7.61738 | 4,239 |
+| Wet364 recordings across19 days | 7.46889 | 7.57973 | 191 |
+
+The wet-row difference is-0.11083dB; a5,000-resample day-cluster bootstrap
+gives[-0.28139,-0.01032]dB. This is descriptive same-site development evidence,
+not a protected test, perceptual acceptance or independence from multi-day
+storms. `result.json`, `rows.json` and `audit.json` in
+`amazon-rain-neural-2026-09-05` preserve the exact membership and results.
+
+### Why neither the spectral score nor AST accepts this model
+
+The existing frozen AST diagnostic was run without text input on all12 clips,
+the standalone clip, silence, noise and a tone. It identifies the simple
+controls, but neither REAL wet clip has a rain tag in its top5. It calls the
+real clips boat/vehicle-like and most synthesized clips noise-like. Therefore
+it fails the relevant positive control and cannot decide rain naturalness.
+The NumPy frontend also warns about zero mel filters; AudioSet pretraining
+disjointness is unestablished. Exact model revision and scores are in `tags.json`.
+Do not lower thresholds or treat a higher synthetic rain tag as improvement.
+
+A separate reference-dependent probe removes the60s-versus8s spectrum mismatch:
+Welch1024 of the SAME first8s drives stationary synthesis, compared with
+the complete time-varying STFT magnitudes (1024 samples/hop256;32 alternating
+consistency/magnitude projections, noise seed314). Exact original-phase inverse
+STFT round-trip passes<1e-12. Control RMS is matched to the original, then ONE
+shared gain0.415226 prevents clipping. This probe is NOT neural inference.
+
+| 10ms RMS coefficient of variation | Real | Exact8s stationary spectrum | Temporal reference |
+|---|---:|---:|---:|
+| No rain | 0.1133 | 0.0927 | 0.1116 |
+| 0.4mm/5min | 0.8544 | 0.3011 | 0.8450 |
+| 6.2mm/5min | 0.4121 | 0.3093 | 0.4166 |
+
+[Light-rain representation comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-neural-2026-09-05/light-rain-temporal-comparison.wav>)
+is real -> exact stationary spectrum -> temporal reference,25.5s total.
+`temporal-probe.json` records all nine clips and measurements. Preserving a
+target spectrogram naturally improves its reconstruction metrics; this is
+evidence of information loss, NOT perceptual superiority or learned transfer.
+Temporal reconstruction also overshoots the heavy clip's crest factor
+(9.10 versus3.78), so it is not an artifact-free decoder solution.
+
+This motivates the next change rather than another capacity/epoch sweep:
+use full waveforms and learn temporal event/envelope structure. The publisher's
+pinned inventory contains only three WAVs; the other tables cannot supply that
+missing structure. A broader waveform source with trustworthy physical labels
+is needed before making a generalization claim. This direction is consistent
+with [McDermott and Simoncelli,2011](https://mcdermottlab.mit.edu/papers/McDermott_Simoncelli_2011_sound_texture_synthesis.pdf):
+their experiments distinguish power-only synthesis from representations with
+envelope statistics and cross-channel dependencies. This probe is not a
+reimplementation of their auditory model or a reason to abandon neural generation.
+
+Reproduce fitting (fresh external output required):
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_rain_pilot.py \
+  --source /home/kaifaty/.codex/experiments/nextengine/physical-sound/amazon-rain-source-probe-2026-09-05 \
+  --output /absolute/external/new-rain-fit
+lab/.venv/bin/python lab/scripts/physical_sound_rain_pilot.py \
+  --render-model /absolute/external/new-rain-fit --amount 2 --seed 2718 \
+  --output /absolute/external/new-rain-render
+```
+
+Verification:34 focused Python tests and Ruff pass. WAV hashes/formats/headroom
+are checked; source units, selected training membership and standalone no-audio
+input are verified.48kHz synthesis is opt-in; friction's22.05kHz default is
+unchanged. The fit's script hash precedes whitespace-only Ruff formatting.
+No Cargo/ProductCheck, engine audition, demo replacement or production promotion.
+
+## Geometry-conditioned temporal pouring flow (2026-09-05)
+
+[Neural pouring audition](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-audition-2026-09-05/generated.wav>)
+is4.08s of independently sampled audio: glass cylinder, height10cm,
+top/bottom diameter7cm,15s pouring event at elapsed fraction0.2, seed2718.
+Audition gain10 is explicitly recorded; it is not calibrated acoustic loudness.
+The [unamplified standalone output](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-standalone-2026-09-05/generated.wav>)
+uses the same conditions. Inference reads only weights, metadata and controls,
+not a source WAV or an audio-derived embedding. This new combination is a
+generation example, not a physically validated new case.
+
+### Source and model
+
+[Sound of Water](https://huggingface.co/datasets/bpiyush/sound-of-water),
+by Piyush Bagad, Makarand Tapaswi, Cees G. M. Snoek and Andrew Zisserman,
+provides full pouring recordings with container measurements and material/shape
+annotations. We pin revision `12575460ee39d6adaebbe5aff531a5f4a24a627b`.
+Its dataset card/root inventory does not specify redistribution terms; the
+separate GitHub software/model MIT license is NOT inherited by the recordings.
+Data, weights and generated audio remain local research artifacts, excluded from
+distribution. No YouTube samples or publisher Test I/II/III recordings are used.
+
+From the195 publisher-training rows, annotation-only filters select123:
+`clean=yes`, `flow_rate_appx=constant`, `liquid=water_normal`, supported materials
+glass/plastic/plastic_pet/plastic_pp and cylindrical/semiconical shapes.
+`sound-of-water-source-2026-09-05` contains123 original48kHz mono PCM16 WAVs
+(110,261,540bytes), README and original training CSV. All125 files pass their
+publisher Git-blob SHA1 or LFS SHA256 plus local size/SHA256 checks. Every
+recording's length agrees with its annotated trim duration within0.05s.
+The source's numeric dimensions are used; approximate constant flow is NOT
+converted into measured ml/s, nor elapsed fraction into an exact liquid height.
+
+Entire containers18(glass,13 recordings) and30(PET,17) are excluded before
+optimization. Remaining93 recordings from13 objects train the model. This is
+a disclosed new-container development experiment inside the publisher training
+split; repeated recordings of TWO excluded objects are not30 independent objects.
+All30 are evaluated in source order, without selecting favourable examples.
+
+`physical_sound_pouring_pilot.py` implements a245,985-parameter conditional
+2D U-Net with FiLM blocks, frequency/time coordinates and11 physical/event
+inputs:3 dimensions, duration, elapsed fraction,4 material indicators and2
+shape indicators. It learns rectified-flow velocity on256×256 log-magnitude
+STFT patches, not a constant average spectrum. Audio is resampled to16kHz;
+FFT512/hop256, fixed floor-100dB and fixed scale `(dB+50)/25`. No evaluation
+statistics set normalization. Seed53,1,500 AdamW updates, batch6,lr0.0003,
+weight decay0.01, gradient norm cap1; random patches from training files only.
+Final inference uses64 Euler steps and32 phase-reconstruction iterations.
+Training loss first/last100 averages0.78788/0.36540; no quality claim follows
+from that training-loss decrease. The decoder/source checks preceded fitting.
+
+The [paper](https://arxiv.org/html/2411.11222v2) discusses changing resonances
+during pouring and a reference-conditioned DDSP simulator. This experiment
+instead learns a spectrogram distribution conditioned on numeric/object inputs;
+it neither downloads the authors' model nor executes their repository. Their
+inverse-property results do not establish this generator's physical accuracy.
+
+### New-container results and automatic checks
+
+Each withheld recording supplies its FIRST4.08s only. Baseline retrieval chooses
+a training recording by distance in the same normalized metadata, then decodes
+its first patch. The oracle decodes the exact target spectrogram. Neither
+baseline nor oracle is presented as learned generation. Shared playback gain1
+preserves level differences. All120 WAVs, exact controls and selected baseline
+IDs are in `pouring-flow-2026-09-05/result.json`.
+
+| Excluded object | Neural spectrum RMSE,dB | Nearest training example | Reference decoder |
+|---|---:|---:|---:|
+| Glass18,13 recordings | 13.6119 | 16.9067 | 0.1810 |
+| PET30,17 recordings | 8.8309 | 7.0877 | 0.1581 |
+| All30 | 10.9027 | 11.3426 | 0.1680 |
+
+Neural wins16/30, but loses the PET group; this is not robust material transfer.
+Median neural level error is-8.995dB. Mean10ms envelope CV is0.599 versus
+real1.179 and oracle1.106. The oracle has median level error-0.104dB.
+Thus the existing representation/decoder can preserve these measurements much
+better than the first learned model: the next discriminator belongs in learned
+level/envelope prediction and conditioning, not another data-source search.
+The comparison contains the first source-order example of EACH held-out object,
+real -> neural -> oracle,27.48s, rather than selected classifier winners.
+
+Frozen AST, with the unchanged `Water`/`Pour` diagnostic labels, places at least
+one expected tag in its top5 for30/30 real,30/30 oracle and29/30 neural clips.
+Silence/noise/tone controls also retain their expected tags. Unlike the rain
+pilot, these relevant positive controls pass. This supports coarse water-event
+recognizability, NOT naturalness, correct vessel material, dimensions or flow.
+The same NumPy mel-filter warning persists; pretraining disjointness is not
+asserted. Raw scores/revision/provenance are in `tags.json`; no thresholds were
+changed, no AST score trained the generator, and no result is promoted.
+
+Reproduce with fresh external outputs:
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_pouring_pilot.py \
+  --source /home/kaifaty/.codex/experiments/nextengine/physical-sound/sound-of-water-source-2026-09-05 \
+  --output /absolute/external/new-pouring-fit
+lab/.venv/bin/python lab/scripts/physical_sound_pouring_pilot.py \
+  --render-model /absolute/external/new-pouring-fit --height 10 \
+  --diameter-top 7 --diameter-bottom 7 --material glass --shape cylindrical \
+  --duration 15 --progress 0.2 --seed 2718 --playback-gain 10 \
+  --output /absolute/external/new-pouring-audition
+```
+
+`--acquire --output /absolute/external/new-source` reproduces bounded acquisition.
+`--device cpu` is available for standalone inference; fitting currently uses
+CUDA. Timing/geometry CLI bounds are numerical guardrails, NOT an empirical
+generalization envelope. Do not promise unsupported extrapolation.40 focused
+tests pass, including reference-free inference, checkpoint identity, whole-object
+exclusion, bounded annotation parsing, phase-transform controls and neural
+conditioning gradients. Ruff passes. No runtime/demo or product-roadmap changes.
+
+### Power/envelope objective, onset sampling and validator level confound
+
+[Power/envelope candidate](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-power-envelope-audition-2026-09-05/generated.wav>)
+uses the previous standalone conditions/seed2718 and audition gain10, with no
+reference input. [Matched revision comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-power-envelope-2026-09-05/revision-comparison.wav>)
+plays real -> base -> candidate for the first glass and PET examples,27.48s,
+gain1. No old artifact or demo is overwritten. These remain research candidates.
+
+Before training, `pouring-flow-discriminator-2026-09-05` checked the ORIGINAL
+checkpoint on all30 disclosed recordings, seed314.64 versus256 Euler steps
+give10.894/10.902dB spectrum error and0.599/0.610 envelope CV; integration
+resolution does not explain the approximately9dB level deficit. Slight absolute
+differences from the original report arise from rereading PCM16 references.
+Changing only the material label improves glass spectral error on13/13 cases
+and worsens PET on17/17. This contradicts using these scores as a reliable
+material-identity check, not proof of a unique causal material mechanism.
+
+Two matched fits retain all93 training IDs, source hashes, seed53,245985
+parameters,1500 updates and30 source-order excluded-object evaluations:
+
+- `--objective power-envelope`: endpoint estimate `xt+(1-t)*velocity` adds
+  a0.25×t²-weighted loss on log mean power spectra and frame-envelope CV.
+  Statistics are trained from source data, not an independent quality validator.
+  Default `velocity` is unchanged. Root `pouring-flow-power-envelope-2026-09-05`.
+- `--patch-sampling onset-balanced`: original velocity loss, half of training
+  patches start at zero; the remainder retain uniform internal crops. Random
+  draws are still consumed, preserving the recording-selection sequence.
+  Root `pouring-flow-onset-balanced-2026-09-05`. This tests a data-phase hypothesis:
+  real training first/middle median RMS is0.01156/0.00567; excluded recordings
+  0.01230/0.00451. More onset exposure is not a calibrated flow/force change.
+
+| First4.08s,30 recordings | Base | Power/envelope | Onset-balanced |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 10.9027 | 9.5814 | 8.1949 |
+| Median level error,dB | -8.9945 | -7.4410 | -5.8067 |
+| Mean envelope CV | 0.5993 | 0.8697 | 0.5797 |
+| AST Water/Pour top5 at stored level | 29/30 | 16/30 | 15/30 |
+| AST at common RMS0.005, PCM control | 30/30 | 30/30 | 21/30 |
+
+Power/envelope improves the spectrum metric on28/30 recordings. Mean absolute
+CV error falls0.5794 ->0.3266 (about44%); real mean CV is1.1787. Nevertheless
+neither model establishes realistic material response. The power candidate's
+material counterfactual still favours the wrong label for all13 glass cases,
+including after centering spectra to remove constant level. PET favours the
+correct label17/17. `material-counterfactual.json` retains all30 switched WAVs.
+
+The raw AST regression initially suggested retaining only the base. A common
+RMS control then removed the power candidate's deficit. In
+`pouring-flow-gain-validator-check-2026-09-05`, all150 real/base/oracle/power/onset
+WAVs were scaled to RMS0.005 with no clipping. Real/oracle remain30/30. Thus
+the raw top5 difference cannot be attributed solely to content degradation.
+This does NOT license discarding the raw result or claiming perceptual parity;
+normalization is a disclosed development countercheck, not a protected gate.
+The AST frontend warning and lack of calibrated naturalness/material authority
+remain. `physical_sound_text_tags.py --ast-rms 0.005` now exposes this optional
+classifier-input-only control, preserving raw defaults and WAVs, logging gain,
+preserving silence and rejecting insufficient headroom. CLAP stays separate.
+
+`pouring-flow-middle-check-2026-09-05` additionally checks a centered internal
+patch from ALL30 excluded recordings at its actual elapsed fraction. Base/onset
+spectrum error is9.6315/7.5492dB, median level error-5.4648/-4.0913dB, but raw
+AST Water/Pour top5 is13/30 and12/30 versus real30/30. The earlier29/30 base
+result applies only to beginnings, not entire pouring events. Power/envelope
+middle-phase and multi-seed robustness are not yet established.
+
+A bounded research check read [Flow Matching for Generative Modeling,v2,
+2023-02-08](https://arxiv.org/html/2210.02747v2), specifically the squared
+vector-field objectives and their gradient equivalence. Our two-pattern toy
+test finds nonzero gradient0.011879 at the original optimum after adding the
+nonlinear endpoint statistic. The modified objective need not preserve the
+original optimum. This is a counterexample to assuming equivalence, NOT proof
+that objective bias caused the audio scores; the gain control weakens that
+simple explanation. No downloaded research code was executed.
+
+Next: measure multiple seeds and middle-phase power-candidate behavior with
+BOTH raw and level-controlled checks before another fit. Do not select the
+onset candidate solely for lower spectral error, repeat loss-weight/sampling
+sweeps, or equate one noise seed across two objects with broad generalization.
+Reproduce each fit with the prior command plus its one named flag and a fresh
+external output. Focused tests cover loss gradients, the non-equivalence
+counterexample, unchanged uniform sampling/RNG consumption, shape versus level
+metrics, opt-in AST level control, silence and headroom. No production promotion.
+
+Verification:46 focused Python tests and Ruff check/format pass. All525 new
+WAVs pass16kHz mono PCM16, finite-sample and headroom checks;615 distinct WAV
+paths referenced across reports (including preserved controls) match their
+recorded SHA256. All three fits retain identical source/train IDs/exclusions,
+seed, update count and parameter count; checkpoint hashes match. The new
+in-memory float normalization rerun (`tags-float-normalization.json`) reproduces
+the PCM-control counts exactly: real/base/oracle/power30/30, onset21/30.
+Local documentation links and `git diff --check` pass. Cargo/ProductCheck and
+engine audition not run: no runtime, contract or engine-content changes.
+
+### Frozen-model phase/seed check: spectrum gain is not temporal control
+
+Middle-pour comparisons, real -> base -> power/envelope for first source-order
+glass then PET,27.48s each, shared gain1:
+[seed314](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed314.wav>),
+[seed2718](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed2718.wav>),
+[seed1618](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-phase-seeds-2026-09-05/middle-comparison-seed1618.wav>).
+No training, new source, protected evidence or old-WAV replacement in this check.
+
+`physical_sound_pouring_compare.py` evaluates ALL30 disclosed development
+recordings at first and centered internal patches, with seeds314/2718/1618 for
+both frozen models. Only numeric metadata enters neural sampling; target audio
+enters metrics and explicit real/oracle controls. Root
+`pouring-flow-phase-seeds-2026-09-05`:480 individual WAVs plus3 comparisons,
+`result.json`, `tag-input.json`, raw/normalized CUDA tags and `analysis.json`.
+The original first/seed314 and middle/seed314 values reproduce exactly.
+
+| Phase/seed | Spectrum RMSE base -> power,dB | Power wins /30 | Mean absolute CV error base -> power |
+|---|---:|---:|---:|
+| First/314 | 10.903 ->9.581 | 28 | 0.579 ->0.327 |
+| First/2718 | 10.461 ->9.079 | 26 | 0.349 ->0.288 |
+| First/1618 | 10.235 ->9.250 | 21 | 0.574 ->0.501 |
+| Middle/314 | 9.631 ->8.426 | 24 | 0.280 ->0.119 |
+| Middle/2718 | 9.167 ->8.104 | 23 | 0.127 ->0.372 |
+| Middle/1618 | 9.149 ->8.117 | 29 | 0.265 ->0.197 |
+
+Spectrum improvement survives all six groups (151/180 paired wins); centered
+spectrum shape improves only seed1618, not the other two. Pooled middle CV
+error slightly worsens0.2238 ->0.2295. Earlier44% CV improvement is confined to
+first/seed314, NOT a robust global gain. Three noise draws are not three new
+objects: generalization evidence still concerns just glass18 and PET30.
+
+More decisively, mean middle-minus-first CV is real-0.2969, exact-spectrogram
+oracle-0.2681, base+0.0073 and power+0.0138. The representation/phase decoder
+preserves most of the observed change; both learned generators largely miss it.
+This is a paired diagnostic, not proof of the unique cause or a guarantee that
+every individual stochastic draw should reproduce one recording's envelope.
+
+`--training-controls` repeats the matrix on the FIRST source-order recording
+from each of13 training objects, excluding18/30, with no score-based selection.
+Root `pouring-flow-training-phase-control-2026-09-05`:208 individual WAVs plus
+3 comparisons. Mean phase CV change: real-0.5731, oracle-0.5230, base+0.0207,
+power+0.0286. Mean spectrum base/power: first8.904/9.052, middle9.552/9.671dB;
+middle CV error0.1373/0.2869. Thus failure is NOT solely new-object transfer.
+This sample of13 disclosed training recordings is a fit diagnostic, not a new
+test set or a complete training-distribution audit.
+
+AST at RMS0.005 reports Water/Pour top5 for ALL360 generated development WAVs
+and ALL156 generated training-control WAVs. Nevertheless real development is
+60/60, oracle58/60; real training26/26, oracle23/26. Together with missing
+temporal response, these positives show that coarse event identity cannot
+stand in for naturalness, temporal control or material correctness. Raw
+seed314 first base/power29/16 and middle13/13 remain; other seeds are30/30 in
+both phases/models. No raw evidence discarded, thresholds unchanged.
+
+`physical_sound_text_tags.py --device cuda` now accelerates AST; CPU remains
+default, device is recorded, CLAP unchanged. Compared by identical WAV SHA256
+against preserved CPU reports:180 raw and120 normalized rows retain identical
+top10 label order and expected-top5 flags; max score difference2.24e-6.
+The two slow duplicate CPU jobs were deliberately terminated (exit143) after
+this cross-check; their incomplete outputs are NOT evidence. Both full GPU
+development runs and the normalized training-control run completed. The NumPy
+mel-filter warning remains; this is not a new calibrated validator.
+
+Reproduce with `physical_sound_pouring_compare.py --source SOURCE --base BASE
+--candidate POWER --output NEW_EXTERNAL_ROOT`, optionally `--training-controls`.
+Run `physical_sound_text_tags.py --source NEW_EXTERNAL_ROOT/tag-input.json
+--output NEW_EXTERNAL_ROOT/tags-raw.json --device cuda` and separately add
+`--ast-rms .005` with another report path. All51 focused tests, Ruff and694 WAV
+hash/rate/PCM/finite/headroom checks pass. No runtime/ProductCheck or demo change.
+
+Next: bounded research and a training-side discriminator before further full
+fits. Competing explanations are weak learned phase conditioning/optimization,
+insufficient predictive information in elapsed fraction, and representation
+loss. The oracle weakens the last explanation; training-object failure weakens
+an OOD-only explanation. Test a small known-object first/middle conditional fit
+against shuffled-phase and exact-spectrogram controls, retaining playable WAVs.
+Do not resume generic capacity/epoch/loss sweeps, promote power on AST alone,
+or replace the broad user objective with matching these summary statistics.
+
+### Phase conditioning: learnable in a small probe, unstable at broader scale
+
+[Two-phase learning comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-two-phase-probe-2026-09-05/comparison.wav>):
+first then middle; real/parent/matched-label/shuffled-label, seed314,36.64s,
+gain1. This is SAME-recording training evidence, not generalization.
+[Paired-record standalone candidate](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-paired-records-audition-2026-09-05/generated.wav>)
+uses the usual glass10cm/7cm,15s event, fraction0.2, seed2718, audition gain10,
+no audio input. Retained as an experimental candidate, NOT accepted as an
+all-round improvement. No demo or previous artifact was overwritten.
+
+Bounded research read [Guided Flows,v2,2023-12-07](https://arxiv.org/html/2311.13443v2)
+§3/Algorithm1 and [Flow Matching,v2](https://arxiv.org/html/2210.02747v2).
+Guidance combines conditional and unconditional fields; training includes
+null conditions. Our model was not trained that way, so inserting an arbitrary
+guidance coefficient is not a supported fix. No foreign code executed.
+
+`physical_sound_pouring_phase_probe.py` first selected the FIRST training row,
+`VID_20240116_230040_2.1_16.7`, plastic container1, duration14.65359s. Its fixed
+patches start at sample0/84480, elapsed fraction0/0.360321. Both600-step fits
+start from identical base weights, retain245985 parameters, AdamW3e-4/wd0.01,
+batch6, seed53 and velocity loss. Targets/noise/times/RNG consumption match;
+the negative control permutes only phase labels. No holdout enters training.
+
+Root `pouring-flow-two-phase-probe-2026-09-05`:22 WAVs plus comparison, matched/
+shuffled checkpoints, result and normalized AST. Matching the correct target
+spectrogram beats the other phase for matched6/6, parent3/6, shuffled3/6 noise/
+phase cases. Mean spectrum error parent6.338, matched3.823, shuffled6.443dB.
+CV change real-0.3279, oracle-0.2471, matched approximately-0.086; the temporal
+variation is still underfit. This falsifies completely disconnected conditioning
+on this example, not an architectural sufficiency/generalization claim.
+
+`path-identifiability.json` computes an exact balanced two-endpoint Gaussian-path
+control: encoded endpoint distance158.171, optimal phase accuracy from noisy
+target alone `Phi(t*D/(2*(1-t)))` exceeds95% for `t>0.020375`. Thus approximately
+98% of uniform flow times allow phase inference without its label in this toy.
+This makes weak incentive to use labels a plausible mechanism; it is NOT a
+measurement proving that the network adopted that mechanism.
+
+The evidence-backed `--all-training` extension selects the SAME93 training IDs.
+Each batch samples3 recordings, pairing each recording's first and middle patch;
+its matched600-step and shuffled600-step fits share all random draws and parent
+weights. Shuffling changes only elapsed fraction, not geometry/material/duration.
+Root `pouring-flow-paired-records-2026-09-05`: all30 disclosed excluded recordings,
+two phases, three seeds, parent/matched/shuffled plus real/oracle:660 WAVs and
+one73.28s comparison. These remain TWO objects, not180 independent objects.
+
+| Across three seeds | Parent | Matched pairs | Shuffled phase |
+|---|---:|---:|---:|
+| First spectrum RMSE,dB | 10.533 | 8.442 | 13.512 |
+| Middle spectrum RMSE,dB | 9.316 | 7.862 | 10.365 |
+| Mean middle-first level,dB | -2.585 | -3.050 | -0.486 |
+| Mean middle-first CV | +0.0073 | -0.0174 | -0.0013 |
+| First CV absolute error | 0.501 | 0.526 | 0.509 |
+| Middle CV absolute error | 0.224 | 0.252 | 0.236 |
+| Raw AST Water/Pour top5 | 162/180 | 96/180 | 111/180 |
+| RMS0.005 AST Water/Pour top5 | 180/180 | 120/180 | 146/180 |
+
+Real mean level change-5.390dB, CV change-0.2969. Matched improves spectrum
+on158/180 pairs versus parent, but CV errors worsen and seed2718 fails normalized
+AST on ALL60 cases;314/1618 pass. No seed blacklisting or relabelling this as a
+general improvement. Correct-phase level change improves both objects: glass
+parent/matched/shuffled-2.968/-3.391/-0.499dB versus real-6.551; PET
+-2.293/-2.789/-0.476 versus real-4.503. Physical response remains underestimated.
+
+An adjacent-layer discriminator, `pouring-flow-crossed-decoder-seeds-2026-09-05`,
+crosses generator seeds314/2718/1618 with independent phase-decoder seeds on the
+first source-order glass/PET recordings, both phases.88 WAVs, no training.
+Base AST36/36; matched generator2718 passes only1/12 across decoder seeds, while
+314 passes11/12 and1618 passes12/12. Real4/4, oracle10/12. The failure cannot
+be explained solely by shared decoder randomness, though decoder effects are
+not zero. Keep learned-magnitude and reconstruction hypotheses distinct.
+
+Reproduce the two fits with `physical_sound_pouring_phase_probe.py --source
+SOURCE --parent BASE --output NEW_EXTERNAL_ROOT`; add `--all-training` for the
+paired-record extension. Both classifier levels use the existing AST CLI on
+`tag-input.json`, separate output paths and `--device cuda`. Stored checkpoints
+remain compatible with source-free `physical_sound_pouring_pilot.py --render-model`.
+
+An independent frozen CLAP check (`clap-semantic-cross-check.json`, same crossed-
+decoder root) compares32 raw-level clips using the existing six fixed water/
+tap/bird/whistle/metal/static prompts and decoder seed314. Real/oracle8/8 and
+base12/12 favour a water prompt; matched10/12 does. Both PET phases at generator
+2718 favour birds. Water-versus-nonwater margin worsens in11/12 matched versus
+base pairs. This partially corroborates the regression, not every AST failure:
+glass2718 still favours water. Neither embedding margin is calibrated naturalness
+or material authority. Preserve the disagreement; no threshold/seed retries.
+
+All four fine-tunes retain parent exposure to93 training recordings; metadata
+separates `finetune_ids` (one or93) from inherited `train_ids`, with parent hash
+and1500 parent updates versus600 additional updates. Fine-tuning never makes
+other parent training objects unseen. Metadata was clarified without altering
+weights or WAVs. This experiment does not change redistribution restrictions.
+
+Next: keep parent/power artifacts and reject paired-record promotion. Inspect
+training-side per-flow-time error and phase ablations, especially near pure
+noise, before another full fit; use the two-endpoint oracle as a successful
+control. The candidate demonstrates partial controllability but sacrifices
+semantic stability and still underfits temporal variation. Do not hide this by
+choosing only seed1618, tuning AST thresholds or claiming a decoder-only fix.
+
+Verification:54 focused tests, Ruff and `git diff --check` pass. All773 new WAVs
+pass SHA256,16kHz mono PCM16, finite-sample and headroom checks; all four
+checkpoints and inherited/fine-tuning exposure match their metadata. Local
+links resolve. All experiment jobs completed. No Cargo/ProductCheck or engine
+audition: isolated Python research, no runtime/content-contract changes.
+
+### Flow-time localization and separate envelope experiment
+
+[Stage-splice comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-flow-stage-ablation-2026-09-05/comparison.wav>)
+uses the first glass recording, first then middle; real/base/matched/base-early/
+base-late, generator2718 and fixed decoder314, gain1. Frozen-field splices are
+counterfactuals, not samples certified to follow either trained distribution.
+`physical_sound_pouring_stages.py` keeps64 Euler steps and switches at t0.25;
+endpoint switches0/1 exactly reproduce the original pure-model sampler.
+
+On the first source-order recording from each of13 TRAINING objects, both
+phases, per-time velocity MSE is lower for matched than base at all eight
+times0/.01/.05/.1/.25/.5/.75/.95. At t0, base/matched0.28109/0.24462; swapped-
+phase penalties0.001929/0.000957. At t0.95,0.89196/0.84584. The exact-endpoint
+oracle has maximum MSE9.4e-13. High late-time MSE alone is not proof of the
+failure's cause; data/noise ambiguity also changes with flow time.
+
+On first source-order glass/PET, both phases and three generator seeds, fixed
+decoder314: AST normalized base12/12, matched9/12, base-early11/12 and
+base-late9/12. At generator2718 alone:4/4,1/4,3/4,2/4 respectively. Early base
+partially helps, but neither splice cleanly restores the baseline. Spectrum
+RMSE7.655/6.461/7.124/6.551dB. Root `pouring-flow-stage-ablation-2026-09-05`
+contains56 WAVs plus comparison and312 per-time/phase-ablation records.
+
+The next reversible experiment separated a frozen texture model from a learned
+32-bin amplitude envelope (127.5ms bins). A primary-source check of the
+[DDSP paper abstract,2020-01-14](https://arxiv.org/abs/2001.04643) supports modular
+neural/signal-processing controls as prior art, NOT this water model's accuracy.
+No DDSP code/dependency was imported; this is a separate small experiment.
+
+`physical_sound_pouring_envelope.py` trains27424-parameter MLP flows on the same
+93 recordings' first/middle envelopes: two1500-step fits, matched versus randomly
+permuted phase only, seed53, batch32, AdamW3e-4/wd0.01. Encode is
+`log(max(RMS,1e-5))/3+2`; sampling64 Euler steps; decoder bounds[-2,1.5] are
+numerical guards, not physical calibration. Interpolated predicted/base coarse
+RMS ratios modulate the frozen base waveform; no target recording at inference.
+
+Evaluation initially stopped at the strict0.98 peak guard AFTER both fits
+completed. No training was restarted. Evaluation resumed from those exact
+checkpoints and retained raw failures. For report-only listening, ALL660 clips
+(including real/base controls) receive the SAME gain0.63339858, with no waveform
+clipping. Raw metrics/peak failures remain in `result.json`; scaled auditions
+do not constitute passing level validation. Base first/middle values differ
+slightly from old reports because decoder314 is now fixed for every generator.
+
+[Envelope experiment comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-envelope-flow-2026-09-05/comparison.wav>)
+plays first glass then PET; first/middle; real/base/matched/shuffled, seed314,
+shared audition gain above. This is a FAILED candidate, not an improvement.
+
+| All30 disclosed recordings ×3 seeds | Base | Matched envelope | Shuffled phase |
+|---|---:|---:|---:|
+| First spectrum RMSE,dB | 10.532 | 12.572 | 13.057 |
+| Middle spectrum RMSE,dB | 9.315 | 15.077 | 15.113 |
+| First absolute CV error | 0.504 | 0.506 | 0.669 |
+| Middle absolute CV error | 0.225 | 0.766 | 0.713 |
+| Mean middle-first level,dB | -2.583 | -0.034 | +0.176 |
+| Mean middle-first CV | +0.0076 | +0.1432 | -0.0577 |
+| Raw headroom failures | 0/180 | 60/180 | 60/180 |
+| Normalized AST Water/Pour top5 | 180/180 | 88/180 | 89/180 |
+
+Real mean changes remain-5.390dB/-0.2969 CV. The envelope identity control
+reproduces real with mean spectral error~2.1e-6dB; real/identity AST60/60 each.
+Raw AST at the shared audition level gives120/180 for all three generated
+groups; retain alongside normalized scores, not evidence of semantic parity.
+Root `pouring-envelope-flow-2026-09-05` has660 WAVs plus comparison, two completed
+checkpoints and both classifier reports. No base/demo replacement or promotion.
+
+Next: before another flow fit, test whether a simple condition-to-relative-level
+predictor on93 training recordings transfers to the disclosed containers better
+than zero-phase/shuffled controls. Compare per-record normalized and absolute
+targets. Missing recording gain/listener information is a hypothesis, not an
+established cause. Do not repeat absolute-envelope capacity/epoch sweeps or
+weaken peak guards; the broad realistic physical-sound goal is still open.
+
+Verification:61 focused tests, Ruff check/format, local links and
+`git diff --check` pass. All718 written WAVs pass SHA256,16kHz mono PCM16,
+finite/headroom checks; the120 raw generation-level failures remain failures.
+Checkpoint hashes and common audition gain verified. All jobs terminal;
+Cargo/ProductCheck and engine audition not run (isolated Python lab only).
+
+### Relative pouring level: limited gain, not better timbre
+
+[Source-free audition](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-audition-2026-09-05/generated.wav>)
+is4.08s, glass/cylinder H10cm/top-bottom diameter7cm, duration15s,
+elapsed fraction0.2, generator2718/decoder314, explicit audition gain10.
+[Comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-level-2026-09-05/comparison.wav>)
+is54.96s: first source-order glass then PET, first/middle; real/base/relative,
+generator314/decoder314, gain1. First-window base/relative are identical.
+
+`physical_sound_pouring_relative_level.py` fits ridge0.01 to first/middle RMS
+levels from the SAME93 training recordings. Within-record demeaning cancels
+recording-level offsets and ALL static covariates: the relative model learns
+only a global elapsed-fraction slope, not material/geometry interactions.
+Its slope is-25.2779dB per unit fraction; absolute fit-24.1940, record-paired
+random-sign control-2.2978, zero-phase0. The constant training-mean delta is
+-6.5126dB. No neural weights changed. At inference, desired level is the
+generated first-window level plus slope times progress; a single scalar gain
+adjusts the generated current patch. No reference audio is read.
+
+| Middle-first level RMSE,dB | Base | Relative | Absolute | Shuffled | Zero | Train mean |
+|---|---:|---:|---:|---:|---:|---:|
+| Glass,13 recordings | 5.252 | 4.069 | 4.029 | 7.088 | 7.635 | 3.921 |
+| PET,17 recordings | 4.142 | 3.735 | 3.669 | 5.310 | 5.697 | 4.027 |
+| Pooled | 4.656 | 3.883 | 3.829 | 6.144 | 6.607 | 3.981 |
+
+These are TWO disclosed objects, not90 independent cases. Relative calibration
+reduces this error16.6% versus base but barely beats the constant training mean,
+and loses to the absolute fit. Recording-gain confounding is NOT established.
+Across180 generated clips, absolute spectrum RMSE worsens9.923->11.177dB;
+CV error is unchanged0.3642. The generated anchor is already too quiet relative
+to real recordings. Do not present this as an overall realism improvement.
+Raw AST real60/60, base/relative143/180 each; RMS0.005 AST60/60,180/180,180/180.
+Independent CLAP, same six fixed prompts, first glass/PET ×two phases ×three
+seeds: real4/4, base/relative12/12 positive water margins. Semantic consistency
+does not prove calibrated level, material or naturalness. Scalar negative
+controls were explicitly excluded from AST/CLAP inference.
+
+Root `pouring-relative-level-2026-09-05` contains960 individual WAVs, comparison,
+`model.json`, full results and classifier reports; the audition root contains
+one WAV. `render(parent, calibration, output, controls, seed=2718,
+device="cuda", audition_gain=10)` is the source-free Python entry point;
+controls come from the existing `physical_sound_pouring_pilot.condition`.
+Parent/calibration hashes are checked and all gains explicit. No automatic
+attenuation or peak-guard weakening.64 focused tests and962 WAV/hash checks pass.
+
+### Gain-invariant timbral evolution: conditioned correction rejected
+
+[Timbral comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-relative-timbre-2026-09-05/comparison.wav>)
+plays first source-order glass then PET, middle phase: real/base/global/
+conditioned/shuffled, seed2718/decoder314, gain1,45.8s. This is a FAILED
+correction, not a new best model or demo replacement.
+
+`physical_sound_pouring_timbre_probe.py` tests the same93 training recordings
+before another neural fit. Target is middle-minus-first centered log-power
+in32 linear-frequency bands. Relative normalization removes scalar recording
+gain; targets retain time-averaged spectral color, not within-patch dynamics.
+The global ridge head uses elapsed fraction only. The conditioned head uses
+fraction times static controls plus an intercept (11 features); ridge0.01.
+Controls are training-mean delta, zero change and record-wise random signs,
+seed53. Each of13 training objects is excluded in turn from fitting the head.
+This is grouped head validation, NOT independent validation of the base neural
+model, which has already seen all13 objects. No hyperparameter/seed sweep.
+
+| Relative spectral prediction RMSE,dB | Conditioned | Global | Train mean | Zero | Shuffled |
+|---|---:|---:|---:|---:|---:|
+| Equal-object mean of13 excluded-group RMSEs | 3.956 | 3.867 | 3.916 | 4.212 | 4.480 |
+| Disclosed glass,13 recordings | 4.051 | 3.555 | 3.594 | 3.852 | 3.775 |
+| Disclosed PET,17 recordings | 2.898 | 2.876 | 2.861 | 2.988 | 3.094 |
+| Disclosed pooled RMSE | 3.445 | 3.188 | 3.199 | 3.390 | 3.406 |
+
+Metadata adds no robust advantage over the global curve here. This rejects
+this feature/target combination, NOT all learnable physical information.
+For audition, interpolate the predicted coarse correction into STFT bands
+of the frozen generated middle clip, anchored to its generated first clip.
+Preserve the current generated RMS; no real audio enters this correction.
+Generated inputs are hash-checked cached base samples, not a new neural fit.
+All30 disclosed recordings ×three seeds were rendered, not just previews.
+
+| Mean over90 middle clips | Base | Global | Conditioned | Shuffled |
+|---|---:|---:|---:|---:|
+| Relative32-band shape RMSE,dB | 3.177 | 3.004 | 3.213 | 3.242 |
+| Absolute32-band shape RMSE,dB | 5.060 | 5.455 | 5.605 | 5.172 |
+| Existing spectrum RMSE,dB | 9.315 | 10.199 | 10.204 | 9.415 |
+| CV absolute error | 0.225 | 0.242 | 0.234 | 0.231 |
+| Raw AST water top5 | 56/90 | 81/90 | 76/90 | 58/90 |
+| RMS0.005 AST water top5 | 90/90 | 90/90 | 90/90 | 90/90 |
+
+Global correction improves the narrow relative metric but worsens actual
+spectral match and CV. AST does not detect that degradation. Preserve the base;
+do not start another static gain/EQ/capacity sweep from these scores.
+
+Bounded adjacent-layer research: [Bagad et al.,2024-11-18,v1](https://arxiv.org/html/2411.11222v1),
+sections3–4 and6.1, motivates testing time-resolved resonance instead of
+time-averaged color. Axial pitch rises with shrinking air column; radial
+resonance can fall. Their generic pitch baselines also fail substantially;
+therefore a spectral maximum is not reliable ground truth. Their DDSP synthetic
+generator conditions loudness/residual on real audio and does not itself meet
+our reference-free interface. This is prior art, not validation of our model.
+
+Hypotheses: recording level alone explains poor control (not supported by the
+relative-vs-absolute level comparison); static coarse color captures the missing
+physical information (no robust gain above); time-resolved resonance/latent
+state matters (plausible, unproven here). Next discriminator: on the existing
+training-only recordings, compare temporal resonance tracking against known
+synthetic rising/falling controls and shuffled-time controls before using it as
+a training target. Require a playable reconstruction/control and report misses;
+do not invent liquid-height labels, force measurements or open protected data.
+
+Root `pouring-relative-timbre-2026-09-05` contains360 clips plus comparison,
+linear weights, group/development errors and separate raw/normalized AST reports.
+Reproduce with `physical_sound_pouring_timbre_probe.py --source SOURCE
+--base-outputs RELATIVE_LEVEL_ROOT --output NEW_EXTERNAL_ROOT`.
+
+Verification for both relative-level/timbre changes:67 focused tests,
+Ruff check/format and `git diff --check` pass. All1323 written WAVs pass SHA256,
+16kHz mono PCM16, finite/headroom checks; parent/source/training identities
+match. Both AST timbre reports have360 clips plus three synthetic controls;
+the pre-existing real-water positive controls remain disclosed, not new tests.
+All local links resolve and experiment jobs are terminal. No Cargo/ProductCheck
+or engine audition: report-only Python lab, no runtime or roadmap change.
+
+### Temporal resonance controls and frozen Sound of Water detector
+
+[Diagnostic comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/comparison.wav>)
+is67.064s: first source-order training objects1(plastic),5(glass); full real
+recording, classical ridge component, neural-pitch band component; gain1.
+[Spectrogram/track overlay](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-sow-pitch-probe-2026-09-05/tracking-diagnostic.png>)
+was rendered and inspected. These are SOURCE-DEPENDENT diagnostic extractions,
+not new reference-free neural sounds. The previous generator is unchanged.
+
+`physical_sound_pouring_resonance_probe.py` uses16kHz/FFT2048/hop256, a
+250–5993Hz log grid with96 bins/octave, frequency-median subtraction over31
+FFT bins, and a dynamic-programming ridge. Max jump12 grid bins/frame,
+penalty0.5 per grid bin; the path may rise or fall. These are fixed numerical
+choices, not calibrated physical limits. A Gaussian80-cent band extracts the
+selected component, with residual defined by subtraction; reconstruction is
+an arithmetic control, not synthesis quality. No material/geometry prior enters
+the tracker. All first source-order recordings from13 TRAINING objects used;
+no excluded or protected object opened.
+
+Known synthetic rising/falling/stationary/crossing tones plus noise use seed53.
+All four tonal cases have100% of interior frames within50 cents of an active
+mode. Crossing checks nearest mode, NOT identity through crossing. Reversing
+time yields the same reversed classical path. However, pure noise also gives
+a smooth path, median prominence7.09dB and score0.876 ABOVE the strongest of
+nine time-shuffled nulls. Thus positive shuffle margin/smoothness alone cannot
+admit labels. Stationary tone correctly has zero shuffle margin. On real
+recordings, selected component energy spans0.0005–0.342 of input; low-frequency
+background sometimes wins over the moving resonance. Reject automatic labels
+from this unconstrained tracker; do not tune its threshold from these cases.
+Root `pouring-resonance-probe-2026-09-05` has55 WAVs and full diagnostics.
+
+Following the [paper's explicit multiple-mode limitations,section6.4,v1](https://arxiv.org/html/2411.11222v1),
+the adjacent-layer alternative is the authors' specialized pitch network,
+not another classical ridge parameter sweep. The [official model card](https://huggingface.co/bpiyush/sound-of-water-models)
+marks model weights MIT and describes synthetic pretraining followed by real
+visual co-supervision. This does not change dataset redistribution terms.
+
+Acquired only the real-finetuned checkpoint, card and backbone configs:
+`sound-of-water-pitch-model-2026-09-05`, model revision
+`60c7b81251923b0116ffb1f12464c8170b377b9a`,377980520 bytes,
+SHA256`2fa3d8cec1488ee65bb5a6e30f1b79716d8243bbe4ddc4c0687ce2a02c84303c`.
+Backbone config revision`22aad52d435eb6dbaf354bdad9b0da84ce7d6156`.
+`physical_sound_sow_pitch.py` adapts the reviewed forward path from
+[upstream2599de7](https://github.com/bpiyush/SoundOfWater/blob/2599de7f11d565ed78f48e4340938e0fc6ef6455/sound_of_water/audio_pitch/model.py),
+retaining its MIT notice. No downloaded Python executed or dependencies added.
+Load is tensor-only `weights_only=True`, fixed publisher hash/size, all215
+finite tensors and strict key matching. Config is wav2vec2-base:768 hidden,
+12 layers/12 heads,512 CNN channels; do not substitute the paper's8-head prose.
+Time encoding matches upstream49Hz flooring, inclusive clip endpoints and
+0.01 scale. Input normalization uses the stored feature extractor config.
+Axial output is the probability-weighted wavelength on64 bins spanning0–100cm,
+converted with34000cm/s. Radial weights load but are not claimed as validated.
+
+The54 frozen evaluations cover13 full training recordings plus five synthetic
+controls, each original/reversed/250ms-block-shuffled. These weights are
+independent of the generator, but their training corpus OVERLAPS ours. They
+are not an independent unseen-data test or an authoritative naturalness judge.
+
+| Synthetic control | Median pitch error,cents | Frames within50 cents |
+|---|---:|---:|
+| Rising | 59.8 | 42.6% |
+| Falling | 1381.8 | 6.2% |
+| Stationary | 115.4 | 20.0% |
+| Crossing,nearest active mode | 76.3 | 30.8% |
+
+The neural model follows a plausible rising line in the two inspected real
+spectrograms and avoids the glass5 low-frequency classical path. But falling
+tones and reversal reveal strong direction/context dependence. Real reversed-
+versus-original pitch disagreement has per-object medians~316–2477 cents;
+it is not a general pitch tracker. Noise has median normalized entropy0.674,
+versus0.329–0.397 for original real recordings, but falling-tone confidence
+overlaps real examples. These observations do NOT establish an abstention
+threshold. Every result retains `automatic_label_admission=false`.
+
+`crop-context-check.json` adds52 inference comparisons:13 objects ×first/middle
+4.08s crops ×reset/absolute timestamps. Compare to the SAME full-recording
+prediction after interpolation, excluding0.25s from crop edges. Median of
+per-object median differences: first91.9 cents, middle67.8(reset)/51.2(absolute).
+Worst first crop is container23 at2561 cents; absolute middle worst179 cents.
+These are context-consistency errors, not errors against true pitch. Supplying
+the absolute crop start usually helps; short-clip output cannot silently replace
+a full-recording pseudo-target. Reproduce individual queries with
+`infer(model, extractor, crop, start_seconds=offset)`.
+
+Decision: use the frozen model only as a candidate training-side full-sequence
+pseudo-target, with uncertainty and the classical/synthetic controls retained.
+It must not become the sole validator or certify material identity. The next
+checkpoint owes a new REFERENCE-FREE waveform: a small condition-to-resonance
+learner around the retained neural texture, compared against unmodified texture
+and a simple trajectory baseline. Do not add another detector/validator stack
+first, or count the diagnostic components here as meeting the generator goal.
+
+Reproduce diagnostics with `physical_sound_pouring_resonance_probe.py --source
+SOURCE --output NEW_PROBE`, then `physical_sound_sow_pitch.py --model-dir
+MODEL --probe NEW_PROBE --output NEW_NEURAL_PROBE`.74 new WAVs and54 posterior
+NPZs verified, as well as four downloaded model/config files.73 focused tests,
+Ruff and `git diff --check` pass. No jobs remain; no Cargo/ProductCheck or
+engine audition. No new generator training, protected-data use or promotion.
+
+### Learned resonance trajectories: reference-free WAVs, renderer not promoted
+
+[New neural sound](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/glass10-2718/neural.wav>)
+is4.08s, glass/cylinder H10cm/top-bottom diameter7cm, event15s, start fraction0.1,
+generator2718/decoder314, gain1. [Four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-head-evaluation-2026-09-05/comparison.wav>)
+is54.96s: glass H10, glass H16, PET H10, glass H10/event8s; each base/neural/simple,
+seed2718, all gain1. All profiles share diameter7cm/start fraction0.1. Changing
+height at fixed duration also changes implied fill rate; no measured ml/s claim.
+These clips genuinely require NO recording or teacher at inference.
+
+`physical_sound_pouring_resonance_head.py` trains a4993-parameter MLP
+11->64->64->1/SiLU on the first source-order recording from each of13 training
+objects.64 points at fractions0.02–0.98 interpolate the frozen full-record
+Sound of Water teacher; target is `(log2(wavelength_cm)-5)/2`.1000 AdamW updates,
+seed53, batch128, lr1e-3, wd1e-4, gradient clip1; sampled loss0.2242->0.01544.
+Teacher predictions are uncertain pseudo-targets, NOT true physical labels.
+The frozen texture still inherits its original93 recordings. Source identity
+is verified through file hashes and PCM16 quantization correspondence.
+
+The head predicts frequency over the4.08s patch. A fixed STFT2048/hop256 response
+`1+3*exp(-0.5*(cents/150)^2)` emphasizes that moving band, then restores the
+original generated RMS. Neither width, strength, damping nor loudness is learned.
+The simple control uses the cylindrical air-column/end-correction approximation;
+it is only approximate for semiconical vessels. End-of-event fractions saturate
+at1 for fixed-length evaluation patches; no new tail-modeling claim.
+
+The first gain10 audition attempt stopped AFTER the full fit: glass10/seed314
+has three completed WAVs; glass10/2718 has only the already-written base WAV.
+All four remain in `pouring-resonance-head-2026-09-05`; the partial file has
+explicit post-failure metadata and is excluded from completed evaluation.
+No missing output was reconstructed. `--trained-head` reused the SAME weights
+in the fresh `pouring-resonance-head-evaluation-2026-09-05` root at explicit gain1.
+SHA256`462793195961551827d5c18abdeef4e7b8fb6e29241baba6644087214b02b2c2`
+matches both copies. There was one full fit, not two; peak guards were preserved.
+
+Thirteen additional1000-step fits each exclude one object from head training.
+Mean of per-object median pseudo-target errors: neural277.5 cents, simple357.0,
+training-mean trajectory438.8. Neural beats simple on6/13 objects, so the22.3%
+mean reduction is not a uniform gain. Teacher corpus overlap prevents an
+independent-data generalization claim. On hypothetical profiles the learned
+start/end frequencies are912/1157Hz(glass10),769/919(glass16),537/665(PET10),
+989/2014(glass10fast). Responsiveness alone does not prove physical accuracy;
+especially the material-only axial-pitch change remains uncalibrated.
+
+All30 disclosed excluded recordings ×two phases ×three seeds were evaluated.
+Cached PCM16 bases/real references are reread, so base values differ slightly
+from earlier pre-quantization metrics. These remain TWO objects.
+
+| Mean over180 generated clips | Base | Neural trajectory | Simple trajectory |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 9.918 | 11.101 | 11.481 |
+| Centered spectrum RMSE,dB | 5.928 | 5.988 | 5.952 |
+| CV absolute error | 0.364 | 0.328 | 0.290 |
+| Raw AST water top5 | 143/180 | 166/180 | 161/180 |
+| RMS0.005 AST water top5 | 180/180 | 170/180 | 161/180 |
+
+Neural spectral wins11/180, CV wins150/180. Thus no overall quality improvement
+or default replacement. On the four hypothetical profiles ×three seeds, AST
+base/neural/simple12/11/12 of12 at BOTH levels. The neural miss is glass10fast/
+2718; Water ranks6, no seed/threshold tuning. Independent fixed-six-prompt CLAP
+still gives positive water margins12/12 for each variant; real controls4/4.
+This disagreement is retained, not relabelled as an all-pass naturalness check.
+
+Bounded research/discriminator: is the frequency predictor the only bottleneck,
+or is fixed band emphasis insufficient? [Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1)
+uses pitch AND loudness/residual with an audio-reconstruction-trained decoder;
+it does not establish that a fixed moving filter suffices. No new upstream code
+or data was imported. `pouring-resonance-oracle-control-2026-09-05` tests the
+privileged full-record teacher trajectory on13 training objects ×two phases,
+seed2718, alongside real/base/neural/simple.131 WAVs include a clearly labelled
+[privileged-control comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-resonance-oracle-control-2026-09-05/comparison.wav>).
+
+| Training-side diagnostic,26 clips | Base | Neural | Simple | Privileged teacher |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 9.238 | 9.658 | 9.584 | 9.873 |
+| Centered spectrum RMSE,dB | 5.754 | 5.696 | 5.759 | 5.725 |
+| CV absolute error | 0.309 | 0.300 | 0.333 | 0.317 |
+
+Even the source-conditioned teacher curve does not restore spectral fidelity.
+This weakens the predictor-only explanation; it does not prove the teacher
+is true pitch or isolate every decoder failure. Stop fixed-band/head-capacity
+sweeps. Next smallest experiment: feed the retained trajectory into a narrowly
+trained waveform/spectrogram decoder adapter and optimize reconstruction, with
+an exact zero-adapter baseline and new reference-free WAVs. Preserve the current
+base and head as controls; do not make teacher confidence the quality objective.
+
+Source-free Python API: `render(parent, head, fresh_output, controls, seed=2718)`;
+no dataset, teacher checkpoint or target waveform is opened. Main CLI takes
+`--source --teacher-probe --parent --base-outputs --output`, optionally
+`--trained-head` for exact full-fit reuse. Evaluation contains360 new corrected
+WAVs,36 hypothetical-profile WAVs and one comparison. Together with the four
+retained first-attempt WAVs and131 privileged-control WAVs,532 WAVs pass format,
+finite/headroom checks.531 have original writer hashes; the partial base has an
+explicit observed hash and matches gain1 base within PCM16 quantization bounds.
+76 focused tests, Ruff, local links and `git diff --check` pass. All evaluations
+terminal; no Cargo/ProductCheck/engine audition, runtime or roadmap promotion.
+
+### Trajectory-conditioned input adapter: audible, no demonstrated quality gain
+
+[New source-free WAV](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/matched-first-audition/adapter.wav>)
+uses the same glass H10cm/diameter7cm/event15s/start0.1 profile, generator2718,
+decoder314, gain1. [Four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-2026-09-05/comparison.wav>)
+is54.96s: glass10/glass16/PET10/glass10fast, each base/matched/shuffled. No source
+recording or teacher is needed at inference. These are experimental candidates,
+not a better default. Dataset redistribution remains unspecified/local-only.
+
+`lab/scripts/physical_sound_pouring_pitch_adapter.py` adds a zero-initialized,
+bias-free1->16 Conv2d3x3 at the frozen PourFlow input:144 trainable parameters.
+The input is a150-cent Gaussian plane around the supplied frequency trajectory,
+not a fixed output filter. Every original parent tensor remains exactly frozen;
+a zero adapter exactly reproduces the parent sampler. The4993-parameter head
+and parent245985-parameter model are reused without retraining.
+
+Two600-step AdamW fits use the same13 first source-order training recordings,
+first/middle crops, six patches per batch, seed53, lr1e-3/wd0.01/gradient clip1.
+The matched fit receives full-record teacher curves at the correct crop offsets;
+the shuffled fit permutes only curves, keeping audio, controls, time and noise
+draws identical. Loss is flow velocity MSE plus0.25 times the time-squared-weighted
+one-step endpoint L1, averaged across pooling scales1/4/16. Final100-step mean
+losses0.343387/0.343618 do not establish a quality advantage. Teacher curves are
+uncertain and corpus-overlapping; they are not independent physical truth.
+
+The first source-order recording of each disclosed excluded object18/30, two
+phases and three seeds were evaluated. This is12 generated clips per model,
+not12 independent objects. No expansion to all30 recordings after this failure.
+
+| Development mean | Base | Matched guide training | Shuffled guide training |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 8.026 | 8.086 |
+| Centered spectrum RMSE,dB | 5.990 | 6.034 | 6.137 |
+| CV absolute error | 0.441 | 0.431 | 0.425 |
+| Raw AST water top5 | 10/12 | 11/12 | 9/12 |
+| RMS0.005 AST water top5 | 12/12 | 12/12 | 12/12 |
+
+Both adapters win0/12 spectral comparisons against base; CV wins9/12 and12/12.
+All four reference clips pass both AST levels. Four hypothetical profiles ×three
+seeds give12/12 AST water detections for every variant at both levels. These
+coarse semantic checks do not demonstrate realistic water, physical parameter
+accuracy or independent generalization. Spectrum error against one stochastic
+recording is also not a complete perceptual metric; the observed result supports
+withholding an improvement claim, not a universal impossibility theorem.
+
+Bounded research asks whether teacher-to-predicted-guide mismatch is responsible,
+whether the frozen decoder/input-only adapter cannot express the correction, or
+whether the one-step training objective fails to improve free-running audio.
+[ControlNet,v3,section3](https://arxiv.org/html/2302.05543v3) trains copies of deep
+encoding blocks joined through zero convolutions; it does not justify treating
+one144-parameter input convolution as an equivalent architecture. This is an
+image-model analogy, not proof of our audio capacity bottleneck.
+[DDSP](https://arxiv.org/abs/2001.04643) motivates jointly learned signal-processing
+components. More directly, [Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1)
+trains a pitch/loudness/residual decoder with multiscale spectrogram reconstruction.
+Its published generator draws loudness/residual from a real conditioning sample;
+that interface does NOT itself meet our no-reference-input goal. No new upstream
+code, weights or datasets were imported for this research cycle.
+
+The executable discriminator reused the completed matched adapter on13 TRAINING
+objects ×first/middle, generator2718/decoder314. Compare predicted head curves
+against privileged full-real-record teacher curves and frame-permuted teacher
+curves (NumPy53), with all other inputs fixed. This is an intentionally
+source-dependent diagnostic, not the source-free generation path.
+`pouring-pitch-adapter-guide-check-2026-09-05/result.json` and its
+[comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-pitch-adapter-guide-check-2026-09-05/comparison.wav>)
+retain all130 clips; comparison includes the first two training objects, each
+first/middle, in real/base/predicted/teacher/scrambled-teacher order.
+
+| Training-side diagnostic,26 clips | Base | Predicted | Teacher | Scrambled teacher |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 9.238 | 9.306 | 9.308 | 9.280 |
+| Centered spectrum RMSE,dB | 5.754 | 5.790 | 5.793 | 5.758 |
+| CV absolute error | 0.309 | 0.305 | 0.304 | 0.305 |
+
+Privileged guidance does not rescue the result. This weakens train/deployment
+guide mismatch as the sole cause, but does not distinguish capacity from loss
+mismatch or establish correct teacher pitch. Do not run more tiny-adapter/epoch
+sweeps. Next experiment: train a temporal resonance/noise decoder directly with
+multiscale audio reconstruction, learning time-varying signal components rather
+than nudging frozen flow features. It must generate from object/event conditions
+and randomness alone. Include a synthetic learnability control and new source-free
+real-domain WAVs; reconstruction-only diagnostics cannot become the endpoint.
+Preserve base/head and reject promotion on semantic tags or training loss alone.
+
+Training CLI takes `--source --teacher-probe --parent --head --output`.
+Source-free CLI uses `--parent PARENT --head HEAD --render-adapter ADAPTER
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --output FRESH_OUTPUT`, with optional
+`--seed` and `--device`; it explicitly excludes source/teacher arguments.
+The controls encode normalized height/top-bottom diameters, duration, phase,
+material and shape. `pouring-pitch-adapter-cli-2026-09-05` reran the real CLI and
+reproduced both first-audition WAV hashes. Weights are integrity-checked at load;
+oversized metadata, bad parent/head identity and invalid sampling bounds fail.
+
+Verification:81 focused tests, Ruff and `git diff --check` pass;81 experiment,
+131 guide-check and two CLI WAVs pass hash/PCM16/16kHz/finite/headroom checks.
+Both fits and all evaluations are terminal. No CLAP rerun for this rejected
+candidate, no Cargo/ProductCheck/engine audition, no runtime/default/roadmap
+promotion. The full multi-event physical-sound goal remains open.
+
+### Direct temporal noise/resonance decoder: reconstruction gain is not water
+
+[New standalone generated waveform](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/first-audition/generated.wav>)
+and [four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-temporal-decoder-2026-09-05/comparison.wav>)
+are real outputs, but this candidate is REJECTED as an improvement. Comparison
+order is glass10/glass16/PET10/glass10fast, each base/temporal/static, generator2718,
+gain1,54.96s. The decoder requires only its own combined checkpoint, object/event
+controls and a seed. It loads no source recording, teacher or previous PourFlow.
+No learned physical calibration or successful new-condition quality is claimed.
+
+`physical_sound_pouring_temporal_decoder.py` trains63619 parameters:12->96/SiLU,
+GRU96->96, output67. Inputs are the11 metadata/time controls and log frequency
+from the retained4993-parameter head. Its weights remain frozen and are packaged
+inside the new checkpoint. Outputs are65 linearly spaced log-noise-gain bands,
+resonance strength and width. Log gains interpolate to513 FFT1024 bins, bounded
+[-10,0] before exponentiation. A learned Gaussian resonance multiplier uses
+softplus strength and width50–900 cents. Predicted coefficients change each16ms.
+They filter Gaussian excitation with differentiable STFT/ISTFT, hop256,16kHz,
+4.08s. There is no iterative phase reconstruction. A static ablation preserves
+each bin's mean-square filter energy while removing temporal changes; a separate
+ablation removes the dedicated resonance multiplier.
+
+The loss operates on the generated waveform: mean log-magnitude L1 plus spectral
+convergence at FFT256/1024/2048, plus0.5 times20ms log-RMS-envelope L1. This differs
+from the previous frozen-flow input adapter and its one-step velocity objective.
+[Sound of Water,v1,section4.2](https://arxiv.org/html/2411.11222v1) motivated direct
+audio reconstruction, but its pitch/loudness/residual-conditioned DDSP generator
+is NOT reproduced here. In particular, this model has no audio-conditioned
+residual or learned stochastic event latent; only Gaussian excitation is random.
+
+An in-family positive control supplies known rising/falling frequency tracks
+and opposite amplitude ramps for two synthetic filtered-noise targets.300 updates
+reduce loss against a fresh excitation seed from2.807 to1.323; static-response
+ablation is1.819. Both specified checks pass (below70% initial and below static).
+Eight WAVs are retained. This verifies learnability in the selected signal
+family, not pitch inference, physical truth or real-water quality.
+
+One fresh real-data fit uses all93 existing training recordings/13 containers,
+uniform recording and crop sampling, batch6,1200 AdamW steps, seed53, lr1e-3,
+wd1e-4, gradient clip1. No teacher extraction or new data download. First/last
+100-update loss means3.217/2.337. The source, training roster and inherited head
+identity are checked. Dataset terms remain unspecified/local-research-only.
+
+The first source-order recording of disclosed excluded containers18/30, first/
+middle phases and seeds314/2718/1618 form12 generated clips per variant.
+
+| Development mean | Base | Temporal | Static | No resonance |
+|---|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 8.256 | 8.238 | 8.507 |
+| Centered spectrum RMSE,dB | 5.990 | 5.067 | 5.065 | 4.961 |
+| CV absolute error | 0.441 | 0.791 | 0.969 | 0.811 |
+| Raw AST water top5 | 10/12 | 0/12 | 0/12 | 0/12 |
+| RMS0.005 AST water top5 | 12/12 | 0/12 | 0/12 | 0/12 |
+
+Every new variant wins only3/12 spectral comparisons and0/12 CV comparisons
+against base. Four real controls pass both AST levels. For the four hypothetical
+profiles ×three seeds, base/temporal/static AST is12/0/0 of12 at both levels.
+The same frozen six-prompt CLAP contrast independently gives12/0/0 positive water
+margins, with real4/4. Common wrong AST categories are white/pink noise and leaves.
+Classifier data overlap is unknown; neither classifier is a calibrated quality
+judge, but the agreement is strong evidence against promoting this candidate.
+
+A bounded fit-versus-transfer discriminator trains only the FIRST source-order
+training record, container1/VID_20240116_230040_2.1_16.7, first/middle crops.
+It reuses the completed decoder and performs300 updates with fresh excitation,
+same optimizer/seed and three fixed evaluation seeds. This is memorization,
+not a new-condition result. `pouring-temporal-decoder-fit-check-2026-09-05` failed
+before its first optimizer update because loaded eval-mode cuDNN GRU cannot
+backpropagate. Its eight before/real WAVs remain explicitly labelled partial.
+The corrected train-mode run uses the same original weights in fresh
+`pouring-temporal-decoder-fit-check-retry-2026-09-05`; no full fit was repeated.
+
+| Single-record diagnostic,6 clips | Before | After | After, static |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 4.452 | 4.622 | 4.593 |
+| Centered spectrum RMSE,dB | 3.585 | 2.136 | 2.082 |
+| CV absolute error | 0.840 | 0.390 | 0.792 |
+| RMS0.005 AST water top5 | 0/6 | 0/6 | 0/6 |
+
+Real controls pass2/2. Learned dynamics are possible and improve on this record,
+but do not restore water recognition. This weakens an unseen-object-only failure
+explanation. It does not yet isolate insufficient spectral detail, inadequate
+excitation/phase structure, stochastic event averaging or optimization.
+Do not start a65-band/capacity/epoch sweep. Next discriminator is source-dependent
+exact-record FFT1024 magnitude with Gaussian-noise phase versus iterative phase
+reconstruction on this same first training record. Produce labelled oracle WAVs
+and check existing semantic controls before selecting the next learned model.
+
+CLI training uses `--source --parent --head --output`; fit diagnostic uses
+`--source --probe-model --output`. Standalone rendering uses `--model MODEL
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --output NEW_OUTPUT`, optionally
+`--seed`/`--device`, explicitly excluding training inputs. The real standalone
+CLI reproduced the first-audition WAV hash exactly. Checks cover synthesis
+identity, temporal ablation, finite gradients including exact reconstruction,
+frozen head, input/seed rejection, checkpoint integrity and reference-free render.
+
+86 focused tests, Ruff and diff/link checks pass.127 written WAVs pass format,
+finite/headroom checks:98 full experiment,8 retained failed-probe inputs,
+20 corrected-probe clips and one standalone CLI output.119 have original writer
+hashes; eight partial files carry explicitly observed hashes. Original head
+tensors match both final checkpoints exactly. Every job is terminal. No runtime,
+default, protected-data, roadmap or ProductCheck promotion; full goal remains open.
+
+### Exact-magnitude phase control and failed source-free phase repair
+
+`physical_sound_pouring_phase_oracle.py` separates two paths. The oracle uses
+the same first TRAINING record/container1/VID_20240116_230040_2.1_16.7, first/middle
+crops and three CPU seeds. It requires the original audio and is NOT a generator
+for new conditions. The separate refinement path uses only the stored full neural
+decoder, metadata controls and a seed when sampling; references enter metrics only.
+
+[Oracle comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-oracle-2026-09-05/comparison.wav>)
+is54.96s: first/middle, each real/learned/noise-phase/iterative-phase/coarse65/
+expected-noise-gain, seed2718, gain1. All use FFT1024/hop256/Hann and4.08s clips.
+Exact real magnitude is combined with Gaussian-noise phase, either directly or
+after32 alternating STFT/ISTFT phase updates. Coarse65 reduces log magnitude to65
+linear-frequency samples then interpolates back; this is not exactly the learned
+gain parameterization. Expected-noise-gain multiplies white-noise STFT by real
+magnitude divided by sqrt(sum(window²)), without inverting the current noise draw.
+The original signal is never used as the reconstruction phase.
+
+Matched windows, explicit length and the least-squares inverse follow the
+[PyTorch ISTFT documentation](https://docs.pytorch.org/docs/2.14/generated/torch.istft.html).
+Roundtrip and phase-refinement tests cover the implementation; no library upgrade.
+The learned control reuses the completed single-record probe. CPU generator
+draws differ from its prior CUDA audition, so its sample-level values are new
+matched CPU evidence, not a claim of CPU/CUDA waveform identity.
+
+| Oracle,6 clips per variant | Learned | Noise phase | 32 iterations | Coarse65 | Expected noise gain |
+|---|---:|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 4.621 | 1.253 | 0.332 | 2.467 | 1.118 |
+| Centered spectrum RMSE,dB | 2.133 | 0.519 | 0.324 | 1.841 | 0.951 |
+| CV absolute error | 0.435 | 0.159 | 0.045 | 0.181 | 0.148 |
+| AST water top5, raw AND RMS0.005 | 0/6 | 0/6 | 6/6 | 0/6 | 1/6 |
+| Fixed-six-prompt CLAP positive water margin | 1/6 | 6/6 | 6/6 | 6/6 | 6/6 |
+
+Real controls pass2/2. CLAP mean margins for noise/iterative phase are0.098/0.311,
+versus real0.324. Thus phase consistency materially affects this reconstruction
+and AST recognition; CLAP already recognizes several weaker reconstructions.
+Do not erase this disagreement or call phase the sole universal quality cause.
+This is one training record, not independent data or physical generalization.
+
+The executable follow-up then applied exactly32 updates to the neural decoder's
+own generated complex spectrogram, without teacher, original magnitude or new fit.
+[New source-free variant](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/glass10-refined-2718.wav>)
+and [comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-phase-refinement-2026-09-05/comparison.wav>)
+remain failed candidates. Comparison is36.64s: glass10/glass16/PET10/glass10fast,
+each native/refined, seed2718, gain1. Native zero-step sampling matches the old
+decoder numerically; no original model weights are modified.
+
+On the same two disclosed development objects/first records/two phases/three
+CUDA seeds, native/refined spectrum8.256/8.259dB, centered5.067/5.064, CV error
+0.7913/0.7911. AST is0/12 for both on development AND hypothetical profiles at
+both raw and normalized levels. CLAP hypothetical-profile water margins remain
+negative12/12 for each, real controls positive4/4. Inference-side phase repair
+alone therefore does not rescue the learned representation. No phase-iteration,
+65-band or smooth-noise capacity sweep follows from this result.
+
+Next selected experiment: preserve time-local spectral structure in a learned
+conditional latent decoder/prior, using consistent phase reconstruction.
+[Sohn et al.,NIPS2015,section4](https://proceedings.neurips.cc/paper/2015/file/8d55a249e6baa5c06772297520da2051-Paper.pdf)
+provides the conditional posterior/prior formulation for one-to-many structured
+outputs. Its image experiments do not establish audio success. Our proposed
+audio use is an inference: training posterior may read target audio, while the
+generation prior receives only object/event controls and randomness. Compare
+posterior reconstruction and source-free prior WAVs in the same bounded run;
+good reconstruction, low KL or a changed waveform cannot substitute for prior
+quality/control. Preserve the existing base and disclosed data roles. This
+changes the research model, not the product roadmap or an Accepted contract.
+
+Reproduction: oracle CLI `--source SOURCE --fitted SINGLE_RECORD_MODEL --output
+NEW_ORACLE`; source-free refinement evaluation `--source SOURCE --refine-model
+FULL_MODEL --output NEW_REFINEMENT --device cuda`. Pure inference function
+`refine_generated(model, controls, seed)` never reads a source recording.
+33 oracle and53 refinement WAVs pass hash/PCM16/16kHz/finite/headroom checks.
+90 focused tests, Ruff, local links and `git diff --check` pass. All jobs terminal;
+no training, downloads, runtime/default promotion, Cargo or ProductCheck run.
+
+### Conditional latent model: posterior and source-free prior both rejected
+
+[First reference-free prior sample](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-2026-09-05/first-audition/prior.wav>)
+and [four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/comparison.wav>)
+are generated from object/event controls and randomness, without a recording,
+teacher or base model at inference. Comparison36.64s: glass10/glass16/PET10/
+glass10fast, each base/prior, latent2718/phase314, gain1. These remain rejected
+candidates. [Reconstruction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-evaluation-2026-09-05/reconstruction-comparison.wav>)
+is36.64s: glass18/PET30 middle, each real/base/posterior/prior. Posterior explicitly
+requires the original recording; neither that path nor its metrics meet the goal.
+
+`physical_sound_pouring_cvae.py` implements690449 parameters. Four stride2
+convolutional blocks16/32/64/128 map a512x256 encoded magnitude to an8x32x16
+Gaussian latent. Posterior and prior heads output means/log variances, bounded
+[-6,2]; the prior sees only11 controls plus frequency/time coordinates. No skip
+connections carry target audio to the decoder. Bilinear upsampling/convolutional
+blocks restore512x256; a2*tanh(output/2) bounds the encoded output. FFT1024/hop256,
+16kHz,4.08s, DC removed; normalization follows the prior fixed[-100,0]dB range.
+
+One fit uses all93 training recordings/13 containers, uniform record/crop draws,
+batch6,2000 AdamW updates, seed53, lr3e-4, wd1e-4, gradient clip1. Reconstruction
+loss is encoded L1 plus0.25 times re-encoded waveform L1 after TWO differentiable
+phase-consistency iterations. KL is the mean analytic Gaussian posterior/prior
+divergence; beta linearly rises to0.01 by step500. First/last100-update means are
+reconstruction0.6222/0.2102, KL0.4219/0.4710. This bounded fit is not proof of
+convergence. At inference, sample a latent and reconstruct with32 phase updates;
+phase seed314 is fixed across the three latent seeds. Full-fit checkpoint SHA256
+`ce216d80add22ba62dca0eed324f6dfc295c79574e6c8b99c1a8507a787e0351` is preserved.
+
+The first training record and first source-order recordings of disclosed excluded
+objects18/30 are each evaluated in first/middle phases, seeds314/2718/1618. These
+are one training object and TWO development objects, not an independent test.
+
+| Development mean,12 clips | Base | Posterior | Prior |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 5.613 | 8.626 |
+| Centered spectrum RMSE,dB | 5.990 | 2.558 | 5.284 |
+| CV absolute error | 0.441 | 0.435 | 0.697 |
+| AST water top5,raw | 10/12 | 0/12 | 0/12 |
+| AST water top5,RMS0.005 | 12/12 | 0/12 | 0/12 |
+| Fixed-six-prompt CLAP water margin>0 | 12/12 | 0/12 | 1/12 |
+
+Training-side base/posterior/prior spectrum6.339/5.115/7.154, centered5.572/1.837/
+4.015, CV error0.315/0.423/0.657. Both AST levels and CLAP give6/0/0 of6.
+Four hypothetical profiles ×three seeds give base/prior12/0 of12 for both AST
+levels and CLAP. All six real controls pass both classifiers. No seed or threshold
+selection. Classifier corpus overlap remains unknown; semantic tags are not
+physical calibration or a complete naturalness test. Their agreement rejects a
+quality claim here. The failure is not only a posterior-to-prior distribution gap:
+even reconstruction is not recognized as water despite better spectral metrics.
+
+The source-dependent `pouring-cvae-codec-probe-2026-09-05` uses the first training
+record/container1, two phases, three phase seeds. It fixes posterior latent seed53
+and compares exact encoded target, posterior output and target log magnitudes
+area-reduced/bilinearly-expanded on time only(512x16), frequency only(32x256),
+or both(32x16). Every variant uses32 identical phase updates. This is a simple
+information-removal control, NOT an equivalence to a learned multichannel latent.
+
+| Codec control,6 clips | Exact | Posterior | Coarse time | Coarse frequency | Coarse both |
+|---|---:|---:|---:|---:|---:|
+| Spectrum RMSE,dB | 0.341 | 5.087 | 6.310 | 3.445 | 7.261 |
+| Centered spectrum RMSE,dB | 0.331 | 1.923 | 1.782 | 2.402 | 2.764 |
+| CV absolute error | 0.053 | 0.420 | 0.434 | 0.086 | 0.540 |
+| AST water top5,both levels | 6/6 | 0/6 | 0/6 | 0/6 | 0/6 |
+
+Real2/2. The exact preprocessing/reconstruction path is a positive control;
+dropping details on either axis damages recognition. This supports investigating
+detail preservation rather than blaming only the phase algorithm or the prior.
+It does not isolate architecture from the reconstruction objective, undertraining
+or latent regularization, nor justify a latent-size/epoch/KL sweep.
+
+Bounded research: [RAVE,v2,section3.1.2](https://arxiv.org/html/2111.05011v2)
+freezes an encoder after representation learning and fine-tunes its decoder with
+adversarial, feature-matching and spectral reconstruction terms. This motivates
+one reversible decoder-only experiment here, not a claim that our representation
+is already sufficient or that this spectrogram CVAE reproduces RAVE's waveform
+architecture. The paper reports much longer training; our2000 updates cannot be
+presented as equivalent evidence. Keep encoder/prior fixed, retain reconstruction,
+and learn the critic only from training audio. AST/CLAP must remain separate
+diagnostics, never generator training losses. Compare posterior and SOURCE-FREE
+prior WAVs in the same run; any improvement still requires control/generalization
+evidence before promotion. Do not silently switch to reconstruction-only success.
+
+CLI subcommands: `train --source --output`; `evaluate --source --model --base
+--output`; source-free `render --model --controls ELEVEN_VALUES --output`; and
+source-dependent `probe --source --model --output`. Render accepts optional seed
+and device, and no source argument. Training is separate from evaluation so a
+later evaluation failure never requires retraining a completed checkpoint.
+Source integrity/roles and unspecified redistribution terms remain unchanged;
+all audio, weights and reports stay external. No new dataset or model download.
+
+94 focused tests, Ruff, diff and link checks pass.121 WAVs pass original-writer
+hash/PCM16/16kHz/finite/headroom checks: one first prior,86 evaluation/comparison,
+one standalone CLI replay and33 codec probes. CLI reproduces the first-prior hash
+exactly. Both inference separation and differentiable reconstruction/KL gradients
+are tested. All jobs terminal, no runtime/default/roadmap or ProductCheck promotion.
+
+### Matched decoder adversarial continuation: rejected, phase mismatch bounded
+
+[Four-way source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-cvae-adversarial-evaluation-2026-09-05/ablation-comparison.wav>)
+is18.32s: retained base-flow, original CVAE, reconstruction-only continuation,
+adversarial continuation. Glass H10cm/diameter7cm/duration15s/start0.1,
+latent2718/phase314/gain1. These CVAE candidates remain rejected; no source
+recording, teacher or critic is required at inference. Full four-profile
+base/adversarial comparison is in the same directory's `comparison.wav`.
+
+`physical_sound_pouring_cvae_adversarial.py` runs two matched600-step
+continuations from the original CVAE, not sequential fine-tunes of one another.
+Same93 training records, uniform3-record/crop batches, seed53, same latent/noise
+RNG consumption. Encoder/posterior/prior tensors stay byte-exact;322577 decoder
+parameters train. Adam lr1e-4, betas0.5/0.9, clip1. Both runs instantiate the same
+347362-parameter critic; only the adversarial arm updates/uses it. Two separate
+four-layer strided spectral critics see re-encoded synthesized waveforms at
+original/half spatial resolution, with hinge loss. Generator retains posterior
+reconstruction plus0.1 adversarial loss on posterior AND prior and0.5 posterior
+feature matching. Phase iterations remain2 in training and32 in inference.
+The critic is unconditional and training-only, not a physical-condition judge.
+AST/CLAP never enter training. This is not a reproduction of RAVE.
+
+External models: `pouring-cvae-reconstruction-continuation-2026-09-05`, SHA256
+`37c79a336ff1fd18eea4841d670888fb65a457076f0587597a7cb194116e51a4`;
+`pouring-cvae-adversarial-2026-09-05`, SHA256
+`f2b06c92cf82dbc379c208271fda3338bd0458c36dfb272ffc06c31796ccd3eb`.
+Last100 rec losses0.20830/0.21710; adversarial D/G/FM1.65619/0.24210/0.03848.
+Inherited parent metrics in model.json are explicitly labelled historical.
+Neither completion nor these losses prove convergence or naturalness.
+
+Evaluations reuse the exact original first training record, disclosed excluded
+objects18/30, first/middle phases, three latent seeds and four novel profiles.
+`pouring-cvae-rec-cont-evaluation-2026-09-05` and
+`pouring-cvae-adversarial-evaluation-2026-09-05` retain all84 individual rows,
+AST raw/RMS0.005 and fixed-six-prompt FP32 CLAP. Development is only TWO opened
+objects; it is not an independent test or evidence for all physical sounds.
+
+| Development,12 clips per mode | Original CVAE | Rec continuation | Adversarial |
+|---|---:|---:|---:|
+| Posterior spectrum RMSE,dB | 5.613 | 5.292 | 5.000 |
+| Posterior centered spectrum,dB | 2.558 | 2.472 | 2.934 |
+| Prior spectrum RMSE,dB | 8.626 | 8.584 | 7.794 |
+| Prior centered spectrum,dB | 5.284 | 5.161 | 5.570 |
+| AST posterior/prior,both levels | 0/0 | 0/0 | 0/0 |
+| CLAP positive posterior/prior | 0/1 | 0/2 | 3/0 |
+| Novel prior AST/CLAP,out of12 | 0/0 | 0/0 | 0/0 |
+
+All six real controls pass both classifiers. Base development AST raw10/12,
+normalized12/12, CLAP12/12; novel base12/12 throughout. On training, both new
+CVAE modes remain0/6 for both AST levels and CLAP. Better partial spectrum
+metrics have not recovered water semantics. Adversarial prior level changes
+substantially (development mean error-1.782dB versus rec-9.670dB), while centered
+shape worsens; do not call this a timbre improvement. No threshold/seed tuning.
+
+Bounded research after this failure considered three explanations: (1) merely
+too few additional updates, (2) train/inference phase inconsistency, (3) learned
+representation/objective lacking perceptual detail. The matched rec arm tests
+the first bounded600-update explanation, not eventual convergence. For the
+second, [Khan et al.,2020](https://arxiv.org/abs/2005.07810) identify consistency
+of generated spectrograms as a speech synthesis issue; [Masuyama et al.,2019](https://arxiv.org/abs/1903.03971)
+describe GLA limitations and learned iteration. These speech results motivate
+a control, not a water-quality or neural-vocoder success claim. RAVE's frozen
+encoder stage assumes a satisfactory representation; we have not established
+that assumption. No further critic/epoch/capacity sweep is justified here.
+
+The executable `--phase-budget-probe` uses the adversarial checkpoint and first
+training record, two phases, fixed latent53, phase314/2718/1618, exact target,
+posterior and source-free prior at2 versus32 iterations. External output:
+`pouring-cvae-phase-budget-2026-09-05`;38 individual WAVs plus a comparison.
+
+| Six clips per row | AST raw/normalized,2->32 | CLAP,2->32 | Spectrum RMSE,2->32 |
+|---|---|---|---|
+| Exact target | 3->6 at both levels | 6->6 | 0.648->0.341 |
+| Adversarial posterior | 0->0 at both levels | 0->0 | 3.280->3.139 |
+| Adversarial prior | 0->0 at both levels | 0->0 | 6.425->6.591 |
+
+Thus training-time synthesis itself can harm recognition, but returning the
+trained model to2 iterations does not restore it. This does NOT falsify an
+effect on training gradients; it rules out a simple inference-only rescue.
+`critic-response.json` also measures the saved training critic on these WAVs.
+Its fine-scale mean logit real/exact2/exact32 is0.299/-0.419/-0.197; posterior
+2/32 is-1.587/-2.341 and prior-0.247/-0.533. Coarse-scale scores disagree in
+ordering. It is not an independent validator or a reason to select outputs.
+Representation versus objective/undertraining remains unresolved, not proven
+to be a hard latent-capacity ceiling. All failures and phase seeds remain.
+
+Next selected discriminator: reuse the already cached, frozen TangoFlux
+Oobleck waveform autoencoder on the same water crops. Existing codec evidence
+above covers glass, not these recordings. [Stable Audio Open,v2,2024-07-31](https://arxiv.org/html/2407.14358v2)
+separates a waveform autoencoder from latent generation, which motivates
+reusing a learned waveform representation before another conditional fit.
+This is an alternative to jointly learning a lossy spectrogram codec and prior
+from93 recordings, not evidence it will succeed. Retain cached model revision,
+notices, raw headroom, mean/sample controls and AST/CLAP. If the codec preserves
+water detail, next train an object/event-conditioned latent sequence, without
+target audio at inference. If not, do not start that generator. A positive
+reconstruction control alone will NOT satisfy the user goal or material control.
+No new weights downloaded and no extra training launched for this selection.
+
+Reproduction: `physical_sound_pouring_cvae_adversarial.py --source SOURCE
+--parent ORIGINAL_CVAE --output NEW` with/without `--adversarial`; use the
+existing CVAE `evaluate` with the retained flow base. The same new script with
+`--parent ADVERSARIAL_MODEL --phase-budget-probe` runs only the discriminator.
+98 focused tests and Ruff pass;212 new WAVs pass writer hashes, mono PCM16,
+16kHz, finite/headroom checks. Four-way comparison reads back at18.32s.
+Source mismatch, critic/decoder gradient isolation and frozen representation
+are tested. No runtime/default/roadmap change, Cargo or ProductCheck run.
+All jobs terminal; full multi-event goal remains active.
+
+### Frozen waveform codec and conditional latent flow (2026-09-05)
+
+[Source-free four-profile comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-flow-evaluation-2026-09-05/comparison.wav>)
+is36.64s: glass10/glass16/PET10/glass10fast, each retained STFT base then new
+latent flow, seed2718/gain1. [Standalone generated sound](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-flow-2026-09-05/first-audition/generated.wav>)
+needs only eleven object/event controls and randomness, not a reference/cache.
+This candidate remains rejected: partial gains do not establish water quality.
+
+`physical_sound_pouring_wave_codec.py` reuses cached TangoFlux revision
+`367005e963cb3a9fb2e03a46104d7de23e34ceea`,624490208-byte Oobleck weights SHA256
+`d73619a1d1e1dc48e606632931ffce440b4959ce2a4ed5a3522c3bb573b103be`.
+No download or codec training. Strict state load, eval/frozen weights; notices
+travel with external artifacts. Powered by Stability AI; TangoFlux/Hung et al.,
+local research only. Sound of Water dataset redistribution remains unspecified.
+Current4.08s16kHz crops are resampled44.1kHz and duplicated to two channels,
+padded from179928 to180224 samples; this does not restore original high bands.
+Codec latent is64x88; output trimmed back to4.08s. Native44.1k stereo and16k mono
+diagnostics are retained without gain/clipping. This is not spatial calibration.
+
+`pouring-wave-codec-2026-09-05` uses first/middle of the same first training
+record and disclosed objects18/30:6 real,6 posterior means,18 posterior samples,
+seeds314/2718/1618. AST raw AND normalized accepts5/6 means and15/18 samples;
+CLAP6/6 and18/18. All real controls pass. Glass18 middle fails AST for every
+codec variant (Drip is near the top, but fixed Water/Pour criteria are unchanged).
+Mean/sample spectrum RMSE3.579/3.630dB, CV error0.02971/0.02965. Thus useful
+water detail survives most of these codec controls, unlike the rejected CVAE;
+not a universal codec-quality pass. [Reconstruction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-wave-codec-2026-09-05/comparison.wav>)
+is41.22s: train/glass18/PET30 middle, each real/mean/sample2718. It is NOT
+reference-free generation or success on the user's physical-control goal.
+
+`physical_sound_pouring_latent_flow.py` caches279 fixed first/middle/last crops
+of93 training recordings/13 objects in `pouring-oobleck-cache-2026-09-05`.
+Only those training targets supply channel center and scale, including posterior
+variance; std floor0.1. No excluded-object audio enters fitting/statistics.
+The892992-parameter1D conditional U-Net uses residual64/128/192/128/64 blocks,
+GroupNorm, time and eleven controls through128-dimensional affine context,
+two stride2 reductions and skip-connected interpolation. It predicts velocity
+from noise/data interpolants in the normalized64x88 waveform-codec latent.
+Targets sample cached posteriors. One2000-step fit uses seed53,batch16,AdamW
+lr3e-4,wd1e-4,clip1; first/last200 mean loss1.898/1.530.64 Euler steps generate
+a latent, then the frozen decoder produces audio. This is not converged by fiat.
+Checkpoint `pouring-latent-flow-2026-09-05` SHA256
+`72045123754eb5b47edae56aaf1a281e2ca9ece4f35f869b096714cf514f2bb4`;
+cache metadata SHA256 `743e1f2ea8e327e02469c905ac4f3d8faa32e068fc0b836d148ccfdf7f6a4307`.
+
+Evaluation retains66 individual rows:6 real,18 paired base/generated for first/
+middle train/objects18/30, plus12 paired base/generated hypothetical profiles.
+Zero unsafe outputs. All three seeds remain. Same AST raw/RMS0.005 and frozen
+six-prompt FP32 CLAP; they are not losses or complete naturalness/physics judges.
+
+| Development12 clips | Retained STFT base | Waveform latent flow |
+|---|---:|---:|
+| Spectrum RMSE,dB | 7.655 | 7.819 |
+| Centered spectrum,dB | 5.990 | 6.724 |
+| CV absolute error | 0.441 | 0.290 |
+| AST raw/normalized | 10/12,12/12 | 0/12,0/12 |
+| CLAP positive water margin | 12/12 | 9/12 |
+| Novel AST/CLAP,out of12 | 12/12 | 0/8 |
+
+Training6: latent spectrum6.114 vs base6.339,CVerror0.236 vs0.315; AST0/6,
+CLAP2/6 versus base6/6. This improves an envelope statistic and some CLAP scores
+over CVAE, not overall quality or correct material/geometry transfer. Only two
+opened development objects are represented. Runtime/base/default stays unchanged.
+
+Bounded causal probe: [Flow Matching,v2,2023-02-08,sections3–4](https://arxiv.org/html/2210.02747v2)
+defines conditional probability paths and regression of their vector fields.
+Here the straight interpolant is x(t)=(1-t)noise+t target, target velocity is
+target-noise. To discriminate decoder failure from imperfect learned transport,
+`probe` starts at fixed steps0/32/56/64 of the SAME64-step grid, using encoded
+target information only for nonzero starts. No training or solver-step sweep.
+`pouring-latent-trajectory-probe-2026-09-05` retains72 WAVs and a54.96s preview;
+posterior seed=seed+1000, noise seed314/2718/1618. Start1 is codec control;
+only start0 is source-free. Other starts cannot be promoted as the solution.
+
+| Start t | Train AST raw/normalized,out of6 | Dev AST both levels,out of12 | Dev CLAP,out of12 |
+|---|---|---|---|
+| 0 | 0/0 | 0 | 9 |
+| .5 | 1/0 | 1 | 9 |
+| .875 | 6/6 | 9 | 12 |
+| 1 | 6/6 | 9 | 12 |
+
+Late privileged paths preserve recognition, unlike paths beginning far from
+the target. This localizes a learned-transport deficit; it does not prove an
+exact failing timestep, insufficient capacity or a particular loss fix.
+`field-diagnostic.json` uses all279TRAIN cached crops, three seeds, times
+0/.25/.5/.75/.875/.984375,batches32. For each seed, draw posterior target, then
+noise, then a single random condition permutation, reusing these across times.
+Compare learned correct/shuffled controls against k(t)x, with
+k(t)=(2t-1)/((1-t)^2+t^2), the unit-diagonal-Gaussian marginal field.
+This is a control, NOT a true data lower bound. Correct conditions beat shuffled
+on764–815/837 pairs per time, so the model does not wholly ignore controls.
+Its velocity MSE is nevertheless worse than the Gaussian control at t0
+(1.349>1.000),t.875(1.487>1.280),t.984375(1.448>1.032), while better at t.5
+(1.631<1.998). Conditioning use does not certify physical correctness.
+
+Next bounded implementation: Gaussian skip k(t)x plus a learned residual,
+against a matched plain-velocity control; same cached data,2000steps/seed53,
+both zero-initialized output layers. This targets the measured endpoint-field
+deficit, not an unsupported epoch/capacity increase. Judge new source-free WAVs
+and endpoint errors together; retain decoder/base and all failed seeds. No
+epoch/lr/capacity or seed/threshold sweep. No additional fit launched yet.
+
+CLI paths: waveform codec `--source --output`; latent flow `cache --source
+--output`, `train --cache --output`, `render --model --controls ELEVEN_VALUES
+--output`, `evaluate --source --model --base --output`, `probe --source --model
+--output`. Render never opens source/cache. CLI replay before/after shared ODE
+helper extraction reproduces first-audition hash exactly:
+`22c73aef2ee7a04b9ef0019ce61f6cf19f77dcdaec523e788e100f59473c0180`.
+105 focused tests, Ruff and198 new WAV hash/format/finite/headroom checks pass.
+All jobs terminal; no new download, runtime/roadmap/ProductCheck promotion.
+
+### Gaussian velocity skip: endpoint error improves, audio does not
+
+[Three-way source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-gaussian-skip-evaluation-2026-09-05/ablation-comparison.wav>)
+is13.74s: retained STFT base, matched zero-output plain latent flow, Gaussian-skip
+latent flow; glass H10cm/diameter7cm/duration15s/start0.1,seed2718,gain1.
+All four profiles/three seeds remain in each evaluation; no favourable selection.
+Both new models remain rejected. Correcting a measured field defect did not
+demonstrate a perceptual improvement.
+
+The existing latent-flow CLI adds `train --zero-output` and `--gaussian-skip`.
+Two fits share the279-crop cache, normalization,892992parameters,seed53,
+batch16,2000AdamW updates,lr3e-4,wd1e-4,clip1 and random draws. Both final layers
+start at zero; only one adds k(t)x, where k(t)=(2t-1)/((1-t)^2+t^2), to its
+learned velocity. No codec training or new data. The Gaussian form is a control
+distribution, not an assumption that water latents are actually independent
+unit Gaussians. Learned residuals can modify the endpoints after training.
+Separate format `pour-latent-flow-gaussian-v1` preserves the generation semantics
+on reload; original `pour-latent-flow-v1` checkpoints keep the unchanged path.
+
+`pouring-latent-zero-plain-2026-09-05` checkpoint SHA256
+`643568f1ee124a7841ef8c7ad5bcca7ae3f4d377ccfb28e26904a43983db113b`;
+`pouring-latent-gaussian-skip-2026-09-05` SHA256
+`d58f4a325e9b49a5e7b9c8b4f0dd813041a5fb5c243f94ba165f5c9b9d690a55`.
+First/last200 loss plain1.8743/1.5394, skip1.5196/1.3839. Completed, not proven
+converged. Model directories retain `field-diagnostic.json` with the same279
+TRAIN crops/three seeds/six times/matched condition permutations as above.
+Correct-control MSE at t0/.5/.984375 is plain1.3849/1.6302/1.4391 versus
+skip0.9952/1.6386/1.0460. The intended endpoint defect is substantially reduced;
+mid-path error is not. Lower aggregate training loss is not a quality pass.
+
+Separate `pouring-latent-zero-plain-evaluation-2026-09-05` and
+`pouring-latent-gaussian-skip-evaluation-2026-09-05` each preserve66 WAV rows,
+fixed AST raw/RMS0.005 and six-prompt CLAP. Zero unsafe outputs. Same disclosed
+training record/two development objects and hypothetical profiles, not clean test.
+
+| Development12 clips | Matched plain | Gaussian skip |
+|---|---:|---:|
+| Spectrum RMSE,dB | 8.512 | 8.860 |
+| Centered spectrum,dB | 6.751 | 7.165 |
+| CV absolute error | 0.241 | 0.378 |
+| AST raw/normalized | 0/0 | 0/0 |
+| CLAP positive | 9 | 10 |
+| Novel AST/CLAP,out of12 | 0/10 | 0/7 |
+
+Training6: plain/skip spectrum6.875/6.064,CVerror0.248/0.200; AST0/6 both,
+CLAP5/6 versus3/6. Real controls pass throughout; retained base results unchanged.
+Thus the hypothesis that this endpoint correction is enough for useful audio
+is not supported. No skip-weight, epoch, learning-rate, capacity or seed sweep.
+
+Bounded alternative hypothesis: posterior sampling might spend most learning
+effort on unused/noisy latent channels. [RAVE,v2,section3.2](https://arxiv.org/html/2111.05011v2)
+distinguishes informative latent means from posterior noise and analyses the
+mean representation's rank. This motivates measuring our frozen codec, not
+assuming its channels can be discarded. The skip directory's
+`latent-variance-diagnostic.json` uses only the279TRAIN posteriors. Per-channel
+Var(mean)/(Var(mean)+E(std^2)) is0.9076–0.9988, average0.9518; ALL64 channels
+exceed0.9. Normalized posterior-mean covariance needs54/61 components for95/99%
+variance (eigenvalue variance ratio, not RAVE's singular-value fidelity rule).
+This rejects the predominantly-posterior-noise explanation on these data;
+it does not measure decoder importance or authorize masking/PCA/mean-mode fits.
+
+Next discriminator is one-crop learnability, not another full-corpus sweep:
+cache row0,first training record/first phase, same frozen Oobleck and Gaussian
+skip,2000updates. Compare the resulting reference-free trained samples against
+the exact Gaussian posterior decoder control for that one crop. If it cannot
+learn even this, diagnose optimizer/parameterization before broader fitting;
+if it can, investigate multi-example transport. A memorized crop is explicitly
+NOT novel-object synthesis or completion of the user's multi-event goal.
+This single-crop fit has not yet been run; the completed full fits stay frozen.
+
+106 focused tests, Ruff, diff and local references pass.138 new WAVs pass writer
+hashes,PCM16/16k mono,finite/headroom checks. New-format CLI exactly reproduces
+its first-audition. Tests cover the analytic field's endpoints/midpoint and
+format-aware checkpoint reload. All jobs terminal; no source download, codec
+training, runtime/default/roadmap or ProductCheck promotion.
+
+### Single-crop learnability, longer fit and evaluator-confound check
+
+[Single-crop comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-single-crop-evaluation-2026-09-05/comparison.wav>)
+contains real / exact posterior / learned audio, seed2718, gain1,13.74s.
+The learned generator needs no reference recording, but explicitly memorizes
+one TRAIN crop; this is a learnability control, NOT new-object generation.
+`train --single-crop --gaussian-skip --zero-output` uses cache row0, first phase
+of `VID_20240116_230040_2.1_16.7`,2000steps, unchanged optimizer/seed53.
+Normalization still uses all93 TRAIN recordings; fitted IDs contain only one.
+`single-probe --source --cache --model --output` compares seeds314/2718/1618
+against decoder samples from that crop's exact Gaussian posterior. Full-source
+evaluation cannot silently treat this model as a full-corpus fit.
+
+`pouring-latent-single-crop-2026-09-05` checkpoint SHA256
+`1341e6ddf4d4b235ec72d6c1039bf8d0b228e9aa510f7d7eb2cbf55afe1b759b`.
+Real1/1, exact posterior3/3 and learned3/3 pass both unchanged AST levels and
+the original CLAP comparison. Spectrum RMSE oracle3.036, learned3.964dB.
+First/last200 loss1.204/0.585. This falsifies inability to learn even one crop,
+not multi-example failure. The evaluation's `analytic-field.json` compares
+768 draws (three seeds ×256) against the exact single-posterior field. For
+normalized mean mu/std s, S²=(1-t)²+t²s², that field is
+`mu + (t*s²-(1-t))/S² * (x-t*mu)`. Its uniform-time irreducible sampled-target
+MSE is pi/2*mean(s)=0.24954. Empirical model/analytic-target MSE0.56450/0.24642;
+model-versus-analytic-field error0.31822 remains. No convergence claim.
+
+The positive control and still-decreasing loss justified ONE longer full fit,
+reconsidering the previous blanket no-epoch-extension instruction. This was
+not an epoch/lr/capacity sweep. `train --gaussian-skip --steps 8000 --parent
+GAUSSIAN_SKIP_MODEL --cache CACHE --output NEW_MODEL` warm-starts the existing
+2000-step model on the same279 TRAIN crops: total10000updates. **AdamW and RNG
+reset**, not exact optimizer resume; lr3e-4,wd1e-4,batch16,clip1,seed53 unchanged.
+Cache, fitted IDs, scope, model mode and exact normalization must match before
+creating output. Codec is frozen. `pouring-latent-gaussian-long-2026-09-05`
+checkpoint SHA256
+`1ddab4d6298d8b93e0f58f8e6c8367afd9dbf7bb47d7904ed1c36d1f09c9da49`.
+Phase first/last200 loss1.39094/1.31266; all40 windows retained in model.json.
+
+[Long-fit comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-gaussian-long-evaluation-2026-09-05/comparison.wav>)
+is36.64s: retained base/new latent, glass10/glass16/PET10/glass10fast,
+seed2718, gain1. All66 individual outputs remain available; no unsafe outputs.
+Same disclosed training/development and hypothetical profiles, not clean test.
+
+| Long latent subset | Spectrum RMSE,dB | CV absolute error | AST raw/normalized | Original CLAP |
+|---|---:|---:|---:|---:|
+| Train6 | 5.152 | 0.162 | 2/2 | 6/6 |
+| Development12 | 7.305 | 0.180 | 0/0 | 10/12 |
+| Hypothetical12 | no paired target | no paired target | 1/1 | 12/12 |
+
+Relative to the2000-step skip, development spectrum8.860->7.305 and CVerror
+0.378->0.180 improve. Neither improvement nor CLAP12/12 establishes quality.
+AST mostly predicts Scrape/Crunch/Tearing, not alternative water tags.
+The [AudioSet ontology](https://github.com/audioset/ontology) is hierarchical;
+[Drip](https://research.google.com/audioset/ontology/drip.html) describes liquid
+drops, but this taxonomy ambiguity does not explain these dominant negatives.
+No existing AST tag set or threshold was broadened.
+
+The long evaluation's `clap-hard-negatives.json` retains all six original
+prompts and adds seven AST-motivated alternatives: scraping, tearing, crushing,
+chewing, toothbrushing, cutlery/dishes and rattling. **Post-hoc diagnostic**, not
+a calibrated quality gate or independent test. Same frozen FP32 CPU CLAP and
+all73 long/single evaluation rows, no retraining. Original versus expanded water
+margin positives: long hypothetical12/12->2/12; long paired16/18->2/18.
+Real6/6, retained base30/30, single oracle3/3 and learned3/3 remain positive.
+Thus weak negatives explain much of the apparent CLAP/AST disagreement;
+neither evaluator proves naturalness or both interacting materials.
+
+### Numeric solver counterfactual: no rescue, generation default unchanged
+
+[Solver comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-solver-probe-2026-09-05/comparison.wav>)
+is13.74s: Euler64 / midpoint128 / midpoint256, glass10,seed2718,gain1.
+[Flow Matching's official solver documentation](https://facebookresearch.github.io/flow_matching/generated/flow_matching.solver.ODESolver.html)
+identifies solver choice/step size as separate inference controls. The prior
+STFT256-step failure did not test this new latent field. Hypothesis: coarse
+integration rather than learned-field error might explain its scratchy audio.
+
+The external `pouring-latent-solver-probe-2026-09-05` applies all three methods
+to the same12 hypothetical conditions/seeds and three single-crop controls:
+45 individual WAVs, no source/cache/model updates. Explicit midpoint uses
+`k=v(x,t,c); x += h*v(x+h*k/2,t+h/2,c)`, h=1/N, t=i/N; two field evaluations
+per step. Analytic x'=x control at256steps differs from exp(1) by<1e-5;
+input is not mutated. Euler64 replays all15 existing WAV hashes exactly.
+Mean normalized endpoint RMSE Euler64->midpoint256 is0.02213 full/0.01421
+single; midpoint128->256 is0.0000551/0.0000619. This is strong local numerical
+convergence evidence, not proof of globally accurate learned dynamics.
+
+All methods give raw AST1/12 full and3/3 single; original CLAP12/12 and3/3.
+Expanded CLAP full2/12->1/12->1/12, single3/3 throughout. Refinement does not
+rescue semantics. No solver-default change, further step sweep or threshold
+relaxation. Normalized AST was not rerun for this solver-only diagnostic;
+both levels remain stored for the original long/single evaluations.
+
+Next bounded change targets multi-example learning, not sampling: compare a
+per-crop Gaussian affine transport path against the frozen matched zero-output
+plain2000-step control. [Lipman et al.,v2,2023-02-08,section4](https://arxiv.org/html/2210.02747v2)
+construct analytic Gaussian paths and explain conditional flow matching.
+Our proposed diagonal-posterior extension is `x=t*mu+(1-t+t*s)*noise`, target
+`mu+(s-1)*noise`: same initial Gaussian and cached posterior endpoints, with
+no second independently sampled posterior noise. This is an inference from
+the Gaussian construction, not a published audio-quality guarantee. Preserve
+conditioning/noise/time draws, cache, plain architecture, zero output,2000steps
+and seed53 to isolate path choice; do not repeat the old control fit. Compare
+actual new WAVs, unchanged AST and the now-disclosed harder CLAP diagnostic.
+The change has NOT been implemented or trained yet; no corpus/new-object or
+physical-calibration claim is admitted by any of the above controls.
+
+109 focused tests, Ruff formatting/static checks and diff pass; warm-start
+negative tests cover mode/cache/IDs/scope/center/scale before output creation.
+124 new WAVs pass writer SHA256,PCM16/16k mono and finite/headroom checks.
+Long-model standalone CLI replay is byte-exact, SHA256
+`02c5aea472e223a4a16a798d7845ac9b369d352851b68bb143ddb1bb56497b5e`.
+Notices/checkpoint identities verified; artifacts remain external/local research.
+All jobs terminal. No runtime/default/roadmap change or ProductCheck promotion;
+the full multi-event, new-condition neural-sound goal remains active.
+
+### Affine posterior path: no semantic rescue; full training coverage checked
+
+[Matched source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-latent-affine-evaluation-2026-09-05/ablation-comparison.wav>)
+is13.74s: retained STFT base / independent plain flow / affine plain flow,
+glass10,seed2718,gain1. The new affine candidate is rejected, not promoted.
+`physical_sound_pouring_latent_flow.py train --zero-output --posterior-path
+affine --cache CACHE --output NEW_MODEL` implements the preceding Gaussian
+coupling experiment. The independent default retains the exact old arithmetic.
+Both branches consume posterior noise, initial noise and time in the same order,
+even though affine ignores the first draw. Same279TRAIN cache,892992parameters,
+plain architecture,zero output,seed53,2000steps,batch16,AdamW3e-4/wd1e-4/clip1.
+The frozen matched plain control was reused, not retrained. No skip/capacity/
+learning-rate change. Metadata records the training path; warm-start rejects a
+different path. Inference remains the same source-free64Euler/frozen decoder.
+
+`pouring-latent-affine-2026-09-05` checkpoint SHA256
+`1b6e08132f26e2b244a2447360d66d371e06b78cbec8fe125363e72c5d852c3b`.
+First/last200 loss1.50577/1.24655. Loss values across different couplings have
+different irreducible components and must not be presented as audio improvement.
+All66 evaluation rows plus the36.64s four-profile comparison remain available.
+Both AST raw and RMS0.005 give zero positives for train6/dev12/hypothetical12,
+as does the same harder13-prompt CLAP diagnostic for all30 latent outputs.
+The frozen matched plain also has harder CLAP0/30. Real6/6 and base30/30 pass
+harder CLAP; existing base/source hashes are unchanged.
+
+| Paired metric | Independent plain | Affine plain |
+|---|---:|---:|
+| Train6 spectrum / shape,dB | 6.875 / 5.540 | 6.111 / 5.272 |
+| Train6 CV absolute error | 0.248 | 0.275 |
+| Development12 spectrum / shape,dB | 8.512 / 6.751 | 8.129 / 6.830 |
+| Development12 CV absolute error | 0.241 | 0.263 |
+
+Original easy CLAP train/dev/hypothetical plain5/9/10 versus affine6/9/11;
+hard negatives again expose the misleading impression. No affine-strength,
+epoch/seed or additional coupling sweep follows this negative result.
+
+The next bounded discriminator questioned an adjacent assumption: only six
+source/codec controls had previously been checked, so poor training targets
+or an unrepresentative training evaluation could explain the apparent failure.
+The [publisher's dataset](https://huggingface.co/datasets/bpiyush/sound-of-water)
+has separate `clean` and `bg-noise` columns; `clean=yes` does not imply the
+other column is `no`. No new source/download/role or classifier threshold.
+
+`pouring-training-codec-audit-2026-09-05` audits ALL279 cached TRAIN crops,
+93 recordings/13 containers, paired original and frozen posterior decode with
+seed2718:558 individual WAVs, no output failures. Exact cache/source/codec
+hashes and per-row controls checked before use; no recoding or filtering.
+[Source/codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-training-codec-audit-2026-09-05/comparison.wav>)
+is27.48s, first middle crop of the first three training containers in cache
+order, each real/posterior,gain1; it is NOT a reference-free generation.
+
+| All279 TRAIN crops | Original | Posterior decode |
+|---|---:|---:|
+| Raw AST Water/Pour top5 | 252 | 216 |
+| Original six-prompt CLAP | 278 | 276 |
+| Harder13-prompt CLAP | 267 | 232 |
+| Both raw AST and harder CLAP | 252 | 206 |
+
+`group-summary.json` retains all groups and paired changes. Harder CLAP loses
+35 source-positive cases after the codec, with no opposite flip. By phase,
+source first/middle/last93/92/82 of93; codec83/82/67. Raw AST source90/89/73,
+codec86/75/55. Nine crops have publisher background-noise=yes;66 need zero
+padding, at most9984samples/0.624s. Padding, recording conditions and phase are
+correlated; this does NOT prove a single cause or justify deleting failures.
+Codec limitations are real, but the useful majority contradicts a wholly
+non-water target corpus. No codec training or classifier-driven dataset purge.
+Normalized AST was not run for these all-corpus diagnostics.
+
+Then `pouring-long-training-coverage-2026-09-05` generates from ALL279 TRAIN
+control vectors, fixed seed2718, using the frozen10000-step Gaussian model
+(SHA1ddab4d6 above). It reads no target waveform or cache tensor at inference.
+279 individual WAVs plus a13.74s preview, no unsafe outputs. This is training
+coverage, not independent test/new-condition proof. Raw AST11/279, easy CLAP
+223/279, harder CLAP6/279, both2/279. Synthetic validator controls are excluded
+from these denominators. Thus the earlier small evaluation was NOT hiding
+broad success on familiar conditions. No material passes reliably: harder
+CLAP glass4/117,plastic2/18,PET0/87,PP0/57. This does not prove that every
+possible larger/longer scratch model fails, but rules out treating this model
+as useful and the current deficit as only unseen-condition generalization.
+
+Decision: stop similar small scratch-flow variants; use a pretrained GENERATOR
+prior, not only its codec, for the next physical-conditioning experiment.
+[FoleyCrafter,v1,2024-07-01,sections3.2–3.3](https://arxiv.org/html/2407.01494v1)
+trains added conditioning components with a frozen audio generator; its inputs
+are video, not our physical measurements. Its substantial training scale is
+not evidence that a tiny adapter will solve our problem cheaply.
+[Audio ControlNet's project page](https://audio-controlnet.github.io/), inspected
+2026-09-05 and labelled under peer review, describes frozen-backbone control of
+pitch/loudness/events. This is supporting prior art, not a verified dependency
+or a physical-parameter calibration result; no model/code was downloaded.
+
+Next implementation: a zero-initialized numerical conditioning bridge to the
+already cached frozen TangoFlux generator, using the eleven published controls.
+Keep its text encoder, codec, transformer and existing q/v weights frozen;
+do not repeat generic-caption LoRA or introduce video input. Verify adapter-off
+and zero-adapter exact baseline output, then produce an actual trained candidate
+and matched source-free WAVs in the same checkpoint. Preserve unconditioned
+glass/wood/rain regression paths. Use TRAIN-only data and disclosed development
+roles, no audio input at generation. First reconcile upstream duration/latent
+coordinates: tiny-flow normalization and its88-frame cache are NOT automatically
+valid inputs to pretrained TangoFlux. Judge generated audio and condition swaps,
+not flow loss alone. This bridge has not yet been implemented; full physical
+response, new-condition validation and multi-event goal remain unachieved.
+
+110 focused tests pass; path endpoints/finite-difference derivative, exact old
+formula/RNG preservation and warm-start path rejection covered. Ruff and diff
+pass. Affine standalone CLI byte-replays its first-audition, SHA256
+`7a4ff98f25901107f7e8de7ce6a03e06721affe20159db6f45429a3a429c9052`.
+909 new WAVs pass writer hashes,PCM16/16k mono and finite/headroom checks.
+Full-training coverage exactly replays the earlier first/middle training clips.
+All jobs terminal. All artifacts remain external local research; no runtime/
+default/roadmap changes. Cargo/ProductChecks NOT_RUN: external Python lab only.
+
+## Frozen generator numerical bridge and TRAIN-mean counterfactual — 2026-09-05
+
+Implemented `lab/scripts/physical_sound_pouring_bridge.py`: eleven numerical
+controls -> Linear11/128,SiLU,Linear128/2048,265728 trainable parameters. A
+zero-initialized output adjusts positive text-token and pooled conditioning of
+the cached TangoFlux generator. Duration token and unconditional CFG row remain
+unchanged. Transformer/T5/codec and original glass/wood/rain paths stay frozen.
+This implements the preceding bounded experiment, not a promoted engine model.
+
+`pouring-tango-bridge-2026-09-05` uses the same93 TRAIN recordings/279 crops.
+It re-encodes each4.08s crop as44.1k dual mono padded to upstream30s, producing
+native645x64 posteriors. It does NOT substitute the old normalized88-frame
+cache into the pretrained model. Native posterior SHA256
+`20850122c2d963cd8a3d7cf84a02a140524aefd8474bd515f283e128869c23ce`.
+Cached loss exactly matches upstream0.4048370122909546 with matched random draws.
+Training: seed53,200 updates,AdamW1e-4,weight decay0.01,gradient clip1,
+BF16 training autocast/FP32 weights; full-horizon original flow-matching loss,
+no classifier reward.147 distinct crops/82 TRAIN recordings visited. First/last
+20-update mean loss1.6717/1.5969 is not a perceptual success criterion.
+
+Bridge SHA256 `2370690789d087fdec079f67239d42734f52db480a81697c0cb29db4361009ea`.
+Full Tango model state digest before/after training is unchanged:
+`23ee7758b8b637389e8d0378484b79c326a362f1069d760c3344df641224b258`.
+Zero bridge equals baseline PCM in both formats. Generation uses fixed text,
+4.08s,50 steps,CFG4.5,seeds314/2718, four hypothetical control profiles:
+glass10cm/glass16cm/PET10cm/glass10cm with shorter pour-duration proxy. Native
+output uses the full645-frame trajectory and is decoded before trimming.
+No reference recording or posterior is an inference input.
+
+| Eight profile/seed rows | Base | Full bridge | Centered bridge |
+|---|---:|---:|---:|
+| Raw AST Water/Pour top5 | 8 | 4 | 8 |
+| AST with classifier-input RMS0.005 | 8 | 3 | 8 |
+| Original six-prompt CLAP | 8 | 8 | 8 |
+| Same harder13-prompt CLAP | 8 | 1 | 8 |
+
+Base rows contain only TWO unique waveforms, repeated across profiles; do not
+treat them as eight independent generations. Full bridge is rejected: crunch,
+toothbrushing or rattling wins seven harder-CLAP comparisons. Evaluation remains
+diagnostic, not a calibrated gate or independent physical validation.
+
+`conditioning-variation.json` finds98.397% of bridge-output energy in its common
+TRAIN-mean component: RMS0.050223 common versus0.006410 varying. One post-hoc
+counterfactual subtracts the mean over ALL279 TRAIN control vectors; no training
+repeat, dev-fitted offset or strength sweep. Pairwise embedding differences are
+unchanged algebraically, but physical waveform differences are not guaranteed.
+`pouring-tango-bridge-centered-2026-09-05` saves eight new WAV pairs and the frozen
+offset, SHA256 `c237816597393b13f9834632f9e6866d0e1343bb1e2c3686c41d2465f699bb9d`.
+[Listen: base/full/centered](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-centered-2026-09-05/comparison.wav>),
+13.74s,glass10/seed2718, published PCM concatenation without extra gain.
+This restores water recognition, not yet calibrated material/geometry response.
+
+Export/replay failures were preserved rather than counted as successes:
+
+- Initial fit finished all200 updates and generated16 evaluation rows, then
+  comparison export rejected a float32 value0.980000019 above its guard.
+  Fixed by concatenating exact published PCM, not an epsilon or relaxed guard.
+  A focused test also caught and removed one-LSB re-quantization.
+- First recovery used identical weights but unfrozen parameter flags and failed
+  glass byte replay. Same-process counterfactuals isolate generator parameter
+  flags: requires_grad=True differs,False restores exactness; VAE flags alone
+  do not. No specific backend-kernel cause is asserted. `generate` now explicitly
+  freezes both models before inference; a regression test covers this setting.
+- `failed-export.json`, `unfrozen-reload.json` and the mismatched WAVs remain.
+  Final recovery reran export/regression only, not training. All three adapter-off
+  glass/wood/rain before/after pairs now match both mono/native SHA256 exactly.
+
+Standalone `render --model BRIDGE --controls <11 floats> --output NEW` byte-replays
+the full bridge. Optional `--offset CENTERED_DIRECTORY` also byte-replays centered
+glass10/seed2718 in both formats. The loader checks bounded files, tensor shape,
+finite FP32, bridge/full-model/TRAIN-posterior identities and offset hash. Default
+bridge state/checkpoint behavior is unchanged; no source/cache argument needed.
+All72 WAVs across the fit, centering, flag controls and both CLI runs pass PCM16,
+rate/layout/headroom checks; published result rows pass mono/native hashes.
+Native peaks can exceed1 (full bridge up to1.5297); recorded attenuation gains
+make audition PCM safe. This is NOT calibrated loudness/force evidence.
+
+136 focused tests, Ruff lint/format pass. No Cargo/ProductCheck/runtime/default
+or roadmap promotion. Sources and model notices remain external local research.
+The subsequent discriminator is complete in
+`pouring-tango-bridge-development-2026-09-05`: first source-order recording of
+each already-disclosed excluded container18/30, first/middle phases,seeds314/2718.
+Eight centered generations, two unique base generations and four real controls;
+other-object/same-phase generated audio is reused for the swapped-control
+comparison. All eleven controls are swapped together, not just material.
+No extra fitting or seed selection. Real audio enters comparison metrics only.
+[Listen: excluded glass/PET](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle phase,real/base/matched/swapped,seed2718.
+Each clip retains its published gain; quiet real PET is not boosted to match.
+
+| Disclosed development,8 matched target/seed pairs | Base | Matched | Swapped |
+|---|---:|---:|---:|
+| Spectrum RMSE,dB | 18.915 | 18.845 | 19.050 |
+| Level-centered spectrum shape RMSE,dB | 7.756 | 7.687 | 7.813 |
+
+Matched shape error beats base5/8 and swapped6/8; mean improvements0.070 and
+0.126dB are marginal. Seed variation is larger (for example glass-first base
+9.711 versus7.018dB). Two objects and correlated phases/seeds do not establish
+physical calibration or independent generalization. Material, geometry, duration
+and recording/acquisition effects are not isolated. Water identity survives:
+raw and RMS0.005 AST plus harder CLAP all give real4/4,base2/2,centered8/8.
+Twenty-five additional WAVs and result-row hashes pass the same audit,97 total.
+
+Decision: retain centered bridge as an audible, reference-free experimental
+candidate, not a physical-response success. Before another fit, measure matched
+versus fixed swapped TRAIN-control velocity errors with identical posterior,
+noise and time draws; compare base/full/centered and active88 versus full645
+frames. This distinguishes conditional learning from a common domain shift;
+do not assume padded silence dominates merely because it occupies most frames.
+Include a TRAIN-real audible control. No offset-strength, epoch or seed sweep.
+All jobs terminal; broad multi-event user goal remains active.
+
+## Conditional signal and training-time centering — 2026-09-05
+
+`pouring-tango-bridge-signal-2026-09-05` uses the first source-order recording
+of each13 TRAIN objects, middle crop, sigmas0.2/0.5/0.8. All six variants share
+one posterior sample and noise per crop, CPU seed10000+cache index, FP32 frozen
+generator inference. Wrong controls are a fixed cyclic next-object permutation.
+Same verified native645-frame cache; no heldout data, retraining or score selection.
+
+| Mean velocity MSE,39 crop/time pairs | Active88 | Tail557 | Full645 |
+|---|---:|---:|---:|
+| Base | 1.217021 | 1.590602 | 1.539633 |
+| Full bridge,matched | 1.163848 | 1.591441 | 1.533102 |
+| Full bridge,swapped | 1.165143 | 1.591455 | 1.533291 |
+| Post-hoc centered,matched | 1.211986 | 1.590589 | 1.538935 |
+| Post-hoc centered,swapped | 1.213984 | 1.590597 | 1.539214 |
+| Common TRAIN mean only | 1.164725 | 1.591360 | 1.533152 |
+
+The silence-dominated-learning hypothesis is contradicted here: full bridge
+improves active error while tail error worsens slightly.98.35% of active
+improvement is reproduced by the common correction alone. Full matched controls
+beat swapped31/39, but by only0.001295 mean active MSE. After centering,22/39,
+mean0.001998. These are correlated TRAIN probes, not generalization or estimates
+over the full time-sampling distribution.
+[TRAIN audible control](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-signal-2026-09-05/comparison.wav>)
+is18.32s:first training object,middle crop,real/base/full/post-hoc centered,
+seed2718,published gains. References are used for diagnosis, not generation.
+
+One reversible counterfactual adds `run --center-training` to the bridge script.
+During each update, subtract the differentiable network mean across ALL279 TRAIN
+control vectors. Final output bias cancels; condition-dependent gradients remain.
+After fitting, freeze this mean into an offset, drop the training-control bank
+and automatically load the verified offset with this model's checkpoint.
+No source/cache or extra flag is needed at inference. Existing uncentered and
+post-hoc-centered loaders/defaults remain unchanged.
+
+`pouring-tango-bridge-center-trained-2026-09-05`: same200 steps,seed53,optimizer,
+BF16 training/FP32 inference,loss,sample sequence and frozen generator. Native
+posterior file and all200 sampled cache indices exactly match the earlier fit.
+Bridge SHA256 `e5a792889481e2f0f3ac9ec99aa8994449e407100efc249254503e05851d8159`;
+offset `4bd29db8631c35830cd2b07c1bb011c390ce303bbc037001df5f05360d7d0dd9`.
+Zero/bypass/upstream-loss/full-model hashes and all glass/wood/rain regression
+pairs pass. First/last20 loss1.6743/1.6073, not a perceptual criterion.
+The matched TRAIN probe active MSE1.207547 versus swapped1.211201 gives22/39
+wins,mean gain0.003654: a larger conditional training signal, not transfer proof.
+
+`pouring-tango-bridge-center-trained-development-2026-09-05` repeats the exact
+two excluded objects/first-middle/seeds314-2718 comparison. Shape RMSE is
+8.106dB versus old centered7.687/base7.756/new swapped8.214. New beats old only
+2/8,base3/8,swapped5/8. **Reject as an improvement**; retain the previous centered
+experimental model. Water identity still passes raw/RMS0.005 AST and harder
+CLAP8/8 on both hypothetical and development generations; semantic recognition
+does not rescue the physical-response result.
+[Listen: real/old/new/swapped](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-bridge-center-trained-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle phase,seed2718,published gains.
+
+Bounded adjacent-layer research (inspected2026-09-05):
+[PAVAS v2,2026-03-30,sections3.4/E.4/E.5](https://arxiv.org/html/2512.08282v2)
+uses zero-initialized residual corrections to per-block adaptive-normalization
+parameters rather than directly mixing physical features into the shared
+condition. It also updates diffusion blocks; it is NOT evidence that our tiny
+frozen-generator bridge should work. Its physical inputs include estimated
+mass/velocity and video features, not measured container controls; APCC is an
+energy-correlation metric, not material validation. The official
+[repository](https://github.com/SonyResearch/PAVAS) currently exposes README and
+teaser only, with code/assets pending. CVF PDF fetch returned403; arXiv v2 was
+read instead. No downloads, code execution or reliance on pending checkpoints.
+The [UPF texture thesis repository](https://github.com/Metiu-Metiu/Neural-Texture-Sound-Synthesis-with-physically-driven-continuous-controls)
+describes synthetic-to-real parameter pseudo-labelling before conditional audio
+training. This is an alternative data route, not independent measured physical
+labels or an adopted implementation.
+
+Next: stop centering/epoch/seed variants of global text/pooled shifts. Inspect
+the existing generator's modulation interface and test a bounded zero-initialized
+audio-layer residual against the current bridge: zero/bypass exactness, then
+matched/wrong-condition signal and playable output before any larger fit.
+Keep backbone frozen and existing reference-free fallback; PAVAS does not
+authorize full-model retraining, video inputs, invented mass labels or new
+runtime authority. Physical parameter transfer and the full user goal stay open.
+
+138 focused tests pass, including common-bias cancellation, nonzero conditional
+gradients, exact freezing and automatic verified-offset reload. Standalone CLI
+without an offset flag byte-replays both formats.64 new WAVs pass PCM/rate/layout/
+headroom and result hashes. Ruff lint/format and diff checks pass. All jobs
+terminal; no Cargo/ProductCheck/runtime/default/roadmap promotion.
+
+## Audio-layer modulation and source-information audit — 2026-09-05
+
+Implemented `run --bridge-kind audio-modulation` in the existing bridge script.
+The pinned Diffusers Flux implementation has six dual-stream blocks with an
+audio `norm1.linear`1024->6144 mixer. A shared11->42->6144 MLP adds a zero-initialized
+residual to these six audio mixers. Its264696 parameters closely match the text
+bridge265728. Text/pool/duration inputs and context mixers are not directly
+changed; joint attention can still propagate changes to context activations.
+No single-stream mixer, pretrained weight or runtime engine component is trained.
+This is a bounded placement experiment inspired by the preceding PAVAS reading,
+not its architecture, video estimator, per-block gates or full-backbone training.
+
+Training hooks remain installed through backward because non-reentrant checkpoint
+recomputation re-enters the mixers. Tests verify zero exactness, positive CFG
+branch-only injection, nonzero gradients through recomputation, cleanup after
+errors, fixed layout, kind-aware checkpoint reload and unchanged text-bridge
+conditioning. Every actual training update checks that all bridge parameters
+received gradients and no frozen generator parameter did.
+
+`pouring-tango-audio-modulation-2026-09-05`: same native posterior SHA and200
+sampled rows as the original bridge, same optimizer/seed53,200 steps/full-horizon
+loss/BF16 training/FP32 inference. Bridge SHA256
+`0072e9dbb352904b9f21a7da8dd548b877092af6b7e17571c5eb1c5a4f057d8c`.
+First/last20 loss1.6726/1.5958. Zero-adapter PCM, upstream loss, frozen full-model
+hash and glass/wood/rain adapter-off regressions all pass. Standalone `render`
+detects the bridge kind and byte-replays both mono/native glass10/seed2718.
+
+`physical_sound_pouring_bridge_compare.py --source SOURCE --model MODEL
+--previous PREVIOUS_DEVELOPMENT --output NEW` makes the repeated comparison
+runnable: verify source/split/previous WAV identities, generate eight source-free
+clips, reuse matched-seed prior/base and other-object swaps, compute metrics and
+write a preview/tag input. Whole first source-order records of excluded
+containers18/30, first/middle,seeds314/2718; no favourable crop selection.
+Four real controls enter metrics/preview only. Failed generation keeps status
+failed rather than inventing completed output. The real run is
+`pouring-tango-audio-modulation-development-2026-09-05`.
+
+| Eight development pairs | Base | Previous centered | New matched | New swapped |
+|---|---:|---:|---:|---:|
+| Legacy spectrum RMSE,dB | 18.915 | 18.845 | 15.167 | 14.340 |
+| Legacy level-centered shape RMSE,dB | 7.756 | 7.687 | 11.838 | 12.170 |
+| Relative-power shape256 RMSE,dB | 7.764 | 7.692 | 12.459 | 12.793 |
+
+New shape beats base/previous0/8 and swapped4/8 under the legacy diagnostic.
+Raw/RMS0.005 AST and harder13-prompt CLAP still recognize water8/8 on both
+hypothetical and development generations. Reject this trained instance as an
+improvement; retain previous centered model. No layer/width/seed/epoch sweep.
+[Listen: real/previous/new/swapped](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-audio-modulation-development-2026-09-05/comparison.wav>),
+36.64s,glass18 then PET30,middle,seed2718,published gains.
+
+The adjacent-layer audit found a metric confound: the legacy `p.metrics` first
+uses a fixed absolute dB floor, so subtracting the spectrum mean does not make
+its shape metric gain invariant. Scaling the same real clip by0.1/0.01 yields
+false shape distances0.273/3.616dB. The new separately named
+`relative_power_shape_rmse_db` uses normalized power and a relative floor;
+the same test is below4e-15dB. Legacy fields and old reports are not overwritten.
+`relative-power-audit.json` binds the completed result hash and re-scores its
+unchanged WAVs. The rejection survives this correction, also with32 coarse
+bands (base7.174/previous7.157/new11.892dB). No EQ, gain or audio changes.
+
+Before another adapter fit, `pouring-control-information-2026-09-05` audits ALL279
+TRAIN crops/93 recordings/13 objects using absolute relative-power profiles256.
+This differs from the earlier relative first-to-middle timbre probe: it compares
+leaving an entire recording out with leaving its entire object out. Ridge0.01
+uses the same eleven controls, centering/intercept fitted inside each fold;
+fixed shuffle53 and nearest-control baselines, no hyperparameter selection.
+All phases of a held recording/object are excluded together.
+
+| Mean per-crop shape RMSE,dB | Global mean | Ridge | Shuffled ridge | Nearest |
+|---|---:|---:|---:|---:|
+| Leave recording out | 4.390 | 3.630 | 4.427 | 4.468 |
+| Leave object out | 4.601 | 5.351 | 4.971 | 5.746 |
+
+Equal-object averaging preserves the direction: ridge/global4.157/4.786 for
+record exclusion versus5.476/4.898 for object exclusion. Controls carry useful
+within-object information, but this simple predictor does not transfer. This
+does NOT prove insufficient metadata or impossibility of a nonlinear model.
+[Source comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-control-information-2026-09-05/comparison.wav>),
+13.74s: first TRAIN object middle crop/another recording of that object/nearest
+other object. These are real recordings, not generated sounds or admission data.
+
+Bounded research revisited the [source paper,v2,2025-01-13](https://arxiv.org/html/2411.11222v2):
+it solves inverse pitch/physical-property estimation, not reference-free waveform
+generation for new containers. Its success does not validate our forward model
+or rescue the previously rejected pitch teacher. The verified publisher TRAIN
+CSV has195 recordings/18 objects, only the same four glass/plastic materials;
+`physical_parameters` is empty. Broadening existing filters is not a large new
+object/material corpus. Our93 TRAIN records have settings ws-kitchen52,
+vgg-mrcr37,vgg-coffee3,ws-room1. Objects7,31,40 cross settings; others do not.
+These are setting labels, not measured microphones, room responses or forces.
+
+Next discriminator uses those already-TRAIN cross-setting objects to compare
+within-object/across-setting variation against between-object variation at
+matched phase. Distinguish acquisition nuisance from missing transferable object
+coverage before choosing normalization/data acquisition or another model fit.
+Keep reference-free generation; do not add a reference recording or an object-ID
+shortcut to make the task easier. No protected/author-test roles reopened.
+
+147 focused tests pass, including runnable comparator success/failure, source
+order/roles and gain invariance. Ruff lint/format and diff checks pass.64 new
+WAVs pass PCM/rate/layout/headroom/result hashes. All jobs terminal. No Cargo/
+ProductCheck/runtime/default/roadmap promotion; full multi-event goal stays open.
+
+## Recording-setting factorization — 2026-09-05
+
+The completed TRAIN-only `pouring-setting-nuisance-2026-09-05/result.json`
+compares objects7/31/40 across published setting labels. Same-phase pairs use
+another recording nearest in eleven-control space, never nearest audio.
+Median relative-power shape distance is3.731dB within object/setting,
+5.743 within object/across settings, and4.853 across objects/within setting.
+Cross-setting distance exceeds within-setting distance for155/162 paired
+anchors; repeated recordings/overlapping phases are not independent trials.
+Three anchors have no within-setting alternative and remain explicitly missing.
+Duration/control matching is imperfect; date, pouring behavior and acquisition
+are confounded. This is association, not measured room/microphone causality.
+
+Fixed ridge0.01 on all279 TRAIN crops, excluding whole recordings/objects:
+
+| Mean relative-power shape RMSE,dB | Global | Controls | Setting | Both |
+|---|---:|---:|---:|---:|
+| Leave recording out | 4.390 | 3.630 | 3.867 | 3.435 |
+| Leave object out | 4.601 | 5.351 | 4.062 | 5.152 |
+
+Equal-object averaging preserves both conclusions: settings matter, but adding
+them does not establish physical-parameter transfer. No dev fitting or reopened
+author tests. [Listen to the source comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-setting-nuisance-2026-09-05/comparison.wav>):
+41.22s, glass7/PET31/PP40; each anchor/same-object-same-setting/
+same-object-other-setting. These ten verified WAVs are real recordings, not new
+neural output. This diagnostic-only checkpoint owes a learned audible candidate.
+
+The next bounded discriminator is a centered text bridge plus a separate
+four-setting2048-dimensional learned offset, not an object-ID embedding or an
+inference recording. Keep the200-step seed53 training draw trace, frozen
+generator and previous post-hoc-centered control. Hypothetical previews fix
+ws-kitchen (largest TRAIN group) before scoring. Disclosed development uses
+each target's setting, held FIXED when physical controls are swapped. Also
+disable the physical branch: improved style matching alone is not success.
+The glass18 development setting ws-room has only one TRAIN recording; report
+that limitation, not a calibrated acoustic environment or independent test.
+
+Implemented `--bridge-kind setting-text --center-training` in the existing
+bridge runner:273920 trainable parameters, centered physical11→128→2048 branch
+plus4×2048 setting offsets. Vocabulary comes only from verified TRAIN metadata;
+setting offsets initialize at zero without advancing the physical branch RNG.
+Scoped setting state survives backward and is removed on errors. No new
+backbone, source-at-inference, object-ID input, runtime or product contract.
+
+`pouring-tango-setting-bridge-2026-09-05` completed200 updates. Posterior SHA
+and all200 sampled crop indices match the prior centered-training control.
+Setting draws: ws-kitchen107,vgg-mrcr90,vgg-coffee2,ws-room1. First/last20 mean
+loss1.6741/1.6055. Bridge SHA256
+`999885c06d7f1822d4d70eb24abe24e2e11805adbc95ca84ba870cd320ffd699`;
+frozen TRAIN offset SHA256
+`c495d42f2185d947ed4e0162be9442ff1c8186ed59568f491ac818c318db9a49`.
+Zero-adapter PCM, upstream loss, frozen full-model identity and adapter-off
+glass/wood/rain PCM regressions pass. Standalone `render --setting ws-kitchen
+--controls 0.5 0.35 0.35 0.5 0.1 1 0 0 0 1 0 --seed 2718`
+in `pouring-tango-setting-cli-2026-09-05` byte-replays both
+formats, loading the centering artifact automatically. `--style-only` disables
+the physical branch; this is an ablation, not an alternative trained baseline.
+
+`pouring-tango-setting-development-2026-09-05` uses the unchanged disclosed
+first records of excluded containers18/30,first/middle,seeds314/2718.24 new
+generations: matched physical controls, other-object controls at the SAME target
+setting, and physical-disabled. Tests catch accidentally swapping setting along
+with the object. Real audio enters only metrics/preview. Actual style-only WAVs
+are byte-identical across phases/physical controls for each setting/seed.
+
+| Relative-power shape RMSE,dB | Base | Previous retained | Matched | Swapped | Style-only |
+|---|---:|---:|---:|---:|---:|
+| All8 development pairs | 7.764 | 7.692 | 8.025 | 7.820 | 7.817 |
+| Glass18,4 pairs | 8.840 | 8.745 | 8.655 | 9.040 | 8.930 |
+| PET30,4 pairs | 6.687 | 6.639 | 7.395 | 6.599 | 6.704 |
+
+Matched beats previous2/8, swapped4/8 and style-only2/8. Glass has a small
+average gain while PET worsens; no general physical-transfer improvement.
+Legacy shape8.019 also loses to previous7.687. Reject this instance as a
+replacement and retain the post-hoc-centered bridge. This falsifies improvement
+for this fixed trial, not the general possibility of separating recording
+conditions or learning nonlinear physical controls.
+
+Raw/RMS0.005 AST and the unchanged harder13-prompt CLAP recognize water8/8
+for hypothetical matched clips, and8/8 for EACH development variant. These
+coarse checks are insufficient to certify object properties. CPU AST used the
+same pinned weights and prior checked CPU/CUDA correspondence; the existing mel
+filter warning remains. No score/threshold/prompt tuning or historical rewrites.
+
+[Listen: real/previous/new/wrong-physical/style-only](</home/kaifaty/.codex/experiments/nextengine/physical-sound/pouring-tango-setting-development-2026-09-05/comparison.wav>),
+45.8s,glass18 thenPET30,middle,seed2718,published gains. The new model renders
+without target audio.92 new WAVs across training/development/CLI, plus the10
+earlier setting-audit source WAVs, pass PCM/rate/layout/headroom/hash checks.
+114 focused tests pass (92 pouring,22 pretrained-generator), Ruff lint/format
+and diff checks pass. All jobs terminal; no runtime/default/roadmap promotion.
+
+Next: stop this small-corpus adapter family rather than sweep settings/centering/
+capacity/seeds/epochs. Run a bounded internet source search for substantially
+broader object and material-pair coverage with defensible physical descriptors
+and recording-context information. Acquire the smallest permitted training
+slice and audible examples before building more support tooling; exclude
+protected roles and unknown-redistribution assets from distribution. Then choose
+one learned experiment from actual available coverage. Do not invent missing
+force/geometry, ask the user to record objects, or narrow the full goal to water.
+
+## EPIC-SOUNDS material-pair source slice — 2026-09-05
+
+The bounded source search changes event family from pouring to impacts rather
+than repeating the13-container adapter family. Competing explanations remain:
+too little transferable object coverage; unmodelled acquisition conditions;
+and evaluators that cannot actually distinguish physical conditions. The last
+trial did not fix transfer by separating setting labels. This checkpoint tests
+availability of broader material-pair data and the evaluator's real positives.
+
+[FillImpact](https://arxiv.org/html/2607.17773v1),20 July2026, describes88 objects,
+different strikers and fill states; no official downloadable release was found
+on the inspected paper page or bounded project search. It remains unavailable,
+not a reason to wait. SonicGauss/NISR reuse ObjectFolder lineage; no fresh real
+independence or reopening of protected roles is claimed. No payload was acquired
+from these leads. Existing source-admission research is not repeated as a gate
+on the following independent report-only source audition.
+
+[EPIC-SOUNDS publisher repository](https://github.com/epic-kitchens/epic-sounds-annotations)
+and [paper v2](https://arxiv.org/html/2302.00646v2),§IV-A/B andV-C, provide collision
+labels involving two materials. The authors describe audio annotation followed
+by visual verification and exclusion/correction of ambiguous labels; this is
+not measured physical ground truth. Participant/video IDs are recording context,
+NOT stable physical-object IDs. Material pairs are unordered: metal/glass does
+not identify the striker, a metal alloy, object dimensions, force or velocity.
+The corpus also contains action classes such as pouring, scraping and sliding.
+
+The actual publisher TRAIN CSV at revision
+`57a922f0d352e9429f1ef8a37eee21758dd3a33c` has60055 annotations,495 videos and32
+participants. Training counts include metal/glass472,metal/wood1451,
+wood/glass29,metal/plastic1285,metal/ceramic1303,plastic/wood123. This long tail
+must not be disguised as equally broad physical coverage. Validation/test
+annotations or audio were not acquired. Foundation pretraining overlap is unknown.
+
+`physical_sound_epic_slice.py --output EXTERNAL_NEW_DIRECTORY` downloads only
+TRAIN annotations, publisher README and video-path/checksum metadata. The latter
+comes from the [official downloader repository](https://github.com/epic-kitchens/epic-kitchens-download-scripts)
+at `4f11fb2b579833f360c3c7bb917bf1e24a9787b5`; its code was inspected for endpoint
+construction, NOT executed. TLS verification stays on. Some original MP4s are
+multi-gigabyte, so ffmpeg seeks to selected intervals through HTTPS partial access.
+Whole-video publisher MD5s are recorded but explicitly NOT verified. Local
+metadata/decoded/published bytes have SHA256 receipts; these are not evidence
+that the entire remote video was downloaded or admitted.
+
+Selection is fixed before waveform access: six classes in the count order above,
+first source-order0.25–3s annotation per participant with no overlap with any
+other TRAIN annotation; four participants per class. No audio-score selection.
+24 clips span19 videos and5 distinct participants overall. Unannotated background
+sounds, multiple impacts within one event and imperfect source labels remain
+possible. Missing physical fields are explicitly null, not filled from sound.
+
+`epic-material-pairs-source-2026-09-05` stopped before audio access: the checksum
+CSV mixes versions55/100 with `errata`, so its version column is string-valued.
+The matcher incorrectly compared integers. Preserve that failed result; the
+fixed string-compatible matcher is covered by a test and keeps identical selected
+annotations. `epic-material-pairs-source-fixed-2026-09-05` completed acquisition.
+Original AAC audio is decoded/downmixed/resampled to24kHz monoPCM16; each output
+length exactly matches the annotation sample interval. All24 require no gain
+attenuation and contain no full-scale decoded samples.49 decoded/published/
+comparison WAVs and four metadata files pass identities/layout/length checks.
+
+[Listen to real material-pair recordings](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-pairs-source-fixed-2026-09-05/comparison.wav>),
+37.297s: four clips each of metal/glass,metal/wood,wood/glass,metal/plastic,
+metal/ceramic,plastic/wood, separated by0.5s silence.25.297s of actual source
+audio. These are internet recordings, NOT new neural generations. The publisher
+uses CC-BY-NC4.0; retain attribution, changes and source terms. Local noncommercial
+research only; no commercial/distributed engine asset or model promotion.
+
+`clap-material-pairs.json` uses six fixed prompts, one per unordered material
+pair, with the existing frozen CLAP. Exact pair recognition is4/24 (uniform
+six-way chance expectation4/24). The confusion matrix and all scores are retained;
+no prompt/threshold retuning or removal of failed source positives. This small
+diagnostic does not prove material perception impossible, but does not qualify
+CLAP as the sole material-pair validator or training reward. The source paper
+also reports difficulty with bi-material audio recognition; it does not establish
+that our frozen zero-shot classifier is competent for this task.
+
+`alignment-check.json` rules out gross timestamp drift for one counterfactual
+control: sequential decode from video start versus direct seek forP04_09_4.
+54504 samples agree except four1-LSB differences; correlation0.999999999991.
+The separately retained12.669s prefix is a diagnostic source decode, not another
+selected training clip or exact whole-corpus alignment proof. No source audio
+was modified to improve evaluator scores.
+
+Three focused tests pass (selection/overlap/coverage,55/100 mixed-version source
+mapping, TLS/crop/headroom/null-physics behavior); Ruff lint/format and diff checks
+pass. All jobs terminal. No Cargo/ProductCheck/runtime/roadmap changes. This is
+one source/diagnostic-only checkpoint; the next checkpoint must produce a learned
+material-conditioned impact candidate and playable controls. Expand TRAIN support
+as needed within the stated metadata limits, preserve missing axes, and do not
+equate participant separation with proven new-object identity or CLAP scores with
+physical calibration. The full multi-event goal remains open.
+
+## EPIC factorized material bridge and corrected event evaluation — 2026-09-05
+
+New learned, reference-free impact WAVs are available. This is a bounded research
+candidate, not a reliable material simulator or replacement for the liked glass
+demo. Source terms remain EPIC-SOUNDS CC-BY-NC4, noncommercial research only;
+TangoFlux attribution: Powered by Stability AI. No runtime/default/roadmap change.
+
+`physical_sound_epic_pair_bridge.py` reuses the frozen TangoFlux bridge hook but
+encodes the two unordered materials as five compositional factors (metal, glass,
+wood, plastic, ceramic). A zero-initialized 5x2048 linear map has10240 trainable
+parameters; differentiable TRAIN-mean centering excludes a common style offset.
+Only positive text/pooled conditioning changes, not duration or negative CFG.
+The learned material corrections compose algebraically; that construction alone
+does NOT prove perceptually correct composition. The shared pouring bridge gains
+only a configurable input width; its default eleven-control behavior is unchanged.
+
+Training uses45 unique annotations: first three non-overlapping0.25–3s TRAIN
+clips per participant P01/P02/P03 for each of five classes. All wood/glass clips
+are excluded. Thirty additional intervals were acquired with the existing TLS
+partial-video decoder; previous clips were reused after exact identity checks.
+Development uses all seven original source-slice clips from P04/P07, including
+two wood/glass clips. No author validation/test data, target audio at inference,
+or assumed object identities/striker/force/geometry. Participant separation does
+not establish new physical objects or foundation-pretraining independence.
+
+`epic-pair-bridge-2026-09-05` completed200 AdamW steps,1e-4,weight decay.01,
+gradient norm1,BF16 training, native45x645x64 posterior mean/std. The unchanged
+full-horizon flow objective uses the fixed generic prompt “The sound of two
+objects colliding.” Native source gains were retained. First/last20 mean losses
+are1.721769/1.651011, not quality scores. Posterior SHA256:
+`97d61ef478ffa34784f4bafdbc1aa8eb19e86d1e31962d7cf1514cac6644095f`.
+Bridge plus frozen centering-offset SHA256:
+`c20a4b1216d95e24fb97f428962a7e27b74136375ad5b85abda93ee96d13a348`.
+Full generator tensor digest before/after:
+`23ee7758b8b637389e8d0378484b79c326a362f1069d760c3344df641224b258`.
+Zero bridge exactly reproduces base PCM; cached loss exactly matches upstream
+(.3487389684); adapter-off water/rain PCM remains byte-exact. These are integrity
+checks, not physical-quality admission.
+
+**Evaluation correction:** the first run accidentally restored prefix-only
+rendering, repeating the previously documented late-event failure. All seed314
+prefixes were about -99.64dBFS codec noise, while seed2718 was audible. Neither
+nonzero PCM, relative waveform change nor the gain-invariant spectral metric
+qualifies such prefixes as impacts. Original reports and WAVs remain untouched,
+but their5/14 baseline wins and any material-improvement interpretation are
+superseded. No new training, prompt/seed/duration/solver sweep or amplification
+was performed to repair this evaluation.
+
+`epic-pair-event-matched-2026-09-05` rerenders the saved weights: base plus all six
+material pairs at seeds314/2718,3s duration condition,50 Euler steps,CFG4.5,FP32.
+Each retains the raw3s prefix, the complete29.9537415s decode and a3s onset window.
+The existing `tango.event_window` rule is identical for base and candidates:
+10ms RMS blocks, threshold max(-50dBFS,.1 peak RMS),50ms preroll. It operates on
+the published full-horizon PCM; gains never increase. Seed314 starts at11.12s
+(plastic/wood11.28s), seed2718 at1.47s. All windows contain active audio; all also
+flag activity after the window, so these are bounded attack windows, NOT entire
+isolated-event recordings. Full horizons remain available for inspection.
+No-event output explicitly fails while retaining its raw evidence. Single-render
+CLI now defaults to this policy; `--prefix-diagnostic` is explicitly not quality
+evidence. Continuous water/rain diagnostics retain their separate window policy.
+
+[Listen: six pairs, real/base/learned/wrong pair](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/comparison.wav>),
+71.552s, fixedseed2718. Pair order: metal/glass,metal/wood,wood/glass,metal/plastic,
+metal/ceramic,plastic/wood. Each group is real recording, frozen base, learned
+matched pair, next-pair control; published gains, no listening-based selection.
+[Separate learned wood/glass, seed314](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-event-matched-2026-09-05/pair2-314.wav>)
+also demonstrates generation of the pair withheld from this bridge's training;
+it does not establish that it sounds physically correct.
+
+Gain-invariant relative-power spectral shape compares each full3s generated
+window with the entire original development clip, never a reference-dependent
+prefix crop. Across14 comparisons: base5.975546,matched5.962152,next-pair5.964974dB.
+Matched beats base8/14 and next-pair5/14. The four wood/glass comparisons improve
+over both (7.028456 vs base7.122528,next-pair7.130032), but this weak control does
+not survive a strong interpretation: `all-material-ranking.json` compares all
+six generated material conditions against every reference. Correct pair ranks
+first only2/14; held wood/glass ranks1,2,2,3. These correlated small-sample spectral
+diagnostics do not demonstrate reliable material control or perceptual quality.
+
+`tags-raw-cpu.json` retains raw frozen AST scores for14 generated and7 real clips,
+plus silence/noise/tone controls. Seed314 generations lead with Breaking;
+seed2718 leads with Door, including the unadapted baseline. Real recordings have
+diverse kitchen/impact/background tags. AST is a coarse event diagnostic, not
+a pair validator; no expected material pass threshold is introduced. Its known
+mel-filter warning persists. The earlier real-positive CLAP4/24 failure remains
+binding: do not use it as the sole material reward or select prompts from this set.
+
+Reproduce from the saved checkpoint, without source recordings at generation:
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_epic_pair_bridge.py \
+  --model /home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-pair-bridge-2026-09-05 \
+  --pair 'wood / glass collision' --seed 314 --output NEW_EXTERNAL_DIRECTORY
+```
+
+`--event-matrix` instead of `--pair/--seed` re-evaluates all14 cases and compares
+the saved seven development references, without fitting. The separate
+`epic-pair-event-cli-2026-09-05` command byte-replays event, prefix and full horizon
+in both PCM formats.98 corrected-evaluation/CLI WAVs pass SHA/layout/rate/headroom
+checks. The earlier108 training/prefix WAVs, two prefix CLI WAVs and60 acquired
+decoded/published source WAVs remain external and unchanged.
+
+53 focused tests pass; Ruff lint/format and diff checks pass. Tests cover
+compositional controls, zero/centered gradients, source
+roles/overlaps/PCM identity, checkpoint validation, retained late-event recovery,
+noise rejection and identical event policy across all14 matrix cases. No Cargo
+or ProductCheck is required for this external Python lab path. The learned-media
+checkpoint clears the preceding source-only outcome debt; the full goal remains
+active. Next, discriminate insufficient material information in these kitchen
+labels from weak conditioning transfer using broader TRAIN participant coverage
+and a participant-separated real-positive/wrong-label control. Do not repeat a
+bridge capacity/epoch/seed sweep or treat tiny spectral gains as physical learning.
+The next learned trial must retain a playable comparison and the all-pair control.
+
+## Broader EPIC information discriminator and learned data counterfactual — 2026-09-05
+
+`physical_sound_epic_information.py` tests two competing explanations for the
+weak material bridge: insufficient transferable information in the source labels
+versus failure to transfer available information into generation. The
+[EPIC-SOUNDS paper v2](https://arxiv.org/html/2302.00646v2),§V-C, documents that
+recognizing both materials from audio can be ambiguous; this motivates a local
+discriminator, not a conclusion that material learning is impossible.
+
+`epic-information-2026-09-05` selects from the same pinned publisher TRAIN CSV,
+excluding P04/P07 and intervals overlapping ANY other TRAIN annotation. A sorted
+prefix-maximum interval check matches the earlier census, including nested
+overlaps. Duration remains0.25–3s. First12 source-order participants per class,
+first3 eligible clips each; no audio-score selection. Eligible totals are
+metal/glass144,metal/wood225,wood/glass7,metal/plastic306,metal/ceramic401,
+plastic/wood35. The actual selected counts are30/34/7/35/33/22:161 clips,19
+participants,84 videos. Rare wood/glass cannot be represented as broad support.
+
+114 additional intervals were acquired through the existing verified-TLS partial
+decoder;47 cached intervals were identity-checked and reused. All161 retain source
+gain1.0; no normalization of published audio.230 newly written WAVs and324 total
+referenced decoded/published/audition WAVs pass SHA/rate/layout/sample-bound checks.
+Whole remote MP4 MD5 remains unverified. CC-BY-NC4 local research only; missing
+striker roles, object IDs, dimensions and force remain unknown. No author val/test
+access, claim of new-object independence or dataset/model distribution promotion.
+
+[Source preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/preview.wav>),
+12.443s: first two clips per pair outside P01/P02/P03, fixed source order, not
+necessarily two distinct participants. [All161 sources](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-information-2026-09-05/all-sources.wav>)
+are237.350125s including0.5s separators. These previews are real audio, not neural.
+
+Four fixed representations are evaluated with leave-one-participant-out linear
+logistic probes: frozen AST pooled768 features, the same at diagnostic RMS.005,
+gain-invariant256-bin spectral shape, and duration/logRMS/logpeak only. Each fold
+fits scaling on TRAIN rows only; C1,balanced class weights,max1000 iterations,
+no hyperparameter or feature selection. All folds retain all six TRAIN classes.
+AST/Tango pretraining overlap is unknown; AudioSet features are not independent
+physical ground truth. Source labels enter the probe, not the AST encoder.
+
+| Representation | Macro recall | Overall accuracy | Wood/glass recall |
+| --- | ---: | ---: | ---: |
+| Frozen AST, raw |24.30%|27.95%|0/7|
+| Frozen AST, RMS.005 |20.11%|23.60%|0/7|
+| Relative spectrum |25.47%|26.71%|1/7|
+| Duration/gain only |21.45%|18.63%|3/7|
+
+Thirty-two fixed within-participant label permutations preserve context/class
+frequency associations. Raw AST null macro recall averages16.53%,maximum21.72%,
+versus observed24.30%; exploratory Monte Carlo p1/33. This is modest evidence of
+some transferable class association, NOT qualified pair recognition. The raw AST
+per-class recalls are16.67/26.47/0/31.43/39.39/31.82%. Duration/gain cues and weak
+rare-class recall prohibit using this probe as the sole material validator/reward.
+Do not tune the probe from these predictions or claim all kitchen labels useless.
+
+Feature cache SHA256:
+`b28749db56f41cdd2318aaa1eaa062e309330f4053466d3c5ec234cda4ae4089`.
+Versions: NumPy2.5.2,SciPy1.18.0,scikit-learn1.9.0,Torch2.13.0+cu130,
+Transformers4.44.2; existing local environment, no package installation. AST uses
+the existing pinned revision, CUDA FP32, raw and level-controlled inputs; known
+mel-filter warning retained. The new command requires those lab dependencies and
+cached AST weights. The source acquisition and probe complete in one command:
+
+```sh
+lab/.venv/bin/python lab/scripts/physical_sound_epic_information.py \
+  --source SOURCE_SLICE --bridge ORIGINAL_PAIR_RUN --output NEW_EXTERNAL_DIRECTORY
+```
+
+The next primary artifact was produced in the same checkpoint, not deferred to
+another support-only turn. `epic-expanded-pair-bridge-2026-09-05` trains the same
+10240-parameter bridge on154 rows from19 participants, excluding ALL seven
+wood/glass examples and retaining the original seven P04/P07 development clips.
+`physical_sound_epic_pair_bridge.py --source SOURCE_SLICE --expanded INFORMATION_RUN
+--output NEW` verifies source identity, annotation correspondence, overlaps,
+participant/pair roles and PCM before fitting. No source redownload is needed.
+
+Architecture, generic prompt,200 updates, optimizer/learning rate, clipping,
+BF16 training, sampling seed and frozen generator are unchanged. Data frequency
+and the corresponding TRAIN centering distribution change with the corpus:
+this is not isolated proof of a participant-count effect. At the fixed compute
+budget113/154 rows are sampled, so the larger set has fewer repeated exposures;
+do not conclude that more data can never help. First/last20 loss1.725786/1.657109
+is not a sound-quality measure. No force/geometry values are invented.
+Posterior SHA256:
+`b9b5e1539c2ccd7e01b96b76845e78ee445e27eb94373afe8434c35ac52d4f46`.
+Bridge plus offset SHA256:
+`f78ecf30dbb949fcfbe24255257133bbf7878ddad4373f5bb8d45767547289bd`.
+Frozen generator digest remains23ee7758…1224b258; exact full digest is above.
+Zero, upstream-loss, full-model and adapter-off water/rain checks pass exactly.
+
+All14 generated cases use the retained-full-horizon/matched-onset policy.
+Frozen-base PCM is byte-exact to the earlier event matrix. New mean shape
+error5.945757 vs previous5.962152/base5.975546dB; wins8/14 vs previous,7/14 vs
+base and7/14 vs next-pair control. All-six-material ranking improves only2/14
+to3/14. Held wood/glass worsens7.028456 to7.080724dB; beats previous2/4, with ranks
+4,2,4,1. Neither the small mean gain nor increased data coverage establishes
+reliable material control. Do not replace the liked demo or claim physical learning.
+
+[Listen: real/previous/expanded model](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-compare-2026-09-05/comparison.wav>),
+50.552s, all six pairs in source order, fixedseed2718 and published gains. The full
+[real/base/new/wrong-pair comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-expanded-pair-bridge-2026-09-05/comparison.wav>)
+and every full horizon remain available. The source-free standalone command with
+`--model .../epic-expanded-pair-bridge-2026-09-05 --pair 'wood / glass collision'
+--seed 314 --output NEW` retains event, prefix and full horizon independently.
+
+Standalone event/prefix/full PCM is byte-exact in both formats.117 learned,
+comparison and CLI WAVs pass identity/rate/layout/headroom checks. A first audit
+flagged missing preview receipts, not changed audio; exact regeneration from the
+declared source verified those seven WAVs, and future comparison reports now
+retain their receipts explicitly. Old completed reports remain unchanged.
+Raw AST diagnostics retain Breaking/Smash forseed314 and Door for2718, including
+base; no qualified material acceptance.69 focused tests, Ruff lint/format and
+diff/link checks pass. All jobs terminal; generated media/data/weights stay external.
+
+Next: two coherent material-bridge cycles leave the main failure unresolved.
+Do not run a third data-size/capacity/epoch/seed variant. Use a bounded research
+and counterfactual cycle: measure matched/wrong/disabled conditioning on paired
+TRAIN posterior/noise, separating attack, decay and silent tail. Test whether
+the optimization signal rewards material-dependent active audio or mostly another
+part of the horizon. The earlier water signal audit is not evidence for impacts.
+Keep these WAVs as inspectable controls; the next learned change needs a causal
+discriminator and playable same-policy comparison, not another protocol package.
+Full goal active; no runtime, roadmap or ProductCheck promotion.
+
+## Impact-region signal and fixed material-text counterfactual — 2026-09-05
+
+The bounded research cycle tests three explanations before another fit: padded
+silence dominates the learned change; BF16 evaluation hides material differences;
+or the custom conditioning route suppresses useful pretrained semantics.
+[TangoFlux v1](https://arxiv.org/html/2412.21037v1),§§2.1–2.4, describes the frozen
+audio VAE, text/duration conditions and flow objective. Its preference-optimization
+discussion also cautions that ranking margins alone do not ensure better winning
+audio. No CRPO/CLAP reward is imported: our real-positive material evaluator failed.
+[PyTorch numerical accuracy](https://docs.pytorch.org/docs/2.14/notes/numerical_accuracy.html),
+updated1 June2026, motivates measuring precision effects rather than assuming
+identical floating-point outcomes. The runtime remains the existing2.13.0+cu130;
+the2.13 documentation URL was unavailable, no library/backend upgrade was made.
+
+`physical_sound_epic_signal.py --model EXPANDED_PAIR_RUN --output NEW` audits
+ALL154 TRAIN rows with the same saved native posterior cache and bridge. CPU
+seed10000+row draws one posterior sample and noise shared across sigmas.2/.5/.8
+and base plus all six material conditions.462 row/time cases use FP32; the first
+source-order row per fitted pair provides15 matched BF16 precision controls.
+No training, gradients, parameter updates, new source acquisition or protected
+roles. Small-sample precision controls are not compared to the different full
+FP32 population. Error accumulation is FP64 for both modes.
+
+Source-relative onset uses10ms RMS blocks and.1 peak threshold, not an audibility
+gate. Latent frame centers are mapped with2048/44100s stride. Regions partition
+all645 frames: before onset, first100ms of activity, remaining annotated body,
+250ms post-annotation transition and remaining zero-padded support. The body may
+contain repeated strikes, not a pure physical decay. Encoder receptive fields and
+posterior noise limit exact waveform attribution. These are operational masks,
+not measured acoustic modes or gradients of physical parameters.
+
+| FP32 velocity MSE | Base | Matched bridge | Mean wrong condition |
+| --- | ---: | ---: | ---: |
+| Attack,462 cases |1.401358181|1.400833318|1.402299973|
+| Body,459 nonempty cases |1.347309249|1.346801777|1.348154655|
+| Padded tail,462 |1.594076463|1.594083199|1.594090533|
+| Full horizon,462 |1.582913589|1.582902174|1.582957486|
+
+Matched controls beat ALL five wrong alternatives only73/462 attack cases and
+77/459 body cases. Full-horizon improvement is.000011415; weighted attack/body
+contributions are+.000001723/+.000015952, while padded tail contributes
+−.000006519. All region contributions reconstruct the full gain, accounting for
+empty regions with the full-case denominator. The silent-tail-learning hypothesis
+is contradicted: the achieved improvement is in active audio, but very small and
+not reliably material-specific. This does NOT justify a new attack-weight sweep.
+
+On the SAME15 precision controls, attack correct-condition rank1 is2/15 in both
+FP32 and BF16; body3/15 in both. Tiny aggregate signs do change: full base-minus-
+matched is−.000034884 in FP32 and+.000015941 in BF16. Thus numeric precision matters
+when quoting tiny gains, but FP32 does not rescue material discrimination here.
+This is a saved-offset forward diagnostic, not proof about every training gradient
+or a reason to run a precision-only training sweep.
+
+`epic-impact-signal-2026-09-05` completed477 numeric cases and20 individual media
+entries, then failed only when the borrowed pouring preview helper required
+seed2718. Actual diagnostic seeds are10000+row; they were NOT relabelled or retried.
+The fixed diagnostic concatenator keeps all20 entries and verifies published PCM.
+`epic-impact-signal-summary-2026-09-05` verifies exact matrix coverage and retains
+the source-report hash, corrected weighted summary and assembled preview. The
+failed report remains unchanged; no neural inference was repeated to repair it.
+
+[Reference-aided diagnostic preview](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-impact-signal-summary-2026-09-05/comparison.wav>),
+61.04625s: first TRAIN clip per fitted pair, source/posterior/base-one-step/matched-
+one-step at sigma.5. All decoded horizons/prefixes/event windows are retained.
+The one-step estimate uses noisy target audio: this is NOT reference-free output
+or a new trained generator. No gain increase is applied to any published clip.
+
+The next discriminator produces source-free audio through the unmodified text
+path. `physical_sound_epic_pair_bridge.py --model EXPANDED_PAIR_RUN --event-matrix
+--text-control --output NEW` disables the bridge and uses exactly the six strings
+already frozen for the earlier real-positive CLAP diagnostic. Template:
+“The sound of an object made of MATERIAL colliding with an object made of MATERIAL.”
+No wording/seed/CFG/duration search or training. All14 cases retain full horizons
+and matched onset windows, with the same3s/50steps/CFG4.5 and seeds314/2718.
+Generic base controls remain byte-exact to the learned experiment.
+
+`epic-material-text-control-2026-09-05` completes. Spectral shape mean7.693776 versus
+learned bridge5.945757/base5.975546; direct text wins1/14 against either. Wood/glass
+is8.770939 versus bridge7.080724,0/4 wins; all-pair rank1 remains3/14. This does NOT
+prove worse perceptual/material fidelity: coarse AST changes from largely
+Breaking/Door to more differentiated categories. Metal/glass seed2718 leads with
+Glass(.341),Chink/clink(.274); ceramic prompts also produce clink categories,
+while several other pairs remain inconsistent. No score threshold is introduced.
+Unmatched kitchen recordings lack object geometry/striker identity, so their
+spectral distance is not a sole physical-quality judge. The supervised real-positive
+probe and zero-shot CLAP remain unqualified for pair acceptance.
+
+[Source-free fixed-text comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/comparison.wav>),
+71.552s, six groups real/generic-base/material-text/wrong-material-text,seed2718.
+[Metal/glass text control](</home/kaifaty/.codex/experiments/nextengine/physical-sound/epic-material-text-control-2026-09-05/pair0-2718.wav>)
+is separately playable, without an inference reference. The executed report's
+legacy `training_pair` field describes the unused reference bridge, not foundation
+pretraining; `bridge_applied=false` is decisive. Future text reports set it null
+and name their conditioning explicitly. Pretraining overlap remains unknown.
+
+193 new diagnostic/control WAVs pass identity/rate/layout/headroom checks.
+74 focused tests pass; Ruff lint/format and diff/local-link checks pass. Tests
+cover temporal partitioning, weighted gain accounting with empty regions, all-
+wrong ranking, preserved diagnostic seeds/PCM and disabled-bridge text routing.
+No demo/runtime/roadmap/default changes, no model promotion. This checkpoint
+includes source-free neural WAVs but no new learned weights. The full goal remains
+active. Retain these controls, not another nominal win from a tiny loss difference.
+
+Next: stop the present EPIC material-only bridge/prompt variant family. Return to
+the already acquired controlled friction grid, whose commanded speed/load and
+separate measured force/position are known. Before any new learned decoder, test
+whether the frozen audio codec preserves these paired physical responses, with
+clean/main/machine-channel controls and one disclosed shared gain. Use TRAIN roles
+and already-open development honestly; do not repeat the rejected stationary-PSD
+network/PCA/epoch/width or crossed-velocity family. The next checkpoint must include
+an audible codec comparison and reference-free controlled examples, not a new
+source inventory. This addresses a missing physical axis, not a smaller goal.
+
+## Controlled friction survives a frozen codec (2026-09-05)
+
+[Codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-codec-controls-2026-09-05/comparison.wav>)
+is36seconds: wood/steel/glass,20/60mm/s,.5/1N; each condition plays
+real -> posterior mean -> posterior sample314. This is reference-aided
+reconstruction, NOT a new generator. Full native decodes are retained separately.
+
+`physical_sound_texture_codec.py` uses the existing verified Figshare v5 grid.
+The existing loader reads the already-disclosed60 records, but codec execution
+uses only the original24 TRAIN scans: repeat0,20/30/50/60mm/s,three surfaces,
+two commanded loads, fixed urethane-rubber probe and direction0. Commanded
+conditions and sensor-derived force/speed remain separate report fields.
+All three channels are checked: published clean mono, raw main microphone0,
+raw machine-reference microphone1. The latter two are not scene stereo.
+
+Two fixed arms use input gain1 and17.374337221633088. The latter is
+`min(100,.5/max_full_TRAIN_peak)` across all24 records and allthree channels;
+peak.028778076171875. No per-recording/channel normalization or output gain.
+The full recording is dual-mono encoded in FP32, right-padded to stride2048.
+Published PCM24 metrics use the exact original central position-aligned.75s,
+without onset selection, time shifts or loudness matching. Native full outputs
+are FLOAT WAVs. The36s playlist uses only clean/shared-gain cases. A separate
+three-second zero-input control checks codec noise, not acoustic quality.
+
+Frozen Oobleck weight SHA256 is
+`d73619a1d1e1dc48e606632931ffce440b4959ce2a4ed5a3522c3bb573b103be`, from the
+existing pinned TangoFlux snapshot. No full text generator, optimizer, new
+weights or external downloads. Source/model attribution and license notices
+are copied into the external result. Runtime Torch2.13.0+cu130,31.66seconds.
+
+Paired deltas hold surface/load fixed for18 adjacent-speed comparisons, and
+surface/speed fixed for12 load comparisons. These overlapping pairs are not
+independent samples or a calibrated acceptance test.
+
+| Channel / input arm / posterior | Speed direction preserved | Load direction preserved | Speed delta MAE,dB | Load delta MAE,dB |
+|---|---:|---:|---:|---:|
+| Clean / native / mean | 15/18 | 10/12 | .675 | .365 |
+| Clean / native / sample314 | 14/18 | 9/12 | 1.077 | .724 |
+| Clean / shared / mean | 16/18 | 12/12 | .327 | .101 |
+| Clean / shared / sample314 | 17/18 | 12/12 | .348 | .184 |
+| Main / shared / mean | 18/18 | 12/12 | .091 | .096 |
+| Machine / shared / mean | 18/18 | 12/12 | .095 | .094 |
+
+Clean mean absolute level error decreases.924 -> .251dB; centered-spectrum
+RMSE2.647 ->1.943dB. The two remaining mean speed-sign errors are steel1N,
+50->60mm/s (real+.102,decoded-.114dB), and glass1N (+.552,-.029dB).
+Sample314 fixes the latter, not the former. These failures remain; no threshold
+or seed is chosen to erase them. Zero-input mean/sample levels are-99.958/
+-99.862dBFS, below clean source levels. The native-level failure is not complete
+erasure into codec noise. Shared input calibration improves amplitude-response
+preservation; it is not proof of perceptual realism or machinery removal.
+Indeed, machine-reference responses survive equally well. No material-quality
+judge or physical-ground-truth claim is obtained from channel discrimination.
+
+Separately, existing rank4 neural weights now have a source-free `--control-demo`
+path. [Speed comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/speed-comparison.wav>)
+and [load comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-source-free-controls-2026-09-05/load-comparison.wav>)
+are20.25seconds each: wood/steel/glass, then25/40/55mm/s at.75N, or.5/.75/1N
+at40mm/s. Fifteen standalone two-second WAVs use seed314 and one playbackgain100.
+No source audio is loaded. Their levels increase along both requested controls
+for allthree known surfaces.25/55mm/s and.75N are unrecorded grid conditions,
+so this illustrates interpolation, NOT verified realism there. No new training,
+no evidence of arbitrary second materials/geometry, no claim this uses Oobleck.
+
+Reproduce with `physical_sound_texture_codec.py --corpus GRID/result.json
+--output NEW_EXTERNAL`, or `physical_sound_texture_fit.py --render-model
+texture-conditional-rank4-2026-09-05 --control-demo --output NEW_EXTERNAL`.
+20 focused tests pass, including exact TRAIN pairs, aligned crops, shared gain,
+PCM/headroom, signed response deltas and source-free controls with audio reads
+forbidden.743 WAVs pass SHA/layout/rate/finiteness/headroom checks (FLOAT full
+decodes are not PCM-normalized). Ruff/diff/local links pass; both jobs terminal.
+No Cargo/ProductCheck/engine audition, runtime/demo/roadmap changes or promotion.
+
+Decision: codec representation is feasible for a bounded conditional-generator
+trial; it is not the current main blocker. Next implement one small physical-
+conditioned latent sequence generator using this frozen codec and the same24
+TRAIN scans/shared gain. Compare actual source-free PCM on the already-open
+40mm/s/repeat1 development against the existing spectrum/interpolation baselines
+and the reference-aided codec ceiling. Keep temporal and paired-response errors,
+wrong-condition controls and all failures. Do not resume stationary-PSD/PCA,
+EPIC prompt/bridge or precision/attack-weight sweeps. A new latent model must
+produce playable WAVs in the same checkpoint; no separate planning package.
+
+## First physical-conditioned latent friction generator (2026-09-05)
+
+[New learned friction comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-conditional-flow-legacy-roles-2026-09-05/comparison.wav>)
+is29.791seconds: wood/steel/glass,.5/1N,40mm/s,repeat0,seed314; each group plays
+real -> new flow -> old rank4 spectrum -> interpolation -> reference-aided codec.
+[Standalone rubber-on-glass generation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-flow-glass-standalone-2026-09-05/generated.wav>)
+is.743seconds. Unlike the earlier codec diagnostic, this branch consumes only
+model weights, known surface, commanded speed/load and seed, not source audio.
+
+`physical_sound_texture_flow.py` trains a162432-parameter conditional sequence
+model:64-channel input/output convolutions, four residual convolution blocks,
+physical/time conditioning. The method follows the linear noise-to-data path
+and velocity-regression construction in
+[Lipman et al., Flow Matching, v2,8February2023, sections3–4](https://arxiv.org/html/2210.02747v2).
+This is a small friction implementation, not a reproduction of the paper's
+ImageNet results or evidence of universal physical synthesis.
+
+The same24 TRAIN scans are used, repeat0 at20/30/50/60mm/s.40mm/s and repeat1
+remain excluded from fitting; all60 were already disclosed development. The
+frozen encoder reads full clean recordings. Each target is32 native64-dimensional
+latent frames around central travel, with8frames of real context on each side
+of a16-frame scored core. Alignment is snapped to the2048-sample codec grid;
+the exact source core is32768samples/.74303855seconds, not the old.75s window.
+No context padding enters these targets. Full1.486s generated decodes are kept.
+Encoder/decoder weights and shared input gain17.374337221633088 are unchanged.
+
+TRAIN-only per-channel center/scale include posterior variance; there is no
+per-recording amplitude normalization.2000full-batch AdamW updates,lr.001,
+weight decay.0001,gradient cap1,seed23,FP32. Each update draws fresh posterior
+and Gaussian noise samples. Generation uses64 explicit-midpoint steps and
+common initial noise across conditions, seeds314/2718; neither source posterior
+nor waveform enters generation. No best-checkpoint/seed/capacity selection.
+Loss-window mean decreases1.69960 ->1.21357. Training+preparation18.77seconds,
+whole run35.31seconds. Model653728bytes,SHA256
+`86526a73fb488eb913be9f561b18bf484aa52b36b5b388d7f707b9c8f746ebbe`.
+
+The initial `texture-conditional-flow-2026-09-05` failed before training because
+old rank4 metadata predates `heldout_speed_mm_s`. It remains untouched. The
+corrected preflight verifies the original complete60-row report, its model
+identity and every TRAIN/development role instead of inventing a default.
+Only the corrected run trained. It records the verified baseline-report hash.
+
+All comparison PCM uses a common playback gain5.755615234375 after the codec
+input gain: equivalent to100times original digital amplitude. No individual
+gain, waveform time alignment, onset selection or equalization. This is not
+calibrated SPL. Spectrum metrics use the shared22.05kHz mono band; the original
+native-level/temporal summaries compare44.1kHz flow against a22.05kHz baseline.
+Therefore `bandmatched-analysis.json` separately verifies the unchanged PCM
+hashes and recomputes level/envelope/paired responses in the shared band. The
+initial report is preserved; no model or output was refitted after this check.
+
+| Disclosed evaluation | Flow | Old rank4 | Interpolation |
+|---|---:|---:|---:|
+|40mm/s spectrum RMSE,dB |2.41463 |2.33733 |2.41908 |
+|repeat1 other speeds spectrum RMSE,dB |2.20725 |2.16442 |2.11538 |
+|40mm/s shared-band level MAE,dB |.49008 |1.03316 |1.34150 |
+|repeat1 other speeds shared-band level MAE,dB |.45036 |.76100 |.61314 |
+|40mm/s shared-band envelope ACF MAE |.28228 |.29697 |.30619 |
+|repeat1 other speeds shared-band envelope ACF MAE |.27865 |.28961 |.28387 |
+
+Envelope ACF compares four25–100ms lags; it is a short-clip diagnostic, not a
+perceptual judge. Envelope-CV error is worse for flow than the old spectrum
+model (.02606 vs.02209 at40mm/s). Native-band claims of a large4dB level or
+large temporal advantage are not the fair comparison. DC is not the main
+explanation: mean source DC energy fraction.00443 versus flow.01819.
+The new model has more audible bandwidth; isolate that from learned temporal
+or physical-response improvements.
+
+Across the36 development recordings×2seeds, correct material and correct speed
+each beat their wrong-condition controls in72/72 spectrum comparisons; correct
+load in61/72. Wrong material rotates the surface ID, wrong speed selects the
+opposite20/60 endpoint, wrong load swaps.5/1N. These are known-condition controls,
+not unseen surfaces or independent naturalness validation. Repeated recordings
+receive the same generation for the same condition/seed;72 is not72 independent
+generated cases. Against the old spectrum model flow wins only25/72 overall
+spectrum comparisons (8/24 at40mm/s,17/48 at repeat1 other speeds).
+
+Shared-band repeat1 paired speed direction: flow40/48,old42/48,interpolation42/48;
+delta MAE.570/.442/.520dB. Load direction30/30all,delta MAE.402/.365/.294dB.
+Thus correct-vs-wrong association does NOT establish better fine physical slopes.
+Reference-aided cropped-latent codec spectrum RMSE1.98281 over all60 versus
+flow's2.21–2.41 development range leaves a generation gap, not codec failure.
+
+The standalone CLI and batched evaluation use identical model/seed/conditions
+but are not byte-exact: max PCM difference.00025618,RMS.00004954 in the glass
+control. Keep both artifacts; no cross-batch bit-replay claim. Focused tests
+forbid source reads during sampling and allow only newly generated PCM reads
+during the standalone path. Reproduce with `physical_sound_texture_flow.py
+--corpus GRID/result.json --baseline OLD_RANK4 --output NEW_EXTERNAL`, or
+`--model FLOW_RUN --texture 74 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+
+30 focused tests pass; Ruff lint/format,diff/local links and543 new WAV
+identity/layout/rate/finiteness/headroom checks pass. All processes terminal.
+Source/codec notices stay external with media/weights. No engine audition,
+Cargo/ProductCheck,runtime/demo/roadmap changes or promotion. This is a real
+new source-free learned model with partially successful physical conditioning,
+not achievement of the full multi-material/multi-event goal.
+
+Next: retain the model as an experimental control, not a replacement. Move from
+stationary.743s cores to a complete start/slide/stop event using the existing
+full recordings and force/position traces. First verify source clock alignment
+and whether measured speed/load explain onset/offset on TRAIN; do not invent
+sensor/audio synchronization. If supported, extend this same generator with
+time-varying physical conditions and publish a complete event in that checkpoint.
+Do not respond to the mixed spectrum scores with an epoch/width/seed sweep or
+erase the shared-band countercheck. Other probe materials, shape/size, impacts,
+rolling/destruction,water/rain and engine integration remain separate missing
+parts of the original full goal, not removed success criteria.
+
+## Complete friction event and background counterexample (2026-09-05)
+
+[Source-free rubber/glass event](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-glass-standalone-2026-09-05/generated.wav>)
+is3.15seconds: requested start.3s,90mm travel at40mm/s,.5N,.1s ramps,
+stop2.65s,then.5s tail. No recording or sensor file is read by generation.
+Shared-band median levels are-52.21dBFS before motion,-42.71 during sliding,
+-50.13 after stopping. These show modulation, not verified perceptual realism.
+[Glass source/timed/constant/gated/codec comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-evaluation-2026-09-05/glass-comparison.wav>)
+is14.277seconds. The full six-condition comparison is85.707seconds.
+
+The [source paper v4,6November2025](https://arxiv.org/html/2407.16206v4)
+describes PC timestamps, an audio-start timestamp and subsequent synchronization.
+It does not establish microsecond acoustic timing. Its stated80mm path conflicts
+with90mm displacement in all24 inspected TRAIN CSVs; actual CSV trajectories are
+used. The inspected pinned repository exposes noise processing, not acquisition/
+clock-alignment code. No downloaded code is executed and no per-recording time
+shift is fitted. Source audio/position endpoint differences on TRAIN range
+-.01424 to+.00696s, not a complete latency measurement.
+
+`physical_sound_texture_event.py` extends the SAME162432-parameter flow: the
+existing conditioning projection and residual blocks accept physical features
+per latent frame, and the existing integrator accepts bounded sequence lengths.
+Constant-feature broadcasting has a focused equivalence check; existing
+stationary inference remains unchanged. No new foundation or codec weights.
+Input speed is a100ms centered displacement average from position, not literal
+instantaneous velocity; force is interpolated from its recorded timestamps.
+The32..256-frame domain allows0..80mm/s transitions and0..1.5N sensor values;
+steady commands remain20..60mm/s and.5/1N. These bounds are not evidence for
+new steady operating points, arbitrary materials or changing probe geometry.
+
+At zero lag, shared-band20ms log-RMS correlates with the speed proxy at mean.848
+over24 TRAIN records. Diagnostic best lags on a±.2s/20ms grid fall within±40ms;
+all applied shifts remain zero. A preliminary full-band/Savitzky–Golay probe
+placed quiet glass20mm/s at the+.2s search edge: the lag estimator depends on
+signal representation and is not a synchronization calibration.
+
+Starting from the previous stationary checkpoint,2000 additional updates cycle
+first/random/last32 valid frames of each original TRAIN recording. Explicitly
+padded frames are excluded; encoder boundary receptive fields still exist.
+Parent TRAIN normalization is retained.40mm/s and repeat1 remain excluded from
+training.22.30seconds training+preparation,loss1.51005→1.29508; checkpoint SHA256
+`b31611a2dd0ec55c2a160b077cb1014ac23138601ad2e56e5786c8ee92e8cb56`.
+No source-free output is amplitude-gated after decoding in the **timed** branch.
+One playback gain2.8778076171875 after inputgain17.374337221633088 equals50times
+original amplitude, reduced globally to retain full-recording transient headroom.
+
+Training completed in `texture-full-event-2026-09-05`; evaluation JSON failed
+on a NumPy boolean. Its original result remains stale/running, but the process
+is terminal and `failure.json` records the failure after training. Saved weights
+and19 first-evaluation WAVs are intact. `--evaluate-model` reruns evaluation only
+in `texture-full-event-evaluation-2026-09-05`, with zero training updates; all19
+overlapping WAVs replay exactly. The inherited original metadata `context_frames`
+field is unused by full-event rendering; the corrected evaluator names effective
+full output and future metadata records context0 explicitly.
+
+|40mm/s development,12 records×2seeds | Timed model | Constant parent | Velocity gate | Gate + TRAIN background |
+|---|---:|---:|---:|---:|
+|Shared-band log-envelope MAE,dB |1.49235 |2.2730 |7.80295 |1.32827 |
+|Source half-rise onset error,s |.0100 |.2283 |.0108 |not scored |
+|Uncensored source offset error,s |.0633 |.0783 |.0208 |not scored |
+
+Timing uses one source-defined half-rise detector and three consecutive20ms
+bins; weak rises and truncated offsets remain unavailable. These errors are
+not physical clock accuracy. Repeat1 other-speed timed envelope error is1.44410;
+onset.00375s,offset.14105s on38/48 uncensored cases. A five-frame delayed-input
+control is worse than correct timing in all72 development envelope comparisons,
+as is the constant parent. Neither fact is sufficient quality admission.
+
+The silent gate has exact zeros before movement, so a log-level metric heavily
+penalizes it against a noisy recording. The decisive **posthoc** countercheck
+adds one TRAIN-only background scalar, RMS.0029587963 in published22.05kHz mono
+units, estimated from the first100ms of all24 TRAIN recordings. The same Gaussian
+noise rule (seed+17) and gain apply to every condition; no individual fitting,
+generator update or seed selection. It uses fixed existing PCM. See
+[real/timed/silent-gate/gate-plus-background](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-full-event-noise-floor-2026-09-05/comparison.wav>).
+Timed beats this stronger baseline only1/24 at40mm/s and29/48 at other repeat1
+speeds. The earlier72/72 wins over silence-gating do NOT prove superiority.
+Background resemblance is not necessarily desirable physical source synthesis;
+do not promote the noise-added baseline merely because it wins this metric.
+
+Reproduce training with `physical_sound_texture_event.py --corpus GRID/result.json
+--parent STATIONARY_FLOW --output NEW_EXTERNAL`; evaluation only adds
+`--evaluate-model EVENT_MODEL`. Source-free inference uses `--model EVENT_MODEL
+--texture 74 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+`noise_floor_countercheck(EVALUATION/result.json, NEW_EXTERNAL)` reproduces the
+fixed-PCM counterexample without ML inference.36 focused tests,Ruff/diff/local
+links and1284 WAV checks pass, including19 preserved originals. All jobs terminal;
+no engine audition,Cargo/ProductCheck, runtime/demo/roadmap changes or promotion.
+
+Decision: time-conditioned generation is implemented and audible, but not
+admitted as better than the stronger control. Do not spend another epoch/width/
+loss sweep on matching this apparatus background. The next physical capability
+is transfer across surfaces rather than more examples of the same three IDs:
+inspect the already-downloaded texture table and published friction coefficients,
+identify which genuine descriptors could replace surface one-hot labels, and
+run one bounded new-surface generator trial with playable output. Keep the
+shared-band, timing and background controls. Do not invent material composition,
+geometry or coefficients from names, relabel new surfaces as pristine protected
+evidence, or drop other required event families from the full goal.
+
+## New-surface descriptor transfer — 2026-09-05
+
+Primary artifact: [source-free rubber on frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-glass-standalone-2026-09-05/generated.wav>),
+3.15s,40mm/s,.5N,90mm. No reference audio, sensor file or surface ID is accepted
+by the standalone renderer; it takes category, two coefficients and motion.
+The independent CLI produces byte-identical PCM to the in-run requested profile.
+Compare [oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-66-comparison.wav>)
+and [frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/surface-76-comparison.wav>).
+Each plays real / descriptor model / equally trained category-only model /
+previous timed model using the category representative, with250ms gaps.
+These are friction events, not glass impacts or perceived-quality admission.
+
+The selected Figshare v5 grid now contains180 recordings from9 surfaces,
+722 source members,242 reused from the earlier grid. All member bytes were
+verified against local SHA256 and source ZIP CRC, including reused members.
+Whole15.2GB archive MD5 remains **unverified**; only selected ranges downloaded.
+External root `cluster-surface-transfer-grid-2026-09-05` retains the original XLSX.
+Its SHA256 is `6cd7dfc06e61852d49a2256d7fe8d44d222f3619f48fe9a4031f677d1b0eb4ff`.
+The optional spreadsheet skill path was unavailable; direct bounded XML reads
+use cached cell values, ignore malformed font styles and reject formulas/entities.
+No source spreadsheet repair or generated spreadsheet was made.
+
+The table contains genuine static/dynamic friction measurements, **not** density,
+elastic modulus, surface height spectra or object geometry. In the
+[primary paper, v4,6Nov2025](https://arxiv.org/html/2407.16206v4),
+coefficients are measured with a rubber sheet pulled at10mm/min. Audio uses a
+cylindrical rubber probe at20–60mm/s. Therefore these values are candidate
+cross-surface features, not calibrated coefficients at audio scan speeds.
+
+| Category | TRAIN surfaces | New-surface development |
+|---|---|---|
+| Wood |0 Nyatoh,2 Elm |4 Oak |
+| Metals |65 Stainless steel,67 Cast iron |66 Steel |
+| Glass |74 Float glass,77 Glass(haze) |76 Frosted glass |
+
+Every recording of4/66/76 is excluded from fitting. TRAIN is48 repeat0 scans
+at20/30/50/60mm/s on the six TRAIN surfaces.40mm/s and repeat1 stay development.
+All surfaces/roles are disclosed development, not pristine final evidence.
+The parent has only original24 TRAIN IDs on0/65/74; foundation-codec pretraining
+overlap is unknown. No held-surface audio determines initialization, normalization,
+training loss, checkpoint selection or the standalone motion profile.
+
+`physical_sound_texture_surface.py` expands the existing time-conditioned flow
+from5 to7 physical features: category one-hot3, speed, force, static and dynamic
+friction. Coefficients use fixed scaling `(mu-.5)/.25`. Only128 weights are added
+to the first context layer; they start at zero and preserve parent predictions
+exactly in the warm-start test. Both arms use162560 trainable parameters,
+the same parent,48 TRAIN cases,seed23,2000 updates and first/random/last32-frame
+windows. The category-only arm zeros both coefficient features during fit/render.
+The codec and parent latent normalization are unchanged. The original common
+inputgain17.374337221633088/playback2.8778076171875 are retained; no per-case
+normalization/clipping or fitted onset shifts. Full decodes remain available.
+
+The entire run completed in245.46s, including preparation and both fits51.93s.
+External root `texture-surface-transfer-2026-09-05` has both checkpoints and
+the [complete result](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-surface-transfer-2026-09-05/result.json>).
+Descriptor checkpoint SHA256 `6d36e47c055512eef37a9b182c19b31f2db246c0c03d33a00c21822a4672a8e0`;
+category-only SHA256 `c259a9bca63c6acac813c9da51c10578a37390d38cca1de170962eb01dfc8cd9`.
+Evaluation covers60 new-surface scans plus36 old-surface development anchors,
+each with two fixed seeds and four variants:768 generated cases. A wrong-control
+variant substitutes the farthest same-category TRAIN coefficients, chosen without
+audio scoring. No candidate or seed is selected from these results.
+
+| New surface,40 comparisons each | Moving shape RMSE: descriptor / category-only / parent,dB | Descriptor wins vs category-only | Full envelope MAE: descriptor / category-only,dB |
+|---|---|---:|---|
+| Oak |2.185 /2.183 /2.249 |21/40 |1.704 /1.671 |
+| Steel |2.544 /2.589 /2.877 |36/40 |1.969 /2.005 |
+| Frosted glass |2.619 /2.518 /2.849 |3/40 |1.702 /1.795 |
+
+Moving metrics use the same measured central.75s interval and shared22.05kHz
+band for every variant. They separate shape from absolute level and avoid
+mistaking quiet-apparatus resemblance for moving-contact quality. Full-envelope
+metrics retain the previous background-confound warning. Steel descriptor
+absolute level error1.369 vs category-only1.427/parent2.322dB; frosted glass.793
+vs.771/1.236. Wrong coefficients actually improve glass shape to2.563dB; correct
+coefficients beat them only16/40 on shape. Thus sensitivity to an input does
+**not** establish physically correct transfer. On old-surface anchors descriptor
+shape2.305 vs parent2.330 improves slightly, but full-envelope error1.593 vs1.460
+and moving-level error.830 vs.743 worsen. Do not replace the existing model/demo.
+
+Reproduction: `physical_sound_texture_surface.py --source GRID/result.json
+--parent TIMED_MODEL --output NEW_EXTERNAL` fits both arms; adding
+`--evaluate-model SURFACE_MODEL` evaluates saved weights with zero updates.
+Source-free: `--model SURFACE_MODEL --category Glass --static 0.3970170073501798
+--dynamic 0.3827100881663895 --speed 40 --force 0.5 --seed 314 --output NEW_EXTERNAL`.
+The source acquisition command is `physical_sound_texture_probe.py --training-grid
+--surfaces 0 2 4 65 66 67 74 76 77 --cached OLD_GRID/result.json --output NEW_GRID`.
+
+Decision: source-free new-surface generation works mechanically and is audible;
+measured coefficients give a modest steel improvement, not reliable multi-surface
+physical control. The glass counterexample survives the matched category-only
+control. Before another neural fit, compare direct TRAIN-spectrum interpolation
+in coefficient space against category averaging and observed new-surface spectra.
+This cheap discriminator separates an inadequate input description from a learned
+mapping failure. If coefficients themselves do not transfer the acoustic shape,
+seek additional published surface/contact evidence rather than more epochs/width.
+No new protected split, runtime consumer, roadmap promotion or universal-quality
+claim; the full impacts/friction/rolling/destruction/water/rain goal stays active.
+Verification:44 focused unit tests,Ruff format/check,diff and direct links passed;
+all1640 output WAVs pass SHA/finite/layout/headroom checks, and722 source members
+pass SHA/CRC checks. Both training/evaluation and standalone jobs are terminal.
+No Cargo/ProductCheck or engine audition was run for this isolated Python lab.
+
+## Coefficient versus generator discriminator — 2026-09-05
+
+The promised discriminator is complete, without new neural training. Listen to
+[oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-66-comparison.wav>),
+[frosted glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/surface-76-comparison.wav>)
+or [all three](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/comparison.wav>).
+Each group contains six central750ms segments: real, neural descriptor,
+coefficient interpolation, category mean, **target-aided** best mixture,
+**target-aided** self spectrum. The final two are diagnostic controls, NOT
+reference-free generators. This probe does not replace the full-event WAVs.
+
+`physical_sound_texture_interpolation.py` retains the exact48-TRAIN and60
+new-surface development rows. For each same-category TRAIN surface it interpolates
+log spectra along commanded speed, with40mm/s bracketed by TRAIN30/50mm/s.
+The requested static/dynamic coefficient pair is projected onto the segment
+between the two same-category TRAIN pairs; no target waveform enters this path.
+That convex weight blends the two log spectra. Category mean uses weight.5.
+The source-aided oracle minimizes shape error along this same two-spectrum span;
+the self-spectrum control measures stochastic rendering error with the target
+spectrum supplied. Both are explicitly labelled in every generated receipt.
+
+All candidate spectra use the same stationary random-phase renderer and two
+fixed seeds314/2718; playbackgain50 is common. Neural PCM is taken from the saved,
+hash-verified previous trial and cropped to the identical source-defined central
+interval; no weights or source-free request are refitted. Every comparison WAV
+is band-limited through the same22.05→44.1→22.05kHz publication/check path. This
+additional resampling modestly changes absolute-level errors relative to the
+previous full-event report; the within-probe comparisons below are consistent.
+It does not restore or judge temporal structure, contact transients or timbre
+above11.025kHz. Each source/weight/result retains its earlier disclosed roles.
+
+| New surface,40 PCM comparisons each | Coefficient shape RMSE,dB | Category mean | Neural descriptor | Target-aided best mix | Target-aided self spectrum |
+|---|---:|---:|---:|---:|---:|
+| Oak |1.543 |1.551 |2.185 |1.535 |.931 |
+| Steel |2.044 |2.226 |2.544 |1.997 |.965 |
+| Frosted glass |2.271 |2.230 |2.619 |2.186 |.955 |
+
+The coefficient PCM beats the neural descriptor on shape in40/40 oak,39/40 steel
+and40/40 glass cases. This is **not overall quality dominance**: absolute-level
+error coefficient/neural is.454/1.584dB oak,2.584/1.393 steel and1.579/.747 glass.
+The stationary model also has no learned onset/offset behavior. Do not replace
+the timed generator with stationary noise merely because a spectrum score wins.
+
+Before stochastic rendering, coefficient/category-mean/best-mix shape errors
+are1.314/1.326/1.306dB oak,1.889/2.067/1.853 steel and2.076/2.033/1.999 glass.
+Coefficients beat equal mixing on12/20,20/20 and3/20 source cases respectively.
+Coefficient weights oak.673,steel.742,glass.370 differ from mean target-aided
+optimal weights.618,.858,.611. Two real repeats differ by1.284,1.333,1.267dB
+on the same central spectral measure; this is a variability reference, not a
+universal lower bound or protected final test. All60 source comparisons and720
+generated/cropped cases are retained in
+[result.json](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-coefficient-discriminator-2026-09-05/result.json>).
+
+Falsifiable hypotheses and outcome:
+
+- **Only neural mapping is wrong:** contradicted as an exclusive explanation.
+  Glass coefficients also underperform equal mixing without a neural model;
+  even the target-aided two-spectrum span leaves a substantial residual.
+- **Only the two coefficients lack information:** also insufficient. Fixed
+  TRAIN-only interpolation already predicts much of the shape that the neural
+  output loses. This does not prove that an arbitrary nonlinear coefficient
+  mapping could never transfer; only the tested linear span is bounded here.
+- **Only stochastic spectrum estimation explains the gap:** not supported by
+  self-spectrum rendering error around.95dB versus neural2.19–2.62dB. These
+  components are not independent additive errors, so do not subtract them as
+  a decomposition or treat the oracle as deployable generation.
+
+A bounded literature check found a relevant counterexample to treating friction
+as a unique topography label: [Hsia et al., Phys. Rev. Research3,043204,
+21Dec2021](https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.3.043204)
+reports a fourfold change in real contact area with only a modest coefficient
+change in its studied interface. This supports caution, not a diagnosis of the
+Cluster apparatus or an acoustic law. The Cluster paper's10mm/min versus audio
+20–60mm/s measurement distinction remains relevant. Two additional publisher/
+author pages could not be opened; no claims rely on their search snippets.
+
+Next useful experiment: retain the timed neural event and its level response,
+but constrain/calibrate its moving spectral shape with the TRAIN-only predicted
+spectrum. First do one reversible **source-free hybrid** full-event countercheck,
+not an epoch/width sweep. Keep target recordings out of its inference path and
+evaluate all same cases, including onset/offset, quiet background, absolute level
+and old-surface regressions. A better central PSD score alone cannot admit it.
+Richer surface/contact evidence remains a later input issue, not an excuse to
+ignore the demonstrated generator-side loss. Full multi-event goal stays open.
+
+Reproduce with `physical_sound_texture_interpolation.py --source GRID/result.json
+--neural-result SURFACE_FLOW/result.json --output NEW_EXTERNAL`.47 focused unit
+tests,Ruff format/check,diff and direct artifact links pass; all784 output WAVs
+pass SHA/layout/finite/headroom checks. No new neural weights, GPU job, engine
+audition, Cargo/ProductCheck, runtime/demo or roadmap changes. The job is terminal.
+
+## Full-event source-free hybrid and DC correction — 2026-09-05
+
+Listen to [standalone neural / corrected glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/comparison.wav>)
+or [the corrected sound alone](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-glass-standalone-2026-09-05/hybrid.wav>).
+This is a3.15s rubber/frosted-glass sliding request,40mm/s,.5N,90mm,seed314,
+generated from the saved neural model and a TRAIN-only spectrum bank. No source
+audio, reference recording, sensor file or surface ID enters standalone inference.
+Full neural and filtered decodes are retained. The neural control is byte-identical
+to the prior standalone source-free WAV. The new corrected PCM SHA256 is
+`eec12325dc70339767846b0f4b3d1bb58f4cd89127ff05637071bee28497fd1b`.
+
+`physical_sound_texture_hybrid.py` cooks only the48 TRAIN central log spectra
+and their six surfaces' coefficients into a98576-byte safetensors bank. Its SHA256
+is `5c440edd763373c788411c481c48c6690c1093780b6fd5609d1957bf34cd6e20`.
+The bank is identical in all three evaluations; no new neural weights are fitted.
+Source validation may read the complete disclosed grid, but only declared TRAIN
+waveforms supply bank values. The bank loader checks its hash,finite bounds,
+48 exact TRAIN IDs/conditions and six-surface membership. Inference interpolates
+speed,normal force and same-category coefficient position without a target.
+
+The filter measures a750ms window of its **own generated** moving sound, selected
+from input velocity rather than acoustic score. It applies a513-tap FIR to align
+spectral shape with the predicted TRAIN spectrum: fixed±12dB pre-normalization
+limit and two-bin Gaussian smoothing. Above13kHz the requested unnormalized
+response is unity; there is no new high-band truth claim. Intrinsic filter gain
+preserves the predicted generated moving power, not a real recording's loudness.
+This is an algorithmic EQ gain, **not per-file playback/headroom normalization**.
+All publications retain the common inputgain17.374337221633088/playback2.8778076171875
+and strict.98 PCM headroom. No clipping or gain change is used to rescue an output.
+The fixed256-sample FIR group delay is compensated explicitly and256 extra tail
+samples retained. This is not a fitted sensor/acoustic clock alignment.
+
+The first global filter (`texture-hybrid-shape-2026-09-05`) improved shape but
+also modified quiet background and shifted some onsets. A posthoc motion-only
+countercheck (`texture-hybrid-motion-2026-09-05`) applies the correction through
+`clip(input_velocity/commanded_speed,0,1)`, leaving the floating-point neural
+signal unchanged when requested velocity is zero. Publication can differ by
+one PCM24 LSB from an old float32-multiplied control; do not claim byte-exact idle
+PCM. The full requested neural control itself does replay byte-exactly.
+
+Both early variants exposed a calculation defect, not evidence for another
+filter-parameter sweep. In the standalone moving window, the raw mean was
+-.003092 with RMS.007780; the first corrected mean was-.007041 with RMS.010088.
+DC accounted for15.8% versus48.7% of power, creating+2.2565dB RMS drift. Yet the
+detrended PSD integrals were almost unchanged,5.054e-5 versus5.077e-5. The
+[SciPy1.18 Welch documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.welch.html)
+confirms the default constant detrending. Our shape estimator therefore could
+not authorize the DC gain2.2766 that its FIR happened to produce.
+
+The bounded discriminator distinguished PSD/DC bookkeeping from insufficient
+training or a change in the source clock. The correction is algebraic: project
+the FIR onto unit DC gain using a normalized513-sample Hann kernel. It is not a
+new fitted threshold, test-selected tap length or target-aided loudness match.
+Revision `dc-preserving-fir-v2` has unit DC gain within1.12e-15 on all192 cases;
+the standalone calibration-window level change becomes-.0919dB. Across192
+cases that change has median-.0138dB and range[-.1943,+.3077]dB: preservation is
+approximate, not an exact per-window normalization claim. A nonzero-mean test now
+covers the bug missed by the original zero-mean-noise test.
+
+Final [evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/result.json>)
+uses the same60 unseen-surface and36 original-surface development scans, two
+fixed seeds, and three variants: neural / corrected / corrected category mean.
+View [oak](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-4-comparison.wav>),
+[steel](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-66-comparison.wav>)
+and [glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-hybrid-dc-2026-09-05/surface-76-comparison.wav>),
+each real / neural / corrected / corrected category mean. These comparisons
+reuse the original source-defined central interval and shared22.05kHz metrics;
+full-envelope/onset/offset measurements remain unchanged in definition.
+
+| Surface | Shape RMSE neural→hybrid,dB | Shape wins | Moving-level absolute error neural→hybrid,dB | Envelope MAE neural→hybrid,dB |
+|---|---|---:|---|---|
+| Oak |2.185→1.774 |40/40 |1.507→1.492 |1.704→1.715 |
+| Steel |2.544→2.273 |38/40 |1.369→1.381 |1.969→1.966 |
+| Frosted glass |2.619→2.329 |40/40 |.793→.815 |1.702→1.718 |
+| Original-surface development |2.305→1.804 |72/72 |.830→.825 |1.593→1.604 |
+
+Mean onset errors are unchanged for oak/old anchors,steel.0065→.0070s and
+glass.0075→.0070s. Mean uncensored offset errors remain unchanged, including
+glass.2344s; this existing large error has not been solved. These are detector
+errors,not calibrated physical clock accuracy. Glass category-mean shape2.302
+still beats the coefficient-conditioned2.329: reliable coefficient transfer
+and broad material fidelity remain unproven. Small envelope regressions remain;
+no universal perceptual or product-admission claim is made.
+
+All three evaluations and three standalone jobs are terminal; their3780 WAVs
+pass SHA/layout/finite/headroom checks.55 focused unit tests,Ruff format/check,
+diff and direct artifact links pass. Old failed-design outputs and executed
+scripts are preserved,not overwritten. No new training, engine audition,
+Cargo/ProductCheck, runtime/demo or roadmap promotion occurred.
+
+Reproduce current evaluation with `physical_sound_texture_hybrid.py --source
+GRID/result.json --neural-result SURFACE_FLOW/result.json --motion-only --output
+NEW_EXTERNAL`. Source-free inference: `--model SURFACE_FLOW --bank BANK_DIRECTORY
+--category Glass --static 0.3970170073501798 --dynamic 0.3827100881663895 --speed 40
+--force 0.5 --seed 314 --motion-only --output NEW_EXTERNAL`. Historical pre-DC
+variants use their preserved `executed-script.py`; the current default includes
+the DC correction. Dropping `--motion-only` runs a current DC-preserving global
+filter, not a replay of the historical first variant.
+
+Decision: retain the hybrid as a useful report-only spectral baseline, not a
+replacement for the authored demo or proof of physically realistic friction.
+Stop EQ/tap/smoothing/gating sweeps. The DC finding also questions prior RMS
+interpretations: next compare existing real,reference-aided codec and source-free
+generator WAVs with explicit DC and AC components before another neural fit.
+Distinguish decoder-conditioned bias from learned latent drift and time-dependent
+energy errors; silence controls alone do not isolate those hypotheses. Use the
+cached codec audit first, not new protocols/data acquisition. This is a validator/
+generator causal check, not permission to redefine quality around an easier metric.
+The full multi-event, both-materials, geometry and natural-process goal stays open.
+
+## DC, training-window inference and real-repeat counterchecks (2026-09-05)
+
+Three completed external diagnostics preserve the full physical-sound goal and
+report-only boundary. No new training, data acquisition, runtime/demo replacement
+or quality admission occurred. The primary new source-free artifact is
+[global / windowed glass](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/requested-comparison.wav>):
+3.15s per arm,40mm/s,.5N,90mm,seed314,frosted-glass coefficients, no source audio
+or sensor trace at inference. Full decodes are retained. Windowed PCM SHA256:
+`cc9cd259a354161c028e4d4f337aad19db05816d4a5d44b31c7a1e2435f79e40`.
+
+### Competing explanations and outcomes
+
+1. **DC bias accounts for the remaining envelope error.** The
+   [cached audit](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-dc-causal-audit-2026-09-05/result.json>)
+   checks432 codec entries plus36 old-surface development recordings×2 neural
+   seeds×5 arms. Real and codec314 repeat across seeds, not independent evidence.
+   Mean central DC power fractions are real.01050,reference-aided codec.04688,
+   timed generator.04506,current generator.05483,hybrid.05518. Codec alone already
+   introduces extra DC. Removing one whole-event mean changes current-generator
+   envelope MAE only1.59325→1.59136dB; codec.76240→.65647dB. Per20ms block-mean
+   removal gives1.44672 versus.43805dB, but also removes slow physical components:
+   it is a diagnostic, not an improved acceptance metric or published filter.
+   **DC-only explanation rejected; exact origin of codec-conditioned DC unproven.**
+2. **Training32-frame crops versus full-length inference is the dominant cause.**
+   The trained network's GroupNorm couples time positions. A fixed perturbation
+   outside the21-frame convolutional receptive field changes the remote global
+   vector field by RMS.1345775; the windowed wrapper changes it by0. This is direct
+   local Torch2.13 evidence, not proof of audio-quality causation. The wrapper
+   evaluates32-frame windows with10-frame convolutional halos at every midpoint
+   solver stage, averaging overlapping valid velocity fields. Initial full noise,
+   weights,64 solver steps and one full codec decode remain unchanged; no audio
+   chunks are stitched or postfiltered. At32frames it is exactly the old sampler.
+   [Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-windowed-field-2026-09-05/result.json>)
+   covers24 records:20/60mm/s,.5/1N,new4/66/76 repeat0 and old0/65/74 repeat1,
+   two seeds, two arms. All48 global PCM controls reproduce previous outputs
+   byte-exactly. **No useful improvement; retain old generator, no window sweep.**
+3. **Paired metrics mostly penalize natural randomness between valid sounds.**
+   The [repeat check](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-moving-repeat-diagnostic-2026-09-05/result.json>)
+   compares the24 source cases above with their other real repeat at the same
+   surface/speed/force, and both generated variants. It uses each recording's
+   existing source-defined750ms moving crop, common22.05kHz,37 complete20ms bins.
+   Sorted log-envelope absolute differences measure empirical1D distribution
+   distance, deliberately ignoring order; a permutation test verifies that this
+   cannot validate event timing. Real repeat appears twice for neural seed pairing:
+   there are24 condition pairs,not48 independent real pairs. Real-repeat variation
+   is substantially smaller than neural error, even when envelope order is ignored.
+   **Randomness alone does not explain the generator gap.** Two repeats cannot
+   establish a universal lower bound, perceptual judge or admission threshold.
+
+| Scope | Full-envelope MAE global→windowed,dB | Moving-shape RMSE global→windowed,dB | Envelope wins |
+|---|---|---|---:|
+| Old anchors |1.48754→1.48119 |2.24960→2.24225 |13/24 |
+| Oak |1.64559→1.65114 |2.08520→2.07550 |4/8 |
+| Steel |1.96781→2.00937 |2.63721→2.66162 |0/8 |
+| Frosted glass |1.82781→1.83340 |2.62664→2.65086 |4/8 |
+| All |1.65064→1.65624 |2.34964→2.35245 |21/48 |
+
+Moving-level absolute error is1.08678→1.08674dB overall. Onset error worsens
+.01167→.01458s; uncensored offset is.17889→.17833s on36 paired cases. The glass
+offset remains.43333s on this duration-extreme subset; this does not contradict
+the earlier.2344s mean over the broader glass evaluation. No fitted time shifts,
+per-output gain matching or censored-as-zero errors were introduced.
+
+| Moving-window diagnostic | Real repeat | Global generator | Windowed generator |
+|---|---:|---:|---:|
+| Ordered envelope MAE,dB |.47625 |1.35737 |1.36618 |
+| Envelope-distribution W1,dB |.23440 |1.13471 |1.13627 |
+| Absolute level error,dB |.19106 |1.08678 |1.08674 |
+| Shape RMSE,dB |1.29155 |2.34964 |2.35245 |
+| Envelope standard deviation,dB |.52560 |.82598 |.83422 |
+
+Target envelope standard deviation is.52930dB. Global beats real-repeat shape
+in0/48 seed-paired comparisons,level4/48,and either envelope diagnostic1/48.
+These750ms figures do not explain the entire full-event/timing error. The
+[full-event repeat montage](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-moving-repeat-diagnostic-2026-09-05/comparison.wav>)
+plays frosted glass20 then60mm/s,.5N: real / repeated real / global / windowed.
+Each recording retains its own full duration; no acoustic clock fitting. The
+source-free requested comparison above, not this source-aided montage, proves
+the inference interface requires no target sound.
+
+Reproduce using `lab/.venv/bin/python lab/scripts/physical_sound_texture_dc_audit.py
+--lab-root ROOT --output NEW_EXTERNAL`, then
+`lab/.venv/bin/python lab/scripts/physical_sound_texture_windowed.py --lab-root ROOT
+--output NEW_EXTERNAL`; `physical_sound_texture_dc_audit.py --repeat-check` uses
+the completed canonical windowed report. Outputs must be fresh external paths.
+The three canonical roots are the links above.227 generated WAVs pass receipt
+SHA,frames,stereo44100,finite/subtype/headroom checks;62 focused tests and Ruff
+pass. No Cargo/host-check/ProductCheck or perceptual acceptance was run.
+
+Decision: close DC-only,window-normalization and randomness-only explanations as
+sufficient remedies. Preserve the existing hybrid baseline. Next inspect the
+latent-only objective versus decoded acoustic errors and run one bounded
+TRAIN-only acoustic training correction with a source-free output and unchanged
+controls. Do not substitute sorted-envelope scores for timing/perceptual quality,
+launch another EQ/window sweep, or interpret training-case recovery as transfer.
+
+## Paired decoded-acoustic endpoint training (2026-09-05)
+
+New source-free output: [base / ordinary fine-tuning / acoustic fine-tuning](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/requested-comparison.wav>).
+Each is3.15s of requested frosted-glass friction,40mm/s,.5N,90mm,seed314,
+with the existing measured coefficient pair. No recording or sensor trace is
+passed to the generator. [Real/base/FM/acoustic](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/comparison.wav>)
+adds the actual40mm/s,.5N reference for comparison, not for inference.
+
+The prior loss optimized latent velocity MSE without a decoded-audio term.
+[WaveFM, NAACL2025](https://aclanthology.org/2025.naacl-long.110.pdf), §§3.2–3.3,
+provides primary-source precedent for endpoint prediction with auxiliary spectral
+losses in speech vocoding. That mel-conditioned waveform task is not physical
+texture generation or evidence that its gains transfer to our latent model.
+This experiment preserves our velocity parameterization and uses the algebraic
+endpoint estimate `mixed + (1-t)*predicted_velocity`; it is not a WaveFM replica.
+
+Two copies of descriptor checkpoint6d36e47c… receive200 fixed updates each:
+same existing48TRAIN records,seed23,AdamW1e-4/weight_decay1e-4,gradient clip1,
+same crop/posterior/noise/time sampling recipe. No new surfaces/records enter fit.
+The ordinary arm minimizes the original48-case velocity MSE. The acoustic arm
+adds.02 times a decoded auxiliary loss on one TRAIN case per update:
+
+- Select `step % 48`; the original prefix/random/suffix crop schedule remains.
+  Because48 is divisible by3, the auxiliary crop mode is tied to a record; the
+  full latent MSE still covers every record in every mode. This limited exposure
+  does not establish comprehensive acoustic fitting of every event phase.
+- Decode the predicted32-frame endpoint through the unchanged frozen Oobleck.
+  Backpropagation reaches the flow; first auxiliary gradient norm to predicted
+  velocity is.05944818. Codec parameters require no gradients and receive none.
+- Use a differentiable41-tap shared-band resampler, numerically checked against
+  SciPy's default `resample_poly(1,2)`. Discard fixed8-latent-frame margins for
+  this auxiliary loss only. This is not proof all codec boundary effects vanish.
+- Add absolute log-power-spectrum error at512/2048 FFT sizes, averaged in time,
+  and ordered20ms log-energy error. Spectra subtract each frame's mean; energy
+  retains DC. No per-output level normalization, phase target, development-derived
+  threshold or changed evaluation metric. Natural-log units, not reported dB.
+
+Training finishes in1.80s ordinary and11.08s acoustic after preparation; these
+times exclude source encoding,model/codec loading and evaluation. The last48
+training losses are not a fixed before/after probe because noise/time/crops vary.
+Do not claim an auxiliary training-loss improvement from those histories.
+Both162560-parameter weights and complete histories are external:
+
+- Ordinary: `81a67e05f9c5be565c4f9fe29800c1dd8761411a15ca42669719d62e4c582ea9`.
+- Acoustic: `4354345aeb9cb2860fd4f52c92f8b15fdfe1f5bef46da0868e5686dc282035f6`.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-2026-09-05/result.json>)
+covers36 source events:20/40/60mm/s,.5/1N,new4/66/76 repeat0 and old0/65/74
+repeat1; two seeds,three arms=216 generations.40mm/s remains absent from TRAIN.
+All cases are disclosed development,not a new protected test. All72 baseline
+PCM controls reproduce the earlier surface model byte-exactly.
+
+| Scope | Moving-shape RMSE base/FM/acoustic,dB | Moving-level absolute error base/FM/acoustic,dB | Full-envelope MAE base/FM/acoustic,dB |
+|---|---|---|---|
+| Old anchors |2.3156/2.3052/2.3100 |.8430/.7510/.9765 |1.5165/1.4580/1.5592 |
+| Oak |2.1070/2.0654/2.0722 |1.7065/1.5588/1.9865 |1.7147/1.5670/1.8574 |
+| Steel |2.6661/2.6638/2.6635 |1.4788/1.6027/1.3606 |1.9572/2.0367/1.8803 |
+| Frosted glass |2.6945/2.6689/2.6634 |.8114/.8316/.7436 |1.6769/1.6218/1.5717 |
+| All |2.4024/2.3856/2.3882 |1.0876/1.0410/1.1700 |1.6497/1.5999/1.6645 |
+
+Acoustic versus ordinary wins shape29/72,level28/72,envelope28/72. On oak,
+level and envelope win0/12 each. Mean onset base/FM/acoustic is.00972/.00611/
+.01056s; uncensored offset.13833/.13200/.13967s on60 paired cases. At unseen
+speed40, envelope1.64796/1.61386/1.69210 and level1.08930/1.06877/1.20066dB:
+the auxiliary loss does not produce an overall transfer improvement. Steel/glass
+averages improve but do not authorize selecting favourable surfaces or promotion.
+
+A separate [standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-endpoint-standalone-2026-09-05/requested-comparison.wav>)
+loads only saved candidate metadata/weights and the cached frozen codec, no
+dataset or source WAV. It exactly reproduces both published PCM files and every
+full FLOAT audio sample. Full FLOAT file SHA differs only in byte60 inside the
+RIFF PEAK metadata chunk, not the data chunk; each file's own receipt is valid.
+No metadata rewriting or audio regeneration was used to force matching hashes.
+
+Run `lab/.venv/bin/python lab/scripts/physical_sound_texture_acoustic.py --lab-root
+ROOT --output NEW_EXTERNAL` for the paired fit/evaluation. `--evaluate-model MODEL`
+reuses saved weights with0updates. `--render-model MODEL --output NEW_EXTERNAL`
+requires no `--lab-root` and renders the fixed requested glass profile. It rejects
+dataset/evaluation arguments,incorrect48-TRAIN identity,codec/parent identity,
+weight hash/size and invalid tensors. Existing surface/demo loaders are unchanged.
+
+Both jobs terminal.67 focused tests,Ruff format/check,481 WAV receipt/layout/
+finite/headroom checks pass. Current model reloads and all72 baseline controls
+verified; FLOAT sample equality distinguished from container-byte equality.
+No perceptual admission,Cargo/host-check,ProductCheck,engine/demo or roadmap change.
+
+Decision: keep both candidates as report-only evidence,not an overall upgraded
+model. Do not sweep auxiliary weights,training duration or decoder windows from
+these results. The penalty acts on a target-aided one-step endpoint during fit,
+whereas inference follows64 midpoint steps from independent noise. A remaining
+testable explanation is that correcting these endpoints does not correct the
+actual generated distribution; this is a hypothesis,not established causation.
+Next test acoustic feedback through actual source-free sampling on TRAIN only,
+retaining the ordinary-fit control,full decodes and unchanged new-condition
+evaluation. No conclusion that all acoustic losses fail or the goal is complete.
+
+## Full-sampler acoustic correction countercheck (2026-09-05)
+
+[New source-free WAV comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/requested-comparison.wav>):
+base/FM-only/full-sampler,3.15s each,glass40mm/s,.5N,90mm,seed314. The new arm
+backpropagates through the actual64-midpoint noise→latent integration and one
+full-length frozen codec decode. No target/posterior enters that sampler; the
+existing48-case latent FM regularizer still uses TRAIN posteriors normally.
+
+The added sampler has exact forward equality to existing inference in CPU tests
+and the actual CUDA preflight (maximum latent difference0). First acoustic
+gradient norm to the flow's output weight is1.6334659; this is a different
+derivative destination from the earlier endpoint's velocity-output gradient.
+Keep the same200updates,48TRAIN,seed23,learning rate1e-4 and auxiliary weight.02.
+Sampler noise uses dedicated seeds607..806,not evaluation seeds,without consuming
+the FM minibatch RNG. The ordinary-control weights reproduce SHA81a67e05… exactly.
+
+Although generation covers the full event, the auxiliary loss still uses the
+same32-frame selected interval and8-frame margins as the endpoint experiment;
+no new loss/window/threshold is fitted. The record-linked crop-mode limitation
+also remains. Thus this tests feedback through real generation,not comprehensive
+full-event acoustic supervision or an isolated change of a single tensor.
+History `t` is the regularizer's sampled FM time; the auxiliary sampler always
+traverses all64 steps. The sampled arm finishes200updates in107.67s after
+preparation. CUDA emitted one allocation/OOM warning but continued to completion:
+no exception, restart, gradient truncation or reduction of event length occurred.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-2026-09-05/result.json>)
+is the unchanged36-event/two-seed/three-arm set. All144 base/FM-only PCM controls
+match the prior endpoint experiment byte-for-byte. New checkpoint SHA256:
+`2dc305b20cf1ae8054f915823b63efd64ce3f087cca8df9ffbbe3a0ca9039a02`.
+
+| Scope | Shape RMSE FM→sampled,dB | Level absolute error FM→sampled,dB | Full-envelope MAE FM→sampled,dB |
+|---|---|---|---|
+| Old anchors |2.3052→2.3405 |.7510→.8033 |1.4580→1.4491 |
+| Oak |2.0654→2.0589 |1.5588→1.2299 |1.5670→1.4130 |
+| Steel |2.6638→2.6845 |1.6027→1.8748 |2.0367→2.2221 |
+| Frosted glass |2.6689→2.7070 |.8316→1.3483 |1.6218→1.7772 |
+| All |2.3856→2.4120 |1.0410→1.1438 |1.5999→1.6266 |
+
+Onset .00611→.00556s and uncensored offset .13200→.13100s do not compensate for
+the spectrum/level regressions. This arm helps wood and hurts steel/glass, the
+opposite broad tradeoff from endpoint correction. Neither is an overall upgrade.
+This does not prove all acoustic losses fail or that descriptor insufficiency
+alone causes the error. No favourable-surface promotion or demo replacement.
+
+Reproduce the new fit with existing script `physical_sound_texture_acoustic.py
+--lab-root ROOT --sampled-loss --output NEW_EXTERNAL`. Metadata format
+`texture-acoustic-full-sampler-v1` explicitly selects the sampled arm; old endpoint
+metadata remains supported. `--render-model MODEL --output NEW_EXTERNAL` takes
+neither dataset nor objective override. The [standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-acoustic-full-sampler-standalone-2026-09-05/requested-comparison.wav>)
+reproduces both PCM files and all full FLOAT samples exactly (not a container-SHA
+claim).69 focused tests,Ruff,481 WAV SHA/layout/finite/headroom checks pass;
+all jobs terminal. No runtime/roadmap/Cargo/ProductCheck change.
+
+Two completed acoustic corrections now fail the overall criterion. Before
+another fit, run bounded research on competing explanations: signed global-level
+drift versus material-conditioned error, gradient interference, and limited
+physical descriptors. Inspect existing per-material errors and TRAIN gradients
+with successful controls; do not start an auxiliary-weight/epoch/window sweep.
+The broad both-materials/geometry/water/rain objective remains active.
+
+## Signed-level and gradient discriminator (2026-09-05)
+
+User feedback on the retained audition examples: water sounds normal; rubber on
+glass seems normal but is unfamiliar. This is useful perceptual feedback,not a
+physical-calibration or friction-realism pass. Prefer familiar water/impact/rain
+auditions without requiring per-sound user approval or shrinking the broad goal.
+
+After the two acoustic corrections failed overall, a bounded research cycle
+compared common gain drift,material-conditioned gradient interference and missing
+physical descriptors. [PCGrad,NeurIPS2020](https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf),§2.2,
+explicitly distinguishes negative gradient alignment from the combination with
+gradient-magnitude imbalance and curvature that can make it harmful. This is
+motivation for a diagnostic,not evidence that PCGrad fixes our audio model.
+
+[Result](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-gradient-discriminator-2026-09-05/result.json>)
+rechecks72 seed-paired development cases×4 variants from the completed reports,
+including byte-identical shared controls and exact signed/absolute metric
+consistency. Common22.05kHz/source-defined750ms windows remain unchanged.
+No new fit,per-output gain matching or altered acceptance metric.
+
+| Held surface | Signed moving-level error FM/endpoint/full-sampler,dB |
+|---|---|
+| Oak |+1.559/+1.986/+1.230 |
+| Steel |-1.603/-1.361/-1.875 |
+| Frosted glass |-.716/-.582/-1.324 |
+
+Endpoint-minus-FM level change averages+.28279dB (SD.37312;53/72 positive),
+full-sampler-minus-FM -.44892dB (SD.24731;69/72 negative). Lowering most outputs
+helps already-loud wood and harms already-quiet steel: the direction of the
+tradeoff is not evidence of better material fidelity. But changes are not purely
+gain: least-squares scalar alignment to the same-seed FM waveform leaves mean
+residual power8.87% endpoint and22.77% full-sampler. This is an analytical
+counterfactual only; no corrected waveform or favourable-case promotion is made.
+Mean spectral-shape changes from FM are.24512/.45185dB respectively.
+
+The local-gradient probe uses all six TRAIN surfaces at30mm/s,both forces,
+repeat0 (12cases),one fixed seed607 and the common FM-only checkpoint. It
+generates complete events through the differentiable64-step sampler and frozen
+codec,then uses the existing central32-frame/8-margin auxiliary objective.
+It obtains separate gradients for spectral loss,envelope loss,and log moving
+power with respect to all162560 flow parameters. The12×3×162560 finite vectors
+and their SHA remain in an external NPZ. No optimizer or weight update is used.
+
+Median envelope/log-power gradient cosine is.98565; spectral/log-power.70562;
+spectral/envelope.74389. Envelope feedback largely follows a level-change
+direction on these local cases. There are exceptions: both Float-glass cases
+have opposing spectral/envelope gradients(-.7581,-.9979),and the1N case has
+large opposing norms69.02/68.17. This is not evidence to discard that case.
+Category-averaged total auxiliary gradients are positively aligned: wood/metals
+.2495,wood/glass.8262,metals/glass.3606. A simple category-level gradient-conflict
+explanation is not supported at this checkpoint/seed/speed. Historical training
+trajectory,curvature,all speeds and physical-descriptor sufficiency are unproven.
+Do not infer PCGrad admission from two negative within-case loss cosines.
+
+[Full-event comparisons](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-gradient-discriminator-2026-09-05/comparison.wav>)
+play oak/steel/frosted glass40mm/s,.5N: real/FM/endpoint/full-sampler. Three
+additional TRAIN previews generate FM-only sound without reference audio,using
+the published sensor controls; both full and requested-horizon WAVs are retained.
+The comparison includes real audio but does not mix it into generated variants.
+
+Run `lab/.venv/bin/python lab/scripts/physical_sound_texture_gradient_probe.py
+--lab-root ROOT --output NEW_EXTERNAL`. Job terminal,0newweights.71 focused tests,
+Ruff and10 WAV SHA/layout/finite/headroom checks plus NPZ shape/SHA pass. No
+perceptual admission,Cargo/host-check,ProductCheck,runtime or roadmap change.
+
+Decision: common-level drift explains an important part of the observed tradeoff,
+not all waveform error. Both acoustic terms can steer level; their sum has not
+learned reliable independent material-level correction. The next bounded test
+should separate level and spectral-shape learning on TRAIN with full source-free
+generation and unchanged controls/evaluation,not change global gain or sweep loss
+weights. Missing descriptors remain a separate unproven limitation. Preserve the
+liked water example and use familiar events for later human-facing auditions.
+
+## Separating spectral shape from level during fitting (2026-09-05)
+
+The preceding gradient/level audit justified one algebraic discriminator: remove
+the frequency-constant offset from each log-power spectrum before computing the
+spectral training penalty. The20ms log-energy penalty is unchanged. This avoids
+treating a uniform gain change as spectral-shape error above the existing1e-12
+numerical floor. No waveform filtering or normalization is added to inference.
+The ordinary/full-sampler arms retain their original default objective and
+metadata compatibility. This is a changed training objective,not a relaxed
+acceptance metric or a claim to have separated the model into independent heads.
+
+The synthetic successful control doubles waveform amplitude: the new spectral
+penalty is below1e-12 while envelope penalty remains ln(4). A low-pass altered
+signal still has nonzero spectral-shape error; differentiating that penalty
+with respect to uniform gain gives magnitude below1e-10 in float64. These
+checks cover signals above the numerical floor,not an unrestricted invariance
+claim about silence or all quantized recordings.
+
+[New source-free comparison](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-2026-09-05/requested-comparison.wav>)
+plays base/FM-only/separated,3.15s each,glass40mm/s,.5N,90mm,seed314. The new
+candidate uses exactly48TRAIN records,200updates,weight.02,AdamW1e-4,seed23 and
+full64-step differentiable generation as in the previous sampled arm. The same
+auxiliary32-frame interval/8-frame margins and record-linked crop-mode limitation
+remain. First gradient norm to output weight1.8941553; forward sampler parity0.
+Training takes104.69s after preparation. A CUDA allocation warning occurs but the
+same process completes all200updates without restart/truncation/changed scope.
+Checkpoint SHA256 `f1282bd4e387240f4e5d81c003190f883771c0a5b67e75e27effd59360982a95`.
+
+[Evaluation](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-2026-09-05/result.json>)
+retains the36-event/two-seed/three-arm disclosed development set and all original
+full-event/central-band metrics.144 base/FM PCM controls and the FM-only checkpoint
+reproduce the previous experiment exactly. No development-driven early selection.
+
+| Scope | Shape RMSE FM→separated,dB | Level absolute error FM→separated,dB | Full-envelope MAE FM→separated,dB |
+|---|---|---|---|
+| Old anchors |2.3052→2.3253 |.7510→.7670 |1.4580→1.4354 |
+| Oak |2.0654→2.0788 |1.5588→1.4971 |1.5670→1.5249 |
+| Steel |2.6638→2.6964 |1.6027→1.6776 |2.0367→2.0784 |
+| Frosted glass |2.6689→2.6863 |.8316→1.1989 |1.6218→1.7218 |
+| All |2.3856→2.4062 |1.0410→1.1124 |1.5999→1.6052 |
+
+Versus ordinary FM,shape improves18/72,level25/72,envelope38/72. Versus the prior
+unseparated sampled arm,those counts are39/72,47/72,42/72: partial recovery from
+that failed candidate is not an overall improvement over the appropriate control.
+Mean onset .00611→.00583s; uncensored offset .13200→.13267s. No admission or
+replacement of the retained neural/hybrid or liked water examples.
+
+Reproduce with existing script `physical_sound_texture_acoustic.py --lab-root
+ROOT --separate-level-shape --output NEW_EXTERNAL`. This implies full sampling;
+format `texture-acoustic-level-shape-v1` selects the explicit `level_shape` arm.
+`--render-model MODEL --output NEW_EXTERNAL` requires no dataset and rejects
+objective overrides. [Standalone reload](</home/kaifaty/.codex/experiments/nextengine/physical-sound/texture-level-shape-separated-standalone-2026-09-05/requested-comparison.wav>)
+reproduces both PCM files and every full FLOAT audio sample exactly; no full-file
+FLOAT SHA equality claim. Both jobs terminal.72 focused tests,Ruff and481 WAV
+SHA/layout/finite/headroom checks pass. No Cargo/host-check,ProductCheck,perceptual
+admission,runtime/demo or roadmap promotion.
+
+Decision: the tested endpoint,full-sampler and separated-objective corrections
+do not beat the ordinary control overall. Stop this bounded friction-loss family;
+do not sweep weights,epochs,windows or task projections. This does not establish
+that every acoustic objective or neural generator must fail. Honour the user's
+preference for familiar auditions: the next bounded research direction is
+visual/event-conditioned generation for water/impacts,asking whether appearance
+and motion supply useful conditions missing from coarse material/coefficient
+inputs. Inspect primary-source capabilities,terms,resources and available scene
+data before downloads or fitting. This is a lab hypothesis,not a new architecture,
+physical-calibration claim or narrower replacement of the full goal.
+
+## MMAudio visual-conditioning audition — 2026-09-05
+
+Primary artifacts: [water with generated audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-water-audition-2026-09-05/water-generated-full.mp4)
+and [text / moving video / static frame comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-water-audition-2026-09-05/comparison.wav).
+Each arm8.010884s,mono44.1kHz;0.5s gaps. Frozen pretrained model, **zero training
+updates**, not our trained physical model or engine integration. Full goal open.
+
+Counterfactual fixes prompt,seed42,25Euler steps,CFG4.5,BF16 and compares absent,
+moving,and repeated first frames. Prompt:`Water is being poured into a glass
+container.` Negative empty. Three different source-free outputs establish a
+conditioning response,not improved physical fidelity or synchronization.
+
+Inspected [official code](https://github.com/hkchengrex/MMAudio/tree/974010a026c731054592d8f777218bd9d85a6c24),
+including generation,frame decoding and weight loading. Code MIT;
+[MMAudio weights](https://huggingface.co/hkchengrex/MMAudio/blob/eb13a1a98fdbec91753775c57b074ccdfc60587c/README.md)
+CC-BY-NC4.0. The
+[Apple CLIP encoder](https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-384/blob/01b771ed0d1395ca5ffdd279897d665ebe00dfd2/LICENSE)
+is research-only and excludes product development. This scientific comparison
+does not authorize these weights/derivatives for the engine.
+[BigVGAN](https://huggingface.co/nvidia/bigvgan_v2_44khz_128band_512x) MIT does not
+change other components' terms. Paper page403;full paper not read this checkpoint.
+
+All assets are revision-pinned in `physical_sound_mmaudio_pilot.py`;weight SHA256
+checked against publisher LFS metadata before safe weight-only loading. Model
+a6bf693424fbd4ce0244fff8c412347714d5ac586e28dbeffadfa0f2b647af74.
+`mmaudio-assets-2026-09-05/assets.json` records identities;about10GiB assets,
+21GiB disk free after acquisition. Upstream974010a026c731054592d8f777218bd9d85a6c24
+unmodified. External dependency overlay `mmaudio-python-2026-09-05` preserves
+existing lab Torch2.13.0+cu130;torchvision.28,open-clip3.3,timm1.0.29,librosa.11,
+av18.1,einops.8.2,torchdiffeq.2.5,omegaconf2.3;no torchaudio/Torch replacement.
+
+Source:first qualifying already-opened publisher TRAIN glass row,
+`VID_20240131_200305_6.6_28.6`,container17,Sound of Water revision
+12575460ee39d6adaebbe5aff531a5f4a24a627b. Excludes18/30;no author test. Dataset
+redistribution unspecified;local research only. Inspected frame shows a stream
+entering a transparent vessel. Inference receives a separately encoded first8s
+video with exactly one video stream and **no audio stream**. Real audio is
+extracted only by the later `assess` command. Pretraining overlap unknown;
+not clean test evidence. Continuous pouring cannot establish onset timing.
+
+Initial `mmaudio-water-counterfactual-2026-09-05` exited1 at finite/headroom guard
+before publication;raw signal not retained. Receipt corrected to terminal failed.
+Same-seed rerender in `mmaudio-water-audition-2026-09-05` retains raw FLOAT and
+uses explicit shared0.5 playback gain,no timbre/synthesis change or weaker.98
+output guard. Raw peak text/video1.0,static.941406;exact1.0 samples1/3/0.
+Attenuation does not undo possible vocoder saturation. Original composite's
+`-shortest` dropped3reordered frames;preserved it and remuxed
+`water-generated-full.mp4` without that flag:239frames8.011173s,audio8.010998s.
+GPU peak allocation4.956GiB;post-load generation2.59/4.15/4.14s on RTX3080.
+These are run measurements,not end-to-end/product performance claims.
+
+Reproduce: `PYTHONPATH` external dependency overlay plus upstream source,
+`HF_HUB_OFFLINE=1`,then `lab/.venv/bin/python
+lab/scripts/physical_sound_mmaudio_pilot.py render --root ASSETS --source UPSTREAM
+--output NEW_EXTERNAL`. `prepare --root NEW_ASSETS --water EXISTING_WATER_SOURCE`
+downloads only explicit inference assets;`assess --root ASSETS --output GENERATED`
+uses existing frozen CPU AST with real-recording/silence/noise/tone controls.
+
+AST Water top5 all3generated+real at raw and diagnostic RMS.005. Water ranks
+text/video/static/real:raw3/3/2/2;RMS4/4/2/2. Video raw top tags Sink/faucet/Water;
+real Drip/Water/Fill. No quality winner,material judge or calibration follows.
+Negative controls retain their expected coarse tags. No threshold/prompt tuning.
+
+Checks:16tests(5new plus11existing text-pilot),Ruff,finite/layout/PCM gain and
+identity checks,silent-input/full-composite streams. No Cargo,host-check,
+ProductCheck,roadmap/demo promotion. All jobs terminal. Next:sparse visible
+impacts with measured event times and moving/static/time-shift controls. Do not
+start water seed/prompt sweeps or assume this research encoder is deployable.
+
+## MMAudio sparse impact timing discriminator — 2026-09-05
+
+[Generated glass-panel taps with video](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/video-generated-full.mp4),
+[one-second delayed scene and generated audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/shifted-generated-full.mp4),
+[four-arm audio](/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-glass-timing-2026-09-05/comparison.wav):
+text,moving,static,+1s delayed. Same frozen MMAudio/seed42/25Euler/CFG4.5/BF16,
+prompt `A drumstick taps a glass panel.`,empty negative,shared.5 playback gain.
+All4 complete,raw FLOAT preserved,no clipping/headroom failure.0training updates.
+
+Two source-order already-opened EPIC TRAIN candidates were visually unsuitable:
+P01_04_23 has obscured contacts;P01_05_134 is cap manipulation then faucet activity.
+Preserved both8s previews rather than treating audio annotations as contact times.
+Bounded primary-source search then identified
+[Greatest Hits](https://andrewowens.com/vis/) by Owens,Isola,McDermott,Torralba,
+Adelson,Freeman. The authors publish videos of drumstick interactions and label
+their [gallery](https://andrewowens.com/vis/hits.html) examples as recorded sounds,
+not model predictions;project links CC-BY4.0. Selected the first Glass gallery
+video,first8s,without listening to/selecting generated candidates.
+
+Downloaded only3.1MB author demonstration `2015-03-27-23-30-55_denoised_thumb.mp4`:
+obsolete MIT hostname failed DNS;university archive had an incomplete TLS chain;
+same media path on the current author domain returned200 with verified TLS.
+No certificate bypass or20/50GB archive acquisition. Author's denoised thumbnail
+is not raw sensor audio. Source e104350f2004a12e5ec61dfb689fb9ef3c9d4eda16fc3a41febe279b0f75bc68;
+silent48bc6261d31b9c77f5c21592de7d0d278417a0c2fc756e36f931077e1309306d.
+Full provenance/rejected alternatives in external`mmaudio-impact-source-2026-09-05/source.json`.
+Public demonstration is opened development,not clean test;foundation overlap
+unknown. Glass category comes from author gallery;exact composition/force/size
+not measured. Inspected frames show stick motion across a cabinet panel.
+
+Extended existing renderer with paired`--video SILENT --prompt TEXT` and
+`--time-shift`. Fixed+1s delay holds first frame,then plays original;no wraparound.
+Generated composites retain full video/audio streams. Synthetic black→white
+video test verifies25-frame shift at25FPS and absence of audio. Main render:
+`physical_sound_mmaudio_pilot.py render --root MMAUDIO_ASSETS --source UPSTREAM
+--video SOURCE/glass-silent.mp4 --prompt 'A drumstick taps a glass panel.'
+--time-shift --output NEW_EXTERNAL`,with previous pinned overlay/HF offline.
+
+Post-generation`physical_sound_mmaudio_timing.py --generated RESULT
+--reference-video SOURCE/greatest-hits-glass.mp4` extracts real audio only for
+evaluation. Fixed10ms RMS/5ms hop positive flux,15% maximum height,10% prominence,
+100ms separation;one-to-one matching within100ms. No thresholds fitted to outcomes.
+This is an audio-attack proxy,not independently measured visual contact times;
+quiet events and multiple attacks can affect counts. Synthetic impulse/delay/gain
+and silence/duplicate-assignment controls pass;not a calibrated realism judge.
+
+| Conditions | Expected timeline | Matched / reference | Extra detected attacks |
+|---|---|---|---|
+| Text | Original |5/9 |26 |
+| Moving video | Original |2/9 |6 |
+| Static frame | Original |1/9 |4 |
+| Delayed video | +1s |3/8 |2 |
+
+Moving video against the wrong delayed timeline0/8;delayed audio against original
+1/9. Some response to timing exists,but the fixed diagnostic does not establish
+complete rhythm reproduction. High text recall with26extras is not success.
+Do not interpret30–39ms mean error of the few matched events as overall accuracy.
+No model/prompt/seed sweep or promotion from this single public demo.
+
+Checks:19focused tests(8MMAudio/timing+11text),Ruff,diff/link checks;all full/PCM
+waves finite,matched sample count and explicit gain;video streams inspected.
+All jobs terminal. No runtime,roadmap,ProductCheck or physical-calibration claim.
+Next:explicit onset/event-time conditioning,with a pretrained generator that can
+consume event times without target audio. The inspected
+[SyncFusion authors' implementation](https://github.com/mcomunita/syncfusion)
+describes editable onset tracks plus text/audio conditioning;code/weights/terms
+and exact text-only inference path need inspection before use. Do not assume
+its visual onset predictor or audio-reference branch is required by our goal.
+
+## SyncFusion explicit-time source-free audition — 2026-09-05
+
+Primary media: [glass / delayed glass / wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-explicit-times-2026-09-05/comparison.wav),
+three5.461333s mono48kHz signals with0.5s gaps. Separate`glass.wav`,`delayed.wav`,
+`wood.wav` in that directory. Frozen pretrained SyncFusion,0new training updates,
+no video or reference audio input. This is an explicit-time capability experiment,
+not material/geometry/force calibration or completion of the full goal.
+
+Inspected the [authors' code](https://github.com/mcomunita/syncfusion/tree/e67ad8300db2cb68cf6391a71ba8cfee7c95785f),
+especially`main/module_diffusion.py`,`generation.py`,`dataset_diffusion.py`,
+`exp/model/diffusion.yaml`,`evaluate_gh_gen_text.yaml`. Training uses audio CLAP
+conditions;generation supports text embeddings and a separate sample-level onset
+track. We bypass the dataset/visual-onset/training wrappers,not the learned
+generator or onset encoder. No need for user recordings or sensor data.
+
+[Zenodo checkpoint record12634630](https://zenodo.org/records/12634630) metadata,
+read through its API,states CC-BY4.0. Downloaded only
+`ckpt-diffusion/epoch=784-valid_loss=0.008.ckpt` via bounded ZIP range reads:
+compressed2,834,640,643bytes,expanded3,223,219,889,CRC32=1701792866. ZIP decoder
+checks member CRC;whole5.67GB archive MD5 NOT verified. Local checkpoint SHA256
+a25584b18d5e8f4b2fad1f8fa5444fa5b30cca6224e12fd107435f071dc4e51f.
+No last-checkpoint,visual model,train/val/test shards or separate CLAP weights
+downloaded. External`syncfusion-assets-2026-09-05/source.json` records acquisition.
+Repo lacks an explicit top-level code license;do not redistribute that clone or
+infer production clearance for the entire dependency/pretraining chain.
+
+`physical_sound_syncfusion_pilot.py` builds the published architecture with
+audio-diffusion-pytorch.1.3,audio-encoders-pytorch.0.0.22,a-unet.0.0.16;
+213,051,434generator and2,393,374onset-encoder parameters. All consumed tensors
+finite,all state dictionaries load strictly. `weights_only=True,mmap=True` loads
+the checkpoint;optimizer states and audio tower are not used by inference.
+Text tower follows inspected LAION-CLAP1.1.4:RoBERTa pooler,Linear/ReLU/Linear,L2
+normalization. Legacy position_ids checked against exact arange514 before removal
+as a now-nonpersistent buffer. Cached tokenizer vocabulary,BPE ranks and special
+tokens exactly match FacebookAI/roberta-base e2da8e2f811d1448a5b465c236feacd80ffbac7b;
+config also checked. No AudioLDM model weights enter this path.
+
+External`syncfusion-python-2026-09-05` overlays the earlier MMAudio dependencies;
+imports torchaudio2.11.0+cu130 with existing Torch2.13.0+cu130. Does not modify
+the original lab environment or install Lightning/W&B/training stack. This is
+not a claim of original Python/Torch numerical equivalence. Full-length CUDA
+shape/finite preflight passes,peak2.378GiB for that preflight only;generation peak
+was not recorded before the initial rejection. First3cases each~18.3s after setup.
+
+Seed42,FP32,150VSampler steps,embedding scale2,262144samples. Onset impulses1.0 at
+specified sample indices;no target audio,post-hoc event gating,prefix muting or
+2s crop. Retain full raw FLOAT,including samples above1;shared0.5 gain for audition,
+without clipping or weakening the.98 playback headroom gate.
+
+| Condition | Requested onsets(seconds) | Detected matches / extras |
+|---|---|---|
+| `A drumstick taps glass.` |.6,1.5,2.7,4.0 |4/4,0extra |
+| Same text,delayed |1.0,1.9,3.1,4.4 |4/4,0extra |
+| `A drumstick taps wood.` |.6,1.5,2.7,4.0 |4/4,0extra |
+| Glass text,empty schedule |none |REJECTED headroom;no PCM published |
+
+Fixed existing10ms-energy/5ms-hop attack proxy detects12/12 at requested bins;
+zero reported error is detector-resolution limited,not sample-accurate contact
+proof or naturalness. No per-sound human approval used. This does not establish
+all rhythms,overlap limits or generalization of physical properties.
+
+Empty raw signal is finite but peak2.31949,RMS.0328345,not silence. Initial inference
+exited1 at its publication guard;all4raw files survived. `finalize` consumed those
+same outputs without new inference,retained the terminal-error history,marked
+`complete_with_rejections` and published only the3safe signals plus comparison.
+Empty remains a visible rejected control,not quietly dropped or normalized into
+a passing artifact. Finalizer validates existing raw/PCM hashes and refuses
+re-finalization. Future inference also records and retains rejected cases.
+
+CPU AST raw/RMS.005 diagnostics on3published clips:glass largely Ping/Sound effect,
+delayed glass also Wood block,wood Finger snapping/Tick. Material realism remains
+unverified;coarse ontology mismatch alone is not proof of wrong material. Empty
+is explicitly excluded from audible-PCM classifier inputs because its publication
+failed,and remains rejected in the parent result. No prompt/threshold/seed tuning.
+
+Reproduce using the two external dependency overlays in`PYTHONPATH` and
+`HF_HUB_OFFLINE=1`: `lab/.venv/bin/python
+lab/scripts/physical_sound_syncfusion_pilot.py render --root ASSETS --output NEW_EXTERNAL`.
+`prepare` obtains the single checkpoint;`finalize` recovers already-generated raw
+artifacts without rerendering;`assess` runs raw/RMS AST with negative controls.
+23focused tests(4new+19existing),Ruff,diff/link and full/raw/PCM gain+identity checks
+pass. All acquisition/inference/assessment jobs terminal. No Cargo,host-check,
+ProductCheck,runtime/demo or roadmap promotion.
+
+Next discriminator: separate text/audio-conditioning transfer from generator
+timbre limitations. Inspect a small author TRAIN-only source selection and compare
+fixed text conditions with TRAIN-derived audio-embedding prototypes under exactly
+the same numerical schedule. Any reference-aided control is explicitly an oracle,
+not the target source-free interface;no author test/protected roles or data-size
+sweeps. Empty-schedule failure stays open;do not claim silence robustness or hide
+it by post-generation gating. Preserve the full waveform and timing controls.
+
+## SyncFusion TRAIN conditioning discriminator — 2026-09-05
+
+Audible results: [glass comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/glass-comparison.wav)
+(20.54s) and [wood comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-condition-discriminator-2026-09-05/wood-comparison.wav)
+(20.93s). Each plays two real TRAIN events, previous text-only generation,
+two-event mean audio prototype, then first individual audio condition; 0.5s gaps.
+The four new generated clips are diagnostic **audio-reference-aided oracles**,
+not a new source-free interface, new physical calibration or independent test.
+No weight updates; no runtime/demo/roadmap change.
+
+Source: [authors' processed TRAIN data](https://zenodo.org/records/12634671),
+Marco Comunità, 2024-07-03, record metadata CC-BY-4.0. Only `train_shard_1.tar`:
+2,099,322,880 bytes, publisher MD5 d95042871d2e1c5892acc5a31bd35cb9 verified;
+local SHA256 7284c9dd5eb5eb4caf81ee3b7acca71be6c11f4f6d91c19a85936a4ed634ece3.
+No author val/test data. Initial range scan exited1 with HTTP429 after retaining
+two wood sources, preserved as failed in `syncfusion-train-prototypes-2026-09-05`.
+A single full-archive request completed; selection from verified local archive
+is `syncfusion-train-prototypes-verified-2026-09-05`. Recovered wood samples exact;
+FLOAT WAV byte hashes differ from the first extraction because of PEAK metadata.
+
+Fixed selection, before generation: first two distinct recordings per glass/wood
+in archive order, first annotated `material hit` followed by an onset 0.2–2s later.
+Visited 105 TRAIN annotation files, selected:
+
+| Material | Recording | Event interval(s) | Author label |
+|---|---|---|---|
+| Wood | 2015-02-16-17-02-05 | 3.092552–4.305115 | wood hit static |
+| Wood | 2015-02-16-17-27-53 | 2.095562–2.928260 | wood hit static |
+| Glass | 2015-03-20-01-49-30 | 36.950291–37.830780 | glass hit static |
+| Glass | 2015-03-20-02-16-43 | 6.167958–6.941104 | glass hit rigid-motion |
+
+Distinct recordings do not establish distinct physical objects. Exact geometry,
+striker composition, force and velocity remain unknown. Metadata/WAV/annotation
+hashes and source sample indices are in the external source receipt.
+
+`physical_sound_syncfusion_condition.py` implements acquisition, render and
+assessment. Load unmodified LAION-CLAP1.1.4 HTSAT-tiny submodules directly, avoiding
+its global training hooks. Audio encoder31,325,143 parameters and Linear/ReLU/Linear
+projection strictly loaded from the same SyncFusion checkpoint; no extra weights.
+Non-fusion preprocessing matches inspected author code: clip/quantize to int16,
+divide by32767, repeat whole event to10s, zero-pad remainder. This input quantization
+is the author's embedding path, not clipping of generated or audition waveforms.
+Some real source peaks exceed1; full original FLOAT data and shared0.5 audition
+gain retained. Added torchlibrosa0.1.0/h5py3.15.1 only to external overlay; initial
+missing-h5py preflight failed, strict-load/finite forward passed after installation.
+
+Mean of two normalized embeddings is renormalized; individual controls exclude
+mean interpolation as the sole explanation. Same seed42/noise, FP32,150steps,
+guidance2, full262144 samples/48kHz, event times .6/1.5/2.7/4.0s as the prior
+text baseline. All four output peaks1.050–1.169, published with fixed0.5 gain;
+no prefix muting/cropping/gating. 16/16 detected attacks,0extras at5ms resolution.
+Each~18.2–18.6s after setup; measured process CUDA peak2.3784GiB. Raw/PCM hashes,
+exact layout, finite values and PCM gain within one quantization step verified.
+
+Fixed gain-invariant attack diagnostic: first200ms after annotated/requested
+onset, Welch2048/1024,32 logarithmic bands200–16000Hz; mean absolute log-PSD
+distance across four generated attacks and both TRAIN references. This deliberately
+reference-aided metric measures spectral resemblance, not semantic/physical quality.
+
+| Material | Text distance(dB) | Mean prototype | Individual |
+|---|---:|---:|---:|
+| Glass |9.6982|4.5828|4.8959|
+| Wood |8.2585|3.3038|3.9805|
+
+Post-hoc cross-material check on the same features: wrong-minus-own distance
+for glass text/mean/individual +.1144/−.3458/−.3262dB; wood +.4544/+1.5100/+1.1118.
+Glass is still slightly nearer the wood reference set. Within-category reference
+pair distances glass5.5115/wood3.5868dB; between-category average4.3921dB. These
+four records do not qualify this descriptor as a material judge. First200ms
+contains99.60/98.15% glass and58.96/93.78% wood event energy; source absolute peaks
+occur0.5–4ms after annotation, so the window did not simply miss the actual attack.
+
+AST raw/RMS.005 fails to identify even the four real short events reliably
+(Cash register/Burping/Camera/Coin etc). Generated glass becomes Chop/Tick; wood
+Ping/Tick/Bouncing. Silence/noise/tone controls behave coarsely as expected.
+Do not tune or use AST as a sole acceptance/reward model. No perceptual quality
+win claimed solely from spectral distance, and no new human validation requested.
+
+Conclusion: evidence supports a text/audio-conditioning transfer limitation;
+the generator can move toward TRAIN acoustic examples while retaining timing.
+It does not establish a glass/material solution or remove generator limitations.
+A small learned source-free conditioning adapter is now a motivated next bounded
+experiment, with recording-disjoint TRAIN-development evaluation against both
+text and fixed-prototype baselines. First determine usable material/action/motion
+groups; do not infer geometry/force or open protected author test roles. Require
+an immediate generated audition, not another infrastructure-only checkpoint.
+No larger-generator, prompt/seed, prototype-count or guidance sweep. Empty-schedule
+failure remains open and this experiment does not re-test or fix it.
+
+Reproduce: acquire with `--archive` pointing at the checksum-verified TRAIN tar;
+render with `--assets`, `--source`, `--clap-package`, `--output NEW_EXTERNAL` under
+the existing two external dependency overlays. Assess with `--source`, `--baseline`
+(the previous explicit-time result) and `--output` (this discriminator result).
+External `assessment.json`, `tags-raw.json`, `tags-rms.json`, `conditions.pt` and
+`result.json` retain exact media/condition identities and controls. 29focused tests
+(6new+23existing), Ruff and diff checks pass. All jobs terminal. No Cargo/host-check
+or ProductCheck: only the bounded external audio lab changed.
+
+## SyncFusion learned structured adapter and standalone inference — 2026-09-05
+
+Primary new source-free media:
+[five glass impacts on a new schedule](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-standalone-2026-09-05/glass-rigid-motion-adapter.wav).
+The learned input is categorical material + object motion and numerical event
+times, **not a target recording**. It is not a natural-language parser or a model
+of geometry, size, force, velocity, striker composition, water, rain or friction.
+Those full-goal requirements remain open; this is a bounded impact experiment.
+
+Comparisons: [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/glass-static-comparison.wav),
+[static wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/wood-static-comparison.wav),
+[glass with rigid motion](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-adapter-audition-2026-09-05/glass-rigid-motion-comparison.wav).
+Each plays one held-development reference, text, TRAIN prototype and learned
+adapter. Durations19.66/18.94/19.16s. The reference is added only during assessment.
+All generator arms are source-free at inference; prototype lookup uses persisted
+TRAIN means, not the held reference or a target embedding.
+
+Same verified author TRAIN shard1/source terms as above. Scan all202 annotation
+files, retain first two eligible .2–2s hit intervals per recording/material/motion.
+Materials glass/wood/metal; motions static/rigid-motion.307 encoded events:
+239TRAIN/86recordings,50recording-development/21recordings,
+18combination-development/3recordings. Cache `syncfusion-adapter-data-2026-09-05`
+retains exact sample indices, source/event hashes, roles and frozen audio embeddings.
+No additional dataset downloads, no author val/test or protected roles.
+
+Exclude **all** recordings containing glass+rigid-motion from adapter fitting:
+2015-03-20-02-16-43,2015-03-20-02-27-12,2015-03-27-23-30-55, including their other
+materials and static events. Other recording keys with first8SHA256hex modulo5=0
+form recording-development. Frozen before fit. The first and last excluded
+recordings were already opened in earlier oracle/gallery diagnostics; this is
+not pristine test evidence. SyncFusion itself was pretrained on author TRAIN;
+only this new adapter has the stated recording/combination exclusions. Distinct
+recordings are not proof of distinct physical objects.
+
+`physical_sound_syncfusion_adapter.py`: five factorized one-hot inputs,
+Linear5→32,SiLU,Linear32→512,L2 normalization;17,088 learned parameters. CPU AdamW,
+seed42,200full-batch steps,lr.003,weight_decay.0001, group-balanced cosine loss
+(equal weight per supported material/motion pair). No decoder or CLAP weight
+updates, epoch/width/seed sweep or development-selected checkpoint. Training loss
+1.01206→.14775. Saved `syncfusion-adapter-fit-2026-09-05/adapter.pt` SHA256
+863459fb1cd2587474d6e8528da3f3c65d667cb47aad5551525fad5effe334f6.
+Tests perturb all development targets and verify exact unchanged learned weights
+and prototypes. Learned training outputs nearly recover conditional means;
+training convergence by itself is not evidence of useful sound generalization.
+
+Prototype baseline averages only training embeddings for an exact pair; unseen
+glass+rigid-motion explicitly falls back to glass-only TRAIN mean. Text baseline
+also receives motion information via fixed prompts “A drumstick taps a {material}
+object that stays in place.” / “…object, causing it to move.”, chosen before
+generation, no prompt search. `pilot.text_conditions` extracts the existing frozen
+text path for reuse; the previous pilot keeps its own original prompts.
+
+Nine complete150step/FP32/seed42 generation runs, full262144samples at48kHz,
+guidance2 and shared.5playback gain.36/36 requested attacks detected; the moving-
+glass **text** arm has one extra attack. All prototype/adapter arms have0extras.
+Raw preserved;all PCM headroom/layout/finite/hash/gain checks pass. CUDA peak
+2.3824GiB; generation~18.5–22.5s per signal after setup.
+
+Same fixed200ms/32-band spectral diagnostic as above, this time versus **held
+adapter-development** recordings, never the training prototypes:
+
+| Condition | Reference events/recordings | Text distance(dB) | Prototype | Adapter |
+|---|---:|---:|---:|---:|
+| Glass static |4/2|7.6836|9.4760|9.4618|
+| Wood static |27/14|6.0671|5.1367|5.1396|
+| Glass rigid-motion |4/3|7.2949|5.8253|5.5671|
+
+Held-combination cosine error improves .214247→.198932; mean spectral distance
+improves5.8253→5.5671dB, but only2/4reference events improve, not consistent success.
+Wood remains essentially the prototype; static glass is substantially worse than
+text. No global quality win, physical calibration or new-object acceptance.
+AST is intentionally NOT rerun or promoted: its real-reference controls already
+failed in the preceding discriminator. Spectral/embedding metrics remain partial
+diagnostics, not a trained universal validator.
+
+Standalone CLI accepts `render --assets ASSETS --fitted FIT --output NEW_EXTERNAL
+--material glass --motion rigid-motion --kind adapter --times .4 .9 1.7 3.0 4.7`.
+It loads adapter/decoder weights, no data cache or reference and, for adapter-only
+inference, neither text nor audio encoder. Run with the existing external
+SyncFusion/MMAudio dependency overlays in `PYTHONPATH`; `HF_HUB_OFFLINE=1`.
+The real standalone run completed5/5attacks,0extras,peak1.173 before.5gain,
+~22.7s sampling under tracing,CUDA peak2.3817GiB. An `openat` trace confirms no
+read of training/archive/cache/reference WAVs; only its own generated WAVs are
+reread for hashing. Trace in fitted directory `standalone-openat.log`.
+
+Prepare/fit/render/assess are separate CLI modes. Assessment alone reads held
+references; artifact hashes and no-overwrite guards bind stages. Unknown categories
+and invalid numerical schedules fail explicitly. New9+1raw/PCM files,3comparisons
+and fitted model retained externally;all jobs terminal.35focused tests(6new plus
+29existing),Ruff,diff and changed-link checks pass. No Cargo/host-check/ProductCheck,
+runtime/demo/model replacement, license-clearance claim or roadmap promotion.
+
+Next evidence-backed direction: add an object-specific input rather than widening
+this categorical MLP. The static-glass transfer failure and near-prototype fit
+motivate a bounded visual/object-descriptor experiment using the same TRAIN frames,
+with mismatched-frame and descriptor-only controls and source-free audible output.
+Inspect frame timing/identity before fitting; do not invent physical dimensions
+or force from images. Keep the current recording exclusions. No adapter epoch/
+width/seed or prompt/guidance sweep, and no mandatory human approval per sound.
+Empty-schedule failure remains open; no post-generation gate is added to hide it.
+
+## SyncFusion full-scene visual-conditioning discriminator — 2026-09-06
+
+Audible comparisons: [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-visual-audition-2026-09-06/glass-rigid-motion-comparison.wav).
+Order: one held reference→previous categorical adapter→correct visual frame→wrong
+frame. Nine generated WAVs, no audio reference input,36/36 detected attacks,0extras.
+The three categorical PCM controls exactly reproduce the previous adapter WAVs.
+This excludes a changed decoder/baseline as the cause of the comparison outcome.
+Raw FLOAT hashes differ for repeated controls because WAV metadata differs;
+published PCM identities are exact. Shared.5gain,full5.46s,FP32,seed42,150steps,
+guidance2,unchanged .6/1.5/2.7/4.0s schedule;no crop/muting/gating of generated audio.
+
+Bounded external addition: `physical_sound_syncfusion_visual.py` and tests.
+Frozen [DINOv2 model card](https://github.com/facebookresearch/dinov2/blob/main/MODEL_CARD.md)
+describes general image features, not measured physical properties. Its DINOv2-S
+backbone is Apache-2.0;this does not clear the entire sound pipeline for production.
+Used [facebook/dinov2-small](https://huggingface.co/facebook/dinov2-small/tree/ed25f3a31f01632728cabb09d1542f84ab7b0056),
+revision ed25f3a31f01632728cabb09d1542f84ab7b0056; downloaded model/config/processor/card,
+safetensors88,249,960bytes,SHAae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1
+matches publisher LFS. Existing Transformers4.44.2,no dependency/model upgrades.
+No remote model code; frozen normalized384-dimensional CLS features.
+
+Reuse all307 events and exact239TRAIN/50recording-dev/18combination-dev roles;
+no new author val/test data or loosened recording exclusions. Same verified2.1GB
+TRAIN archive. Source preprocessing code and actual metadata agree on15fps and
+320×240 images. Select nominal pre-impact frame
+`floor((onset_seconds-.1)*15)+1`, matching one-based image names; timestamps have
+frame/extraction uncertainty and are not calibrated contact measurements. No
+frame-selection, crop, encoder-size or regularization sweep.
+
+Inspection of the three preselected cases before fit found full scenes, not
+isolated objects: shelf with several items, bin in front of wooden cabinetry,
+door/panel assembly. Correct frame indices354/163/92 for source rows138/7/127.
+Post-generation inspection of contact-adjacent frames356/165/94 shows the same
+ambiguity/context; exact extracted JPEGs in `syncfusion-contact-frame-inspection-2026-09-06`.
+The model sees a processed scene image, not identified geometry, contact point,
+material of both bodies, physical dimensions or force. Author resize also changes
+1920×1080 source aspect ratio to320×240; do not infer physical shape ratios.
+
+Fit one group-balanced ridge residual on frozen DINO features and the prior
+categorical adapter prediction. TRAIN-weighted image mean only, regularization.01,
+float64 solve then float32 inference,384×512=196,608 new coefficients; normalize
+the corrected acoustic embedding. No DINO, categorical-adapter, CLAP or diffusion
+weight updates. Perturbing development images/targets cannot change mean/mapping
+(exact test). Wrong-frame control chooses first different recording with the same
+material/motion, without audio-based selection. Mismatched image–target pairs never
+enter fitting; the selected other image may itself be a TRAIN example, which is
+disclosed in its frame receipt and does not make this an independent object test.
+
+Assets/features `syncfusion-visual-features-2026-09-05`; fitted
+`syncfusion-visual-fit-2026-09-05/visual-adapter.pt` SHA256
+52be7dd4219336a1ffa9daccd38e6811d561519f6f0069d10161c5c0d858a2e5.
+Preparation/fit began before local midnight; audible output is dated09-06.
+Inference re-encodes the saved correct/wrong JPEGs and consumes learned weights;
+it does not read target embeddings, training WAVs or instantiate an audio encoder.
+
+Event-weighted cosine error, descriptor→visual→wrong frame:
+TRAIN239: .159423→.104938→.174565;
+recording-dev50: .143037→.147608→.155263;
+combination-dev18: .188744→.188290→.210971.
+Overall68held events: .155136→.158377→.170010; visual addition worsens the mean.
+The glass+rigid-motion group specifically worsens .198932→.222295.
+Training fit improvement is not generalized physical understanding.
+
+Fixed200ms/32-band log-spectrum distance to the **individual held event associated
+with each input frame**, not the previous multi-reference category average:
+
+| Case | Descriptor(dB) | Correct frame | Wrong frame |
+|---|---:|---:|---:|
+| Glass static |6.6756|6.4414|7.4953|
+| Wood static |5.0819|5.9383|5.0055|
+| Glass rigid-motion |3.7236|3.8226|4.6425|
+
+Correct frame improves only1/3preselected cases over descriptor-only. On wood the
+wrong frame beats both the correct frame and baseline. This is a negative control,
+not a candidate to cherry-pick. No global visual/material/quality improvement or
+promotion. Comparisons19.66/18.94/19.16s include0.5s gaps; all raw/PCM hashes,
+finite/layout/headroom and gain/quantization checks pass. CUDA peak2.3816GiB,
+generation~22.6–24.3s per case after setup.39focused tests(4new+35existing),Ruff,
+diff/link checks pass;all jobs terminal. AST deliberately not reused as judge.
+No Cargo/host-check/ProductCheck,runtime/demo or roadmap changes.
+
+Next: bounded research/discriminator before another fit. Competing explanations:
+full-scene features miss which object is struck; pooled features lack contact/
+motion information; available labels omit dominant geometry/force variables.
+Inspect contact localization and localized/temporal inputs on the already opened
+TRAIN clips with a successful identity control before any larger model. Do not
+re-run ridge/feature/crop/encoder-size sweeps from these opened outcomes. Require
+inspectable frame/contact evidence and source-free audio; no inferred dimensions,
+protected-role reuse or mandatory human validation. Existing empty-schedule and
+broader physical-control gaps remain open; prior source-free adapter retained.
+
+## Contact/FOV discriminator — 2026-09-06
+
+Bounded research after mixed categorical/full-scene results considered three
+explanations: the visual input omits the struck object; pooled generic features
+confuse object/striker/background; categories and this small dataset omit dominant
+physical variation. No additional material-specific model or parameter sweep.
+
+The [original paper](https://arxiv.org/html/1512.08512), v2 2016-04-30,
+sections3/A2, reports impact-site pixel annotations on approximately62% of actions
+and two hickory drumsticks. These are not force/geometry measurements. Its image
+representation section reports difficulties with fast/nonrigid optical flow;
+the appendix also notes that image similarity can follow the arm rather than the
+interaction. This supports checking input locality, not assuming motion=contact.
+
+Acquisition checks: the [author page](https://andrewowens.com/vis/) links the
+CC-BY4 dataset. The HTTPS Umich archive timed out in bounded HEAD/Range checks;
+guessed author-host ZIP mirrors returned404. No TLS bypass, huge archive download,
+or author val/test opening. The public author directory index lists977recordings,
+each with videos/audio, `_times.txt` and `_sf.mat`/`_sf.pk`; no coordinate file is
+listed. For the already-opened2015-03-20-02-27-12record, `_times.txt` contains only
+time/material/action/reaction, and safely parsed MATLAB contains only`sfs`80×45×42.
+No pickle was deserialized. Thus public coordinates were **not recovered**;
+do not claim that our CSV conversion lost them or that they do not exist elsewhere.
+
+Implemented one image-only residual-motion window in
+`lab/scripts/physical_sound_contact_localization.py`: seven15fps frames centered
+on nominal audio-derived onset, integer phase-correlation global translation,
+mean absolute aligned differences, one fixed80×60max-energy window. Large shifts
+and zero residual abstain. No learned weights, audio input, crop/threshold search
+or physical/contact admission. Synthetic moving-patch+camera-translation control
+localizes the patch; pure camera translation yields zero residual. Four tests pass.
+
+Three diagnostic videos in`syncfusion-contact-localization-2026-09-06` contain
+ORIGINAL recorded audio(.5gain), not generated audio, and three repeated0.8s clips
+with0.4s gaps; AAC/container duration3.643s. All decode,48kmono/640×480; rendered
+frames inspected. Cases remain source rows138/7/127 and their existing roles.
+Candidate boxes(x,y,w,h): glassstatic(0,159,80,60),wood(85,0,80,60),glassrigid
+(0,140,80,60); motion fractions.5474/.2296/.4011, NOT confidence scores. Visual
+inspection: wood window follows the shaft and excludes the visible tip; glass
+windows include boundary motion but do not establish object/point identity.
+Rejected as automatic contact labels. No training on these crops.
+
+A separate, executable input-loss control confirms the cached DINO processor
+resizes320×240→341×256 and center-crops224×224, discarding about17% of original
+width on EACH side. A left-edge synthetic marker disappears completely. The
+observed interactions lie near this vulnerable edge; exact physical contact
+coordinates remain unknown. This newly established preprocessing loss justifies
+one full-FOV counterfactual, not an unbounded crop sweep.
+
+`prepare-full-frame` fits the entire processed frame into224×224 with bicubic
+letterboxing and ImageNet-mean padding, disables additional resize/center-crop,
+and preserves existing channel normalization. Test proves marker retention and
+unchanged legacy default processing. Both training and inference use the same
+recorded preprocessing mode. This also changes effective spatial resolution and
+padding; it is not an isolated measurement of contact causality or metric shape.
+Same307rows/239TRAIN/68held, exact recording exclusions, fixedridge.01, same
+196608coefficient residual, frozen DINO/categorical/CLAP/diffusion, seed42,
+150steps/CFG2/.5gain/full262144samples. Wrong-frame and descriptor controls remain.
+
+Initial offline preparation terminated before features because the hub cache did
+not contain files previously saved with`local_dir`. Its external failure receipt
+is retained. Recovery reused byte-identical existing local DINO files, not a new
+download/model/version. Features`syncfusion-full-frame-features-local-2026-09-06`;
+fit`syncfusion-full-frame-fit-2026-09-06/visual-adapter.pt`,SHA
+8e8cfc8a08c17a10040c7bcd8e52fccaa9358c0c0efc2227453ba0c173134f71.
+
+Event-weighted cosine descriptor→stock crop→full frame:
+TRAIN239 .159423→.104938→.106116;
+recording-dev50 .143037→.147608→.145964;
+combination-dev18 .188744→.188290→.186215;
+all68held .155136→.158377→.156619.
+Full frame partially recovers the visual loss but still loses to descriptor-only.
+Glassrigid4events .198932→.222295→.207959, also still worse. Retaining visible
+content is not sufficient evidence of useful physical generalization.
+
+Audible [static glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-full-frame-audition-2026-09-06/glass-rigid-motion-comparison.wav).
+Order: held real event→descriptor-only→full-frame image→wrong full-frame image.
+No reference audio at generation; real event is added only during assessment.
+All9generated WAVs publish,36/36attacks,0extras; all3descriptor PCM controls exact.
+Fixed200ms/32-band shape distance to the same individual held events:
+
+| Case | Descriptor | Stock crop | Full frame | Wrong full frame |
+|---|---:|---:|---:|---:|
+| Glass static |6.675625|6.441358|6.544969|7.484830|
+| Wood static |5.081906|5.938341|5.691372|5.529345|
+| Glass rigid-motion |3.723624|3.822596|4.116011|4.855202|
+
+Full frame beats descriptor on only1/3cases; wrong frame again beats correct on
+wood. It improves over stock crop on only wood, despite improved aggregate
+embedding distance. **No promotion, no global audio-quality improvement.** This
+counterexample also warns against using embedding error alone as acceptance.
+Raw/PCM hashes,full length,finite/headroom,.5gain/quantization and comparison
+identities pass. Comparison durations19.660958/18.944479/19.157146s. CUDA2.3816GiB,
+23.4–24.0s/gen aftersetup. DINO4files and all307frame/role/identity records exactly
+match prior inputs. Six actual network-input previews, normalization inverted for
+inspection, reside alongside localization videos; glass/wood pairs inspected.
+25focused tests(21SyncFusion+4localization),Ruff,diff/link checks pass;all jobs
+terminal. No Cargo/host-check/ProductCheck, runtime/demo, roadmap or license
+promotion. Existing categorical source-free adapter remains the retained baseline.
+
+Next discriminator, before another visual/decoder fit: on the existing307real
+events, measure material separability across the fixed recording exclusions using
+TRAIN-only audio templates/features, with confusion and recording-level support.
+Compare acoustic-shape and frozen-embedding evidence on REAL positive controls
+before using either to accept generated sound. This distinguishes insufficient
+label/data support from an unusable acceptance representation; neither hypothesis
+is proved by this FOV failure. Then apply any supported check to the existing
+source-free WAVs with an inspectable audition, not a new validator-framework
+project. No DINO size/feature/crop/ridge or prompt/seed/epoch sweeps; reopen only
+with new discriminating evidence. Automatic realism validation, unseen-object
+transfer, physical controls, empty-schedule silence and the other process families
+remain unresolved; this is not a narrowing of the full goal.
+
+## Real material controls and shared-model metal — 2026-09-06
+
+New source-free [metal impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-metal-standalone-2026-09-06/metal-static-adapter.wav):
+the SAME17,088parameter categorical adapter, SHA863459fb1cd2587474d6e8528da3f3c65d667cb47aad5551525fad5effe334f6,
+with`metal/static`and times.6/1.5/2.7/4.0. Zero new neural training updates;
+neither reference data nor audio/text encoder required at generation. Metal was
+already in its TRAIN set; this is NOT unseen-material generalization. Frozen
+SyncFusion,FP32,seed42,150steps,CFG2,full262144samples/48kmono,.5playback gain.
+4/4attacks,0extras;rawpeak1.18311,23.94s sampling,CUDA2.3817GiB. PCM SHA
+20786d4f3ff70bfcec57641890b7eaa0701c49faefcc159a87f12c81aa5fcdb1.
+
+`physical_sound_material_controls.py` performs one bounded diagnostic on the
+existing307real events, not a new validator framework. Retain239TRAIN/68held,
+86TRAIN/24held unique recordings and all previous exclusions. Material support
+TRAIN→held(recordings):glass5→3,wood43→14,metal51→14; records can contain multiple
+materials. TRAIN glass9events,held8; held wood28,metal32. Recording-dev contains
+NO glass; all held glass belongs to combination-dev. Recording IDs are not object
+IDs and generator pretraining overlaps author TRAIN: no clean new-object claim.
+
+Compare the existing32-band200ms log-PSD/L1 and frozen512D CLAP/cosine with two
+fixed aggregation hypotheses: equally weight each recording within a material,
+or retain each recording/material mean and select the nearest. No learned
+classifier/hyperparameter sweep, threshold or method selected after held scores.
+Record-level nearest templates have unequal class-bank sizes; this is disclosed,
+not fixed using development labels. TRAIN leave-one-recording-out excludes the
+entire recording from every material bank. Held labels/features cannot change
+the bank(exact tests). Event counts and per-material per-recording recall are
+reported separately, not conflated with independent sample counts.
+
+Held **recording-balanced recall**, percent; macro treats three materials equally:
+
+| Representation / bank | Glass | Wood | Metal | Macro |
+|---|---:|---:|---:|---:|
+| Shape / material mean |33.33|67.86|42.86|48.02|
+| Shape / recording means |0.00|67.86|64.29|44.05|
+| Embedding / material mean |25.00|71.43|50.00|48.81|
+| Embedding / recording means |11.11|51.19|51.79|38.03|
+
+TRAIN leave-record-out macro40.16/44.42/56.46/39.46%,respectively. Balanced
+chance33.33% is only a baseline, not a realism admission threshold. Shape/material
+labels7/8REAL glass events asmetal(event accuracy12.5%,different from33.33%
+recording-weighted recall). Keeping individual recording prototypes does not
+resolve glass confusion. These results falsify reliable material-check claims for
+these implementations on this support; they do NOT prove that material is
+universally unidentifiable or that paired spectral distance is useless.
+
+Twelve audible real-control files and exact row/prediction order are in
+`syncfusion-material-controls-2026-09-06/result.json`. Each selects first correct
+then first incorrect held event per material/method, if available; no subjective
+selection. Example [real glass controls](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-material-controls-2026-09-06/shape-material-glass-real-controls.wav)
+contains rows127(correct),138(incorrectlymetal),3.050104s,original recorded audio.
+These are diagnosis examples, not new generated sounds or mandatory user ratings.
+
+After real controls, all36attacks from the previous full-FOV experiment and4new
+metal attacks were classified report-only. Generated embeddings use raw FLOAT,
+the same frozen audio tower/projection and author PCM16-quantized repeatpad path;
+real cached embeddings also use whole variable-duration events, while shape uses
+fixed200ms. Thus this is a test of our existing metrics, not equal-duration encoder
+benchmarking. Mean-bank methods call all4metal attacks metal and all4baseline wood
+attacks wood; their failed REAL controls prevent acceptance from these predictions.
+Glass predictions vary across methods; no reward, winner, promotion or re-fit.
+
+All12real-control WAVs and new metal raw/PCM pass hash/layout/finite/headroom and
+metal.5gain/quantization checks.26focused tests(5new+21SyncFusion),Ruff,diff/links
+pass;all jobs terminal. No Cargo/host-check/ProductCheck, demo/runtime/roadmap
+changes. Preserve broad goal, including other processes and physical descriptors.
+
+Next: address support before another metric/adapter tuning cycle. Inspect the
+remaining author TRAIN shard metadata and per-material recording counts; existing
+glass support is only5TRAIN recordings. Preserve current development recording
+keys and protected roles. If the additional TRAIN sources add useful diversity,
+run one shared-data fit with the same source-free audible path and real controls;
+do not train a separate network for every material. Acquisition/inventory alone
+must not become another endpoint. No nearest-neighbor/k/metric/feature/threshold
+sweep on these now-opened control failures, and no automatic realism authority.
+
+## Incremental author TRAIN expansion — 2026-09-06
+
+Audible comparisons [glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/glass-static-comparison.wav),
+[wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/wood-static-comparison.wav),
+[moving glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/glass-rigid-motion-comparison.wav),
+[metal](/home/kaifaty/.codex/experiments/nextengine/physical-sound/syncfusion-extended-audition-2026-09-06/metal-static-comparison.wav).
+Order real reference→retained adapter→expanded-data adapter. Same original held
+references, not a comparison between different evaluation populations.
+
+The [publisher API](https://zenodo.org/api/records/12634671) confirmed CC-BY4,
+TRAIN shard2 size2086871040/MD5a630d0d456ddd32cdd1df289f9073eb1 and shard3
+size1955266560/MD5f003e4764debaf68097e2aefd613cd0c. Web reader could not open the
+HTML record; the live API request succeeded. Downloaded only TRAIN archives,
+no author val/test. External directory`syncfusion-extra-train-2026-09-06`.
+Shard2 fully verifies, SHA977fd5dceba3ca42e08da285f2219fa9f61ceebc152b937710a84bfaac2a62e6.
+Shard3 first request ended exit28 after300s/410576212bytes; a single curl Range
+resume(session17208,PID229438) subsequently completed exit0. Partial bytes were
+not parsed or trained. Final size1955266560/MD5f003e4764debaf68097e2aefd613cd0c
+and SHA679c9183b23a694c592c2131dfb887a4958f73a40b48c72dac37178c135c2fcc
+verify; PID is now absent. An annotation-only inventory found229eligible events,
+186TRAIN/43recording-dev,0combination-dev. No shard3 WAV decoding/encoding/refit.
+The external receipt preserves initial failure and completed resume history.
+
+Shard2 adds317eligible events:251TRAIN/66recording-dev. Six additional TRAIN glass
+recordings justify running an incremental update while shard3 downloads, not
+waiting for transport or selecting data according to acoustic scores. No promise
+that adding shard3 to the same category-only mapping will resolve its limitations.
+
+`physical_sound_syncfusion_extend.py` reuses the existing event selection and
+frozen encoder, accepts only pinned author TRAIN shard identities, rejects
+cross-shard duplicate recordings/role changes and appends without re-encoding old
+events. Dataset`syncfusion-extended-data-2026-09-06`:624events,490TRAIN/184recordings,
+116recording-dev/44recordings,18combination-dev/3recordings. TRAIN glass20events/
+11recordings versus9/5 before. All original307row dictionaries,roles,WAV references
+and cached embeddings are EXACTLY preserved. No unmeasured geometry/force labels.
+The helper can append later verified shards while preserving the prior prefix;
+it does not make new-object or licensing claims for pretrained weights.
+
+One shared17,088parameter fit, same5descriptorinputs/200steps/AdamW/lr.003/wd.0001/
+seed42/group weighting. No per-material training, neural capacity/epoch/seed sweep,
+visual features or decoder updates. Fit`syncfusion-extended-fit-2026-09-06`,SHA
+6e3e678af11a684733d4ac4bfebdeae4420bb56a935b6c5cf627698a6474defb;loss1.013795→.179283.
+Source-free `adapter.render` uses `AUDITIONS+[("metal","static")]`,kindadapter,
+same .6/1.5/2.7/4.0s,FP32/150steps/CFG2/.5gain/full5.461333s. Four new WAVs,
+16/16attacks,**one EXTRA on moving glass**,22.3–22.5s/gen,CUDA2.3824GiB. No gate,
+tail crop or detector threshold adjustment to hide that regression.
+
+Assessment now optionally checks that fixed reference rows are an exact prefix
+of the enlarged data, and compares previous adapter WAVs with identical schedules.
+CLI `assess --reference-data ORIGINAL --previous-output OLD_ADAPTER OLD_METAL`.
+Previous three stored shape scores reproduce exactly. On ORIGINAL held references:
+
+| Case | Retained shape distance(dB) | Expanded | Reference events/recordings |
+|---|---:|---:|---:|
+| Glass static |9.461792|9.271135|4/2|
+| Wood static |5.139583|5.228038|27/14|
+| Glass rigid-motion |5.567051|5.404915|4/3|
+| Metal static |4.407571|4.157091|27/14|
+
+Three shape distances improve,wood worsens; these are descriptive, not a trusted
+realism gate. Fixed68held embedding loss worsens.155136→.159116;movingglass alone
+improves.198932→.184377. Comparisons13.699625/12.983146/13.195813/13.107750s.
+Raw/PCM/full-layout/finite/headroom/.5gain/hash/comparison checks pass.
+
+Real-control banks refit on enlarged TRAIN, evaluated on the SAME original68held
+events via`--reference-data`: shape mean/record macro.4980/.4226 versus.4802/.4405;
+embedding mean/record.6032/.2837 versus.4881/.3803. Embedding/material glass recall
+improves25→91.67%,butwood71.43→46.43%,metal50→42.86%. Shape mean still labels7/8real
+glass events metal. Twelve real-control WAVs and16generated attack classifications
+in`syncfusion-extended-real-controls-2026-09-06`;checks pass. No method selected as
+judge, no quality admission or replacement of retained baseline.
+
+30focused tests(25SyncFusion+5material),Ruff,diff/links/media checks pass. Generation,
+encoding,fit and assessment are terminal; shard3 transport subsequently completed
+as recorded above. No Cargo/host-check/ProductCheck,runtime/demo/roadmap changes.
+Next: bounded research on the
+missing object/event conditioning before another similar fit. Current category+
+motion input cannot express shape,size,striker or force; more diverse targets
+alone do not add those controls. Review eligible internet evidence without
+reopening protected roles; require a source-free audible discriminator. Do not
+turn shard arrival into an automatic data-size/epoch/metric tuning sweep, or treat
+this descriptive impact prior as the full multi-process physical-sound goal.
+
+## Geometry input discriminator — 2026-09-06
+
+The preceding explanatory reply produced no experimental progress; this resumed
+checkpoint executed a source-level counterfactual rather than another categorical
+fit. It is supporting evidence, NOT a new neural-audio result or goal completion.
+
+[SonicGauss](https://chunshi.wang/SonicGauss/) explicitly models 3D Gaussian
+appearance/geometry and impact position. Its
+[published inference](https://github.com/AiEson/SonicGauss/blob/7a5687afbe6d4338f8e569b3738c3fa7fa62304a/stage3/infer_3.py)
+passes normalized GS tensors and normalized contact into the networks; original
+scale is not passed separately. Force, velocity and striker properties are not
+arguments. This is a narrower interface than the user's full objective.
+
+Competing explanations: H1, normalized geometry still preserves absolute scale
+through Gaussian covariance/contact; H2, normalization removes that information;
+H3, the probe simply ignores all meaningful conditions. Executed H1/H2 using
+the exact reviewed `preprocess_gaussian`/`normalize_position` at SonicGauss
+7a5687afbe6d4338f8e569b3738c3fa7fa62304a and `MinMaxScaler` at the SplatFormer
+gitlink446ffb5dd1c35b4b8f94953a22046bde5714a094. The latter commit resolves in
+ChenYutongTHU/SplatFormer; SonicGauss root `.gitmodules` was404. Four full source
+snapshots are pinned by SHA before executing only three reviewed AST definitions.
+No imports, model entry point, weights, object archive or protected split opened.
+The published ptv3.gin has no scaler overrides; stripped gin decorator uses its
+documented defaults. Float32 CPU/Torch2.13.0+cu130.
+
+Own eight-Gaussian tensor fixture: multiply all centers/contact by2 and addln2
+to all Gaussian log-scales, preserving appearance/opacities/orientations.
+**All eight observed tensors are exactly equal**, including covariance inputs,
+position and derived384-grid coordinates; maximum absolute delta0. Relative
+contact changes position by1, aspect-ratio change alters means/scales/contact/grid,
+and colour changes features. These three positive controls reject H3. H2 is
+supported and H1 contradicted for this fixture/default path. Algebraically the
+inverse box scale cancels uniform scaling. Real 3DGS units may themselves be
+ambiguous; this is not a calibrated real-object size experiment.
+
+Decision: do not download/run SonicGauss merely to test absolute-size control
+through this unchanged interface. At fixed other inputs the network receives no
+such signal. Full inference was NOT run, so no identical-PCM or neural realism
+claim. Relative shape/contact usefulness remains untested, not disproven. A future
+size-conditioned successor needs an explicit dimensional input and corresponding
+training evidence, not a cosmetic preprocessing change to existing weights.
+
+Executable [probe](../../lab/scripts/physical_sound_sonicgauss_input_probe.py),
+external`sonicgauss-input-probe-2026-09-06/result.json`. Reproduction:
+
+```bash
+lab/.venv/bin/python lab/scripts/physical_sound_sonicgauss_input_probe.py \
+  --output /absolute/external/new-output \
+  --modal-profile /home/kaifaty/.cache/nextengine-research/diffsound-3a0be14/glass-checkpointed/glass-500ms-16mode-151_20260826-222834/checkpoint-0150/modal-profile.json
+```
+
+[Audible frequency-control illustration](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-input-probe-2026-09-06/modal-frequency-control-NOT-NEURAL.wav):
+2.5s, old fitted16-mode glass bank then frequencies halved. Fixed damping/gains,
+no transient/target WAV/NN; one shared playback gain, full1s signals and.5s gap.
+This is deliberately **not SonicGauss output, physical size transfer or new neural
+progress**. It only makes a frequency intervention inspectable. It does not reset
+the primary-outcome debt. SHA4aa59332956bef74668a1f75a25c0d7d5d66135a8be910c8e496fef592ef8792.
+Four focused tests, Ruff, exact offline normalization replay, WAV/raw shared-gain,
+finite/headroom/full-layout/hash checks pass. No Cargo/runtime/demo changes.
+
+Next executable candidate:
+[Neural Resonator](https://github.com/rodrigodzf/neuralresonator/tree/ceab3770d88caae1c9ee208bea127ec0d0a1e763),
+published55,382,281-byte`data/ethereal_dust-317-2.ckpt` discovered through the tree,
+not downloaded/loaded yet. Full models/training/config/result-notebook reads show
+shape mask+contact+five numeric material parameters→predicted IIR bank, with a
+published author inference example. This is synthetic2D prior art, not a proven
+real object or two-body model. Next checkpoint should load safely and render
+source-free numeric-condition variants, not add another survey or training plan.
+NISR/VibraVerse rediscovery supplies no changed lineage evidence: existing
+[V46 D0 rejection](physical-sound-v46-d0-synthetic-source-preflight-result-2026-09-03.md)
+stands; their dataset payloads remain unopened.
+
+## Published Neural Resonator — audible numeric controls, 2026-09-06
+
+[Listen to seven neural impacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-replay-2026-09-06/comparison.wav)
+(10.5s). Order: base, lower density, higher density, higher Young's modulus,
+more damping, off-centre contact, narrower shape. One shared model, no target
+recording or synthetic reference at inference; no model training in this run.
+This closes the preceding supporting-only checkpoint with actual neural WAVs.
+
+[Diaz et al., 2022](https://arxiv.org/abs/2210.15306v2) is explicitly a synthetic
+2D shape/material model, not a real-object or universal physical-sound result.
+At repository revisionceab3770d88caae1c9ee208bea127ec0d0a1e763 the published
+`data/ethereal_dust-317-2.ckpt` is55,382,281bytes, Gitblob
+c65c26716af29065949a8fe7f537855965b1442c, SHA
+fa46fa2291ed595ec1daf07c5aa290aabb763d8e4e61aa8a3421cf0e7aa6e232.
+Small reviewed source files, checkpoint and Apache2 LICENSE retained externally
+in`neuralresonator-assets-2026-09-06/source.json`; no dataset payload downloaded.
+This is not blanket clearance for engine redistribution of all dependencies.
+
+[Runnable pilot](../../lab/scripts/physical_sound_neuralresonator_pilot.py):
+
+```bash
+HF_HUB_OFFLINE=1 \
+PYTHONPATH=/home/kaifaty/.codex/experiments/nextengine/physical-sound/mmaudio-python-2026-09-05 \
+lab/.venv/bin/python lab/scripts/physical_sound_neuralresonator_pilot.py \
+  --assets /home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-assets-2026-09-06 \
+  --output /absolute/external/new-output
+```
+
+Initial default weights-only inspection correctly rejected embedded Python
+globals. All11exact nonstandard names are subsequently mapped to our inert data
+carrier under `weights_only=True`; none invokes the saved class/function/partial,
+Lightning module, optimizer, logger or hook. SHA checked before deserialization.
+Reviewed source definitions are hash-pinned and extracted without package imports.
+EfficientNetB0 instantiated with`weights=None`; encoder and MLP state loadstrictly,
+including saved pole/zero offsets. Only training-only`criterion.fb` unused.
+Checkpoint`global_step=0` is reported as serialized metadata, not a measured
+training count. Torch2.13/torchvision0.28 existing overlay; no environment changes.
+
+Own64×64 convex octagon mask, centre(.5,.5), unit impulse into32parallel branches
+with2cascaded learned biquads each. No image recognition label/text prompt/audio
+reference is substituted for numeric conditions. Published result-notebook ranges
+(not an independently verified training manifest) used for material normalization:
+rho500–15000, E8e9–5e10, nu.1–.4, alpha1–10, beta3e-7–2e-6. Base
+(7750,2.9e10,.25,5.5,1.15e-6). Other interventions change onlyrho1500/rho14000,
+E4.5e10, beta1.8e-6, contact(.65,.5), or horizontal mask extent. These are numeric
+synthetic materials, not validated named glass/wood/steel objects.
+
+| Intervention | Dominant peak Hz | Observed/base | Undamped expected ratio |
+|---|---:|---:|---:|
+| Base |785|1|1|
+| Lower density |1785|2.273885|2.273030|
+| Higher density |584|.743949|.744024|
+| Stiffer |976|1.243312|1.245682|
+| More damping |766|—|—|
+| Off-centre |785|—|—|
+| Narrower shape |913|—|—|
+
+Expected ratios follow from the reviewed teacher's generalized eigenproblem:
+fixed shape/nu gives omega proportional tosqrt(E/rho). This inference concerns
+undamped corresponding modes, not an exact law for a damped spectrum's dominant
+peak. Measured relative discrepancies+.0376%/−.0100%/−.1903%, with1HzFFTbins.
+More damping shortens energy centroid7.602→5.367ms. All six interventions change
+PCM. These are useful descriptive relations on one shape, **not** a calibrated
+realism validator, independent numerical reference comparison or proof of broad
+generalization. Exact training-shape overlap is not established.
+
+Full1s32kmono per case retained as raw float64 and playback float32 WAV. Shared
+gain1.1130707314488486 gives globalpeak.5; no per-case normalization, EQ, gates,
+tail cropping or sampled transient. SciPy SOS recursion equals the upstream
+recurrence exactly for the checked first128samples; all learned pole radii<1
+(maximum.9995175032). CPU4threads37–63ms/case including diagnostic work, excluding
+model startup; not an engine performance admission claim.
+First output`neuralresonator-audition-2026-09-06`; second process
+`neuralresonator-replay-2026-09-06` adds descriptive observations with unchanged
+model/conditions.7/7coefficients and WAVs, including comparison, are byte-exact.
+ComparisonSHAa2fe1ff9980c83d65bbf76bf4fe9e6cf8488099dde6cc8a463ba1b0f83d2fde9.
+Strace openat/connect: no connection calls; audio reads only newly written own
+WAVs for hashing, no source audio/dataset. Six focused tests, Ruff, finite/raw/PCM/
+shared-gain/headroom/full-layout/hash/replay checks pass; all jobs terminal.
+Cargo/host-check/ProductChecks not run: no runtime/demo/contracts/roadmap changes.
+
+Next: compare neural and numerical output on several own new shapes and numeric
+conditions, with playable pairs and fixed mode/spectrum observations. Preserve
+the author's clamped-boundary2D displacement-proxy limitation; this does not yet
+model3D acoustic radiation, two-body materials, measured size/force/speed, friction,
+rolling, destruction, water or rain. Do not launch per-material fitting, expand a
+metric suite, or promote this model before that direct reference discriminator.
+
+## Neural Resonator numerical reference pairs — 2026-09-06
+
+Twelve source-free neural/reference pairs now exist, not another material-specific
+fit. Examples: [octagon, centre](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/octagon-base-center-comparison.wav),
+[skewed shape, combined material](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/skewed-combined-center-comparison.wav),
+[largest dominant-peak discrepancy](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-reference-report-fixed-2026-09-06/rectangle-combined-off-center-comparison.wav).
+Each2.5s: numerical reference1s→gap.5s→neural1s. All12cases/36WAVs retained in
+`neuralresonator-reference-report-fixed-2026-09-06`; no winner selection/promotion.
+
+[Reference runner](../../lab/scripts/physical_sound_neuralresonator_reference.py)
+implements the reviewed author's plane-strain elasticity, quadratic triangular
+vector basis, zero displacement on the whole boundary,32lowest modes and
+Rayleigh damping. Mode gains are the author's norm of the two nodal displacement
+components; waveform is the sum of zero-phase damped cosines. This is the
+author's synthetic displacement proxy, **not** microphone pressure, measured
+force,3D radiation, a glass vessel or evidence of real perceptual fidelity.
+[scikit-fem documentation](https://scikit-fem.readthedocs.io/en/latest/extended.html)
+supports the mesh/basis/Dirichlet operations. Solver12.0.2 installed without
+dependencies into external`neuralresonator-solver-python-2026-09-06`,not the venv.
+PyPI wheel178478bytes/SHA34cd891f80072c0c1eb759a2371e82f0eeec91ff7c08acab96d27b6edbbe1b05.
+
+Own convex octagon, rectangle and skewed quadrilateral; two interior mesh-node
+contacts (centre and midpoint towards first vertex). Base material unchanged;
+combined numeric material=(rho2100,E1.7e10,nu.31,alpha6,beta1e-6). All within the
+published datamodule ranges, which also confirm the previous result-notebook
+normalization. No training data/target WAV enters neural prediction. These own
+cases are now opened development; pretrained shape overlap is not established.
+
+An important source ambiguity is retained, not silently calibrated away: the
+author's results notebook meshes use`world=2*(normalized-.5)`, whereas the dataset
+generator defaults toscale_factor1. Primary comparison explicitly follows the
+published results notebook. An additional scale1/2 numerical control gives an
+exact2×undamped-frequency ratio across32modes, dominant1557/779Hz with the same
+neural input. This does not establish arbitrary absolute-size conditioning.
+
+| Geometry/material | Centre reference→neural Hz | Off-centre reference→neural Hz |
+|---|---:|---:|
+| Octagon/base |779→785|779→770|
+| Octagon/combined |1196→1204|1196→1285|
+| Rectangle/base |815→802|815→806|
+| Rectangle/combined |1235→1218|1900→1224|
+| Skewed/base |924→916|924→919|
+| Skewed/combined |1406→1394|1406→1399|
+
+Ten dominant peaks differ by≤1.60%; remaining discrepancies7.44%and35.58%.
+The latter is a **dominant-mode selection** discrepancy, not evidence that every
+frequency is35.58%wrong. Gain-invariant full-second FFT log-shape RMSE1.17–4.72dB
+is descriptive, not a learned acceptance gate. In all12cases neural energy
+centroid is shorter, .357–.832×reference; octagon/base18.833→7.602ms. These failures
+are found automatically without user audition; no realism admission follows.
+
+Reference checks: refinement3→4 (4226/8450fineDOFs) max32modal-frequency change
+.220–1.757%; eigen residual≤1.96e-13. Since this alone does not bound all acoustic
+errors, refinement4→5 was also run on rectangle/combined/off-centre failure,
+octagon/base/centre temporal failure and skewed/base/centre control. External
+`neuralresonator-reference-refinement-2026-09-06` retains finer modes,raw,WAVs and
+results. Max32frequency changes.1703%/.0156%/.1622%; dominant peaks remain
+1900/779/924Hz, spectrum changes.0354/.00787/.0313dB. Octagon energy centroid
+18.8329→18.8352ms; rectangle2.87344→2.87146ms. Thus these particular discrepancies
+survive reference refinement; other combinations have only the3→4 check.
+Reproduce selected refinement with `solve_modes(polygon,material,5)` and
+`render_reference(modes,contact)` from the runner; no neural parameters change.
+
+Reproduction uses previous pilot command/environment, adding the solver overlay
+toPYTHONPATH, `OPENBLAS_NUM_THREADS=4 OMP_NUM_THREADS=4`, and script
+`physical_sound_neuralresonator_reference.py --assets ASSETS --output NEW`.
+Single shared gain.7843326047870074 over all24signals preserves level differences.
+No clipping,gates,EQ,per-case normalization,tailcrop or transient injection.
+Initial`neuralresonator-reference-2026-09-06` exited1 after all36WAVs were produced:
+finalJSON couldn't serialize numpy.int32DOFcount. Explicitint export fix only;
+rerun in NEWdirectory yields36/36byte-identicalWAVs. Original failure.txt preserved.
+Ten focused tests(6pilot+4reference), Ruff, finite/sharedgain/headroom/full-layout/
+hash and exact WAV replay checks pass. All jobs terminal. No Cargo/host-check/
+ProductChecks: bounded lab only, no runtime/demo/public contracts/roadmap changes.
+
+Next improvement should distinguish modal-gain/magnitude errors from phase and
+time-envelope errors before one shared fine-tuning experiment with new own
+shape-disjoint checks and before/after/reference WAVs. Upstream training uses a
+magnitude-only objective; that is a hypothesis for temporal mismatch, not a proven
+exclusive cause. Do not train per material or launch loss/seed/epoch sweeps from
+these opened cases. Keep the full real-object, both-material,3D/size/force/speed,
+water/rain/friction/rolling/destruction objective intact; this reference check
+does not close those requirements.
+
+## One shared last-layer improvement — 2026-09-06
+
+[Reference→published base→fine-tuned network](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav),
+[case that worsens](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-061-comparison.wav).
+All16comparisons4.5s, including final.5s gap, retained. These are actual newly
+fine-tuned neural outputs, not phase-swapped references or per-material models.
+
+Before fitting, on the previous12opened cases, replacing neural FFT magnitude
+with reference magnitude while retaining neural phase worsens mean2ms-envelope
+relativeL1 .30362→.68270; replacing phase alone gives.65669. These hybrids do not
+preserve causal filter structure or aligned modal peaks, so they **do not isolate
+one causal source** of the error. They reject that naive substitution as a repair;
+no target-aided hybrid is presented as source-free generation. The executed fit
+instead jointly measures magnitude and temporal envelope against the known teacher.
+
+[Experiment runner](../../lab/scripts/physical_sound_neuralresonator_finetune.py)
+has`prepare`, `fit`, `evaluate` stages. Use the previous solver/MMAudio PYTHONPATH
+overlays, OPENBLAS_NUM_THREADS=4,OMP_NUM_THREADS=4,HF_HUB_OFFLINE=1:
+
+```text
+prepare --assets ASSETS --output DATA
+fit --assets ASSETS --data DATA --output FIT
+evaluate --assets ASSETS --data DATA --fit FIT --output EVALUATION
+```
+
+Own polygons fixed by NumPy seed20260906: regular5–8vertex polygons with varied
+elliptical axes/rotation,12distinct64×64masks. First8shapes×3numeric materials×2
+contacts=48TRAIN. Last4shapes×2different numeric material tuples×2contacts=16local
+development. Both mask hashes and exact material tuples are disjoint. The shapes
+remain in the same convex parametric family; this is not unseen topology, unknown
+real-material recognition or an independent pretrained-model holdout. Both stages
+use quadratic2D FEM/refinement4/worldscale2 teacher, not internet real recordings.
+No source datasets or protected roles opened. External`neuralresonator-finetune-data-2026-09-06`.
+
+One fixed run: frozen published EfficientNetB0 and earlier dense layers; only
+`fc.network.7.weight/bias` (328000parameters) train.100Adamsteps,lr1e-5,batch4,
+seed42, gradient normclip1, no schedule/earlyselection/epoch/seed/weight sweep.
+Loss is the equally weighted sum of mean relative FFT-magnitudeL1 and relative
+2msRMS-envelopeL1. These dimensionless diagnostics are not realism metrics.
+Differentiable IIR response uses a double-length64000FFT and retains the declared
+full32000sample response; final assessment uses the existing causal SciPySOS path.
+Preflight12previous banks: finite gradients, maximum FFT/SOS relativeRMS.000200.
+On new16DEV, maximum over base/candidate is.001457 (larger than the old.001probe
+bound); report this numerical limitation rather than silently changing precision.
+The reported before/after scores below are measured on causal SOS WAVs.
+
+Fit`neuralresonator-finetune-fit-2026-09-06/model.pt`,SHA
+fed24c81c33485543b68eaf9949397493aa2673b6117f761d4ad9d24f36a113a.
+fit.json binds data.npz and rows.json hashes, recipe and all100loss records. Exactly
+the two last-layer tensors differ from the published checkpoint; no encoder change.
+Development was assessed only after the fixed100steps; no checkpoint selection.
+
+| Local development metric | Published | Fine-tuned | Cases improving |
+|---|---:|---:|---:|
+| Relative FFT-magnitudeL1 |.329381|.271476|12/16|
+| Relative2ms-envelopeL1 |.295927|.265752|15/16|
+
+Mean reductions17.58%/10.20%; both mean metrics improve on each of the four
+development shapes. Case061 regresses in both (.15030→.15823 spectral,
+.16171→.21370 temporal); three other cases regress spectrally. No blanket quality
+admission or replacement of liked demos. Old numeric controls retain density/
+stiffness peak ordering and damping direction, but maximum undamped-ratio error
+worsens from.191%to.586%. Improvement is therefore measured with a tradeoff.
+
+Evaluation`neuralresonator-finetune-evaluation-2026-09-06`:48individualWAVs plus
+16comparisonWAVs, sharedgain.8894268511100489, full1s per signal, no per-case
+normalization,EQ,gates,tailcrop or sampled transient. FirstcomparisonSHA
+579394b7e085264cc81c9aa98e206747fa5c950eb008879bc2e5a41a70a9a7dd.
+[Standalone neural result](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-standalone-2026-09-06/neural.wav)
+recomputes the shape encoder from case048polygon/contact/material descriptors,
+loads weights, and reads neither data.npz nor target audio. Its coefficients/raw
+response are EXACTLY equal to the evaluated candidate, with independent fixed.5
+playback gain; WAVSHAfd42e4026a19016091e07685612a7a27a94159f1a2c1f17b4a89b6f75f93002b.
+No claim of subjective listening approval.13focused tests, Ruff, all64evaluation
+WAV finite/full-layout/headroom/shared-gain checks, split checks and standalone
+equality pass. All jobs terminal. No runtime/demo/roadmap changes; Cargo/host-check/
+ProductChecks not run for this bounded external experiment.
+
+This demonstrates one shared training→numerical-validation→audible-output cycle
+on2Dsynthetic objects. Stop optimizing only this easier proxy: next primary work
+should bridge to3D source-free geometry/contact sound. SonicGauss may be tested
+for relative shape/contact with eligible TRAIN/disclosed3DGS input and published
+weights, while retaining the proven lack of explicit size/force/striker controls.
+Do not reopen protectedObjectFolder roles/defaultvalidation inputs, claim broad
+realism, or treat these2D improvements as completion of the multi-process goal.
+
+## First source-free SonicGauss 3D contact pair — 2026-09-06
+
+[Two generated contacts, A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-pair-2026-09-06/comparison.wav),
+6.444s including a0.5s gap.
+[Recorded A→generated A→recorded B→generated B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-contact-assessment-2026-09-06/reference-generated-comparison.wav),
+13.944s including four0.5s gaps. Source references are assessment-only, downloaded
+AFTER the first source-free generation. This is a shared published model, not a
+new per-material fit, not unseen-object evidence and not a replacement for liked
+glass/water examples.
+
+[Runner](../../lab/scripts/physical_sound_sonicgauss_pilot.py) executes the
+inference-reachable reviewed definitions from pinned external sources:
+[SonicGauss](https://github.com/AiEson/SonicGauss/tree/7a5687afbe6d4338f8e569b3738c3fa7fa62304a),
+[SplatFormer](https://github.com/ChenYutongTHU/SplatFormer/tree/446ffb5dd1c35b4b8f94953a22046bde5714a094),
+[Pointcept](https://github.com/ChenYutongTHU/Pointcept/tree/c4aa232bfbc24dc0f3d6699dff03632f9d0ff595),
+[TangoFlux](https://github.com/declare-lab/TangoFlux/tree/fb364c254884c017d327ff5180660ec59ba56251).
+Source17file hashes and five weight hashes are enforced before use. No broad
+upstream package initializers, pickle, tokenizer or network model loading.
+
+[Model weights](https://huggingface.co/AiEson2/SonicGauss/tree/57b0604763fe2adb8acd686afeabd055b05d446e)
+total2506171436bytes; all five full SHA256 checks passed. VAE365, TangoFlux243,
+GaussianEncoder537, PositionEncoder7, FeatureFusion12 state keys load strictly.
+The219text-encoder keys are explicitly unused: geometry replaces text in this
+inference path. VAE uses the existing AutoencoderOobleck default architecture,
+strictly loaded from the published frozen VAE weights,44100Hz. The upstream gated
+VAE config URL returned401; no gated download or bypass. Exact authors' software-
+environment equivalence is NOT established by strict tensor shape coverage alone.
+
+[Dataset](https://huggingface.co/datasets/AiEson2/SonicGauss/tree/e905b8cbc06f8b3d8f5c5bc0ed697ca63307ed77)
+is a six-part24.7GBZIP. Bounded HTTP206/content-range checks read the ZIP64
+directory and ONLY `objectfolder_real_train.json`, one eligible PLY, then the two
+assessment references. CRC32 and per-range/selected-file SHA256 checks pass;
+the full archive hash is NOT verified. No default author validation JSON,
+protected response or other object payload is opened.
+
+Selected object6 is the already disclosed TRAIN canonical parent
+`realimpact-6-bowl--objectfolder-real-object-6`, not the unrelated ObjectFolder2.0
+object6. Author TRAIN has39records for it. The first two in author order are
+contacts16/35, selected before hearing/scoring. PLY5629642bytes, SHA
+92892268d640c54e60482562fb712b0a6b562a15917d6256bb7fe475dd058303.
+Upstream raw-opacity filtering retains12250Gaussians; grid384 has12130unique
+coordinates (duplicate voxels observed, not removed or proven causal).
+Dataset card labelsCC-BY4 and refers to ObjectFolder terms; model card labels
+Apache2. These labels do not establish blanket redistribution rights for source
+code, VAE or upstream components. Assets/notices stay external; no product license
+clearance or runtime promotion is claimed.
+
+Compatibility: Python3.12/Torch2.13+cu130, external `sonicgauss-python-2026-09-06`
+overlay with SpConv-cu1182.3.8/Cumm-cu1180.7.11, gin0.5, plyfile1.1.3, addict2.4,
+timm1.0.20; reuse `mmaudio-python-2026-09-05` for torchvision. Mainvenv unchanged.
+PTv3 retains stride2/2/4/4, all original features,1024token patches, original
+serialization/padding and FP16QKV. Native ragged PyTorchSDPA substitutes for
+FlashAttention, and `torch.segment_reduce` for CSR max/mean. Do NOT just disable
+flash in upstream config: that also changes patches to128. CPU explicit-attention
+and CSR controls pass; GPU1024+7token ragged attention versus explicitFP64 has
+maxabs.00038962/relativeRMS.00026727. This is numerical compatibility, NOT bitwise
+upstream-backend identity.
+
+Both contacts use seed0/50steps/noCFG, duration request3s. Full decoder output is
+131072stereo samples,2.972154s; no prefix-only crop,EQ,gating or per-case gain.
+Shared playback gain1.0; raw peaks.14963/.14516. AST audio-only diagnostic puts
+`Chink, clink` first for both, at raw levels and fixed diagnosticRMS.005. The real
+TRAIN controls instead rankDing/Clang first; this supports only coarse impact
+recognition, not material/physical realism. Source sub20Hz energy fractions are
+32.71%/54.58%, generated43.51%/45.50%; low-frequency energy is not a generator-only
+artifact. Do not automatically high-pass or normalize it away. In audible band,
+source dominant bins differ13099.3/783.7Hz, generated both3896.5Hz; dominance alone
+does not describe the full modal spectrum or prove the cause of the mismatch.
+
+Repeatability FAILED exact equality: A→B relative waveformRMS change.07017,
+same-input A repeat.0017715 (~39.6times smaller). Fresh-process replay also differs.
+This is a measured sensitivity above observed repeat drift, not a calibrated
+position-response pass. No retry-to-green or kernel-cause assertion. Raw latents,
+raw waveform arrays and all repeat WAVs retained. Warm generation.61–.65s on this
+GPU excludes startup and is not a runtime performance claim.
+
+External roots share `/home/kaifaty/.codex/experiments/nextengine/physical-sound/`:
+`sonicgauss-source-2026-09-06`, `sonicgauss-assets-2026-09-06` (download.py/source.json),
+`sonicgauss-range-2026-09-06` (pinned selective acquisition scripts/range receipts),
+`sonicgauss-contact-pair-2026-09-06`, `sonicgauss-contact-replay-2026-09-06`,
+`sonicgauss-contact-assessment-2026-09-06` (assess.py/signal.json/twoASTreports).
+Run with the above two PYTHONPATH overlays, HF_HUB_OFFLINE=1,
+TRANSFORMERS_OFFLINE=1, OMP_NUM_THREADS=4, OPENBLAS_NUM_THREADS=4:
+
+```text
+lab/.venv/bin/python lab/scripts/physical_sound_sonicgauss_pilot.py \
+  --source EXTERNAL/sonicgauss-source-2026-09-06 \
+  --assets EXTERNAL/sonicgauss-assets-2026-09-06 \
+  --input EXTERNAL/sonicgauss-range-2026-09-06 --output NEW_EXTERNAL_DIRECTORY
+```
+
+Strace of fresh-process inference reads no reference WAV, training dataset JSON
+or audio features. Only newly generated own WAVs are reopened for hashing; the
+only connect is a failed local NVIDIA-MPS Unix-socket lookup, no internet. All
+nine focused tests (five new, four existing scale-probe), Ruff and full WAV
+layout/headroom/shared-gain checks PASS. Exact replay FAILS as above. All runs
+terminal. No demo/runtime/roadmap change; Cargo,
+host-check and ProductChecks NOT_RUN for bounded external report-only work.
+
+Next discriminator: determine whether real geometry/contact differences survive
+the shared 3Dencoder and frozen decoder, using geometry/appearance and cached-
+conditioning controls before retraining. The two real reference sounds differ
+substantially while generated pair remains close. Do not jump to per-object fits,
+seed sweeps, globalEQ or more2Dloss tuning. This source still lacks explicit size,
+striker material and force; those full-goal requirements remain open.
+
+## 3D conditioning survives; contact fusion has a singleton-key limit — 2026-09-06
+
+Playable counterfactuals, each6.444s baseline→intervention:
+[contact A→B](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/contact-comparison.wav),
+[original→contracted point layout](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/layout-comparison.wav),
+[original→neutral SH appearance](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-conditioning-report-2026-09-06/appearance-comparison.wav).
+These test model dependency, NOT calibrated changes of real shape/material.
+Contract only normalized Gaussian center x-coordinates by0.6 around contactA;
+ellipsoid scales/orientations and contact encoder input stay fixed. Appearance
+intervention zeros SH DC/rest, not opacity/geometry and not physical composition.
+
+[Probe](../../lab/scripts/physical_sound_sonicgauss_condition_probe.py) reuses the
+same hash-verified frozen model/source/input and original50step/seed0/noCFG path.
+It captures Gaussian features, position encoding, fusion output, pooled projection,
+first diffusion noise, final latent and FULL decoded PCM. Cached Gaussian features
+restore the captured post-encoder CPU/CUDA RNG state: all nine cases have EXACT
+same initial diffusion noise. No audio/reference input, new payload, fit or changes
+to learned weights. All samples remain external.
+
+The original full pipeline A, cachedA and cachedA-repeat have EXACT equal features,
+fusion, pooled projection, final latent and PCM in the report run. Recomputing the
+Gaussian encoder for fullA-repeat first differs at its output (relativeRMS.0019566)
+and leads to waveform.0037788 drift. Thus the measured repeat drift is localized
+to the geometry encoder path; it is NOT diffusion noise or an unavoidable decoder
+repeat failure for cached inputs. The exact sparse-kernel/duplicate-voxel cause
+remains unproven; no deduplication/backend sweep or global determinism claim.
+
+| Intervention vs A | Gaussian feature relativeRMS | Fused relativeRMS | Final latent relativeRMS | Waveform relativeRMS |
+|---|---:|---:|---:|---:|
+| Contact B, identical cached geometry |0|.061013|.009535|.070553|
+| Contract center layout x |1.156886|1.148402|.248235|.742004|
+| Neutral SH appearance |.309383|.309067|.116604|.907684|
+| Zero position embedding |0|.143039|.013538|.082785|
+| Zero fused conditioning |0|1|.248686|.732952|
+
+ContactA/B position encodings themselves differ by relativeRMS1.03215. The model
+does not ignore geometry, appearance or conditioning globally; replacing its
+geometry encoder on that premise is unsupported. Contact variation is weaker in
+the fused signal and final latent for this pair. Relative changes at different
+stages are descriptive, not a theorem about lost information, perceptual distances
+or proof that increasing a conditioning gain improves physical accuracy. Zero
+fused conditioning still leaves duration and the learned pooling-layer bias.
+
+Read the pinned training path: contact uses the same normalization as inference;
+the sampled VAE latent is trained with flow-matching MSE. No explicit force or
+striker descriptors are supplied. No training script was executed. Reference
+amplitude differences alone cannot therefore isolate a contact-model error from
+unobserved excitation differences.
+
+A private copy of the actual published FeatureFusion gives Q/K/V projection
+gradient norms0/0/.0580734 on the cachedA inputs. Zeroing all geometry queries
+leaves its attention output EXACT equal. The reason is structural: the attention
+key/value sequence consists of just ONE position embedding, so softmax weights
+are constant. This attention operation cannot select among spatial Gaussian
+tokens. The residual Gaussian features, FFN and downstream transformer STILL can
+learn geometry/position dependence; do not claim the whole model ignores position
+or that this finding alone proves the quality cause. Source is the already-pinned
+`stage3/common.py`; no code/weight repair or query/key reversal was applied.
+
+External roots: initial `sonicgauss-conditioning-probe-2026-09-06` retained;
+final instrumented `sonicgauss-conditioning-report-2026-09-06` includes9NPZ,
+9individualWAV, three pair comparisons and a six-case20.833s gallery. Sharedgain1,
+131072stereo samples per generation at44100Hz, no EQ/crop/normalization/gates.
+The initial run also localized encoder drift and cached equality; the final run
+adds structural measurement/pair files, not model/seed/quality selection. Runner
+arguments/environment match the prior pilot, substituting the probe script.
+
+Next end-to-end work should establish the SAME-model multi-object baseline and
+then a shared contact-aware fit with object-disjoint fine-tuning development,
+not per-object/shape/appearance/gain sweeps on this bowl. Metadata-only
+intersection of corrected disclosed TRAIN and author TRAIN yields objects
+2/6/12/14/24/66/75/94/95/97; source counts28/39/30/26/33/26/46/40/42/36.
+Objects36/70 are absent from author TRAIN: do not search its validation payload
+to include them. Object80 remains Unknown/quarantined, and41/92 guards remain.
+All ten are generator-pretraining TRAIN, so a new local object split would measure
+fine-tuning transfer only, NOT pristine unseen-object generalization.
+
+Focused tests14/14 (five new probe, five pilot, four scale-probe), Ruff and full
+media layout/shared-gain/headroom checks PASS. Full geometry re-encoding still
+FAILS bitwise replay; cached-condition replay PASSES within this measured run.
+No runtime/demo/roadmap promotion; Cargo/host-check/ProductChecks NOT_RUN.
+
+## Shared ten-object 3D cohort and contact residual — 2026-09-06
+
+The previous conditioning experiment produced primary media and localized a
+structural limitation; it was progress, not a supporting-only checkpoint. This
+continuation moves to one model across objects, not per-material fitting.
+
+`physical_sound_sonicgauss_cohort.py` acquired the preselected intersection of
+corrected disclosed generator TRAIN and author TRAIN: objects2/6/12/14/24/66/75/
+94/95/97, first six contacts in author order, without audio-based selection.
+Materials are Ceramic/Glass/Wood/Wood/Plastic/Iron/Ceramic/Glass/Glass/Plastic;
+66 is Iron, not a measured steel composition. Prospective local fine-tuning TRAIN
+is2/6/12/24/66/95 (36 contacts); DEV is14/75/94/97 (24). All ten were pretraining
+TRAIN: this split cannot prove pristine unseen-object generalization. Protected
+41/92, quarantined80 and author-validation payload remain untouched.
+
+External `sonicgauss-cohort-data-2026-09-06` contains ten PLYs and sixty reference
+WAVs,70 payloads/89,707,492 uncompressed bytes,68,690,214 network bytes. The pinned
+range reader/directory/author-TRAIN JSON/corrected projection are hash-checked;
+selected ZIP CRC and file SHA are checked, full archive SHA is NOT verified.
+`corpus.json` retains provenance and reference paths; separate `inputs.json`
+excludes reference waveform paths/hashes from contacts. Acquisition is research,
+not blanket source/model/data redistribution clearance; all assets stay external.
+
+Published shared model generated the first two contacts per object (20 full
+stereo WAVs), with no fitting,50 steps/seed0/noCFG/shared gain1. Geometry features
+are cached once per object, together with six normalized contacts and post-encoder
+RNG state. External `sonicgauss-cohort-baseline-2026-09-06` includes these caches,
+individual pairs and a34.722s gallery. `render-openat.log` records no source audio,
+corpus/author-TRAIN JSON or internet access (only an unsuccessful local NVIDIA MPS
+socket connection). Input metadata labels are not additional neural inputs.
+
+External `sonicgauss-cohort-assessment-2026-09-06` retains all20 recorded→generated
+comparisons. Mean full-waveform relative multi-resolution STFT magnitude L1 is
+.853852; correct contact beats the other contact reference in11/20 cases. This
+amplitude-dependent descriptive metric is NOT a realism score or a calibrated
+physical acceptance threshold. Frozen AST diagnostics, both raw and RMS.005,
+classify generated Iron66 and Ceramic75 as Tick instead of the reference ringing
+classes. Glass6/94/95 generates Chink; Wood12/14 generates Tick, as do many wood
+references. These broad tags neither identify both interacting materials nor
+certify contact accuracy. Failure examples are retained, not quality-selected.
+
+### One shared fit, audible evaluation, rejected candidate
+
+`physical_sound_sonicgauss_shared_fit.py` implements separate fit/render/assess/
+diagnose paths. A262144-parameter residual uses the position embedding as a query
+over all64 encoded geometry tokens (rank64 Q/K/V, layer-normalized inputs), maps
+the attended value back to1024 dimensions and adds it to the second half of the
+original fused sequence. Zero output initialization preserves the baseline
+exactly; it does not reverse or modify published attention weights. The tokens
+encode geometry but do not expose explicit local coordinates: this construction
+is not proof of calibrated contact localization. All five published modules are
+frozen; parameter versions/absent gradients are checked after training.
+
+One run:120Adam steps,lr1e-4,batch4,seed42,gradient clip1. No DEV checkpoint
+selection, per-object parameters or subsequent fit. Thirty-six author recordings
+from the six TRAIN objects become stereo2.98s VAE teachers, preserving levels;
+SciPy polyphase resampling is explicit. The posterior MODE is used instead of
+the author's posterior SAMPLE. Conditional logit-normal discrete flow-matching
+MSE trains only the residual; no conditional-dropout/CFG training is added.
+The emitted external `sonicgauss-shared-contact-fit-2026-09-06/adapter.safetensors`
+SHA is `6c2f1eb11d949fefe94a8049a85433f791dcd09fa93077db4a5ff7fc0f67f1f7`.
+The fit receipt records the pre-diagnostic/pre-decision script hash; later code
+adds only diagnostic/decision paths, not a second training run.
+
+Fresh-process rendering generated BOTH baseline and candidate for ALL60 contacts:
+120full131072-sample stereo WAVs,50steps/seed0/noCFG,sharedgain1, no level/EQ/crop
+tuning. Each pair has identical diffusion noise; all20 previously rendered
+baseline cases replay exactly from cached geometry. This does not repair the
+known full geometry-encoder nondeterminism. All raw latents/WAV arrays remain in
+`sonicgauss-shared-contact-render-2026-09-06`. Fit's strace reads exactly the36
+TRAIN source paths; render's trace reads no reference WAV/corpus JSON/network.
+
+External `sonicgauss-shared-contact-assessment-2026-09-06` contains sixty
+10.444308s recorded→baseline→candidate comparisons, same gain1 across every
+recording and generation. Full-waveform relative MRSTFT magnitude L1:
+
+| Local role | Baseline | Candidate | Improved contacts |
+|---|---:|---:|---:|
+| TRAIN,36 | .892170 | .897237 |13/36|
+| DEV,24 | .824499 |1.217264|3/24|
+
+All four DEV object means worsen: Wood14 .697482→.705472, Ceramic75
+1.062409→2.570521, Glass94 .818206→.864714, Plastic97 .719899→.728349.
+Correct reference beats cyclic-next-contact reference17→16/36 TRAIN and13→13/24
+DEV; this is not convincing contact discrimination. No realism percentage follows
+from these values. In particular the poor Ceramic75 case remains visible:
+[recorded→baseline→candidate](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-75-contact-0-comparison.wav).
+The first glass DEV contact is also retained without quality selection:
+[Glass94 comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-shared-contact-assessment-2026-09-06/object-94-contact-0-comparison.wav).
+
+The automatic conservative non-regression decision is REJECT. Its rule requires
+an improving DEV mean without any per-object mean regression; a passing result
+would still NOT constitute physical-quality validation or runtime promotion.
+The rule was added after this experiment, explicitly recorded in `decision.json`,
+not presented as preregistered evidence. Future assess calls include the decision
+directly. Tests include a subgroup regression hidden by an improving aggregate,
+incomplete evidence and nonfinite values. Original assessment JSON is unchanged.
+
+A no-training paired-objective discriminator is complete in external
+`sonicgauss-shared-contact-diagnostic-2026-09-06`: four fixed matching noise/time
+draws for each of60 contacts, same encoded teachers, no checkpoint selection.
+Flow MSE improves TRAIN .455501→.442313 (36/36 contacts) and DEV
+.470465→.467904 (18/24). Thus the adapter did optimize the flow objective, even
+though decoded spectral similarity worsened. This does not establish that all
+flow-matching methods fail, nor identify subjective realism from MRSTFT; it
+falsifies accepting this candidate from training/flow loss alone. No epochs/lr/
+seed/adapter-width sweep is justified by this result. The next focused step must
+discriminate codec/representation limits and the decoded-audio objective mismatch,
+then test one shared change with audible output and per-object non-regression.
+Missing absolute scale, force and striker descriptors remain separate blockers
+to the full physical-sound goal, not invented from these recordings.
+
+Reproduction uses the two external Python overlays and offline environment above.
+`fit` needs--source/--assets/--data/--baseline/--output; `render` adds--fit;
+`assess` needs--data/--generated/--output; `diagnose` needs the fit/render input
+roots plus--fit/--output. Every output directory must be new and external.
+No runtime/demo/product-roadmap changes or release claims.
+
+Verification:23/23 focused SonicGauss tests, Ruff check/format,70 acquisition
+size/SHA/CRC checks,140 generation WAV hashes,60 full comparison layouts/headroom,
+changed links and`git diff --check` PASS. Cargo/host-check/ProductChecks NOT_RUN:
+this is external report-only model work, not engine integration. Candidate quality
+non-regression FAILS; broad realistic physical generation remains unachieved.
+
+## Codec and audible-metric discriminator — 2026-09-06
+
+Previous goal turn was progress: one shared fit,120 generated WAVs, an observed
+decoded-audio regression and paired flow-loss improvement. This bounded research
+cycle tests adjacent representation/evaluation assumptions before another fit.
+No new source payloads, protected data, model training or runtime changes.
+
+Primary-source check: [Stable Audio Open v2,31 July2024](https://arxiv.org/html/2407.14358v2)
+describes a64-channel continuous autoencoder, separate reconstruction evaluation,
+and spectral/adversarial/KL training objectives. Its low latent rate is not a
+claim of lossless reconstruction; the paper reports rate/fidelity tradeoffs.
+The [SonicGauss paper v1](https://arxiv.org/html/2507.19835v1) uses flow objectives
+and position-conditioned fusion; it does not prove that our small adapter's
+decreasing flow loss must improve a decoded waveform. Local installed Oobleck
+source confirms `mode()` returns the posterior mean and `sample()` adds noise
+with softplus-derived scale. No alternate codec/weights were downloaded.
+
+Competing hypotheses and decisive observations:
+
+- **Codec is the dominant bottleneck:** partial support from imperfect transient/
+  quiet-signal reconstruction, but against a sole-bottleneck claim, direct
+  encode/decode beats the conditional baseline for ALL60 reference contacts,
+  both raw and audible-component metrics. A generator can improve within this
+  representation; changing codec first is not justified by this experiment.
+- **Using posterior mode instead of sample caused the failure:** one fixed seed0
+  sample improves raw error in57/60 cases, but its mean audible-component error
+  is worse than mode in both local roles. Neither result supports a blind
+  mode→sample repair or a sampling-seed sweep.
+- **Objective/evaluation can reward inaudible components:** supported. For the
+  first Iron66 and Glass94 records, below20Hz mono FFT power is96.14%/99.29%.
+  In a synthetic mutation, remove a quiet700/1700/5100Hz decaying ring while
+  preserving a0.1-peak3Hz signal: raw relativeMRSTFT error is.004259; after the
+  same analysis-only20Hz high-pass it is.890216. This is a validator counterexample,
+  not a new material sound or a calibrated perceptual score.
+
+`physical_sound_sonicgauss_codec_probe.py` loads only the already pinned VAE
+(365 strict keys). All60 teacher inputs use the prior fit's unnormalized stereo
+2.98s window, preserving the known preprocessing difference from full3s
+assessment. Mode and one same-seed posterior sample are decoded in full, without
+post-decode crop. Four own synthetic controls are ring, ten-times-quieter ring,
+short pulse and silence; no per-record gain or latent optimization occurs.
+
+External `sonicgauss-codec-probe-2026-09-06`:64NPZs,312 individual stereo WAVs,
+64comparison WAVs,`result.json` and supplemental`audible-audit.json`. Every
+comparison is10.424308s. Real comparisons are teacher→codec mode→original
+generator; controls are original→mode→sample. This IS audio-input reconstruction,
+NOT a new source-free neural generation result. Examples:
+[Glass6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-06-contact-0-comparison.wav),
+[Ceramic75](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-codec-probe-2026-09-06/object-75-contact-0-comparison.wav).
+
+Mean relative multi-resolution STFT magnitude L1 on the matched teacher window:
+
+| Measurement / local role | Codec mode | Codec sample | Original generator | Rejected shared fit |
+|---|---:|---:|---:|---:|
+| Raw TRAIN |.421675|.397088|.890977|.895999|
+| Raw DEV |.456695|.436275|.823247|1.217669|
+| Audible-component TRAIN |.646859|.666418|1.203839|1.185327|
+| Audible-component DEV |.637559|.658774|.961798|1.140225|
+
+Audible-component measurement applies one4th-order20Hz Butterworth zero-phase
+high-pass identically to reference and candidate ONLY inside analysis. It is not
+an ideal brick-wall hearing model and can have boundary effects. Raw WAVs,
+amplitudes, previous results and rejection rule are unchanged. This is not a
+high-pass repair of generated content or authorization to discard physical low
+frequencies. The rejected adapter improves only3/24DEV audible-component cases;
+its rejection remains supported rather than reversed by changing a metric.
+
+The codec retains the synthetic ring's700Hz peak (mode700.166Hz); raw errors
+.21037 for ring and.35326 for quiet ring show level-dependent fidelity. The short
+pulse loses peak/RMS (mode.02576/.000351 vs original.05/.000725), raw error.64279.
+Silent reconstruction RMS~1.01e-5, predominantly sub20Hz; never amplify it into a
+sound. Glass6's original13099.3Hz peak reconstructs at13061.6Hz, while conditional
+baseline peaks3896.5Hz. Ceramic75 still reconstructs poorly; neither codec nor
+the added diagnostic is a universal material/physical validator.
+
+Decision: retain published codec and baseline; reject the prior adapter. Next
+primary experiment is one shared decoded-audio-aware update, checking audible
+spectrum AND transient/level behavior, with the same object-disjoint local DEV
+and all failure WAVs. Do not repeat flow-loss-only/seed/epoch/codec-gain sweeps,
+or add another inventory/protocol before a runnable generation change. Missing
+scale/force/striker inputs and genuinely unseen objects remain full-goal gaps.
+
+Reproduce the codec probe with--assets/--data/--generated/--output (new external
+directory); then--audible-audit --output EXISTING_PROBE adds only the audit
+sidecar and refuses overwrite. Offline environment as above; no overlays needed
+for VAE-only execution. The result script hash precedes the additive audit path.
+
+Verification:27/27 focused SonicGauss tests, Ruff check/format, all376 stereo WAV
+layouts/finite values/headroom,64 numeric NPZ layouts, changed local links and
+`git diff --check` PASS. Codec and audit jobs terminal. Cargo/host-check and
+ProductChecks NOT_RUN; no product boundary changed. Human listening NOT_RUN and
+not a required per-sound gate. Neither reconstruction nor these diagnostic checks
+prove the full realistic physical-generation goal.
+
+## Shared decoded-waveform training — 2026-09-06
+
+Previous goal turn was progress: the codec/audible-band discriminator produced
+inspectable media and falsified accepting raw flow/spectral loss as sufficient
+audio-quality evidence. This experiment changes the shared training objective,
+not the object roster, public contract or prototype scope.
+
+`physical_sound_sonicgauss_waveform_fit.py` trains a fresh zero-initialized shared
+262144-parameter ContactResidual on the original published model, NOT on the
+rejected flow-loss adapter. Gradients pass through the complete50-step no-CFG
+Euler generation and the frozen VAE decoder. Activation recomputation limits
+memory; scheduler state updates remain outside checkpointed callbacks and each
+callback receives its timestep explicitly. Tests compare all50-step outputs and
+gradients with/without recomputation. GPU preflight requires EXACT original
+latent and full waveform equality for the first disclosed TRAIN case before fit.
+
+Loss is audible relativeMRSTFT magnitude L1 +.25×2ms-envelope relativeL1
++ .1×absolute logRMS ratio. A differentiable smooth20Hz FFT high-pass is used
+ONLY inside the objective, with4096-sample odd-reflection boundary extension;
+it does not filter or normalize generated WAVs. Independent evaluation retains
+the prior SciPy Butterworth20Hz forward-backward diagnostic, not the optimized
+FFT operator. Neither filter is an ideal perceptual/physical-quality model.
+
+The first trial used even reflection, which introduces slope cusps in the
+low-frequency control. Ring-erasure spectral loss.76278 failed the unchanged
+test criterion>.8. Its verified own process was deliberately stopped (exit143,
+last logged step6), not timed out or restarted while live; partial progress and
+trace remain in`sonicgauss-waveform-fit-2026-09-06` and the cohort data root.
+No checkpoint from it was saved or selected. Odd reflection repairs the boundary
+behavior and passes the original test; no tolerance relaxation/retry-to-green.
+
+Corrected run:72Adam steps, two complete36-contact passes, batch1,lr1e-4,
+seed42,gradient clip1,one final checkpoint. Fixed cached post-Gaussian-encoder
+noise per object matches the existing baseline; no seed-generalization claim.
+TRAIN remains2/6/12/24/66/95,DEV14/75/94/97; ALL are known pretraining TRAIN.
+Only the36TRAIN waveforms are read by fit (strace exact set, no DEV/internet).
+References supervise the loss but never enter the latent-generation function.
+Peak measured tensor allocation is4286MiB (about4.19GiB);
+not an engine/runtime-performance guarantee. All five published model modules
+remain frozen and their parameter versions/absent gradients are checked.
+
+Completed corrected adapter SHA
+`8d702d110f04ff497c3a1425bff545ff771b6f8f358c2c0ed57a07b118d199c3`
+in`sonicgauss-waveform-odd-fit-2026-09-06`. Source-free fresh-process generation
+using the existing shared renderer produces120full stereo WAVs and raw latent/
+wave NPZs in`sonicgauss-waveform-render-2026-09-06`. Sharedgain1,all20 previously
+measured baselines EXACT,paired noise identical, no target/corpus/network reads.
+No alternate checkpoint or generation seed was selected.
+
+`sonicgauss-waveform-assessment-2026-09-06` contains all60 recorded→baseline→
+candidate10.444s comparisons, e.g.
+[Glass94/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-94-contact-0-comparison.wav),
+[Plastic97/contact0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-97-contact-0-comparison.wav).
+Full3s references remain unchanged; the fit's2.98s teacher-window difference is
+explicit. Raw MRSTFT improves TRAIN.892170→.775025(30/36) and DEV
+.824499→.762868(17/24). All4DEV raw object means improve, so the previous raw-only
+non-regression rule passes. Matched-vs-next-contact counts17→19/36 TRAIN,
+13→12/24 DEV do not validate physical contact response.
+
+Independent20Hz IIR audible-component checks reveal remaining failures:
+
+| Metric | TRAIN baseline→candidate (wins) | DEV baseline→candidate (wins) |
+|---|---:|---:|
+| Spectrum relativeL1 |1.203254→.904315 (30/36)|.961561→.872392 (18/24)|
+| 2ms envelope relativeL1 |.793542→.723594 (20/36)|.846507→.825145 (11/24)|
+| Absolute logRMS error |.553167→.754536 (12/36)|.439737→.635413 (8/24)|
+
+The combined check REJECTS: DEV Wood14 level worsens; Plastic97 spectrum,
+envelope and level all worsen. This rule was implemented before final waveform
+evaluation and requires raw non-regression plus no DEV object-mean regression on
+the three independent metrics, with improving mean audible spectrum. Passing
+would remain report-only, not physical-quality admission.
+
+A posthoc `shape-diagnostic.json` separates amplitude from spectral shape:
+apply the same independent audible IIR, scale each signal to unitRMS ONLY in the
+measurement, then compute existing MRSTFT magnitude L1. No audio files or model
+gains are changed. TRAIN shape error1.076399→1.196897 (10/36wins),DEV
+.911385→1.015240 (4/24wins). Candidate audibleRMS is below reference in28/36TRAIN
+and18/24DEV cases. Thus the apparently better unnormalized spectral metric does
+not demonstrate better normalized spectral shape; quieter output explains an
+important part of the apparent improvement. This is not proof about subjective
+timbre or that every decoded-audio objective is invalid.
+
+Decision: retain the original baseline, keep all candidate/failure WAVs and
+reject this adapter. Both shared flow-loss and decoded-loss trials now failed
+the actual non-regression objective, for distinguishable reasons. Before another
+similar fit, run the bounded research escalation on competing causes: paired
+waveform regression under one-to-many/unobserved excitation conditions, weak or
+missing physical conditioning versus objective/conditioning-capacity mismatch.
+Do not just increase the RMS weight, normalize playback, vary seeds/epochs or
+train per-object gain heads on this exposed DEV set. Next progress must include
+an executable discriminator and primary audio/runnable path, not another protocol.
+Missing actual size/force/striker inputs and clean unseen-object evidence persist.
+
+Reproduce fit with--source/--assets/--data/--baseline/--output using the two
+external overlays; existing shared renderer consumes the fit receipt unchanged.
+`--evaluate --data DATA --generated RENDER --output NEW` emits raw comparisons
+and independent audible evaluation. The additive evaluation code was introduced
+while the corrected fit ran; the fitting path was unchanged. Source/weights stay
+pinned, no generated media or model weights enter Git.
+
+Verification:31/31 focused SonicGauss tests, Ruff check/format,120WAV hashes/full
+stereo layout/headroom/nonsilence,source-free trace and exact TRAIN read-set,
+60comparison layouts, changed links and`git diff --check` PASS. Candidate
+quality/non-regression FAILS. Cargo/host-check/ProductChecks NOT_RUN; no engine
+integration/roadmap change. All jobs terminal; broad physical-sound goal active.
+
+## Timing versus attenuation and conditional-distribution loss — 2026-09-06
+
+Previous goal turn was progress: a shared full-decoder fit,120primary WAVs and
+an amplitude-invariant failure discriminator. After two failed shared-fit
+variants, this bounded research cycle tests adjacent assumptions before a third
+training attempt. No training, new datasets, protected payloads or gate changes.
+
+Primary sources checked (actual papers, not search snippets):
+
+- [Gritsenko et al.,NeurIPS2020, A Spectral Energy Distance for Parallel Speech Synthesis](https://proceedings.neurips.cc/paper/2020/file/9873eaad153c6c960616c89e54fe155a-Paper.pdf):
+  equations7–9 use two independent generated samples per condition, adding a
+  generated-pair distance to avoid simple regression collapse. A single real
+  example per condition can supply an unbiased training estimate under the
+  stated assumptions. The consistency claim concerns spectrogram distributions
+  and an appropriate distance, not physical realism. Section7.1 explicitly
+  reports that better automated metrics did not always improve subjective
+  quality. This is evidence for a bounded alternative, not a ready validator.
+- [Schwär and Müller,IEEE SPL2023, Multi-Scale Spectral Loss Revisited](https://www.audiolabs-erlangen.de/content/05_fau/professor/00_mueller/03_publications/2023_SchwaerM_MultiScaleSpecLoss_IEEE-SPL.pdf):
+  spectral-loss gradients for frequency parameters can be irregular and strongly
+  affected by windowing/compression. The study supports questioning the loss,
+  but does not establish that one configuration repairs our waveform generator.
+
+`physical_sound_sonicgauss_objective_probe.py` measures all60 original baseline
+cases using the existing independent20Hz audible IIR. Two-ms RMS envelopes give
+a fixed bounded cross-correlation lag search (+/-125frames,~249ms), not a
+measured physical contact timestamp. Lag estimates are all0 or1frames; strongest
+frames lie near100–106ms. Median absolute lag is.998ms TRAIN and0ms DEV.
+Alignment is diagnostic only:16384-sample guards preserve every sample without
+wrapping/cropping; no aligned source/model WAVs are emitted.
+
+### Hypotheses, evidence and rejected explanations
+
+**H1: a large onset mismatch drives the regression.** Against: alignment changes
+audibleMRSTFT mean TRAIN1.203254→1.201367 and DEV.961561→.959396, roughly0.2%.
+The timing test recovers an injected88-sample shift, so it has a positive control.
+Small sub-frame effects remain possible, but temporal alignment is not a
+supported primary repair. Do not add a timing-shift sweep or onset alignment
+to generation based on this study.
+
+**H2: the magnitude objective rewards attenuation when frequencies disagree.**
+Supported by an exact scalar discriminator. For each fixed waveform pair, the
+nonnegative gain minimizing the existing relative multi-resolution magnitudeL1
+is a weighted median of reference/generated bin ratios, weighted by generated
+magnitudes and the per-resolution reference normalization. No gain grid,
+neural parameters or audio edits are used. Median optimum gain is.367884TRAIN
+and.520966DEV; the derivative at gain1 points toward attenuation in34/36 and
+21/24 cases. After alignment it still does so in33/36 and22/24 cases.
+
+The synthetic controls identify the mechanism. Exact reconstruction has optimum1
+and zero loss; a correct double-level signal has optimum.5 and zero loss. A
+correct signal shifted~2ms has optimum.98416, but substituting1400Hz for700Hz at
+the same onset yields optimum.0002526: almost muting the wrong tone reduces
+spectral loss1.96415→.99994. These are diagnostics of the objective, NOT proposed
+playback gains or physically calibrated materials.
+
+`full-loss-gradient.json` then differentiates the actual unchanged training
+objective (FFT20HzMRSTFT+.25envelope+.1logRMS) with respect to a scalar gain at1,
+using exact2.98s teachers and retained baseline stereo output. Attenuation is
+favored in32/36TRAIN and20/24DEV;13TRAIN and9DEV cases already have lower audible
+RMS than their references. Thus the observed direction is not explained solely
+by generators being too loud or by omitting a level penalty. This scalar
+counterfactual does not prove every neural gradient follows the gain direction.
+
+**H3: paired regression is inappropriate for residual conditional variability.**
+Supported as a mechanism by a controlled three-tone example, not established as
+the full real-data cause. For three equally probable decaying tones, our
+symmetric, globally scaled multi-resolution magnitudeL1 gives expected paired
+distance1.32051 to the correct empirical sampler,1.31759 to a collapsed single
+tone, but only1.0 to silence. Adding the generated-pair term (energy score
+2×attraction−repulsion) ranks the correct sampler1.32051 ahead of silence2.0 and
+single-tone collapse2.63519. This toy uses empirical expectations and a simple
+L1 distance; it is NOT the paper's complete log/L2 spectral distance, a proof of
+strict consistency for our system, or validation of missing physical inputs.
+
+**H4: insufficient physical conditioning/capacity.** Still open. The input lacks
+absolute size, force and striker material, and the small shared residual has
+limited capacity. The current recordings do not isolate repeated identical
+physical conditions with known excitation, so this audit cannot attribute all
+remaining variability to stochasticity or prove which missing descriptor is
+causal. Random diversity must not substitute for conditioning on these inputs.
+
+External `sonicgauss-objective-probe-2026-09-06` contains the60-case result,
+full-objective gradient sidecar and five own synthetic WAVs. The13.92s
+[control comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-objective-probe-2026-09-06/control-comparison.wav)
+plays700/1400/2800Hz decaying tones then their waveform mean; individual files
+are also retained. No target recordings, gain optima or aligned variants are
+used in that audition. This is a scoring-mechanism demo, NOT new neural output.
+
+Decision and next executable action: retain baseline and prior rejections. A
+single bounded shared two-sample distribution-aware fit is justified for testing
+H3, with independent noise draws and retained full media; compare against the
+unchanged baseline and test collapse/diversity plus spectrum, timing and level.
+Do not claim physical validation from energy score alone, reuse asymmetric
+reference-normalized L1 as a supposedly proper distribution distance, or tune
+on exposed DEV. Missing descriptors and clean unseen-object evaluation remain
+full-goal requirements. No further raw-loss weight/gain/phase/timing/seed sweeps
+or research inventory before this executable branch.
+
+Reproduce the main discriminator with--data/--generated/--output (new external
+directory). The full-objective sidecar is a posthoc derivative audit using the
+pinned local waveform-loss implementation; it records that script hash and all
+60 derivatives/RMS ratios. No model/optimizer state was created.34focused tests,
+Ruff check/format,control WAV layouts/headroom, links and`git diff --check` PASS;
+Cargo/host-check/ProductChecks NOT_RUN. All jobs terminal; no engine promotion.
+
+## Two independent samples: executable energy-score branch — 2026-09-06
+
+The preceding conversational explanation was no progress; this continuation
+executes the previously justified branch. No new corpus, per-object fitting,
+protected payloads, runtime changes or acceptance-rule relaxation.
+
+The [official spectral-distance implementation](https://github.com/google-research/google-research/blob/master/ged_tts/distance_function/spectral_ops.py)
+was read directly, not installed or executed. Its score is the sum of two
+reference-to-generated distances minus the generated-to-generated distance.
+Our explicit adaptation uses full 44.1 kHz output, the existing analysis-only
+20 Hz FFT filter, six FFT sizes 64–2048, half-window hops, symmetric Hann,
+mean magnitude L1 plus framewise log-magnitude L2 divided by sqrt(bin count).
+It does not use the upstream Mel projection, finite-difference features or
+random crops. Magnitudes use a fixed numerical floor; neither signal is
+normalized by the other. Identity distance is exactly zero. This is not a
+bitwise reproduction, a strict physical-consistency proof or a realism gate.
+
+`physical_sound_sonicgauss_energy_probe.py render` produced 120 full stereo
+WAVs: two fresh independent noise draws for each of the existing 60 conditions.
+One explicit CUDA generator, seed 20260906; no seed selection. All use the
+published frozen model, 50 Euler steps and no reference waveform. Same-noise
+replay of the first full waveform is exact. Each pair has distinct noise;
+all WAVs are finite/non-silent, 131072 samples at 44100 Hz, shared gain 1,
+maximum peak 0.44707. The render trace contains no reference/corpus or Internet
+socket access. Assets and generated outputs remain external.
+
+`probe` evaluates the derivative at one common scalar gain of 1, with no gain
+optimization or changed output WAVs. The same symmetric distance is used for
+both the paired and energy scores, isolating the generated-pair term:
+
+| Local role | Cases | Paired favors attenuation | Energy favors attenuation | Already-quieter errors, paired → energy |
+| --- | ---: | ---: | ---: | ---: |
+| TRAIN | 36 | 19 | 0 | 5 → 0 |
+| DEV | 24 | 13 | 4 | 5 → 1 |
+
+“Already quieter” means both independent generations have lower analysis-only
+audible RMS than the reference. Mean gain derivatives change 0.00936→−0.91824
+TRAIN and 0.30109→−0.62014 DEV. The scores are different from the preceding
+relative-L1 objective; those derivative magnitudes are not directly comparable.
+The evidence supports trying the distribution objective, not declaring that
+every amplitude increase is correct or that neural optimization will succeed.
+
+External roots are `sonicgauss-energy-render-2026-09-06` and
+`sonicgauss-energy-probe-2026-09-06`. The latter contains ten complete first-
+contact comparisons, recording → independent sample 1 → independent sample 2,
+with no per-clip normalization. For example:
+[glass object 6](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-probe-2026-09-06/object-06-comparison.wav),
+[iron object 66](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-probe-2026-09-06/object-66-comparison.wav).
+These are source-free published-model examples, not an improved trained model.
+
+The bounded fit uses `physical_sound_sonicgauss_waveform_fit.py --energy-score`:
+the same fresh zero-initialized shared 262144-parameter residual, 36 TRAIN
+contacts, 72 Adam steps and full 50-step/decoder gradients. Two fresh independent
+noises per step use a separate seed-42 generator, not the evaluation stream.
+The five published components remain frozen. No DEV checkpoint selection.
+
+### Fit and independent evaluation: rejected, not promoted
+
+The fit completed all 72 steps. Adapter SHA256:
+`a4c23b5211b9023998e6e28444feae3aaaa6f847775f07ff223a1ea278ec8596`.
+All frozen parameter versions and gradient absence passed; maximum allocated
+CUDA memory 4,521,373,696 bytes (4311.92 MiB). Full original latent/PCM replay
+passed before fitting. The file-access trace matches exactly the 36 TRAIN
+references and no DEV reference. No continuation or checkpoint selection.
+The optional renderer `--fit` hookup was added during training; the already
+loaded distance/training path was not changed.
+
+`sonicgauss-energy-fixed-render-2026-09-06` contains 120 full baseline/candidate
+WAVs and NPZs under the previous cached-noise schedule. All 20 earlier baseline
+WAVs replay exactly. `sonicgauss-energy-fixed-assessment-2026-09-06` retains
+all 60 recording→baseline→candidate comparisons. The unchanged raw and audible
+non-regression rules both **REJECT** this candidate:
+
+| DEV metric, lower is better | Baseline | Candidate | Wins / 24 |
+| --- | ---: | ---: | ---: |
+| Raw relative MRSTFT | 0.824499 | 0.832920 | 5 |
+| Audible relative MRSTFT | 0.961561 | 0.972393 | 5 |
+| 2 ms envelope error | 0.846507 | 0.854627 | 10 |
+| Absolute log-RMS error | 0.439737 | 0.436844 | 13 |
+
+Wood 14, ceramic 75 and glass 94 have per-object regressions. TRAIN audible
+MRSTFT also worsens 1.203254→1.249558 (4/36 wins). This is not simply a DEV-only
+generalization failure. Listen to the full comparisons:
+[glass](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-06-contact-0-comparison.wav),
+[held-out-from-fit wood](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-14-contact-0-comparison.wav),
+[iron](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-energy-fixed-assessment-2026-09-06/object-66-contact-0-comparison.wav).
+
+`sonicgauss-energy-candidate-render-2026-09-06` additionally contains 120
+independent-noise candidate WAVs, paired exactly with all 120 preflight noises.
+All share gain 1; both render traces exclude references/corpus/Internet sockets.
+`sonicgauss-energy-candidate-probe-2026-09-06/comparison-summary.json` aggregates
+both probes and adds independent-IIR unit-RMS spectral shape, computed only in
+the metric (no normalized WAVs):
+
+| Independent-noise DEV metric | Baseline | Candidate | Wins / 24 conditions |
+| --- | ---: | ---: | ---: |
+| Energy score | 4.329549 | 4.319196 | 20 |
+| Audible relative MRSTFT, two-sample mean | 1.091254 | 1.102875 | 1 |
+| 2 ms envelope error | 1.003537 | 1.008537 | 12 |
+| Absolute log-RMS error | 0.561758 | 0.556422 | 13 |
+| Unit-RMS spectral shape | 1.026839 | 1.023383 | 15 |
+
+TRAIN energy also improves 4.493175→4.462993 (27/36), while audible spectral
+error worsens 1.457290→1.498198 (3/36). Mean generated-pair distance increases
+2.700129→2.724372 TRAIN and 2.461913→2.469103 DEV. This increase is not itself
+good or bad: noisy variation can increase the same distance. Shape gains are
+small (~0.34% DEV), and glass 94 shape regresses. Energy optimization therefore
+worked modestly on independent noises but did not establish better sound or
+fix the missing physical conditioning. A single-pair estimate per condition
+does not provide a robust conditional-distribution estimate or a pristine
+unseen-object claim.
+
+Decision: retain the baseline and all failure audio; no promotion, gain repair,
+longer run, loss-weight/seed sweep, extra SED variant or per-object refinement.
+Next executable discriminator is a common-noise object/contact intervention,
+comparing condition-dependent changes against sampling variability with full
+control audio. Earlier probes establish that inputs affect output, not that
+the differences correctly distinguish physical conditions. Missing absolute
+scale/force/striker information remains unresolved; do not infer it from sound.
+
+Reproduction: energy probe `render` with source/assets/data/baseline, then
+`probe` with data/generated; optional `render --fit` loads the saved adapter.
+The previous shared-fit `render` and waveform-fit `--evaluate` remain the fixed-
+noise comparison path. Each command requires a new external output directory.
+The comparison-summary sidecar is posthoc aggregation of the two exact probe
+receipts and 120 noise-paired NPZs, with independent IIR/unit-RMS shape analysis.
+40 focused tests, Ruff format/check, full media/trace checks and diff/link checks
+PASS. Total 360 full generated WAVs plus 80 comparisons, all external. No jobs
+remain live. Cargo/host-check/ProductChecks NOT_RUN: bounded lab, no engine edits.
+
+## Common-noise conditional separation — 2026-09-06
+
+Previous turn was progress: a completed shared fit and independent rejection,
+with retained media. This turn executes the promised condition/noise control,
+not another training run. The primary result is 120 full source-free frozen-
+model WAVs plus 21 complete comparisons. No new data or protected-role changes.
+
+`physical_sound_sonicgauss_energy_probe.py render --common-noise` reuses one
+independent pair of Gaussian noises across all 60 object/contact conditions.
+It does not search seeds or reduce sampler steps. All 120 noise assignments
+are verified; the first pair exactly reproduces the previous independent-
+noise baseline. Six normalized contacts are distinct on every object; their
+pairwise distances span 0.055–1.078 in normalized coordinates, not meters.
+The control is not merely comparing duplicate contact inputs.
+
+`physical_sound_sonicgauss_separation.py` measures 60 same-condition noise
+pairs, 300 same-object/same-noise contact pairs and 540 cross-object/same-noise
+configuration pairs. Between objects, geometry, appearance and valid contact
+all change. An author-row index is not a physical correspondence, and this
+must not be called an isolated material or geometry intervention.
+
+| Mean diagnostic distance | Noise change | Contact change | Object-configuration change |
+| --- | ---: | ---: | ---: |
+| Six-resolution audible spectral distance | 2.559343 | 0.303310 | 1.863205 |
+| Independent IIR, level-invariant spectral profile | 0.565890 | 0.026252 | 0.632125 |
+| Pre-VAE latent RMS distance | 0.853595 | 0.011116 | 0.301195 |
+
+Contact/noise ratios are 0.11851, 0.04639 and 0.01302 respectively. Object/noise
+ratios are 0.72800, 1.11705 and 0.35285. The profile uses time-averaged magnitude
+at FFT sizes 512/1024/2048, each normalized to unit L1, after the independent
+20 Hz IIR. It is deliberately insensitive to overall level and loses timing;
+it is not a full perceptual metric. No output WAV is normalized this way.
+The two noises are a bounded counterfactual, not a robust variance estimate.
+
+The small contact response already exists in the generator latent, before VAE
+decoding. Thus decoder-only suppression is not sufficient to explain it.
+The precise upstream cause is not identified. Focused source reads of pinned
+SonicGauss stage3/train_3.py:593–601 and infer_3.py:277–294 show the same shared
+position-normalization call before PE/fusion; no obvious coordinate-call
+discrepancy was found. This does not recreate the author's training environment.
+Do not turn the observation into an arbitrary position-feature gain increase
+or repeat the already tested singleton-attention residual patch.
+
+### Recorded-audio positive control and limitations
+
+To test whether the diagnostic profile can distinguish the available objects,
+average reference contacts 0/2/4 into query profiles and contacts 1/3/5 into
+candidate profiles. The unique nearest object is correct for 8/10 queries.
+Using the twelve generated profiles per object as candidates yields 6/10:
+glass 6/94/95, iron 66, ceramic 75 and plastic 97. The two plastic reference
+prototypes are confused in the recorded control. Ties are not counted as wins.
+
+Therefore the model does not ignore object identity completely. Its random
+variation is large relative to the contact-dependent response in this bounded
+probe. That alone does not establish an incorrect physical contact response:
+the dataset lacks isolated repeated identical excitations and calibrated force,
+striker and absolute-scale inputs. Retrieval is not realism or material-class
+accuracy; these are known pretraining TRAIN objects, not pristine held-out ones.
+
+External `sonicgauss-common-noise-render-2026-09-06` contains the 120 full WAVs
+and NPZs; `sonicgauss-separation-2026-09-06` contains result.json, a posthoc
+latent-diagnostic.json over those same NPZs, and 21 comparisons. Listen:
+
+- [Ten object configurations, identical noise](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/objects-same-noise.wav)
+  is 34.722 s, ascending object IDs 2/6/12/14/24/66/75/94/95/97, contact 0.
+- [Glass: six contacts, then a different noise at contact 0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/object-06-contact-noise-comparison.wav)
+  is 24.305 s. The last sound begins around 20.83 s.
+
+Every waveform is retained at full length and shared gain 1, no EQ/crop/per-
+object adjustment. Render tracing excludes reference/corpus/Internet socket
+reads. Four new tests cover level invariance, frequency discrimination,
+silence/nonfinite rejection, positive/wrong identity assignments and ties.
+44 focused tests, Ruff format/check, media hashes/layout/headroom, links and
+diff checks PASS. No active jobs; Cargo/host-check/ProductChecks NOT_RUN.
+
+### Next primary artifact, not another loss sweep
+
+The evidence favors testing a shared object-resonance representation with
+contact/excitation handled separately, rather than another objective variant
+on the same stochastic contact residual. This is a hypothesis, not proof that
+a modal network solves the full goal. The next bounded prototype must produce
+one playable controlled 3D case before a large corpus or solver infrastructure;
+no per-object hand-tuned bank or size/force inferred from recordings.
+
+As bounded prior art, the [NeuralSound authors' project](https://hellojxt.github.io/NeuralSound/)
+describes a learned 3D vibration solver plus numerical refinement and a separate
+acoustic-transfer network. The [official repository](https://github.com/hellojxt/NeuralSound)
+README and recursive tree at b18e81b1e3dba7e963b09a7d9a45b584707d805f were inspected.
+They expose a training/data-generation path and older dependencies; no ready
+checkpoint was identified there. This is not proof that none exists elsewhere.
+No source, mesh, checkpoint or environment was downloaded/installed. Full PDF
+retrieval failed (size limit/timeouts), so no full-paper reproduction is claimed.
+Do not start ABC bulk acquisition, an old Minkowski/BEM stack or a complete
+NeuralSound reproduction as a prerequisite for the smallest audible prototype.
+
+## Shared 3D modal neural prototype — 2026-09-06
+
+The previous goal turn was progress: controlled separation and a localized
+weak contact response. This turn implements the proposed alternative as one
+small, source-free learned artifact, not a new roadmap or per-object fit.
+
+`physical_sound_modal3d_pilot.py` implements a common 10000-parameter network
+with two heads: eight dimensionless object frequencies and eight signed
+contact-to-probe modal participation coefficients. Inputs are the two aspect
+ratios, Poisson ratio and normalized contact coordinates. No object identifier,
+target recording or object-specific trained parameter bank is an input.
+
+The teacher is a new own synthetic family of clamped 3D rectangular solids,
+not imported real recordings. The existing external scikit-fem 12.0.2 overlay
+is reused; no environment installation. The [scikit-fem tutorial](https://scikit-fem.readthedocs.io/en/latest/extended.html)
+documents the basis/mesh/Dirichlet operations used here. This is independent
+clean local implementation, not downloaded NeuralSound code or weights.
+
+The 3D linear-elastic teacher uses quadratic tetrahedra, 975 displacement DOFs,
+clamped x=0, eight mass-normalized eigenmodes, a top-surface +z force and a fixed
++z velocity probe at normalized (1,.5,1). There is no acoustic radiation or
+microphone-pressure prediction. Scalar modal damping and the half-sine force
+pulse are declared renderer assumptions, not learned material identification.
+
+### Shared training and standalone audible result
+
+Training covers 36 combinations: width/length .12/.16/.20/.24, thickness/length
+.045/.065/.085 and Poisson .20/.28/.36, with nine contacts from x=.4/.7/1 and
+y=.2/.5/.8. Twelve held combinations use .14/.18/.22, .055/.075 and .24/.32,
+with four new contacts x=.55/.85, y=.35/.65. These are interpolation within one
+cuboid topology, not arbitrary unseen shapes or real material generalization.
+
+One full-batch Adam run, 1500 steps, lr .001, seed 42, no DEV checkpoint selection.
+Body targets are standardized log frequencies; contact targets are asinh gains
+scaled by TRAIN RMS. All statistics reside in the shared weight artifact.
+External `modal3d-fit-2026-09-06/model.safetensors` SHA256:
+`e426a289b5e03e801eb1531e27cb81b5b9c363f12ce6d3836b1187c96e7496cb`.
+File tracing verifies exactly 36 TRAIN NPZ reads, no DEV teacher read during fit.
+
+`modal3d-render-2026-09-06` contains 48 standalone two-second neural WAVs, five
+physical-control WAVs and a 12.5 s gallery, all at 44.1 kHz/shared gain 1. The
+render process reads weights and its own generated coefficients, not FEM,
+teacher data or recordings; no network connection. All 48 waveform replays are
+exact in evaluation. The eight neural frequencies remain exactly identical
+across the four contacts of each of the twelve held bodies by construction.
+
+Physical scaling is explicitly analytical: angular frequency scales as
+sqrt(E/rho)/L and mass-normalized participation as 1/(rho*L^3). An independent
+rerun of the actual 3D FEM with changed L/E/rho verifies these identities. This
+is a physics prior, not evidence that the neural net learned those laws.
+Rayleigh damping is d=2+1e-8*omega², and a positive half-sine pulse carries a
+declared impulse. Doubling impulse doubles PCM; zero impulse gives silence.
+Pulse duration is not an identified striker material, and impact velocity is
+not inferred without a two-body contact model.
+
+Listen to [physical controls](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-render-2026-09-06/physical-controls.wav):
+base → double size → quarter stiffness → double impulse → ten-times-longer
+pulse. Base numeric inputs L=.18 m, E=64 GPa, rho=2230 kg/m³, impulse=.002 Ns,
+pulse=.5 ms; they are declared synthetic inputs, not a measured glass specimen.
+There is no per-clip loudness normalization; for example the double-size body
+is also quieter at the same impulse. Output amplitude is a velocity proxy in
+digital playback units, not calibrated sound pressure or loudness.
+
+### Independent combinations and a stronger baseline
+
+The initial `modal3d-evaluation-2026-09-06` compares against the nearest TRAIN
+shape/contact. The network improves every case in frequency, participation,
+spectrum and envelope, and 47/48 in level. This is a weak baseline. A subsequent
+countercheck, now integrated in `evaluate`, uses regular-grid linear
+interpolation of the same TRAIN dimensionless frequencies and gains, with no
+new learning. The final `modal3d-strong-evaluation-2026-09-06` contains all 48
+complete reference→interpolation→network comparisons and the automatic verdict.
+
+| Mean metric over 48 held cases | Nearest | Interpolation | Neural |
+| --- | ---: | ---: | ---: |
+| Relative modal frequency error | .098892 | .014360 | .010512 |
+| Relative participation L1 | 1.004519 | .337662 | .339413 |
+| Audible relative MRSTFT | 1.211089 | .085084 | .095899 |
+| 2 ms envelope error | .320437 | .062021 | .064903 |
+| Absolute log-RMS error | .303325 | .034360 | .037679 |
+
+The network wins against interpolation in 32/48 frequency comparisons, but
+only 17/48 spectra. Frequency comparisons repeat each body across its four
+contacts (8/12 distinct body-frequency wins), not 48 independent modal tests.
+Automatic verdict:
+`REPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED`. Beating the nearest
+example does not justify claiming a quality advantage. The interpolation
+countercheck was added after the single training run; no neural weight changed.
+[First held comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-strong-evaluation-2026-09-06/case-00-contact-0-comparison.wav)
+is 7.5 s, reference→interpolation→network. Both numerical methods are still
+synthetic references, not recordings or perceptual validators.
+
+### Teacher fidelity, remaining risks and next artifact
+
+Eigenpair residuals are below 2.22e-9, but this only solves the discrete system.
+Doubling mesh resolution on the first held shape changes modes 1/2 by .802%/
+.565% and mode 8 by 10.586%. Hence mesh convergence is not established across
+the family, especially at high modes. Against that refined teacher the first
+neural case has frequency errors .194%/.304% for modes 1/2 and 6.800% for mode 8;
+audible spectral error is .340266. Listen to the full
+[refined numerical reference→neural pair](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-evaluation-2026-09-06/refined-first-comparison.wav),
+4.5 s. Its finer reference is stronger evidence than the training-grid error,
+but is still only one shape/contact and a velocity proxy.
+
+Next: resolve teacher/high-mode fidelity on this controlled shape before
+another fit, retaining the interpolator and full comparison audio. Do not
+start NN loss/epoch/capacity sweeps just to beat a table. Expansion to more
+geometries, sound radiation and internet-recorded bodies remains necessary;
+the full real-sound goal is not met by this cuboid prototype. No runtime,
+roadmap stage, authored fallback or prior candidate admission changes.
+
+Reproduce the four stages `data`, `fit --data`, `render --fit`,
+`evaluate --data --generated`, each with a fresh external `--output`. Only
+`data` and the FEM unit test need PYTHONPATH pointing to external
+`neuralresonator-solver-python-2026-09-06`; runtime inference does not.
+External roots: `modal3d-{data,fit,render,evaluation,strong-evaluation}-2026-09-06`.
+Seven focused tests cover actual 3D residual/scaling, contact invariance,
+impulse linearity/silence, role separation, invalid inputs, interpolation
+controls/duplicate-grid rejection and a frequency-only false-success control.
+Tests, Ruff format/check, media hashes/full-length/headroom, source-free traces,
+links and diff checks PASS. All jobs terminal. No Cargo/host-check/ProductCheck
+was run for this isolated lab prototype.
+
+## 2026-09-06 — One-shape 3D teacher convergence with playable evidence
+
+The preceding conversational explanation produced no new experimental evidence.
+This checkpoint executes the pending teacher-fidelity discriminator; it does
+not train another per-material model. Primary output is 28 full WAVs in external
+`modal3d-convergence-fixed-2026-09-06`, with computed modes and `result.json`.
+The original 10,000-parameter shared neural checkpoint remains unchanged.
+
+One already exposed DEV body (.14 width/length, .055 thickness/length, .24
+Poisson ratio), four previously declared DEV contacts, fixed clamp and probe,
+same .18 m / 64 GPa / 2230 kg/m³ numeric inputs, .002 Ns / .5 ms excitation and
+Rayleigh damping. Four predetermined mesh levels compute twelve modes each;
+the audio mesh comparison retains the first eight at every level. No change
+to TRAIN/DEV roles, no real-object or material-label inference.
+
+Competing explanations were coarse discretization, modal order changes and
+eight-mode truncation. Match modes one-to-one by maximum squared normalized
+correlation of 270 displacement samples (90 common normalized 3D locations,
+three components), invariant to eigenvector sign/scale. This sampled modal
+assurance is not a continuum mass inner product or a degeneracy proof.
+NASA's [2013 HIRENASD publication record](https://ntrs.nasa.gov/citations/20130012907)
+documents joint frequency/modal-assurance checks as prior art; its abstract
+was read, while the PDF fetch returned 403. No external acceptance threshold
+was adopted. Our pre-run local criterion is <=1% matched frequency change,
+MAC>=.98 for the first eight, <=5% participation L1 change and <=.05 audible
+spectral error at all four contacts. It is not a realism/release gate.
+
+| Adjacent levels | Maximum first-eight frequency change | Minimum sampled MAC | Maximum participation L1 change | Maximum audible spectral error |
+| --- | ---: | ---: | ---: | ---: |
+| 1→2 | 10.586% | .950767 | 4.410% | .383573 |
+| 2→3 | 1.063% | .999840 | .769% | .063170 |
+| 3→4 | .245% | .999986 | .234% | .019538 |
+
+Degrees of freedom: 975 / 6075 / 18759 / 42483. Solver times approximately
+.13 / .71 / 5.09 / 24.02 seconds; process peak RSS 1.87 GiB. All twelve modes
+retain their sorted identity across all three comparisons. Discrete residuals
+remain below 2.46e-8; these alone are not a physical accuracy test. The last
+pair passes the separate local stability rule, not a continuum/family bound.
+
+At level 4, including modes 9–12 changes the spectrum by at most .000584 and
+the envelope by .000096. Those added frequencies are 9.22–15.47 kHz, present
+within the renderer's band, but weak for this excitation/damping/probe.
+This does not establish that eight modes suffice for harder impacts, other
+objects, radiation, or modes beyond twelve. Here coarse discretization has
+support as the substantial teacher error; mode permutation and omission of
+9–12 are not supported as the leading explanation.
+
+Listen to [mesh 1→2→3→4→unchanged neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-mesh-and-neural.wav)
+(five full 2 s sounds with .5 s gaps; starts at 0/2.5/5/7.5/10 s), or
+[eight→twelve modes](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-eight-vs-twelve.wav)
+(5 s). All four contacts have both comparisons, shared presentation gain 1,
+no loudness fitting. Against level 4 the unchanged network's mode-8 frequency
+error is 8.199%; contact-0 spectrum error .385008, versus .340266 against the
+older level-2 reference. This is stronger evidence of the old teacher's
+limitation, not a newly improved neural sound or microphone-pressure validation.
+
+Next: one shared corrected-teacher experiment across the existing family,
+checking mesh3/4 fidelity and comparing the same network design and linear
+interpolator against finer DEV references. Do not add more levels to this one
+body or tune NN losses/epochs/capacity against the old coarse teacher. The
+subsequent required expansion remains geometry/radiation and internet-recorded
+objects, including both interacting bodies; cuboid vibration cannot substitute
+for the full impacts/friction/rolling/destruction/water/rain objective.
+
+Reproduce with `physical_sound_modal3d_convergence.py --neural` pointing to
+`modal3d-render-2026-09-06` and a new external `--output`; use the existing
+scikit-fem overlay as PYTHONPATH, OMP_NUM_THREADS=4 / OPENBLAS_NUM_THREADS=4.
+The initial non-fixed output stopped after level1 because NumPy int32 DOFs
+were not JSON-serializable; its NPZ/four WAVs are retained. Explicit int
+serialization fixes the reporting bug; no solver criterion was weakened.
+
+Eleven focused tests PASS, including the prior seven and new sign/scale/order,
+invalid modal vectors, conjunctive/nonfinite stability and 12-mode versus old
+8-mode solver regression checks. Ruff format/check PASS. All 28 completed WAVs
+are full-length/finite, maximum peak .072689; all 16 mesh-wave replays and four
+existing neural-wave replays are exact. Source and neural-input SHA256 pins
+match. All jobs terminal. No dependencies, training weights, runtime/demo,
+roadmap status or admission rules changed; no Cargo/host-check/ProductCheck.
+
+## 2026-09-06 — One shared corrected-teacher fit: spectral gain, not overall acceptance
+
+The preceding goal checkpoint was progress: it resolved a one-shape numerical
+teacher error with playable evidence. This checkpoint tests that explanation
+across the full existing family and retrains one shared model, not one model
+per material. No manual listening is required to run either stage.
+
+`physical_sound_modal3d_corrected_teacher.py --output <new-external-data>`
+computes mesh3 and mesh4 for all 36 TRAIN and 12 DEV bodies with the unchanged
+9/4 contact grids, eight modes and 90 common vector-displacement probes. It
+uses three bounded CPU worker processes; the completed run took approximately
+11 minutes. External `modal3d-corrected-data-2026-09-06` retains 144 NPZs and
+372 full 5 s mesh3→mesh4 contact comparisons. TRAIN uses mesh3, DEV mesh4,
+chosen before the run; no case is selected, dropped or relabelled by its score.
+
+Local stability passes 43/48 bodies, including all twelve DEV bodies. TRAIN
+indices 2/11/20/29/32 fail the spectral threshold only (largest .062993 versus
+.05), predominantly the thinnest, highest-Poisson bodies. All first-eight
+matched modes retain their order; maximum adjacent frequency change .4291%.
+This remains a discrete numerical check, not a continuum or real-audio bound.
+The first DEV mesh4 calculation reproduces the earlier one-shape result.
+
+`physical_sound_modal3d_teacher_effect.py --data <paired-data> --baseline
+<modal3d-render-2026-09-06> --output <new-external-effect>` then runs one fit,
+standalone generation and both evaluations as separate processes. The child
+fit receives a TRAIN-only manifest without DEV responses or mesh diagnostics.
+The original 10,000-parameter architecture, 1500 Adam steps, lr .001 and seed42
+are unchanged; no checkpoint selection or additional fit follows the result.
+Weight SHA256: `baaa9af5e55adc52e51648acfad437366abc4d65324a1336fd2a33c167b1c516`.
+The old `e426a289…` checkpoint is unchanged. Fit loss ends at .002286, which is
+not the quality verdict.
+
+External `modal3d-teacher-effect-2026-09-06` contains 198 full WAVs: 54 generated
+sounds/controls, 48 old-model and 48 new-model comparisons with the same finer
+reference and corrected-TRAIN interpolator, plus 48 direct teacher-effect
+triples. Listen to [mesh4 reference→old neural→corrected neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-teacher-effect-2026-09-06/case-00-contact-0-teacher-effect.wav),
+7.5 s, sounds start at 0/2.5/5 s. The first case is retained, not selected for
+best score: its spectrum improves .385008→.171930 while envelope and level
+both worsen. Full waveform, common presentation gain1, no per-case fitting.
+
+| Mean over same 48 mesh4 DEV cases | Old neural | Corrected neural | Corrected-TRAIN interpolation | New wins over old |
+| --- | ---: | ---: | ---: | ---: |
+| Relative modal frequency error | .030490 | .009720 | .013824 | 48/48 |
+| Participation relative L1 | .363995 | .371654 | .369016 | 18/48 |
+| Audible spectral error | .270068 | .104900 | .085594 | 48/48 |
+| 2 ms envelope error | .068975 | .069988 | .064100 | 21/48 |
+| Absolute log-RMS error | .032171 | .038634 | .033639 | 22/48 |
+
+Frequency results repeat twelve bodies across four contacts; they represent
+12/12 independent body-frequency improvements, not 48 independent bodies.
+Spectrum error falls about 2.57×, supporting coarse-teacher error as a cause.
+But three other means worsen, and the interpolator still has the better mean
+spectrum, envelope, participation and level. The pre-existing all-five-mean
+rule reports FALSE against the old model; the stronger baseline verdict is
+`REPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED`. This is partial
+progress, not an accepted overall replacement or a perceptual realism claim.
+DEV was already exposed; no pristine unseen-family claim is made.
+
+The run demonstrates a repeatable, automatic shared training→generation→check
+path, not a general autonomous dataset-acquisition/improvement system. Next
+research/experiment should address second-body material and impact velocity
+coupling to the learned resonator and produce a source-free WAV. Do not turn
+this into more cuboid mesh/NN loss/epoch/capacity sweeps to beat interpolation.
+The current half-sine duration is NOT a striker material. Geometry, radiation,
+internet-recorded object evidence, rolling/destruction/water/rain remain open.
+
+Verification: 13 focused tests PASS, including fixed mesh/role selection even
+when stability fails and the TRAIN-only projection with missing/duplicate-grid
+negative controls. Ruff format/check PASS. All 570 WAVs across both roots are
+full-length/finite and under .98 headroom (teacher peak .186743; effect peak
+.122733). Selected teacher hashes and mesh choices match; all 48 new standalone
+waveform replays and corresponding gallery segments are exact; all twelve
+bodies preserve frequency across contacts. Fit trace reads exactly 36 TRAIN
+NPZs, no DEV targets/diagnostic manifest or audio. Renderer reads weights and
+its own generated NPZ/WAVs for controls and hashes, not FEM or target recordings.
+No Internet connections; fit makes one failed local NVIDIA MPS socket probe.
+An initial ad-hoc trace assertion incorrectly treated output hashing as an
+input-audio read; the read-path/source audit distinguishes those operations.
+Both jobs are terminal. No runtime/demo, roadmap, license or admission change;
+no Cargo/host-check/ProductCheck. `maintain-task-context` preserves the partial
+quality verdict and next missing physical input rather than another tuning loop.
+
+## 2026-09-06 — Both-material/velocity impact driver and feedback discriminator
+
+Previous checkpoint was progress (one shared corrected-teacher fit, partial
+quality gain). This checkpoint adds a source-free physical excitation path to
+that unchanged neural resonator, then tests its one-way assumption. It does
+not train a new network or identify real material labels.
+
+### Bounded research and mechanical counterexample
+
+[Stoelinga and Lutfi, 2011](https://pmc.ncbi.nlm.nih.gov/articles/PMC3155581/)
+give Hertz contact stiffness from both bodies' elastic properties and separate
+local indentation from whole-body motion. Their simplified impact-sound model
+also relates contact force/time to velocity; its acoustic evaluation is indirect,
+not an exhaustive real-sphere validation. The full article was read.
+[Zheng and James, 2011](https://www.cs.cornell.edu/projects/Sound/mc/)
+explain why ignoring vibration during contact misses energy exchange and
+secondary contact phenomena. The project abstract was read; PDF retrieval
+failed, so their solver is not claimed to have been reproduced.
+
+Competing hypotheses: (1) replacing the arbitrary pulse with material/velocity
+mechanics suffices; (2) vibration feedback materially changes the contact;
+(3) the existing neural transfer representation itself cannot serve as a
+mechanical contact response. The third has a direct counterexample: on the
+first exposed DEV body, querying the network at force=probe=(1,.5) gives three
+negative collocated residues, including -26.624 for mode8. Real collocated
+mass-normalized modal residues are squared mode displacements and nonnegative.
+Signed force-to-different-probe transfer gains are legitimate, but are not a
+self-admittance. Taking absolute values or clipping would hide the defect.
+
+`solve(contact_response=True)` now optionally returns actual FEM self/probe
+residues; default outputs and the old neural weights are unchanged. A focused
+test verifies positivity and cross_gain²=self_gain*probe_gain. No new training
+corpus or feedback-capable neural checkpoint is implied by this solver output.
+
+### Executed experiment and playable output
+
+`physical_sound_modal3d_impact.py render --fit <existing-fit> --output <new-root>`
+computes elastic sphere/half-space contact from both E/Poisson parameters,
+striker radius/density and initial speed: F=k*delta^1.5, m*x_ddot=-F. Indentation
+is positive into the surface; signs follow this explicit Newton convention.
+No duration or impulse is manually assigned. Continuous force convolution
+uses 64-point Gauss quadrature, avoiding audio-sample quantization of the
+8–74 microsecond pulses. Body frequencies/gains remain neural; Hertz contact,
+Rayleigh damping and material/size scaling remain analytical.
+
+External `modal3d-impact-render-2026-09-06` contains eleven 2 s impacts and four
+7.5 s galleries, all gain1. Fixed base: R3mm, striker rho2500 kg/m³, E70GPa,
+nu.3, speed .5m/s; first DEV target with L.18m, E64GPa, rho2230, nu.24, contact
+(.55,.35), clamped support/fixed +z velocity probe. Change one declared input
+at a time: striker E2/200GPa, speed .1/1m/s, rho1000/7800, R1/5mm, target
+E16/200GPa. These are numerical elastic inputs, NOT calibrated steel/rubber.
+
+Listen to [striker stiffness E2→70→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/striker-stiffness.wav),
+[speed .1→.5→1m/s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/impact-speed.wav),
+or [target stiffness E16→64→200GPa](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-render-2026-09-06/target-stiffness.wav).
+Each contains three full sounds starting at 0/2.5/5 s. Base contact duration
+23.99us, peak21.677N, impulse .0002827Ns. Softer striker E2GPa gives74.42us /
+6.989N at the same impulse; faster1m/s gives20.89us /49.800N /double impulse.
+Thus speed changes temporal/spectral excitation, not just playback gain.
+
+### Independent coupled control and allowed conclusion
+
+`assess --generated <render-root> --output <new-root>` computes a separate
+mesh4 FEM reference once, with positive contact self-residues. Its ODE couples
+sphere motion to eight damped target modes through indentation=x_s-u_contact.
+First separation ends contact; subsequent free ringing is retained, but later
+microcollisions, friction, plasticity and material-specific losses are absent.
+This is a finite-mode numerical discriminator, not measured pressure or a
+continuum contact-accuracy claim. Local Hertz contact radii are under 2% of
+target thickness in this grid; no yield-stress/material-law admission follows.
+
+External `modal3d-impact-assessment-2026-09-06` retains all eleven
+coupledFEM→one-wayFEM→one-wayNN comparisons and both force histories. The
+pre-run approximation check requires duration, peak force and impulse each
+within5%, plus spectral error<=.05 on the same FEM resonator. Ten cases pass.
+R5mm fails: one-way impulse is5.253% high and spectral error .051928. Listen
+to the retained [R5mm failure comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-impact-assessment-2026-09-06/radius-5mm-comparison.wav),7.5s.
+Base impulse error is1.176%, spectral .011692; R1mm errors are .0444%/.000444.
+
+Mean one-wayFEM/coupled spectral error .015645, versus one-wayNN/coupled
+.322732. Hence contact approximation is not the leading remaining neural
+error in this tested grid; further pulse/Hertz parameter tuning is not a neural
+quality fix. The physical-input path is new, but no improved NN or realism is
+claimed. Next: learn a shared passive contact/probe response suitable for
+coupling, with an audible neural impact and the existing interpolator baseline.
+Geometry/radiation and internet-recorded bodies remain necessary for full-goal
+validation; the other event families remain open.
+
+Twenty focused tests PASS: previous13 plus Hertz energy/momentum and independent
+closed-form duration, velocity/both-modulus scalings, negative-residue rejection,
+zero-feedback control, coupled energy/convolution-vs-modal-state agreement,
+quadrature/zero force, FEM positivity/reciprocity and invalid/gate controls.
+All26 full WAVs finite/headroom-safe; peaks .074753 generated/.085615 comparisons,
+all gains1. Eleven standalone and eleven coupled reference replays are exact.
+64→128 quadrature relative PCM difference<1.2e-8; maximum coupled energy-balance
+error1.13e-9, momentum error2.51e-10. Source hashes, WAV hashes and render trace
+PASS: no target recording/FEM/network reads (own WAVs read for hashes only).
+Ruff format/check PASS; jobs terminal. No runtime, roadmap, data-license,
+model promotion or ProductCheck change. `maintain-task-context` preserves the
+negative-residue counterexample and rules out hiding it with abs/clamping.
+
+## 2026-09-06 — Shared passive field: audible coupled neural impacts
+
+Previous goal turn was progress: material/velocity excitation and a mechanical
+counterexample. This turn learns the missing shared contact response and uses
+it for vibration feedback during impact. It remains a synthetic clamped-cuboid
+velocity model, not measured pressure or full-goal completion.
+
+Bounded prior art: [Neary and Topcu, L4DC2023](https://proceedings.mlr.press/v211/neary23a.html),
+methods sections3–5, enforce energy-related matrix structure inside learned
+systems and compose them through power-conserving interfaces. Our experiment
+uses that structural principle, not their architecture, weights or error bound.
+One shared point field gives each modal residue R_i(p,q)=a_i(p)*a_i(q). With
+positive frequencies/damping, modal equations q_ddot+2d*q_dot+omega²*q=A^T*f
+and point velocities v=A*q_dot obey dH/dt=f^T*v-sum(2d*q_dot²). This argument
+is for fixed object/point configurations; moving contact, fracture and changing
+modal bases need their own treatment. Negative cross-transfers remain allowed,
+while self-residues are squares; no abs/clipping of a bad coefficient.
+
+### One fixed fit and standalone output
+
+`physical_sound_modal3d_port_data.py` adds actual modal point factors to the
+same36mesh3TRAIN/12mesh4DEV teachers. All48 old frequencies/cross-gains match;
+roles and five prior convergence warnings remain unchanged. The new self-port
+matrices do not inherit a full convergence proof from the old cross-gain check.
+External `modal3d-port-data-2026-09-06` contains48NPZ/data.json/TRAIN-onlytrain.json.
+
+`physical_sound_modal3d_passive.py fit` freezes the previous baaa9af5… frequency
+head exactly and trains only one 5→64→64→8 point field: 5064 trainable of10000
+total parameters, 1500Adam steps/lr.001/seed42. The loss is MSE on complete9×9
+TRAIN port residue matrices, normalized by per-mode TRAIN mean-square fields.
+Outer products remove eigenvector-sign gauge ambiguity; the duplicate probe
+row is excluded because that point already occurs among the nine TRAIN points.
+No DEV reads, checkpoint selection, extra epoch run or capacity change.
+`modal3d-passive-fit-2026-09-06` weight SHA256:
+`6805a313306362f51015d411f7f758489e1872011355924948d8c9475d5ae297`.
+
+`render` computes a coupled Hertz collision from learned self/transfer residues
+and writes63WAVs:48 held shape/contact cases,11 separate material/speed controls
+and4galleries. All coefficients come from weights, no target recording or FEM
+at generation. Target Poisson is now explicit in contact mechanics for all
+twelve shapes; the old first-shape default is unchanged. Contact, damping and
+physical size/modulus/density scaling are analytical, not newly learned laws.
+
+Listen to [coupled neural impacts, striker radii1→3→5mm](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-render-2026-09-06/striker-radius.wav),7.5s,
+or [first reference→interpolator→old one-way NN→new coupled NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-assessment-2026-09-06/case-00-contact-0-comparison.wav),10s.
+The new model starts at7.5s in the latter; no best-case selection was made.
+All sounds are full2s, same gain1. Existing checkpoints/audio remain untouched.
+
+### Independent quality assessment and cause discriminator
+
+`physical_sound_modal3d_passive_assess.py` compares against mesh4 coupled FEM,
+convex interpolation of TRAIN2×2 port matrices and the previous one-way NN.
+The interpolated matrices are PSD convex combinations, not an invalid negative
+self-response baseline. All59 generated waves replay exactly; primary means
+use only48 held cases, excluding the eleven extra controls.
+
+| Mean over48 held cases | Old one-way NN | New coupled NN | Interpolation |
+| --- | ---: | ---: | ---: |
+| Audible spectral error | .217738 | .187262 | .158063 |
+| Envelope error | .067359 | .063573 | .083520 |
+| Absolute log-RMS error | .047713 | .042442 | .081107 |
+
+New NN wins40/48 spectra,34/48 envelopes,27/48 levels versus old. Relative port
+matrix error .270045 versus interpolation .414235; contact self L1 .338186
+versus1.290869; impulse error .1196% versus .7074%. Frequency error remains
+.972% versus1.382% (twelve independent bodies, repeated across four contacts).
+However, `quality_advantage=false`: interpolation still wins mean spectrum.
+On the previously rejected R5mm one-way condition, new coupled impulse error
+is1.120% and spectral error .268692 versus old .333059. This is not a measured
+material/pressure claim, and small impulse error does not imply small field error.
+
+A posthoc2×2 frequency/port swap on all48 cases, with no training or selection,
+isolates the remaining local gap:
+
+| Spectral error | Interpolated ports | Neural ports |
+| --- | ---: | ---: |
+| Interpolated frequencies | .158063 | .131190 |
+| Frozen neural frequencies | .195530 | .187262 |
+
+External `modal3d-passive-factorial-2026-09-06` retains all rows and two WAVs.
+[Reference→NN→diagnostic hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-factorial-2026-09-06/reference-neural-diagnostic-hybrid.wav),7.5s,
+uses interpolated frequencies with neural ports last. Hybrid envelope .058642,
+level .042494; not another trained checkpoint or automatic promotion. Reproduce
+the discriminator by crossing the existing `interpolate` frequency/matrix
+outputs with generated NPZ frequencies/port factors and calling `coupled` on
+the same48 configs. The remaining spectral gap is not a reason to keep tuning
+the newly corrected contact field. Next move beyond cuboid-only velocity toward
+non-cuboid/radiated sound and attributable internet-recorded evidence, retaining
+this passive-field and hybrid control. No indefinite toy-frequency/pulse sweep.
+
+Verification:25focused tests PASS; new tests cover untrained PSD/reciprocity,
+collocation algebra, mode-sign invariance, arbitrary multiport power balance,
+PSD interpolation and explicit target-Poisson handling. All124WAVs are full,
+finite and below .98 (generated peak .063931; comparisons .081525). All59
+generated replays and old frequency predictions are exact; frozen frequency
+weights/buffers unchanged. Energy-balance error<7.83e-8 across59 collisions.
+One extra bit-identity check on a repeated point FAILED: trained float32 field
+amplitudes differ by2.66e-7 relative between repeated batched rows. Algebraic
+collocation is not a bitwise floating-point guarantee; computed outer-product
+matrices remain PSD. This discrepancy is recorded, not hidden by loosening
+that check or altering weights. The old negative mode8 collocated residue
+(-26.624) is replaced by a nonnegative square (18.114).
+
+Trace: fit reads36TRAIN NPZs/train.json, no DEV; render reads no teacher/target
+recording/FEM or network, only own output WAVs for hashes. Ruff format/check,
+source/WAV hashes and links PASS. All jobs terminal; no ProductCheck/runtime/
+roadmap/admission change. `maintain-task-context` records both the positive
+mechanical result and the remaining frequency/numerical limits.
+
+## 2026-09-06 — Internet guitar fluid/structure pressure discriminator
+
+Primary question: can a non-cuboid internet model supply an actual acoustic
+observable, and is a mechanically passive compact approximation sufficient
+to reproduce it? This is a numerical teacher investigation, **not a newly
+trained neural network or a successful arbitrary-object transfer**.
+
+Primary sources inspected:
+
+- [Rettberg et al., replication data, DaRUS-3248 V1](https://darus.uni-stuttgart.de/dataset.xhtml?persistentId=doi:10.18419/darus-3248),
+  published2023-04-05, CC BY4.0. The complete three-file inventory contains
+  system matrices, an interactive sensitivity plot and a preview; no mesh or
+  recorded audio. Only the3,896,244byte matrix payload was needed.
+- [Published paper,2023](https://doi.org/10.1080/13873954.2023.2173238),
+  modelling/port-Hamiltonian/full-order simulation sections directly read from
+  the university PDF. The authors explicitly use a simplified guitar, with
+  internal air and a sound-hole length correction, not a detailed realism
+  benchmark. Excitation is prescribed bridge force; no strings. Pressure near
+  the sound hole is an observation, not the collocated mechanical power port
+  and not arbitrary-listener far-field radiation. The paper exercises82–320Hz.
+
+External `guitar-fsi-source-2026-09-06` retains matrices, Dataverse metadata,
+published PDF/text and separately labelled2022arXiv PDF/text. Published-file
+MD5 `54e6f82be01f30e4d4a29392615a35c9` matches exactly; SHA256
+`b4a99c4d73bf05e94a456d7e2592a9663d857ed675163d5c197d7f04904578cb`.
+PublishedPDF SHA256
+`08a8190482cac284fb82faf4f066c4cb5e9e3763aa8cf5903bfa4f9c20714441`.
+No downloaded code executes. All numeric MAT fields are finite;11248states,
+`A=(J-D)Q` exact. The file's C row order is **top displacement, back
+displacement, averaged pressure**, not the figure legend order. Pressure
+weights sum to1 and select the pressure-state block. Both displacements must
+not be mistaken for velocity; force-port velocity is independently `B^T Qx`.
+
+### Fixed reduction and failed acoustic fidelity
+
+`lab/scripts/physical_sound_guitar_fsi.py` uses one24frequency complex-response
+basis,60–2000Hz,48real columns. Energy-inner-product projection has
+`W=QV`, `V^T Q^T EV=I`; no neural fit, target waveform, basis/order/seed sweep.
+Response-column energy normalization and Gram whitening handle mixed state
+units without modifying dynamics. Broader-than-paper bandwidth is explicitly
+unvalidated. No inherited claim about real material damping or mesh convergence.
+
+External `guitar-fsi-probe-2026-09-06` initially contains reduced.npz,
+reference.npz, result.json and8WAVs. Reduced energy-orthogonality error1.52e-12,
+largest symmetric-A eigenvalue−1.38e-11, largest pole real part−4.004: stable
+and dissipative, **but not acoustically accurate**. On23 unseen intermediate
+frequency probes relative pressure L2 error1.513; even the82–320Hz subset
+has.1514, so failure is not explained solely by extending the bandwidth.
+
+Independent full-state and reduced-state implicit-midpoint comparisons share
+dt.0001s and a.2s horizon. Relative errors (top,back,pressure):
+
+- Prescribed100Hz/1N sine: .004819, .006494, .042910.
+- Prescribed5ms/1N sin-squared pulse: .003869, .012929, .062656.
+
+The pre-run5% all-channel time criterion is **FAILED**. Stable mechanics and
+small displacement error are insufficient as an acoustic acceptance rule.
+All per-frequency failures remain in reference.npz; no frequency exclusions or
+tolerance changes. No new reduction fit follows this failure.
+
+The8reduced WAVs include [velocity→pressure,5ms pulse](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/velocity-then-pressure-5ms.wav),4.5s,
+and [pressure,2→5→10ms pulses](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/pressure-widths-2-5-10ms.wav),7s.
+They remain labelled rejected-approximation controls. Different units require
+separate gains: pressure.0970915PCM/Pa and velocity8.607224PCM/(m/s), each
+constant across pulse widths. These are timbre comparisons, not loudness or
+microphone calibration. Prescribed pulse duration is not an identified
+striker material, and impulse varies with width at fixed1N peak.
+
+A separate full-matrix causal control at100Hz removes only the skew coupling
+between structural-velocity and pressure blocks of J. Original pressure
+response is approximately−3.23956−.001755iPa/N. Without coupling, pressure and
+back-plate response are exactly zero while the top plate still moves. This
+supports the air-mediated path rather than a mislabeled copy of surface motion.
+
+Reproduction, with source/output paths under the external experiment root:
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_guitar_fsi.py --source SOURCE/pHGuitarSystemMatrices.mat --output OUTPUT`.
+The separate `--full-audio` mode reuses the saved reduction and computes a
+full-state audible reference; it does not retry the failed reduction.
+
+Source limitation changes the next action: this one fixed matrix model cannot
+train a geometry/material family or establish a clean unseen-object test.
+Keep its acoustic-observable failure as a validator control, not a new
+per-guitar fitting program. A useful shared-family teacher needs identifiable
+geometry and acoustic outputs together; current cuboid aspect-ratio inputs
+cannot encode this guitar. Existing neural weights and liked demos unchanged.
+
+### Full-state audible reference and verification
+
+The separate full-audio pass completed without another basis fit. It advances
+all11248states for1s at20kHz, retaining raw physical outputs in full-audio.npz.
+A40kHz/.2s countercheck gives relative changes(top,back,pressure,velocity)
+.004395/.001462/.019970/.013524. This is finite time-step evidence only, not a
+continuum convergence result. ROM/full pressure error on the complete second
+is.061223 at the same20kHz integrator. The reduction remains rejected.
+
+Listen to [full-system velocity→air-pressure](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-velocity-then-pressure-5ms.wav),2.5s,
+or [full→reduced pressure](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-then-reduced-pressure-5ms.wav),2.5s.
+These use the same5ms prescribed pulse and unchanged per-unit gains from the
+first pass. Full physical samples are polyphase-resampled20k→44.1kHz; no EQ,
+learned correction, loop or per-wave normalization. The1s horizon is disclosed,
+not a claim that all residual ringing has ended. There are12WAVs total.
+
+Verification:5focused tests PASS (independent constant-force matrix exponential,
+midpoint refinement, transfer-preserving projection, power identity, zero-input/
+decoupling controls, pulse integral/invalid width, reject altered source before
+parsing). All12complete WAVs finite, hashes/sample counts/headroom PASS;6reduced
+and2full base audio replays exact from retained numerical artifacts. Ruff,
+diff and changed-link checks PASS. No Cargo/host-check/ProductCheck: bounded
+external lab only. `maintain-task-context` preserves the new acoustic failure
+and excludes treating this single fixed source as a shared geometry dataset.
+
+## 2026-09-06 — Nine internet neural object teachers, force-preserving export
+
+Primary: [wood block→steel mug→ceramic bowl→plastic dish](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-render-2026-09-06/wood-steel-ceramic-plastic.wav),13.5s.
+These are **published object-specific neural models**, not a newly trained
+shared student, real recordings, or a real-quality pass. Geometry changes
+along with assigned material; the gallery is not a controlled material swap.
+
+The [ObjectFolder2 official download page](https://objectfolder.stanford.edu/objectfolder2-0-download)
+and [source repository](https://github.com/rhgao/ObjectFolder) expose1000
+object models and meshes. Source revision
+`3c6cd8930b2dcbadb6d94dadf2745c956bdcd236`. The audio section of the
+[Gao et al. paper](https://arxiv.org/abs/2204.02389) was directly read: an
+object-specific three-branch MLP predicts modal gains at coordinates, combined
+linearly with axis excitation. Object frequencies/damping come from FEM.
+The published renderer sums damped sinusoids; it has no acoustic-transfer/
+listener-pressure stage. Thus this supplies a non-cuboid vibration curriculum,
+**not the missing pressure teacher**. No exact force-time/striker calibration
+is inferred from its three scalar excitation coefficients.
+
+External roots:
+
+- `objectfolder2-source-2026-09-06`: reviewed source, CSV, license, paper.
+- `objectfolder2-demo-2026-09-06`: published40MB demo plus OBJ/NPY inputs.
+- `objectfolder2-range-2026-09-06`: first320MiB of the3,770,228,811byte
+  official1–100 gzip archive, acquired as64MiB+256MiB ranges. Complete mesh/
+  checkpoint members for9objects; no full archive checksum/gzip trailer claim.
+  `family-extraction.json` records byte counts, member/mesh/weight hashes,
+  upstream ETag/Last-Modified and exact CSV rows. No textures extracted.
+- `objectfolder2-render-2026-09-06/cohort.json`:9identified teacher rows,
+  existing render directories, raw/PCM checks and gallery. The demo render
+  remains in `objectfolder2-demo-render-2026-09-06`; it is object23 exactly.
+
+| OF2 ID | Published name / assigned material | Modes | Next student role |
+| --- | --- | ---: | --- |
+| 7 | WoodenTable_01 / Wood | 1515 | TRAIN |
+| 11 | Rockingchair_01 / Wood | 1077 | open DEV |
+| 23 | 025_mug / Steel | 78 | TRAIN |
+| 29 | 036_wood_block / Wood | 34 | TRAIN |
+| 54 | Top_Paw_Dog_Bow_Bone_Ceramic_13_fl_oz_total / Ceramic | 93 | open DEV |
+| 66 | Now_Designs_Bowl_Akita_Black / Ceramic | 64 | TRAIN |
+| 75 | Kanex_MultiSync_Wireless_Keyboard / Polycarbonate | 433 | TRAIN |
+| 82 | Grreat_Choice_Dog_Double_Dish_Plastic_Blue / Plastic | 1965 | TRAIN |
+| 88 | ACE_Coffee_Mug_Kristen_16_oz_cup / Ceramic | 50 | open DEV |
+
+These are OF2 identifiers, **not SonicGauss/OF-Real identities**. In particular,
+OF2/66 is Ceramic; no integer-only identity join is permitted. No protected
+OF-Real payload/role, NISR or VibraVerse guard was reopened. Demo23 mesh and
+checkpoint hashes exactly match the archive members; identity is not guessed
+from sound. CSV material labels are simulation assignments, not verified real
+compositions. OF2 declares CC BY4.0 while retaining original mesh terms.
+[Google's primary GSO description](https://research.google/blog/scanned-objects-by-google-research-a-dataset-of-3d-scanned-common-household-items/)
+confirms CC BY4.0 for that source. CSV links for23/29 are `None`; do not invent
+an exact original asset URL or blanket redistribution clearance for every row.
+All payloads/outputs remain external and unpromoted.
+
+### Runnable path and checks
+
+`lab/scripts/physical_sound_objectfolder2.py` evaluates only reviewed, hash-pinned
+AudioNet declarations, with imports/global device/anomaly/filesystem actions
+excluded. Weights use `weights_only=True` and an explicit numeric NumPy global/
+dtype allowlist, never unsafe pickle. Vision/touch networks and optimizer states
+are not executed. Scalar normalizers, finite tensors, positive damping,
+sub-Nyquist modes and coordinate support are checked; no damping-abs repair,
+mode removal or coordinate clamping. Upstream actual normalization is[0,1],
+despite a[-1,1] comment. One published demo query exceeds even this scalar
+support. The experiment instead uses four fixed actual OBJ vertex indices
+`0,n//4,2*(n//4),3*(n//4)` for each object, without listening-based selection.
+
+Each teacher produces14WAVs:4contacts,zero/quarter/half/double/negative and
+three axis controls, plus two galleries.126teacher WAVs+1combined gallery.
+Paper Eq8 is evaluated directly in float64, with2s ringing+1s silence.
+Against the reviewed author's CPU-adapted FIR/FFT path, the demo raw waveform
+relativeL2 difference is6.459e-5 after accounting for its2sample padding delay;
+not a bit-exact CUDA reproduction. The only device adaptation removes `.cuda()`
+calls from selected pinned DDSP functions. Actual unnormalized synthesis agrees
+within this numerical discrepancy.
+
+The author's final `signal/abs(signal).max()` **exactly erases positive force
+scale**, and zero excitation yields nonfinite output. Our exporter retains
+one common gain across all conditions of each object, including exact zero.
+Different objects still have different audition gains, so their relative
+loudness is not calibrated. Raw modal gains/frequencies/damping remain in
+generated.npz and must be used instead of audition-normalized WAVs for a
+quantitative student target.
+
+Initial unconditional float32 bit-scaling audit **FAILED** on woodblock29:
+half165samples/double337samples differ by at most1.401298e-45, only around
+the subnormal tail. Its float64 raw bit checks also fail at underflow; other
+eight objects pass those checks. These results remain unchanged, not rerendered
+to make bit checks green. `pcm_scaling_check` reports bit identity separately
+from a declared one-ULP-per-operand rounding bound; all27half/double/sign cases
+pass that bound and all9zero cases are exactly silent. A negative test with
+incorrect0.51rather than0.5 scaling fails. This is numeric validation, not
+perceptual realism, microphone calibration or proof of arbitrary force laws.
+
+Verification:6focused tests PASS; all127full WAVs finite and peak≤.5, hashes/
+lengths PASS;9first-contact replays exact from saved numeric outputs. Immutable
+source/weight hashes and strict neural state loading checked. Ruff/diff/link
+checks PASS. No Cargo/host-check/ProductCheck for this external lab change.
+
+Reproduce each row with
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2.py --source SOURCE --data OBJECT --weights-sha256 SHA --output NEW_OUTPUT`.
+All exact paths/hashes are in cohort.json/family-extraction.json. The retained
+first-run per-object result.json files contain raw checks; the later cohort.json
+adds checks on serialized PCM. New runs emit both via the added rounding helper.
+No newly trained weights, runtime/demo change or admission.
+
+**Next action:** use the prepared six TRAIN objects and three open DEV objects
+for one shared student, with object-geometry/material inputs and a source-free
+audible prediction. Select/validate a common output representation before
+claiming variable-mode coverage; do not silently truncate1965modes to match a
+small head. Compare against simple teacher-derived controls. Do not start
+another source-inventory or per-object fitting cycle while this cohort can
+test the shared-learning path. The separate real-pressure/realism gap remains.
+
+## 2026-09-06 — One shared OF2 student is audible; quality advantage rejected
+
+Primary: [three objects outside the student fit, teacher then neural prediction](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-shared-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s.
+Order: wooden rocking chair11, ceramic bowl54, ceramic mug88; each pair contains
+the complete3s teacher response then3s shared prediction. These are synthetic
+vibrations, not measured pressure or a realism proof. Listening is optional,
+not an approval gate. No runtime/demo replacement or product promotion.
+
+`physical_sound_objectfolder2_shared.py` implements prepare/fit/render. The
+preceding preparation session69465 was polled to terminal success, not restarted.
+All34–1965 source modes and32 supported mesh contacts per object survive exact
+NPZ packing. New queries exclude out-of-normalizer-support vertices explicitly
+(0/6/1/2/2/2/3/2/3 for7/11/23/29/54/66/75/82/88); no coordinate clamp,
+object exclusion or listening-based selection. Absolute log bbox extents remain
+inputs alongside512 normalized vertices and assigned-material one-hot labels.
+There is no supplied target audio, mode count, frequency, damping or gain at
+standalone generation. Contact query sampling used teacher support during data
+preparation; this does not establish a general contact-validity predictor.
+
+One shared68486parameter point encoder and rank-conditioned mode/field heads,
+2000Adam steps at.001,seed42,batch1024, six TRAIN bodies only. Mode count is
+predicted; frequency is bounded1–22049Hz, damping positive, gains signed.
+Asinh gain targets and log pole/count statistics use TRAIN only. Every TRAIN
+mode was sampled; this is not a claim that every point/mode pair was sampled.
+No checkpoint, learning-rate, capacity, seed or loss sweep. Weights SHA256:
+`6490f01032ba99c25b10697288412d886d1eed8f9e07fded9556bc872feae354`.
+
+External roots under the existing physical-sound experiment directory:
+
+- `objectfolder2-shared-data-2026-09-06`: nine full targets, TRAIN-only manifest,
+  separate geometry-only inputs,9teacher WAVs.
+- `objectfolder2-shared-fit-2026-09-06`: own safetensors and fit record.
+- `objectfolder2-shared-render-2026-09-06`:36standalone WAVs and nine predicted
+  modal arrays; one common output gain. Predicted mode counts for the nine IDs
+  above:1531/1122/78/34/91/64/437/1975/26. DEV88 teacher has50, not26.
+- `objectfolder2-shared-assess-2026-09-06`:12complete DEV comparisons,
+  3teacher/neural pairs, combined gallery and assessment.json.
+- `objectfolder2-shared-diagnostic-2026-09-06`: six TRAIN pole/field controls,
+  oracle-count/rank assisted, not new weights or standalone predictions.
+
+`physical_sound_objectfolder2_shared_assess.py` compares every DEV body at its
+first four fixed contacts. Nearest baseline selects same-material TRAIN geometry
+by symmetric normalized-cloud Chamfer plus standardized log-size distance;
+contact maps to nearest normalized source contact, without consulting audio.
+Second baseline scales both frequency and damping by source/target bbox length,
+leaves modal gains unchanged; it is an explicit heuristic, not a physical
+amplitude/radiation law. Neighbors11→7,54→66,88→66. Ratios1.80882/.860389/1.18340;
+the retuned baseline explicitly omits780/0/12 modes crossing Nyquist. This is
+not truncation of the full teacher data or NN output. Each quadruple uses one
+common gain; galleries have different gains between objects, not within pairs.
+
+All12DEVcontact mean diagnostics (three independent bodies, not12independent
+shape trials), lower is better:
+
+| Method | Audible spectrum | Envelope | Absolute log RMS ratio |
+| --- | ---: | ---: | ---: |
+| Shared NN | 1.014195 | .646482 | .729565 |
+| Nearest TRAIN object | 1.205489 | .797349 | .491161 |
+| Nearest with size scaling | 1.153514 | .703200 | .409395 |
+
+Decision **REJECT_QUALITY_ADVANTAGE**: the fixed combined diagnostic requires
+improvement in all three means versus both controls. NN improves spectral and
+envelope means, but loses level fidelity. Wood11 loses all three metrics;
+ceramic54 improves spectrum but worsens envelope/level; ceramic88 improves all
+three. TRAIN NN means are.820225/.667380/1.101008, so this is not solely an
+unseen-object or too-small-corpus problem. These diagnostics are not validated
+perceptual judgments or evidence about new material classes.
+
+`physical_sound_objectfolder2_shared_diagnose.py` freezes the network and uses
+only six TRAIN first contacts, supplying true counts/ranks explicitly. Replacing
+one predicted component with teacher values separates pole and field errors:
+
+| Oracle-assisted combination | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Learned poles, teacher field | .526496 | .240851 | .077850 |
+| Teacher poles, learned field | .831993 | .673420 | 1.190206 |
+| Both learned, true count | .893408 | .709571 | 1.249867 |
+
+Thus correcting poles/count alone does not repair the signed field. First-contact
+modal gain RMS ratios on TRAIN75/82 are.02555/.01072 even at true ranks/counts.
+This suggests severe field underfit/averaging; it does not yet distinguish
+optimization failure from unsuitable rank-conditioned representation. Pole
+errors also remain significant, especially sparse high-frequency resonators.
+Next: bounded research plus an acoustic-energy/representation discriminator on
+TRAIN, with an audible control; do not simply add objects, epochs, loss weights
+or per-object networks, or promote oracle-assisted controls as source-free sound.
+
+Checks:12focused unit tests PASS, Ruff PASS,36standalone saved-parameter WAV
+replays EXACT, all67new full WAVs finite float32/44100Hz/peak≤.5. Fit strace reads
+only train.json and six TRAIN NPZs; standalone render reads only geometry inputs
+and own weights. No teacher checkpoint or target acoustic file in generation;
+fit's sole connect call is a failed local NVIDIA MPS Unix socket, no INET
+connection. Source script hash matches fit record. Diff/paths checked. No Cargo,
+host-check or ProductCheck run: bounded external audio lab, no public contract.
+
+Reproduction: shared.py `prepare --cohort COHORT --source SOURCE --output DATA`,
+then `fit --data DATA --output FIT`, `render --data DATA --fit FIT --output GEN`;
+shared_assess.py `--data DATA --generated GEN --output ASSESS`;
+shared_diagnose.py `--data DATA --fit FIT --output DIAGNOSTIC`. Prefix each with
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2_`
+and the corresponding filename suffix. Output directories must be new. Exact
+existing roots above avoid reinterpretation of TRAIN/DEV IDs across datasets.
+
+## 2026-09-06 — Band representation discriminator and one compact shared fit
+
+Primary: [full teacher then new shared prediction for three open DEV objects](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-compact-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s,
+order11woodchair/54ceramicbowl/88ceramicmug. A newly trained shared network,
+not target-audio reconstruction. It improves three DEV means over the previous
+shared fit but does not meet level fidelity versus simple controls. No runtime,
+demo replacement, validated-realism or arbitrary-material claim.
+
+Previous goal checkpoint was **progress**: committed shared weights/rendering
+and pole/field discriminator. This cycle investigated competing explanations:
+
+- Rank-conditioned signed fields average dissimilar modal responses: supported
+  by large TRAIN field errors even with oracle poles/count. Neighboring TRAIN
+  modal gain cosine is between−.034 and.049; this is descriptive, not proof that
+  modal signs are erroneous or that removing them is legitimate.
+- Input/data scarcity alone causes the failure: cannot explain it alone because
+  reconstruction already fails on TRAIN. Encoder/spatial features, optimization
+  and output-index alignment remain possible causes; not yet distinguished.
+- Energy-only band representation repairs averaging: directly tested and
+  contradicted below. Within-band energy does not preserve cross-band coherence.
+
+### Primary-source research and representation control
+
+[Deep-Modal, MM2020, sections3–5](https://hellojxt.github.io/DeepModal/ACMMM20_ModalSound.pdf)
+packs modes into frequency bands, predicts amplitudes and occupancy masks, and
+discusses over-smoothing. Its practical setup uses32Mel bands over100–10000Hz,
+fixed-material/size training and approximate post-processing. Its comparison
+also restricts reference bandwidth, and its second user study detects a
+difference in same-material shape cases. These are limits, not proof of our
+full-band quality or arbitrary interacting-material realism. The paper's
+frequency-channel output is different from our smooth normalized-rank field.
+[NeuralSound's authors](https://hellojxt.github.io/NeuralSound/) instead separate
+modal solution from acoustic transfer; our OF2 control still lacks radiation.
+Sources opened2026-09-06; no downloaded implementation or weights executed.
+
+`physical_sound_objectfolder2_band_probe.py`: one fixed128Mel-band partition
+covering1–22049Hz, all six TRAIN first contacts. Bands containing≤3modes retain
+their exact signed modes; denser bands compare signed sums against a three-axis
+integrated waveform Gram representation. This is a **hybrid reconstruction**,
+not a completely phase-free descriptor, port admittance or mechanical energy.
+Frequency/damping averages use modal response energy; no modes are cropped.
+The energy control reconstructs dense-band covariance using its PSD square root
+and three sample-orthogonalized damped carriers. All forces share the same
+linear three-axis response; no per-force normalization or target level repair.
+
+First run terminated before WAVs: a top-frequency carrier Gram had condition
+number2.61017e9 and inverse-based covariance error4.70645e-9, failing1e-9.
+The failed empty directory `objectfolder2-band-probe-2026-09-06` remains.
+Sample-space QR avoids Gram inversion; the tolerance is unchanged. QR signs
+are fixed by positive R diagonal; no cross-machine bit guarantee. The revised
+run `objectfolder2-band-qr-probe-2026-09-06` has maximum band Gram error
+3.98931e-15, but total cross-band covariance changes up to26.55%. Correct local
+energy algebra is not a sound-fidelity result. Small negative eigenvalues are
+handled only within an explicit64-machine-epsilon matrix bound; indefinite
+inputs and rank-deficient bases reject, with negative tests.
+
+Six TRAIN first-contact means, lower is better:
+
+| Oracle reconstruction | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Signed band sums | .051602 | .019904 | .011676 |
+| Band energy Gram | .231959 | .092310 | .073538 |
+
+Signed sums win all six spectra. Dense-band phase/coherence changes defeat the
+proposed energy repair. Keep its seven audible controls, do not sweep Gram
+factorizations, phase choices or band counts. The source-parametric
+[six-object teacher/energy gallery](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-band-qr-probe-2026-09-06/six-train-teacher-energy-reconstruction.wav)
+is36s and explicitly **NOT a neural or source-free result**. Six full triples
+also include the better signed-sum reconstruction. No independent normalization
+within a comparison; all candidates retain their errors.
+
+### Evidence-backed change: compact targets, unchanged shared network
+
+`physical_sound_objectfolder2_compact.py` builds signed128-band targets using
+all32contacts to choose one common representative pole per dense band. This
+avoids making object poles contact-dependent. Sparse bands retain≤3source
+modes. Output counts for7/11/23/29/54/66/75/82/88 are149/171/64/28/67/50/114/129/46.
+All source modes are accounted for, but this is explicitly **lossy packing**;
+original full targets stay untouched. Six TRAIN first-contact common-pole
+oracle means against full teachers are.057141/.025303/.011478, so the compact
+representation itself is much closer than the current learned reconstruction.
+This is not a claim that all contacts/objects have this exact reconstruction error.
+
+External `objectfolder2-compact-data-2026-09-06` retains original roles and exact
+geometry-only inputs. One fit uses the unmodified shared.py, same68486parameters,
+2000Adam steps,.001,seed42,batch1024; only target representation changes.
+`objectfolder2-compact-fit-2026-09-06` weights SHA256:
+`5b569809d3340a28f5d9aa361b29d6db9c0f0d56628e881a706e615e1074b56f`.
+All TRAIN compact modes sampled, no DEV checkpoint selection or hyperparameter
+sweep. `objectfolder2-compact-render-2026-09-06` has36standalone predictions;
+`objectfolder2-compact-assess-2026-09-06` evaluates them against **original full
+teacher data**, with the unchanged nearest/size-scaled controls.
+
+| DEV mean | Prior shared NN | Compact shared NN | Size-scaled control |
+| --- | ---: | ---: | ---: |
+| Spectrum | 1.014195 | .987302 | 1.153514 |
+| Envelope | .646482 | .562240 | .703200 |
+| Log RMS error | .729565 | .649822 | .409395 |
+
+Relative improvements versus prior NN:2.65%/13.03%/10.93%. The automatic
+combined comparison remains **REJECT_QUALITY_ADVANTAGE**, because level fidelity
+still loses to both simple controls. TRAIN spectrum.842428 and level1.314734
+worsen versus prior.820225/1.101008. Keep as a partial DEV improvement, not a
+solution to field underfit. Compact predicted counts149/133/64/28/57/50/114/130/33
+still differ from packed targets on several objects; no count repair at inference.
+
+Next bounded discriminator: frequency-indexed output channels rather than a
+single smooth normalized-rank field, using the same compact TRAIN/DEV roles.
+Compare parameter budgets explicitly; separate output alignment from merely
+increasing capacity. Keep current artifacts frozen, no more data-compression,
+band-count, loss, epoch or seed variants. Geometry/spatial representation and
+optimization remain alternative causes; do not claim rank indexing alone proven.
+
+Verification:18focused tests PASS; all59new full WAVs finite float32/44100Hz/
+peak≤.5;36standalone and6band-gallery saved-parameter replays EXACT. Fit strace
+reads only six compact TRAIN NPZs/train.json as data, plus its new weights for
+the output hash; standalone render reads geometry
+inputs and own weights, no target files or teacher checkpoint. No INET connect.
+Ruff/diff/changed-link checks PASS. No Cargo/host-check/ProductCheck run for this
+bounded Python lab. `maintain-task-context` preserves the falsified energy
+hypothesis and exact next discriminator, not a new roadmap or release status.
+
+Reproduction: band_probe.py `--data FULL_DATA --output NEW_PROBE`;
+compact.py `--data FULL_DATA --output COMPACT_DATA`; existing shared.py fit and
+render with COMPACT_DATA; existing shared_assess.py **with FULL_DATA**, generated
+compact outputs and a new assessment directory. Use the established
+`lab/scripts/physical_sound_objectfolder2_` filename prefix and Python environment,
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Full inputs and weights stay external.
+
+## 2026-09-06 — Fixed channels fail transfer; analytic decay identifies a cause
+
+Primary: [full teacher then frozen shared NN with analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s,
+order11/54/88. The [mug diagnosis: reference→learned decay→analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/mug-reference-learned-decay-analytic-decay.wav)
+is9s and deliberately selects the largest regression posthoc; it is not an
+unbiased acceptance gallery. All three use the first fixed contact, full3s
+responses and one common gain. No target recording/modal arrays at generation.
+These are still assigned-material synthetic vibrations, not calibrated pressure,
+realism admission or an engine/demo replacement.
+
+Previous goal turn was **progress**: compact targets, trained NN and audible
+evidence. This turn ran one structural discriminator before further research:
+`physical_sound_objectfolder2_channels.py` replaces normalized-rank queries with
+128frequency bands×3explicit slots. Object poles/occupancy use the body encoder;
+signed gains use body plus contact features. Same point encoder, two16-wide
+channel heads:69712parameters versus68486(+1.79%), not a large capacity increase.
+Occupancy BCE replaces scalar log-count loss; a fixed0.5threshold selects modes.
+Empty predicted masks remain silent failures, never target-repaired. Losses still
+weight occupied pole/gain samples equally,1024samples per step; all TRAIN modes
+were sampled. Channel alignment, occupancy formulation and frequency bounds all
+change together; this is not a proof that indexing alone causes a difference.
+
+One2000-step Adam.001/seed42fit on the same six compact TRAIN objects, no new
+data, seeds, widths, thresholds or checkpoint selection. External
+`objectfolder2-channel-fit-2026-09-06`, weights SHA256:
+`f5e5e578d4ecb5cc81f9c12a85b61d6647b491e47e57036f61c1222bf3ad90ad`.
+channels.py hash306a9e0b…; shared.py hashfcd2930d… in fit.json. The only shared.py
+change injects a model class/predictor into the existing renderer; its default
+rank-model behavior is retained. Prior fit source hashes refer to their earlier
+commits, not falsely to this changed file. Source-free render/assessment roots
+are `objectfolder2-channel-{render,assess}-2026-09-06`.
+
+| Mean diagnostics | Compact rank NN | Fixed-channel NN |
+| --- | ---: | ---: |
+| TRAIN spectrum | .842428 | .745518 |
+| TRAIN envelope | .664726 | .597867 |
+| TRAIN log RMS | 1.314734 | .837012 |
+| DEV spectrum | .987302 | 3.469048 |
+| DEV envelope | .562240 | 7.347270 |
+| DEV log RMS | .649822 | .838418 |
+
+Automatic decision **REJECT_QUALITY_ADVANTAGE**. TRAIN improves, transfer
+regresses badly, particularly11/88. Predicted counts149/149/64/28/50/50/114/129/46
+for7/11/23/29/54/66/75/82/88; no mask repair. A descriptive TRAIN affine-rank16
+lower-bound check gives per-body asinh MSE floors.0157–.1966 versus actual
+.1396–.8586. This is a separate best-case bound per body, not a realizable common
+decoder or proof that widening fixes transfer. Spatial features, shared-field
+capacity and optimization remain possible causes of field underfit.
+
+### Bounded research and causal counterfactual
+
+Given another transfer failure, the next action was not another architecture fit.
+Inspection localized a new failure: ceramic88 predicted decay as low as.1468/s,
+while this dataset's material law has a minimum3/s. Its predicted range is
+.1468–14418.39/s versus source11.82068–942.33852/s. Frequency/occupancy errors
+also exist; damping alone was a falsifiable competing explanation for the long
+ring, not an assumed complete cause.
+
+[OF2 supplementary sectionsC/D and Table1](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf)
+specify Rayleigh material coefficients and describe obtaining modal damping from
+frequency and material. [Main paper equations6–8](https://par.nsf.gov/servlets/purl/10341945)
+distinguish damped frequencies from eigenvalues and combine them with predicted
+gains. Sources opened2026-09-06. These publications support an assigned synthetic
+law, not general damping calibration for all real objects or two-body materials.
+No downloaded code/weights executed and no coefficients fitted to our examples.
+
+For angular damped frequency w=2*pi*f, the oscillator equations give
+`lambda=w²+d²`, `d=(alpha+beta*lambda)/2`. The stable smaller root is
+`d=(alpha+beta*w²)/(1+sqrt(1-alpha*beta-beta²*w²))`.
+`physical_sound_objectfolder2_rayleigh.py` uses the published constants, rejects
+unknown/non-one-hot materials and invalid frequency domains, and leaves neural
+frequency, gain and occupancy unchanged. Glass/Iron constants exist in the
+formula helper; this does NOT extend the trained network's five-material input
+vocabulary. Compact averaging is approximate, so validation uses full targets.
+
+`objectfolder2-rayleigh-source-2026-09-06/verification.json`: all5309full modes
+across all nine open objects match with max relative6.66134e-16. The declared
+numeric criterion is1e-12, not an audio acceptance threshold. Treating damped
+frequency as undamped gives up to1.917%error on wood, so that shortcut is rejected.
+Reading open DEV here verifies source algebra, not a new pristine holdout claim.
+
+Frozen counterfactual `objectfolder2-rayleigh-render-2026-09-06` uses geometry,
+assigned material and the same f5e5e578…network only. Learned decay is preserved
+in every NPZ; only rendered damping changes. All nine frequency/gain/occupancy
+arrays are EXACTLY unchanged. No target acoustic input or per-wave level repair.
+
+| Full-teacher DEV mean | Raw channels | Analytic decay | Size-scaled control |
+| --- | ---: | ---: | ---: |
+| Spectrum | 3.469048 | 1.168976 | 1.153514 |
+| Envelope | 7.347270 | 1.164393 | .703200 |
+| Log RMS error | .838418 | .579238 | .409395 |
+
+`objectfolder2-rayleigh-assess-2026-09-06`: **REJECT_QUALITY_ADVANTAGE** remains.
+The material-inconsistent tail is a verified major cause, not the whole failure.
+TRAIN means.745066/.598729/.831938; correcting decay does not solve field fit.
+Prior compact NN retains better DEV spectrum/envelope(.987302/.562240), while
+analytic-decay channels improve level(.579238 versus.649822). Preserve both;
+do not present this tradeoff as a general quality win or silently promote it.
+
+Next: frozen-model size self-similarity on TRAIN geometry, using the exact
+damped/undamped mapping and the published material law, with audible examples.
+This tests dimensional conditioning before another fit; absolute amplitude,
+mass-normalized ports, pressure and interacting-striker claims remain excluded.
+Do not repeat channel-width/occupancy/loss/phase/epoch/seed variants. In this
+synthetic source model, decay is not an independent property to learn freely.
+
+Checks:25focused tests PASS;105new full WAVs finite float32/44100Hz/peak≤.5;
+72standalone saved-parameter replays EXACT,9counterfactual f/g/mask identities
+EXACT. Fit strace reads only compact TRAIN data plus its own output weights for
+hashing; raw/analytic rendering reads geometry inputs and own weights, no target
+acoustic files, teacher checkpoints or INET connection. Ruff/diff/local links
+PASS. No Cargo/host-check/ProductCheck for bounded lab-only Python. The context
+skill preserves the verified material-law constraint and rejected raw candidate;
+roadmap and engine authority remain unchanged.
+
+Reproduce with channels.py `fit --data COMPACT --output FIT`, then `render
+--data COMPACT --fit FIT --output RAW`; rayleigh.py `verify --data FULL --output
+VERIFY` and `render --data COMPACT --fit FIT --output ANALYTIC`; assess both using
+existing shared_assess.py with **FULL** data. Use the established
+`lab/scripts/physical_sound_objectfolder2_` prefix, Python environment and
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Output directories must be new.
+
+## 2026-09-06 — Frozen shared network ignores size; reusable pole transport
+
+Primary: [steel, wood, ceramic: neural profiles resized analytically](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-size-final-2026-09-06/steel-wood-ceramic-profile-size-variants.wav),27s.
+Objects23/29/66 in that order, each at .8/1/1.25 linear size,3s per item.
+[Fresh neural predictions for the same sizes](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-size-final-2026-09-06/steel-wood-ceramic-neural-size-variants.wav)
+use the same per-object gain. This is a TRAIN self-similarity experiment, not
+unseen-shape evaluation, real recordings or a newly trained model.
+
+Previous experiment turn was progress (size probe and audible evidence);
+the intervening conceptual answer alone was no progress. Resumed pending QA
+handles37467/74900 both returned terminal success, not an assumed live wait.
+Completed the runnable probe with both galleries and verified a fresh render.
+
+`physical_sound_objectfolder2_size_probe.py` uses frozen f5e5e578…channel weights
+and Rayleigh decay. For six TRAIN geometries, change all three log dimensions by
+log(r), preserving normalized point cloud/contact coordinates. Compare fresh NN
+output against transport of its OWN baseline prediction, never a target profile.
+Only baseline natural frequencies≤10kHz are transported; compare the corresponding
+≤10kHz/r band in the fresh prediction. This avoids treating unknown modes above
+the original Nyquist limit as observed data when enlarging an object.
+
+[Deep-Modal section4.3 equation11](https://hellojxt.github.io/DeepModal/ACMMM20_ModalSound.pdf)
+(opened2026-09-06) describes inverse-size natural-frequency scaling and conversion
+between damped/undamped frequencies. Implemented `lambda=((2*pi*f)^2+d^2)/r^2`,
+`d_new=(alpha+beta*lambda)/2`, `f_new=sqrt(lambda-d_new^2)/(2*pi)` using the
+previously verified OF2 material constants. Nonoscillatory/aliased output rejects.
+Modal gains are deliberately unchanged: published amplitude scaling is not
+validated for these signed OF2 gains or listener pressure. This control tests
+pitch/decay only, not loudness, radiation, striker material or complete spectrum.
+
+Across12nonidentity conditions, fresh NN mean log-frequency Wasserstein error
+is.14552299 versus.14557220 for ignoring size. Six microscopic relative wins
+against that negative control are NOT six passes. Common-band mode counts match
+0/12; lowest natural-frequency mean absolute required-law error22.2111%.
+Actual lowest-frequency change from baseline averages only.6165%,max2.0261%.
+All six size1 controls are array-exact. **Reject learned size response**; do not
+claim model size generalization. Analytic transport enforces the declared law
+without a new fit; its baseline spectral/field errors remain unchanged.
+
+Evidence: external `objectfolder2-size-probe-2026-09-06` initial run and
+`objectfolder2-size-final-2026-09-06/size-probe.json` final reproducible galleries.
+Final44WAVs byte-identical to initial WAVs including the manually assembled
+initial transport gallery. All44finite float32/44100Hz mono,peak≤.5;
+36individual saved-parameter replays EXACT. Source-free strace reads only own
+fit and compact geometry inputs as external data; no INET. Final report hashes
+the rendering source before the subsequent lint-only `.items()` loop edit.
+29focused OF2 tests PASS; Ruff format/check PASS after that edit.
+No Cargo/host-check/ProductCheck: bounded external lab, no engine promotion.
+
+Reproduce: `lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2_size_probe.py
+--data COMPACT_DATA --fit CHANNEL_FIT --output NEW_DIRECTORY`, with the existing
+OMP/OPENBLAS thread settings. No training command is needed.
+Next investigate shared shape/data coverage and physical normalization before
+expanding same-source pairs; do not restart six-body decoder/epoch/material
+tuning. The context skill preserves this falsified size response and scope;
+full goal, authored fallback and roadmap remain unchanged.
+
+## 2026-09-06 — Ten new OF2 pairs; one shared 11-body training discriminator
+
+Primary: [new supported DEV: reference→six-body NN→eleven-body NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-expanded-comparison-2026-09-06/new-development-reference-six-eleven.wav),27s.
+Order37/40(polycarbonate cups)/53(ceramic bowl),3s each member of each triple.
+All three supported new DEV objects are included, not selected by sounding good.
+One gain per complete triple; no candidate-specific level matching. Two cups
+share a conservative family, so this is THREE objects but TWO new families.
+Both networks generate from geometry/material only; references are added later.
+
+Previous goal turn was progress: size evidence and reusable pole transport.
+This turn expands the shared training problem, not per-material fine-tuning.
+The [official OF2 download page](https://objectfolder.stanford.edu/objectfolder2-0-download)
+was reopened2026-09-06: first100-object archive and metadata, CC BY4 with original
+mesh-source terms retained. HEAD verified same3770228811bytes/ETag624aa041-e0b9204b.
+`physical_sound_objectfolder2_expand.py` fetches one256MiB range335544320–603979775,
+joins the existing320MiB prefix in memory-stream order, and extracts only bounded
+regular OBJ/ObjectFile members. No shell tar extraction, imports or unsafe pickle.
+Ten complete new pairs,20file hash/size checks PASS. Expected partial gzip EOF
+retained; no full-archive checksum claim. External `objectfolder2-expansion-2026-09-06`.
+
+New IDs30/37/40/47/53/59/72/78/91/96. Current vocabulary excludes30Iron/96Glass
+explicitly: **8/10 evaluated**, not silently substituting steel or pretending a
+helper's Glass constants extend the neural vocabulary. Their payload is retained,
+not executed or admitted. No exact mesh hash duplicates against old/new cohort;
+this is not complete semantic-identity proof. Mesh URLs missing in CSV remain
+missing, not invented attribution or a blanket redistribution permission.
+
+Acquisition assigned ID%5==0 to development before audio. BEFORE loading new
+audio, metadata showed YCB065 cup family37–46 and possible Top Paw53/oldDEV54
+relation. Conservatively reserve those families for development; keep the initial
+acquisition role in each row. This is not a claim of exact same geometry. New
+supported TRAIN47/59/72/78/91; DEV37/40/53. All old sixTRAIN/threeDEV roles unchanged.
+Combined DEV has six objects but FOUR conservative family groups, not six IID
+samples. No protected/one-shot roles accessed or reassigned.
+
+`physical_sound_objectfolder2_expanded_eval.py` prepares32geometrically selected
+in-support points/full modes per object:180/254/22/51/120/184/38/968 respectively.
+Teacher normalizer bounds determine supported queries, not sound quality; no
+clamping. Geometry-only files contain512normalized vertices/log3dimensions/
+five-material onehot/32normalized contacts. Full targets retained separately.
+`objectfolder2-expanded-data-2026-09-06` is external. Existing six-body compact
+weights5b569809… were first frozen/rendered/assessed on all eight new objects:
+`objectfolder2-expanded-{render,assess}-2026-09-06`. The original report's
+`all_new_to_frozen_model` field is accurate for that old model only; current code
+uses `expanded_cohort` and records evaluated training IDs.
+
+`physical_sound_objectfolder2_expanded_train.py`: same compact signed128-band
+targets, original six TRAIN plus five new TRAIN. Old compact arrays are unchanged;
+new packed counts22/75/91/31/149. `shared.fit` only replaces hardcoded body count
+with an explicit expected-ID set; default original six-only guard is retained.
+One68486parameter/2000Adam.001/seed42 fit, no new widths/losses/masks/epochs/seeds.
+Equal update budget is not a converged learning curve. All TRAIN modes sampled.
+`objectfolder2-expanded-fit-2026-09-06`, weights:
+`81cc9a90a9da5c1a4cf5b2f82823fa267aaba20a7c75896fa9feb56fecad1fdb`.
+Training source hash3c00ff25…; prior fits' hashes remain historical snapshots.
+Gain normalizer1.111693→1.117891, so a large scalar-normalizer jump is not evident.
+
+| DEV diagnostic, lower is better | Six-body NN | Eleven-body NN |
+| --- | ---: | ---: |
+| New spectrum | 1.278538 | 1.160924 |
+| New envelope | .901875 | .789246 |
+| New log RMS error | 2.372157 | 1.855107 |
+| Old spectrum | .987302 | .882339 |
+| Old envelope | .562240 | .739386 |
+| Old log RMS error | .649822 | 1.349487 |
+
+New comparisons in `objectfolder2-expanded-candidate-{render,assess}-2026-09-06`;
+old non-regression in `objectfolder2-expanded-old-{render,assess}-2026-09-06`.
+All six DEV object-weighted means: spectrum1.132920→1.021631 improves; envelope
+.732057→.764316 and log RMS1.510990→1.602297 regress. **REJECT general replacement**.
+Old assessment also reports REJECT_QUALITY_ADVANTAGE. New DEV level1.855107 is
+worse than fixed old-six nearest.417722/size-scaled.787553. These controls are
+held fixed to compare learning changes; no claim of beating an expanded11-body
+retrieval baseline. Synthetic metrics do not establish audible realism.
+Five newly trained objects improving is reconstruction, not new transfer credit.
+
+No further data-count/decoder/epoch/seed sweep. Next bounded research should
+discriminate persistent signed modal-field learning/target-identifiability and
+geometry/size/material confounding before another fit, using TRAIN-only causal
+controls and an audible artifact. More data helped new cases but did not close
+the existing level/field failure. Preserve raw failures, old weights and size law.
+
+Checks:35focused tests, Ruff check/format PASS;186full WAVs finite float32/44100Hz/
+mono/peak≤.5. Assessments verify100standalone exact saved-parameter replays;
+all3same-gain triples replay EXACT. Three render traces read only geometry/own
+weights plus hashing their already-written outputs; preparation/fit acoustic reads
+are TRAIN-only, no INET. Safetensors atomically writes a temporary file before
+hashing its final output: this own-output read is not training-data leakage.
+No Cargo/host-check/ProductCheck; external Python lab only, no runtime promotion.
+The context skill preserves the family exclusion and rejected general replacement.
+
+Reproduce expansion with `expand.py --prefix PREFIX --metadata CSV --output NEW`;
+`expanded_eval.py prepare`, then `render`/`assess`; `expanded_train.py prepare`
+from old compact/new full data, then `fit`. Evaluate candidate using explicit
+`--weights-sha256 81cc9a90…` (full hash above), including old shared render/assess.
+`expanded_eval.py compare --baseline OLD_NEW_RENDER --generated CANDIDATE_RENDER`
+builds the primary triples. Use the established `physical_sound_objectfolder2_`
+filename prefix/environment and distinct external output directories.
+
+## 2026-09-06 — Magnitude, not sign-only repair; one factorized shared candidate
+
+Primary: [new DEV: reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s,
+37/40/53, same gain per triple. These model generations are source-free.
+Separate [steel TRAIN oracle diagnostic](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-field-cause-2026-09-06/object-23-comparison.wav),18s,
+is target-assisted, NOT a newly improved standalone sound. Its order is target,
+learned field, correct-sign oracle, correct-magnitude oracle, target mode flip,
+global field-RMS oracle. Do not confuse these two artifact categories.
+
+Previous turn was progress: shared11-body fit and non-regression evidence.
+Repeated signed-field failure triggered bounded research before another fit.
+Competing explanations: H1 a simple global level error; H2 wrong signs dominate;
+H3 magnitudes/spatial structure are lost in signed regression; H4 missing shape/
+size/material information or arbitrary modal coordinates complicate the target.
+
+Primary sources opened2026-09-06:
+[OF2 section4.2 equations6–8](https://par.nsf.gov/servlets/purl/10341945)
+describe modal coordinates and summing predicted signed gains with oscillators.
+Its per-object teacher does not supply a physical output/radiation port here.
+[SignNet/BasisNet, v4](https://arxiv.org/abs/2202.13013) establishes sign/basis
+symmetries for eigenvectors; this is not evidence of a bug in OF2 data.
+[NeuralSound v4 sections3/4.2.3 and appendixA.3](https://arxiv.org/html/2108.07425v4)
+uses physical-operator residuals/Rayleigh–Ritz and separate radiation. Its direct
+eigenvector-regression ablation reaches about.85relative error versus1for zero.
+This motivates questioning direct coefficient regression, not a claim that
+NeuralSound has been reproduced or would solve our task unchanged. The author's
+PDF was too large for browser extraction; actual arXiv HTML sections were read.
+No downloaded implementation/weights or new payload executed.
+
+`physical_sound_objectfolder2_field_cause.py`: frozen81cc9a90…; ALL11TRAIN compact
+targets, all32contacts for coefficient diagnostics, fixed first contact for audio.
+Every variant receives oracle poles/count/rank; isolate field errors without
+claiming standalone quality. Correct-sign oracle preserves predicted magnitudes;
+correct-magnitude oracle preserves predicted signs. One all32contact field-RMS
+scalar tests global calibration; zero predictions remain unrepaired. Deterministic
+alternating mode signs test target sensitivity, not a phase/sign search.
+
+| Mean first-contact diagnostic | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Learned field, oracle poles | .789398 | .676857 | 1.475810 |
+| Correct signs, predicted magnitudes | .768158 | .676323 | 1.666127 |
+| Correct magnitudes, predicted signs | .604324 | .537368 | .307396 |
+| One field-RMS scalar | 1.693870 | 1.652916 | .804634 |
+| Alternating signs of target modes | .403949 | .323042 | .118011 |
+
+H1 is insufficient: one scalar worsens spectrum/envelope. H2 is insufficient:
+even perfect signs do not close level/field error. H3 has a useful discriminator:
+magnitude oracle improves all audio means substantially. Yet coefficient asinh
+MSE increases .443905→.692662 for that oracle; the original signed coefficient
+objective can prefer a quieter field to a better-magnitude audio reconstruction.
+H4 remains unresolved: sign/magnitude intervention neither tests encoder quality
+nor proves an arbitrary source eigenbasis caused learning failure.
+
+Positive control uses only existing `modal3d-port-data-2026-09-06/train-00.npz`,
+hash35548eaa…. For consistent sign flip a→aS, physical residues a_p*a_q and the
+mechanical waveform are EXACT; summing modal coordinates changes the waveform.
+The latter control's spectrum/envelope/level change.035713/.011522/.009556.
+Global polarity has exactly zero audio-metric difference for all11OF2examples.
+This distinguishes a coordinate convention from a physical observable, but OF2
+K/M/U/output ports are unavailable: do NOT claim an actual OF2 eigenbasis mismatch.
+Do NOT turn signed OF2 gains into positive self-admittance or remove signs as repair.
+Control audio uses stated synthetic1%damping and referenceE/rho/length, NOT pressure.
+
+### One evidence-backed magnitude experiment
+
+`physical_sound_objectfolder2_magnitude.py` adds a30851parameter positive magnitude
+head to the frozen68486parameter core:99337total(+45.0%), explicitly extra capacity.
+Same field architecture, initialized from the old field, softplus predicts
+asinh(abs(g)/scale); reconstruct magnitude with sinh and multiply by ORIGINAL
+neural signs. Zero old gains stay zero. Encoder, mode count, frequencies, damping,
+sign field and normalizers stay exact. This is factorization+extra capacity, not
+a pure loss ablation or physically basis-invariant source model.
+One2000Adam.001/seed42 fit on the same11TRAIN, no new DEV reads/checkpoints/seeds.
+`objectfolder2-magnitude-fit-2026-09-06`, weights
+`ef22695e230b3846e9747f0da98d9a99a088f6f0d5a903a5a5ed2d16b5f1a400`;
+allTRAINmodes sampled, all core tensors EXACT unchanged. Generic expanded render
+only gains model-class/predictor injection; defaults preserve the old model path.
+
+| DEV diagnostics | Old11-body core | Magnitude-factorized |
+| --- | ---: | ---: |
+| New spectrum | 1.160924 | 1.330186 |
+| New envelope | .789246 | .860248 |
+| New log RMS error | 1.855107 | 1.603526 |
+| Old spectrum | .882339 | .943747 |
+| Old envelope | .739386 | .591543 |
+| Old log RMS error | 1.349487 | .678518 |
+
+Roots`objectfolder2-magnitude-{new,old}-{render,assess}-2026-09-06`.
+Level improves on both DEV groups, but spectrum regresses on both and new
+envelope worsens. **REJECT general replacement / REJECT_QUALITY_ADVANTAGE**.
+Old six-body compact NN still has oldDEV.987302/.562240/.649822; do not promote
+the new model solely by comparing it to the already-regressed11-body baseline.
+Fixed nearest/size controls remain stronger on level. TRAIN gains are not transfer.
+No claim of perceptual realism, new supported materials, radiation or engine use.
+
+Next discriminator: frozen magnitude candidate with oracle pole/count controls
+on TRAIN to distinguish remaining field error from frequency/shape conditioning,
+then decide whether physically normalized pole learning/operator residuals are
+justified. No sign/gain/width/epoch/seed variants or another acquisition sweep;
+the sign-only/global-scalar paths are now explicitly falsified as complete fixes.
+
+Checks:42focused tests/Ruff PASS;199full WAVs finite float32/44100Hz/mono/peak≤.5.
+66oracle and68standalone saved-parameter replays EXACT;11oracle galleries,
+the FEM gallery and3NNtriples replay EXACT. All17generated objects preserve
+original count/frequency/decay/signs exactly; old gains are saved separately EXACT.
+Traces verify TRAIN-only acoustic reads for diagnosis/fit, geometry+own weights
+for generation, own-output hashing and no INET. No Cargo/host-check/ProductCheck.
+`maintain-task-context` preserves oracle-vs-generation distinction and rejected
+repairs; authored fallback, full goal and stable roadmap unchanged.
+
+Reproduce `field_cause.py --data EXPANDED_TRAIN --fit ELEVEN_FIT --ports PORT_DATA
+--output NEW`; `magnitude.py fit`, then `render-old`/`render-new`. Assess with
+existing shared/expanded assess against FULL targets. Expanded `compare` now
+accepts `--baseline-weights-sha256` so before/after identities and filenames are
+accurate; use full81cc…/ef226…hashes above. Established filename prefix/environment.
+
+## 2026-09-06 — Frozen magnitude diagnosis; native geometry versus CSV scale
+
+Primary diagnostic: [steel mug, five interventions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-diagnostic-2026-09-06/object-23-comparison.wav),15s.
+Order: compact target, unchanged standalone NN, correct-count oracle,
+correct-count/frequency/decay oracle, correct-count/contact-field oracle.
+The last three use target information: NOT new standalone generations or an
+improved trained model. Same gain across all five; no listening-based selection.
+The [previous standalone DEV comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav)
+remains the latest independently generated neural candidate, still rejected as
+a general replacement. The intervening explanatory user response was no progress;
+this continuation recovered, verified and completed the pending diagnostic.
+
+`physical_sound_objectfolder2_magnitude_diagnose.py` uses the exact frozen
+ef22695e… weights and all11TRAIN compact targets, all32contact fields, first-contact
+audio. Correcting count also changes normalized rank queries: do not attribute
+its result solely to the number of oscillators. Poles means frequency AND decay.
+
+| Mean TRAIN diagnostic against compact target | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Unchanged standalone | .852866 | .637623 | .372471 |
+| Correct count/rank queries | .857221 | .635166 | .363030 |
+| Correct count and poles | .682813 | .548968 | .419511 |
+| Correct count and contact field | .748614 | .302882 | .095536 |
+
+Count alone is not a principal TRAIN error:9/11counts already match, with exact
+same-count query controls; object7 predicts150 versus149,75 predicts112 versus114.
+True poles improve mean spectrum but do not fix level; true fields substantially
+improve envelope/level but do not fix spectrum. Neither intervention closes all
+errors, and individual objects can regress (e.g.29with true poles). No perceptual
+realism/generalization claim follows from these TRAIN/oracle comparisons.
+
+### Adjacent-layer scale discriminator
+
+Before another fit, compared the pinned CSV, original OBJ coordinates, prepared
+geometry lengths and source AudioNet scalar coordinate intervals, TRAIN only.
+The [official supplement, section B](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf)
+defines scale as longest axis-aligned bounding-box side in meters and says it is
+used in modal analysis. The [pinned official README](https://github.com/rhgao/ObjectFolder/blob/3c6cd8930b2dcbadb6d94dadf2745c956bdcd236/README.md)
+and directly read `OF_render.py` normalize input coordinates using AudioNet's
+scalar xyz interval; they provide no CSV-driven coordinate-rescaling step.
+Raw GitHub browser fetch failed; GitHub page and cached pinned source were read.
+
+| TRAIN object | Native longest side | CSV scale | Native/CSV |
+| --- | ---: | ---: | ---: |
+| 7 | 1.799648 | 1.8 | .999804 |
+| 23 | .116984 | .082 | 1.426634 |
+| 29 | .206003 | .2 | 1.030015 |
+| 47 | .191112 | 1.2 | .159260 |
+| 59 | .278446 | .278 | 1.001604 |
+| 66 | .159683 | .16 | .998019 |
+| 72 | .318299 | .318 | 1.000940 |
+| 75 | .441819 | .442 | .999590 |
+| 78 | .103581 | .104 | .995971 |
+| 82 | .338102 | .338 | 1.000302 |
+| 91 | .291686 | .292 | .998925 |
+
+For every body, source scalar interval width / mesh global coordinate span lies
+in [.999498476,1.000000026];99.9299–100%of original vertices are inside support.
+This supports native mesh/source coordinate consistency, NOT independent proof
+of absolute physical calibration. In particular23's scalar span≈.14812 is NOT
+its longest AABB side≈.116984: scalar extrema mix different axes and origins.
+The CSV conflicts for23/47 cannot justify resizing either data or sound. Retain
+native coordinates and all original roles/targets; no automatic CSV correction,
+no training rerun and no assertion that this explains shared-model failure.
+The mesh/checkpoint hashes were checked against original extraction/expansion
+manifests; CSV hash remains5565b7e8… . Only the11TRAIN source models were loaded
+through the existing restricted numeric loader. No new source payload acquired.
+
+Read-only mesh-topology feasibility check: all11original meshes have two faces
+per undirected indexed edge. This is NOT a self-intersection/volume/quality check.
+23/47/72/91contain duplicate-position vertices;7includes quads. Ceramic59has4674
+unique vertices/9344triangles,66has21263/42522,78has6850/13700. This makes59the
+smallest inspected ceramic non-cuboid candidate for an operator-based control,
+selected by geometry cost, not sound. No mesh repaired, tetrahedralized or solved.
+
+Decision: no more count/sign/global-gain/width/epoch/seed sweeps. Direct signed
+field targets still lack physical output ports/operators; normalizer checks do
+not supply those missing quantities. Next executable discriminator is one
+native-geometry non-cuboid TRAIN control (59) with explicit elastic operators,
+physical input/output ports and audible vibration, before attempting shared
+operator-residual learning. Use the published ceramic material parameters;
+do not substitute a cuboid or silently repair/resize the source mesh. A physical
+solver control is neither a new neural model nor microphone-pressure realism.
+
+Checks:44focused OF2 tests, Ruff lint/format PASS. All66WAVs finite float32 mono
+44100Hz/peak≤.5;55saved-parameter replays and11gallery concatenations EXACT.
+All11standalone parameter sets EXACT equal the previous magnitude renders.
+Diagnostic script/weight pins match;26external read-only opens in its trace
+are restricted to11TRAIN data and own weights, no INET. No live diagnostic job.
+No Cargo/host-check/ProductCheck: bounded external Python lab, fallback unchanged.
+
+Reproduce with `physical_sound_objectfolder2_magnitude_diagnose.py --data
+objectfolder2-expanded-train-2026-09-06 --fit objectfolder2-magnitude-fit-2026-09-06
+--output NEW_EXTERNAL_DIR`, using full external-root paths and four-thread
+environment. Existing output `objectfolder2-magnitude-diagnostic-2026-09-06`
+contains `diagnostic.json`,55parameter NPZs and66WAVs; adjacent `.trace` records
+reads. The context skill preserves the oracle-only result and no-CSV-resize
+decision so neither becomes a false standalone/physical-calibration claim.
+
+## 2026-09-06 — Internet ceramic geometry → physical ports → audible FEM control
+
+Primary: [three P2 physical contacts, 9 seconds](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p2-audition.wav).
+Numerical comparison: [P1→P2 for each contact, 18 seconds](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p1-p2.wav).
+This is a newly calculated physical control, NOT newly trained neural audio,
+microphone pressure, full-band convergence or a perceptual-realism result.
+Previous goal turn was progress: committed pole/field discriminator and native
+coordinate audit. No new roadmap, runtime adapter, training sweep or source payload.
+
+### Two strict failures; bounded research and explicit approximation
+
+`physical_sound_objectfolder2_elastic.py` starts with TRAIN59, the smallest
+inspected ceramic non-cuboid mesh. Original mesh SHA256:
+`0458fb14f62b3fb1e612d27bda0cc3fd6b7ced872f92d02b5a0cec44b122f93a`.
+The initial one-connected-surface precondition was incorrect for a hollow solid:
+59 has an outer positive shell and an inner negative shell. The corrected check
+retains both and verifies a cavity seed inside both enclosures by solid angle.
+No coordinates or original triangles are changed by that correction.
+
+TetGen 0.8.3, preserving vertices/facets without boundary splitting, rejects59
+with a segment/facet self-intersection (1427/1429 versus1410/1426/1430), then
+rejects the next-smallest existing ceramic78 (414/159 versus145/156/157).
+Both failures remain recorded; neither object's prior TRAIN role/target changes.
+59's initial `_skipped.node/.face` were automatically emitted in cwd; moved intact
+to external `objectfolder2-elastic-59-initial-failure-2026-09-06`. The runner now
+isolates library cwd side effects externally;78 has a `failure.json` and native
+diagnostics in `objectfolder2-elastic-78-mesh-2026-09-06`. No source mesh repaired.
+A closed tetrahedron positive control succeeds with exact vertices and volume1/6,
+so the failure is not a universally broken wrapper or wrong face-index convention.
+
+After two strict failures, bounded competing hypotheses were: H1 invalid API/
+indices, H2 real input self-intersections incompatible with a strict PLC mesher,
+H3 hollow-body topology mistaken for disconnected solids. The positive control
+and oriented-shell/seed checks discriminate H1/H3; native TetGen diagnostics
+support H2. No attempt to tune a mesher threshold to suppress the rejection.
+
+Primary sources opened2026-09-06: [TetGen array API](https://tetgen.pyvista.org/api.html),
+[fTetWild paper v2 sections2.1/3.1–3.3](https://arxiv.org/html/1908.03581v2),
+[authors' implementation](https://github.com/wildmeshing/fTetWild), and
+[PyVista wrapper documentation](https://github.com/pyvista/pytetwild/blob/main/README.rst).
+The paper explains why strict meshing fails on imperfect surfaces and permits
+an explicitly bounded surface approximation. This does not promise exact input
+triangle preservation, feature topology, or acoustic accuracy for our object.
+
+Explicit alternative: pytetwild0.4.2, default relative envelope.001 and edge
+length.05, four threads, maximum80 optimization iterations, no custom sizing
+field, exterior filtering enabled. The package's top-level import unexpectedly
+requires optional PyVista; the inspected shipped native array interface was
+used directly without altering installed code, fake modules or a VTK installation.
+Only external overlays were installed: TetGen wheel409506bytes/SHA32ea369a…,
+pytetwild3111366bytes/SHAe387d6c2…. Existing scikit-fem12.0.2 overlay reused.
+Published/shipped software notices remain with overlays; no shipping dependency
+or blanket redistribution claim for source geometry is introduced.
+
+`objectfolder2-elastic-59-wild-2026-09-06`:7752nodes/28110tetrahedra,
+mesh SHA256 `9dbbdbf414e7160ba8a0812cf7e2f773c4ef8b0627b806ce8ddc0d104be83bf5`.
+Volume .002106739721m³ versus original signed-shell .002110606354m³:
+relative change .1832001%. Both outer/inner shells survive. Explicitly NOT native
+boundary identity. Requested envelope .403844mm; independently checked all
+boundary vertices/face centroids, exact nearest-triangle distances per sample:
+output→source17036samples/max.255668mm; source→output14018/max.312552mm.
+Both sampled directions are inside the requested envelope. This is not a
+continuous Hausdorff proof or independent physical-scale calibration.
+Geometry-only result: `objectfolder2-elastic-59-geometry-2026-09-06`.
+
+### Physical solve and post-generation reference discriminator
+
+`physical_sound_objectfolder2_elastic_solve.py`: free, unclamped 3D elasticity,
+P1/P2 on the SAME mesh; six rigid modes explicitly checked then excluded from
+vibratory sonification, followed by32positive elastic modes. Dimensionless
+operators use the existing scikit-fem forms, with exact coordinate/material
+scaling restored. Ceramic E=7.2e10Pa/rho=2700kg/m³/nu=.19 and Rayleigh alpha6,
+beta1e-7 follow [OF2 supplement table1](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf).
+Negative spectral shift avoids singular free-body factorization; it does not
+clamp the object. Store sparse K/M, all38 eigenvectors and mass normalization.
+Three deterministic geometry-selected inward-normal input ports and one fixed
+outward-normal observation port give residues a_p*a_q and positive self a_p².
+No arbitrary source gain signs or implicit pressure output are reused.
+
+Declared .001N.s impulse, not a striker-material/velocity identification. Output
+is non-rigid displacement in meters. For listening, one common factor3029667.438
+converts BOTH solvers/all three contacts to PCM with peak.5; no independent
+loudness repair. Audio metrics use this same conversion to avoid PCM epsilon
+floors overwhelming microscopic meter units; raw RMS meters are also reported.
+Solver-directory WAVs retain raw meter amplitude and are intentionally quiet;
+use the linked audition files. Consistent eigenvector sign flips and zero impulse
+produce exact waveform identities. No radiation, fluid cavity coupling or microphone.
+
+| Calculation | DOFs | Time | Max elastic residual | Mean lowest32 frequency error vs source |
+| --- | ---: | ---: | ---: | ---: |
+| P1 | 23256 | 5.4s | 2.41e-9 | 18.2651% |
+| P2 | 147873 | 105.9s | 2.30e-8 | .14149% |
+
+Source acoustic data were read only AFTER both generations. Target9f3c317b…
+is existing TRAIN59 full metadata, same original mesh hash; source damped poles
+converted to natural frequencies as sqrt((2πf)²+d²). Compare ordered first32,
+not a nearest-frequency or coefficient-matching search. P2 maximum deviation
+.22563%, first frequencies1230.676/1759.165Hz versus1227.905/1757.869Hz.
+This is descriptive frequency agreement, not a preregistered admission threshold,
+port-field convergence or independent real recording. P1/P2 audio differences
+remain large (spectrum1.28–1.38); frequency agreement does not prove field/level.
+The source has120modes; this control retains32, up to about9.7kHz, NOT full-band.
+
+P2 modes SHA256 `ab844a85959bbda75ed4ea9aa84dee512d23658cbef74f563c82760e29f272a8`;
+P1 `912769659d66a2a744a64ed2069f6c943b95faf2b87f40e48874ea96615bb6fb`.
+Roots `objectfolder2-elastic-59-{p1-fixed,p2,audition,reference}-2026-09-06`.
+Initial P1 completed audio but failed JSON serialization of NumPy DOF count;
+explicit int conversion fixes reporting. Initial files are retained and four
+WAVs exactly match the fixed rerun. P2 solver source hashc1246408…; wild mesh
+source ea8a0383… precedes the later unused strict-options dict-literal lint fix.
+
+Checks:48focused OF2 tests PASS;16final WAV QA and12individual replays PASS/EXACT,
+galleries exactly reconstruct. Saved K/M/U independently reproduce both residual
+and mass-orthogonality checks (max1.33e-15); nonnegative self residues checked.
+P2 trace189external read-only opens: geometry and solver overlay only, no target
+acoustics/INET. All runs terminal. No Cargo/host-check/ProductCheck needed.
+
+Reproduce: `elastic.py --backend wild --object-id59 --manifest EXPANSION_JSON
+--output NEW`, native wrapper directory on PYTHONPATH; then `elastic_solve.py
+--order1`/`--order2 --mesh MESH --output NEW`, scikit-fem overlay on PYTHONPATH.
+`elastic_assess.py geometry`, `compare` and post-generation `reference` create
+the independent diagnostics and audible galleries; use full established filename
+prefix, option/value spaces, external paths, four-thread environment. Exact
+CLI arguments are discoverable via `--help`; no output directory is overwritten.
+
+Next: use this physical-operator/port route across a small existing multi-object
+TRAIN set for ONE shared model, preserving object-family DEV separation. Start
+with the already failed78 through the explicit approximate backend, not another
+59 loss/epoch/mesh/phase sweep or a new per-object neural fit. Source frequency
+agreement supports the generator route; material/shape/contact generalization,
+field/radiation validation and all non-impact goal branches remain open.
+The context skill preserves strict failures, explicit approximation, raw-meter
+versus audition units and physical-control versus neural-generation distinction.
+
+## Shared physical fields and geometry-only correction discriminator — 2026-09-06
+
+Outcome: one shared trained model now generates physical-port parameters for
+three TRAIN ceramics and one unseen-by-fit ceramic, but **REJECT quality advantage**.
+A subsequent frozen-network physical correction improves its audio but is beaten
+by a non-neural initialization. This is not a per-object neural fit or a promoted
+engine model. Full physical-sound goal and existing fallback remain unchanged.
+
+Audible [DEV88 reference → standalone NN → NN+physics → P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-ritz-probe-assess-2026-09-06/contact-0-comparison.wav),
+12s. Contacts24/47 have the same comparison next to it. One common meter-to-PCM
+gain across ALL48contacts and variants, not independent loudness repair.
+Standalone [three NN contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-physical-shared-assess-2026-09-06/object-88-three-neural.wav),9s,
+uses the earlier per-comparison gains: do not infer relative contact level from
+that gallery. No personal listening or perceptual acceptance claim.
+
+### Multi-object physical data and shared fit
+
+Existing roles are explicit: TRAIN59/66/78, DEV88. No new source payload or role
+promotion;88 was already open development. The expanded mesh resolver supports
+both existing archive manifests and the same approximate fTetWild settings.
+Meshes66/78/88 respectively:22070/7278/6829nodes,80234/26244/23651tetrahedra;
+volume changes .32705/.20736/.09843%. Geometry checks use2048 evenly spaced
+vertex/centroid samples per direction; all within requested envelopes, not a
+continuous Hausdorff, all-point or field convergence proof. Mesh hashes:
+
+- 66: `d5ce0a19363cc78d2485e5a215b9a9a092074e22e1f979710258b51db5850f13`.
+- 78: `37b6880af918f54c59366e2370ec2f48c3d0158988a4b98b782362c6985a784c`.
+- 88: `2073486ffd53f704dcafca0cae8311779dae538c9cb4c386b4176ca51b6c7a01`.
+
+Same P2 free elasticity, six rigid then32elastic modes, E/rho/nu/Rayleigh constants
+unchanged. 66 exceeds the old200000DOF limit: explicit `--max-dofs 500000`,
+421791DOFs,24GiB virtual-memory process cap,600.81s,16528588KiB peak RSS;
+residual5.53e-8. Default limit stays200000, residual tolerance stays1e-7.
+78:138465DOFs/98.63s/7.35e-9;88:127950DOFs/86.46s/9.25e-9. No P1 substitution.
+Roots `objectfolder2-elastic-{66,78,88}-{wild,geometry,p2}-2026-09-06`.
+All12new FEM WAVs and9coefficient replays, sign/zero/self-residue checks PASS.
+
+`physical_sound_objectfolder2_physical_shared.py` stages prepare/fit/render/assess:
+512deterministic surface points encode shape; first48 define contacts, first32
+TRAIN contacts have labels, last16 are withheld. One fixed outward observation
+at query0; inward impulse. Complete three-component mode vectors at query points,
+not signed AudioNet gains. Per-mode rank-one physical port-matrix loss is globally
+sign invariant; there is no band merging or scalar-energy replacement. Independent
+frequency head predicts dimensionless natural poles; length/E/rho scale analytically.
+Only ceramic nu=.19 trained; no general-material/striker/contact-law/radiation claim.
+
+One74432parameter network,2000Adam steps/lr.001/seed42, no DEV selection. Fit files
+contain only first32TRAIN labels, no held contacts. Weight SHA256
+`73e60eaa195fd40dfac80b48e2aaece1c8a343c8ab6ce6466c69ec85558bba6b`;
+source `459404a6556e1e5f07058198eed2e3f71f8f8bfa8ea51a729ac37287500d406e`.
+Roots `objectfolder2-physical-shared-{data,fit,render,assess}-2026-09-06`.
+Inference reads only geometry and own weights; fit/render traces confirmed.
+52WAV QA,12NN coefficient replays,12triples,4galleries,4NN parameter replays PASS.
+
+Nearest baseline uses normalized-cloud Chamfer and first32 TRAIN field labels
+only, with analytic target-size scaling. TRAIN's own object may be nearest;
+DEV88 selects59. Metrics mean spectrum/envelope/absolute log RMS, lower is better:
+
+| Evaluation | Shared NN | Nearest TRAIN |
+| --- | --- | --- |
+| 59,16held contacts | 2.4112 / 1.9407 / 1.0847 | 2.0696 / 1.8281 / .9430 |
+| 66,16held contacts | .9525 / .8554 / .6012 | 1.1078 / 1.4476 / .7892 |
+| 78,16held contacts | 1.1624 / 1.0987 / .8657 | .6843 / .5575 / .5511 |
+| 88,48whole-DEV contacts | 1.7559 / 1.6172 / .9347 | 1.1457 / .8621 / 1.7898 |
+
+NN mean frequency errors59/66/78=.1053/.08039/.03515%, but88=17.2902%.
+TRAIN interpolation success on66 does not establish object transfer.96cases are
+not96independent objects; all are synthetic displacement, not recorded pressure.
+
+### Bounded research and executed correction discriminator
+
+Competing hypotheses: H1 independent learned poles and sparse surface fields are
+not a physically consistent modal subspace; H2 the frozen subspace is nevertheless
+a useful numerical warm start; H3 numerical correction alone explains any gain.
+[NeuralSound v4](https://arxiv.org/html/2108.07425v4), opened2026-09-06,
+sections4.2.3–4.2.4/A.2/A.3 motivates Ritz extraction, residual-based learning and
+classical refinement of a learned subspace. It also reports poor direct-eigenvector
+regression. This motivates a discriminator, not a claim our point network or
+experiment reproduces that paper's operator-trained sparse U-Net or radiation.
+
+`physical_sound_objectfolder2_ritz_probe.py generate`: openDEV88, freshly assemble
+P2 K/M from geometry; analytically remove six mass-orthonormal rigid fields.
+Evaluate frozen NN at all P2 DOF coordinates (including previously unconstrained
+interior), mass-orthogonalize and Ritz extract32modes. Strong classical control:
+fresh P1 eigensolve on the SAME mesh, exact midpoint prolongation into P2.
+Both receive ONE identical `(K+1e-4 M)^-1 M` step followed by Ritz extraction.
+No target eigenvectors, recordings or cached target operators enter generation;
+trace has10distinct external data paths: geometry, own weights, own output hashes.
+No INET calls. P1's extra eigensolve cost is included, not called equal total work.
+
+Raw NN Ritz has frequencies68.44–173.79kHz and zero audible modes. First assessment
+correctly failed the renderer's no-audible-modes guard. Assessment now records
+that variant as `not_renderable` and compares the remaining variants; no pitch
+shift, fabricated silence or generation rerun. Generation source012777c4… predates
+this assessment-only failure-reporting change; generation algorithm unchanged.
+
+| Method,48DEV contacts | Spectrum | Envelope | Log RMS | Full32 frequency error |
+| --- | ---: | ---: | ---: | ---: |
+| Standalone NN | 1.755913 | 1.617041 | .934690 | 17.2902% |
+| P1 Ritz, no correction | 1.121649 | .697771 | .793854 | 30.0799% |
+| NN + one correction | .652213 | .138112 | .091971 | 23.1006% |
+| P1 + one correction | .140007 | .014458 | .028334 | 2.8095% |
+
+NN correction has27/32audible modes versus32/32P1; frequency means include all32,
+not selectively matched modes. NN spectrum improves despite worse full32 pole
+error. Max residual NN.602 versus P1.130: neither is a converged exact solve.
+Orthogonality errors≤5.64e-13. NN initialization.074s, P1 initialization3.016s,
+shared factorization34.770s, inverse solves3.903/3.894s, geometry assembly23.714s;
+total71.259s. These are one-run CPU measurements, not proven speed advantages.
+One correction from the better classical subspace beats the NN subspace: H1/H3
+supported; H2 quality advantage rejected here, not all learned-solver approaches.
+
+Roots `objectfolder2-ritz-probe-2026-09-06` and
+`objectfolder2-ritz-probe-assess-2026-09-06`; adjacent generation `.trace`.
+Corrected parameters SHA256 NN
+`57419a29928d97dc025220ca5f07183029adfb09dacd5ce16422e81043a9339f`, P1
+`2e3141bb38aeb9bc322ee501ecc9c9c47d1fc5f75a016d95a2c30fa6a55561a8`.
+15WAV QA,12wave replays,3comparisons, hashes/read trace PASS.57focused OF2tests,
+Ruff lint/format PASS. No Cargo/host-check/ProductCheck: bounded Python lab only.
+
+Next experiment must change the physical learning mechanism: shared TRAIN
+operator-consistent subspace prediction through K/M/Ritz/residual, with P1+one
+correction as the control. Do not run frozen-NN iteration-count, point-count,
+epoch/width/seed or per-material sweeps. This diagnostic did NOT train an
+operator-consistent network and did not establish realistic pressure, either
+striker's material, water/rain/friction/rolling/destruction or arbitrary objects.
+The context skill preserves this failure so future work does not mistake physical
+refinement's gain for learned transfer or repeat sparse field-fitting variants.
+
+## Shared operator-objective fit: improved hybrid, unresolved TRAIN gap — 2026-09-06
+
+New [12s comparison: reference → previous hybrid → newly trained hybrid → classical](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-operator-assess-2026-09-06/contact-0-comparison.wav).
+Same files for contacts24/47. All48contacts of already-open DEV88 evaluated; this
+is one unfamiliar-by-fit body, not48independent objects or clean holdout evidence.
+Common gain across every contact/variant; no personal listening claim.
+
+`physical_sound_objectfolder2_operator_fit.py` prepares P1 stiffness/mass operators
+on existing approximate meshes TRAIN59/66/78:23256/66210/21834DOFs. No new downloads,
+source recordings or eigenvector labels enter this fine-tune. Initial shared
+weights73e60eaa… do retain their original TRAIN surface supervision. Physical
+coefficients/geometry and existing roles remain unchanged.
+
+The [NeuralSound v4 physical-subspace objective](https://arxiv.org/html/2108.07425v4)
+(sections4.2.3/A.3, reopened2026-09-06) motivates coupling fields and poles through
+operators, rather than fitting unrelated outputs. This experiment is narrower:
+the existing point network minimizes `trace((VᵀMV)^-1 VᵀKV)`, after removing six
+analytic rigid fields and column normalization. A Cholesky solve avoids unstable
+eigenvector derivatives at repeated eigenvalues. No diagonal loading, invented
+rank or independent frequency loss. This is a variational low-subspace-energy
+objective, NOT the paper's weighted residual objective or sparse linear U-Net.
+Multigrid learning was considered during source discovery, not implemented.
+
+One fixed300Adam steps/lr.001, round-robin100updates per TRAIN body, initialized
+from the same weights;68192trainable parameters,6.374s on RTX3080. The6240parameter
+frequency head stays frozen and unused. New receipt `requires_operator_ritz`
+rejects accidental use through the old independent-frequency renderer; inference
+extracts frequencies with Ritz. Full model retains74432parameters for compatible
+state loading. No capacity/seed/DEV checkpoint selection or per-body neural fit.
+
+Weight SHA256 `ce01da5bafa38dea63b159c03a9c3ea06c4df68666485000d91bdae13c68d3e9`;
+fit source `29106fa70e4e738acd6adb9e000be9979dc4108e47d487df8f5cb5edde9d925c`.
+Roots `objectfolder2-operator-data-fixed-2026-09-06`, `objectfolder2-operator-fit-2026-09-06`,
+`objectfolder2-operator-render-2026-09-06`, `objectfolder2-operator-assess-2026-09-06`.
+Fit/read traces are adjacent `.trace` files. Generation reuses the prior P2
+inverse/Ritz discriminator via `--fit`; assessment `--baseline-generated` adds
+the previous hybrid with checked geometry and parameter hashes.
+
+Initial data preparation stopped on a bit-equality assertion for DOF coordinates
+recomputed through affine element maps (maxdifference6.94e-18); no operators had
+been written. It now verifies native mesh coordinate identity and INTEGER nodal
+DOF ordering, not bit identity to re-evaluated coordinates. No geometric tolerance
+or physical solver threshold was relaxed. Original empty output directory remains.
+
+| Method,48DEV contacts | Spectrum | Envelope | Absolute log RMS | Full32 frequency error |
+| --- | ---: | ---: | ---: | ---: |
+| Previous NN + one correction | .652213 | .138112 | .091971 | 23.1006% |
+| Operator-trained NN + one correction | .492579 | .099089 | .097446 | 21.7213% |
+| Classical P1 + one correction | .140007 | .014458 | .028334 | 2.8095% |
+
+New hybrid improves spectrum about24.5% and envelope28.3%, but level worsens
+slightly; **no quality advantage over classical**. New raw Ritz has only3/32
+audible modes (19.19–72.87kHz), spectrum.99717/envelope.99501/logRMS5.04617:
+not a useful direct sound. New corrected model27/32audible,2.118–27.247kHz,
+maxresidual.45838 versus previous.60197; still not converged. P1 variants' NPZ
+bytes are exactly unchanged. Generation69.598sCPU includes fresh P2 assembly23.770s,
+factorization33.342s; this does not establish a neural speed advantage.
+Corrected NN parameter SHA256
+`e6efdd400392c5b774fb1fd89dc7425c458050050ef65d55b49aee4a937e9b90`.
+
+Postfit TRAIN-only discriminator solves the exact lowest32P1 modes with the same
+existing eigensolver, after weights and DEV generation are fixed. The learned
+trace decreased to11.87/11.14/6.36% of its initialization, but remains far above
+the physical lower bound:
+
+| TRAIN body | Exact low32 trace | Learned trace | Ratio | Captured low32 subspace |
+| --- | ---: | ---: | ---: | ---: |
+| 59 | 264.163333 | 1513.654344 | 5.730 | .5096 |
+| 66 | 155.026395 | 1198.852675 | 7.733 | .4959 |
+| 78 | 159.129938 | 865.573766 | 5.439 | .5684 |
+
+Capture is `||U_exactᵀ M U_learned||_F²/32`, not waveform/perceptual accuracy.
+Thus failure exists even on TRAIN under the same P1 operator: it cannot be
+attributed only to new-object generalization or P1/P2 transfer. This alone does
+not distinguish feature expressiveness from incomplete head/optimization.
+Next discriminator: frozen hidden-feature-span Ritz extraction on TRAIN, with
+audible output, before another epoch/capacity/loss variant. This is a numerical
+oracle diagnostic, not permission for per-object neural retraining.
+
+Checks:60focused OF2tests, Ruff lint/format and diff/link checks PASS; finite-
+difference objective gradients, basis/rigid invariance and wrong-renderer guard
+covered. CPU/GPU final TRAIN traces agree within1.04e-8relative; independent
+mass errors≤2.65e-14 and positive elastic Ritz poles.24WAV QA/21exact waveform
+replays/3galleries, sign/zero tests, pins and classical byte identities PASS.
+Fit trace13externalpaths: only TRAIN operators, old weights, own output;
+generation10paths: geometry/new weights/own output, no target operators/modes/audio;
+neither makes INET calls. All jobs terminal. Cargo/host-check/ProductChecks NOT_RUN,
+not applicable to this Python lab. No pressure/radiation, material-pair, realistic
+water/rain/friction/rolling/destruction or arbitrary-object completion claim.
+The context skill preserves the improved hybrid and the unresolved TRAIN gap;
+the broader objective, product status and authored fallback are unchanged.
+
+## Frozen hidden-feature discriminator: head-only remedy rejected — 2026-09-06
+
+Audible [TRAIN59 P1 reference → learned32-column head → learned-feature Ritz → untrained-feature Ritz](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-feature-assess-2026-09-06/object-59-contact-0-comparison.wav),12s;
+same comparisons for66/78 and contacts24/47. This is a diagnostic sonification,
+not new neural weights, an independent object or a quality-promoted sound.
+The latest trained new-object hybrid remains ce01da5b… from the preceding section.
+
+Competing hypotheses: H1 the frozen hidden representation contains accurate low
+modes but its32-column output head loses them; H2 the frozen feature span itself
+is insufficient; H3 any apparent feature-oracle gain is just a larger numerical
+space rather than learning. The physical subspace formulation in
+[NeuralSound v4 sections4.2.3/A.3](https://arxiv.org/html/2108.07425v4), reopened
+2026-09-06, motivates extracting Ritz pairs from a basis. No new source assets,
+architecture promise or reproduction of that paper's sparse operator U-Net.
+
+`physical_sound_objectfolder2_feature_probe.py`: hook the existing final field
+layer's128hidden activations, append bias, and form the three-component linear
+dictionary (387columns). Reconstruct the head in float64, maximum relative
+difference2.083e-7 from original float32 output; no independently fitted head.
+Preserve its32-dimensional span, project analytic rigid fields, and add the
+resolved complementary feature directions. Fixed relative Gram rank cutoff1e-10,
+no diagonal loading. All six trained/untrained cases retain384directions:
+387minus3translation directions. Smallest retained relative eigenvalue≥8.89e-7,
+well above cutoff; the conclusion is not caused by discarding weak feature modes.
+Mass-orthogonality error≤9.17e-13. Enlarged lowest32 Ritz eigenvalues cannot exceed
+the contained head's bounds; checked for every case and on an exact unit control.
+
+One seed42 untrained network of the SAME architecture is the control, shared
+across the three objects, with no fitting/seed search. Its weight SHA256
+`3a005fa87562b26fec8d0b6e527a6973f7c61b70533bf44dea53e67f3d188457`.
+Trained weights remain `ce01da5bafa38dea63b159c03a9c3ea06c4df68666485000d91bdae13c68d3e9`.
+Generation uses only existing TRAIN P1 operators, geometric query metadata and
+frozen weights; no DEV or reference eigenmodes. Exact P1 references are solved
+separately during assessment after all generated coefficients are saved.
+Extracting384directions costs more than the32-column head; no equal-cost claim.
+Trained/untrained feature spaces DO have the same retained dimension.
+
+| TRAIN body | Exact lowest32 trace | Learned head / bound | Learned features / bound | Untrained features / bound |
+| --- | ---: | ---: | ---: | ---: |
+| 59 | 264.163333 | 5.7300 | 3.1256 | 3.9629 |
+| 66 | 155.026395 | 7.7332 | 3.9275 | 5.0938 |
+| 78 | 159.129938 | 5.4394 | 2.9558 | 4.8001 |
+
+H1 explains part, not all, of the gap: optimal frozen-feature extraction roughly
+halves the learned head's trace, yet remains about3–4times the physical lower
+bound. H2 is supported for THESE frozen features. Learned features improve
+physical trace over untrained features in all three cases, so H3 is not the entire
+explanation. This does not prove the coordinate-network architecture can never
+learn better features, or identify the best successor architecture.
+
+| TRAIN body | Head spectrum / envelope / log RMS | Feature spectrum / envelope / log RMS | Untrained feature spectrum |
+| --- | --- | --- | ---: |
+| 59 | .98719 / .89080 / 2.31492 | 1.03416 / .82940 / 1.61142 | 1.10517 |
+| 66 | .99575 / .99318 / 4.25177 | .98581 / .96619 / 2.78183 | .99274 |
+| 78 | .99906 / .99967 / 7.24760 | .95896 / .95432 / 2.57378 | .95590 |
+
+All48contacts per TRAIN body assessed; one common gain per body across variants
+and contacts, no per-wave level repair. Learned-feature spectrum worsens on59
+versus its head; versus untrained features it is slightly worse on78. Thus
+improved energy bounds are not consistent audio-quality superiority. All keep
+32poles for physical frequency comparisons, while the existing renderer excludes
+non-audible modes. No radiation, realistic pressure or material-pair admission.
+
+Roots `objectfolder2-feature-probe-2026-09-06`, adjacent `.trace`, and
+`objectfolder2-feature-assess-2026-09-06`. Generation source SHA256
+`fe6bc723714e4ba9704f97f51a4a185bf7f2a05b60b84af58b9868373b86b390`
+precedes an assessment-only unused-variable lint rename; generation unchanged.
+63focused OF2tests/Ruff/diff/link checks PASS.45WAV QA,36exact coefficient replays,
+9galleries, physical sign/zero checks and parameter pins PASS. Generation29distinct
+external read paths: TRAIN geometry/operators, frozen weights and own outputs
+only; no INET/DEV/reference modes. All processes terminal. Cargo/ProductChecks
+NOT_RUN: this remains a bounded Python lab, no runtime or roadmap changes.
+
+Decision: do not promote a head-only or frozen-feature-extraction remedy. Next
+bounded model experiment should represent mesh connectivity/physical-operator
+action during displacement prediction, with a same-budget classical update
+control, shared TRAIN weights and an audible new-object result. Do not silently
+convert this into a head/rank/width/epoch sweep or per-object neural fitting.
+The context skill preserves the partial head bottleneck, insufficient current
+features and physical-bound versus waveform-quality distinction. Full goal open.

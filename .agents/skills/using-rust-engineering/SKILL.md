@@ -1,58 +1,52 @@
 ---
 name: using-rust-engineering
-description: Use when working in Rust — routes to specialist sheets for borrow-checker errors (E0502/E0597/E0382), trait bounds (E0277), async Send/Sync, clippy warnings, unsafe/FFI soundness, performance profiling, or PyO3/candle interop
+description: Diagnose a Rust-specific compiler, ownership, trait, async, unsafe/FFI, tooling, test, or profiling problem when language mechanics are the obstacle. Do not invoke merely because an ordinary feature happens to be implemented in Rust.
 ---
 
 # Using Rust Engineering
 
 Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
 
-Implement or repair the requested Rust behavior in the existing crate. Inspect
-the affected source, compiler diagnostic and nearby callers before choosing a
-specialist reference. A straightforward fix can proceed directly; routing is
-an aid for unresolved language or runtime questions.
+Use the smallest relevant Rust reference to unblock working code. The primary
+artifact is the requested implementation or fix, not a routing report.
 
-## Work from the actual boundary
+## Scope gate
 
-- Use the repository-pinned toolchain, dependencies and lint policy. In
-  NextEngine, preserve its unsafe-code boundary and production command paths.
-- Read ownership guidance for borrow/lifetime problems, traits guidance for
-  bounds/dispatch, and async guidance for executor or Send/Sync issues. Read a
-  second reference only when that boundary is involved.
-- For an unsafe/FFI change, establish the accepted boundary and its invariants
-  before editing; a working build does not establish soundness.
-- For performance work, identify the affected workload and measure the disputed
-  cost before choosing an optimization. Avoid speculative redesign.
-- For workspace-wide dependency, resolver, lint or publication changes, use
-  [using-rust-workspaces](../using-rust-workspaces/SKILL.md).
-- Recover missing diagnostics from the workspace where possible. Ask a focused
-  question only when the target or required behavior remains materially unclear.
+If the task is a domain feature and no Rust-specific obstacle has appeared,
+implement it normally under repository conventions. Do not load this pack.
 
-## Verify and finish
+When a concrete Rust issue exists, inspect the exact diagnostic and nearby code
+first. Fix an obvious localized issue directly. Read one specialist reference
+when the language rule, safety invariant or measured bottleneck is non-trivial:
 
-Run repository-required formatting/static analysis and focused tests for the
-affected package. Use broader checks when public contracts, workspace settings
-or uncertain dependencies warrant them. Coverage campaigns, Miri, nightly
-toolchains and extra frameworks are conditional on the actual change and
-repository policy; examples in topic references do not require installing them.
+| Symptom | Reference |
+| --- | --- |
+| Edition or modern syntax | [modern-rust-and-editions.md](modern-rust-and-editions.md) |
+| Move/borrow/lifetime error | [ownership-borrowing-lifetimes.md](ownership-borrowing-lifetimes.md) |
+| Trait bound, generics or dispatch | [traits-generics-and-dispatch.md](traits-generics-and-dispatch.md) |
+| Error type or `?` conversion | [error-handling-patterns.md](error-handling-patterns.md) |
+| Single-crate Cargo/features/build setup | [project-structure-and-tooling.md](project-structure-and-tooling.md) |
+| Test layout, mocking or property tests | [testing-and-quality.md](testing-and-quality.md) |
+| Large lint cleanup | [systematic-delinting.md](systematic-delinting.md) |
+| Tokio, `Send`/`Sync` or blocking async | [async-and-concurrency.md](async-and-concurrency.md) |
+| Measured performance bottleneck | [performance-and-profiling.md](performance-and-profiling.md) |
+| Unsafe, ABI, FFI or `no_std` | [unsafe-ffi-and-low-level.md](unsafe-ffi-and-low-level.md) |
+| PyO3/Candle/tensor interop | [ai-ml-and-interop.md](ai-ml-and-interop.md) |
 
-Report what changed, the relevant check results and remaining risk. Do not
-require a new specification, interview or specialist handoff for ordinary Rust
-work. Upstream slash commands and named agents are optional capabilities; use
-available tools and the local references when those integrations are absent.
+Workspace topology, dependency unification, workspace lints and crate
+publication belong to `using-rust-workspaces`. An ordinary change inside one
+member crate does not.
 
-## Topic references
+## Work guard
 
-Read only the reference relevant to the next decision. Paths are relative to this skill.
+- Load a second reference only after the first diagnosis exposes another
+  independent boundary.
+- Preserve the repository's existing error, dependency and async conventions.
+- Do not introduce `clone`, boxing, `Arc<Mutex<_>>`, lint suppression or
+  unsafe merely to silence a diagnostic; establish the actual ownership,
+  dispatch, concurrency or safety requirement.
+- For performance, profile first. For unsafe, state and test the invariant.
+- Finish with focused formatting/static analysis/tests for the affected crate.
 
-- [project-structure-and-tooling.md](project-structure-and-tooling.md) — workspace layout, `build.rs`, feature flags, `links=` metadata
-- [unsafe-ffi-and-low-level.md](unsafe-ffi-and-low-level.md) — bindgen/cbindgen, ABI contracts, safe wrapper patterns
-- [testing-and-quality.md](testing-and-quality.md) — Miri, integration tests across the FFI boundary
-- [systematic-delinting.md](systematic-delinting.md) — staged clippy reduction by category
-- [performance-and-profiling.md](performance-and-profiling.md) — measure first (flamegraph, criterion, heaptrack)
-- [ownership-borrowing-lifetimes.md](ownership-borrowing-lifetimes.md) — fix the Rust-side lifetime model before crossing languages
-- [ai-ml-and-interop.md](ai-ml-and-interop.md) — PyO3 patterns (`Python<'py>`, GIL, NumPy buffer protocol)
-- [modern-rust-and-editions.md](modern-rust-and-editions.md) — capture rule changes, `cargo fix --edition`, resolver differences
-- [traits-generics-and-dispatch.md](traits-generics-and-dispatch.md) — dyn-compatibility changes, `impl Trait` precise capture
-- [async-and-concurrency.md](async-and-concurrency.md) — async trait changes (`async fn in trait`, RPITIT interactions)
-- [error-handling-patterns.md](error-handling-patterns.md) — anyhow, thiserror, custom error types, `?` operator, error context
+Do not create a Rust methodology document unless the user explicitly asks for a
+review or policy.

@@ -1,0 +1,159 @@
+{
+  "access_policy": {
+    "bulk_download_allowed": false,
+    "dataset_payload_access_allowed_before_provenance_pass": false,
+    "metadata_network_requests_declared": 8,
+    "outputs_external": true,
+    "separate_source_decisions": true
+  },
+  "authority": {
+    "admission_authority": false,
+    "authorizes_only": "v46_d1_modal_teacher_rows_for_trusted_sources",
+    "corpus_increment_authority": false,
+    "model_training_authority": false,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "real_acoustic_parent_credit": 0,
+    "runtime_consumer_allowed": false,
+    "validator_authority": false
+  },
+  "claim": "METADATA_AND_GENERATION_PROVENANCE_PREFLIGHT_ONLY / NO_DATASET_PAYLOAD_MODAL_VALUE_AUDIO_MODEL_TRAINING_VALIDATOR_PROTECTED_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 6278,
+      "path": "docs/development/physical-sound-v46-d0-synthetic-source-preflight-protocol-2026-09-03.md",
+      "sha256": "214d394f2afa49722e039e242eb08ef82cbbeba608734f224a997d621abeec78"
+    },
+    {
+      "bytes": 18780,
+      "path": "lab/profiles/physical-sound-v45-r0-source-claim-ledger.v1.json",
+      "sha256": "a98cd2b5881b673a0d09c0e59bdf4d4ef14699a61370f0c5040c1fe3006409ec"
+    },
+    {
+      "bytes": 12512,
+      "path": "lab/profiles/physical-sound-v45-t0-recipe-v3.v1.json",
+      "sha256": "6cf7e1fe6c141ac324b9896defcadc033047fcbd7d33bc8f6b245d99cb0c9994"
+    },
+    {
+      "bytes": 26821,
+      "path": "lab/scripts/physical_sound_v46_d0_source_preflight_v1.py",
+      "sha256": "26ee0ebac9f8801c9e8f6c8a8b7e610b51cbb7abf5131db6784bc1f89e92efee"
+    }
+  ],
+  "expected_result": {
+    "payload_access_counters_zero": true,
+    "source_decisions": {
+      "nisr-v5": {
+        "decision": "SyntheticTeacherUntrusted",
+        "reason": "DeclaredGenerationDocumentUnavailable"
+      },
+      "vibraverse": {
+        "decision": "SyntheticTeacherUntrusted",
+        "reason": "GenerationLineageIncomplete"
+      }
+    },
+    "trusted_source_count": 0
+  },
+  "schema": "nextengine.experimental-physical-sound-v46-d0-profile.v1",
+  "sources": [
+    {
+      "alias_component": "stanford-objectfolder-derived-nisr-synthetic",
+      "expected": {
+        "generation_link_http_status": 404,
+        "generation_path_candidates": [
+          "GENERATE.md",
+          "generate",
+          "generation",
+          "scripts"
+        ],
+        "readme_required_literals": [
+          "FEM modal analysis (LOBPCG) → modal feature extraction → modal sound synthesis.",
+          "See [GENERATE.md](https://github.com/gh-BumsooKim/neural_inverse_sound_rendering/blob/main/GENERATE.md) for the full pipeline."
+        ],
+        "readme_sha256": "fb6f6382597289e4bc0a7e959fda7a85034d290e23b079497272e1a78a645325",
+        "root_entry_count": 50,
+        "sibling_count": 92299,
+        "sibling_path_root_sha256": "4155cc469d13732714d2db991ab84a7064f8603bb52a1fd46979a2613f62e4a7",
+        "stable_tags": [
+          "license:cc-by-4.0",
+          "modality:audio"
+        ]
+      },
+      "expected_decision": {
+        "decision": "SyntheticTeacherUntrusted",
+        "reason": "DeclaredGenerationDocumentUnavailable"
+      },
+      "metadata_files": {
+        "generation_link_headers": "nisr-generation-link.headers",
+        "readme": "nisr-readme.md",
+        "revision": "nisr-revision.json",
+        "root_tree": "nisr-root-tree.json"
+      },
+      "provenance_rule": {
+        "artifact_to_generator_revision_binding_required": true,
+        "executable_or_complete_generation_manifest_required": true,
+        "upstream_asset_identity_required": true
+      },
+      "repository_id": "BumsooKim00/nisr-dataset",
+      "revision": "20368791bcd7829e04ae3eb07c10aa0bb370e38a",
+      "sample_plan": {
+        "access_condition": "all_generation_provenance_gates_pass",
+        "maximum_bytes": 8388608,
+        "selection": "object_1_material_Glass_voxel_modal_and_required_manifest_companions"
+      },
+      "source_id": "nisr-v5"
+    },
+    {
+      "alias_component": "vibraverse-objaverse-generated-synthetic",
+      "expected": {
+        "generation_path_candidates": [
+          "Dockerfile",
+          "environment.yml",
+          "generation_manifest.json",
+          "requirements.txt",
+          "scripts",
+          "src"
+        ],
+        "material_parameters_sha256": "568c5cda982f29df911032c691c22c076b8d9af4d231d2d8c145efe55771754c",
+        "readme_required_literals": [
+          "Geometry -> Physical Attributes -> Modal Parameters -> Acoustic Signals",
+          "Material parameters (Young's Modulus, Poisson's Ratio, Density, Rayleigh damping coef)",
+          "material_idx_to_params.py"
+        ],
+        "readme_sha256": "ed86532abb7113098346dda7a9271ea3a77a01c87b40dffe04b291ce9e522534",
+        "root_entry_count": 5,
+        "sibling_count": 49,
+        "sibling_path_root_sha256": "6202e6d296439b75c684bc05dd038a9d73bba9ca326a9cf709a00a3e4b178777",
+        "stable_tags": [
+          "arxiv:2511.20422",
+          "license:odc-by"
+        ]
+      },
+      "expected_decision": {
+        "decision": "SyntheticTeacherUntrusted",
+        "reason": "GenerationLineageIncomplete"
+      },
+      "metadata_files": {
+        "material_parameters": "vibraverse-material-params.py",
+        "readme": "vibraverse-readme.md",
+        "revision": "vibraverse-revision.json",
+        "root_tree": "vibraverse-root-tree.json"
+      },
+      "provenance_rule": {
+        "artifact_to_generator_revision_binding_required": true,
+        "executable_or_complete_generation_manifest_required": true,
+        "upstream_asset_identity_required": true
+      },
+      "repository_id": "technetium66/VibraVerse",
+      "revision": "8099f137e9a9171e758c0528fb4a38a7b5d6aab2",
+      "sample_plan": {
+        "access_condition": "all_generation_provenance_gates_pass",
+        "maximum_bytes": 67108864,
+        "selection": "first_complete_tar_object_in_first_64MiB_of_objaverse_dataset_shard_0000"
+      },
+      "source_id": "vibraverse"
+    }
+  ],
+  "study_id": "physical-sound-v46-d0-synthetic-source-preflight"
+}

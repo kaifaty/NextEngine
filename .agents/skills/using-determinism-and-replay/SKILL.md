@@ -1,74 +1,56 @@
 ---
 name: using-determinism-and-replay
-description: Design or inspect determinism and replay boundaries, including seed/RNG ownership, snapshots, divergence localization, concurrency, floating-point behavior and external effects. Use for recoverable simulation behavior or cross-process/machine reproducibility. In NextEngine, use its architecture skill for normative contracts and product checks.
+description: Use only when designing or materially changing replay architecture, seed/RNG ownership, snapshot semantics, divergence localization, or cross-process/cross-machine equivalence guarantees. Do not use for a seeded offline experiment, deterministic content cooker, pure transform, model training run, or focused repeatability test under the existing contract.
 ---
 
 # Using Determinism and Replay
 
 Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
 
-Design or inspect the boundary that makes past behavior reproducible. Establish
-the required equivalence, inputs and state ownership from the actual product
-contract. In NextEngine, route normative changes through
-[nextengine-architecture](../nextengine-architecture/SKILL.md); generic replay
-tiers never replace Accepted SPEC/ADR or admit an Isaac mirror as authority.
+This skill handles changes to the meaning or architecture of replay. It is not a
+default reproducibility checklist.
 
-## Establish the claim
+## Scope gate
 
-Identify the workload, equivalence predicate, platform/version envelope and the
-observable that would falsify the claim. Distinguish bit equality, logical
-equivalence and statistical reproducibility. Reuse settled repository definitions
-instead of reopening them or asking the user to restate them.
+If the task is a bounded implementation under an existing determinism contract,
+stop here: apply that contract and add the smallest focused repeatability test.
+Do not emit a determinism specification or numbered artifact set.
 
-Read the relevant topic reference for the affected source of divergence:
-seed lineage, RNG ownership, snapshot completeness, comparison points, replay
-mode, concurrency, floating-point operations, GPU kernels, external effects or
-canonical encoding. Do not load the entire catalog for a localized defect.
+For an actual architecture change, first state the equivalence predicate: under
+which inputs and environment are two runs considered equal—identical bytes,
+logical equality with named tolerances, or statistical equivalence?
 
-## Preserve the substantive invariants
+## Read only the affected channel
 
-- Bind seeds and RNG streams to stable logical identities; capture enough state
-  to restore continuation rather than merely reseeding.
-- Separate authoritative state from reconstructible caches and record the
-  external inputs needed by replay. Do not consult live effects during replay.
-- Declare compare points and canonical representation; localize divergence to
-  the first differing operation before changing tolerances or schedules.
-- Distinguish read-only replay from branching replay and verify the capability
-  actually claimed. Include snapshot versions and compatibility boundaries.
-- Verify relevant scheduling, arithmetic, library and hardware constraints.
-  A GPU setting or finite successful sample does not prove portable bit equality.
-- Preserve minimized failing inputs. Never hide deterministic failures with
-  sleeps, retries, implicit tolerances or post-hoc frame selection.
+| Changed concern | Reference |
+| --- | --- |
+| Equivalence class/vocabulary | [determinism-vs-reproducibility.md](determinism-vs-reproducibility.md) |
+| Seed derivation or RNG ownership | [seed-governance.md](seed-governance.md), then [rng-isolation-patterns.md](rng-isolation-patterns.md) if needed |
+| Snapshot contents/cadence | [snapshot-strategy.md](snapshot-strategy.md) |
+| First-difference localization | [divergence-detection-and-localisation.md](divergence-detection-and-localisation.md) |
+| Replay/branching lifecycle | [replay-infrastructure-design.md](replay-infrastructure-design.md) |
+| Threads/processes/scheduling | [determinism-under-concurrency.md](determinism-under-concurrency.md) |
+| Floating-point behavior | [floating-point-determinism.md](floating-point-determinism.md) |
+| GPU behavior | [gpu-determinism.md](gpu-determinism.md) |
+| Time/network/external effects | [external-effects-substitution.md](external-effects-substitution.md) |
+| Canonical snapshot bytes | [canonical-state-encoding-for-replay.md](canonical-state-encoding-for-replay.md) |
+| Property checks | [property-tests-as-determinism-checks.md](property-tests-as-determinism-checks.md) |
+| Cost/benefit boundary | [cost-of-determinism.md](cost-of-determinism.md) |
 
-## Scope design and verification
+Load multiple channels only when the requested semantic change actually couples
+them. Do not re-emit unaffected specifications.
 
-Use the repository's existing documents and tests. Numbered spec sets, tiers,
-cross-pack agents and generic consistency gates in references are optional
-planning aids for a requested full-system design. They do not mandate new
-documents, dependencies, CI or stricter equivalence than the product requires.
-Missing optional slash commands do not block direct inspection and probes.
+## Implement and verify
 
-For an implementation change, run the relevant reproduction and non-regression
-checks, including persistence/replay checks when authoritative state changes.
-Choose property tests or wider platform comparisons when they test a material
-claim. Do not weaken a frozen contract to meet performance; report the conflict
-and follow the normal semantic decision workflow. State the exact evidence,
-supported equivalence envelope and untested boundaries in the handoff.
+- Update the existing governing contract rather than creating a parallel
+  determinism document.
+- Implement the smallest changed boundary and a test vector or replay check that
+  observes it.
+- Localize a divergence before redesigning the system.
+- Do not demand cross-device byte identity when the product contract requires
+  only logical or statistical equivalence.
+- Report the achieved equivalence and remaining environment assumptions.
 
-## Topic references
-
-Read only the reference relevant to the next decision. Paths are relative to this skill.
-
-- [determinism-vs-reproducibility.md](determinism-vs-reproducibility.md) — Fixing the vocabulary; bit-exact vs logical-equivalence vs statistical; choosing a class
-- [seed-governance.md](seed-governance.md) — Seeds as inputs; storage, propagation, derivation, audit; the `time.time()` anti-pattern
-- [rng-isolation-patterns.md](rng-isolation-patterns.md) — Per-component RNGs, hierarchical seeding, the "one big RNG" anti-pattern, RNG ownership
-- [snapshot-strategy.md](snapshot-strategy.md) — Full vs delta vs event-sourced; tradeoffs at different tick rates; what's in the snapshot, what isn't
-- [divergence-detection-and-localisation.md](divergence-detection-and-localisation.md) — Compare-points, state hashing, binary-search bisection, the first-differing-op rule
-- [replay-infrastructure-design.md](replay-infrastructure-design.md) — Read-only vs branching replay, rewind primitives, replay loop architecture, lifecycle
-- [determinism-under-concurrency.md](determinism-under-concurrency.md) — Lockstep, recorded schedule, schedule-independent computation; per-strategy tradeoffs; schedule-sensitive operation catalog
-- [floating-point-determinism.md](floating-point-determinism.md) — Reduction order, FMA, BLAS pinning, denormal mode, transcendental policy, ε for non-bit-exact classes
-- [gpu-determinism.md](gpu-determinism.md) — cuDNN flags, atomic-float kernels, TF32 policy, NCCL determinism, driver pinning, cross-device replay
-- [external-effects-substitution.md](external-effects-substitution.md) — Time, IO, network, third-party calls; the Effects layer; record-and-replay vs deterministic-function vs (test-only) mocks
-- [canonical-state-encoding-for-replay.md](canonical-state-encoding-for-replay.md) — The bytes problem for snapshots; cross-link to `axiom-audit-pipelines:canonical-encoding-for-fingerprinting`; per-tick hashing patterns; tensor canonicalisation; snapshot envelope schema
-- [property-tests-as-determinism-checks.md](property-tests-as-determinism-checks.md) — Replay equivalence, seed isolation, snapshot round-trip, restore idempotence, fork-and-converge, schedule independence; Hypothesis / proptest patterns
-- [cost-of-determinism.md](cost-of-determinism.md) — Performance hit, library compatibility loss, refactoring overhead, operational discipline, cognitive load; when *not* to pay; the trade record
+A comprehensive replay architecture review may use all relevant references only
+when the user explicitly requests that review or a genuinely new substrate is
+being designed.

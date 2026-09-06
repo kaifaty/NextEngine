@@ -1,82 +1,67 @@
 ---
 name: nextengine-architecture
-description: "Route cross-cutting NextEngine architecture/roadmap via SPEC/ADRs; choose optimal algorithms/data structures. Use for contracts, commands/events, determinism/replay/persistence/migrations, schemas/ECS, assets/streaming, rendering/platform/physics/animation/motor, ML/AI/RPG, scripting/plugins/UI/sessions, jobs/memory/performance, tooling/importer/licensing/security, ProductChecks and ADR/SPEC/roadmap changes. Russian: архитектура, спеки/ADR, детерминизм/реплей/сохранения/миграции, контракты, алгоритмы/структуры данных/производительность, физика/рендер/анимация, плагины, роадмап/продукт-чеки."
+description: "Use for NextEngine changes to public contracts, authority boundaries, persistence/replay guarantees, cross-subsystem dependency direction, accepted SPEC/ADR semantics, or product-level roadmap scope and status. Do not use for bounded lab experiments, model training/tuning, ordinary local implementation, or status reporting that preserves those boundaries. Russian triggers include: архитектура движка, публичный контракт, ADR, SPEC, граница авторитета, детерминизм реплея, схема сохранений, продуктовый roadmap."
 ---
 
 # Next Engine architecture workflow
 
 Apply the [shared execution guidance](../astra-guidance.md) once per task alongside this skill; it governs process defaults in the references too.
 
-All doc paths below are relative to the NextEngine workspace root — the
-directory containing `docs/architecture/`. Resolve them against the current
-workspace; never assume a fixed absolute path, drive letter or checkout
-location.
+All paths are relative to the workspace containing `docs/architecture/`.
+Architecture protects product semantics; it must not turn a reversible
+experiment into a documentation program.
+Shared outcome, documentation and verification policy lives in
+[AGENTS.md](../../../AGENTS.md). Apply it without duplicating its checklists.
 
-## Procedure
+## Classify before loading architecture
+
+Classify the immediate change, not the broad topic:
+
+- **Architecture change:** alters a public contract, technical source of truth,
+  authority boundary, cross-subsystem dependency, persistence/replay guarantee,
+  Accepted decision or product-level roadmap fact. Use the full workflow below.
+- **Bounded implementation or lab experiment:** preserves those semantics and
+  has an existing fallback. Read the routing row to identify the boundary and
+  focused check, plus only the governing document needed for that boundary. Do
+  not create an ADR, replace a roadmap or load every related document.
+- **Status or diagnosis:** inspect exact code/results needed for the claim. Do
+  not turn the answer into an architecture change.
+
+Admission gates restrict claims and promotion, not creation of clearly labelled
+experimental artifacts. A lab candidate may be rendered, played or compared
+without being represented as shipped or validated.
+
+## Full architecture workflow
 
 1. Read `docs/architecture/agent-routing.md` and find the row(s) matching the
-   task. A change matching multiple rows inherits the documents and product
-   checks of all of them.
-2. Read every listed SPEC/ADR **in full** with direct file reads. Never act on
-   search snippets or ranking scores. When no row matches or in doubt, read the
-   full index in `docs/architecture/README.md` plus `glossary.md`.
-3. On semantic conflict apply precedence from the README: newer superseding
-   Accepted ADR → ADR-030 (workflow and product checks) → profile technical
-   ADR → subsystem SPEC → SPEC-00 → glossary.
-4. Read document status from the current routed sources. Treat `Proposed`
-   decisions as experiments: state the fallback and bounded evaluation path.
-   Use the routing file's historical-only list as context, never as authority;
-   do not infer current status from examples embedded in a skill.
-5. Before planning, implementing, optimizing or reviewing a solution, apply
-   the selection rules below.
-6. Implement through production paths only: gameplay state changes via
-   validated `WorldCommand` transactions, `DomainEvent` from committed changes,
-   no test-only mutation backdoors, no retry-to-green.
-7. A Git commit is a checkpoint, not a validation gate: never run checks merely
-   because a commit is about to be created. Before final handoff/readiness
-   claims, run the risk-scoped product checks mapped by the routing row;
-   documentation-only work uses the SPEC-12 cheap path, while executable work
-   uses applicable `fast`, `play`, `persistence-replay`, `content-package`,
-   `platform` and `performance` checks. Report each as passed / failed / not run
-   with the remaining product risk.
-8. Roadmap-sensitive work (scope, stage, blocker, exit criterion, subsystem
-   status): also read `docs/roadmap.md` first and update it in the same change
-   when the completed work materially changes its facts.
-9. Semantic architecture change: add a new ADR naming what it supersedes and
-   update the affected SPECs, `docs/architecture/README.md` index,
-   `traceability.md` and `agent-routing.md` in the same change.
+   semantic change.
+2. Read every SPEC/ADR governing the changed semantics in full. Search snippets
+   are discovery aids, not authority. When no row matches, use the index and
+   glossary to locate the actual owner; do not load unrelated documents.
+3. On conflict apply the precedence defined in `AGENTS.md`; this skill does
+   not establish a separate hierarchy for workflow or profile ADRs.
+4. Treat Proposed technology as an experiment. State its fallback and do not
+   present it as shipped before the affected product check passes.
+5. Implement gameplay mutations through production commands and committed
+   events; preserve public boundaries and avoid test-only mutation backdoors.
+6. Run the risk-scoped checks from the routing row before handoff or readiness
+   claims. A commit itself is not a validation gate.
+7. For a product-level scope, order, stage or exit-criterion change, update the
+   existing `docs/roadmap.md`. An individual experiment pass/fail is evidence,
+   not grounds for a new numbered roadmap.
+8. For a semantic architecture change, add a superseding ADR and update affected
+   SPECs, the architecture index, traceability and routing in one coherent change.
 
-## Solution selection
+## Mathematical selection boundary
 
-- Define the required result, actual input sizes and load, hard constraints and
-  limiting resource before choosing a design.
-- Keep settled engineering selection here. When a choice depends on an
-  unresolved claim about stability, convergence, conservation, conditioning,
-  error bounds, solver feasibility or physical-model validity, use
-  `$nextengine-mathematical-research` to return a claim-scoped report; then
-  resume this workflow for any semantic, roadmap or ProductCheck decision.
-- Prefer the simplest architecture that satisfies current product,
-  architecture, safety and verification requirements. Avoid speculative
-  abstractions, unnecessary layers, ceremonies and coordination structures.
-  In plans and comparisons, default to the smallest practical path with the
-  best result-to-effort ratio; add architectural complexity only for a
-  demonstrated constraint or risk.
-- For significant choices, compare correctness, worst- and expected-case time,
-  memory, constant factors and target measurements. Optimize the limiting
-  resource; do not use code readability as a selection criterion.
-- Use proven algorithms and data structures from olympiad and competitive
-  programming as a production toolbox. Check the standard library and already
-  accepted dependencies first; implement a custom variant when no suitable
-  option exists or it is more efficient under the declared constraints.
-- Briefly record non-trivial alternatives, time and space complexity, and the
-  benchmark when the result depends on the target profile.
-- Keep correctness, determinism, safety, public contracts and testability as
-  hard constraints. The ban on overengineering limits unjustified architecture
-  and process; it does not forbid an algorithm made complex by real constraints.
+When a semantic choice depends on an unresolved stability, convergence,
+conservation, conditioning, error-bound or physical-model claim, use
+`nextengine-mathematical-research` for that bounded discriminator, then resume
+the contract decision here. A settled engineering choice does not require a
+separate research campaign.
 
 ## Maintenance
 
-The routing table is the single source of truth for task-to-document and check
-mapping; do not mirror its rows here. After adding or superseding a SPEC/ADR,
-update `agent-routing.md` in that change. Update this skill only when its
-trigger scope, workflow or engineering-selection rules change.
+The routing table remains the task-to-document and product-check authority.
+Update this skill only when its trigger boundary or architecture workflow
+changes.

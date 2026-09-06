@@ -1,0 +1,78 @@
+{
+  "access_policy": {
+    "audio_decode_allowed_after_hash_verification": true,
+    "feature_probe_allowed_after_selection_freeze": true,
+    "model_access_allowed": false,
+    "network_allowed_by_owner": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "selection_signal_blind": true
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_materialization_probe_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "claim": "SIGNAL_BLIND_IETEASY_REPETITION_1_PAYLOAD_AND_TARGET_FEASIBILITY_ONLY / NO_CORPUS_ROLE_CREDIT_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "expected_selection": {
+    "material_counts": {
+      "Aluminium": 1,
+      "Metal": 5,
+      "Plastic": 4,
+      "Steel": 5
+    },
+    "physical_parents": 15,
+    "project_revisions": 1,
+    "selected_payload_bytes": 1657896,
+    "selected_waveforms": 15
+  },
+  "input_binding": {
+    "bytes": 96622,
+    "external_relative_path": "run-a/prospective-parents.json",
+    "schema": "nextengine.experimental-physical-sound-v44-g0b-prospective-parents.v1",
+    "sha256": "15dc4c57f362411c5b4bc0833b280bebe7531e1a57baf4eb9d8ddb58d08868d8"
+  },
+  "payload_policy": {
+    "allowed_media_type": "audio/mpeg",
+    "cache_layout": "flat_sha256_filename",
+    "channel_count": 1,
+    "codec_name": "mp3",
+    "maximum_decoded_duration_milliseconds": 30000,
+    "maximum_payload_bytes_each": 262144,
+    "maximum_selected_payload_bytes": 2097152,
+    "minimum_decoded_duration_milliseconds": 1000,
+    "sample_rate_hz": 48000
+  },
+  "profile_id": "physical-sound-v44-g0b1a-iet-payload-selection-v1",
+  "project": {
+    "project_id": "mendeley-data--10.17632-srfp7x6wxm",
+    "revision_id": "mendeley-data--10.17632-srfp7x6wxm--v1",
+    "source_component_id": "source-component.ieteasy-mendeley-srfp7x6wxm-v1"
+  },
+  "role_intent": {
+    "credit_allowed_after_probe": false,
+    "reason": "pre_signal_assignment_closes_the_missing_disclosed_steel_train_role_without_splitting_one_project_across_roles",
+    "role": "generator_train"
+  },
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1a-selection.v1",
+  "selection_policy": {
+    "parent_order": "lineage.physical_parent_id_ascending",
+    "parent_scope": "all_prospective_catalogue_eligible_parents",
+    "records_per_parent": 1,
+    "repetition_index": 1,
+    "waveform_tie_break": "record_id_ascending"
+  },
+  "target_probe_policy": {
+    "canonical_segment_owner": "physical_sound_v41_c0_disclosed_corpus_v1.py",
+    "emit_audio_or_feature_values": false,
+    "extract_acoustic_target": true,
+    "hash_canonical_pcm_and_target": true,
+    "target_use": "feasibility_only"
+  }
+}

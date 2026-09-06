@@ -1,0 +1,143 @@
+{
+  "baseline_commit": "d1e30550",
+  "claim": "FRESH_V37_QSO_D0_ONE_SHOT_SYNTHETIC_DEVELOPMENT_EVIDENCE_ONLY / NO_METHOD_HOLDOUT_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependencies": {
+    "c0_profile": {
+      "path": "lab/profiles/physical-sound-v37-c0-query-surface-structural-cost.v1.json",
+      "sha256": "acf424694564f09cfab0aac36c47c00c9b72cb1d98711f7f57216d4012934def"
+    },
+    "contract": {
+      "path": "lab/scripts/physical_sound_v37_query_surface_contract_v1.py",
+      "sha256": "b00e541df322069bb86cfe93d47b7069a9c61f32dac5a94e0cab8063c7f91210"
+    },
+    "d0r_numeric_owner": {
+      "path": "lab/scripts/physical_sound_v37_d0r_complete_entry_readiness_v1.py",
+      "sha256": "ebbdb386b8fb6cf2ea222ffd0b091b60a075a54a99ad851065605ef84165c50c"
+    },
+    "d0r_numeric_profile": {
+      "path": "lab/profiles/physical-sound-v37-d0r-complete-entry-readiness.v1.json",
+      "sha256": "75baf8cc56a60a6d623e36e19ac97e873663eef5e48f272b70e048ecfae565f3"
+    },
+    "d0r_readiness_seal": {
+      "path": "lab/profiles/physical-sound-v37-d0r-readiness-seal.v1.json",
+      "sha256": "32ffa8b9c20f9fe66f827421f22cd3c4a0778865628827ef2cc84a21c6aa348e"
+    },
+    "e0_execution_seal": {
+      "path": "lab/profiles/physical-sound-v37-e0-execution-seal.v1.json",
+      "sha256": "3057d9643d2101ff12b381b811306904f70656b885314e1f730213edc92484cf"
+    },
+    "official_provider": {
+      "path": "lab/scripts/physical_sound_v37_d0_official_provider_v1.py",
+      "sha256": "21a901b95604048f35046f5dddb0aef91e5720f7fd913a2691af4e540885efde"
+    },
+    "protocol": {
+      "path": "docs/development/physical-sound-v37-d0-one-shot-protocol-2026-09-03.md",
+      "sha256": "c8feeadcf651c5ef7d548bcbea41ef5dc0afef2f494c733100fc0735fea716cc"
+    },
+    "t0_exact_truth_owner": {
+      "path": "lab/scripts/physical_sound_v37_t0_exact_truth_protocol_v1.py",
+      "sha256": "c2a68d3c1f95bd378ce8df5553baef5c7be74a26088f0350b70c3ee3e68925ed"
+    },
+    "t0_exact_truth_profile": {
+      "path": "lab/profiles/physical-sound-v37-t0-exact-truth-protocol.v1.json",
+      "sha256": "8eeda45716f95ec0b74abcc2ce90c1896657eb460fd3fd7a28fd8cf53257e5b6"
+    },
+    "t0_official_input_seal": {
+      "path": "lab/profiles/physical-sound-v37-t0-official-input-seal.v1.json",
+      "sha256": "9a4ed1c9193e793288c8db93a8b8cf46280b75104821bc04a3b0cf0317696f52"
+    },
+    "terminal_publisher": {
+      "path": "lab/scripts/physical_sound_v37_terminal_publisher_v1.py",
+      "sha256": "a840ff1241a56d0508ca85b13e7172d0efbdac138d3469cfc26ab2f06d33041a"
+    }
+  },
+  "environment": {
+    "device": "cpu",
+    "dtype": "float64",
+    "numpy": "2.3.5",
+    "python": "3.12.13",
+    "torch": "2.8.0+cu128",
+    "torch_deterministic_algorithms": true,
+    "torch_interop_threads": 1,
+    "torch_intraop_threads": 1
+  },
+  "execution_seals": {
+    "d0r": {
+      "document_sha256": "32ffa8b9c20f9fe66f827421f22cd3c4a0778865628827ef2cc84a21c6aa348e",
+      "owner_sha256": "ebbdb386b8fb6cf2ea222ffd0b091b60a075a54a99ad851065605ef84165c50c",
+      "payload_sha256": "a2c3c6ce797f5511c3b3e3062ae23534b3414de4f6f529ab0991c142869b18c5",
+      "status": "SealedBeforeOfficialTargetAccess"
+    },
+    "e0_payload_sha256": "608f901938c4031e63353a9231e005bb1040ac21c50ed3c7746e01525e211d7f",
+    "t0": {
+      "document_sha256": "9a4ed1c9193e793288c8db93a8b8cf46280b75104821bc04a3b0cf0317696f52",
+      "payload_sha256": "7bae65cc0290c3ec54eedef5d9ef2dd3d8e4ab1881945db71c8c80dcd1361573",
+      "status": "SealedBeforeOfficialTargetAccess"
+    }
+  },
+  "expected_access_per_process": {
+    "development_target_rows": 4320,
+    "fresh_v37_official_truth_values_evaluated": 32400,
+    "method_holdout_target_rows": 0,
+    "network_requests": 0,
+    "official_capabilities_issued": 1,
+    "official_d0_target_rows": 10800,
+    "official_h0_target_rows": 0,
+    "official_truth_rows_evaluated": 10800,
+    "protected_signal_values_decoded": 0,
+    "provider_calls": 2,
+    "real_signal_values_decoded": 0,
+    "target_rows_accessed": 10800,
+    "train_target_rows": 6480
+  },
+  "one_shot": {
+    "candidate_required_only_for": "Pass",
+    "method_holdout_allowed_only_after_exact_d0_pass": true,
+    "processes": 2,
+    "repeat_or_tune_after_post_access_terminal": false,
+    "stderr_empty": true,
+    "stdout_and_tree_byte_exact": true
+  },
+  "profile_id": "physical-sound-v37-d0-fresh-development-v1",
+  "publication": {
+    "evidence_schema": "nextengine.experimental-physical-sound-v37-d0-official-evidence.v1",
+    "next_authorized_action": "open-one-shot-h0-only-after-exact-d0-pass-otherwise-close-qso-v0",
+    "report_schema": "nextengine.experimental-physical-sound-v37-d0-official-report.v1",
+    "report_status": "V37_D0_POST_ACCESS_TERMINAL"
+  },
+  "resources": {
+    "maximum_combined_neural_parameters": 70000,
+    "maximum_field_cache_bytes": 33554432,
+    "maximum_output_bytes": 67108864,
+    "maximum_peak_rss_bytes": 1073741824,
+    "maximum_wall_seconds": 300
+  },
+  "revision": 1,
+  "role_commitments": {
+    "development": {
+      "case_count": 432,
+      "case_root_sha256": "e2169d83258921c70931d481f009360aadb2c0391c8132600a26ae49df63f8c6",
+      "field_count": 3240,
+      "field_root_sha256": "4eefa59f06c696979fede54349055e8f4581ba630e50728e6b9459a955dd0358",
+      "modal_row_count": 4320,
+      "modal_row_root_sha256": "b106cf8b4747a622fe5826f937361943b379e7a88430fe62aa75665eaa321915"
+    },
+    "train": {
+      "case_count": 648,
+      "case_root_sha256": "5f28770839918c93608875ea57f10868aeff2f392a500b08171509ec37d9a956",
+      "field_count": 3240,
+      "field_root_sha256": "731290c05a0ca6ac57c466f5d4f859484247fcd0739553db631e7b00eb3fa69a",
+      "modal_row_count": 6480,
+      "modal_row_root_sha256": "16ed70a79209b18ae49bb799046a04c8c1c5c374d6aab083813924512822c791"
+    }
+  },
+  "schema": "nextengine.experimental-physical-sound-v37-d0-fresh-development-profile.v1",
+  "scientific_profile_sha256": "75baf8cc56a60a6d623e36e19ac97e873663eef5e48f272b70e048ecfae565f3",
+  "terminal_outcomes": [
+    "Pass",
+    "MetricReject",
+    "HardGateReject",
+    "ResourceReject",
+    "OwnerFault"
+  ]
+}

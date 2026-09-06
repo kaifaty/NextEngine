@@ -1,0 +1,116 @@
+{
+  "access_policy": {
+    "audio_decode_allowed_after_hash_verification": true,
+    "feature_probe_allowed_after_selection_freeze": true,
+    "model_access_allowed": false,
+    "network_allowed_by_owner": false,
+    "outputs_external": true,
+    "protected_access_allowed": false,
+    "selection_signal_blind": true
+  },
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "candidate_training_authority": false,
+    "corpus_materialization_probe_authority": true,
+    "product_authority": false,
+    "protected_access_authority": false,
+    "public_contract": false,
+    "runtime_consumer_allowed": false,
+    "validator_calibration_authority": false
+  },
+  "c0_policies": {
+    "corpus": {
+      "channel_count": 1,
+      "dc_reference_samples": 480,
+      "normalization_peak": 0.95,
+      "onset_energy_window_samples": 48,
+      "output_container": "wav_pcm_s16le",
+      "pretrigger_samples": 480,
+      "resample_policy": "scipy_resample_poly_kaiser_beta_5_constant_pad",
+      "sample_rate_hz": 48000,
+      "segment_samples": 144000,
+      "silence_peak_floor": 1e-07,
+      "source_payload_policy": "hash_verified_external_research_only"
+    },
+    "features": {
+      "band_count": 24,
+      "band_max_hz": 24000.0,
+      "band_min_hz": 60.0,
+      "damping_floor_db": -30.0,
+      "damping_max_seconds": 1.5,
+      "maximum_modes": 12,
+      "modal_frequency_max_hz": 18000.0,
+      "modal_frequency_min_hz": 80.0,
+      "modal_minimum_distance_hz": 40.0,
+      "modal_prominence_db": 6.0,
+      "spectrogram_hop_samples": 512,
+      "spectrogram_window_samples": 2048,
+      "transient_envelope_bins": 48,
+      "welch_hop_samples": 2048,
+      "welch_window_samples": 8192
+    }
+  },
+  "claim": "SIGNAL_BLIND_IETEASY_REPETITION_1_PAYLOAD_AND_TARGET_FEASIBILITY_ONLY / NO_CORPUS_ROLE_CREDIT_PSEL_MODEL_VALIDATOR_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "dependency_bindings": [
+    {
+      "bytes": 117297,
+      "path": "docs/architecture/45-physical-sound-synthesis-and-acoustic-presentation.md",
+      "sha256": "064227f01586b6162b657f0ea57fd6ef4118b095681356a79cb0e15c299b9078"
+    },
+    {
+      "bytes": 9301,
+      "path": "docs/development/physical-sound-v44-g0b0-ieteasy-prospective-parent-result-2026-09-03.md",
+      "sha256": "408b031fbdfd2ae65d49e124ad4a7dcb74b3a2a4c92ba6e0c00520533529cc1b"
+    },
+    {
+      "bytes": 3853,
+      "path": "lab/profiles/physical-sound-v44-g0b-prospective-parent-contract.v1.json",
+      "sha256": "1c8855eba29d20f6308fc66c4222c833eed3d2b08712b2d548a15c2ac6118634"
+    },
+    {
+      "bytes": 2908,
+      "path": "lab/profiles/physical-sound-v44-g0b1a-iet-payload-selection.v1.json",
+      "sha256": "225011894ef31ec959f399ba0137cc407dd000ad20ca10c13f5060630b1df242"
+    },
+    {
+      "bytes": 57813,
+      "path": "lab/scripts/physical_sound_v41_c0_disclosed_corpus_v1.py",
+      "sha256": "5f2e7ecfd46f89f89d21205d148faf2974fd44e1118d62a44e989b1a1b98cc8c"
+    },
+    {
+      "bytes": 29413,
+      "path": "lab/scripts/physical_sound_v44_g0b1a_iet_payload_probe_v1.py",
+      "sha256": "7538ecdd874ceda518678934ff1829bf2039ab023df2f0d83b5709b9a07e84af"
+    }
+  ],
+  "environment": {
+    "ffmpeg": {
+      "bytes": 453104,
+      "path": "/usr/bin/ffmpeg",
+      "sha256": "bdf6aabffdba7411edff8d36c389d695257fcdf823d196020176e117612862f6"
+    },
+    "ffprobe": {
+      "bytes": 216864,
+      "path": "/usr/bin/ffprobe",
+      "sha256": "a6dac1e9e8631e04075d06854cc4069308aec279bb04683b4a0bca5e4f54b2fe"
+    },
+    "numpy_version": "2.5.2",
+    "scipy_version": "1.18.0"
+  },
+  "expected_result": {
+    "decoded_waveforms": 15,
+    "physical_parents": 15,
+    "project_revisions": 1,
+    "selected_payload_bytes": 1657896,
+    "steel_parents": 5,
+    "target_probes": 15
+  },
+  "profile_id": "physical-sound-v44-g0b1a-iet-payload-probe-v1",
+  "schema": "nextengine.experimental-physical-sound-v44-g0b1a-probe-profile.v1",
+  "selection_profile": {
+    "bytes": 2908,
+    "path": "lab/profiles/physical-sound-v44-g0b1a-iet-payload-selection.v1.json",
+    "sha256": "225011894ef31ec959f399ba0137cc407dd000ad20ca10c13f5060630b1df242"
+  }
+}

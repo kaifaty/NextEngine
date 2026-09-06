@@ -1,0 +1,656 @@
+{
+  "access_order": [
+    "f0-identity-freshness-and-static-freeze",
+    "c0-signal-blind-witness-and-coverage-census",
+    "b0-discarded-local-and-gate-conformance",
+    "i0-discarded-whole-owner-terminal-path-proof",
+    "d0-train-materialize-and-fit",
+    "d0-development-materialize-and-gate",
+    "candidate-freeze-if-development-pass",
+    "h0-method-holdout-materialize-once-if-frozen",
+    "terminal-report"
+  ],
+  "authority": {
+    "admission_authority": false,
+    "authored_fallback_required": true,
+    "b0_allowed_after_f0": false,
+    "c0_allowed_after_f0": true,
+    "external_research_only": true,
+    "i0_allowed_after_f0": false,
+    "model_allowed_after_f0": false,
+    "network_allowed": false,
+    "quality_authority": false,
+    "real_material_authority": false,
+    "real_signal_allowed": false,
+    "runtime_authority": false,
+    "synthetic_only": true,
+    "validator_release_authority": false
+  },
+  "baseline_commit": "31e9cea3e79e095387ee70d312194962bddc6d7c",
+  "claim": "TARGET_SAFE_SYNTHETIC_GEOMETRY_CONTACT_HYBRID_PROFILE_ONLY / NO_MODEL_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "corpus_overlay": {
+    "contacts": {
+      "development": [
+        [
+          "0",
+          "0.63"
+        ],
+        [
+          "0.30",
+          "0.23"
+        ],
+        [
+          "0.50",
+          "0.75"
+        ],
+        [
+          "0.62",
+          "0.93"
+        ],
+        [
+          "0.84",
+          "0.37"
+        ],
+        [
+          "0.98",
+          "0.27"
+        ]
+      ],
+      "method_holdout": [
+        [
+          "0",
+          "0.83"
+        ],
+        [
+          "0.22",
+          "0.57"
+        ],
+        [
+          "0.40",
+          "0.25"
+        ],
+        [
+          "0.58",
+          "0.53"
+        ],
+        [
+          "0.72",
+          "0.98"
+        ],
+        [
+          "0.90",
+          "0.11"
+        ]
+      ],
+      "train": [
+        [
+          "0",
+          "0.33"
+        ],
+        [
+          "0.12",
+          "0.72"
+        ],
+        [
+          "0.26",
+          "0.42"
+        ],
+        [
+          "0.38",
+          "0.86"
+        ],
+        [
+          "0.46",
+          "0.16"
+        ],
+        [
+          "0.54",
+          "0.66"
+        ],
+        [
+          "0.64",
+          "0.30"
+        ],
+        [
+          "0.78",
+          "0.90"
+        ],
+        [
+          "0.88",
+          "0.48"
+        ],
+        [
+          "0.18",
+          "0.96"
+        ],
+        [
+          "0.74",
+          "0.06"
+        ],
+        [
+          "0.94",
+          "0.70"
+        ]
+      ]
+    },
+    "geometry_multiplier_cells": [
+      [
+        "0.80",
+        "0.90",
+        "1.04"
+      ],
+      [
+        "0.90",
+        "1.18",
+        "0.86"
+      ],
+      [
+        "0.96",
+        "0.80",
+        "1.18"
+      ],
+      [
+        "1.06",
+        "1.14",
+        "0.92"
+      ],
+      [
+        "1.10",
+        "0.90",
+        "1.24"
+      ],
+      [
+        "1.18",
+        "1.06",
+        "1.06"
+      ],
+      [
+        "0.88",
+        "1.10",
+        "1.14"
+      ],
+      [
+        "1.14",
+        "0.80",
+        "0.94"
+      ],
+      [
+        "0.90",
+        "1.26",
+        "1.00"
+      ],
+      [
+        "1.26",
+        "0.92",
+        "1.18"
+      ]
+    ],
+    "materials": [
+      {
+        "density_kg_m3": "2800",
+        "loss_rate_per_second": "8.2",
+        "material_id": "synthetic-j",
+        "poisson_ratio": "0.255",
+        "youngs_modulus_pa": "70000000000"
+      },
+      {
+        "density_kg_m3": "6700",
+        "loss_rate_per_second": "15.8",
+        "material_id": "synthetic-k",
+        "poisson_ratio": "0.325",
+        "youngs_modulus_pa": "168000000000"
+      },
+      {
+        "density_kg_m3": "8800",
+        "loss_rate_per_second": "22.5",
+        "material_id": "synthetic-l",
+        "poisson_ratio": "0.235",
+        "youngs_modulus_pa": "245000000000"
+      }
+    ],
+    "oracle": {
+      "contact": {
+        "bound": "0.22",
+        "components": {
+          "curvature_u": "phi_u_plus+phi_u_minus-2*p1_contact",
+          "difference_u": "phi_u_plus-phi_u_minus",
+          "difference_v": "phi_v_plus-phi_v_minus",
+          "surface_a": "sin(pi*u)*cos(2*pi*v)",
+          "surface_b": "cos(3*pi*u)*sin(pi*v)"
+        },
+        "expression": "bound*tanh(0.21*p1_contact+0.14*difference_u-0.12*difference_v+0.16*surface_a+0.15*surface_b+0.13*geometry0*p1_contact+0.12*geometry1*(2*u-1)+0.10*geometry2*(2*v-1)+0.08*ordinal*support+0.06*log_frequency*curvature_u)"
+      },
+      "decay": {
+        "bound": "0.20",
+        "expression": "bound*tanh(0.38*loss+0.31*log_frequency+0.16*support*ordinal+0.15*log_youngs*log_density+0.09*poisson*family_index_a)"
+      },
+      "global_gain": {
+        "bound": "0.16",
+        "expression": "bound*tanh(0.30*ordinal*geometry0+0.28*geometry2+0.25*log_youngs*ordinal-0.15*log_density+0.19*family*geometry1+0.14*geometry0*geometry2)"
+      },
+      "transcendentals": "python-math-binary64"
+    },
+    "role_identity_prefix": "physical-sound-v35-geometry-conditioned-hybrid-v1"
+  },
+  "method_overlay": {
+    "ablations": {
+      "without_explicit_geometry": {
+        "contact_input_count": 32,
+        "gate_geometry_distance": "omitted",
+        "local_geometry_fields": "omitted",
+        "parameter_count": 1811,
+        "training": "refit-from-same-candidate-seed-and-optimizer"
+      },
+      "without_local_expert": {
+        "evaluation": "candidate-neural-expert-output",
+        "retraining": false
+      },
+      "without_neural_expert": {
+        "evaluation": "continuous-local-expert-output",
+        "retraining": false
+      }
+    },
+    "candidate": {
+      "candidate_id": "coverage-gated-geometry-contact-hybrid-v1",
+      "composition": "clip(local_weight*local_contact+(1-local_weight)*neural_contact,-0.25,0.25)",
+      "contact_training_prediction": "group-cross-fitted-frozen-local-plus-neural-end-to-end-hybrid",
+      "model": {
+        "activation": "silu",
+        "dtype": "float64",
+        "heads": {
+          "contact": {
+            "hidden_widths": [
+              16,
+              16
+            ],
+            "input_count": 35,
+            "output": "contact_log_participation_multiplier",
+            "output_bound": "0.25",
+            "parameter_count": 865
+          },
+          "decay": {
+            "hidden_widths": [
+              16,
+              16
+            ],
+            "input_count": 11,
+            "output": "log_decay_multiplier",
+            "output_bound": "0.25",
+            "parameter_count": 481
+          },
+          "global_gain": {
+            "hidden_widths": [
+              16,
+              16
+            ],
+            "input_count": 13,
+            "output": "global_log_gain_delta",
+            "output_bound": "0.20",
+            "parameter_count": 513
+          }
+        },
+        "initializer": {
+          "bias": "zero",
+          "generator": "numpy-PCG64",
+          "order": "lexicographic-tensor-name",
+          "seed": 3301,
+          "weight": "uniform(-sqrt(6/(fan_in+fan_out)),sqrt(6/(fan_in+fan_out)))"
+        },
+        "parameter_count": 1859,
+        "parameter_count_max": 2000,
+        "shared_trunk": false
+      }
+    },
+    "controls": {
+      "continuous_local": {
+        "control_id": "continuous-gaussian-causal-local-v1",
+        "definition": "exactly-method_overlay.local_expert",
+        "role_scope": "train-only"
+      },
+      "geometry_neural_only": {
+        "control_id": "geometry-conditioned-spectral-mlp-only-v1",
+        "definition": "frozen-candidate-neural-contact-expert-without-local-blend",
+        "retraining": false
+      },
+      "geometry_spectral_ridge": {
+        "contact_feature_set": "complete-35-field-geometry-spectral-mode-local",
+        "control_id": "geometry-spectral-mode-local-ridge-v1",
+        "intercept": "unregularized-from-centred-means",
+        "lambda": "0.000001",
+        "numeric": "float64",
+        "solver": "numpy-linalg-solve"
+      },
+      "identity": {
+        "control_id": "p1-identity-v1",
+        "corrections": "all-zero"
+      },
+      "nearest": {
+        "contact_features": "method_overlay.local_expert.distance_key",
+        "control_id": "nearest-causal-geometry-contact-train-row-v1",
+        "distance": "method_overlay.local_expert.normalized_squared_euclidean",
+        "partition": "same-family-formula-support-and-mode-ordinal",
+        "role_scope": "train-only",
+        "tie_break": "lexicographically-smallest-canonical-causal-row-key"
+      },
+      "raw_mlp": {
+        "activation": "silu",
+        "contact_input_count": 12,
+        "control_id": "v32-raw-coordinate-mlp-fresh-retrain-v1",
+        "dtype": "float64",
+        "hidden_widths": [
+          16,
+          16
+        ],
+        "parameter_count": 1491,
+        "seed": 3302,
+        "topology": "v32-three-independent-heads"
+      },
+      "raw_ridge": {
+        "control_id": "raw-feature-ridge-v2",
+        "feature_set": "v32-branch-local",
+        "intercept": "unregularized-from-centred-means",
+        "lambda": "0.000001",
+        "numeric": "float64",
+        "solver": "numpy-linalg-solve"
+      },
+      "spectral_ridge": {
+        "contact_feature_set": "complete-32-field-spectral-mode-local",
+        "control_id": "spectral-mode-local-ridge-v1",
+        "intercept": "unregularized-from-centred-means",
+        "lambda": "0.000001",
+        "numeric": "float64",
+        "solver": "numpy-linalg-solve"
+      },
+      "v34_shaped_spectral_mlp": {
+        "contact_input_count": 32,
+        "control_id": "v34-shaped-spectral-mlp-fresh-retrain-v1",
+        "parameter_count": 1811,
+        "seed": 3301,
+        "topology": "v34-three-independent-heads-without-explicit-geometry"
+      }
+    },
+    "coverage_gate": {
+      "bandwidth_contact": "median-positive-nearest-neighbor-distance-among-distinct-train-contact-keys",
+      "bandwidth_geometry": "median-positive-nearest-neighbor-distance-among-distinct-train-geometry-keys",
+      "blend_equation": "local_weight=0.80*exp(-0.5*((d_geometry/h_geometry)^2+(d_contact/h_contact)^2)); neural_weight=1-local_weight",
+      "contact_key": [
+        "contact.u_signed",
+        "contact.v_signed"
+      ],
+      "exact_match_shortcut": false,
+      "geometry_key": [
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ],
+      "input_partition": "same-family-formula-and-support",
+      "local_weight_cap": "0.80",
+      "nearest_distance_role_scope": "train-only",
+      "ood_normalized_squared_distance_strict_max": "16",
+      "transcendentals": "python-math-binary64",
+      "zero_distance_behavior": "same-blend-equation-local-weight-exactly-0.80"
+    },
+    "features": {
+      "contact_fields": [
+        "mode.ordinal_signed",
+        "mode.log_frequency",
+        "mode.family_index_a_signed",
+        "mode.family_index_b_signed",
+        "family.plate",
+        "family.beam",
+        "support.plate_simple",
+        "support.beam_cantilever",
+        "support.beam_simple",
+        "contact.u_signed",
+        "contact.v_signed",
+        "p1.contact_participation",
+        "contact.fourier_u_sin_1",
+        "contact.fourier_u_cos_1",
+        "contact.fourier_v_sin_1",
+        "contact.fourier_v_cos_1",
+        "contact.fourier_u_sin_2",
+        "contact.fourier_u_cos_2",
+        "contact.fourier_v_sin_2",
+        "contact.fourier_v_cos_2",
+        "contact.fourier_u_sin_3",
+        "contact.fourier_u_cos_3",
+        "contact.fourier_v_sin_3",
+        "contact.fourier_v_cos_3",
+        "contact.fourier_u_sin_4",
+        "contact.fourier_u_cos_4",
+        "contact.fourier_v_sin_4",
+        "contact.fourier_v_cos_4",
+        "p1.contact_participation_u_minus",
+        "p1.contact_participation_u_plus",
+        "p1.contact_participation_v_minus",
+        "p1.contact_participation_v_plus",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ],
+      "contact_input_count": 35,
+      "forbidden_fields": [
+        "object_id",
+        "record_id",
+        "role",
+        "stratum",
+        "geometry_cell_index",
+        "contact_set",
+        "contact_index",
+        "mesh_resolution",
+        "vertex_index",
+        "expected",
+        "oracle_coefficient",
+        "validator_decision"
+      ],
+      "geometry_append_order": [
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2"
+      ],
+      "normalization": "inherit-v34-exactly"
+    },
+    "gates": {
+      "development": {
+        "ablation_worsening_min": {
+          "without_explicit_geometry_geometry_only": "1.03",
+          "without_local_expert_geometry_only": "1.02",
+          "without_neural_expert_contact_only": "1.02",
+          "without_neural_expert_joint": "1.02"
+        },
+        "absolute_rmse_max": {
+          "contact_aggregate": "0.035",
+          "contact_each_stratum": "0.045",
+          "decay": "0.035",
+          "global_gain": "0.035"
+        },
+        "candidate_contact_each_stratum_ratio_max_best_control": "0.98",
+        "candidate_contact_ratio_max_each_control": {
+          "continuous_local": "0.98",
+          "geometry_neural_only": "0.98",
+          "geometry_spectral_ridge": "0.95",
+          "identity": "0.85",
+          "nearest": "0.98",
+          "raw_mlp": "0.90",
+          "raw_ridge": "0.90",
+          "spectral_ridge": "0.95",
+          "v34_shaped_spectral_mlp": "0.95"
+        },
+        "decay_global_ratio_max_ridge_and_nearest": "0.90",
+        "geometry_only_ratio_max": {
+          "continuous_local": "0.98",
+          "nearest": "0.98"
+        }
+      },
+      "hard": {
+        "both_experts_reachable": true,
+        "branch_feature_isolation": true,
+        "correction_bounds_exact": true,
+        "coverage_gate_continuous": true,
+        "finite_output": true,
+        "forbidden_fields_absent": true,
+        "frequency_and_order_bit_exact": true,
+        "group_cross_fit_exact": true,
+        "impulse_probe_ratios": [
+          "0.5",
+          "1",
+          "2"
+        ],
+        "method_holdout_zero_before_development_pass": true,
+        "nearest_support_finite": true,
+        "no_exact_contact_split": true,
+        "nodal_zero_exact": true,
+        "positive_decay": true,
+        "real_and_protected_signal_zero": true,
+        "remesh_common_contact_exact": true,
+        "render_peak_strict_max": "0.95",
+        "signed_gain_sign_preserved": true,
+        "train_permutation_exact": true,
+        "v0a_parent_identities_unchanged": true
+      },
+      "method_holdout": {
+        "ablation_worsening_min": {
+          "without_explicit_geometry_geometry_only": "1.02",
+          "without_local_expert_geometry_only": "1.01",
+          "without_neural_expert_contact_only": "1.01",
+          "without_neural_expert_joint": "1.01"
+        },
+        "absolute_rmse_max": {
+          "contact_aggregate": "0.040",
+          "contact_each_stratum": "0.050"
+        },
+        "candidate_contact_each_stratum_ratio_max_best_control": "0.98",
+        "candidate_contact_ratio_max_best_non_neural_control": "0.98",
+        "candidate_geometry_only_ratio_max_continuous_local_and_nearest": "0.98",
+        "zero_denominator_rule": "candidate-must-be-exact-zero"
+      }
+    },
+    "local_expert": {
+      "accumulation": "python-math-fsum-after-canonical-causal-row-key-sort",
+      "compatible_partition": "same-family-formula-support-and-mode-ordinal",
+      "distance": "sum(((query_i-train_i)/scale_i)^2)",
+      "distance_key": [
+        "material.log_youngs",
+        "material.log_density",
+        "material.poisson",
+        "material.loss",
+        "geometry.log_multiplier_0",
+        "geometry.log_multiplier_1",
+        "geometry.log_multiplier_2",
+        "contact.u_signed",
+        "contact.v_signed",
+        "mode.log_frequency",
+        "p1.contact_participation",
+        "p1.contact_participation_u_minus",
+        "p1.contact_participation_u_plus",
+        "p1.contact_participation_v_minus",
+        "p1.contact_participation_v_plus"
+      ],
+      "distance_scale_by_field": "all-exactly-1-after-frozen-normalization",
+      "kernel": "exp(-0.5*(distance-min_compatible_distance))",
+      "maximum_compatible_rows": 216,
+      "neighbor_count": "all-compatible-train-rows",
+      "prediction": "fsum(weight*train_contact_target)/fsum(weight)",
+      "role_scope": "train-only",
+      "train_cross_fit_exclusion": "all-rows-sharing-family-material-geometry-contact-case-group-including-every-remesh-view",
+      "transcendentals": "python-math-binary64",
+      "zero_distance_behavior": "same-kernel-equation-no-shortcut"
+    }
+  },
+  "parent": {
+    "v32_profile": {
+      "path": "lab/profiles/physical-sound-v32-m0-physics-locked-residual.v1.json",
+      "sha256": "dd77fa3ee416061777775ddc00cf3eb4b5fc32d03574a569ca06935d4e23973d"
+    },
+    "v33_profile": {
+      "path": "lab/profiles/physical-sound-v33-f0-mode-local-spectral-residual.v1.json",
+      "sha256": "4c1869101af3ec2264771e17af5c2e652e5861e36c3a8ab61333e588db88fd52"
+    },
+    "v34_h0_result": {
+      "path": "docs/development/physical-sound-v34-h0-method-holdout-result-2026-09-02.md",
+      "sha256": "b693b99f9a5614c87c7cf08da15286d9caa21280f1f32440b5ce30b9ba7a5dd0"
+    },
+    "v34_profile": {
+      "path": "lab/profiles/physical-sound-v34-f0-target-safe-spectral-recovery.v1.json",
+      "sha256": "7be7e96a2899d0e4ef7aad668368669886d7f45adac34ec6676afbbe6b45e429"
+    },
+    "v34_terminal_publisher": {
+      "path": "lab/scripts/physical_sound_v34_terminal_publication_v1.py",
+      "sha256": "60c54b392e20f1024a1cfbb3c2f69d3aed925e341495219787b6379fe1268f8d"
+    }
+  },
+  "preserved_sha256": {
+    "corpus_counts": "ab1d174146ddc504b501f6a634602960006724e5420ee39528a4094ffd1652c9",
+    "corpus_families": "c91380844ac99a55330455e0256d9089519c1913b46397a61d4421010e9142e6",
+    "corpus_role_plan": "e0ca68400b1b9bc4303400a1c9ae864e2dfdceb5e4f7953f5318b67e7c211f31",
+    "decay_features": "004cff4d578f5933415cb6c81ee51dcb7c71f038c8c59fecd0ec5e7ba7165958",
+    "decay_head": "64c978153db04876443b8d5324153971ab64109db9f865490fd9a468e566db27",
+    "global_gain_features": "2518f41bb9adb04988c8f672a0840cd44dc059ffc9cf4cc1a65653f1230a7bdb",
+    "global_gain_head": "41ac511980a58e21ef0405258810ba6fe66f2a4720c441fafeafa0646270734c",
+    "numeric_profile": "9a0c65c895d32e55feda69485f1bb89965b168de71afd6dc43a5ceff237abcca",
+    "resources": "28df2b7c7746a66ffceb16fb817e43e88f5da72b9f804b26cc4033c596c28429",
+    "training": "d68f423fb64cd3eae98050bf39f9e2f217a15171f045f4139bb34feb441e5c2f"
+  },
+  "profile_id": "physical-sound-v35-f0-geometry-conditioned-hybrid-v1",
+  "protocol": {
+    "path": "docs/development/physical-sound-v35-f0-geometry-hybrid-profile-freeze-protocol-2026-09-02.md",
+    "sha256": "617630e543a2dfb662943c96a30e4206dc35e44d7cfd0b0b1d760180e30bb326"
+  },
+  "research": {
+    "path": "docs/development/physical-sound-v35-geometry-conditioned-hybrid-research-2026-09-02.md",
+    "sha256": "98733993f7e4ae13245f01c4921dc09d5785427b3421317c8bca3c82e1a6255e"
+  },
+  "revision": 1,
+  "schema": "nextengine.experimental-physical-sound-v35-f0-geometry-conditioned-hybrid-profile.v1",
+  "terminal_publication": {
+    "atomic_staging_required": true,
+    "post_access_outcomes": [
+      "Pass",
+      "MetricReject",
+      "HardGateReject",
+      "ResourceReject"
+    ],
+    "post_access_raise_allowed": false,
+    "pre_access_contract_reject": {
+      "partial_output_allowed": false,
+      "target_rows": 0
+    },
+    "repeat_exact_required": true
+  },
+  "witness_contract": {
+    "b0_perturbation_epsilon": "0.00000095367431640625",
+    "b0_train_permutation_seeds": [
+      35001,
+      35002,
+      35003
+    ],
+    "evaluation_roles": [
+      "development",
+      "method_holdout"
+    ],
+    "exact_nodal_min_modal_rows_per_stratum": 180,
+    "forbidden_dependencies": [
+      "development_metrics",
+      "model_owner",
+      "optimizer",
+      "oracle_targets",
+      "prior_generation_values",
+      "protected_signal",
+      "real_signal"
+    ],
+    "minimum_both_expert_reachable_rows_per_stratum": 1,
+    "minimum_contact_sensitive_rows_per_stratum": 1,
+    "minimum_finite_local_support_rows_per_stratum": 1,
+    "minimum_material_sensitive_rows_per_stratum": 1,
+    "minimum_non_silent_cases_per_family_and_stratum": 1,
+    "minimum_nonzero_pickup_negative_rows_per_role": 1,
+    "minimum_nonzero_pickup_positive_rows_per_role": 1,
+    "minimum_remesh_pairs_per_family_and_role": 1,
+    "strata": [
+      "contact-only",
+      "geometry-only",
+      "joint"
+    ],
+    "target_rows_allowed": 0
+  }
+}

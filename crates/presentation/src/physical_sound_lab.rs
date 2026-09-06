@@ -14,6 +14,11 @@ mod steel_search;
 use glass_body_profiles::glass_body_profile;
 use selected_glass_q30::SelectedGlassQ30Voice;
 
+pub use selected_glass_q30::{
+    SelectedGlassQ30ModeSnapshot, SelectedGlassQ30ProfileSnapshot,
+    selected_glass_q30_profile_snapshot,
+};
+
 pub use offline_modal_recurrence::{
     OfflineModalMode, OfflineModalRenderError, render_offline_modal_recurrence,
     render_offline_modal_recurrence_unscaled,

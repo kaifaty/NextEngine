@@ -1,0 +1,186 @@
+{
+  "baseline_commit": "1b272d87",
+  "minimums": {
+    "added_exact_steel_groups": 9,
+    "added_non_metal_groups": 1,
+    "added_role_capable_projects": 7,
+    "protected_exact_steel_groups_per_role": 16,
+    "protected_non_metal_groups_per_role": 35,
+    "protected_projects_per_role": 2,
+    "reserved_unprotected_projects": 5
+  },
+  "projects": [
+    {
+      "author": "Benboncan",
+      "groups": [
+        {
+          "action_tokens": ["struck"],
+          "evidence_phrase": "steel grille",
+          "group_id": "freesound-pack-4023-fabricated-steel-grille",
+          "object_name": "fabricated steel grille",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [92987]
+        }
+      ],
+      "pack_id": 4023,
+      "pack_title": "Bells / Gongs"
+    },
+    {
+      "author": "ldezem",
+      "groups": [
+        {
+          "action_tokens": ["hit"],
+          "evidence_phrase": "3mm steel plate",
+          "group_id": "freesound-pack-21681-steel-plate-3mm",
+          "object_name": "3 mm steel plate",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [386110, 386113]
+        },
+        {
+          "action_tokens": ["hit"],
+          "evidence_phrase": "6mm steel plate",
+          "group_id": "freesound-pack-21681-steel-plate-6mm",
+          "object_name": "6 mm steel plate",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [386128, 386129]
+        },
+        {
+          "action_tokens": ["hit"],
+          "evidence_phrase": "16mm steel plate",
+          "group_id": "freesound-pack-21681-steel-plate-16mm",
+          "object_name": "16 mm steel plate",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [386107, 386109]
+        }
+      ],
+      "pack_id": 21681,
+      "pack_title": "Sound of Work - Blacksmith ed1. - Anvil"
+    },
+    {
+      "author": "Bibow",
+      "conflict_controls": [
+        {
+          "description_conflict_token": "aluminium pipe",
+          "sound_id": 426850,
+          "title_token": "Steel"
+        }
+      ],
+      "groups": [
+        {
+          "action_tokens": ["dropping"],
+          "evidence_phrase": "hollow steel pipe",
+          "group_id": "freesound-pack-24227-hollow-steel-pipe",
+          "object_name": "hollow steel pipe",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [426849]
+        }
+      ],
+      "pack_id": 24227,
+      "pack_title": "Steel pipes fall on concrete"
+    },
+    {
+      "author": "itinerantmonk108",
+      "groups": [
+        {
+          "action_tokens": ["hitting"],
+          "evidence_phrase": "steel bowl",
+          "group_id": "freesound-pack-31000-steel-bowl",
+          "object_name": "steel bowl",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [554179]
+        },
+        {
+          "action_tokens": ["hitting"],
+          "evidence_phrase": "rubber spatula",
+          "group_id": "freesound-pack-31000-rubber-spatula",
+          "object_name": "rubber spatula",
+          "primary_material": "Rubber",
+          "relation": "non_metal_candidate",
+          "sound_ids": [554178]
+        }
+      ],
+      "pack_id": 31000,
+      "pack_title": "Kitchen Sounds"
+    },
+    {
+      "author": "juskiddink",
+      "groups": [
+        {
+          "action_tokens": ["hit"],
+          "evidence_phrase": "steel bar",
+          "group_id": "freesound-pack-5069-metallophone-steel-bar",
+          "object_name": "metallophone steel bar",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [131978]
+        },
+        {
+          "action_tokens": ["hit"],
+          "evidence_phrase": "steel rod",
+          "group_id": "freesound-pack-5069-steel-rod-143x12mm",
+          "object_name": "143 by 12 mm steel rod",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [122682]
+        }
+      ],
+      "pack_id": 5069,
+      "pack_title": "Bells and gongs"
+    },
+    {
+      "author": "AnthonyOstrander",
+      "groups": [
+        {
+          "action_tokens": ["drum"],
+          "evidence_phrase": "Steel can",
+          "group_id": "freesound-pack-37664-steel-can-drum",
+          "object_name": "steel can drum",
+          "primary_material": "Steel",
+          "relation": "exact_steel_candidate",
+          "sound_ids": [674604]
+        }
+      ],
+      "pack_id": 37664,
+      "pack_title": "Sound Library"
+    },
+    {
+      "author": "FullMetalJedi",
+      "groups": [
+        {
+          "action_tokens": ["hitting"],
+          "evidence_phrase": "glass coffee can",
+          "group_id": "freesound-pack-19202-glass-coffee-can",
+          "object_name": "glass coffee can",
+          "primary_material": "Glass",
+          "relation": "non_metal_candidate",
+          "sound_ids": [427784, 427785, 427786, 427787]
+        }
+      ],
+      "pack_id": 19202,
+      "pack_title": "Household Items Etc."
+    },
+    {
+      "author": "Puniho",
+      "groups": [
+        {
+          "action_tokens": ["tapping"],
+          "evidence_phrase": "glass bottle",
+          "group_id": "freesound-pack-14173-water-filled-glass-bottle",
+          "object_name": "water-filled glass bottle",
+          "primary_material": "Glass",
+          "relation": "non_metal_candidate",
+          "sound_ids": [231299]
+        }
+      ],
+      "pack_id": 14173,
+      "pack_title": "Water"
+    }
+  ],
+  "schema": "nextengine.experimental-physical-sound-v29-q1a-source-growth-profile.v1"
+}

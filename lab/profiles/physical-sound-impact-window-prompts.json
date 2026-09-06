@@ -1,0 +1,9 @@
+[
+  {"id":"glass-metal", "prompt":"A metal rod taps a glass jar."},
+  {"id":"glass-wood", "prompt":"A wooden rod taps a glass jar."},
+  {"id":"wood-metal", "prompt":"A metal rod taps a wooden board."},
+  {"id":"wood-wood", "prompt":"A wooden rod taps a wooden board."},
+  {"id":"steel-metal", "prompt":"A metal rod taps a steel pipe."},
+  {"id":"steel-wood", "prompt":"A wooden rod taps a steel pipe."},
+  {"id":"break-glass", "prompt":"An empty glass bottle falls onto a stone floor and shatters."}
+]

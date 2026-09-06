@@ -1,0 +1,16 @@
+{
+  "claim": "FULL_COUNT_NONZERO_ARTIFICIAL_COMPLETE_D0_OWNER_READINESS_AND_SEAL_ONLY / NO_OFFICIAL_TARGET_SCIENTIFIC_QUALITY_REAL_MATERIAL_VALIDATOR_RELEASE_ADMISSION_COOKER_DEMO_OR_RUNTIME_AUTHORITY",
+  "readiness_seal": {
+    "environment_sha256": "5cc3a3d2cce0063cd181c5b56ba6a693211f14a8e237164b6ec9c712e286d08f",
+    "forbidden_access_count": 0,
+    "owner_sha256": "ebbdb386b8fb6cf2ea222ffd0b091b60a075a54a99ad851065605ef84165c50c",
+    "profile_sha256": "75baf8cc56a60a6d623e36e19ac97e873663eef5e48f272b70e048ecfae565f3",
+    "repeat_exact": true,
+    "run_count": 2,
+    "terminal_tree_sha256": "6261cd0f7988e2ddb4847371d7424d1e121ee84273546563448b30ab95b2a486",
+    "topology_sha256": "617c0cb2bb0f3865feb5e6729fa5f173d441d7020b00ff2b1499b3ff8708a59e"
+  },
+  "schema": "nextengine.experimental-physical-sound-v37-d0r-readiness-seal.v1",
+  "seal_sha256": "a2c3c6ce797f5511c3b3e3062ae23534b3414de4f6f529ab0991c142869b18c5",
+  "status": "SealedBeforeOfficialTargetAccess"
+}
