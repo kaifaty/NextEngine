@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / DECODED_FIT_REJECTED / LOWER_LEVEL_MASKS_SHAPE_REGRESSION / NO_LIVE_JOBS.
+Status: ACTIVE_GOAL / ATTENUATION_INCENTIVE_PROVEN / TIMING_NOT_MAIN_CAUSE / TWO_SAMPLE_BRANCH_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,35 +10,39 @@ Status: ACTIVE_GOAL / DECODED_FIT_REJECTED / LOWER_LEVEL_MASKS_SHAPE_REGRESSION 
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `sonicgauss-waveform-assessment-2026-09-06`,60triples10.444s
-  recorded→baseline→decoded-fit, e.g.
-  [Glass94](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-94-contact-0-comparison.wav),
-  [Plastic97](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-waveform-assessment-2026-09-06/object-97-contact-0-comparison.wav).
-  120fullstereoWAV+latent/waveNPZ`sonicgauss-waveform-render-2026-09-06`,gain1.
-  Freshsource-free process;straceNOtarget/corpus/network;20baselinesreplayEXACT.
-- Correctedfit`sonicgauss-waveform-odd-fit-2026-09-06/adapter.safetensors` SHA
-  `8d702d110f04ff497c3a1425bff545ff771b6f8f358c2c0ed57a07b118d199c3`.
-  Freshzero262144paramresidual;72Adamsteps/batch1/lr1e-4/seed42/twocompletepasses.
-  Full50Eulersteps+VAEbackprop,checkpointed;exactinitiallatent/PCMparityverified.
-  FFT20HzspectralL1+.25×2msenv+.1×logRMS;odd4096boundaryextension,rawWAVunchanged.
-  Publishedweightsfrozen/versionchecked,peak4286MiB. FixednoiseperobjectONLY.
-  Initialeven-reflectiontrialFAILEDunchangedringerasuretest(.7628<.8),ownprocess
-  stoppedexit143(lastlogged6),no checkpoint. Retained`sonicgauss-waveform-fit-2026-09-06`.
-  Oddextensiontest.9893passes;no tolerancechange. No otherjobs killed/restarted.
-- **REJECT despite raw-rule PASS:** rawTRAIN.89217→.77502(30/36),DEV
-  .82450→.76287(17/24),all4DEVrawmeansimprove. IndependentIIRaudiblespectrum
-  DEV.96156→.87239(18/24),envelope.84651→.82515(11/24),logRMS.43974→.63541(8/24).
-  Wood14levelworse;Plastic97spectrum/envelope/levelworse. CombinedruleREJECT.
-  ContactmatchedcountsDEV13→12/24;NOTphysicalresponsevalidation.31testsPASS.
-- **Decisive posthoc shape audit:** independentIIRthenunitRMS ONLYinmetric;
-  NOoutputgain/EQ. TRAINnormalizedshape1.07640→1.19690(10/36),DEV
-  .91139→1.01524(4/24);candidatequieterthanreference28/36TRAIN,18/24DEV.
-  `shape-diagnostic.json`: apparentrawspectralimprovement≠bettershape/realism.
-- **Next:** boundedresearch escalation BEFOREanotherlikefit: discriminatepaired
-  waveformregressionunderone-to-many/unobservedexcitation vsweak/missingphysical
-  conditioning vsobjective/capacitymismatch. Then executable discriminator+media;
-  NO RMSweight/loss/normalization/seed/epoch/per-objectgain sweep onexposedDEV.
-  Bothsharedflowanddecodedfitsfailedactualcriterion;don'trepeatcodec/inventories.
+- **Latest primary:** `sonicgauss-objective-probe-2026-09-06`,60-caseanalysis+
+  [13.92s scoring control](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-objective-probe-2026-09-06/control-comparison.wav):
+  threeown700/1400/2800Hzdecays→theirwaveformmean. NOTnewneuralgeneration.
+  No training/newdata/WAVgain/alignment edits.34testsPASS;alljobs terminal.
+- **Timing NOT maincause:** bounded2msenvelopecorrelationlagsall0/1frames.
+  DiagnosticlosslessalignmentchangesTRAIN1.20325→1.20137,DEV.96156→.95940(~.2%).
+  Positiveinjected88sampleshiftrecovered;doNOTaddalignment/phase/onset-sweeps.
+- **Attenuation incentive:** exactweightedmedian scalaroptimum forfixedspectralL1
+  pairs(no grid/fit/outputchanges):mediangain.3679TRAIN/.5210DEV,gradientat1
+  favorsattenuation34/36+21/24. AlignmentdoesNOTremoveit. Exact/double-level
+  controlsoptima1/.5;wrong700→1400Hzoptimum.0002526 vscorrect2mslate.98416.
+- **Full loss countercheck:** `full-loss-gradient.json`d/dgainat1 ofunchanged
+  FFT20Hzspectral+.25env+.1logRMSobjective:attenuation32/36TRAIN+20/24DEV;
+  13+9alreadyquieterthanreference. Notjustmissingloudnesspenalty;scalargradient
+  isn'tproofallneuralupdatesfollowgain. Causeofremainingfrequencyerrorstillopen.
+- **Distribution toy:** plainexpectedpairedsymmetricL1preferssilence1.0 over
+  correct3-toneempiricalsampler1.32051. Energy2×cross−generatedpairprefers
+  correct1.32051 oversilence2.0/single-tonecollapse2.63519. NOTfullSED/physicalgate.
+  PrimaryresearchGritsenkoNeurIPS2020SED+Schwär/MüllerSPL2023 read;links/caveatsinpilot.
+- **Next executable:** oneboundedSHAREDtwo-independent-sampledistribution-aware
+  fit,fullsource-freeWAVs,baselinecomparison+collapse/diversity/shape/timing/level.
+  Usewaveform_fit.generate(explicitnoise);legacycondition.renderlocksseed0/cachedRNG.
+  DO NOTuseasymmetricreference-normalizedL1asaproperGEDdistance orclaimGEDalone
+  provesrealism. Missingphysicalconditioning/capacityremainopen;randomnessmustNOT
+  replacesize/force/strikerinputs. No morelossweight/gain/seed/epoch/timing-sweeps,
+  codec/inventory/protocol cycles;researchdiscriminatoralreadycompleted.
+- **Previous primary/candidateREJECTED:**`sonicgauss-waveform-{render,assessment}-2026-09-06`,
+  120source-freeWAV+60recorded/base/candidatetriples,gain1,prior20baselinesEXACT.
+  `sonicgauss-waveform-odd-fit-2026-09-06`adapterSHA8d702d11…,72steps/262144params,
+  full50Euler+VAEgrad,oddFFTboundary(keep;evenreflectionsfailed),frozenpublishedweights.
+  DEVraw.82450→.76287andaudible.96156→.87239butlogRMS.43974→.63541;
+  normalizedshape.91139→1.01524(4/24wins),18/24quieterthanreference.
+  Wood14level/Plastic97all3metricsregress;oldraw-onlyrulepasses,newcombinedREJECT.
 - 36TRAIN(objects2/6/12/24/66/95),24DEV(14/75/94/97),sixauthor-first/object.
   ALLknownpretrainingTRAIN;localobjectsplit≠pristineunseenobject. Source2.98sfit
   vsfull3sevalexplicit. Absolutephysicalsize/force/strikermaterialstillabsent.
@@ -66,8 +70,7 @@ Status: ACTIVE_GOAL / DECODED_FIT_REJECTED / LOWER_LEVEL_MASKS_SHAPE_REGRESSION 
   butfullresidual+decoderSTILLcanlearnposition. NewresidualdidNOTprovequalityfix.
 - Source`sonicgauss-source-2026-09-06`,assets`sonicgauss-assets-2026-09-06`unchanged;
   pilotpins17sources+5weights(HF57b06047),strictloads,noT5/pickle/network.
-- Reproduce `physical_sound_sonicgauss_shared_fit.py` stagesfit/render/assess/diagnose;
-  flags--source/--assets/--data/--baseline/--fit/--generated/--output per--help.
+- Reproduce`physical_sound_sonicgauss_shared_fit.py`fit/render/assess/diagnose;see--help.
   PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
   HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4.
   NativeSDPA/segment_reducecompat;DO NOTdisableflashbecausePTv3patch1024→128.
@@ -76,12 +79,9 @@ Status: ACTIVE_GOAL / DECODED_FIT_REJECTED / LOWER_LEVEL_MASKS_SHAPE_REGRESSION 
   Shared328000parameter/100steps,48TRAIN16DEV. SpectralL1.32938→.27148(12/16wins),
   envelope.29593→.26575(15/16);case061worseboth,physicalratioerror.191%→.586%worse.
   FitSHAfed24c81…,standalonecoeff/PCMEXACT;NOTrealism/3D/newtopology;no2Dsweeps.
-- NeuralResonatorcheckpointfa46fa22…/sourceceab3770… in`neuralresonator-assets-2026-09-06`.
-  Ownmask/contact/rho,E,nu,alpha,beta→32parallel×2IIR. Safeweights-only+inertmetadata,
-  no picklefallback. 12quadraticFEM2Drefpairs:10/12peakswithin1.6%,two7.44/35.58%.
-  Meshrefinementdoesn'tfixmodalprominence/timing. Worldscale2matchesauthornotebook;
-  changingphysicalscaleleavesneuralinputsame. FFTphase/magnitudehybridsworseall12,
-  noncausal/misaligned,notcausalisolation. Fullreference/fitnotes inpilot.
+- NeuralResonatorfa46fa22/sourceceab3770 in`neuralresonator-assets-2026-09-06`;
+  safeweights-only/inertmetadata,NOpicklefallback.2DFEM10/12peakswithin1.6%,2bad;
+  meshrefinement/FFTphasehybridsfailed,worldscale2,scaleinputcollision;see pilot.
 - **SonicGauss scale collision:** own8Gaussianfixture doubledgeometry/contact/
   logscales producesEXACTsame8preprocessednetworkinputs. Positivecontrolsrelative
   contact/shape/appearancechange. `sonicgauss-input-probe-2026-09-06`,4tests.

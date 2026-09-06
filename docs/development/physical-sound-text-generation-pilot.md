@@ -6483,3 +6483,108 @@ stereo layout/headroom/nonsilence,source-free trace and exact TRAIN read-set,
 60comparison layouts, changed links and`git diff --check` PASS. Candidate
 quality/non-regression FAILS. Cargo/host-check/ProductChecks NOT_RUN; no engine
 integration/roadmap change. All jobs terminal; broad physical-sound goal active.
+
+## Timing versus attenuation and conditional-distribution loss — 2026-09-06
+
+Previous goal turn was progress: a shared full-decoder fit,120primary WAVs and
+an amplitude-invariant failure discriminator. After two failed shared-fit
+variants, this bounded research cycle tests adjacent assumptions before a third
+training attempt. No training, new datasets, protected payloads or gate changes.
+
+Primary sources checked (actual papers, not search snippets):
+
+- [Gritsenko et al.,NeurIPS2020, A Spectral Energy Distance for Parallel Speech Synthesis](https://proceedings.neurips.cc/paper/2020/file/9873eaad153c6c960616c89e54fe155a-Paper.pdf):
+  equations7–9 use two independent generated samples per condition, adding a
+  generated-pair distance to avoid simple regression collapse. A single real
+  example per condition can supply an unbiased training estimate under the
+  stated assumptions. The consistency claim concerns spectrogram distributions
+  and an appropriate distance, not physical realism. Section7.1 explicitly
+  reports that better automated metrics did not always improve subjective
+  quality. This is evidence for a bounded alternative, not a ready validator.
+- [Schwär and Müller,IEEE SPL2023, Multi-Scale Spectral Loss Revisited](https://www.audiolabs-erlangen.de/content/05_fau/professor/00_mueller/03_publications/2023_SchwaerM_MultiScaleSpecLoss_IEEE-SPL.pdf):
+  spectral-loss gradients for frequency parameters can be irregular and strongly
+  affected by windowing/compression. The study supports questioning the loss,
+  but does not establish that one configuration repairs our waveform generator.
+
+`physical_sound_sonicgauss_objective_probe.py` measures all60 original baseline
+cases using the existing independent20Hz audible IIR. Two-ms RMS envelopes give
+a fixed bounded cross-correlation lag search (+/-125frames,~249ms), not a
+measured physical contact timestamp. Lag estimates are all0 or1frames; strongest
+frames lie near100–106ms. Median absolute lag is.998ms TRAIN and0ms DEV.
+Alignment is diagnostic only:16384-sample guards preserve every sample without
+wrapping/cropping; no aligned source/model WAVs are emitted.
+
+### Hypotheses, evidence and rejected explanations
+
+**H1: a large onset mismatch drives the regression.** Against: alignment changes
+audibleMRSTFT mean TRAIN1.203254→1.201367 and DEV.961561→.959396, roughly0.2%.
+The timing test recovers an injected88-sample shift, so it has a positive control.
+Small sub-frame effects remain possible, but temporal alignment is not a
+supported primary repair. Do not add a timing-shift sweep or onset alignment
+to generation based on this study.
+
+**H2: the magnitude objective rewards attenuation when frequencies disagree.**
+Supported by an exact scalar discriminator. For each fixed waveform pair, the
+nonnegative gain minimizing the existing relative multi-resolution magnitudeL1
+is a weighted median of reference/generated bin ratios, weighted by generated
+magnitudes and the per-resolution reference normalization. No gain grid,
+neural parameters or audio edits are used. Median optimum gain is.367884TRAIN
+and.520966DEV; the derivative at gain1 points toward attenuation in34/36 and
+21/24 cases. After alignment it still does so in33/36 and22/24 cases.
+
+The synthetic controls identify the mechanism. Exact reconstruction has optimum1
+and zero loss; a correct double-level signal has optimum.5 and zero loss. A
+correct signal shifted~2ms has optimum.98416, but substituting1400Hz for700Hz at
+the same onset yields optimum.0002526: almost muting the wrong tone reduces
+spectral loss1.96415→.99994. These are diagnostics of the objective, NOT proposed
+playback gains or physically calibrated materials.
+
+`full-loss-gradient.json` then differentiates the actual unchanged training
+objective (FFT20HzMRSTFT+.25envelope+.1logRMS) with respect to a scalar gain at1,
+using exact2.98s teachers and retained baseline stereo output. Attenuation is
+favored in32/36TRAIN and20/24DEV;13TRAIN and9DEV cases already have lower audible
+RMS than their references. Thus the observed direction is not explained solely
+by generators being too loud or by omitting a level penalty. This scalar
+counterfactual does not prove every neural gradient follows the gain direction.
+
+**H3: paired regression is inappropriate for residual conditional variability.**
+Supported as a mechanism by a controlled three-tone example, not established as
+the full real-data cause. For three equally probable decaying tones, our
+symmetric, globally scaled multi-resolution magnitudeL1 gives expected paired
+distance1.32051 to the correct empirical sampler,1.31759 to a collapsed single
+tone, but only1.0 to silence. Adding the generated-pair term (energy score
+2×attraction−repulsion) ranks the correct sampler1.32051 ahead of silence2.0 and
+single-tone collapse2.63519. This toy uses empirical expectations and a simple
+L1 distance; it is NOT the paper's complete log/L2 spectral distance, a proof of
+strict consistency for our system, or validation of missing physical inputs.
+
+**H4: insufficient physical conditioning/capacity.** Still open. The input lacks
+absolute size, force and striker material, and the small shared residual has
+limited capacity. The current recordings do not isolate repeated identical
+physical conditions with known excitation, so this audit cannot attribute all
+remaining variability to stochasticity or prove which missing descriptor is
+causal. Random diversity must not substitute for conditioning on these inputs.
+
+External `sonicgauss-objective-probe-2026-09-06` contains the60-case result,
+full-objective gradient sidecar and five own synthetic WAVs. The13.92s
+[control comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-objective-probe-2026-09-06/control-comparison.wav)
+plays700/1400/2800Hz decaying tones then their waveform mean; individual files
+are also retained. No target recordings, gain optima or aligned variants are
+used in that audition. This is a scoring-mechanism demo, NOT new neural output.
+
+Decision and next executable action: retain baseline and prior rejections. A
+single bounded shared two-sample distribution-aware fit is justified for testing
+H3, with independent noise draws and retained full media; compare against the
+unchanged baseline and test collapse/diversity plus spectrum, timing and level.
+Do not claim physical validation from energy score alone, reuse asymmetric
+reference-normalized L1 as a supposedly proper distribution distance, or tune
+on exposed DEV. Missing descriptors and clean unseen-object evaluation remain
+full-goal requirements. No further raw-loss weight/gain/phase/timing/seed sweeps
+or research inventory before this executable branch.
+
+Reproduce the main discriminator with--data/--generated/--output (new external
+directory). The full-objective sidecar is a posthoc derivative audit using the
+pinned local waveform-loss implementation; it records that script hash and all
+60 derivatives/RMS ratios. No model/optimizer state was created.34focused tests,
+Ruff check/format,control WAV layouts/headroom, links and`git diff --check` PASS;
+Cargo/host-check/ProductChecks NOT_RUN. All jobs terminal; no engine promotion.
