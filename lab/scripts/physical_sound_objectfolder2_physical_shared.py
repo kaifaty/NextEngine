@@ -267,6 +267,8 @@ def physical_waves(omega, field, geometry, impulse=0.001):
 
 def render(args):
     receipt = json.loads((args.fit / "fit.json").read_text())
+    if receipt.get("requires_operator_ritz", False):
+        raise ValueError("operator-trained fields require Ritz frequency extraction")
     if source.sha(args.fit / "model.safetensors") != receipt["weights_sha256"]:
         raise ValueError("weights changed")
     model = PhysicalStudent().eval().requires_grad_(False)

@@ -77,7 +77,7 @@ def generate(args):
     started = time.monotonic()
     meshroot = args.root / "objectfolder2-elastic-88-wild-2026-09-06"
     data = args.root / "objectfolder2-physical-shared-data-2026-09-06"
-    fit = args.root / "objectfolder2-physical-shared-fit-2026-09-06"
+    fit = args.fit or args.root / "objectfolder2-physical-shared-fit-2026-09-06"
     meta = json.loads((meshroot / "mesh.json").read_text())
     row = next(
         r
@@ -216,6 +216,16 @@ def assess(args):
     with np.load(data / "object-88-target.npz", allow_pickle=False) as d:
         target = dict(d)
     variants = {"reference": target}
+    if args.baseline_generated is not None:
+        old = json.loads((args.baseline_generated / "generation.json").read_text())
+        if old["mesh_sha256"] != generated["mesh_sha256"]:
+            raise ValueError("baseline geometry mismatch")
+        row = next(r for r in old["rows"] if r["name"] == "neural-inverse1")
+        path = args.baseline_generated / "neural-inverse1.npz"
+        if source.sha(path) != row["sha256"]:
+            raise ValueError("changed previous hybrid")
+        with np.load(path, allow_pickle=False) as d:
+            variants["previous-neural-inverse1"] = dict(d)
     with np.load(
         args.root / "objectfolder2-physical-shared-render-2026-09-06/object-88.npz",
         allow_pickle=False,
@@ -250,9 +260,10 @@ def assess(args):
             {k: v for k, v in results[name].items() if k != "contacts"},
             flush=True,
         )
-    order = ["reference", "standalone", "neural-inverse1", "p1-inverse1"]
+    before = "previous-neural-inverse1" if args.baseline_generated else "standalone"
+    order = ["reference", before, "neural-inverse1", "p1-inverse1"]
     for contact in (0, 24, 47):
-        for name in order:
+        for name in waves:
             wavfile.write(
                 args.output / f"contact-{contact}-{name}.wav",
                 source.RATE,
@@ -282,6 +293,8 @@ if __name__ == "__main__":
     parser.add_argument("stage", choices=("generate", "assess"))
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--generated", type=Path)
+    parser.add_argument("--fit", type=Path)
+    parser.add_argument("--baseline-generated", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists() or args.output.resolve().is_relative_to(

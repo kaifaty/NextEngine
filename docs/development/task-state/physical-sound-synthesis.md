@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / PHYSICAL_SHARED_AND_WARMSTART_REJECTED / OPERATOR_TRAINING_OPEN.
+Status: ACTIVE_GOAL / OPERATOR_TRAINING_IMPROVES_HYBRID / TRAIN_SUBSPACE_GAP_OPEN.
 
 ## Resume in 60 seconds
 
@@ -10,36 +10,38 @@ Status: ACTIVE_GOAL / PHYSICAL_SHARED_AND_WARMSTART_REJECTED / OPERATOR_TRAINING
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest audible discriminator:** [reference→standalone NN→NN+physics→P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-ritz-probe-assess-2026-09-06/contact-0-comparison.wav),12s;
-  openDEV88, common gain ALL48contacts/variants. Two other contacts24/47 alongside.
-  NN+physics improves standalone but loses to classical P1+physics: mean spectrum
-  1.7559→.6522 versus.1400; envelope1.6170→.1381 versus.01446. REJECT NN advantage.
-  Generation freshly assembles P2 from geometry, no target K/M/U/audio reads.
-  Same32vectors/one inverse correction each; P1 initialization3.02s versus NN.074s,
-  shared factor34.77s; total71.26s, not equal total costs or a runtime speed claim.
-  Raw NN subspace Ritz frequencies68–174kHz: NO audible modes, rejection retained,
-  no pitch repair. NN correction27/32audible, mean full32frequencyerror23.10%; P1
-  32/32,2.81%. Residualmax NN.602/P1.130, neither converged. Surface-only training
-  does not constrain interior fields; this is NOT a NeuralSound reproduction.
-- **Latest standalone model:** physical-shared73e60eaa…; one74432parameter fit,
-  TRAIN59/66/78,2000Adam.001seed42;32contact labels/body,16withheld. DEV88 remains
-  whole-object opendevelopment, NOT pristineholdout. Geometry→frequency+vectorfield;
-  physical per-mode port-matrix loss, not old bandGram or signedAudioNetg.
-  [Three standalone DEV contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-physical-shared-assess-2026-09-06/object-88-three-neural.wav),9s.
-  Beats nearest on66heldcontacts, loses59/78; DEV88 spectrum1.7559 versus1.1457,
-  frequencyerror17.29%. Reject shared replacement; no per-object NN fit.
+- **Latest audible:** [reference→previous NN+physics→operator-trained NN+physics→P1+physics](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-operator-assess-2026-09-06/contact-0-comparison.wav),12s;
+  openDEV88, common gain ALL48contacts/variants, othercontacts24/47 alongside.
+  New spectrum.49258 vs old.65221 (~24%better), envelope.09909 vs.13811;
+  levelslightlyworse .09745 vs.09197. Classical still.14001/.01446/.02833:
+  REJECT classical-quality advantage; partial shared-learning progress only.
+- **New shared weights:** ce01da5b…; TRAIN59/66/78 only, initialized73e60eaa…;
+  300Adam.001 updates/100each,68192trainableparameters,6.37sCUDA. P1 K/M Rayleigh
+  subspace trace objective; no new targetmodes/audio, noDEVfit/checkpointselection.
+  Frequencies MUST come from Ritz; receipt `requires_operator_ritz` blocks old
+  independent-frequency renderer. Same field architecture, not NeuralSound/U-Net
+  or explicit residual loss. P1train/P2generation is an approximation gap.
+- **New inference:** fresh P2geometryoperators, frozenNN, one inversecorrection;
+  rawRitz3/32audible19–73kHz, NOT usable direct sound. Corrected27/32audible,
+  full32freqerror21.72%,maxresidual.458 (old.602); NOT converged. Classical params
+  bit-identical to prior. Total69.60sCPU, no speed claim. No target K/M/U/audio reads.
+  60tests/RuffPASS;24WAV/21replays/3galleries/sign/zero/pins/tracesPASS. Jobs terminal.
+- **TRAIN gap:** postfit exactP1 trace lowerbounds59/66/78=264.163/155.026/159.130;
+  learned1513.654/1198.853/865.574, ratios5.73/7.73/5.44; low32subspace capture
+  51.0/49.6/56.8%. Failure already onTRAIN, not only generalization. Does NOT yet
+  distinguish limited hidden features from head/optimization failure; no refit.
+  CPU/GPUtrace agreement1.04e-8relative,maxmasserror2.65e-14; details in pilot.
+- Prior73e60eaa… surface-portNN:74432parameters,3TRAIN32contacts/16withheld;
+  beatsnearest66, loses59/78/wholeDEV88. DEV88opendevelopment NOT pristineholdout.
+  Raw frozen Ritz68–174kHz/zeroaudible, correction spectrum.6522 stillfailsP1.1400.
 - **Physical data:** explicit approximate fTetWild59/66/78/88, fixed ceramics;
-  P2 sixrigid+32elastic, residuals<1e-7, K/M/U retained externally. 66 requires
-  421791DOFs/600.8s/15.76GiB peakRSS; explicit500000DOF option, default200000 kept.
-  66/78/88 distance checks2048samples/direction, NOT allpoints/Hausdorff; volume
-  differences.3271/.2074/.0984%. Strict59/78 failures preserved, no nativeexactclaim.
-  Physical displacement, NOT pressure/radiation/realism;32modes notfullband.
-  57tests/Ruff PASS; shared52WAVQA/replays/traces, newFEM12WAVQA/replays, Ritz15WAVQA/
-  12replays/3galleries/geometry-onlytrace PASS. All jobs terminal; pins in pilot.
-- Expansion:next256MiB,ten complete pairs,partial archive SHA only;30Iron/96Glass
-  unsupported. Eight prepared bodies/32contacts; newTRAIN47/59/72/78/91.
-  BEFORE audio reserved37–46cups/53possible54kin;newDEV37/40/53. CombinedDEV6objects,
-  FOURfamilies;originalroles unchanged,mod5acquisitionrole separate,noholdoutreuse.
+  P2 sixrigid+32elastic,residuals<1e-7, K/M/U external.66=421791DOFs/15.76GiB,
+  explicit500000limit/default200000.66/78/88 distances2048samples/direction,
+  NOT allpoints/Hausdorff. Strict59/78 failures preserved; no nativeexactclaim.
+  Displacement,NOT pressure/radiation/realism/fullband. Prior QA/pins in pilot.
+- Expansion:partial256MiB/tenpairs;30Iron/96Glass unsupported. TRAIN47/59/72/78/91;
+  reserved37–46cups/53possible54kin BEFOREaudio; newDEV37/40/53. CombinedDEV6objects,
+  FOURfamilies; originalroles/mod5acquisitionrole separate, noholdoutreuse.
 - Magnitude ef22695e… and11TRAIN81cc9a90… regress oldDEV; REJECTreplacement.
   Preserve compact5b569809…(.9873/.5622/.6498oldDEV); pins/cohort in pilot.
 - Magnitude oracle: count alone insufficient; poles/fields both wrong. Sign/scalar
@@ -51,17 +53,15 @@ Status: ACTIVE_GOAL / PHYSICAL_SHARED_AND_WARMSTART_REJECTED / OPERATOR_TRAINING
   capacity/epoch/seed sweeps. Compact all-modes-accounted is lossy; pins in pilot.
 - **Scale:** native mesh/source intervals agree;CSV23=.082 vs .116984,47=1.2 vs
   .191112. No CSV resizing/absolute calibration; scalar xyz span≠AABB longest side.
-- **Next:** smallest shared operator-consistent TRAIN experiment: couple learned
-  subspace to K/M through Ritz/residual, not independent poles and sparse surface
-  labels. Compare against P1+onecorrection; geometry-only new-object inference.
-  No further frozen-NN correction-count, epoch/width/seed/material-by-material
-  sweeps. Reconsider only with a changed physical training mechanism. Full goal
-  unchanged. Existing pytetwild0.4.2/scikit-fem12.0.2 overlays; details in pilot.
+- **Next discriminator:** frozen learned hidden-feature Ritz oracle on TRAIN:
+  can its feature span represent the low32 physical subspace better than the
+  learned32-column head? Distinguish representation vs optimization before more
+  epochs/width/loss variants; no per-object neural fit or DEVcheckpointselection.
+  Keep P1+onecorrection control and produce audible comparison. No frozen-NN
+  correction-count/material-by-material sweeps. Full goal unchanged; overlays in pilot.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
-  `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
-  `objectfolder2-range-2026-09-06/family-extraction.json`:original9pairs/320MiB;
-  IDs7/11/23/29/54/66/75/82/88,34–1965modes. **OF2IDs≠SonicGauss/OFRealIDs**.
-  Demo23EXACTmatchesarchive;GSOCCBY4/originalmeshtermsretained;23/29URLsNone.
+  `objectfolder2-source-2026-09-06` audited; original9pairs/320MiB manifest inpilot.
+  **OF2IDs≠SonicGauss/OFRealIDs**. GSOCCBY4/originalmeshterms;23/29URLsNone.
 - Source loader:strictweights_only+numericNumPyallowlist/hash-pinnedASTdeclarations,
   noimports/CUDA/optimizerexecution. Authorpeaknormalization erasesforce/breakszero;
   omitted. Train rawcoefficients,NOTauditionPCM. Noauthorqueryclamp. Teacher29

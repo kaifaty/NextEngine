@@ -8521,3 +8521,95 @@ operator-consistent network and did not establish realistic pressure, either
 striker's material, water/rain/friction/rolling/destruction or arbitrary objects.
 The context skill preserves this failure so future work does not mistake physical
 refinement's gain for learned transfer or repeat sparse field-fitting variants.
+
+## Shared operator-objective fit: improved hybrid, unresolved TRAIN gap — 2026-09-06
+
+New [12s comparison: reference → previous hybrid → newly trained hybrid → classical](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-operator-assess-2026-09-06/contact-0-comparison.wav).
+Same files for contacts24/47. All48contacts of already-open DEV88 evaluated; this
+is one unfamiliar-by-fit body, not48independent objects or clean holdout evidence.
+Common gain across every contact/variant; no personal listening claim.
+
+`physical_sound_objectfolder2_operator_fit.py` prepares P1 stiffness/mass operators
+on existing approximate meshes TRAIN59/66/78:23256/66210/21834DOFs. No new downloads,
+source recordings or eigenvector labels enter this fine-tune. Initial shared
+weights73e60eaa… do retain their original TRAIN surface supervision. Physical
+coefficients/geometry and existing roles remain unchanged.
+
+The [NeuralSound v4 physical-subspace objective](https://arxiv.org/html/2108.07425v4)
+(sections4.2.3/A.3, reopened2026-09-06) motivates coupling fields and poles through
+operators, rather than fitting unrelated outputs. This experiment is narrower:
+the existing point network minimizes `trace((VᵀMV)^-1 VᵀKV)`, after removing six
+analytic rigid fields and column normalization. A Cholesky solve avoids unstable
+eigenvector derivatives at repeated eigenvalues. No diagonal loading, invented
+rank or independent frequency loss. This is a variational low-subspace-energy
+objective, NOT the paper's weighted residual objective or sparse linear U-Net.
+Multigrid learning was considered during source discovery, not implemented.
+
+One fixed300Adam steps/lr.001, round-robin100updates per TRAIN body, initialized
+from the same weights;68192trainable parameters,6.374s on RTX3080. The6240parameter
+frequency head stays frozen and unused. New receipt `requires_operator_ritz`
+rejects accidental use through the old independent-frequency renderer; inference
+extracts frequencies with Ritz. Full model retains74432parameters for compatible
+state loading. No capacity/seed/DEV checkpoint selection or per-body neural fit.
+
+Weight SHA256 `ce01da5bafa38dea63b159c03a9c3ea06c4df68666485000d91bdae13c68d3e9`;
+fit source `29106fa70e4e738acd6adb9e000be9979dc4108e47d487df8f5cb5edde9d925c`.
+Roots `objectfolder2-operator-data-fixed-2026-09-06`, `objectfolder2-operator-fit-2026-09-06`,
+`objectfolder2-operator-render-2026-09-06`, `objectfolder2-operator-assess-2026-09-06`.
+Fit/read traces are adjacent `.trace` files. Generation reuses the prior P2
+inverse/Ritz discriminator via `--fit`; assessment `--baseline-generated` adds
+the previous hybrid with checked geometry and parameter hashes.
+
+Initial data preparation stopped on a bit-equality assertion for DOF coordinates
+recomputed through affine element maps (maxdifference6.94e-18); no operators had
+been written. It now verifies native mesh coordinate identity and INTEGER nodal
+DOF ordering, not bit identity to re-evaluated coordinates. No geometric tolerance
+or physical solver threshold was relaxed. Original empty output directory remains.
+
+| Method,48DEV contacts | Spectrum | Envelope | Absolute log RMS | Full32 frequency error |
+| --- | ---: | ---: | ---: | ---: |
+| Previous NN + one correction | .652213 | .138112 | .091971 | 23.1006% |
+| Operator-trained NN + one correction | .492579 | .099089 | .097446 | 21.7213% |
+| Classical P1 + one correction | .140007 | .014458 | .028334 | 2.8095% |
+
+New hybrid improves spectrum about24.5% and envelope28.3%, but level worsens
+slightly; **no quality advantage over classical**. New raw Ritz has only3/32
+audible modes (19.19–72.87kHz), spectrum.99717/envelope.99501/logRMS5.04617:
+not a useful direct sound. New corrected model27/32audible,2.118–27.247kHz,
+maxresidual.45838 versus previous.60197; still not converged. P1 variants' NPZ
+bytes are exactly unchanged. Generation69.598sCPU includes fresh P2 assembly23.770s,
+factorization33.342s; this does not establish a neural speed advantage.
+Corrected NN parameter SHA256
+`e6efdd400392c5b774fb1fd89dc7425c458050050ef65d55b49aee4a937e9b90`.
+
+Postfit TRAIN-only discriminator solves the exact lowest32P1 modes with the same
+existing eigensolver, after weights and DEV generation are fixed. The learned
+trace decreased to11.87/11.14/6.36% of its initialization, but remains far above
+the physical lower bound:
+
+| TRAIN body | Exact low32 trace | Learned trace | Ratio | Captured low32 subspace |
+| --- | ---: | ---: | ---: | ---: |
+| 59 | 264.163333 | 1513.654344 | 5.730 | .5096 |
+| 66 | 155.026395 | 1198.852675 | 7.733 | .4959 |
+| 78 | 159.129938 | 865.573766 | 5.439 | .5684 |
+
+Capture is `||U_exactᵀ M U_learned||_F²/32`, not waveform/perceptual accuracy.
+Thus failure exists even on TRAIN under the same P1 operator: it cannot be
+attributed only to new-object generalization or P1/P2 transfer. This alone does
+not distinguish feature expressiveness from incomplete head/optimization.
+Next discriminator: frozen hidden-feature-span Ritz extraction on TRAIN, with
+audible output, before another epoch/capacity/loss variant. This is a numerical
+oracle diagnostic, not permission for per-object neural retraining.
+
+Checks:60focused OF2tests, Ruff lint/format and diff/link checks PASS; finite-
+difference objective gradients, basis/rigid invariance and wrong-renderer guard
+covered. CPU/GPU final TRAIN traces agree within1.04e-8relative; independent
+mass errors≤2.65e-14 and positive elastic Ritz poles.24WAV QA/21exact waveform
+replays/3galleries, sign/zero tests, pins and classical byte identities PASS.
+Fit trace13externalpaths: only TRAIN operators, old weights, own output;
+generation10paths: geometry/new weights/own output, no target operators/modes/audio;
+neither makes INET calls. All jobs terminal. Cargo/host-check/ProductChecks NOT_RUN,
+not applicable to this Python lab. No pressure/radiation, material-pair, realistic
+water/rain/friction/rolling/destruction or arbitrary-object completion claim.
+The context skill preserves the improved hybrid and the unresolved TRAIN gap;
+the broader objective, product status and authored fallback are unchanged.
