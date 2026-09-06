@@ -2070,13 +2070,19 @@ MTP RMS criteria.161 native tests and Linux host/scoped checks pass. This is not
 full calibration. User-directed next work is explicit corrected-body walking
 environment integration (25 actions versus the old adapter's23), reset/contact/
 reward validation and a bounded pipeline smoke. Keep old weights/environments
-unchanged; no new optimizer or selected calibrated-body claim yet.
+unchanged; this support diagnostic does not establish calibrated-body readiness.
 The [native corrected-body environment](development/r8b-corrected-native-walking-2026-09-06.md)
 now implements exact V11/CompiledV4,25 PD residual actions,94 observations and
 anatomical rearfoot/MTP support and geometry.166 native/7 protocol/48 Python
-tests and640-transition/89-reset native control pass. ADR-126/profileV5 prepare
-one16384-sample CUDA pipeline smoke; final host/replay/regression checks and
-clean generation freeze remain before launch. No walking-quality or full
+tests, native controls and Linux host/scoped checks pass. ADR-126/profileV5's
+fresh16384-sample CUDA PPO smoke completes at clean83ef7eeb with finite weights,
+but zero moving-command samples; final policy fails joint-safety at90 ticks/1.5s
+after−0.423749m. Walking is not learned. Post-run audit finds old23-channel joint
+export tails despite correct94/25 PPO inputs; ebb64844 fixes telemetry,8 native/
+33 Python checks and separate no-optimizer25-channel replay pass with unchanged
+native roots, actions and outcomes. Original run/evidence remain immutable.
+No optimizer is active. Next is a bounded initial-mean/noise/final-policy safety
+prefix audit, not a longer unchanged run or gain sweep. No walking-quality/full
 calibration completion is implied; old environments/weights remain unchanged.
 Historical run results
 below remain exact-profile records, not the status of the V5 body.

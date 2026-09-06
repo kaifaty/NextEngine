@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `NATIVE_25_ENVIRONMENT_IMPLEMENTED / PIPELINE_SMOKE_PREPARED / QUIET_GATE_FAILED / FULL_CALIBRATION_OPEN` |
+| Status | `NATIVE_25_ENVIRONMENT_IMPLEMENTED / PPO_SMOKE_COMPLETED / TELEMETRY_REPLAY_PASS / WALKING_NOT_LEARNED / FULL_CALIBRATION_OPEN` |
 | Updated | 2026-09-06 |
 | Scope | Improve actual human-like BodySchema, foot mechanics, mass/inertia and leaning; visualization alone is insufficient |
 | Authority | Working context only; current SPEC/ADR and exact artifacts take precedence |
 
 ## Resume in 60 seconds
 
-- [Native25 environment](../r8b-corrected-native-walking-2026-09-06.md), [ADR-126](../../architecture/adr/126-corrected-body-walking-environment.md): exact V11/CompiledV4, walking referenceV1+PD (NOT standingV6/support), anatomical feet and94 observations implemented.166 native/7 protocol/48 Python tests and640-transition/89-reset control pass. Initial Q30 direct-client whitelist bug fixed, failure retained. ProfileV5 prepares one16384-sample CUDA pipeline smoke; finish outstanding host/replay and old-V8 controls, freeze clean closure, run once. No optimizer started yet, no walking-quality/full-calibration claim. Do not resume gain sweeps.
-- Latest decision supersedes historical next-action text below: user prioritizes corrected-body walking integration. [Support-effort result](../r8b-support-effort-calibration-2026-09-06.md), ADR-125: V11 survives30s, quiet gate fails torso1.675deg and both MTP RMS. Independent557,300 efforts/roots/controls and native repeat agree;161 native tests plus scoped/Linux host checks pass. Do not retune gains or claim calibration complete. Implement explicit25-action environment/adapter and pipeline smoke; old23-action environments/weights remain unchanged. Observed velocity-versus-endpoint-motion discrepancy still needs discrimination; no production velocity substitution or training started.
+- [Native25 environment and smoke](../r8b-corrected-native-walking-2026-09-06.md), [ADR-126](../../architecture/adr/126-corrected-body-walking-environment.md): V11/CompiledV4 + walking referenceV1/PD,94 observations. Clean83ef7eeb completes32 CUDA PPO updates/16384 samples; all finite, zero moving samples, final90 ticks/1.5s joint-safety and−0.423749m. No walking learned or optimizer active. Post-run audit caught old23-channel q/v export tails (PPO94/25 inputs correct); ebb64844 repairs them,8 native/33 Python checks and no-optimizer replay pass, exact2560-transition roots/old-V8 control preserved. Original run/NPZ unchanged; use separate25-channel replay, not old q/v tails. Next bounded unchanged-body prefix audit: zero versus initial mean/noisy versus final mean, localize first safety channel before curriculum/exploration choice. Do not extend smoke, retune gains or import old23 weights.
+- This decision supersedes historical next-action text below: corrected-body walking integration is implemented, not calibrated or learned. [Support-effort result](../r8b-support-effort-calibration-2026-09-06.md), ADR-125: V11 survives30s, quiet gate fails torso1.675deg and both MTP RMS. Independent557,300 efforts/roots/controls and native repeat agree;161 native tests plus scoped/Linux host checks pass. Support helper remains diagnostic-only; old23-action environments/weights unchanged. Velocity-versus-endpoint-motion discrepancy still needs discrimination; no production velocity substitution.
 - Native baseline: whole-body sampled damping V9 is implemented as an opt-in
   diagnostic (ADR-120), **not selected**. Independent local-model preflight
   passes but native stance fails at18/240s, both ankle-pitch velocities>8.001rad/s.
