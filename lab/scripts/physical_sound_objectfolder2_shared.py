@@ -351,11 +351,11 @@ def predict(model, cloud, features, contacts):
     return result
 
 
-def render(args):
+def render(args, *, model_class=SharedStudent, prediction_fn=predict):
     info = json.loads((args.fit / "fit.json").read_text())
     if teacher.sha(args.fit / "model.safetensors") != info["weights_sha256"]:
         raise ValueError("weights changed")
-    model = SharedStudent()
+    model = model_class()
     model.load_state_dict(load_file(args.fit / "model.safetensors"), strict=True)
     model.eval().requires_grad_(False)
     inputs = json.loads((args.data / "inputs.json").read_text())
@@ -386,7 +386,7 @@ def render(args):
         inputs["rows"], clouds, features, contacts, strict=True
     ):
         identity = row["object_id"]
-        predicted = predict(model, cloud, feature, points)
+        predicted = prediction_fn(model, cloud, feature, points)
         np.savez(args.output / f"object-{identity}.npz", **predicted)
         for c in range(4):
             name = f"object-{identity}-contact-{c}.wav"

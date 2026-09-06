@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / COMPACT_SHARED_STUDENT_AUDIBLE / LEVEL_FIDELITY_NOT_MET.
+Status: ACTIVE_GOAL / CHANNEL_TRANSFER_REJECTED / RAYLEIGH_DECAY_CAUSE_VERIFIED.
 
 ## Resume in 60 seconds
 
@@ -10,46 +10,49 @@ Status: ACTIVE_GOAL / COMPACT_SHARED_STUDENT_AUDIBLE / LEVEL_FIDELITY_NOT_MET.
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [three untrained objects: teacher→compact shared NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-compact-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s.
-  Order11woodchair/54ceramicbowl/88ceramicmug;3s each teacher then prediction.
-  One newly trained68486parameter shared model, NOT nine separate fits.
-  SixTRAIN7/23/29/66/75/82;openDEV11/54/88;2000Adam.001seed42,no sweep.
-  `objectfolder2-compact-fit-2026-09-06`:weights5b569809d3340a28f5d9aa361b29d6db9c0f0d56628e881a706e615e1074b56f.
-  Same68486params/2000steps/.001/seed42 asprior6490f010…;only target packing changed.
-  Alljobs terminal;36source-freeWAVs,36exactreplays,18focusedtests,59newfullWAVQA.
-- **Result REJECT_QUALITY_ADVANTAGE / partial improvement:** all12DEVcontacts
-  spectrum.98730/envelope.56224/logRMS.64982 vsprior1.01419/.64648/.72957.
-  Improvements2.65%/13.03%/10.93%,butlevelstillworse thannearest.49116/size.40940.
-  TRAIN spectrum.84243/level1.31473 worsen vsprior.82022/1.10101;not solved.
-  `objectfolder2-compact-assess-2026-09-06/assessment.json` compares FULLteacher,
-  notcompacttargets;geometry-onlyrender/TRAIN-onlyfittraceschecked.
+- **Latest primary:** [three held objects: full teacher→NN with analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s,
+  order11/54/88. [Mug:reference→bad learned decay→analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/mug-reference-learned-decay-analytic-decay.wav),9s;
+  posthoclargest-regressioncase,notrepresentativeacceptance. No target atgeneration.
+- `objectfolder2-channel-fit-2026-09-06`:one69712parameter NN(+1.79% vs68486),
+  128physicalbands×3slots,16widechannelheads,occupancy>0.5replaces scalarcount.
+  Samecompact sixTRAIN7/23/29/66/75/82/openDEV11/54/88;2000Adam.001seed42.
+  Weightsf5e5e578d4ecb5cc81f9c12a85b61d6647b491e47e57036f61c1222bf3ad90ad.
+  RawDEVspec3.46905/env7.34727/level.83842REJECT;TRAIN.74552/.59787/.83701.
+  OutputchannelshelpTRAINbutnottransfer;no channelwidth/mask/loss/epoch sweeps.
+- **Cause verified:** publishedOF2suppTable1Rayleighalpha/beta reproducesall5309
+  FULLsource modes with maxrelative6.66e-16 (`objectfolder2-rayleigh-source-2026-09-06`).
+  Independent learneddecay violatesmateriallaw (ceramic88min.1468vsminimum3).
+  `physical_sound_objectfolder2_rayleigh.py` computes stable low quadratic root
+  from predictedDAMPEDfrequency+assignedmaterial,NOTfitted/targetcoefficients.
+  Keep source-freef/g/occupancyEXACTfixed;learneddampingretainedinNPZ.
+- `objectfolder2-rayleigh-{render,assess}-2026-09-06`:DEV1.16898/1.16439/.57924,
+  TRAIN.74507/.59873/.83194. BigrawfailurepartlyfixedbutREJECT_QUALITY_ADVANTAGE.
+  Priorcompact5b569809… remainsbetterDEVspec/env(.98730/.56224),level.64982;
+  nearest/sizecontrolslevel.49116/.40940. No promotion, no arbitrarymaterialproof.
+  Alljobs terminal;105newWAVfullQA,72exactreplays,9f/g/maskidentities,25testsPASS.
 - **Cause discriminator already run:** `objectfolder2-shared-diagnostic-2026-09-06`.
-  SixTRAINfirstcontacts,ORACLEcount/ranks:learnedpoles+truefield spec.52650,
-  env.24085,level.07785;truepoles+learnedfield .83199/.67342/1.19021;
-  bothlearned .89341/.70957/1.24987. Truepoles doNOT fixfieldfailure.
-  TRAIN75/82firstcontactgainRMS ratios.02555/.01072. No new fit in discriminator;
-  6audiblequadruples are oracle-assisted,NOT standalone generation.
+  SixTRAINoraclepole/fieldswaps: truepoles doNOT fixfieldfailure;detailsinpilot.
+  Sixquadruples are target-assisted,NOTnewNN/standalone generation.
 - **Research/probe DONE:** `objectfolder2-band-qr-probe-2026-09-06`,7oracleWAVs.
   SixTRAINfirstcontacts:128fullMelbands,≤3modesretained;>3signedsum spectral.05160
   vsenergyGram.23196. EnergyperbandPASS3.99e-15buttotalcrossbanderrorup26.55%.
-  Rejectindependentbandenergyasfix;no Gram/phase/band-count sweeps. Initialinverse
-  failed4.71e-9 atcond2.61e9;sampleQRfixednumerics,NOTsound;fullfailureinpilot.
-  DeepModal2020§3–5 usesfrequencybands/mask,notourrankMLP;paperlimitationsinpilot.
+  Rejectindependentbandenergyasfix;no Gram/phase/band-count sweeps. QRfixed
+  inverseill-conditioning,NOTsound;DeepModalresearch/failureevidenceinpilot.
 - `objectfolder2-compact-data-2026-09-06`: signedpacking usesONEpole/band across
   all32contacts; TRAINcommonpoleoracle spectral.05714/env.02530/level.01148.
   Allsource modesaccountedfor,NOTlossless. Raw9targets preserved;inputsEXACTcopied.
-- **Next discriminator:** fixed frequency-channel decoder vs normalized-rank MLP,
-  using same compact TRAIN roles; distinguish output-index alignment from data
-  compression. Keep currentweightsfrozen,compareparameterbudget/fitandfullaudio;
-  not a band-count/loss/epoch/seed/capacity sweep orper-objectfit. Encoder/spatial
-  representationandoptimization remainalternativecauses;notprovenrankalone.
+- **Next discriminator:** frozen-network size self-similarity onTRAINgeometry,
+  with exact damped/undampedfrequency mapping and internetmateriallaw. Produce
+  WAVs and physical-frequency evidence,notabsoluteamplitude/pressureclaim.
+  No more decoder/mask/phase/loss/capacity/epoch/seed refits before that evidence.
+  Material/shape/sizeconfounding andspatialencoder remainhypotheses. Knowndecay
+  is not an independent learnabletarget inthissyntheticlaw;don'tweakenrawfailures.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:9completemesh/checkpoint
   pairs from first320MiB of3.77GBarchive;individualhashes,NOTfullarchivechecksum.
   IDs7/11/23/29/54/66/75/82/88;34–1965modes. **OF2 IDs≠SonicGauss/OF-Real IDs**.
-  Demo23mesh+weightsEXACTmatchesarchive(Steelassigned);notinferredfromtimbre.
-  GSOCCBY4confirmed;originalmeshtermsretained;23/29CSVoriginalURLsNone.
+  Demo23EXACTmatchesarchive;GSOCCBY4/originalmeshtermsretained;23/29URLsNone.
 - `physical_sound_objectfolder2.py`:strictweights_only+numericNumPyallowlist,
   reviewedhash-pinnedASTdeclarations,noimports/CUDA/optimizerexecution;
   Authoroutputpeaknormalizationerasesforceandbreakszero;omitted,commonper-object
@@ -57,10 +60,8 @@ Status: ACTIVE_GOAL / COMPACT_SHARED_STUDENT_AUDIBLE / LEVEL_FIDELITY_NOT_MET.
   Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamp. Detailsinpilot.
 - Teacher29underflowbit-scalingFAILretained;explicitULPboundpasses27checks,
   all9zeroexact. Numericvalidation≠realism/absoluteforce;exactevidenceinpilot.
-- Sharedpreparepack preservedall34–1965modes/32points,512meshvertices+log3sizes+
-  materialonehotinputs;commonrankheadpredictscount/frequency/damping/signedgains.
-  TRAIN-onlyfit and geometry-onlyrenderstracechecked;no target count/poles/audio
-  atstandaloneinference. DEV88predicted26vs50modes. DoNOT hidewrongcount/quietness.
+- Fullpreparepack preserves34–1965modes/32points,512meshvertices+log3sizes+
+  materialonehotinputs. No target count/poles/audio at standaloneinference.
   TeacherhasNOpressure/radiation/listenerstageorstrikermaterial. SignedAudioNet
   gainsareNOTcontactself-admittance;do notfeedthemintoHertzfeedbackaspositiveports.
 - **Pressure control retained:** `guitar-fsi-probe-2026-09-06`,DaRUS-3248V1,

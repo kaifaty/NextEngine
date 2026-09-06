@@ -7765,3 +7765,125 @@ render with COMPACT_DATA; existing shared_assess.py **with FULL_DATA**, generate
 compact outputs and a new assessment directory. Use the established
 `lab/scripts/physical_sound_objectfolder2_` filename prefix and Python environment,
 `OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Full inputs and weights stay external.
+
+## 2026-09-06 — Fixed channels fail transfer; analytic decay identifies a cause
+
+Primary: [full teacher then frozen shared NN with analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s,
+order11/54/88. The [mug diagnosis: reference→learned decay→analytic decay](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-rayleigh-assess-2026-09-06/mug-reference-learned-decay-analytic-decay.wav)
+is9s and deliberately selects the largest regression posthoc; it is not an
+unbiased acceptance gallery. All three use the first fixed contact, full3s
+responses and one common gain. No target recording/modal arrays at generation.
+These are still assigned-material synthetic vibrations, not calibrated pressure,
+realism admission or an engine/demo replacement.
+
+Previous goal turn was **progress**: compact targets, trained NN and audible
+evidence. This turn ran one structural discriminator before further research:
+`physical_sound_objectfolder2_channels.py` replaces normalized-rank queries with
+128frequency bands×3explicit slots. Object poles/occupancy use the body encoder;
+signed gains use body plus contact features. Same point encoder, two16-wide
+channel heads:69712parameters versus68486(+1.79%), not a large capacity increase.
+Occupancy BCE replaces scalar log-count loss; a fixed0.5threshold selects modes.
+Empty predicted masks remain silent failures, never target-repaired. Losses still
+weight occupied pole/gain samples equally,1024samples per step; all TRAIN modes
+were sampled. Channel alignment, occupancy formulation and frequency bounds all
+change together; this is not a proof that indexing alone causes a difference.
+
+One2000-step Adam.001/seed42fit on the same six compact TRAIN objects, no new
+data, seeds, widths, thresholds or checkpoint selection. External
+`objectfolder2-channel-fit-2026-09-06`, weights SHA256:
+`f5e5e578d4ecb5cc81f9c12a85b61d6647b491e47e57036f61c1222bf3ad90ad`.
+channels.py hash306a9e0b…; shared.py hashfcd2930d… in fit.json. The only shared.py
+change injects a model class/predictor into the existing renderer; its default
+rank-model behavior is retained. Prior fit source hashes refer to their earlier
+commits, not falsely to this changed file. Source-free render/assessment roots
+are `objectfolder2-channel-{render,assess}-2026-09-06`.
+
+| Mean diagnostics | Compact rank NN | Fixed-channel NN |
+| --- | ---: | ---: |
+| TRAIN spectrum | .842428 | .745518 |
+| TRAIN envelope | .664726 | .597867 |
+| TRAIN log RMS | 1.314734 | .837012 |
+| DEV spectrum | .987302 | 3.469048 |
+| DEV envelope | .562240 | 7.347270 |
+| DEV log RMS | .649822 | .838418 |
+
+Automatic decision **REJECT_QUALITY_ADVANTAGE**. TRAIN improves, transfer
+regresses badly, particularly11/88. Predicted counts149/149/64/28/50/50/114/129/46
+for7/11/23/29/54/66/75/82/88; no mask repair. A descriptive TRAIN affine-rank16
+lower-bound check gives per-body asinh MSE floors.0157–.1966 versus actual
+.1396–.8586. This is a separate best-case bound per body, not a realizable common
+decoder or proof that widening fixes transfer. Spatial features, shared-field
+capacity and optimization remain possible causes of field underfit.
+
+### Bounded research and causal counterfactual
+
+Given another transfer failure, the next action was not another architecture fit.
+Inspection localized a new failure: ceramic88 predicted decay as low as.1468/s,
+while this dataset's material law has a minimum3/s. Its predicted range is
+.1468–14418.39/s versus source11.82068–942.33852/s. Frequency/occupancy errors
+also exist; damping alone was a falsifiable competing explanation for the long
+ring, not an assumed complete cause.
+
+[OF2 supplementary sectionsC/D and Table1](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf)
+specify Rayleigh material coefficients and describe obtaining modal damping from
+frequency and material. [Main paper equations6–8](https://par.nsf.gov/servlets/purl/10341945)
+distinguish damped frequencies from eigenvalues and combine them with predicted
+gains. Sources opened2026-09-06. These publications support an assigned synthetic
+law, not general damping calibration for all real objects or two-body materials.
+No downloaded code/weights executed and no coefficients fitted to our examples.
+
+For angular damped frequency w=2*pi*f, the oscillator equations give
+`lambda=w²+d²`, `d=(alpha+beta*lambda)/2`. The stable smaller root is
+`d=(alpha+beta*w²)/(1+sqrt(1-alpha*beta-beta²*w²))`.
+`physical_sound_objectfolder2_rayleigh.py` uses the published constants, rejects
+unknown/non-one-hot materials and invalid frequency domains, and leaves neural
+frequency, gain and occupancy unchanged. Glass/Iron constants exist in the
+formula helper; this does NOT extend the trained network's five-material input
+vocabulary. Compact averaging is approximate, so validation uses full targets.
+
+`objectfolder2-rayleigh-source-2026-09-06/verification.json`: all5309full modes
+across all nine open objects match with max relative6.66134e-16. The declared
+numeric criterion is1e-12, not an audio acceptance threshold. Treating damped
+frequency as undamped gives up to1.917%error on wood, so that shortcut is rejected.
+Reading open DEV here verifies source algebra, not a new pristine holdout claim.
+
+Frozen counterfactual `objectfolder2-rayleigh-render-2026-09-06` uses geometry,
+assigned material and the same f5e5e578…network only. Learned decay is preserved
+in every NPZ; only rendered damping changes. All nine frequency/gain/occupancy
+arrays are EXACTLY unchanged. No target acoustic input or per-wave level repair.
+
+| Full-teacher DEV mean | Raw channels | Analytic decay | Size-scaled control |
+| --- | ---: | ---: | ---: |
+| Spectrum | 3.469048 | 1.168976 | 1.153514 |
+| Envelope | 7.347270 | 1.164393 | .703200 |
+| Log RMS error | .838418 | .579238 | .409395 |
+
+`objectfolder2-rayleigh-assess-2026-09-06`: **REJECT_QUALITY_ADVANTAGE** remains.
+The material-inconsistent tail is a verified major cause, not the whole failure.
+TRAIN means.745066/.598729/.831938; correcting decay does not solve field fit.
+Prior compact NN retains better DEV spectrum/envelope(.987302/.562240), while
+analytic-decay channels improve level(.579238 versus.649822). Preserve both;
+do not present this tradeoff as a general quality win or silently promote it.
+
+Next: frozen-model size self-similarity on TRAIN geometry, using the exact
+damped/undamped mapping and the published material law, with audible examples.
+This tests dimensional conditioning before another fit; absolute amplitude,
+mass-normalized ports, pressure and interacting-striker claims remain excluded.
+Do not repeat channel-width/occupancy/loss/phase/epoch/seed variants. In this
+synthetic source model, decay is not an independent property to learn freely.
+
+Checks:25focused tests PASS;105new full WAVs finite float32/44100Hz/peak≤.5;
+72standalone saved-parameter replays EXACT,9counterfactual f/g/mask identities
+EXACT. Fit strace reads only compact TRAIN data plus its own output weights for
+hashing; raw/analytic rendering reads geometry inputs and own weights, no target
+acoustic files, teacher checkpoints or INET connection. Ruff/diff/local links
+PASS. No Cargo/host-check/ProductCheck for bounded lab-only Python. The context
+skill preserves the verified material-law constraint and rejected raw candidate;
+roadmap and engine authority remain unchanged.
+
+Reproduce with channels.py `fit --data COMPACT --output FIT`, then `render
+--data COMPACT --fit FIT --output RAW`; rayleigh.py `verify --data FULL --output
+VERIFY` and `render --data COMPACT --fit FIT --output ANALYTIC`; assess both using
+existing shared_assess.py with **FULL** data. Use the established
+`lab/scripts/physical_sound_objectfolder2_` prefix, Python environment and
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Output directories must be new.
