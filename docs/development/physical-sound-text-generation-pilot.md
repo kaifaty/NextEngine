@@ -8258,3 +8258,137 @@ environment. Existing output `objectfolder2-magnitude-diagnostic-2026-09-06`
 contains `diagnostic.json`,55parameter NPZs and66WAVs; adjacent `.trace` records
 reads. The context skill preserves the oracle-only result and no-CSV-resize
 decision so neither becomes a false standalone/physical-calibration claim.
+
+## 2026-09-06 — Internet ceramic geometry → physical ports → audible FEM control
+
+Primary: [three P2 physical contacts, 9 seconds](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p2-audition.wav).
+Numerical comparison: [P1→P2 for each contact, 18 seconds](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p1-p2.wav).
+This is a newly calculated physical control, NOT newly trained neural audio,
+microphone pressure, full-band convergence or a perceptual-realism result.
+Previous goal turn was progress: committed pole/field discriminator and native
+coordinate audit. No new roadmap, runtime adapter, training sweep or source payload.
+
+### Two strict failures; bounded research and explicit approximation
+
+`physical_sound_objectfolder2_elastic.py` starts with TRAIN59, the smallest
+inspected ceramic non-cuboid mesh. Original mesh SHA256:
+`0458fb14f62b3fb1e612d27bda0cc3fd6b7ced872f92d02b5a0cec44b122f93a`.
+The initial one-connected-surface precondition was incorrect for a hollow solid:
+59 has an outer positive shell and an inner negative shell. The corrected check
+retains both and verifies a cavity seed inside both enclosures by solid angle.
+No coordinates or original triangles are changed by that correction.
+
+TetGen 0.8.3, preserving vertices/facets without boundary splitting, rejects59
+with a segment/facet self-intersection (1427/1429 versus1410/1426/1430), then
+rejects the next-smallest existing ceramic78 (414/159 versus145/156/157).
+Both failures remain recorded; neither object's prior TRAIN role/target changes.
+59's initial `_skipped.node/.face` were automatically emitted in cwd; moved intact
+to external `objectfolder2-elastic-59-initial-failure-2026-09-06`. The runner now
+isolates library cwd side effects externally;78 has a `failure.json` and native
+diagnostics in `objectfolder2-elastic-78-mesh-2026-09-06`. No source mesh repaired.
+A closed tetrahedron positive control succeeds with exact vertices and volume1/6,
+so the failure is not a universally broken wrapper or wrong face-index convention.
+
+After two strict failures, bounded competing hypotheses were: H1 invalid API/
+indices, H2 real input self-intersections incompatible with a strict PLC mesher,
+H3 hollow-body topology mistaken for disconnected solids. The positive control
+and oriented-shell/seed checks discriminate H1/H3; native TetGen diagnostics
+support H2. No attempt to tune a mesher threshold to suppress the rejection.
+
+Primary sources opened2026-09-06: [TetGen array API](https://tetgen.pyvista.org/api.html),
+[fTetWild paper v2 sections2.1/3.1–3.3](https://arxiv.org/html/1908.03581v2),
+[authors' implementation](https://github.com/wildmeshing/fTetWild), and
+[PyVista wrapper documentation](https://github.com/pyvista/pytetwild/blob/main/README.rst).
+The paper explains why strict meshing fails on imperfect surfaces and permits
+an explicitly bounded surface approximation. This does not promise exact input
+triangle preservation, feature topology, or acoustic accuracy for our object.
+
+Explicit alternative: pytetwild0.4.2, default relative envelope.001 and edge
+length.05, four threads, maximum80 optimization iterations, no custom sizing
+field, exterior filtering enabled. The package's top-level import unexpectedly
+requires optional PyVista; the inspected shipped native array interface was
+used directly without altering installed code, fake modules or a VTK installation.
+Only external overlays were installed: TetGen wheel409506bytes/SHA32ea369a…,
+pytetwild3111366bytes/SHAe387d6c2…. Existing scikit-fem12.0.2 overlay reused.
+Published/shipped software notices remain with overlays; no shipping dependency
+or blanket redistribution claim for source geometry is introduced.
+
+`objectfolder2-elastic-59-wild-2026-09-06`:7752nodes/28110tetrahedra,
+mesh SHA256 `9dbbdbf414e7160ba8a0812cf7e2f773c4ef8b0627b806ce8ddc0d104be83bf5`.
+Volume .002106739721m³ versus original signed-shell .002110606354m³:
+relative change .1832001%. Both outer/inner shells survive. Explicitly NOT native
+boundary identity. Requested envelope .403844mm; independently checked all
+boundary vertices/face centroids, exact nearest-triangle distances per sample:
+output→source17036samples/max.255668mm; source→output14018/max.312552mm.
+Both sampled directions are inside the requested envelope. This is not a
+continuous Hausdorff proof or independent physical-scale calibration.
+Geometry-only result: `objectfolder2-elastic-59-geometry-2026-09-06`.
+
+### Physical solve and post-generation reference discriminator
+
+`physical_sound_objectfolder2_elastic_solve.py`: free, unclamped 3D elasticity,
+P1/P2 on the SAME mesh; six rigid modes explicitly checked then excluded from
+vibratory sonification, followed by32positive elastic modes. Dimensionless
+operators use the existing scikit-fem forms, with exact coordinate/material
+scaling restored. Ceramic E=7.2e10Pa/rho=2700kg/m³/nu=.19 and Rayleigh alpha6,
+beta1e-7 follow [OF2 supplement table1](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf).
+Negative spectral shift avoids singular free-body factorization; it does not
+clamp the object. Store sparse K/M, all38 eigenvectors and mass normalization.
+Three deterministic geometry-selected inward-normal input ports and one fixed
+outward-normal observation port give residues a_p*a_q and positive self a_p².
+No arbitrary source gain signs or implicit pressure output are reused.
+
+Declared .001N.s impulse, not a striker-material/velocity identification. Output
+is non-rigid displacement in meters. For listening, one common factor3029667.438
+converts BOTH solvers/all three contacts to PCM with peak.5; no independent
+loudness repair. Audio metrics use this same conversion to avoid PCM epsilon
+floors overwhelming microscopic meter units; raw RMS meters are also reported.
+Solver-directory WAVs retain raw meter amplitude and are intentionally quiet;
+use the linked audition files. Consistent eigenvector sign flips and zero impulse
+produce exact waveform identities. No radiation, fluid cavity coupling or microphone.
+
+| Calculation | DOFs | Time | Max elastic residual | Mean lowest32 frequency error vs source |
+| --- | ---: | ---: | ---: | ---: |
+| P1 | 23256 | 5.4s | 2.41e-9 | 18.2651% |
+| P2 | 147873 | 105.9s | 2.30e-8 | .14149% |
+
+Source acoustic data were read only AFTER both generations. Target9f3c317b…
+is existing TRAIN59 full metadata, same original mesh hash; source damped poles
+converted to natural frequencies as sqrt((2πf)²+d²). Compare ordered first32,
+not a nearest-frequency or coefficient-matching search. P2 maximum deviation
+.22563%, first frequencies1230.676/1759.165Hz versus1227.905/1757.869Hz.
+This is descriptive frequency agreement, not a preregistered admission threshold,
+port-field convergence or independent real recording. P1/P2 audio differences
+remain large (spectrum1.28–1.38); frequency agreement does not prove field/level.
+The source has120modes; this control retains32, up to about9.7kHz, NOT full-band.
+
+P2 modes SHA256 `ab844a85959bbda75ed4ea9aa84dee512d23658cbef74f563c82760e29f272a8`;
+P1 `912769659d66a2a744a64ed2069f6c943b95faf2b87f40e48874ea96615bb6fb`.
+Roots `objectfolder2-elastic-59-{p1-fixed,p2,audition,reference}-2026-09-06`.
+Initial P1 completed audio but failed JSON serialization of NumPy DOF count;
+explicit int conversion fixes reporting. Initial files are retained and four
+WAVs exactly match the fixed rerun. P2 solver source hashc1246408…; wild mesh
+source ea8a0383… precedes the later unused strict-options dict-literal lint fix.
+
+Checks:48focused OF2 tests PASS;16final WAV QA and12individual replays PASS/EXACT,
+galleries exactly reconstruct. Saved K/M/U independently reproduce both residual
+and mass-orthogonality checks (max1.33e-15); nonnegative self residues checked.
+P2 trace189external read-only opens: geometry and solver overlay only, no target
+acoustics/INET. All runs terminal. No Cargo/host-check/ProductCheck needed.
+
+Reproduce: `elastic.py --backend wild --object-id59 --manifest EXPANSION_JSON
+--output NEW`, native wrapper directory on PYTHONPATH; then `elastic_solve.py
+--order1`/`--order2 --mesh MESH --output NEW`, scikit-fem overlay on PYTHONPATH.
+`elastic_assess.py geometry`, `compare` and post-generation `reference` create
+the independent diagnostics and audible galleries; use full established filename
+prefix, option/value spaces, external paths, four-thread environment. Exact
+CLI arguments are discoverable via `--help`; no output directory is overwritten.
+
+Next: use this physical-operator/port route across a small existing multi-object
+TRAIN set for ONE shared model, preserving object-family DEV separation. Start
+with the already failed78 through the explicit approximate backend, not another
+59 loss/epoch/mesh/phase sweep or a new per-object neural fit. Source frequency
+agreement supports the generator route; material/shape/contact generalization,
+field/radiation validation and all non-impact goal branches remain open.
+The context skill preserves strict failures, explicit approximation, raw-meter
+versus audition units and physical-control versus neural-generation distinction.

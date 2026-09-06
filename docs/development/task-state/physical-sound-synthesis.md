@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / POLE_AND_FIELD_ERRORS_SEPARATED / JOINT_QUALITY_REJECTED.
+Status: ACTIVE_GOAL / NONCUBOID_ELASTIC_CONTROL / SHARED_NEURAL_TRANSFER_OPEN.
 
 ## Resume in 60 seconds
 
@@ -13,28 +13,29 @@ Status: ACTIVE_GOAL / POLE_AND_FIELD_ERRORS_SEPARATED / JOINT_QUALITY_REJECTED.
 - **Latest standalone:** [reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s;
   newDEV37/40(polycarbonatecups)/53(ceramicbowl),samegainpertriple. No target
   acoustics at either generation. Threeobjects but TWO conservativefamilies.
+- **Latest primary control:** [ceramic59, three physical contacts](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-elastic-59-audition-2026-09-06/three-contacts-p2-audition.wav),9s;
+  NOT neural/pressure/realism. P2 free FEM, six rigid+32elastic modes, physical
+  input/output residues. Post-generation source frequency mean/max error .1415/.2256%.
+  P1 mean18.265%; P2 residual2.30e-8,147873DOFs,105.9s. Field convergence NOT proven.
+  Strict native59/78 fail self-intersections;59 fTetWild explicit approximate mesh
+  7752nodes/28110tets,9dbbdbf4…;volume change.1832%, sampled distance≤.313mm,
+  requested.404mm envelope; cavity retained, NOT continuous Hausdorff/scale proof.
+  P2 modes ab844a85…; sparse K/M/U retained. Raw displacement meters; audition
+  common gain3029667.438 acrossP1/P2/allcontacts, no per-wave repair. 48tests,
+  16WAVQA/12replays/galleries/residual/mass/sign/zero/geometry-only trace PASS.
 - Expansion:next256MiB,ten complete pairs,partial archive SHA only;30Iron/96Glass
   unsupported. Eight prepared bodies/32contacts; newTRAIN47/59/72/78/91.
   BEFORE audio reserved37–46cups/53possible54kin;newDEV37/40/53. CombinedDEV6objects,
   FOURfamilies;originalroles unchanged,mod5acquisitionrole separate,noholdoutreuse.
-- `objectfolder2-magnitude-fit-2026-09-06`:99337total/30851trainableparameters;
-  frozen81cc9a90…core pluspositivemagnitudehead;notpureloss/capacitycomparison.
-  Same11TRAIN7/23/29/47/59/66/72/75/78/82/91;one2000Adam.001seed42fit.
-  Weightsef22695e230b3846e9747f0da98d9a99a088f6f0d5a903a5a5ed2d16b5f1a400.
-  NewDEVspec/env/level1.16092/.78925/1.85511→1.33019/.86025/1.60353;
-  oldDEV.88234/.73939/1.34949→.94375/.59154/.67852. Levelhelps,spectrumworse:
-  REJECTgeneralreplacement. Preserveoldcompact5b569809…(.9873/.5622/.6498oldDEV).
-- **Latest diagnostic:** [five steel interventions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-diagnostic-2026-09-06/object-23-comparison.wav),15s.
-  Compact target→unchanged NN→oracle count→oracle count/poles→oracle count/field.
-  Frozen ef226…;all11TRAIN, NOT new fit/source-free improvement/realism evidence.
-  Mean spec/env/level: raw .85287/.63762/.37247; count .85722/.63517/.36303;
-  poles .68281/.54897/.41951; field .74861/.30288/.09554. Both errors remain.
-  44tests/66WAVQA/55replays/11galleries/11prior-standalone identities PASS/EXACT;
-  Pins/TRAIN-only/no-INET trace PASS; jobs terminal. Prior17core identities EXACT.
-- `objectfolder2-field-cause-2026-09-06`:11TRAINoraclepoles/count/ranks,
-  firstcontactaudio/all32coefficientdiagnostics,NOTstandalonegeneration.
-  Sign-only/scalar complete fixes REJECT; signed MSE can prefer quieter fields.
-  FEMa→aSphysicalresidues/waveEXACT;OF2signsensitivityNOTproofsourcegaugeerror.
+- Magnitude ef22695e…: frozen81cc9a90… core + positive head,99337total parameters.
+  TRAIN7/23/29/47/59/66/72/75/78/82/91; one2000Adam.001seed42. Full pins in pilot.
+  Spectrum regresses both DEV groups despite level gains: REJECT replacement.
+  Preserve compact5b569809…(.9873/.5622/.6498oldDEV). Not a pure loss ablation.
+- **Prior diagnostic:** objectfolder2-magnitude-diagnostic:11TRAIN, oracle-only;
+  count alone insufficient; poles and fields both remain wrong. No new weights.
+  44tests/66WAVQA/replays/identities/pins/isolated trace PASS; details in pilot.
+- Field-cause11TRAIN oracle: sign/scalar fixes REJECT; signed MSE favors quiet fields.
+  FEM sign invariance exact; OF2 sensitivity is NOT proof of source gauge error.
 - **Size:** `objectfolder2-size-final-2026-09-06`,rawNNfrequencyshiftmean.6165%
   despite.8/1.25size;required-lawerror22.211%,0/12modecounts. transportlambda/r²
   andRayleighdecayworkswithoutfit,heldgainsNOTamplitudephysics. Commonbaseline
@@ -44,14 +45,12 @@ Status: ACTIVE_GOAL / POLE_AND_FIELD_ERRORS_SEPARATED / JOINT_QUALITY_REJECTED.
   f5e5e578…rawDEV3.469/7.347/.838→analytic1.169/1.164/.579,stillREJECT.
 - **Closed OF2:** bandGram worsens spectrum; noGram/phase/band/decoder/mask/
   capacity/epoch/seed sweeps. Compact all-modes-accounted is lossy; pins in pilot.
-- **Scale audit:** native mesh/source coordinate intervals agree on11TRAIN;
-  CSV23=.082 vs native .116984; CSV47=1.2 vs native .191112. Do NOT resize from
-  CSV or claim absolute calibration. Scalar xyz span is not longest AABB side.
-- **Next:** native non-cuboid TRAIN59 elastic-operator/physical-port audible
-  control before shared operator-residual learning. 4674unique vertices/9344tris,
-  indexed edges two-sided, NOT yet self-intersection/volume/tetra/solver verified.
-  No silent geometry repair/resize or cuboid substitution. Published ceramic
-  parameters; no sign/gain/width/epoch/seed or data-count sweeps. Full goal unchanged.
+- **Scale:** native mesh/source intervals agree;CSV23=.082 vs .116984,47=1.2 vs
+  .191112. No CSV resizing/absolute calibration; scalar xyz span≠AABB longest side.
+- **Next:** existing multi-object TRAIN operator/port generation for ONE shared
+  model, start78 via explicit approximate backend. Preserve DEV families;
+  no per-object neural fit or59 mesh/epoch/sign/phase sweep. Full goal unchanged.
+  External native pytetwild0.4.2 and existing scikit-fem12.0.2 overlays; see pilot.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:original9pairs/320MiB;
