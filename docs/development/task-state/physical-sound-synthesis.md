@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / COMMON_NOISE_SEPARATION_MEASURED / SHARED_OBJECT_RESONANCE_BRANCH_NEXT.
+Status: ACTIVE_GOAL / SHARED_MODAL3D_AUDIBLE / INTERPOLATION_ADVANTAGE_RETAINED / TEACHER_FIDELITY_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,31 +10,35 @@ Status: ACTIVE_GOAL / COMMON_NOISE_SEPARATION_MEASURED / SHARED_OBJECT_RESONANCE
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `sonicgauss-common-noise-render-2026-09-06`,120fullsource-free
-  WAVs,gain1,50steps;`sonicgauss-separation-2026-09-06`,21comparisons/result+latentdiagnostic.
-  [Glass:sixcontactsnoise0→contact0noise1](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/object-06-contact-noise-comparison.wav),24.305s.
-  [Tenobjects,samenoise](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/objects-same-noise.wav),34.722s.
-  Onepublishedfrozenmodel,noTRAIN/newdata.44testsPASS,alljobs terminal.
-- **Controlledseparation:** same2noisesEXACTacrossall60conditions(seed20260906),
-  firstpairEXACTpreviousbaseline;6distinctnormalizedcontacts/object(range.055–1.078).
-  Contact/noise meanratio .11851 fullspectraldistance,.04639 unitL1spectralprofile.
-  Wholeobjectconfiguration/noiseratio .72800/1.11705 respectively;geometry,
-  appearance+validcontactcovary,NOTisolatedmaterialtest. Only2noises,notrobustvariance.
-- **Upstreamalreadyweak:** preVAE latentRMScontact/noise .013022,object/noise .352855.
-  This rulesout decoder-onlycreationofsmallcontactchanges;notproofaspecificlayer
-  orbug. Authortrain/inferbothusecommonnormalize_position→PE→fusion;noobvious
-  coordinate-callmismatch. Earlier singletonattentionalreadyknown;DON'Trepeatpatch.
-- **Positivecontrol:** independentIIR20Hz/time-averagedMRSTFTunitL1profile,
-  referenceevencontactsqueriesvsoddcontactsprototypes:8/10uniqueobjecttop1;
-  vsall12generated/object:6/10. All3glass+Iron66/Ceramic75/Plastic97matchgenerated.
-  Notphysicalrealism/materialaccuracy/cleanholdout;noisecannotreplacephysicalinputs.
-- **Next primary branch:** smallSHARED3Dobject-resonance neural prototype with
-  objectmodesseparatefromcontact/excitation;oneplayablecontrolledcasebeforelarge
-  corpus/solverinfrastructure. Internet/syntheticteachers,nohandtunedperobjectbank.
-  Missingabsoluteunits/materials/force mustremainexplicit,notinferredfromlabels.
-  NeuralSound isboundedpriorart,NOTaquickpretrainedreplacement:officialREADME/tree
-  b18e81b1e3dba7e963b09a7d9a45b584707d805f showtrainingpath,noidentifiedcheckpoint;
-  noABCbulk/oldMinkowski/BEMenvironmentinstallbeforeminimalexecutablecase. See pilot.
+- **Latest primary:** `modal3d-render-2026-09-06`,54WAVs,12newshape/Poisson
+  combinations×4newcontacts+5physicalcontrols. [Refined3DFEM→neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-evaluation-2026-09-06/refined-first-comparison.wav),4.5s;
+  [size/stiffness/impulse/pulsecontrols](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-render-2026-09-06/physical-controls.wav),12.5s.
+  Alljobs terminal,7focusedtestsPASS,source-free rendertrace noFEM/data/network.
+- **OneSHAREDnetwork:** `modal3d-fit-2026-09-06`,10000params/1500Adamsteps/seed42,
+  weights e426a289b5e03e801eb1531e27cb81b5b9c363f12ce6d3836b1187c96e7496cb.
+  36own3Dclampedcuboid/aspect/Poissonshapes×9contacts,324TRAIN;12×4DEVinterpolation.
+  Bodyhead8dimensionlessmodes;contacthead8signedforce/probegains. NoobjectIDs/audio.
+  Size/E/rho scaling,Rayleighdamping,halfsineexcitationareANALYTICAL,notlearned.
+  Fixed+zvelocityprobe,NOTpressure/realmaterialidentification/twobodycontactsolver.
+- **Held48cases:** frequencymeanrelativeerror NN1.051%vsnearest9.889%vslinear1.436%.
+  Spectrum .095899 vsnearest1.211089 BUTlinear.085084;envelopeNN.064903vslinear.062021;
+  gainL1NN.339413vslinear.337662;levelNN.037679vslinear.034360. NOTbestqualitymodel.
+  Currentautomatic`modal3d-strong-evaluation-2026-09-06`requiresbothbaselines;
+  decisionREPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED.48fulltriples.
+- **Physicscontrols:** actual3DFEMtestconfirmsomega∝sqrt(E/rho)/L,gain∝1/(rho L³).
+  All12neuralbodiesfrequenciesEXACTsameacross4contacts;impulse2×givesPCM2×,0silence.
+  No stochastic output sampling. Numericmaterialnotnamedglass/steel;softpulse≠strikerID.
+- **Teacherlimit:** ownP2tetrahedra,975DOFs,8modes;maxeigenresidual2.22e-9.
+  `modal3d-data-2026-09-06`48NPZ+one2×meshcontrol:coarsefirst2freq .80/.57%high,
+  mode8 10.586%high. FirstNNvsrefined .194/.304%first2,butmode8 6.800%;spectrum.340266.
+  NumericalteacherconvergenceisNOTprovenbyloweigenresidual. Reuseexternal
+  `neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2;nonewdependencies.
+- **Next primary:** resolve teacher/high-mode fidelity on one controlled shape
+  before another networkfit;retain interpolator and fullrefinedaudio. No NNloss/
+  epoch/capacitysweep tobeat a simple table. Then explicit expansion beyondcuboids/
+  velocityproxy towardinternet-recordedobjects;fullgoal remainsunmet.
+- **Prior common-noise:** `sonicgauss-{common-noise-render,separation}-2026-09-06`:
+  contact/noise.11851/.04639/latent.01302;identityreal8/10vsgen6/10;notrealism;see pilot.
 - **Two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,adaptera4c23b52…,
   fresh262144sharedresidual/72steps/36TRAIN,2freshnoises/step. Frozenweightsunchanged.
   FixedDEVaudiblespectrum.961561→.972393(5/24),envelopeworse;rulesREJECT.
@@ -62,11 +66,8 @@ Status: ACTIVE_GOAL / COMMON_NOISE_SEPARATION_MEASURED / SHARED_OBJECT_RESONANCE
   Objects2/6/12/14/24/66/75/94/95/97;66IronNOTsteel. No36/70authorval/80/41/92payload.
   Separateinputs.json(noaudio)/corpus.json(refprovenance). StracefitreadsEXACT36TRAIN;
   stracerenderreadsNOreference/corpus/network. DiagnosisonlyreadsDEVafterfit.
-- Baseline20WAV+10geometrycaches`sonicgauss-cohort-baseline-2026-09-06`,gallery34.722s.
-  ASTraw/RMS.005:Iron66/Ceramic75genTickvsrecordedringing;NOTphysicaljudge.
-- Generation50steps/seed0/noCFG/full131072stereosamples44100/gain1/noEQ/crop.
-  Cached baseline replaysEXACT all20priorcases; originalfullGSreencodingstilldrifts
-  firstatencoder(.0019566features→.0037788wave),notprovenkernel/duplicatevoxelcause.
+- SonicGauss50steps/seed0/noCFG/full131072stereo44100/gain1;cachedreplayexact,
+  fullGSreencodingdrift.0019566→.0037788wave,causenotproven;see pilot.
   Previous`sonicgauss-conditioning-report-2026-09-06`:geometry/appearanceaffectoutput;
   originalfusionONEpositionkey,Q/K/Vgrad0/0/.05807,attentioncan'tselectGS tokens,
   butfullresidual+decoderSTILLcanlearnposition. NewresidualdidNOTprovequalityfix.

@@ -6813,3 +6813,126 @@ No source, mesh, checkpoint or environment was downloaded/installed. Full PDF
 retrieval failed (size limit/timeouts), so no full-paper reproduction is claimed.
 Do not start ABC bulk acquisition, an old Minkowski/BEM stack or a complete
 NeuralSound reproduction as a prerequisite for the smallest audible prototype.
+
+## Shared 3D modal neural prototype — 2026-09-06
+
+The previous goal turn was progress: controlled separation and a localized
+weak contact response. This turn implements the proposed alternative as one
+small, source-free learned artifact, not a new roadmap or per-object fit.
+
+`physical_sound_modal3d_pilot.py` implements a common 10000-parameter network
+with two heads: eight dimensionless object frequencies and eight signed
+contact-to-probe modal participation coefficients. Inputs are the two aspect
+ratios, Poisson ratio and normalized contact coordinates. No object identifier,
+target recording or object-specific trained parameter bank is an input.
+
+The teacher is a new own synthetic family of clamped 3D rectangular solids,
+not imported real recordings. The existing external scikit-fem 12.0.2 overlay
+is reused; no environment installation. The [scikit-fem tutorial](https://scikit-fem.readthedocs.io/en/latest/extended.html)
+documents the basis/mesh/Dirichlet operations used here. This is independent
+clean local implementation, not downloaded NeuralSound code or weights.
+
+The 3D linear-elastic teacher uses quadratic tetrahedra, 975 displacement DOFs,
+clamped x=0, eight mass-normalized eigenmodes, a top-surface +z force and a fixed
++z velocity probe at normalized (1,.5,1). There is no acoustic radiation or
+microphone-pressure prediction. Scalar modal damping and the half-sine force
+pulse are declared renderer assumptions, not learned material identification.
+
+### Shared training and standalone audible result
+
+Training covers 36 combinations: width/length .12/.16/.20/.24, thickness/length
+.045/.065/.085 and Poisson .20/.28/.36, with nine contacts from x=.4/.7/1 and
+y=.2/.5/.8. Twelve held combinations use .14/.18/.22, .055/.075 and .24/.32,
+with four new contacts x=.55/.85, y=.35/.65. These are interpolation within one
+cuboid topology, not arbitrary unseen shapes or real material generalization.
+
+One full-batch Adam run, 1500 steps, lr .001, seed 42, no DEV checkpoint selection.
+Body targets are standardized log frequencies; contact targets are asinh gains
+scaled by TRAIN RMS. All statistics reside in the shared weight artifact.
+External `modal3d-fit-2026-09-06/model.safetensors` SHA256:
+`e426a289b5e03e801eb1531e27cb81b5b9c363f12ce6d3836b1187c96e7496cb`.
+File tracing verifies exactly 36 TRAIN NPZ reads, no DEV teacher read during fit.
+
+`modal3d-render-2026-09-06` contains 48 standalone two-second neural WAVs, five
+physical-control WAVs and a 12.5 s gallery, all at 44.1 kHz/shared gain 1. The
+render process reads weights and its own generated coefficients, not FEM,
+teacher data or recordings; no network connection. All 48 waveform replays are
+exact in evaluation. The eight neural frequencies remain exactly identical
+across the four contacts of each of the twelve held bodies by construction.
+
+Physical scaling is explicitly analytical: angular frequency scales as
+sqrt(E/rho)/L and mass-normalized participation as 1/(rho*L^3). An independent
+rerun of the actual 3D FEM with changed L/E/rho verifies these identities. This
+is a physics prior, not evidence that the neural net learned those laws.
+Rayleigh damping is d=2+1e-8*omega², and a positive half-sine pulse carries a
+declared impulse. Doubling impulse doubles PCM; zero impulse gives silence.
+Pulse duration is not an identified striker material, and impact velocity is
+not inferred without a two-body contact model.
+
+Listen to [physical controls](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-render-2026-09-06/physical-controls.wav):
+base → double size → quarter stiffness → double impulse → ten-times-longer
+pulse. Base numeric inputs L=.18 m, E=64 GPa, rho=2230 kg/m³, impulse=.002 Ns,
+pulse=.5 ms; they are declared synthetic inputs, not a measured glass specimen.
+There is no per-clip loudness normalization; for example the double-size body
+is also quieter at the same impulse. Output amplitude is a velocity proxy in
+digital playback units, not calibrated sound pressure or loudness.
+
+### Independent combinations and a stronger baseline
+
+The initial `modal3d-evaluation-2026-09-06` compares against the nearest TRAIN
+shape/contact. The network improves every case in frequency, participation,
+spectrum and envelope, and 47/48 in level. This is a weak baseline. A subsequent
+countercheck, now integrated in `evaluate`, uses regular-grid linear
+interpolation of the same TRAIN dimensionless frequencies and gains, with no
+new learning. The final `modal3d-strong-evaluation-2026-09-06` contains all 48
+complete reference→interpolation→network comparisons and the automatic verdict.
+
+| Mean metric over 48 held cases | Nearest | Interpolation | Neural |
+| --- | ---: | ---: | ---: |
+| Relative modal frequency error | .098892 | .014360 | .010512 |
+| Relative participation L1 | 1.004519 | .337662 | .339413 |
+| Audible relative MRSTFT | 1.211089 | .085084 | .095899 |
+| 2 ms envelope error | .320437 | .062021 | .064903 |
+| Absolute log-RMS error | .303325 | .034360 | .037679 |
+
+The network wins against interpolation in 32/48 frequency comparisons, but
+only 17/48 spectra. Frequency comparisons repeat each body across its four
+contacts (8/12 distinct body-frequency wins), not 48 independent modal tests.
+Automatic verdict:
+`REPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED`. Beating the nearest
+example does not justify claiming a quality advantage. The interpolation
+countercheck was added after the single training run; no neural weight changed.
+[First held comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-strong-evaluation-2026-09-06/case-00-contact-0-comparison.wav)
+is 7.5 s, reference→interpolation→network. Both numerical methods are still
+synthetic references, not recordings or perceptual validators.
+
+### Teacher fidelity, remaining risks and next artifact
+
+Eigenpair residuals are below 2.22e-9, but this only solves the discrete system.
+Doubling mesh resolution on the first held shape changes modes 1/2 by .802%/
+.565% and mode 8 by 10.586%. Hence mesh convergence is not established across
+the family, especially at high modes. Against that refined teacher the first
+neural case has frequency errors .194%/.304% for modes 1/2 and 6.800% for mode 8;
+audible spectral error is .340266. Listen to the full
+[refined numerical reference→neural pair](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-evaluation-2026-09-06/refined-first-comparison.wav),
+4.5 s. Its finer reference is stronger evidence than the training-grid error,
+but is still only one shape/contact and a velocity proxy.
+
+Next: resolve teacher/high-mode fidelity on this controlled shape before
+another fit, retaining the interpolator and full comparison audio. Do not
+start NN loss/epoch/capacity sweeps just to beat a table. Expansion to more
+geometries, sound radiation and internet-recorded bodies remains necessary;
+the full real-sound goal is not met by this cuboid prototype. No runtime,
+roadmap stage, authored fallback or prior candidate admission changes.
+
+Reproduce the four stages `data`, `fit --data`, `render --fit`,
+`evaluate --data --generated`, each with a fresh external `--output`. Only
+`data` and the FEM unit test need PYTHONPATH pointing to external
+`neuralresonator-solver-python-2026-09-06`; runtime inference does not.
+External roots: `modal3d-{data,fit,render,evaluation,strong-evaluation}-2026-09-06`.
+Seven focused tests cover actual 3D residual/scaling, contact invariance,
+impulse linearity/silence, role separation, invalid inputs, interpolation
+controls/duplicate-grid rejection and a frequency-only false-success control.
+Tests, Ruff format/check, media hashes/full-length/headroom, source-free traces,
+links and diff checks PASS. All jobs terminal. No Cargo/host-check/ProductCheck
+was run for this isolated lab prototype.
