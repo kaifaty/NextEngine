@@ -6718,3 +6718,98 @@ receipts and 120 noise-paired NPZs, with independent IIR/unit-RMS shape analysis
 40 focused tests, Ruff format/check, full media/trace checks and diff/link checks
 PASS. Total 360 full generated WAVs plus 80 comparisons, all external. No jobs
 remain live. Cargo/host-check/ProductChecks NOT_RUN: bounded lab, no engine edits.
+
+## Common-noise conditional separation — 2026-09-06
+
+Previous turn was progress: a completed shared fit and independent rejection,
+with retained media. This turn executes the promised condition/noise control,
+not another training run. The primary result is 120 full source-free frozen-
+model WAVs plus 21 complete comparisons. No new data or protected-role changes.
+
+`physical_sound_sonicgauss_energy_probe.py render --common-noise` reuses one
+independent pair of Gaussian noises across all 60 object/contact conditions.
+It does not search seeds or reduce sampler steps. All 120 noise assignments
+are verified; the first pair exactly reproduces the previous independent-
+noise baseline. Six normalized contacts are distinct on every object; their
+pairwise distances span 0.055–1.078 in normalized coordinates, not meters.
+The control is not merely comparing duplicate contact inputs.
+
+`physical_sound_sonicgauss_separation.py` measures 60 same-condition noise
+pairs, 300 same-object/same-noise contact pairs and 540 cross-object/same-noise
+configuration pairs. Between objects, geometry, appearance and valid contact
+all change. An author-row index is not a physical correspondence, and this
+must not be called an isolated material or geometry intervention.
+
+| Mean diagnostic distance | Noise change | Contact change | Object-configuration change |
+| --- | ---: | ---: | ---: |
+| Six-resolution audible spectral distance | 2.559343 | 0.303310 | 1.863205 |
+| Independent IIR, level-invariant spectral profile | 0.565890 | 0.026252 | 0.632125 |
+| Pre-VAE latent RMS distance | 0.853595 | 0.011116 | 0.301195 |
+
+Contact/noise ratios are 0.11851, 0.04639 and 0.01302 respectively. Object/noise
+ratios are 0.72800, 1.11705 and 0.35285. The profile uses time-averaged magnitude
+at FFT sizes 512/1024/2048, each normalized to unit L1, after the independent
+20 Hz IIR. It is deliberately insensitive to overall level and loses timing;
+it is not a full perceptual metric. No output WAV is normalized this way.
+The two noises are a bounded counterfactual, not a robust variance estimate.
+
+The small contact response already exists in the generator latent, before VAE
+decoding. Thus decoder-only suppression is not sufficient to explain it.
+The precise upstream cause is not identified. Focused source reads of pinned
+SonicGauss stage3/train_3.py:593–601 and infer_3.py:277–294 show the same shared
+position-normalization call before PE/fusion; no obvious coordinate-call
+discrepancy was found. This does not recreate the author's training environment.
+Do not turn the observation into an arbitrary position-feature gain increase
+or repeat the already tested singleton-attention residual patch.
+
+### Recorded-audio positive control and limitations
+
+To test whether the diagnostic profile can distinguish the available objects,
+average reference contacts 0/2/4 into query profiles and contacts 1/3/5 into
+candidate profiles. The unique nearest object is correct for 8/10 queries.
+Using the twelve generated profiles per object as candidates yields 6/10:
+glass 6/94/95, iron 66, ceramic 75 and plastic 97. The two plastic reference
+prototypes are confused in the recorded control. Ties are not counted as wins.
+
+Therefore the model does not ignore object identity completely. Its random
+variation is large relative to the contact-dependent response in this bounded
+probe. That alone does not establish an incorrect physical contact response:
+the dataset lacks isolated repeated identical excitations and calibrated force,
+striker and absolute-scale inputs. Retrieval is not realism or material-class
+accuracy; these are known pretraining TRAIN objects, not pristine held-out ones.
+
+External `sonicgauss-common-noise-render-2026-09-06` contains the 120 full WAVs
+and NPZs; `sonicgauss-separation-2026-09-06` contains result.json, a posthoc
+latent-diagnostic.json over those same NPZs, and 21 comparisons. Listen:
+
+- [Ten object configurations, identical noise](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/objects-same-noise.wav)
+  is 34.722 s, ascending object IDs 2/6/12/14/24/66/75/94/95/97, contact 0.
+- [Glass: six contacts, then a different noise at contact 0](/home/kaifaty/.codex/experiments/nextengine/physical-sound/sonicgauss-separation-2026-09-06/object-06-contact-noise-comparison.wav)
+  is 24.305 s. The last sound begins around 20.83 s.
+
+Every waveform is retained at full length and shared gain 1, no EQ/crop/per-
+object adjustment. Render tracing excludes reference/corpus/Internet socket
+reads. Four new tests cover level invariance, frequency discrimination,
+silence/nonfinite rejection, positive/wrong identity assignments and ties.
+44 focused tests, Ruff format/check, media hashes/layout/headroom, links and
+diff checks PASS. No active jobs; Cargo/host-check/ProductChecks NOT_RUN.
+
+### Next primary artifact, not another loss sweep
+
+The evidence favors testing a shared object-resonance representation with
+contact/excitation handled separately, rather than another objective variant
+on the same stochastic contact residual. This is a hypothesis, not proof that
+a modal network solves the full goal. The next bounded prototype must produce
+one playable controlled 3D case before a large corpus or solver infrastructure;
+no per-object hand-tuned bank or size/force inferred from recordings.
+
+As bounded prior art, the [NeuralSound authors' project](https://hellojxt.github.io/NeuralSound/)
+describes a learned 3D vibration solver plus numerical refinement and a separate
+acoustic-transfer network. The [official repository](https://github.com/hellojxt/NeuralSound)
+README and recursive tree at b18e81b1e3dba7e963b09a7d9a45b584707d805f were inspected.
+They expose a training/data-generation path and older dependencies; no ready
+checkpoint was identified there. This is not proof that none exists elsewhere.
+No source, mesh, checkpoint or environment was downloaded/installed. Full PDF
+retrieval failed (size limit/timeouts), so no full-paper reproduction is claimed.
+Do not start ABC bulk acquisition, an old Minkowski/BEM stack or a complete
+NeuralSound reproduction as a prerequisite for the smallest audible prototype.

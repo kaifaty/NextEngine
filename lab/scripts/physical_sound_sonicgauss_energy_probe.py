@@ -89,6 +89,12 @@ def render(args):
         )
         fusion = shared.AdaptedFusion(fusion, adapter)
     rng = torch.Generator(device="cuda").manual_seed(20260906)
+    common_noise = getattr(args, "common_noise", False)
+    noise_pair = (
+        [torch.randn(1, 64, 64, device="cuda", generator=rng) for _ in range(2)]
+        if common_noise
+        else None
+    )
     records, waves = [], []
     args.output.mkdir(parents=True)
     with torch.no_grad():
@@ -103,7 +109,11 @@ def render(args):
                 )
                 pair = []
                 for sample in range(2):
-                    noise = torch.randn(1, 64, 64, device="cuda", generator=rng)
+                    noise = (
+                        noise_pair[sample]
+                        if common_noise
+                        else torch.randn(1, 64, 64, device="cuda", generator=rng)
+                    )
                     latent = decoded.generate(model, fused, noise)
                     wave = vae.decode(latent.transpose(1, 2)).sample[0]
                     if wave.shape != (2, 131072) or not torch.isfinite(wave).all():
@@ -152,6 +162,7 @@ def render(args):
             "geometry_hashes": hashes,
             "script_sha256": pilot.sha256(Path(__file__)),
             "seed": 20260906,
+            "common_noise_across_conditions": common_noise,
             "target_audio_read": False,
             "explicit_noise_replay_exact": True,
             "weights": pilot.WEIGHTS,
@@ -278,6 +289,11 @@ def probe(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("render", "probe"))
+    parser.add_argument(
+        "--common-noise",
+        action="store_true",
+        help="reuse one independent noise pair across all conditions for controlled interventions",
+    )
     for name in ("source", "assets", "data", "baseline", "generated", "fit", "output"):
         parser.add_argument("--" + name, type=Path, required=name in ("data", "output"))
     args = parser.parse_args()
