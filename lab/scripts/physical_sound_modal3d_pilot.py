@@ -512,7 +512,7 @@ def evaluate(args):
         "decision": "REPORT_ONLY_DISCRETE_TEACHER_BASELINE_IMPROVEMENT"
         if passed
         else "REPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED",
-        "scope": "reference -> interpolated TRAIN examples -> shared neural; metrics also retain nearest baseline; coarse discrete FEM only, not real sound; no rollout or physical admission",
+        "scope": "reference -> interpolated TRAIN examples -> shared neural; metrics also retain nearest baseline; discrete FEM only, not real sound; no rollout or physical admission",
         "render_sha256": integrity.sha256(args.generated / "render.json"),
         "data_sha256": integrity.sha256(args.data / "data.json"),
         "standalone_replay_exact": True,

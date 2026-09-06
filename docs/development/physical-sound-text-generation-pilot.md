@@ -7015,3 +7015,85 @@ are full-length/finite, maximum peak .072689; all 16 mesh-wave replays and four
 existing neural-wave replays are exact. Source and neural-input SHA256 pins
 match. All jobs terminal. No dependencies, training weights, runtime/demo,
 roadmap status or admission rules changed; no Cargo/host-check/ProductCheck.
+
+## 2026-09-06 — One shared corrected-teacher fit: spectral gain, not overall acceptance
+
+The preceding goal checkpoint was progress: it resolved a one-shape numerical
+teacher error with playable evidence. This checkpoint tests that explanation
+across the full existing family and retrains one shared model, not one model
+per material. No manual listening is required to run either stage.
+
+`physical_sound_modal3d_corrected_teacher.py --output <new-external-data>`
+computes mesh3 and mesh4 for all 36 TRAIN and 12 DEV bodies with the unchanged
+9/4 contact grids, eight modes and 90 common vector-displacement probes. It
+uses three bounded CPU worker processes; the completed run took approximately
+11 minutes. External `modal3d-corrected-data-2026-09-06` retains 144 NPZs and
+372 full 5 s mesh3→mesh4 contact comparisons. TRAIN uses mesh3, DEV mesh4,
+chosen before the run; no case is selected, dropped or relabelled by its score.
+
+Local stability passes 43/48 bodies, including all twelve DEV bodies. TRAIN
+indices 2/11/20/29/32 fail the spectral threshold only (largest .062993 versus
+.05), predominantly the thinnest, highest-Poisson bodies. All first-eight
+matched modes retain their order; maximum adjacent frequency change .4291%.
+This remains a discrete numerical check, not a continuum or real-audio bound.
+The first DEV mesh4 calculation reproduces the earlier one-shape result.
+
+`physical_sound_modal3d_teacher_effect.py --data <paired-data> --baseline
+<modal3d-render-2026-09-06> --output <new-external-effect>` then runs one fit,
+standalone generation and both evaluations as separate processes. The child
+fit receives a TRAIN-only manifest without DEV responses or mesh diagnostics.
+The original 10,000-parameter architecture, 1500 Adam steps, lr .001 and seed42
+are unchanged; no checkpoint selection or additional fit follows the result.
+Weight SHA256: `baaa9af5e55adc52e51648acfad437366abc4d65324a1336fd2a33c167b1c516`.
+The old `e426a289…` checkpoint is unchanged. Fit loss ends at .002286, which is
+not the quality verdict.
+
+External `modal3d-teacher-effect-2026-09-06` contains 198 full WAVs: 54 generated
+sounds/controls, 48 old-model and 48 new-model comparisons with the same finer
+reference and corrected-TRAIN interpolator, plus 48 direct teacher-effect
+triples. Listen to [mesh4 reference→old neural→corrected neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-teacher-effect-2026-09-06/case-00-contact-0-teacher-effect.wav),
+7.5 s, sounds start at 0/2.5/5 s. The first case is retained, not selected for
+best score: its spectrum improves .385008→.171930 while envelope and level
+both worsen. Full waveform, common presentation gain1, no per-case fitting.
+
+| Mean over same 48 mesh4 DEV cases | Old neural | Corrected neural | Corrected-TRAIN interpolation | New wins over old |
+| --- | ---: | ---: | ---: | ---: |
+| Relative modal frequency error | .030490 | .009720 | .013824 | 48/48 |
+| Participation relative L1 | .363995 | .371654 | .369016 | 18/48 |
+| Audible spectral error | .270068 | .104900 | .085594 | 48/48 |
+| 2 ms envelope error | .068975 | .069988 | .064100 | 21/48 |
+| Absolute log-RMS error | .032171 | .038634 | .033639 | 22/48 |
+
+Frequency results repeat twelve bodies across four contacts; they represent
+12/12 independent body-frequency improvements, not 48 independent bodies.
+Spectrum error falls about 2.57×, supporting coarse-teacher error as a cause.
+But three other means worsen, and the interpolator still has the better mean
+spectrum, envelope, participation and level. The pre-existing all-five-mean
+rule reports FALSE against the old model; the stronger baseline verdict is
+`REPORT_ONLY_PROTOTYPE_BASELINE_ADVANTAGE_NOT_ESTABLISHED`. This is partial
+progress, not an accepted overall replacement or a perceptual realism claim.
+DEV was already exposed; no pristine unseen-family claim is made.
+
+The run demonstrates a repeatable, automatic shared training→generation→check
+path, not a general autonomous dataset-acquisition/improvement system. Next
+research/experiment should address second-body material and impact velocity
+coupling to the learned resonator and produce a source-free WAV. Do not turn
+this into more cuboid mesh/NN loss/epoch/capacity sweeps to beat interpolation.
+The current half-sine duration is NOT a striker material. Geometry, radiation,
+internet-recorded object evidence, rolling/destruction/water/rain remain open.
+
+Verification: 13 focused tests PASS, including fixed mesh/role selection even
+when stability fails and the TRAIN-only projection with missing/duplicate-grid
+negative controls. Ruff format/check PASS. All 570 WAVs across both roots are
+full-length/finite and under .98 headroom (teacher peak .186743; effect peak
+.122733). Selected teacher hashes and mesh choices match; all 48 new standalone
+waveform replays and corresponding gallery segments are exact; all twelve
+bodies preserve frequency across contacts. Fit trace reads exactly 36 TRAIN
+NPZs, no DEV targets/diagnostic manifest or audio. Renderer reads weights and
+its own generated NPZ/WAVs for controls and hashes, not FEM or target recordings.
+No Internet connections; fit makes one failed local NVIDIA MPS socket probe.
+An initial ad-hoc trace assertion incorrectly treated output hashing as an
+input-audio read; the read-path/source audit distinguishes those operations.
+Both jobs are terminal. No runtime/demo, roadmap, license or admission change;
+no Cargo/host-check/ProductCheck. `maintain-task-context` preserves the partial
+quality verdict and next missing physical input rather than another tuning loop.
