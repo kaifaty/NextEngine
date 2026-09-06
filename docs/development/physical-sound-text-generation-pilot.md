@@ -7533,3 +7533,106 @@ claiming variable-mode coverage; do not silently truncate1965modes to match a
 small head. Compare against simple teacher-derived controls. Do not start
 another source-inventory or per-object fitting cycle while this cohort can
 test the shared-learning path. The separate real-pressure/realism gap remains.
+
+## 2026-09-06 — One shared OF2 student is audible; quality advantage rejected
+
+Primary: [three objects outside the student fit, teacher then neural prediction](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-shared-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s.
+Order: wooden rocking chair11, ceramic bowl54, ceramic mug88; each pair contains
+the complete3s teacher response then3s shared prediction. These are synthetic
+vibrations, not measured pressure or a realism proof. Listening is optional,
+not an approval gate. No runtime/demo replacement or product promotion.
+
+`physical_sound_objectfolder2_shared.py` implements prepare/fit/render. The
+preceding preparation session69465 was polled to terminal success, not restarted.
+All34–1965 source modes and32 supported mesh contacts per object survive exact
+NPZ packing. New queries exclude out-of-normalizer-support vertices explicitly
+(0/6/1/2/2/2/3/2/3 for7/11/23/29/54/66/75/82/88); no coordinate clamp,
+object exclusion or listening-based selection. Absolute log bbox extents remain
+inputs alongside512 normalized vertices and assigned-material one-hot labels.
+There is no supplied target audio, mode count, frequency, damping or gain at
+standalone generation. Contact query sampling used teacher support during data
+preparation; this does not establish a general contact-validity predictor.
+
+One shared68486parameter point encoder and rank-conditioned mode/field heads,
+2000Adam steps at.001,seed42,batch1024, six TRAIN bodies only. Mode count is
+predicted; frequency is bounded1–22049Hz, damping positive, gains signed.
+Asinh gain targets and log pole/count statistics use TRAIN only. Every TRAIN
+mode was sampled; this is not a claim that every point/mode pair was sampled.
+No checkpoint, learning-rate, capacity, seed or loss sweep. Weights SHA256:
+`6490f01032ba99c25b10697288412d886d1eed8f9e07fded9556bc872feae354`.
+
+External roots under the existing physical-sound experiment directory:
+
+- `objectfolder2-shared-data-2026-09-06`: nine full targets, TRAIN-only manifest,
+  separate geometry-only inputs,9teacher WAVs.
+- `objectfolder2-shared-fit-2026-09-06`: own safetensors and fit record.
+- `objectfolder2-shared-render-2026-09-06`:36standalone WAVs and nine predicted
+  modal arrays; one common output gain. Predicted mode counts for the nine IDs
+  above:1531/1122/78/34/91/64/437/1975/26. DEV88 teacher has50, not26.
+- `objectfolder2-shared-assess-2026-09-06`:12complete DEV comparisons,
+  3teacher/neural pairs, combined gallery and assessment.json.
+- `objectfolder2-shared-diagnostic-2026-09-06`: six TRAIN pole/field controls,
+  oracle-count/rank assisted, not new weights or standalone predictions.
+
+`physical_sound_objectfolder2_shared_assess.py` compares every DEV body at its
+first four fixed contacts. Nearest baseline selects same-material TRAIN geometry
+by symmetric normalized-cloud Chamfer plus standardized log-size distance;
+contact maps to nearest normalized source contact, without consulting audio.
+Second baseline scales both frequency and damping by source/target bbox length,
+leaves modal gains unchanged; it is an explicit heuristic, not a physical
+amplitude/radiation law. Neighbors11→7,54→66,88→66. Ratios1.80882/.860389/1.18340;
+the retuned baseline explicitly omits780/0/12 modes crossing Nyquist. This is
+not truncation of the full teacher data or NN output. Each quadruple uses one
+common gain; galleries have different gains between objects, not within pairs.
+
+All12DEVcontact mean diagnostics (three independent bodies, not12independent
+shape trials), lower is better:
+
+| Method | Audible spectrum | Envelope | Absolute log RMS ratio |
+| --- | ---: | ---: | ---: |
+| Shared NN | 1.014195 | .646482 | .729565 |
+| Nearest TRAIN object | 1.205489 | .797349 | .491161 |
+| Nearest with size scaling | 1.153514 | .703200 | .409395 |
+
+Decision **REJECT_QUALITY_ADVANTAGE**: the fixed combined diagnostic requires
+improvement in all three means versus both controls. NN improves spectral and
+envelope means, but loses level fidelity. Wood11 loses all three metrics;
+ceramic54 improves spectrum but worsens envelope/level; ceramic88 improves all
+three. TRAIN NN means are.820225/.667380/1.101008, so this is not solely an
+unseen-object or too-small-corpus problem. These diagnostics are not validated
+perceptual judgments or evidence about new material classes.
+
+`physical_sound_objectfolder2_shared_diagnose.py` freezes the network and uses
+only six TRAIN first contacts, supplying true counts/ranks explicitly. Replacing
+one predicted component with teacher values separates pole and field errors:
+
+| Oracle-assisted combination | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Learned poles, teacher field | .526496 | .240851 | .077850 |
+| Teacher poles, learned field | .831993 | .673420 | 1.190206 |
+| Both learned, true count | .893408 | .709571 | 1.249867 |
+
+Thus correcting poles/count alone does not repair the signed field. First-contact
+modal gain RMS ratios on TRAIN75/82 are.02555/.01072 even at true ranks/counts.
+This suggests severe field underfit/averaging; it does not yet distinguish
+optimization failure from unsuitable rank-conditioned representation. Pole
+errors also remain significant, especially sparse high-frequency resonators.
+Next: bounded research plus an acoustic-energy/representation discriminator on
+TRAIN, with an audible control; do not simply add objects, epochs, loss weights
+or per-object networks, or promote oracle-assisted controls as source-free sound.
+
+Checks:12focused unit tests PASS, Ruff PASS,36standalone saved-parameter WAV
+replays EXACT, all67new full WAVs finite float32/44100Hz/peak≤.5. Fit strace reads
+only train.json and six TRAIN NPZs; standalone render reads only geometry inputs
+and own weights. No teacher checkpoint or target acoustic file in generation;
+fit's sole connect call is a failed local NVIDIA MPS Unix socket, no INET
+connection. Source script hash matches fit record. Diff/paths checked. No Cargo,
+host-check or ProductCheck run: bounded external audio lab, no public contract.
+
+Reproduction: shared.py `prepare --cohort COHORT --source SOURCE --output DATA`,
+then `fit --data DATA --output FIT`, `render --data DATA --fit FIT --output GEN`;
+shared_assess.py `--data DATA --generated GEN --output ASSESS`;
+shared_diagnose.py `--data DATA --fit FIT --output DIAGNOSTIC`. Prefix each with
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2_`
+and the corresponding filename suffix. Output directories must be new. Exact
+existing roots above avoid reinterpretation of TRAIN/DEV IDs across datasets.

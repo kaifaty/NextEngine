@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / NINE_INTERNET_NEURAL_TEACHERS_AUDIBLE / SHARED_STUDENT_NEXT.
+Status: ACTIVE_GOAL / SHARED_OF2_STUDENT_AUDIBLE / QUALITY_ADVANTAGE_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -10,10 +10,28 @@ Status: ACTIVE_GOAL / NINE_INTERNET_NEURAL_TEACHERS_AUDIBLE / SHARED_STUDENT_NEX
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [wood block→steel mug→ceramic bowl→plastic dish](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-render-2026-09-06/wood-steel-ceramic-plastic.wav),13.5s.
-  Nine PUBLISHED per-object neural teachers, NOT ournewsharedfit/generalization.
-  `objectfolder2-render-2026-09-06/cohort.json`:127WAVs,9exactfirst-contactreplays,
-  6testsPASS,allfinite/peak≤.5. Alljobs terminal;no runtime/demo/promotion.
+- **Latest primary:** [three untrained objects: teacher→shared NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-shared-assess-2026-09-06/three-untrained-objects-reference-neural.wav),18s.
+  Order11woodchair/54ceramicbowl/88ceramicmug;3s each teacher then prediction.
+  One newly trained68486parameter shared model, NOT nine separate fits.
+  SixTRAIN7/23/29/66/75/82;openDEV11/54/88;2000Adam.001seed42,no sweep.
+  `objectfolder2-shared-fit-2026-09-06`:weights6490f01032ba99c25b10697288412d886d1eed8f9e07fded9556bc872feae354.
+  Alljobs terminal;36source-freeWAVs,36exactreplays,12focusedtests,67fullWAVQA.
+- **Result REJECT_QUALITY_ADVANTAGE:** all12DEVcontacts NN spectrum1.01419 vs
+  nearest1.20549/size-scaled1.15351;envelope.64648 vs.79735/.70320;
+  logRMSerror.72957 WORSE vs.49116/.40940. Wood11 regressesall3metrics;
+  ceramic54level/envelopeworse;88improvesall3. Not arbitrary-object/material proof.
+  `objectfolder2-shared-assess-2026-09-06/assessment.json`,12fullquadruples.
+- **Cause discriminator already run:** `objectfolder2-shared-diagnostic-2026-09-06`.
+  SixTRAINfirstcontacts,ORACLEcount/ranks:learnedpoles+truefield spec.52650,
+  env.24085,level.07785;truepoles+learnedfield .83199/.67342/1.19021;
+  bothlearned .89341/.70957/1.24987. Truepoles doNOT fixfieldfailure.
+  TRAIN75/82firstcontactgainRMS ratios.02555/.01072. No new fit in discriminator;
+  6audiblequadruples are oracle-assisted,NOT standalone generation.
+- **Next:** bounded research/discriminator on signed rank-field representation
+  versus acoustic-energy-preserving representation/optimization. Failure already
+  onTRAIN means more objects alone is not an evidenced fix. Keep weights frozen;
+  no loss/epoch/seed/capacity sweeps or per-object fits. Need small falsifiable
+  reconstruction/control with audible result before another shared fit.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:9completemesh/checkpoint
@@ -23,19 +41,15 @@ Status: ACTIVE_GOAL / NINE_INTERNET_NEURAL_TEACHERS_AUDIBLE / SHARED_STUDENT_NEX
   GSOCCBY4confirmed;originalmeshtermsretained;23/29CSVoriginalURLsNone.
 - `physical_sound_objectfolder2.py`:strictweights_only+numericNumPyallowlist,
   reviewedhash-pinnedASTdeclarations,noimports/CUDA/optimizerexecution;
-  rawsigned3-axisgainsat4fixedactualmeshvertices,frequency/dampingfromsource.
   Authoroutputpeaknormalizationerasesforceandbreakszero;omitted,commonper-object
-  auditiongainused. Trainfromrawgenerated.npz,NOTaudition-normalizedWAVs.
-  NativeCPUFIRcomparisonrelativeL2=6.459e-5after2sampledelay;notCUDA-bitclaim.
-  Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamporreselectedvertices.
-- Numericbit-scalingFAILonwoodblock29underflow;retained. PCMhalf165/double337
-  samplesdiffer≤1.4013e-45. Other8objectsbitpass;all9zeroexact. ExplicitULP
-  roundingboundpassesall27scale/signchecks;0.51-vs0.5negativecontrolFAILasexpected.
-  Thisisnumerics,NOTrealism/absolutephysicalforcevalidation. See latestpilot.
-- **Next primary:** oneSHAREDstudent onTRAIN7/23/29/66/75/82,openDEV11/54/88,
-  fromcohort.json;no studenttrainedyet. Needcommonrepresentationforvariablemodes,
-  no silent1965→small-headtruncation. Produceheld-objectWAVswithsimplecontrols.
-  DoNOTstartanotherinventory/per-objectfitcyclewhilethiscohortcantestlearning.
+  auditiongainused. Trainfromrawcoefficients,NOTaudition-normalizedWAVs.
+  Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamp. Detailsinpilot.
+- Teacher29underflowbit-scalingFAILretained;explicitULPboundpasses27checks,
+  all9zeroexact. Numericvalidation≠realism/absoluteforce;exactevidenceinpilot.
+- Sharedpreparepack preservedall34–1965modes/32points,512meshvertices+log3sizes+
+  materialonehotinputs;commonrankheadpredictscount/frequency/damping/signedgains.
+  TRAIN-onlyfit and geometry-onlyrenderstracechecked;no target count/poles/audio
+  atstandaloneinference. DEV88predicted26vs50modes. DoNOT hidewrongcount/quietness.
   TeacherhasNOpressure/radiation/listenerstageorstrikermaterial. SignedAudioNet
   gainsareNOTcontactself-admittance;do notfeedthemintoHertzfeedbackaspositiveports.
 - **Pressure control retained:** `guitar-fsi-probe-2026-09-06`,DaRUS-3248V1,
