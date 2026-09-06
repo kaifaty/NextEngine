@@ -35,7 +35,17 @@ TRAIN_CONTACTS = np.array(list(itertools.product((0.4, 0.7, 1.0), (0.2, 0.5, 0.8
 DEV_CONTACTS = np.array(list(itertools.product((0.55, 0.85), (0.35, 0.65))))
 
 
-def solve(shape, contacts, refinement=1, length=1.0, young=1.0, density=1.0):
+def solve(
+    shape,
+    contacts,
+    refinement=1,
+    length=1.0,
+    young=1.0,
+    density=1.0,
+    *,
+    mode_count=MODES,
+    sample_points=None,
+):
     # Imports stay out of standalone neural rendering.
     from scipy.sparse.linalg import eigsh
     from skfem import Basis, BilinearForm, ElementTetP2, ElementVector, MeshTet, asm
@@ -57,8 +67,16 @@ def solve(shape, contacts, refinement=1, length=1.0, young=1.0, density=1.0):
     m = asm(BilinearForm(lambda u, v, w: density * dot(u, v)), basis)
     free = basis.complement_dofs(basis.get_dofs(lambda x: np.isclose(x[0], 0)))
     k, m = k[free][:, free], m[free][:, free]
+    if not isinstance(mode_count, int) or not 1 <= mode_count <= 32:
+        raise ValueError("bounded mode count required")
     values, vectors = eigsh(
-        k, k=MODES, M=m, sigma=0, which="LM", v0=np.linspace(1, 2, len(free)), tol=1e-10
+        k,
+        k=mode_count,
+        M=m,
+        sigma=0,
+        which="LM",
+        v0=np.linspace(1, 2, len(free)),
+        tol=1e-10,
     )
     order = np.argsort(values)
     values, vectors = values[order], vectors[:, order]
@@ -68,21 +86,34 @@ def solve(shape, contacts, refinement=1, length=1.0, young=1.0, density=1.0):
     )
     if not np.isfinite(values).all() or np.any(values <= 0) or residual.max() > 1e-7:
         raise ValueError("invalid elastic eigenpairs")
-    full = np.zeros((basis.N, MODES))
+    full = np.zeros((basis.N, mode_count))
     full[free] = vectors
     # Top-surface +z force, fixed +z velocity probe at (1,.5,1).
     points = np.vstack([np.asarray(contacts), [1.0, 0.5]])
     xyz = (
         np.vstack([points[:, 0], points[:, 1] * ry, np.full(len(points), rz)]) * length
     )
-    sampled = (basis.probes(xyz) @ full).reshape(3, len(points), MODES)[2]
+    sampled = (basis.probes(xyz) @ full).reshape(3, len(points), mode_count)[2]
     gains = sampled[:-1] * sampled[-1]
-    return {
+    result = {
         "omega": np.sqrt(values),
         "gains": gains,
         "max_residual": float(residual.max()),
         "dofs": basis.N,
     }
+    if sample_points is not None:
+        samples = np.asarray(sample_points)
+        if (
+            samples.ndim != 2
+            or samples.shape[1] != 3
+            or not np.isfinite(samples).all()
+            or np.any((samples < 0) | (samples > 1))
+        ):
+            raise ValueError("normalized interior modal samples required")
+        result["mode_samples"] = (
+            basis.probes((samples * [length, length * ry, length * rz]).T) @ full
+        )
+    return result
 
 
 def make_data(args):

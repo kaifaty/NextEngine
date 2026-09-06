@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / SHARED_MODAL3D_AUDIBLE / INTERPOLATION_ADVANTAGE_RETAINED / TEACHER_FIDELITY_NEXT.
+Status: ACTIVE_GOAL / MODAL3D_ONE_SHAPE_LOCALLY_STABLE / FAMILY_TEACHER_REPAIR_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,10 +10,11 @@ Status: ACTIVE_GOAL / SHARED_MODAL3D_AUDIBLE / INTERPOLATION_ADVANTAGE_RETAINED 
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** `modal3d-render-2026-09-06`,54WAVs,12newshape/Poisson
-  combinations×4newcontacts+5physicalcontrols. [Refined3DFEM→neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-evaluation-2026-09-06/refined-first-comparison.wav),4.5s;
-  [size/stiffness/impulse/pulsecontrols](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-render-2026-09-06/physical-controls.wav),12.5s.
-  Alljobs terminal,7focusedtestsPASS,source-free rendertrace noFEM/data/network.
+- **Latest primary:** `modal3d-convergence-fixed-2026-09-06`,28WAVs/oneDEVshape.
+  [Four mesh levels→unchanged neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-mesh-and-neural.wav),12.5s;
+  [8→12 modes](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-eight-vs-twelve.wav),5s.
+  Alljobs terminal,11focusedtestsPASS;28fullfiniteWAV/headroom/source/inputhashes/
+  16FEM+4oldNNreplaysEXACT. Earlier54sharedneuralWAVs unchanged;no new fit.
 - **OneSHAREDnetwork:** `modal3d-fit-2026-09-06`,10000params/1500Adamsteps/seed42,
   weights e426a289b5e03e801eb1531e27cb81b5b9c363f12ce6d3836b1187c96e7496cb.
   36own3Dclampedcuboid/aspect/Poissonshapes×9contacts,324TRAIN;12×4DEVinterpolation.
@@ -28,15 +29,19 @@ Status: ACTIVE_GOAL / SHARED_MODAL3D_AUDIBLE / INTERPOLATION_ADVANTAGE_RETAINED 
 - **Physicscontrols:** actual3DFEMtestconfirmsomega∝sqrt(E/rho)/L,gain∝1/(rho L³).
   All12neuralbodiesfrequenciesEXACTsameacross4contacts;impulse2×givesPCM2×,0silence.
   No stochastic output sampling. Numericmaterialnotnamedglass/steel;softpulse≠strikerID.
-- **Teacherlimit:** ownP2tetrahedra,975DOFs,8modes;maxeigenresidual2.22e-9.
-  `modal3d-data-2026-09-06`48NPZ+one2×meshcontrol:coarsefirst2freq .80/.57%high,
-  mode8 10.586%high. FirstNNvsrefined .194/.304%first2,butmode8 6.800%;spectrum.340266.
-  NumericalteacherconvergenceisNOTprovenbyloweigenresidual. Reuseexternal
-  `neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2;nonewdependencies.
-- **Next primary:** resolve teacher/high-mode fidelity on one controlled shape
-  before another networkfit;retain interpolator and fullrefinedaudio. No NNloss/
-  epoch/capacitysweep tobeat a simple table. Then explicit expansion beyondcuboids/
-  velocityproxy towardinternet-recordedobjects;fullgoal remainsunmet.
+- **Teacher discriminator:** levels1/2/3/4=975/6075/18759/42483DOFs;12modes,
+  90common3Dprobes;all12matchedinorder. First8maxfreqchange10.586→1.063→.245%;
+  level3→4MACmin.999986,gainL1max.234%,spectrummax.01954:localrulePASS.
+  8vs12spectrummax.000584 for this .5ms/Rayleigh-damped velocityproxy ONLY.
+  Coarsegrid is supported cause,not mode permutation or missing9–12 here;
+  no continuum/family bound. OldNNmode8vslevel4error8.199%,spectrum.3850contact0.
+  `physical_sound_modal3d_convergence.py`run~30s/peak1.87GiB;initialnon-fixed
+  outputterminalserializationfailure retained. No need more levels onthisbody.
+- **Next primary:** one shared corrected-teacher experiment,not per-materialfits:
+  check family mesh3/4 response,compare same NN/interpolator against finerDEV,
+  retain full WAVs. No NNloss/epoch/capacitysweep. Then beyondcuboids/velocityproxy
+  towardinternet-recordedobjects;this numericalcontrol doesNOTmeetfullgoal.
+  Reuseexternal`neuralresonator-solver-python-2026-09-06`scikit-fem12.0.2.
 - **Prior common-noise:** `sonicgauss-{common-noise-render,separation}-2026-09-06`:
   contact/noise.11851/.04639/latent.01302;identityreal8/10vsgen6/10;notrealism;see pilot.
 - **Two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,adaptera4c23b52…,
@@ -77,13 +82,8 @@ Status: ACTIVE_GOAL / SHARED_MODAL3D_AUDIBLE / INTERPOLATION_ADVANTAGE_RETAINED 
   PYTHONPATHexternal`sonicgauss-python-2026-09-06`+`mmaudio-python-2026-09-05`;
   HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1,OMP_NUM_THREADS=4,OPENBLAS_NUM_THREADS=4.
   NativeSDPA/segment_reduce;DON'Tdisableflash(PTv3patch1024→128);fullGSreplay≠cached,no perfclaim.
-- **Previous learned:** [2D reference→base→fine-tuned](/home/kaifaty/.codex/experiments/nextengine/physical-sound/neuralresonator-finetune-evaluation-2026-09-06/case-048-comparison.wav).
-  Shared328000parameter/100steps,48TRAIN16DEV. SpectralL1.32938→.27148(12/16wins),
-  envelope.29593→.26575(15/16);case061worseboth,physicalratioerror.191%→.586%worse.
-  FitSHAfed24c81…,standalonecoeff/PCMEXACT;NOTrealism/3D/newtopology;no2Dsweeps.
-- NeuralResonatorfa46fa22/sourceceab3770 in`neuralresonator-assets-2026-09-06`;
-  safeweights-only/inertmetadata,NOpicklefallback.2DFEM10/12peakswithin1.6%,2bad;
-  meshrefinement/FFTphasehybridsfailed,worldscale2,scaleinputcollision;see pilot.
+- Prior2DNeuralResonator sharedfit improves12/16spectra but worsensphysicalratios;
+  2DFEM/phasehybrids/scaleinputcollision remain limited;see pilot. No2Dsweeps.
 - **SonicGauss scale collision:** own8Gaussianfixture doubledgeometry/contact/
   logscales producesEXACTsame8preprocessednetworkinputs. Positivecontrolsrelative
   contact/shape/appearancechange. `sonicgauss-input-probe-2026-09-06`,4tests.

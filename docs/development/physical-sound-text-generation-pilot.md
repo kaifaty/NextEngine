@@ -6936,3 +6936,82 @@ controls/duplicate-grid rejection and a frequency-only false-success control.
 Tests, Ruff format/check, media hashes/full-length/headroom, source-free traces,
 links and diff checks PASS. All jobs terminal. No Cargo/host-check/ProductCheck
 was run for this isolated lab prototype.
+
+## 2026-09-06 — One-shape 3D teacher convergence with playable evidence
+
+The preceding conversational explanation produced no new experimental evidence.
+This checkpoint executes the pending teacher-fidelity discriminator; it does
+not train another per-material model. Primary output is 28 full WAVs in external
+`modal3d-convergence-fixed-2026-09-06`, with computed modes and `result.json`.
+The original 10,000-parameter shared neural checkpoint remains unchanged.
+
+One already exposed DEV body (.14 width/length, .055 thickness/length, .24
+Poisson ratio), four previously declared DEV contacts, fixed clamp and probe,
+same .18 m / 64 GPa / 2230 kg/m³ numeric inputs, .002 Ns / .5 ms excitation and
+Rayleigh damping. Four predetermined mesh levels compute twelve modes each;
+the audio mesh comparison retains the first eight at every level. No change
+to TRAIN/DEV roles, no real-object or material-label inference.
+
+Competing explanations were coarse discretization, modal order changes and
+eight-mode truncation. Match modes one-to-one by maximum squared normalized
+correlation of 270 displacement samples (90 common normalized 3D locations,
+three components), invariant to eigenvector sign/scale. This sampled modal
+assurance is not a continuum mass inner product or a degeneracy proof.
+NASA's [2013 HIRENASD publication record](https://ntrs.nasa.gov/citations/20130012907)
+documents joint frequency/modal-assurance checks as prior art; its abstract
+was read, while the PDF fetch returned 403. No external acceptance threshold
+was adopted. Our pre-run local criterion is <=1% matched frequency change,
+MAC>=.98 for the first eight, <=5% participation L1 change and <=.05 audible
+spectral error at all four contacts. It is not a realism/release gate.
+
+| Adjacent levels | Maximum first-eight frequency change | Minimum sampled MAC | Maximum participation L1 change | Maximum audible spectral error |
+| --- | ---: | ---: | ---: | ---: |
+| 1→2 | 10.586% | .950767 | 4.410% | .383573 |
+| 2→3 | 1.063% | .999840 | .769% | .063170 |
+| 3→4 | .245% | .999986 | .234% | .019538 |
+
+Degrees of freedom: 975 / 6075 / 18759 / 42483. Solver times approximately
+.13 / .71 / 5.09 / 24.02 seconds; process peak RSS 1.87 GiB. All twelve modes
+retain their sorted identity across all three comparisons. Discrete residuals
+remain below 2.46e-8; these alone are not a physical accuracy test. The last
+pair passes the separate local stability rule, not a continuum/family bound.
+
+At level 4, including modes 9–12 changes the spectrum by at most .000584 and
+the envelope by .000096. Those added frequencies are 9.22–15.47 kHz, present
+within the renderer's band, but weak for this excitation/damping/probe.
+This does not establish that eight modes suffice for harder impacts, other
+objects, radiation, or modes beyond twelve. Here coarse discretization has
+support as the substantial teacher error; mode permutation and omission of
+9–12 are not supported as the leading explanation.
+
+Listen to [mesh 1→2→3→4→unchanged neural](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-mesh-and-neural.wav)
+(five full 2 s sounds with .5 s gaps; starts at 0/2.5/5/7.5/10 s), or
+[eight→twelve modes](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-convergence-fixed-2026-09-06/contact-0-eight-vs-twelve.wav)
+(5 s). All four contacts have both comparisons, shared presentation gain 1,
+no loudness fitting. Against level 4 the unchanged network's mode-8 frequency
+error is 8.199%; contact-0 spectrum error .385008, versus .340266 against the
+older level-2 reference. This is stronger evidence of the old teacher's
+limitation, not a newly improved neural sound or microphone-pressure validation.
+
+Next: one shared corrected-teacher experiment across the existing family,
+checking mesh3/4 fidelity and comparing the same network design and linear
+interpolator against finer DEV references. Do not add more levels to this one
+body or tune NN losses/epochs/capacity against the old coarse teacher. The
+subsequent required expansion remains geometry/radiation and internet-recorded
+objects, including both interacting bodies; cuboid vibration cannot substitute
+for the full impacts/friction/rolling/destruction/water/rain objective.
+
+Reproduce with `physical_sound_modal3d_convergence.py --neural` pointing to
+`modal3d-render-2026-09-06` and a new external `--output`; use the existing
+scikit-fem overlay as PYTHONPATH, OMP_NUM_THREADS=4 / OPENBLAS_NUM_THREADS=4.
+The initial non-fixed output stopped after level1 because NumPy int32 DOFs
+were not JSON-serializable; its NPZ/four WAVs are retained. Explicit int
+serialization fixes the reporting bug; no solver criterion was weakened.
+
+Eleven focused tests PASS, including the prior seven and new sign/scale/order,
+invalid modal vectors, conjunctive/nonfinite stability and 12-mode versus old
+8-mode solver regression checks. Ruff format/check PASS. All 28 completed WAVs
+are full-length/finite, maximum peak .072689; all 16 mesh-wave replays and four
+existing neural-wave replays are exact. Source and neural-input SHA256 pins
+match. All jobs terminal. No dependencies, training weights, runtime/demo,
+roadmap status or admission rules changed; no Cargo/host-check/ProductCheck.
