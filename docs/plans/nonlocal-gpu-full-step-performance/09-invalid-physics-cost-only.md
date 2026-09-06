@@ -1,7 +1,7 @@
 # NCGP11 invalid-physics cost-only benchmark
 
-Status: **FROZEN BEFORE IMPLEMENTATION**  
-Profile: `nonlocal-water-50k-invalid-physics-cost-only-v1`  
+Status: **FROZEN BEFORE IMPLEMENTATION**
+Profile: `nonlocal-water-50k-invalid-physics-cost-only-v1`
 Date: 2026-08-31
 
 ## Purpose and claim ceiling

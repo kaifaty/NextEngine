@@ -1,7 +1,7 @@
 # NCGP11 invalid-physics GPU cost evidence
 
-Date: 2026-08-31  
-Result: **INVALID_PHYSICS_COST_ABOVE_ORIGINAL_BUDGET**  
+Date: 2026-08-31
+Result: **INVALID_PHYSICS_COST_ABOVE_ORIGINAL_BUDGET**
 Claim ceiling: **COST ONLY / NO WATER-QUALITY OR GAME-READINESS CLAIM**
 
 ## Why this measurement exists

@@ -62,4 +62,3 @@ retained bulk and visible-surface self-tests all exit 0/PASS. The historical
 standalone NCGP3 intermediate target has an unrelated `-Werror=unused-function`
 build regression after later profile code was added; the current product-gate
 target compiles and executes those retained paths.
-

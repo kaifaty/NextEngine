@@ -153,4 +153,3 @@ round-to-nearest, contraction and cancellation mechanism:
 
 Those sources do not establish the cause in this solver. Only the frozen local
 discriminators above may select H1, H2 or H3.
-

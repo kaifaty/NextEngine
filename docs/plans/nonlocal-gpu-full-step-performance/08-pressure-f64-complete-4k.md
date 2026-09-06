@@ -89,4 +89,3 @@ builds, two byte-identical corpus processes, retained controls, Compute
 Sanitizer memcheck/initcheck/synccheck and one independent read-only review.
 One repair batch and one re-review are allowed. Threshold, coefficient, HVP
 budget or scenario changes after observing the result are forbidden.
-

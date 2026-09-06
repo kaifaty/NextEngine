@@ -99,4 +99,3 @@ The next action needs a product decision:
 
 Changing the 1% topology gate or calling the uniform startup hydrostatic after
 the result is rejected.
-
