@@ -7418,3 +7418,118 @@ and2full base audio replays exact from retained numerical artifacts. Ruff,
 diff and changed-link checks PASS. No Cargo/host-check/ProductCheck: bounded
 external lab only. `maintain-task-context` preserves the new acoustic failure
 and excludes treating this single fixed source as a shared geometry dataset.
+
+## 2026-09-06 — Nine internet neural object teachers, force-preserving export
+
+Primary: [wood block→steel mug→ceramic bowl→plastic dish](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-render-2026-09-06/wood-steel-ceramic-plastic.wav),13.5s.
+These are **published object-specific neural models**, not a newly trained
+shared student, real recordings, or a real-quality pass. Geometry changes
+along with assigned material; the gallery is not a controlled material swap.
+
+The [ObjectFolder2 official download page](https://objectfolder.stanford.edu/objectfolder2-0-download)
+and [source repository](https://github.com/rhgao/ObjectFolder) expose1000
+object models and meshes. Source revision
+`3c6cd8930b2dcbadb6d94dadf2745c956bdcd236`. The audio section of the
+[Gao et al. paper](https://arxiv.org/abs/2204.02389) was directly read: an
+object-specific three-branch MLP predicts modal gains at coordinates, combined
+linearly with axis excitation. Object frequencies/damping come from FEM.
+The published renderer sums damped sinusoids; it has no acoustic-transfer/
+listener-pressure stage. Thus this supplies a non-cuboid vibration curriculum,
+**not the missing pressure teacher**. No exact force-time/striker calibration
+is inferred from its three scalar excitation coefficients.
+
+External roots:
+
+- `objectfolder2-source-2026-09-06`: reviewed source, CSV, license, paper.
+- `objectfolder2-demo-2026-09-06`: published40MB demo plus OBJ/NPY inputs.
+- `objectfolder2-range-2026-09-06`: first320MiB of the3,770,228,811byte
+  official1–100 gzip archive, acquired as64MiB+256MiB ranges. Complete mesh/
+  checkpoint members for9objects; no full archive checksum/gzip trailer claim.
+  `family-extraction.json` records byte counts, member/mesh/weight hashes,
+  upstream ETag/Last-Modified and exact CSV rows. No textures extracted.
+- `objectfolder2-render-2026-09-06/cohort.json`:9identified teacher rows,
+  existing render directories, raw/PCM checks and gallery. The demo render
+  remains in `objectfolder2-demo-render-2026-09-06`; it is object23 exactly.
+
+| OF2 ID | Published name / assigned material | Modes | Next student role |
+| --- | --- | ---: | --- |
+| 7 | WoodenTable_01 / Wood | 1515 | TRAIN |
+| 11 | Rockingchair_01 / Wood | 1077 | open DEV |
+| 23 | 025_mug / Steel | 78 | TRAIN |
+| 29 | 036_wood_block / Wood | 34 | TRAIN |
+| 54 | Top_Paw_Dog_Bow_Bone_Ceramic_13_fl_oz_total / Ceramic | 93 | open DEV |
+| 66 | Now_Designs_Bowl_Akita_Black / Ceramic | 64 | TRAIN |
+| 75 | Kanex_MultiSync_Wireless_Keyboard / Polycarbonate | 433 | TRAIN |
+| 82 | Grreat_Choice_Dog_Double_Dish_Plastic_Blue / Plastic | 1965 | TRAIN |
+| 88 | ACE_Coffee_Mug_Kristen_16_oz_cup / Ceramic | 50 | open DEV |
+
+These are OF2 identifiers, **not SonicGauss/OF-Real identities**. In particular,
+OF2/66 is Ceramic; no integer-only identity join is permitted. No protected
+OF-Real payload/role, NISR or VibraVerse guard was reopened. Demo23 mesh and
+checkpoint hashes exactly match the archive members; identity is not guessed
+from sound. CSV material labels are simulation assignments, not verified real
+compositions. OF2 declares CC BY4.0 while retaining original mesh terms.
+[Google's primary GSO description](https://research.google/blog/scanned-objects-by-google-research-a-dataset-of-3d-scanned-common-household-items/)
+confirms CC BY4.0 for that source. CSV links for23/29 are `None`; do not invent
+an exact original asset URL or blanket redistribution clearance for every row.
+All payloads/outputs remain external and unpromoted.
+
+### Runnable path and checks
+
+`lab/scripts/physical_sound_objectfolder2.py` evaluates only reviewed, hash-pinned
+AudioNet declarations, with imports/global device/anomaly/filesystem actions
+excluded. Weights use `weights_only=True` and an explicit numeric NumPy global/
+dtype allowlist, never unsafe pickle. Vision/touch networks and optimizer states
+are not executed. Scalar normalizers, finite tensors, positive damping,
+sub-Nyquist modes and coordinate support are checked; no damping-abs repair,
+mode removal or coordinate clamping. Upstream actual normalization is[0,1],
+despite a[-1,1] comment. One published demo query exceeds even this scalar
+support. The experiment instead uses four fixed actual OBJ vertex indices
+`0,n//4,2*(n//4),3*(n//4)` for each object, without listening-based selection.
+
+Each teacher produces14WAVs:4contacts,zero/quarter/half/double/negative and
+three axis controls, plus two galleries.126teacher WAVs+1combined gallery.
+Paper Eq8 is evaluated directly in float64, with2s ringing+1s silence.
+Against the reviewed author's CPU-adapted FIR/FFT path, the demo raw waveform
+relativeL2 difference is6.459e-5 after accounting for its2sample padding delay;
+not a bit-exact CUDA reproduction. The only device adaptation removes `.cuda()`
+calls from selected pinned DDSP functions. Actual unnormalized synthesis agrees
+within this numerical discrepancy.
+
+The author's final `signal/abs(signal).max()` **exactly erases positive force
+scale**, and zero excitation yields nonfinite output. Our exporter retains
+one common gain across all conditions of each object, including exact zero.
+Different objects still have different audition gains, so their relative
+loudness is not calibrated. Raw modal gains/frequencies/damping remain in
+generated.npz and must be used instead of audition-normalized WAVs for a
+quantitative student target.
+
+Initial unconditional float32 bit-scaling audit **FAILED** on woodblock29:
+half165samples/double337samples differ by at most1.401298e-45, only around
+the subnormal tail. Its float64 raw bit checks also fail at underflow; other
+eight objects pass those checks. These results remain unchanged, not rerendered
+to make bit checks green. `pcm_scaling_check` reports bit identity separately
+from a declared one-ULP-per-operand rounding bound; all27half/double/sign cases
+pass that bound and all9zero cases are exactly silent. A negative test with
+incorrect0.51rather than0.5 scaling fails. This is numeric validation, not
+perceptual realism, microphone calibration or proof of arbitrary force laws.
+
+Verification:6focused tests PASS; all127full WAVs finite and peak≤.5, hashes/
+lengths PASS;9first-contact replays exact from saved numeric outputs. Immutable
+source/weight hashes and strict neural state loading checked. Ruff/diff/link
+checks PASS. No Cargo/host-check/ProductCheck for this external lab change.
+
+Reproduce each row with
+`OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2.py --source SOURCE --data OBJECT --weights-sha256 SHA --output NEW_OUTPUT`.
+All exact paths/hashes are in cohort.json/family-extraction.json. The retained
+first-run per-object result.json files contain raw checks; the later cohort.json
+adds checks on serialized PCM. New runs emit both via the added rounding helper.
+No newly trained weights, runtime/demo change or admission.
+
+**Next action:** use the prepared six TRAIN objects and three open DEV objects
+for one shared student, with object-geometry/material inputs and a source-free
+audible prediction. Select/validate a common output representation before
+claiming variable-mode coverage; do not silently truncate1965modes to match a
+small head. Compare against simple teacher-derived controls. Do not start
+another source-inventory or per-object fitting cycle while this cohort can
+test the shared-learning path. The separate real-pressure/realism gap remains.

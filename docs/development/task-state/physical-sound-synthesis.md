@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / INTERNET_FSI_ACOUSTIC_CONTROL / PASSIVE_REDUCTION_REJECTED.
+Status: ACTIVE_GOAL / NINE_INTERNET_NEURAL_TEACHERS_AUDIBLE / SHARED_STUDENT_NEXT.
 
 ## Resume in 60 seconds
 
@@ -10,63 +10,48 @@ Status: ACTIVE_GOAL / INTERNET_FSI_ACOUSTIC_CONTROL / PASSIVE_REDUCTION_REJECTED
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **New pressure control:** `guitar-fsi-source-2026-09-06`,DaRUS-3248V1/CCBY4,
-  exactMD5 54e6f82be01f30e4d4a29392615a35c9;11248state supplied matrices.
-  Inventory hasNOmesh/recording/family. Source/publishedpaper sections read;
-  C rows top/back DISPLACEMENT, averaged near-hole pressure;NOTfar-fieldmic.
-- `guitar-fsi-probe-2026-09-06`:48state energy-projected ROM,24fixedfrequency
-  responses60–2000Hz;NOTneuraltraining/transfer.8rejectedROMWAVs retained.
-  Stable/dissipative but pressurefreqL2=1.513(.1514insidepaper82–320Hz);
-  full/reduced.2s pulse5mspressureerror6.266%,top.387%,back1.293%.
-  Pre-run5%timecriterionFAIL. No nextbasis/order/frequency/epoch sweep.
-  Actual100Hzno-FSIcontrol:pressure/backEXACTzero,topstillmoves.
-  Reproduction/source hashes and full-audio control:see latest pilot section.
-  [Full-state velocity→pressure,2.5s](/home/kaifaty/.codex/experiments/nextengine/physical-sound/guitar-fsi-probe-2026-09-06/full-velocity-then-pressure-5ms.wav).
-  Fullaudio20kHz/1s,40kHz/.2scheck:pressure2.00%timechange;ROM6.12%error.
-  12WAVs,5tests; no newweights, meshconvergence orrealismclaim. Alljobs terminal.
-- **Latest neural primary:** `modal3d-passive-render-2026-09-06`,63source-freeWAVs:
-  48heldcases+11material/speedcontrols+4galleries. [Coupled neural radii1→3→5mm](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-render-2026-09-06/striker-radius.wav),7.5s;
-  `modal3d-passive-assessment-2026-09-06`:59FEM→interpolator→oldweakNN→coupledNN,10s.
-  Alljobs terminal,25testsPASS,124fullfiniteWAVs incl2factorialcontrols;gain1;
-  59standalone replays/frozenfrequencyoutputsEXACT;noinputaudio/FEM/networkrenderreads.
-- **Sharedpassivefit:** `modal3d-passive-fit-2026-09-06`,weights6805a313306362f51015d411f7f758489e1872011355924948d8c9475d5ae297.
-  10000total/5064trainableparams;1500Adam/lr.001/seed42;36TRAIN×9uniquepoints,
-  full9×9residue-matrixloss(no eigenvector sign targets). Frequencyheadfrombaaa9af5…FROZEN.
-  FieldR_i(p,q)=a_i(p)a_i(q):PSD/reciprocity algebraically;self=a²,NOabs/clamp.
-  TRAIN-onlytrain.json/36NPZtrace,noDEVselection. Contact/Hertz/dampingstillANALYTICAL.
-- **48heldcoupled cases:** oldweakNN→newNN meanspectrum.217738→.187262(40/48),
-  env.067359→.063573(34/48),level.047713→.042442(27/48). Interpolator.158063/
-  .083520/.081107. Newmatrixerror.270045vsinterp.414235,selfL1.338186vs1.290869;
-  impulseerror.1196%vsinterp.7074%. quality_advantageFALSE(interpolatorspectrumbetter).
-  Modefreq.972% unchangedvsinterp1.382%;12independentbodies,not48frequencycases.
-- **Posthoc2×2discriminator:** `modal3d-passive-factorial-2026-09-06`,all48:
-  spectral I-freq/I-port.15806,N-freq/N-port.18726,I-freq/N-port.13119,
-  N-freq/I-port.19553. [Reference→NN→diagnostic hybrid](/home/kaifaty/.codex/experiments/nextengine/physical-sound/modal3d-passive-factorial-2026-09-06/reference-neural-diagnostic-hybrid.wav),7.5s.
-  HybridisNOTanothertrainedmodel;keepasstrongercontrol,no promotion/selection.
-- **Familyteacher:** `modal3d-corrected-data-2026-09-06`,pairedmesh3/4all48,
-  144NPZ/372fullcontactWAVpairs. TRAINmesh3/DEVmesh4fixedbeforefit,noexclusions.
-  43/48localstable:all12DEV;TRAIN2/11/20/29/32failONLYspectrum(.05–.063).
-  Allfirst8modesinorder,maxfreqchange.429%;notcontinuum/realismproof.
-  Priorone-shape4levels/8vs12testclosed:coarsegriderror,notmodalpermutation;
-  no more mesh-level/NNloss/epoch/capacity sweeps to beat interpolation.
-- **Contactdriver:** analyticalHertzF=kδ^1.5,kusesBOTH E/nu,m=4πrhoR³/3,
-  initialvelocitydrivesforce. 64pointcontinuousquadrature handles8–74us pulses;
-  128pointcountercheckrelPCM<1.2e-8. Target(.14,.055,.24),L.18,rho2230,onecontact.
-  Separate8modepositive-self-residueFEMfeedbackfirstseparation,energyerror<1.13e-9,
-  momentum<2.51e-10. Weakcontactrule10/11PASS;R5mmFAILimpulse+5.253%,spectrum.05193.
-  MeanweakFEM/coupled spectrum.015645vsweakNN/coupled.322732:forcefix≠NNqualityfix.
-  NumericalelasticpropertiesNOTidentifiedsteel/rubber;no real losses/yield/radiation.
-- **Newteacher:** `modal3d-port-data-2026-09-06`,same36mesh3TRAIN/12mesh4DEV;
-  addsactualport_modes;all48oldfreq/crossresponsesmatch.No rolechanges/exclusions.
-  Priorcrossgainconvergence isNOTa complete self-port/matrixconvergenceproof.
-- OldNNcollocatedmode8−26.624 is now nonnegative18.114. All59coupledODEenergy
-  errors<7.83e-8. Float32repeat-point amplitudesdiffer2.66e-7relative:bitidentity
-  checkFAILED;algebraiccollocation≠bitguarantee,PSD unaffected.No tolerance repair.
-- **Next primary:** shared-family inputs needgeometryANDacousticoutputs;
-  fixedguitarmatricescannottrainit,aspectratioNNcannotencodeguitar. Keepthis
-  pressure-vs-mechanicsfailure as validatorcontrol,NOTa per-guitar fittingprogram.
-  Retainpassivefield+hybridcontrol;no cuboidpulse/field/frequency/epochsweeps.
-  Needattributableinternetrecordings;no hardware/per-soundapproval. Reuseskfem12.
+- **Latest primary:** [wood block→steel mug→ceramic bowl→plastic dish](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-render-2026-09-06/wood-steel-ceramic-plastic.wav),13.5s.
+  Nine PUBLISHED per-object neural teachers, NOT ournewsharedfit/generalization.
+  `objectfolder2-render-2026-09-06/cohort.json`:127WAVs,9exactfirst-contactreplays,
+  6testsPASS,allfinite/peak≤.5. Alljobs terminal;no runtime/demo/promotion.
+- **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
+  `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
+  `objectfolder2-range-2026-09-06/family-extraction.json`:9completemesh/checkpoint
+  pairs from first320MiB of3.77GBarchive;individualhashes,NOTfullarchivechecksum.
+  IDs7/11/23/29/54/66/75/82/88;34–1965modes. **OF2 IDs≠SonicGauss/OF-Real IDs**.
+  Demo23mesh+weightsEXACTmatchesarchive(Steelassigned);notinferredfromtimbre.
+  GSOCCBY4confirmed;originalmeshtermsretained;23/29CSVoriginalURLsNone.
+- `physical_sound_objectfolder2.py`:strictweights_only+numericNumPyallowlist,
+  reviewedhash-pinnedASTdeclarations,noimports/CUDA/optimizerexecution;
+  rawsigned3-axisgainsat4fixedactualmeshvertices,frequency/dampingfromsource.
+  Authoroutputpeaknormalizationerasesforceandbreakszero;omitted,commonper-object
+  auditiongainused. Trainfromrawgenerated.npz,NOTaudition-normalizedWAVs.
+  NativeCPUFIRcomparisonrelativeL2=6.459e-5after2sampledelay;notCUDA-bitclaim.
+  Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamporreselectedvertices.
+- Numericbit-scalingFAILonwoodblock29underflow;retained. PCMhalf165/double337
+  samplesdiffer≤1.4013e-45. Other8objectsbitpass;all9zeroexact. ExplicitULP
+  roundingboundpassesall27scale/signchecks;0.51-vs0.5negativecontrolFAILasexpected.
+  Thisisnumerics,NOTrealism/absolutephysicalforcevalidation. See latestpilot.
+- **Next primary:** oneSHAREDstudent onTRAIN7/23/29/66/75/82,openDEV11/54/88,
+  fromcohort.json;no studenttrainedyet. Needcommonrepresentationforvariablemodes,
+  no silent1965→small-headtruncation. Produceheld-objectWAVswithsimplecontrols.
+  DoNOTstartanotherinventory/per-objectfitcyclewhilethiscohortcantestlearning.
+  TeacherhasNOpressure/radiation/listenerstageorstrikermaterial. SignedAudioNet
+  gainsareNOTcontactself-admittance;do notfeedthemintoHertzfeedbackaspositiveports.
+- **Pressure control retained:** `guitar-fsi-probe-2026-09-06`,DaRUS-3248V1,
+  12WAVs/5tests;48statepassiveROMpressureerror6.12%,.1514freqL2insidepaperband.
+  No-FSI→pressure/backzero,topmoves. No newbasis/order/epochsweeps orper-guitarfit.
+  FixedmatricesNOmesh/recording/family;near-holepressureNOTfar-fieldmic.See pilot.
+- **Our latest shared NN retained:** `modal3d-passive-fit-2026-09-06`,6805a313…;
+  `modal3d-passive-render-2026-09-06`:63source-freeWAVs,25tests/59exactreplays.
+  R_i=a_i(p)a_i(q),PSDself=a²(noabs/clamp),5064fieldparams,frozenbaaa9af5…freq.
+  On48heldcuboidsNNspectrum.18726vsold.21774butinterp.15806:quality_advantageFALSE.
+  `modal3d-passive-factorial-2026-09-06`:interp-freq/neural-port.13119,NOTnewNN.
+  Keepasstrongcontrol;NOcuboidmesh/pulse/field/frequency/epoch/capacitysweeps.
+  HertzusesbothE/nu;weakR5mmfailsimpulse+5.253%,coupledNN1.12%error,notrealism.
+  Modefieldsfloat32duplicatepointbitcheckFAIL2.66e-7relative;PSDunaffected.
+  `modal3d-corrected-data-2026-09-06`:43/48crossconvergence,allDEV;5TRAINwarnings.
+  `modal3d-port-data-2026-09-06`addsactualports;crossgaincheck≠selfportconvergence.
 - **SonicGauss two-sample fit REJECTED:** `sonicgauss-energy-fit-2026-09-06`,
   adaptera4c23b52…,fixedDEVaudiblespectrum.961561→.972393(5/24),envelopeworse.
   Freshenergyimproves.24%butshapeonly.34%;notquality.360WAV+80comparisonsinpilot.
