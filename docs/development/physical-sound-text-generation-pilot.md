@@ -8159,3 +8159,102 @@ Reproduce `field_cause.py --data EXPANDED_TRAIN --fit ELEVEN_FIT --ports PORT_DA
 existing shared/expanded assess against FULL targets. Expanded `compare` now
 accepts `--baseline-weights-sha256` so before/after identities and filenames are
 accurate; use full81cc…/ef226…hashes above. Established filename prefix/environment.
+
+## 2026-09-06 — Frozen magnitude diagnosis; native geometry versus CSV scale
+
+Primary diagnostic: [steel mug, five interventions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-diagnostic-2026-09-06/object-23-comparison.wav),15s.
+Order: compact target, unchanged standalone NN, correct-count oracle,
+correct-count/frequency/decay oracle, correct-count/contact-field oracle.
+The last three use target information: NOT new standalone generations or an
+improved trained model. Same gain across all five; no listening-based selection.
+The [previous standalone DEV comparison](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav)
+remains the latest independently generated neural candidate, still rejected as
+a general replacement. The intervening explanatory user response was no progress;
+this continuation recovered, verified and completed the pending diagnostic.
+
+`physical_sound_objectfolder2_magnitude_diagnose.py` uses the exact frozen
+ef22695e… weights and all11TRAIN compact targets, all32contact fields, first-contact
+audio. Correcting count also changes normalized rank queries: do not attribute
+its result solely to the number of oscillators. Poles means frequency AND decay.
+
+| Mean TRAIN diagnostic against compact target | Spectrum | Envelope | Log RMS error |
+| --- | ---: | ---: | ---: |
+| Unchanged standalone | .852866 | .637623 | .372471 |
+| Correct count/rank queries | .857221 | .635166 | .363030 |
+| Correct count and poles | .682813 | .548968 | .419511 |
+| Correct count and contact field | .748614 | .302882 | .095536 |
+
+Count alone is not a principal TRAIN error:9/11counts already match, with exact
+same-count query controls; object7 predicts150 versus149,75 predicts112 versus114.
+True poles improve mean spectrum but do not fix level; true fields substantially
+improve envelope/level but do not fix spectrum. Neither intervention closes all
+errors, and individual objects can regress (e.g.29with true poles). No perceptual
+realism/generalization claim follows from these TRAIN/oracle comparisons.
+
+### Adjacent-layer scale discriminator
+
+Before another fit, compared the pinned CSV, original OBJ coordinates, prepared
+geometry lengths and source AudioNet scalar coordinate intervals, TRAIN only.
+The [official supplement, section B](https://ai.stanford.edu/~rhgao/objectfolder2.0/ObjectFolderV2_Supp.pdf)
+defines scale as longest axis-aligned bounding-box side in meters and says it is
+used in modal analysis. The [pinned official README](https://github.com/rhgao/ObjectFolder/blob/3c6cd8930b2dcbadb6d94dadf2745c956bdcd236/README.md)
+and directly read `OF_render.py` normalize input coordinates using AudioNet's
+scalar xyz interval; they provide no CSV-driven coordinate-rescaling step.
+Raw GitHub browser fetch failed; GitHub page and cached pinned source were read.
+
+| TRAIN object | Native longest side | CSV scale | Native/CSV |
+| --- | ---: | ---: | ---: |
+| 7 | 1.799648 | 1.8 | .999804 |
+| 23 | .116984 | .082 | 1.426634 |
+| 29 | .206003 | .2 | 1.030015 |
+| 47 | .191112 | 1.2 | .159260 |
+| 59 | .278446 | .278 | 1.001604 |
+| 66 | .159683 | .16 | .998019 |
+| 72 | .318299 | .318 | 1.000940 |
+| 75 | .441819 | .442 | .999590 |
+| 78 | .103581 | .104 | .995971 |
+| 82 | .338102 | .338 | 1.000302 |
+| 91 | .291686 | .292 | .998925 |
+
+For every body, source scalar interval width / mesh global coordinate span lies
+in [.999498476,1.000000026];99.9299–100%of original vertices are inside support.
+This supports native mesh/source coordinate consistency, NOT independent proof
+of absolute physical calibration. In particular23's scalar span≈.14812 is NOT
+its longest AABB side≈.116984: scalar extrema mix different axes and origins.
+The CSV conflicts for23/47 cannot justify resizing either data or sound. Retain
+native coordinates and all original roles/targets; no automatic CSV correction,
+no training rerun and no assertion that this explains shared-model failure.
+The mesh/checkpoint hashes were checked against original extraction/expansion
+manifests; CSV hash remains5565b7e8… . Only the11TRAIN source models were loaded
+through the existing restricted numeric loader. No new source payload acquired.
+
+Read-only mesh-topology feasibility check: all11original meshes have two faces
+per undirected indexed edge. This is NOT a self-intersection/volume/quality check.
+23/47/72/91contain duplicate-position vertices;7includes quads. Ceramic59has4674
+unique vertices/9344triangles,66has21263/42522,78has6850/13700. This makes59the
+smallest inspected ceramic non-cuboid candidate for an operator-based control,
+selected by geometry cost, not sound. No mesh repaired, tetrahedralized or solved.
+
+Decision: no more count/sign/global-gain/width/epoch/seed sweeps. Direct signed
+field targets still lack physical output ports/operators; normalizer checks do
+not supply those missing quantities. Next executable discriminator is one
+native-geometry non-cuboid TRAIN control (59) with explicit elastic operators,
+physical input/output ports and audible vibration, before attempting shared
+operator-residual learning. Use the published ceramic material parameters;
+do not substitute a cuboid or silently repair/resize the source mesh. A physical
+solver control is neither a new neural model nor microphone-pressure realism.
+
+Checks:44focused OF2 tests, Ruff lint/format PASS. All66WAVs finite float32 mono
+44100Hz/peak≤.5;55saved-parameter replays and11gallery concatenations EXACT.
+All11standalone parameter sets EXACT equal the previous magnitude renders.
+Diagnostic script/weight pins match;26external read-only opens in its trace
+are restricted to11TRAIN data and own weights, no INET. No live diagnostic job.
+No Cargo/host-check/ProductCheck: bounded external Python lab, fallback unchanged.
+
+Reproduce with `physical_sound_objectfolder2_magnitude_diagnose.py --data
+objectfolder2-expanded-train-2026-09-06 --fit objectfolder2-magnitude-fit-2026-09-06
+--output NEW_EXTERNAL_DIR`, using full external-root paths and four-thread
+environment. Existing output `objectfolder2-magnitude-diagnostic-2026-09-06`
+contains `diagnostic.json`,55parameter NPZs and66WAVs; adjacent `.trace` records
+reads. The context skill preserves the oracle-only result and no-CSV-resize
+decision so neither becomes a false standalone/physical-calibration claim.

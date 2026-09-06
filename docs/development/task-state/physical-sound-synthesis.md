@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED.
+Status: ACTIVE_GOAL / POLE_AND_FIELD_ERRORS_SEPARATED / JOINT_QUALITY_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -10,15 +10,13 @@ Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s;
+- **Latest standalone:** [reference→eleven-body NN→magnitude-factorized NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-comparison-2026-09-06/new-development-reference-baseline-candidate.wav),27s;
   newDEV37/40(polycarbonatecups)/53(ceramicbowl),samegainpertriple. No target
   acoustics at either generation. Threeobjects but TWO conservativefamilies.
-- `objectfolder2-expansion-2026-09-06`:next256MiBofsamearchive,tencompletepairs,
- 20filehashes;NO fullarchivechecksum. New30Iron/96Glass explicitlyunsupported.
-  `objectfolder2-expanded-data-2026-09-06`:8known-materialfulltargets,32contacts.
-  Metadata-familyguard BEFORE audio reserves37–46cups and53possibleoldDEV54kin.
-  NewTRAIN47/59/72/78/91;newDEV37/40/53. Originalrolesunchanged;combinedDEV6objects,
-  FOURconservativefamilies. Acquisitionmod5role retained separately;noholdoutreuse.
+- Expansion:next256MiB,ten complete pairs,partial archive SHA only;30Iron/96Glass
+  unsupported. Eight prepared bodies/32contacts; newTRAIN47/59/72/78/91.
+  BEFORE audio reserved37–46cups/53possible54kin;newDEV37/40/53. CombinedDEV6objects,
+  FOURfamilies;originalroles unchanged,mod5acquisitionrole separate,noholdoutreuse.
 - `objectfolder2-magnitude-fit-2026-09-06`:99337total/30851trainableparameters;
   frozen81cc9a90…core pluspositivemagnitudehead;notpureloss/capacitycomparison.
   Same11TRAIN7/23/29/47/59/66/72/75/78/82/91;one2000Adam.001seed42fit.
@@ -26,13 +24,16 @@ Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED
   NewDEVspec/env/level1.16092/.78925/1.85511→1.33019/.86025/1.60353;
   oldDEV.88234/.73939/1.34949→.94375/.59154/.67852. Levelhelps,spectrumworse:
   REJECTgeneralreplacement. Preserveoldcompact5b569809…(.9873/.5622/.6498oldDEV).
-  All17core/pole/count/original-gain/signidentitiesEXACT. Alljobs terminal;
-  42tests/199WAVQA/134individualreplays/15galleriesPASS;readtracesisolated.
+- **Latest diagnostic:** [five steel interventions](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-magnitude-diagnostic-2026-09-06/object-23-comparison.wav),15s.
+  Compact target→unchanged NN→oracle count→oracle count/poles→oracle count/field.
+  Frozen ef226…;all11TRAIN, NOT new fit/source-free improvement/realism evidence.
+  Mean spec/env/level: raw .85287/.63762/.37247; count .85722/.63517/.36303;
+  poles .68281/.54897/.41951; field .74861/.30288/.09554. Both errors remain.
+  44tests/66WAVQA/55replays/11galleries/11prior-standalone identities PASS/EXACT;
+  Pins/TRAIN-only/no-INET trace PASS; jobs terminal. Prior17core identities EXACT.
 - `objectfolder2-field-cause-2026-09-06`:11TRAINoraclepoles/count/ranks,
   firstcontactaudio/all32coefficientdiagnostics,NOTstandalonegeneration.
-  Learnedlevel1.47581→signoracle1.66613/magnitudeoracle.30740/scalar.80463;
-  scalar worsensspectrum.78940→1.69387. SignedMSEprefersquieterfield:
-  learned.44390vsmagnitudeoracle.69266. Sign-only/scalarcompletefixesREJECT.
+  Sign-only/scalar complete fixes REJECT; signed MSE can prefer quieter fields.
   FEMa→aSphysicalresidues/waveEXACT;OF2signsensitivityNOTproofsourcegaugeerror.
 - **Size:** `objectfolder2-size-final-2026-09-06`,rawNNfrequencyshiftmean.6165%
   despite.8/1.25size;required-lawerror22.211%,0/12modecounts. transportlambda/r²
@@ -41,14 +42,16 @@ Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED
 - **Decay:** publishedOF2Rayleighlaw matches5309fullmodes,maxrelative6.66e-16.
   rayleigh.py usesdamped→undampedstablelowroot,keepsf/g/maskfixed. Priorchannel
   f5e5e578…rawDEV3.469/7.347/.838→analytic1.169/1.164/.579,stillREJECT.
-- **Closed OF2 variants:** oracletruepolesdon'tfixfield;bandGramenergy.23196
-  spectrumworsevssigned.05160,crossbanderror26.55%;noGram/phase/band/decoder/
-  mask/capacity/epoch/seed sweeps. Compactcommonpoleoracle.05714/.02530/.01148,
-  lossyall-modes-accounted,NOTlossless. Details/pinsretainedinpilot.
-- **Next:** frozenmagnitudecandidate TRAINoraclepole/countdiscriminator withWAV;
-  distinguishremainingfieldvsfrequency/shapeconditioning beforephysically
-  normalizedpole/operator-residualroute. No sign/gain/width/epoch/seed ordata-count
-  sweeps. NeuralSound/SignNetboundedresearchinpilot;notreproduced,newgoalunchanged.
+- **Closed OF2:** bandGram worsens spectrum; noGram/phase/band/decoder/mask/
+  capacity/epoch/seed sweeps. Compact all-modes-accounted is lossy; pins in pilot.
+- **Scale audit:** native mesh/source coordinate intervals agree on11TRAIN;
+  CSV23=.082 vs native .116984; CSV47=1.2 vs native .191112. Do NOT resize from
+  CSV or claim absolute calibration. Scalar xyz span is not longest AABB side.
+- **Next:** native non-cuboid TRAIN59 elastic-operator/physical-port audible
+  control before shared operator-residual learning. 4674unique vertices/9344tris,
+  indexed edges two-sided, NOT yet self-intersection/volume/tetra/solver verified.
+  No silent geometry repair/resize or cuboid substitution. Published ceramic
+  parameters; no sign/gain/width/epoch/seed or data-count sweeps. Full goal unchanged.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:original9pairs/320MiB;
@@ -60,13 +63,12 @@ Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED
   auditiongainused. Trainfromrawcoefficients,NOTaudition-normalizedWAVs.
   Oneauthor-demoqueryoutsidecoordinatebounds;noinputclamp. Detailsinpilot.
 - Teacher29underflowbit-scalingFAIL;ULPbound27PASS/all9zeroexact;detailsinpilot.
-- Fullpreparepack preserves34–1965modes/32points,512meshvertices+log3sizes+
-  materialonehotinputs. No target count/poles/audio at standaloneinference.
+  Fullpack34–1965modes/32points,512vertices/log3sizes/materialonehot;
+  no target count/poles/audio at standalone inference.
   TeacherhasNOpressure/radiation/listenerstageorstrikermaterial. SignedAudioNet
   gainsareNOTcontactself-admittance;do notfeedthemintoHertzfeedbackaspositiveports.
-- **Pressure:** `guitar-fsi-probe-2026-09-06`,48stateROMpressureerror6.12%.
-  No-FSI→pressure/backzero,topmoves. FixedmatricesNOmesh/recording/family;
-  near-holepressureNOTfar-fieldmic. No basis/order/epochsweeps/per-guitarfit.
+- **Pressure:** guitar-fsi:48stateROM6.12%error; no-FSI→pressure/backzero; fixed
+  matrices,no mesh/recording/family,near-hole NOT far-field. No basis/order/epoch/per-guitar sweeps.
 - **Prior coupled NN control:** `modal3d-passive-fit-2026-09-06`,6805a313…;
   `modal3d-passive-render-2026-09-06`:63source-freeWAVs,25tests/59exactreplays.
   R_i=a_i(p)a_i(q),PSDself=a²(noabs/clamp),5064fieldparams,frozenbaaa9af5…freq.
@@ -80,9 +82,8 @@ Status: ACTIVE_GOAL / MAGNITUDE_FACTOR_PARTIAL_PROGRESS / JOINT_QUALITY_REJECTED
   waveform8d702d11…18/24quieter,shape/levelworse;flow6c2f1eb1…REJECTED.
   Codecprobe isAUDIO-INPUT,notgeneration/EQrepair. Exactruns/pins/resultsinpilot.
   No loss/gain/phase/seed/epoch/timing/attention/SED/codec/inventory sweeps.
-- SonicGauss36TRAIN2/6/12/24/66/95,24DEV14/75/94/97;ALLauthorpretrainingTRAIN.
-  `sonicgauss-cohort-data-2026-09-06`:10PLY60WAV,partialarchiveSHAonly;
-  e905b8cb…data/93d397c1…projection. No36/70authorval/80/41/92payload.
+- SonicGauss TRAIN2/6/12/24/66/95,DEV14/75/94/97;ALLauthorpretrainingTRAIN.
+  10PLY/60WAV,partial archive SHA only; no36/70authorval/80/41/92payload. Pins in pilot.
   66IronNOTsteel;absolutephysicalsize/force/strikermaterialabsent.
   Keep17source/5weightpins/noT5pickle;cachedreplay≠GSreencode. NativeSDPA/flash
   disablingchangesPTv3patch1024→128. Reproductioninpilot/shared_fit.py.
