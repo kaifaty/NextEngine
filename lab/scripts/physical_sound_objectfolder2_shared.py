@@ -219,11 +219,11 @@ class SharedStudent(nn.Module):
         )
 
 
-def fit(args):
+def fit(args, *, train_ids=frozenset(TRAIN)):
     rows = json.loads((args.data / "train.json").read_text())["rows"]
     if (
-        len(rows) != 6
-        or {r["object_id"] for r in rows} != TRAIN
+        len(rows) != len(train_ids)
+        or {r["object_id"] for r in rows} != train_ids
         or any(r["role"] != "train" for r in rows)
     ):
         raise ValueError("exact TRAIN-only projection required")
@@ -239,8 +239,9 @@ def fit(args):
     cloud = torch.tensor(np.array([d["cloud"] for d in data]))
     features = torch.tensor(np.array([d["features"] for d in data]))
     points = torch.tensor(np.array([d["contacts"] for d in data]))
-    poles = torch.zeros(6, capacity, 2)
-    gains = torch.zeros(6, POINTS, capacity, 3)
+    body_count = len(rows)
+    poles = torch.zeros(body_count, capacity, 2)
+    gains = torch.zeros(body_count, POINTS, capacity, 3)
     for i, d in enumerate(data):
         poles[i, : counts[i]] = torch.tensor(
             np.log(np.stack([d["frequency"], d["damping"]], axis=-1)),
@@ -267,12 +268,12 @@ def fit(args):
     )
     targets = torch.asinh(gains / model.gain_scale)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    seen = torch.zeros(6, capacity, dtype=torch.bool)
+    seen = torch.zeros(body_count, capacity, dtype=torch.bool)
     losses = []
     for step in range(2000):
         optimizer.zero_grad(set_to_none=True)
         encoded = model.encode(cloud, features)
-        body_id = torch.randint(6, (1024,))
+        body_id = torch.randint(body_count, (1024,))
         contact_id = torch.randint(POINTS, (1024,))
         mode_id = (torch.rand(1024) * counts[body_id]).long()
         seen[body_id, mode_id] = True

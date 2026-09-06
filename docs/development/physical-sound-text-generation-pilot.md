@@ -7944,3 +7944,102 @@ Next investigate shared shape/data coverage and physical normalization before
 expanding same-source pairs; do not restart six-body decoder/epoch/material
 tuning. The context skill preserves this falsified size response and scope;
 full goal, authored fallback and roadmap remain unchanged.
+
+## 2026-09-06 — Ten new OF2 pairs; one shared 11-body training discriminator
+
+Primary: [new supported DEV: reference→six-body NN→eleven-body NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-expanded-comparison-2026-09-06/new-development-reference-six-eleven.wav),27s.
+Order37/40(polycarbonate cups)/53(ceramic bowl),3s each member of each triple.
+All three supported new DEV objects are included, not selected by sounding good.
+One gain per complete triple; no candidate-specific level matching. Two cups
+share a conservative family, so this is THREE objects but TWO new families.
+Both networks generate from geometry/material only; references are added later.
+
+Previous goal turn was progress: size evidence and reusable pole transport.
+This turn expands the shared training problem, not per-material fine-tuning.
+The [official OF2 download page](https://objectfolder.stanford.edu/objectfolder2-0-download)
+was reopened2026-09-06: first100-object archive and metadata, CC BY4 with original
+mesh-source terms retained. HEAD verified same3770228811bytes/ETag624aa041-e0b9204b.
+`physical_sound_objectfolder2_expand.py` fetches one256MiB range335544320–603979775,
+joins the existing320MiB prefix in memory-stream order, and extracts only bounded
+regular OBJ/ObjectFile members. No shell tar extraction, imports or unsafe pickle.
+Ten complete new pairs,20file hash/size checks PASS. Expected partial gzip EOF
+retained; no full-archive checksum claim. External `objectfolder2-expansion-2026-09-06`.
+
+New IDs30/37/40/47/53/59/72/78/91/96. Current vocabulary excludes30Iron/96Glass
+explicitly: **8/10 evaluated**, not silently substituting steel or pretending a
+helper's Glass constants extend the neural vocabulary. Their payload is retained,
+not executed or admitted. No exact mesh hash duplicates against old/new cohort;
+this is not complete semantic-identity proof. Mesh URLs missing in CSV remain
+missing, not invented attribution or a blanket redistribution permission.
+
+Acquisition assigned ID%5==0 to development before audio. BEFORE loading new
+audio, metadata showed YCB065 cup family37–46 and possible Top Paw53/oldDEV54
+relation. Conservatively reserve those families for development; keep the initial
+acquisition role in each row. This is not a claim of exact same geometry. New
+supported TRAIN47/59/72/78/91; DEV37/40/53. All old sixTRAIN/threeDEV roles unchanged.
+Combined DEV has six objects but FOUR conservative family groups, not six IID
+samples. No protected/one-shot roles accessed or reassigned.
+
+`physical_sound_objectfolder2_expanded_eval.py` prepares32geometrically selected
+in-support points/full modes per object:180/254/22/51/120/184/38/968 respectively.
+Teacher normalizer bounds determine supported queries, not sound quality; no
+clamping. Geometry-only files contain512normalized vertices/log3dimensions/
+five-material onehot/32normalized contacts. Full targets retained separately.
+`objectfolder2-expanded-data-2026-09-06` is external. Existing six-body compact
+weights5b569809… were first frozen/rendered/assessed on all eight new objects:
+`objectfolder2-expanded-{render,assess}-2026-09-06`. The original report's
+`all_new_to_frozen_model` field is accurate for that old model only; current code
+uses `expanded_cohort` and records evaluated training IDs.
+
+`physical_sound_objectfolder2_expanded_train.py`: same compact signed128-band
+targets, original six TRAIN plus five new TRAIN. Old compact arrays are unchanged;
+new packed counts22/75/91/31/149. `shared.fit` only replaces hardcoded body count
+with an explicit expected-ID set; default original six-only guard is retained.
+One68486parameter/2000Adam.001/seed42 fit, no new widths/losses/masks/epochs/seeds.
+Equal update budget is not a converged learning curve. All TRAIN modes sampled.
+`objectfolder2-expanded-fit-2026-09-06`, weights:
+`81cc9a90a9da5c1a4cf5b2f82823fa267aaba20a7c75896fa9feb56fecad1fdb`.
+Training source hash3c00ff25…; prior fits' hashes remain historical snapshots.
+Gain normalizer1.111693→1.117891, so a large scalar-normalizer jump is not evident.
+
+| DEV diagnostic, lower is better | Six-body NN | Eleven-body NN |
+| --- | ---: | ---: |
+| New spectrum | 1.278538 | 1.160924 |
+| New envelope | .901875 | .789246 |
+| New log RMS error | 2.372157 | 1.855107 |
+| Old spectrum | .987302 | .882339 |
+| Old envelope | .562240 | .739386 |
+| Old log RMS error | .649822 | 1.349487 |
+
+New comparisons in `objectfolder2-expanded-candidate-{render,assess}-2026-09-06`;
+old non-regression in `objectfolder2-expanded-old-{render,assess}-2026-09-06`.
+All six DEV object-weighted means: spectrum1.132920→1.021631 improves; envelope
+.732057→.764316 and log RMS1.510990→1.602297 regress. **REJECT general replacement**.
+Old assessment also reports REJECT_QUALITY_ADVANTAGE. New DEV level1.855107 is
+worse than fixed old-six nearest.417722/size-scaled.787553. These controls are
+held fixed to compare learning changes; no claim of beating an expanded11-body
+retrieval baseline. Synthetic metrics do not establish audible realism.
+Five newly trained objects improving is reconstruction, not new transfer credit.
+
+No further data-count/decoder/epoch/seed sweep. Next bounded research should
+discriminate persistent signed modal-field learning/target-identifiability and
+geometry/size/material confounding before another fit, using TRAIN-only causal
+controls and an audible artifact. More data helped new cases but did not close
+the existing level/field failure. Preserve raw failures, old weights and size law.
+
+Checks:35focused tests, Ruff check/format PASS;186full WAVs finite float32/44100Hz/
+mono/peak≤.5. Assessments verify100standalone exact saved-parameter replays;
+all3same-gain triples replay EXACT. Three render traces read only geometry/own
+weights plus hashing their already-written outputs; preparation/fit acoustic reads
+are TRAIN-only, no INET. Safetensors atomically writes a temporary file before
+hashing its final output: this own-output read is not training-data leakage.
+No Cargo/host-check/ProductCheck; external Python lab only, no runtime promotion.
+The context skill preserves the family exclusion and rejected general replacement.
+
+Reproduce expansion with `expand.py --prefix PREFIX --metadata CSV --output NEW`;
+`expanded_eval.py prepare`, then `render`/`assess`; `expanded_train.py prepare`
+from old compact/new full data, then `fit`. Evaluate candidate using explicit
+`--weights-sha256 81cc9a90…` (full hash above), including old shared render/assess.
+`expanded_eval.py compare --baseline OLD_NEW_RENDER --generated CANDIDATE_RENDER`
+builds the primary triples. Use the established `physical_sound_objectfolder2_`
+filename prefix/environment and distinct external output directories.

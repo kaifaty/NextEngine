@@ -1,7 +1,7 @@
 # Physical sound synthesis — current task state
 
 Updated: 2026-09-06. Working context, not architecture authority.
-Status: ACTIVE_GOAL / RAW_SIZE_RESPONSE_REJECTED / ANALYTIC_POLE_TRANSPORT_AVAILABLE.
+Status: ACTIVE_GOAL / ELEVEN_BODY_SHARED_MODEL_RUN / GENERAL_REPLACEMENT_REJECTED.
 
 ## Resume in 60 seconds
 
@@ -10,48 +10,40 @@ Status: ACTIVE_GOAL / RAW_SIZE_RESPONSE_REJECTED / ANALYTIC_POLE_TRANSPORT_AVAIL
   new combinations without a target recording; internet data and automated
   training/validation/improvement without per-sound approval; eventual engine use.
   Neither audio reconstruction nor category-only generation satisfies this.
-- **Latest primary:** [NN base profiles with analytic resizing](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-size-final-2026-09-06/steel-wood-ceramic-profile-size-variants.wav),27s;
-  steel23/wood29/ceramic66, each .8/1/1.25 linear size. SixTRAIN size probe,
-  no new fit or target audio/FEM. Compare own baseline, NOT real-sound accuracy.
-  RawNN lowest natural frequency moves mean.6165%,max2.026% despite resizing;
-  required-law mean absolute error22.211%,0/12 common-band mode-count matches.
-  `physical_sound_objectfolder2_size_probe.py`:transport lambda/r², restore
-  Rayleigh decay/damped frequency; identity exact. Gains HELD, not amplitudephysics.
-  Commonband≤10kHz undamped atbaseline; no unseen above-Nyquist coverage claim.
-  `objectfolder2-size-final-2026-09-06`:44WAV QA/36exactreplays/29tests PASS.
-  Final run source hash precedes lint-only `.items()` loop edit; WAVs unchanged.
-- `objectfolder2-channel-fit-2026-09-06`:69712parameter NN,128bands×3slots;
-  sixTRAIN7/23/29/66/75/82/openDEV11/54/88;2000Adam.001seed42.
-  Weightsf5e5e578d4ecb5cc81f9c12a85b61d6647b491e47e57036f61c1222bf3ad90ad.
-  RawDEVspec3.46905/env7.34727/level.83842REJECT;TRAIN.74552/.59787/.83701.
-  OutputchannelshelpTRAINbutnottransfer;no channelwidth/mask/loss/epoch sweeps.
-- **Cause verified:** publishedOF2suppTable1Rayleighalpha/beta reproducesall5309
-  FULLsource modes with maxrelative6.66e-16 (`objectfolder2-rayleigh-source-2026-09-06`).
-  Independent learneddecay violatesmateriallaw (ceramic88min.1468vsminimum3).
-  `physical_sound_objectfolder2_rayleigh.py` computes stable low quadratic root
-  from predictedDAMPEDfrequency+assignedmaterial,NOTfitted/targetcoefficients.
-  Keep source-freef/g/occupancyEXACTfixed;learneddampingretainedinNPZ.
-- `objectfolder2-rayleigh-{render,assess}-2026-09-06`:DEV1.16898/1.16439/.57924,
-  TRAIN.74507/.59873/.83194. BigrawfailurepartlyfixedbutREJECT_QUALITY_ADVANTAGE.
-  Priorcompact5b569809… remainsbetterDEVspec/env(.98730/.56224),level.64982;
-  nearest/sizecontrolslevel.49116/.40940. No promotion, no arbitrarymaterialproof.
-  Alljobs terminal;105newWAVfullQA,72exactreplays,9f/g/maskidentities,25testsPASS.
-- `objectfolder2-shared-diagnostic-2026-09-06`:sixTRAINoraclepole/fieldswaps:
-  truepoles doNOT fixfieldfailure; target-assisted,NOTnewNN. Detailsinpilot.
-- **Research/probe DONE:** `objectfolder2-band-qr-probe-2026-09-06`,7oracleWAVs.
-  SixTRAINfirstcontacts:128fullMelbands,≤3modesretained;>3signedsum spectral.05160
-  vsenergyGram.23196. EnergyperbandPASS3.99e-15buttotalcrossbanderrorup26.55%.
-  Rejectindependentbandenergyasfix;no Gram/phase/band-count sweeps. QRfixed
-  inverseill-conditioning,NOTsound;DeepModalresearch/failureevidenceinpilot.
-- `objectfolder2-compact-data-2026-09-06`: signedpacking usesONEpole/band across
-  all32contacts; TRAINcommonpoleoracle spectral.05714/env.02530/level.01148.
-  Allsource modesaccountedfor,NOTlossless. Raw9targets preserved;inputsEXACTcopied.
-- **Next:** address shared shape learning/data coverage, not another per-material
-  fit. Inspect available OF2 cohort coverage and physical normalization before
-  expanding same-source geometry/audio pairs; keep object-disjoint evaluation.
-  Size evidence rejects relying on this raw size input; reuse analytic transport
-  for same-shape pitch/decay, not proof of new shapes/materials/amplitude realism.
-  No repeated decoder/mask/phase/loss/capacity/epoch/seed sweeps on these six bodies.
+- **Latest primary:** [reference→six-body NN→eleven-body NN](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-expanded-comparison-2026-09-06/new-development-reference-six-eleven.wav),27s;
+  newDEV37/40(polycarbonatecups)/53(ceramicbowl),samegainpertriple. No target
+  acoustics at either generation. Threeobjects but TWO conservativefamilies.
+- `objectfolder2-expansion-2026-09-06`:next256MiBofsamearchive,tencompletepairs,
+ 20filehashes;NO fullarchivechecksum. New30Iron/96Glass explicitlyunsupported.
+  `objectfolder2-expanded-data-2026-09-06`:8known-materialfulltargets,32contacts.
+  Metadata-familyguard BEFORE audio reserves37–46cups and53possibleoldDEV54kin.
+  NewTRAIN47/59/72/78/91;newDEV37/40/53. Originalrolesunchanged;combinedDEV6objects,
+  FOURconservativefamilies. Acquisitionmod5role retained separately;noholdoutreuse.
+- `objectfolder2-expanded-fit-2026-09-06`:same68486parametercompactNN,
+  11TRAIN7/23/29/47/59/66/72/75/78/82/91;one2000Adam.001seed42,allmodessampled.
+  Weights81cc9a90a9da5c1a4cf5b2f82823fa267aaba20a7c75896fa9feb56fecad1fdb.
+  Data-onlycoverageprobe,sameoptimizerbudget,NOTconvergedlearningcurve.
+  NewDEVspec/env/level1.27854/.90187/2.37216→1.16092/.78925/1.85511 improves;
+  oldDEV.98730/.56224/.64982→.88234/.73939/1.34949 regressesenv/level.
+  Pooled6DEV1.13292/.73206/1.51099→1.02163/.76432/1.60230:REJECTreplacement.
+  Preserveoldcompact5b569809…;fixedsix-neighborcontrolsNOTexpanded11baseline.
+  Alljobs terminal;35tests/186WAVQA/100standalonereplays/3triplesPASS;tracesisolate
+  TRAINacousticsvsgeometry-onlyinference. Fullresults/sourcehashes inpilot.
+- **Size:** `objectfolder2-size-final-2026-09-06`,rawNNfrequencyshiftmean.6165%
+  despite.8/1.25size;required-lawerror22.211%,0/12modecounts. transportlambda/r²
+  andRayleighdecayworkswithoutfit,heldgainsNOTamplitudephysics. Commonbaseline
+  ≤10kHznaturalbandonly,noabove-Nyquistcoverageornewshape/realismproof.
+- **Decay:** publishedOF2Rayleighlaw matches5309fullmodes,maxrelative6.66e-16.
+  rayleigh.py usesdamped→undampedstablelowroot,keepsf/g/maskfixed. Priorchannel
+  f5e5e578…rawDEV3.469/7.347/.838→analytic1.169/1.164/.579,stillREJECT.
+- **Closed OF2 variants:** oracletruepolesdon'tfixfield;bandGramenergy.23196
+  spectrumworsevssigned.05160,crossbanderror26.55%;noGram/phase/band/decoder/
+  mask/capacity/epoch/seed sweeps. Compactcommonpoleoracle.05714/.02530/.01148,
+  lossyall-modes-accounted,NOTlossless. Details/pinsretainedinpilot.
+- **Next:** bounded research on persistent signed-modal-field targetidentifiability
+  vsgeometry/size/materialconfounding,with TRAIN-onlycausalcontrolandWAV before
+  anotherfit. MoredatahelpednewcasesbutdidNOTcloselevel/fieldfailure. No repeated
+  data-count/decoder/epoch/seed sweep or per-material tuning;fullgoalunchanged.
 - **Source:** ObjectFolder2/rhgao revision3c6cd8930b2dcbadb6d94dadf2745c956bdcd236;
   `objectfolder2-source-2026-09-06` auditedaudioDDSP/MLP/CSV/paper/license.
   `objectfolder2-range-2026-09-06/family-extraction.json`:9completemesh/checkpoint
