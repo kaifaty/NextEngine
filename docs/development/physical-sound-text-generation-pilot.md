@@ -7887,3 +7887,60 @@ VERIFY` and `render --data COMPACT --fit FIT --output ANALYTIC`; assess both usi
 existing shared_assess.py with **FULL** data. Use the established
 `lab/scripts/physical_sound_objectfolder2_` prefix, Python environment and
 `OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4`. Output directories must be new.
+
+## 2026-09-06 — Frozen shared network ignores size; reusable pole transport
+
+Primary: [steel, wood, ceramic: neural profiles resized analytically](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-size-final-2026-09-06/steel-wood-ceramic-profile-size-variants.wav),27s.
+Objects23/29/66 in that order, each at .8/1/1.25 linear size,3s per item.
+[Fresh neural predictions for the same sizes](/home/kaifaty/.codex/experiments/nextengine/physical-sound/objectfolder2-size-final-2026-09-06/steel-wood-ceramic-neural-size-variants.wav)
+use the same per-object gain. This is a TRAIN self-similarity experiment, not
+unseen-shape evaluation, real recordings or a newly trained model.
+
+Previous experiment turn was progress (size probe and audible evidence);
+the intervening conceptual answer alone was no progress. Resumed pending QA
+handles37467/74900 both returned terminal success, not an assumed live wait.
+Completed the runnable probe with both galleries and verified a fresh render.
+
+`physical_sound_objectfolder2_size_probe.py` uses frozen f5e5e578…channel weights
+and Rayleigh decay. For six TRAIN geometries, change all three log dimensions by
+log(r), preserving normalized point cloud/contact coordinates. Compare fresh NN
+output against transport of its OWN baseline prediction, never a target profile.
+Only baseline natural frequencies≤10kHz are transported; compare the corresponding
+≤10kHz/r band in the fresh prediction. This avoids treating unknown modes above
+the original Nyquist limit as observed data when enlarging an object.
+
+[Deep-Modal section4.3 equation11](https://hellojxt.github.io/DeepModal/ACMMM20_ModalSound.pdf)
+(opened2026-09-06) describes inverse-size natural-frequency scaling and conversion
+between damped/undamped frequencies. Implemented `lambda=((2*pi*f)^2+d^2)/r^2`,
+`d_new=(alpha+beta*lambda)/2`, `f_new=sqrt(lambda-d_new^2)/(2*pi)` using the
+previously verified OF2 material constants. Nonoscillatory/aliased output rejects.
+Modal gains are deliberately unchanged: published amplitude scaling is not
+validated for these signed OF2 gains or listener pressure. This control tests
+pitch/decay only, not loudness, radiation, striker material or complete spectrum.
+
+Across12nonidentity conditions, fresh NN mean log-frequency Wasserstein error
+is.14552299 versus.14557220 for ignoring size. Six microscopic relative wins
+against that negative control are NOT six passes. Common-band mode counts match
+0/12; lowest natural-frequency mean absolute required-law error22.2111%.
+Actual lowest-frequency change from baseline averages only.6165%,max2.0261%.
+All six size1 controls are array-exact. **Reject learned size response**; do not
+claim model size generalization. Analytic transport enforces the declared law
+without a new fit; its baseline spectral/field errors remain unchanged.
+
+Evidence: external `objectfolder2-size-probe-2026-09-06` initial run and
+`objectfolder2-size-final-2026-09-06/size-probe.json` final reproducible galleries.
+Final44WAVs byte-identical to initial WAVs including the manually assembled
+initial transport gallery. All44finite float32/44100Hz mono,peak≤.5;
+36individual saved-parameter replays EXACT. Source-free strace reads only own
+fit and compact geometry inputs as external data; no INET. Final report hashes
+the rendering source before the subsequent lint-only `.items()` loop edit.
+29focused OF2 tests PASS; Ruff format/check PASS after that edit.
+No Cargo/host-check/ProductCheck: bounded external lab, no engine promotion.
+
+Reproduce: `lab/.venv/bin/python lab/scripts/physical_sound_objectfolder2_size_probe.py
+--data COMPACT_DATA --fit CHANNEL_FIT --output NEW_DIRECTORY`, with the existing
+OMP/OPENBLAS thread settings. No training command is needed.
+Next investigate shared shape/data coverage and physical normalization before
+expanding same-source pairs; do not restart six-body decoder/epoch/material
+tuning. The context skill preserves this falsified size response and scope;
+full goal, authored fallback and roadmap remain unchanged.
