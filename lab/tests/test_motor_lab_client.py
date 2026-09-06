@@ -22,6 +22,44 @@ from next_lab.trajectory_recorder import (
 
 
 class MotorLabClientTests(unittest.TestCase):
+    def test_step_parser_uses_advertised_joint_width_and_rejects_old_tail(self):
+        def payload(width, tail_width):
+            data = bytearray(struct.pack("<IQIQ", 1, 1, 0, 1))
+            data.extend(bytes(6 * 8))
+
+            def vector(values):
+                data.extend(struct.pack("<I", len(values)))
+                data.extend(np.asarray(values, dtype="<i8").tobytes())
+
+            vector(np.zeros(width, dtype=np.int64))
+            vector(np.arange(19 + 3 * width))
+            data.extend(struct.pack("<IqBBB", 0, 0, 0, 0, 0))
+            data.extend(bytes(3 * 32 + 13 * 8))
+            vector(np.arange(10, 10 + tail_width))
+            vector(np.arange(10 + width, 10 + width + tail_width))
+            vector([1, 0])
+            return bytes(data)
+
+        for width in (23, 25):
+            client = object.__new__(MotorLabClient)
+            client.descriptor = SimpleNamespace(
+                maximum_slots=1,
+                action_width=width,
+                observation_width=19 + 3 * width,
+                reward_components=(),
+            )
+            result = client._parse_steps(payload(width, width))[0]
+            np.testing.assert_array_equal(
+                result.joint_position_microradians,
+                result.observation_raw[10 : 10 + width],
+            )
+            np.testing.assert_array_equal(
+                result.joint_velocity_microradians_per_second,
+                result.observation_raw[10 + width : 10 + 2 * width],
+            )
+            with self.assertRaisesRegex(MotorLabProtocolError, "JOINT_TELEMETRY_WIDTH"):
+                client._parse_steps(payload(width, width - 2))
+
     def test_periodic_walking_actions_are_q1_30_not_microradians(self):
         for version in (6, 7, 8, 9):
             with self.subTest(version=version):

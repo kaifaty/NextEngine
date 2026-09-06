@@ -381,6 +381,7 @@ fn encode_biomechanics_steps(
     let mut response = Vec::new();
     push_len(&mut response, values.len())?;
     for value in values {
+        let joint_width = value.frame.applied_action_q1_30.len();
         response.extend_from_slice(&value.episode_ordinal.to_le_bytes());
         response.extend_from_slice(&value.vector_slot.to_le_bytes());
         response.extend_from_slice(&value.frame.motor_tick.to_le_bytes());
@@ -423,7 +424,7 @@ fn encode_biomechanics_steps(
             value
                 .frame
                 .observation_raw
-                .get(10..33)
+                .get(10..10 + joint_width)
                 .ok_or(ProtocolFailure::Encoding)?,
         )?;
         push_i64_values(
@@ -431,7 +432,7 @@ fn encode_biomechanics_steps(
             value
                 .frame
                 .observation_raw
-                .get(33..56)
+                .get(10 + joint_width..10 + 2 * joint_width)
                 .ok_or(ProtocolFailure::Encoding)?,
         )?;
         push_i64_values(&mut response, &value.frame.contact_flags)?;
@@ -907,6 +908,45 @@ mod tests {
         assert_eq!(reader.read_u32().unwrap(), 60);
         assert_eq!(reader.read_u32().unwrap(), 94);
         assert_eq!(reader.read_u32().unwrap(), 25);
+    }
+
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn biomechanics_wire_joint_telemetry_matches_all_observation_channels() {
+        for (profile, width) in [
+            (
+                BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V8,
+                23,
+            ),
+            (
+                BIOMECHANICS_FORWARD_START_STOP_ENVIRONMENT_PROFILE_ID_V9,
+                25,
+            ),
+        ] {
+            let mut runner = BiomechanicsStandingVectorRunner::create_profile(
+                profile,
+                1,
+                ContentHash::from_bytes([3; 32]),
+            )
+            .unwrap();
+            runner.reset_slots(&[0]).unwrap();
+            let steps = runner
+                .step_actions_lockstep(vec![VectorPolicyStepInput {
+                    vector_slot: 0,
+                    episode_ordinal: 1,
+                    action_microradians: vec![0; width],
+                }])
+                .unwrap();
+            let positions = steps[0].frame.observation_raw[10..10 + width].to_vec();
+            let velocities = steps[0].frame.observation_raw[10 + width..10 + 2 * width].to_vec();
+            let bytes = encode_biomechanics_steps(steps).unwrap();
+            let tail_length = 2 * (4 + 8 * width) + 4 + 16;
+            let mut reader = PayloadReader::new(&bytes[bytes.len() - tail_length..]);
+            assert_eq!(reader.read_i64_values(width).unwrap(), positions);
+            assert_eq!(reader.read_i64_values(width).unwrap(), velocities);
+            assert_eq!(reader.read_i64_values(2).unwrap().len(), 2);
+            reader.finish().unwrap();
+        }
     }
 
     #[test]

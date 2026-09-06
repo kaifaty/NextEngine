@@ -392,11 +392,23 @@ class MotorLabClient:
                     root_quaternion_q1_30_xyzw=reader.i64_array(4),
                     root_linear_velocity_micrometres_per_second=reader.i64_array(3),
                     root_angular_velocity_microradians_per_second=reader.i64_array(3),
-                    joint_position_microradians=reader.i64_vector(23),
-                    joint_velocity_microradians_per_second=reader.i64_vector(23),
+                    joint_position_microradians=reader.i64_vector(
+                        self.descriptor.action_width
+                    ),
+                    joint_velocity_microradians_per_second=reader.i64_vector(
+                        self.descriptor.action_width
+                    ),
                     contact_flags=reader.i64_vector(2).astype(np.bool_),
                 )
             )
+            if any(
+                len(values) != self.descriptor.action_width
+                for values in (
+                    results[-1].joint_position_microradians,
+                    results[-1].joint_velocity_microradians_per_second,
+                )
+            ):
+                raise MotorLabProtocolError("MOTOR_LAB_JOINT_TELEMETRY_WIDTH_MISMATCH")
         reader.finish()
         return results
 
